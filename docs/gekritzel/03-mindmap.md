@@ -1,5 +1,12 @@
 # Feature-Mindmap
 
+> **Hinweis:** Dieses Dokument ist der **Konzeptstand** und weicht vom
+> gebauten Code ab. Beim Umsetzen wurden Namen und Umfang geändert:
+> `Period` → `Plan`, `Source` → `Commitment`, `Membership` → `HouseholdMember`,
+> und Konten, Aufteilungsschlüssel und Allocations sind **nicht Teil des MVP**.
+>
+> Der aktuelle Stand steht in [../datenmodell/](../datenmodell/).
+
 Stand: 28.07.2026 — Ideensammlung, noch keine Priorisierung.
 
 ```mermaid
