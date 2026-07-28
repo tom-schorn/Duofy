@@ -29,6 +29,20 @@ class Commitment(UUIDMixin, TimestampMixin, Base):
             "first_month IS NULL OR first_month BETWEEN 1 AND 12",
             name="ck_commitment_first_month",
         ),
+        # Zusatzfelder nur beim passenden Typ — in der Datenbank erzwungen,
+        # damit sie auch bei Import oder direktem SQL nicht verrutschen.
+        CheckConstraint(
+            "type = 'savings_goal' OR (target_amount IS NULL AND target_date IS NULL)",
+            name="ck_commitment_target_only_for_savings_goal",
+        ),
+        CheckConstraint(
+            "type = 'debt' OR remaining_debt IS NULL",
+            name="ck_commitment_remaining_debt_only_for_debt",
+        ),
+        CheckConstraint(
+            "rhythm = 'monthly' OR first_month IS NOT NULL",
+            name="ck_commitment_first_month_required",
+        ),
     )
 
     owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))

@@ -1,7 +1,6 @@
 from app.models.commitment import Commitment
 from app.models.household import Household, HouseholdMember
-from app.models.plan import Plan
-from app.models.position import Position
+from app.models.plan import Plan, PlanPosition, PlanPositionChange
 from app.models.user import User
 
 __all__ = [
@@ -9,6 +8,7 @@ __all__ = [
     "Household",
     "HouseholdMember",
     "Plan",
-    "Position",
+    "PlanPosition",
+    "PlanPositionChange",
     "User",
 ]

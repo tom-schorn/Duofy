@@ -85,6 +85,23 @@ CATEGORY_BLOCK: dict[Category, Block] = {
 }
 
 
+def resolve_block(category: Category, commitment_type: "CommitmentType | None" = None) -> Block:
+    """Welcher 50/30/20-Block gilt für diesen Posten?
+
+    Der Typ der Verpflichtung schlägt die Kategorie — sonst wäre
+    „Urlaub sparen" ein Wunsch statt Sparen:
+
+        Urlaub sparen   savings_goal + vacation  →  SAVINGS
+        Urlaub buchen   kein commitment          →  WANTS
+
+    Ergebnis wird auf der Position **gespeichert**, nicht bei jedem Lesen
+    neu berechnet.
+    """
+    if commitment_type in (CommitmentType.SAVINGS_GOAL, CommitmentType.DEBT):
+        return Block.SAVINGS
+    return CATEGORY_BLOCK[category]
+
+
 class PaymentMethod(StrEnum):
     WITHDRAWAL = "withdrawal"
     TRANSFER = "transfer"
