@@ -1,0 +1,34 @@
+# Claude — managed via chezmoi, never in the project repo
+.claude/
+
+# Private reference material — real financial data, never in git
+docs/referenz/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+.vite/
+*.local
+
+# Env — production secrets never in git
+.env
+.env.*
+!.env.example
+
+# Capacitor / native builds
+android/
+ios/
+
+# OS / editor
+.DS_Store
+.idea/
+*.swp
