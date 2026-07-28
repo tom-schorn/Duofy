@@ -7,7 +7,7 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
-from app.models.enums import Category, CommitmentType, Rhythm
+from app.models.enums import Block, Category, CommitmentType, Rhythm
 from app.models.mixins import TimestampMixin, UUIDMixin
 
 
@@ -52,7 +52,17 @@ class Commitment(UUIDMixin, TimestampMixin, Base):
     )
     name: Mapped[str] = mapped_column(String(200))
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+
+    #: Wählt der Nutzer. BLOCK_SUGGESTION belegt das Feld im Frontend vor.
+    #: Bei debt und savings_goal überstimmt resolve_block() die Wahl.
     category: Mapped[Category] = mapped_column(SAEnum(Category, native_enum=False, length=20))
+    block: Mapped[Block] = mapped_column(SAEnum(Block, native_enum=False, length=20))
+
+    #: NULL = privat. Gesetzt = erzeugte Posten wandern in diesen Haushaltsplan.
+    #: Einmal entschieden, gilt für alle künftigen Monate.
+    household_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("households.id", ondelete="SET NULL"), nullable=True
+    )
 
     rhythm: Mapped[Rhythm] = mapped_column(SAEnum(Rhythm, native_enum=False, length=20))
     #: Ab welchem Monat der Rhythmus zählt — nur bei nicht-monatlich.

@@ -30,12 +30,16 @@ class PlanStatus(StrEnum):
 
 
 class Block(StrEnum):
-    """Der 50/30/20-Block. Richtwert, keine Regel."""
+    """Der 50/30/20-Block. Richtwert, keine Regel.
+
+    Investitionen sind **kein** eigener Block — sie fließen in `WANTS`.
+    Die getrennte Darstellung im Investitionsplan läuft über
+    `Category.INVESTMENT`, nicht über eine vierte Quote.
+    """
 
     INCOME = "income"
     NEEDS = "needs"
     WANTS = "wants"
-    INVESTMENT = "investment"
     SAVINGS = "savings"
 
 
@@ -61,12 +65,15 @@ class Category(StrEnum):
     RESERVES = "reserves"
     DEBT_REPAYMENT = "debt_repayment"
     INVESTMENT = "investment"
+    LEGAL = "legal"
 
 
-#: Standard-Zuordnung Kategorie → Block nach der 50/30/20-Regel.
-#: Wird beim Anlegen einer Position vorbelegt und dort **gespeichert** —
-#: eine spätere Änderung hier verändert keine bestehenden Pläne.
-CATEGORY_BLOCK: dict[Category, Block] = {
+#: **Nur ein Vorschlag fürs Frontend.** Stellt das Auswahlfeld auf den
+#: naheliegenden Block, mehr nicht — der Nutzer entscheidet.
+#:
+#: Bewusst keine Datenlogik: ob Sprit Bedarf oder Wunsch ist, hängt vom
+#: Haushalt ab und lässt sich nicht allgemeingültig festlegen.
+BLOCK_SUGGESTION: dict[Category, Block] = {
     Category.INCOME: Block.INCOME,
     Category.HOUSING: Block.NEEDS,
     Category.INSURANCE: Block.NEEDS,
@@ -81,25 +88,31 @@ CATEGORY_BLOCK: dict[Category, Block] = {
     Category.POCKET_MONEY: Block.WANTS,
     Category.RESERVES: Block.SAVINGS,
     Category.DEBT_REPAYMENT: Block.SAVINGS,
-    Category.INVESTMENT: Block.INVESTMENT,
+    # Investitionen sind bewusste Anschaffungen — eine eigene Liste,
+    # aber rechnerisch Teil der Wünsche.
+    Category.INVESTMENT: Block.WANTS,
+    Category.LEGAL: Block.NEEDS,
 }
 
 
-def resolve_block(category: Category, commitment_type: "CommitmentType | None" = None) -> Block:
+def resolve_block(chosen: Block, commitment_type: "CommitmentType | None" = None) -> Block:
     """Welcher 50/30/20-Block gilt für diesen Posten?
 
-    Der Typ der Verpflichtung schlägt die Kategorie — sonst wäre
-    „Urlaub sparen" ein Wunsch statt Sparen:
+    Zwei Typen sind rechnerisch festgelegt und überstimmen die Wahl:
 
-        Urlaub sparen   savings_goal + vacation  →  SAVINGS
-        Urlaub buchen   kein commitment          →  WANTS
+        debt          Tilgung ist gebundenes Geld  →  SAVINGS
+        savings_goal  Sparen ist Sparen            →  SAVINGS
+
+    Alles andere wählt der Nutzer selbst. Ob Sprit Bedarf oder Wunsch ist,
+    hängt vom Haushalt ab — Tom fährt zur Arbeit, jemand anderes fährt zum
+    Vergnügen.
 
     Ergebnis wird auf der Position **gespeichert**, nicht bei jedem Lesen
     neu berechnet.
     """
     if commitment_type in (CommitmentType.SAVINGS_GOAL, CommitmentType.DEBT):
         return Block.SAVINGS
-    return CATEGORY_BLOCK[category]
+    return chosen
 
 
 class PaymentMethod(StrEnum):

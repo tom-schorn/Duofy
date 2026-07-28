@@ -34,6 +34,18 @@ automatisch — sie zeigt die Abweichung.
 Fairness-Berechnung und Prozentvorschläge sind für später vorgesehen, als
 Auswertung. Nie als Teil der Generierung.
 
+Drei Ziele, vier Blöcke: `income` ist die Grundlage, `needs`, `wants` und
+`savings` haben je eine Quote. Investitionen fließen in `wants` — siehe
+[enums.md](enums.md).
+
+### `confirmed` ist eine Markierung, keine Sperre
+
+Der Status sagt „darüber haben wir am Samstag gesprochen". Er sperrt nichts.
+Das Soll bleibt jederzeit änderbar, das Änderungsprotokoll schreibt mit.
+
+Der Grund: Ein Plan ist ein Budget, keine Zusage. Kommt die Stromrechnung 30 €
+höher, will man das im Plan sehen können, ohne ihn erst entsperren zu müssen.
+
 ### Der Haushaltsplan ist keine Tabelle
 
 `Plan` gehört immer einer Person. Der gemeinsame Plan entsteht als
@@ -77,15 +89,32 @@ household_id   in welchen Haushaltsplan wandert er          leer = privat
 
 ### `block` wird gespeichert, nicht berechnet
 
-Beim Anlegen aus `resolve_block(category, commitment_type)` abgeleitet und
+Beim Anlegen aus `resolve_block(chosen, commitment_type)` abgeleitet und
 dann festgeschrieben. Würde man ihn bei jedem Lesen neu bestimmen, schriebe
 eine spätere Regeländerung rückwirkend alle alten Pläne um. Ein
 abgeschlossener Monat muss zeigen, was damals entschieden wurde.
 
+### Der Posten ist vom Vertrag abgelöst
+
+Die Verpflichtung liefert den **Startwert**, danach lebt der Posten für sich.
+Ändert sich der O2-Vertrag im Oktober auf 39,99 €, bleiben September und August
+bei 34,99 €. Ein abgeschlossener Monat muss zeigen, was damals geplant war.
+
+**Abweichungen werden angezeigt, nicht gespeichert:**
+
+```
+commitment.amount ≠ position.amount_planned   →   ⚠ weicht ab
+```
+
+Kein Snapshot, kein Sync-Feld, keine Unterscheidung wer's geändert hat. Der
+Hinweis bleibt sichtbar, solange die Werte auseinandergehen — das ist gewollt,
+die Abweichung ist ja real.
+
 ### `manually_changed`
 
-Schützt Korrekturen. Sagt der Vertrag 34,99 € und du trägst 39,99 € ein, darf
-die nächste Generierung das nicht stillschweigend zurücksetzen.
+Schützt Korrekturen bei **erneuter Generierung desselben Monats** — etwa wenn
+mitten im Monat eine Verpflichtung dazukommt und du den Knopf nochmal drückst.
+Ohne das Flag würden deine Anpassungen zurückgesetzt.
 
 ---
 
@@ -129,10 +158,10 @@ Neuer Plan für 2026-09
                     label            = commitment.name
                     amount_planned   = commitment.amount
                     category         = commitment.category
-                    block            = resolve_block(category, commitment.type)
+                    block            = resolve_block(commitment.block, commitment.type)
                     due_day          = commitment.due_day
                     commitment_id    = commitment.id
-                    household_id     = wie im Vormonat
+                    household_id     = commitment.household_id
                     manually_changed = False
 ```
 
@@ -142,7 +171,7 @@ Posten mit `manually_changed = True` werden bei erneuter Generierung nicht
 ## Offen
 
 - Generierung ist nicht implementiert
-- Wird `household_id` beim Generieren wirklich vom Vormonat übernommen, oder
-  gehört die Zuordnung an das Commitment?
-- Bei bestätigtem Plan (`status = confirmed`): Änderungen noch erlaubt?
 - `amount_actual` wird bisher von nichts gefüllt — kommt mit dem CSV-Import
+- Was passiert mit Einmal-Posten bei erneuter Generierung? Sie haben kein
+  `commitment_id`, also nichts zum Abgleichen — bleiben vermutlich einfach
+  stehen

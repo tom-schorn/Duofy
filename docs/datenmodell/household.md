@@ -79,9 +79,54 @@ den Haushalt auflöst.
 - Ein Posten darf nur in einen Haushalt, in dem sein Besitzer Mitglied ist —
   siehe `can_assign_to_household()` in [rechte.md](rechte.md)
 
+## Regeln beim Verlassen und Löschen
+
+Entschieden, aber **noch nicht implementiert** — es gibt keine Endpunkte.
+Die Datenbank-Constraints allein setzen das nicht um.
+
+### Mitglied verlässt den Haushalt
+
+Der Account bleibt bestehen, es endet nur die gemeinsame Planung.
+
+```
+abgeschlossene Monate    unverändert — Posten bleiben im Haushaltsplan
+künftige Pläne           keine Posten mehr von dieser Person
+```
+
+Was am Samstag besprochen wurde, bleibt nachvollziehbar. Nur ab dem nächsten
+Monat taucht sie nicht mehr auf.
+
+### Mitglied löscht seinen Account
+
+DSGVO-Fall. Entschieden: **anonymisieren** statt löschen.
+
+```
+Posten bleiben mit Bezeichnung und Betrag
+Personenbezug wird entfernt → „Ehemaliges Mitglied"
+```
+
+> **Bekannte Schwäche:** In einem Zwei-Personen-Haushalt ist das faktisch nicht
+> anonym — „Ehemaliges Mitglied, KFZ-Versicherung, 83,82 €" ist offensichtlich
+> zuordenbar.
+>
+> **Abhilfe:** Beim Beitritt zu einem Haushalt willigt das Mitglied ein, dass
+> gemeinsame Posten anonymisiert in der Haushaltshistorie verbleiben.
+> Einwilligung ist eine tragfähige Rechtsgrundlage — ohne sie steht die
+> Anonymisierung allein da. Das gehört ins Einladungsverfahren.
+
+### Der letzte `owner` verlässt den Haushalt
+
+Der Haushalt wird **aufgelöst**.
+
+```
+alle plan_positions.household_id  →  NULL   (fallen auf privat zurück)
+persönliche Pläne                 →  unberührt
+```
+
+Das geschieht bereits durch `ON DELETE SET NULL` am Fremdschlüssel — niemand
+verliert seine Planung, weil ein anderer den Haushalt schließt.
+
 ## Offen
 
-- Was passiert beim Austritt eines Mitglieds mit seinen Posten im
-  Haushaltsplan? Aktuell bleiben sie sichtbar
-- Einladungsverfahren fehlt komplett — es gibt keine Endpunkte
-- Darf der letzte `owner` den Haushalt verlassen?
+- Einladungsverfahren fehlt komplett — inklusive der Einwilligung oben
+- Die drei Regeln brauchen Endpunkte, bisher nur dokumentiert

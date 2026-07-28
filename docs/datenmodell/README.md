@@ -65,13 +65,18 @@ Block-Ableitung. [rechte.md](rechte.md) — wer darf was.
 **Beträge immer `Numeric(12, 2)`**, nie `Float`. Bei Geld führt Fließkomma zu
 Rundungsfehlern, die erst nach Monaten auffallen.
 
-**Enums als VARCHAR mit Check-Constraint** (`native_enum=False`), nicht als
-native Postgres-Enums. Eine Kategorie dazuzunehmen ist damit eine normale
-Migration statt `ALTER TYPE`.
+**Enums als VARCHAR** (`native_enum=False`), ohne Check-Constraint —
+SQLAlchemy 2.0 setzt `create_constraint` standardmäßig auf `False`. Ein neuer
+Enum-Wert braucht damit **keine Migration**, wird aber auch nur in Python
+geprüft. Details in [enums.md](enums.md).
 
 **Abgeleitete Werte werden gespeichert, nicht berechnet.** `position.block`
 kommt beim Anlegen aus `resolve_block()` und bleibt dann stehen. Sonst würde
 eine spätere Regeländerung rückwirkend alte Pläne umschreiben.
+
+**Der Nutzer entscheidet, wo es keine Wahrheit gibt.** Ob Sprit Bedarf oder
+Wunsch ist, hängt vom Haushalt ab. Nur was rechnerisch feststeht — Tilgung und
+Sparen sind gebundenes Geld — ist im Code festgelegt.
 
 ## Fallstricke
 

@@ -27,7 +27,9 @@ Mahnstufen), kann man immer noch aufteilen.
 | `type` | enum | `contract` \| `savings_goal` \| `debt` |
 | `name` | String(200) | „O2", „Urlaub", „Beitragsservice" |
 | `amount` | Numeric(12,2) | der wiederkehrende Betrag |
-| `category` | enum | siehe [enums.md](enums.md) |
+| `category` | enum | wählt der Nutzer, siehe [enums.md](enums.md) |
+| `block` | enum | wählt der Nutzer, bei `debt`/`savings_goal` überstimmt |
+| `household_id` | FK → households | **nullable** — NULL = privat |
 | `rhythm` | enum | `monthly` \| `quarterly` \| `biannual` \| `annual` |
 | `first_month` | int 1–12 | ab wann der Rhythmus zählt |
 | `due_day` | int 1–31 | Tag im Monat |
@@ -43,8 +45,33 @@ Jeder Vertrag hat genau **eine** Vertragsperson. Auch der WG-Internetvertrag
 läuft auf den, der unterschrieben hat — juristisch haftet der Vertragspartner,
 nicht die WG.
 
-Ob die Kosten geteilt werden, entscheidet nicht das Eigentum am Vertrag,
-sondern `household_id` am erzeugten **Posten**.
+Ob die Kosten geteilt werden, entscheidet `household_id` — einmal am Vertrag
+gesetzt, erbt sie jeder daraus erzeugte Posten.
+
+```
+commitments.household_id     NULL = privat · gesetzt = gemeinsame Planung
+        ↓ wird beim Generieren kopiert
+plan_positions.household_id
+```
+
+Das Feld bleibt trotzdem auch am Posten: Sonst ließe sich ein einzelner Monat
+nicht abweichend behandeln, und Einmal-Posten hätten gar keine Zuordnung.
+
+## Der Block ist Nutzerwahl
+
+Vorbelegt aus `BLOCK_SUGGESTION`, aber änderbar. Zwei Typen überstimmen die
+Wahl, weil sie rechnerisch feststehen:
+
+```
+type = debt          →  Sparen   fest
+type = savings_goal  →  Sparen   fest
+type = contract      →  Nutzerwahl
+```
+
+Der Praxisfall dahinter: eine feste monatliche Mindestvergütung an einen
+Insolvenztreuhänder. Seit einem Jahr unverändert — aber kein Bedarf, weil
+niemand ohne sie auf der Straße sitzt, und keine Schuld, weil es eine Vergütung
+ist. Der Nutzer setzt sie auf Wunsch. Keine Systemregel könnte das erraten.
 
 ## Rhythmus und Fälligkeit
 
@@ -94,18 +121,6 @@ Der letzte ist wichtig: Ohne `first_month` wüsste die Generierung bei
 `target_amount` ist optional, weil „Notgroschen, 100 € im Monat, kein Ziel" ein
 legitimer Fall ist. `remaining_debt` ist optional, weil man die Restschuld beim
 Anlegen nicht immer kennt — sie soll den Eintrag nicht blockieren.
-
-## Der Typ bestimmt den Block
-
-Wichtig und leicht zu übersehen:
-
-```
-Urlaub sparen    savings_goal + vacation  →  SAVINGS
-Urlaub buchen    kein Commitment          →  WANTS
-```
-
-Gleiche Kategorie, anderer Block. Siehe `resolve_block()` in
-[enums.md](enums.md).
 
 ## Sichtbarkeit
 
