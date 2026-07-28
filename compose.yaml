@@ -1,0 +1,24 @@
+# Lokale Entwicklung — nur die Datenbank läuft im Container.
+# Die App startet nativ:  cd backend && uv run uvicorn app.main:app --reload
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: duofy-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: duofy
+      POSTGRES_PASSWORD: duofy
+      POSTGRES_DB: duofy
+    ports:
+      - "5433:5432"
+    volumes:
+      - duofy-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U duofy"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  duofy-pgdata:
