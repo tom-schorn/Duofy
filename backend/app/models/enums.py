@@ -6,6 +6,15 @@ class Role(StrEnum):
     MEMBER = "member"
 
 
+class InvitationStatus(StrEnum):
+    """Lebenslauf einer Haushalts-Einladung."""
+
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    DECLINED = "declined"
+    REVOKED = "revoked"
+
+
 class CommitmentType(StrEnum):
     CONTRACT = "contract"
     SAVINGS_GOAL = "savings_goal"

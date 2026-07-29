@@ -3,10 +3,10 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Numeric, String, UniqueConstraint
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.types import enum_column
 from app.models.enums import Block, Category, PaymentMethod, PlanStatus
 from app.models.mixins import TimestampMixin, UUIDMixin
 
@@ -32,9 +32,7 @@ class Plan(UUIDMixin, TimestampMixin, Base):
 
     year: Mapped[int]
     month: Mapped[int]
-    status: Mapped[PlanStatus] = mapped_column(
-        SAEnum(PlanStatus, native_enum=False, length=20), default=PlanStatus.DRAFT
-    )
+    status: Mapped[PlanStatus] = mapped_column(enum_column(PlanStatus), default=PlanStatus.DRAFT)
 
     target_needs: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("50.00"))
     target_wants: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("30.00"))
@@ -79,14 +77,29 @@ class PlanPosition(UUIDMixin, TimestampMixin, Base):
     amount_planned: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     amount_actual: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
 
-    category: Mapped[Category] = mapped_column(SAEnum(Category, native_enum=False, length=20))
+    #: Wann der Posten abgehakt wurde. NULL = steht noch offen.
+    #:
+    #: Bewusst getrennt vom Betrag: „abgehakt" und „Betrag eingetragen" sind
+    #: zwei Dinge. Die Miete kann bezahlt sein und exakt dem geplanten Betrag
+    #: entsprechen — ohne dieses Feld zählte sie fälschlich als offen.
+    #: Passt zur Vision: „die Positionen existieren vorher, hinterher wird nur
+    #: noch abgehakt."
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    category: Mapped[Category] = mapped_column(enum_column(Category))
     #: Wird beim Anlegen abgeleitet und hier **gespeichert** — eine spätere
     #: Änderung der Zuordnung verändert keine bestehenden Pläne.
-    block: Mapped[Block] = mapped_column(SAEnum(Block, native_enum=False, length=20))
+    block: Mapped[Block] = mapped_column(enum_column(Block))
 
+    #: Tag im Monat, an dem der Posten fällig wird.
+    #
+    # TODO: Beim Erzeugen aus einer Verpflichtung den `due_day` des Commitments
+    # auf den letzten Tag **dieses** Monats abklemmen — ein Vertrag mit
+    # `due_day = 31` wird im Februar am 28. bzw. 29. fällig, nicht gar nicht.
+    # Hier steht dann der bereits abgeklemmte Tag, nicht die 31.
     due_day: Mapped[int]
     payment_method: Mapped[PaymentMethod | None] = mapped_column(
-        SAEnum(PaymentMethod, native_enum=False, length=20), nullable=True
+        enum_column(PaymentMethod), nullable=True
     )
 
     #: Schützt manuelle Korrekturen davor, beim nächsten Generieren
