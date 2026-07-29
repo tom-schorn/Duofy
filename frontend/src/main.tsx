@@ -1,10 +1,34 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { RouterProvider } from 'react-router'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
 import './index.css'
-import App from './App.tsx'
+import { ThemeProvider } from '@/components/ThemeProvider'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import { ApiError } from '@/lib/api'
+import { router } from '@/router'
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Ein abgelaufener Token wird nicht besser, wenn man es nochmal
+      // versucht — genauso wenig ein fehlender Plan.
+      retry: (count, error) =>
+        error instanceof ApiError && error.status < 500 ? false : count < 2,
+      staleTime: 30 * 1000,
+    },
+  },
+})
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <RouterProvider router={router} />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   </StrictMode>,
 )
