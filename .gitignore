@@ -42,3 +42,5 @@ ios/
 
 # Claude project instructions — chezmoi-managed, not part of the repo
 CLAUDE.md
+
+CLAUDE.local.md
