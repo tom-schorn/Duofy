@@ -24,6 +24,13 @@ dist/
 .env.*
 !.env.example
 
+# Terraform — state holds secrets in plaintext, tfvars holds the API token
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+
 # Capacitor / native builds
 android/
 ios/
