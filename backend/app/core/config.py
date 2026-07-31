@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     # Frontend und Backend laufen auf getrennten Domains — CORS explizit halten.
     cors_origins: list[str] = ["http://localhost:5173"]
 
+    # Für Pages-Previews: deren Hostnamen enthalten einen Build-Hash und sind darum
+    # nicht aufzählbar. Ein Muster deckt alle ab.
+    cors_origin_regex: str | None = None
+
     postgres_host: str
     postgres_port: int = 5432
     postgres_db: str

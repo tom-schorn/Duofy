@@ -22,7 +22,9 @@ resource "cloudflare_dns_record" "backend" {
   zone_id = var.cloudflare_zone_id
   name    = "${var.backend_subdomain}.${var.domain}"
   type    = "CNAME"
-  content = "${var.cloudflare_tunnel_id}.cfargotunnel.com"
+  # Read from the resource, not from var.cloudflare_tunnel_id — that variable exists
+  # only to import the tunnel. Should the tunnel ever be replaced, this follows.
+  content = "${cloudflare_zero_trust_tunnel_cloudflared.duofy.id}.cfargotunnel.com"
   proxied = true
   ttl     = 1 # required to be 1 (automatic) while proxied
   comment = "Duofy backend via cloudflared tunnel — managed by Terraform"
@@ -41,8 +43,8 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "duofy" {
   config = {
     ingress = [
       {
-        hostname = "${var.backend_subdomain}.${var.domain}"
-        service  = "http://duofy-backend:8000"
+        hostname = cloudflare_dns_record.backend.name
+        service  = "http://${docker_container.backend.name}:${local.backend_port}"
       },
       # Cloudflare requires a final rule without a hostname. Without it, requests for
       # unknown hostnames have nowhere to go and the config is rejected.

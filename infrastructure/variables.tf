@@ -48,6 +48,12 @@ variable "backend_environment" {
   default     = "development"
 }
 
+variable "extra_cors_origins" {
+  description = "Additional allowed origins, e.g. http://localhost:5173 for running the frontend locally against this backend"
+  type        = list(string)
+  default     = []
+}
+
 variable "backend_memory_mb" {
   description = "Hard memory cap for the backend container in MB"
   type        = number
@@ -88,6 +94,36 @@ variable "jwt_secret" {
   description = "Signing secret for fastapi-users JWTs"
   type        = string
   sensitive   = true
+}
+
+variable "api_prefix" {
+  description = "Path the API router is mounted under — must match the prefix in backend/app/main.py"
+  type        = string
+  default     = "/api/v1"
+}
+
+variable "github_owner" {
+  description = "GitHub account the repo lives under"
+  type        = string
+  default     = "tom-schorn"
+}
+
+variable "github_repo" {
+  description = "Repository name Pages builds from"
+  type        = string
+  default     = "Duofy"
+}
+
+variable "production_branch" {
+  description = "Git branch Pages deploys to production"
+  type        = string
+  default     = "main"
+}
+
+variable "preview_branch" {
+  description = "Git branch Pages deploys as the dev environment — also forms the branch alias hostname"
+  type        = string
+  default     = "develop"
 }
 
 variable "pages_project" {

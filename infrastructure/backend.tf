@@ -31,7 +31,20 @@ locals {
 
   # Local tag only — this image is built on the host and never pushed. A registry
   # prefix here would turn it into a remote reference.
-  backend_image = "duofy-backend:develop"
+  backend_image = "duofy-backend:${var.preview_branch}"
+
+  # Port uvicorn listens on inside the container. Referenced by the tunnel ingress
+  # rule so the two can never drift apart.
+  backend_port = 8000
+
+  cors_origins = concat([
+    "https://${cloudflare_pages_domain.frontend_dev.name}",
+    "https://${local.pages_preview_host}",
+  ], var.extra_cors_origins)
+
+  # Every Pages preview gets a hostname with a build hash in front, so they cannot be
+  # listed. This pattern covers all of them, derived from the assigned subdomain.
+  cors_origin_regex = "^https://[a-z0-9-]+\\.${replace(cloudflare_pages_project.frontend.subdomain, ".", "\\.")}$"
 
   # Only files that actually end up in the image. Caches and tests are excluded by
   # backend/.dockerignore anyway, but they must not trigger a rebuild either.
@@ -90,7 +103,13 @@ resource "docker_container" "backend" {
     "POSTGRES_USER=${var.postgres_user}",
     "POSTGRES_PASSWORD=${var.postgres_password}",
     "JWT_SECRET=${var.jwt_secret}",
-    "CORS_ORIGINS=[\"https://${var.frontend_subdomain}.${var.domain}\"]",
+    # Both hostnames the dev frontend is reachable under: the custom domain and the
+    # Pages branch alias. Read from the resources so they cannot drift.
+    #
+    # Note this REPLACES the default from app/core/config.py, so localhost is not
+    # allowed unless it is added via var.extra_cors_origins.
+    "CORS_ORIGINS=${jsonencode(local.cors_origins)}",
+    "CORS_ORIGIN_REGEX=${local.cors_origin_regex}",
   ]
 
   # No published ports — cloudflared reaches it by container name.
