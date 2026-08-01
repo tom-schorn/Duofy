@@ -342,7 +342,9 @@ function PendingInvitations() {
       ))}
 
       {(accept.isError || decline.isError) && (
-        <li className="text-destructive text-sm">
+        // role="alert", damit ein Screenreader den Fehler ansagt — er
+        // erscheint nachträglich, ohne dass der Fokus dorthin wandert.
+        <li role="alert" className="text-destructive text-sm">
           {errorText(accept.error ?? decline.error)}
         </li>
       )}

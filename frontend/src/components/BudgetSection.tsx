@@ -154,8 +154,16 @@ function PositionRow({
           „bezahlt". Auf „Noch offen" wirkt das nicht: die Zahl klammert
           Einnahmen ohnehin aus. */}
       {readOnly ? (
+        // role + aria-label, weil der Zustand sonst nur als Häkchen sichtbar
+        // wäre — ohne Knopf gibt es kein aria-pressed, das ihn ansagt.
         <span
-          className={`flex size-5 items-center justify-center rounded border ${
+          role="img"
+          aria-label={
+            paid
+              ? `${position.label} ist erledigt`
+              : `${position.label} steht noch offen`
+          }
+          className={`flex size-6 items-center justify-center rounded border ${
             paid ? 'bg-chart-4 border-chart-4 text-background' : 'border-border'
           }`}
         >
@@ -173,7 +181,8 @@ function PositionRow({
                 : `${position.label} abhaken`
           }
           aria-pressed={paid}
-          className={`flex size-5 items-center justify-center rounded border transition-colors ${
+          // size-6 statt size-5: WCAG 2.2 SC 2.5.8 verlangt 24 × 24 px.
+          className={`flex size-6 items-center justify-center rounded border transition-colors ${
             paid
               ? 'bg-chart-4 border-chart-4 text-background'
               : 'border-border hover:border-ring'
