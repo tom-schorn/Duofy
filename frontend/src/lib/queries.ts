@@ -9,8 +9,10 @@ import { api } from '@/lib/api'
 import type {
   Commitment,
   Household,
+  HouseholdPlanDetail,
   Invitation,
   Me,
+  MyInvitation,
   PlanDetail,
   PlanPosition,
   PlanSummary,
@@ -29,6 +31,7 @@ export const keys = {
   households: ['households'] as const,
   invitations: (householdId: string) =>
     ['households', householdId, 'invitations'] as const,
+  myInvitations: ['invitations', 'mine'] as const,
   commitments: ['commitments'] as const,
   plans: ['plans'] as const,
   plan: (year: number, month: number) => ['plans', year, month] as const,
@@ -100,6 +103,30 @@ export function useRevokeInvitation(householdId: string) {
   )
 }
 
+/** Offene Einladungen an die eigene Adresse. */
+export function useMyInvitations() {
+  return useQuery({
+    queryKey: keys.myInvitations,
+    queryFn: () => api.get<MyInvitation[]>('/households/invitations'),
+  })
+}
+
+export function useAcceptInvitation() {
+  // Nach dem Beitritt ändert sich die Haushaltsliste — und die Pläne, weil
+  // fremde Haushaltsposten dazukommen können.
+  return useInvalidating<Household, string>(
+    (token) => api.post(`/households/invitations/${token}/accept`),
+    [keys.myInvitations, keys.households, keys.plans]
+  )
+}
+
+export function useDeclineInvitation() {
+  return useInvalidating<void, string>(
+    (token) => api.post(`/households/invitations/${token}/decline`),
+    [keys.myInvitations]
+  )
+}
+
 // --- Verträge -------------------------------------------------------------
 
 export function useCommitments() {
@@ -140,12 +167,14 @@ export function usePlans() {
   })
 }
 
-export function usePlan(year: number, month: number) {
+export function usePlan(year: number, month: number, enabled = true) {
   return useQuery({
     queryKey: keys.plan(year, month),
     queryFn: () => api.get<PlanDetail>(`/plans/${year}/${month}`),
     // Ein fehlender Plan ist kein Fehler, den man wiederholen sollte.
     retry: false,
+    // Im Haushaltsmodus wird der eigene Plan nicht gebraucht.
+    enabled,
   })
 }
 
@@ -157,7 +186,9 @@ export function useHouseholdPlan(
   return useQuery({
     queryKey: keys.householdPlan(householdId ?? '', year, month),
     queryFn: () =>
-      api.get<PlanSummary>(`/plans/household/${householdId}/${year}/${month}`),
+      api.get<HouseholdPlanDetail>(
+        `/plans/household/${householdId}/${year}/${month}`
+      ),
     enabled: householdId !== null,
     retry: false,
   })

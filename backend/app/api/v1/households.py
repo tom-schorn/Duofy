@@ -26,6 +26,7 @@ from app.schemas.household import (
     InvitationPreview,
     InvitationRead,
     MemberRead,
+    MyInvitationRead,
 )
 
 router = APIRouter()
@@ -258,6 +259,44 @@ async def revoke_invitation(
 
     invitation.status = InvitationStatus.REVOKED
     await session.commit()
+
+
+@router.get("/invitations", response_model=list[MyInvitationRead])
+async def my_invitations(
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_active_user),
+) -> list[MyInvitationRead]:
+    """Offene Einladungen an die eigene Adresse.
+
+    Der Posteingang: wer sich mit der eingeladenen Adresse anmeldet, findet die
+    Einladung im Portal — ohne Link, ohne E-Mail.
+
+    Muss **vor** `/invitations/{token}` stehen, sonst schluckt der
+    Pfadparameter das Wort „invitations" nicht, wohl aber jede andere Route,
+    die hier später dazukommt.
+    """
+    result = await session.execute(
+        select(HouseholdInvitation, Household.name, User.first_name)
+        .join(Household, Household.id == HouseholdInvitation.household_id)
+        .join(User, User.id == HouseholdInvitation.invited_by_id)
+        .where(
+            HouseholdInvitation.email == user.email.lower(),
+            HouseholdInvitation.status == InvitationStatus.PENDING,
+            HouseholdInvitation.expires_at > datetime.now(UTC),
+        )
+        .order_by(HouseholdInvitation.created_at.desc())
+    )
+
+    return [
+        MyInvitationRead(
+            token=invitation.token,
+            household_id=invitation.household_id,
+            household_name=household_name,
+            invited_by=invited_by,
+            expires_at=invitation.expires_at,
+        )
+        for invitation, household_name, invited_by in result.all()
+    ]
 
 
 @router.get("/invitations/{token}", response_model=InvitationPreview)

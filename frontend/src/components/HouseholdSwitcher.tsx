@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Link } from 'react-router'
 import { Check, ChevronsUpDown, Plus, Users, User } from 'lucide-react'
 
@@ -17,6 +16,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar'
 import { useHouseholds } from '@/lib/queries'
+import { useScope } from '@/lib/scope'
 
 /**
  * Wechselt die Brille, nicht die Welt.
@@ -49,10 +49,8 @@ export function HouseholdSwitcher() {
   const { isMobile } = useSidebar()
   const households = useHouseholds()
 
-  // TODO: Auswahl global halten (Zustand-Store) und in der URL spiegeln,
-  // damit ein Link auf einen Haushaltsplan teilbar bleibt. Erst dann kann
-  // die Planungsseite auf /plans/household/... umschalten.
-  const [activeId, setActiveId] = useState('own')
+  const { householdId, setHouseholdId } = useScope()
+  const activeId = householdId ?? OWN.id
 
   const scopes: Scope[] = [
     OWN,
@@ -101,7 +99,7 @@ export function HouseholdSwitcher() {
             {scopes.map((scope) => (
               <DropdownMenuItem
                 key={scope.id}
-                onSelect={() => setActiveId(scope.id)}
+                onSelect={() => setHouseholdId(scope.householdId)}
                 className="gap-2"
               >
                 {scope.householdId === null ? (

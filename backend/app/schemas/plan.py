@@ -104,3 +104,25 @@ class PlanRead(PlanSummary):
     id: uuid.UUID
     confirmed_at: datetime | None
     positions: list[PositionRead]
+
+
+class HouseholdPositionRead(PositionRead):
+    """Ein Posten im gemeinsamen Plan — mit der Person dahinter.
+
+    Im eigenen Plan wäre die Angabe überflüssig, hier ist sie der Kern: „wer
+    trägt was" ist die Frage, die ein gemeinsamer Plan beantworten soll.
+    """
+
+    owner_id: uuid.UUID
+    #: Vorname reicht — der Nachname steht schon in der Mitgliederliste.
+    owner_name: str
+
+
+class HouseholdPlanRead(PlanSummary):
+    """Der gemeinsame Plan. Zusammengesetzt, nicht gespeichert — deshalb ohne
+    `id` und ohne `confirmed_at`: es gibt kein Objekt, das man bestätigen
+    könnte."""
+
+    household_id: uuid.UUID
+    household_name: str
+    positions: list[HouseholdPositionRead]

@@ -36,6 +36,10 @@ type Props = {
   onEdit: (position: PlanPosition) => void
   onAdd: (block: Block) => void
   onTogglePaid: (position: PlanPosition) => void
+  /** Gemeinsame Sicht: fremde Posten zeigt man, ändert sie aber nicht. */
+  readOnly?: boolean
+  /** Liefert den Vornamen der Person hinter dem Posten, sonst null. */
+  ownerName?: (position: PlanPosition) => string | null
 }
 
 export function BudgetSection({
@@ -46,6 +50,8 @@ export function BudgetSection({
   onEdit,
   onAdd,
   onTogglePaid,
+  readOnly = false,
+  ownerName,
 }: Props) {
   const total = positions.reduce(
     (sum, position) => sum + Number(position.amountPlanned),
@@ -93,12 +99,15 @@ export function BudgetSection({
             householdNames={householdNames}
             onEdit={onEdit}
             onTogglePaid={onTogglePaid}
+            readOnly={readOnly}
+            ownerName={ownerName?.(position) ?? null}
           />
         ))}
       </ul>
 
       {/* Anlegen direkt am Budget — dann stimmt die Zuordnung schon, ohne
           dass man sie im Formular suchen muss. */}
+      {!readOnly && (
       <Button
         type="button"
         variant="ghost"
@@ -109,6 +118,7 @@ export function BudgetSection({
         <Plus className="size-4" />
         Posten in {BLOCK_LABEL[block]}
       </Button>
+      )}
     </section>
   )
 }
@@ -118,11 +128,15 @@ function PositionRow({
   householdNames,
   onEdit,
   onTogglePaid,
+  readOnly,
+  ownerName,
 }: {
   position: PlanPosition
   householdNames: Record<string, string>
   onEdit: (position: PlanPosition) => void
   onTogglePaid: (position: PlanPosition) => void
+  readOnly: boolean
+  ownerName: string | null
 }) {
   const planned = Number(position.amountPlanned)
   const actual =
@@ -134,14 +148,30 @@ function PositionRow({
   return (
     <li className="border-border/60 grid grid-cols-[auto_1fr_auto] items-center gap-3 border-b py-2.5 last:border-b-0">
       {/* Abhaken ist der Alltag nach dem Planen — deshalb ein eigener Knopf,
-          nicht im Formular versteckt. Einnahmen hakt man nicht ab. */}
-      {position.block === 'income' ? (
-        <span className="size-5" />
+          nicht im Formular versteckt.
+
+          Einnahmen lassen sich ebenfalls abhaken, dort heißt es „ist da" statt
+          „bezahlt". Auf „Noch offen" wirkt das nicht: die Zahl klammert
+          Einnahmen ohnehin aus. */}
+      {readOnly ? (
+        <span
+          className={`flex size-5 items-center justify-center rounded border ${
+            paid ? 'bg-chart-4 border-chart-4 text-background' : 'border-border'
+          }`}
+        >
+          {paid && <Check className="size-3.5" strokeWidth={3} />}
+        </span>
       ) : (
         <button
           type="button"
           onClick={() => onTogglePaid(position)}
-          aria-label={paid ? `${position.label} wieder öffnen` : `${position.label} abhaken`}
+          aria-label={
+            paid
+              ? `${position.label} wieder öffnen`
+              : position.block === 'income'
+                ? `${position.label} als erhalten markieren`
+                : `${position.label} abhaken`
+          }
           aria-pressed={paid}
           className={`flex size-5 items-center justify-center rounded border transition-colors ${
             paid
@@ -156,7 +186,8 @@ function PositionRow({
       <button
         type="button"
         onClick={() => onEdit(position)}
-        className={`flex min-w-0 flex-col items-start gap-0.5 text-left ${paid ? 'opacity-60' : ''}`}
+        disabled={readOnly}
+        className={`flex min-w-0 flex-col items-start gap-0.5 text-left ${paid ? 'opacity-60' : ''} ${readOnly ? 'cursor-default' : ''}`}
       >
         <span className="flex flex-wrap items-center gap-2">
           <span className="font-medium">{position.label}</span>
@@ -176,6 +207,9 @@ function PositionRow({
             ? ` · ${PAYMENT_LABEL[position.paymentMethod]}`
             : ''}
           {position.commitmentId ? ' · aus Vertrag' : ''}
+          {/* Nur in der gemeinsamen Sicht gesetzt — im eigenen Plan wäre die
+              Angabe überflüssig. */}
+          {ownerName ? ` · ${ownerName}` : ''}
         </span>
       </button>
 

@@ -57,6 +57,20 @@ class InvitationCreate(Schema):
     email: EmailStr
 
 
+class MyInvitationRead(Schema):
+    """Eine offene Einladung an die eigene Adresse — der Posteingang.
+
+    Damit braucht es keinen Link und keine E-Mail: wer sich mit der
+    eingeladenen Adresse anmeldet, findet die Einladung im Portal.
+    """
+
+    token: str
+    household_id: uuid.UUID
+    household_name: str
+    invited_by: str
+    expires_at: datetime
+
+
 class InvitationPreview(Schema):
     """Was jemand sieht, der auf einen Einladungslink klickt.
 

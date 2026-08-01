@@ -32,6 +32,8 @@ from app.models.plan import Plan, PlanPosition
 from app.models.user import User
 from app.schemas.plan import (
     BudgetTotals,
+    HouseholdPlanRead,
+    HouseholdPositionRead,
     PlanCreate,
     PlanRead,
     PlanSummary,
@@ -265,7 +267,7 @@ async def create_position(
 # --- Haushaltssicht -------------------------------------------------------
 
 
-@router.get("/household/{household_id}/{year}/{month}", response_model=PlanSummary)
+@router.get("/household/{household_id}/{year}/{month}", response_model=HouseholdPlanRead)
 async def get_household_plan(
     household_id: uuid.UUID,
     year: int,
@@ -284,9 +286,12 @@ async def get_household_plan(
     if household is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "household_not_found"})
 
+    # Der Besitzer kommt gleich mit: „wer trägt was" ist der Zweck dieser Sicht,
+    # und ein Nachladen pro Posten wäre ein N+1.
     result = await session.execute(
-        select(PlanPosition)
+        select(PlanPosition, User.id, User.first_name)
         .join(Plan, Plan.id == PlanPosition.plan_id)
+        .join(User, User.id == Plan.user_id)
         .join(HouseholdMember, HouseholdMember.user_id == Plan.user_id)
         .where(
             PlanPosition.household_id == household_id,
@@ -295,9 +300,20 @@ async def get_household_plan(
             Plan.month == month,
         )
     )
-    positions = list(result.scalars().unique())
+    rows = result.unique().all()
+    positions = [row[0] for row in rows]
 
-    return PlanSummary(
+    return HouseholdPlanRead(
+        household_id=household_id,
+        household_name=household.name,
+        positions=[
+            HouseholdPositionRead(
+                **PositionRead.model_validate(position).model_dump(),
+                owner_id=owner_id,
+                owner_name=owner_name,
+            )
+            for position, owner_id, owner_name in rows
+        ],
         **_summarize(
             year=year,
             month=month,

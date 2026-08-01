@@ -21,7 +21,7 @@ import {
 import {
   BLOCK_LABEL,
   BLOCK_SUGGESTION,
-  BUDGETS,
+  BUDGET_ORDER,
   CATEGORY_LABEL,
   PAYMENT_LABEL,
   type Block,
@@ -216,7 +216,9 @@ export function PositionDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {BUDGETS.map((budget) => (
+                    {/* BUDGET_ORDER statt BUDGETS: sonst fehlt „Einnahmen"
+                        und ein Einnahme-Posten wäre nicht bearbeitbar. */}
+                    {BUDGET_ORDER.map((budget) => (
                       <SelectItem key={budget} value={budget}>
                         {BLOCK_LABEL[budget]}
                       </SelectItem>

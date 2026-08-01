@@ -22,11 +22,14 @@ import {
 import { QueryState } from '@/components/QueryState'
 import { errorText } from '@/lib/api'
 import {
+  useAcceptInvitation,
   useCreateHousehold,
+  useDeclineInvitation,
   useHouseholds,
   useInvite,
   useLeaveHousehold,
   useMe,
+  useMyInvitations,
 } from '@/lib/queries'
 import type { Household, Role } from '@/lib/domain'
 
@@ -69,6 +72,8 @@ export function HouseholdPage() {
         </div>
         <CreateHouseholdButton />
       </header>
+
+      <PendingInvitations />
 
       <QueryState isPending={households.isPending} error={households.error}>
       <ul className="flex flex-col gap-4">
@@ -280,6 +285,70 @@ function InviteDialog({
   )
 }
 
+
+/**
+ * Der Posteingang für Einladungen.
+ *
+ * Es gibt keinen E-Mail-Versand und keinen Link, den jemand weiterreichen
+ * müsste: wer sich mit der eingeladenen Adresse anmeldet, findet die Einladung
+ * hier. Zeigt nichts an, solange keine offen ist.
+ */
+function PendingInvitations() {
+  const invitations = useMyInvitations()
+  const accept = useAcceptInvitation()
+  const decline = useDeclineInvitation()
+
+  if (!invitations.data?.length) return null
+
+  return (
+    <ul className="flex flex-col gap-3">
+      {invitations.data.map((invitation) => (
+        <li
+          key={invitation.token}
+          className="border-primary/40 bg-primary/5 flex flex-wrap items-center justify-between gap-4 rounded-lg border p-4"
+        >
+          <span className="flex min-w-0 items-center gap-3">
+            <UserPlus className="text-primary size-5 shrink-0" />
+            <span className="flex min-w-0 flex-col">
+              <span className="font-medium">
+                {invitation.invitedBy} lädt dich in „{invitation.householdName}"
+                ein
+              </span>
+              <span className="text-muted-foreground text-xs">
+                Gültig bis{' '}
+                {new Date(invitation.expiresAt).toLocaleDateString('de-DE')}
+              </span>
+            </span>
+          </span>
+
+          <span className="flex shrink-0 gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => decline.mutate(invitation.token)}
+              disabled={decline.isPending || accept.isPending}
+            >
+              Ablehnen
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => accept.mutate(invitation.token)}
+              disabled={accept.isPending || decline.isPending}
+            >
+              Beitreten
+            </Button>
+          </span>
+        </li>
+      ))}
+
+      {(accept.isError || decline.isError) && (
+        <li className="text-destructive text-sm">
+          {errorText(accept.error ?? decline.error)}
+        </li>
+      )}
+    </ul>
+  )
+}
 
 function CreateHouseholdButton() {
   const [open, setOpen] = useState(false)

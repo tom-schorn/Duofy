@@ -330,6 +330,20 @@ export type Invitation = {
   token: string
 }
 
+/**
+ * Eine offene Einladung an die eigene Adresse — der Posteingang.
+ *
+ * Damit braucht es weder E-Mail-Versand noch einen weitergereichten Link: wer
+ * sich mit der eingeladenen Adresse anmeldet, findet die Einladung im Portal.
+ */
+export type MyInvitation = {
+  token: string
+  householdId: string
+  householdName: string
+  invitedBy: string
+  expiresAt: string
+}
+
 export const PLAN_STATUS_LABEL: Record<Plan['status'], string> = {
   draft: 'Entwurf',
   confirmed: 'Bestätigt',
@@ -361,6 +375,22 @@ export type PlanDetail = PlanSummary & {
   id: string
   confirmedAt: string | null
   positions: PlanPosition[]
+}
+
+/**
+ * Der gemeinsame Plan. Zusammengesetzt, nicht gespeichert — deshalb ohne `id`
+ * und ohne `confirmedAt`: es gibt kein Objekt, das man bestätigen könnte.
+ */
+export type HouseholdPlanDetail = PlanSummary & {
+  householdId: string
+  householdName: string
+  positions: HouseholdPosition[]
+}
+
+/** Wie ein Posten, plus die Person dahinter — der Sinn der gemeinsamen Sicht. */
+export type HouseholdPosition = PlanPosition & {
+  ownerId: string
+  ownerName: string
 }
 
 /** Was vom Budget noch nicht auf die drei Budgets verteilt ist. */

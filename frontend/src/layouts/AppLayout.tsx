@@ -1,4 +1,6 @@
 import { NavLink, Outlet } from 'react-router'
+
+import { ScopeProvider } from '@/lib/scope'
 import { CalendarRange, FileText, Users } from 'lucide-react'
 
 import { HouseholdSwitcher } from '@/components/HouseholdSwitcher'
@@ -44,6 +46,9 @@ const NAV = [
 
 export function AppLayout() {
   return (
+    // Umschließt Sidebar und Inhalt: der Umschalter sitzt in der Sidebar, die
+    // Planungsseite im Outlet — beide brauchen dieselbe Auswahl.
+    <ScopeProvider>
     <SidebarProvider>
       <Sidebar collapsible="icon">
         <SidebarHeader>
@@ -111,5 +116,6 @@ export function AppLayout() {
         </div>
       </SidebarInset>
     </SidebarProvider>
+    </ScopeProvider>
   )
 }
