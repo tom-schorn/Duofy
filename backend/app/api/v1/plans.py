@@ -174,6 +174,8 @@ async def create_plan(
                 # Der 31. existiert nicht in jedem Monat — hier steht der
                 # bereits abgeklemmte Tag, nicht die 31.
                 due_day=commitment.effective_due_day(payload.year, payload.month),
+                # Kommt vom Vertrag, bleibt im Posten überschreibbar.
+                payment_method=commitment.payment_method,
             )
         )
 

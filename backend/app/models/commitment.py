@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.db.types import enum_column
-from app.models.enums import Block, Category, CommitmentType, Rhythm
+from app.models.enums import Block, Category, CommitmentType, PaymentMethod, Rhythm
 from app.models.mixins import TimestampMixin, UUIDMixin
 
 
@@ -75,6 +75,14 @@ class Commitment(UUIDMixin, TimestampMixin, Base):
     due_day: Mapped[int]
 
     active: Mapped[bool] = mapped_column(default=True)
+
+    #: Wie gezahlt wird — gehört an den Vertrag, nicht an den einzelnen Monat.
+    #: Wird beim Erzeugen in den Posten kopiert und ist dort überschreibbar,
+    #: falls man ausnahmsweise überweist statt abbuchen zu lassen.
+    #: Nullable: bei einem Sparziel gibt es oft keine.
+    payment_method: Mapped[PaymentMethod | None] = mapped_column(
+        enum_column(PaymentMethod), nullable=True
+    )
 
     # nur bei type = savings_goal
     target_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)

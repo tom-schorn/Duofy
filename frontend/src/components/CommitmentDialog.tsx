@@ -26,6 +26,7 @@ import {
   CATEGORY_LABEL,
   DUE_DAY_MAY_SHIFT,
   MONTH_LABEL,
+  PAYMENT_LABEL,
   RHYTHM_LABEL,
   dueMonths,
   effectiveDueDay,
@@ -34,6 +35,7 @@ import {
   type Category,
   type Commitment,
   type CommitmentType,
+  type PaymentMethod,
   type Rhythm,
 } from '@/lib/domain'
 import { useHouseholds } from '@/lib/queries'
@@ -45,6 +47,7 @@ import { useHouseholds } from '@/lib/queries'
  *   „Läuft weiter"    contract      → keine
  *   „Hat ein Ziel"    savings_goal  → Zielbetrag, Zieldatum
  *   „Wird abbezahlt"  debt          → Restschuld
+ *   „Setze ich selbst" budget       → keine, aber Budget frei wählbar
  *
  * Genau diese Zuordnung erzwingen die CHECK-Constraints der Datenbank.
  *
@@ -89,9 +92,18 @@ const TYPE_OPTIONS: {
     namePlaceholder: 'Rundfunk-Altrückstand',
     defaultCategory: 'debt_repayment',
   },
+  {
+    value: 'budget',
+    label: 'Setze ich selbst',
+    hint: 'Sprit, Lebensmittel, Taschengeld — kein Vertrag, du legst den Betrag fest.',
+    budgetHint: null,
+    namePlaceholder: 'Lebensmittel',
+    defaultCategory: 'groceries',
+  },
 ]
 
 const CATEGORIES = Object.keys(CATEGORY_LABEL) as Category[]
+const PAYMENTS = Object.keys(PAYMENT_LABEL) as PaymentMethod[]
 const BLOCKS: Block[] = ['income', ...BUDGETS]
 const RHYTHMS = Object.keys(RHYTHM_LABEL) as Rhythm[]
 
@@ -111,6 +123,7 @@ function emptyDraft(): Commitment {
     targetAmount: null,
     targetDate: null,
     remainingDebt: null,
+    paymentMethod: null,
   }
 }
 
@@ -139,7 +152,10 @@ export function CommitmentDialog({
   const isEdit = commitment !== null
   const typeOption = TYPE_OPTIONS.find((option) => option.value === draft.type)!
   const isRecurringIrregular = draft.rhythm !== 'monthly'
-  const blockIsFixed = draft.type !== 'contract'
+  // Nur Sparziel und Schuld liegen fest — dort überstimmt resolve_block() im
+  // Backend ohnehin. Ein Budget wählt frei: ob Sprit Fixkosten oder Wunsch
+  // ist, hängt am Haushalt.
+  const blockIsFixed = draft.type === 'savings_goal' || draft.type === 'debt'
 
   function set<K extends keyof Commitment>(key: K, value: Commitment[K]) {
     setDraft((current) => ({ ...current, [key]: value }))
@@ -159,7 +175,10 @@ export function CommitmentDialog({
         current.category === typeOption.defaultCategory
           ? option.defaultCategory
           : current.category,
-      block: type === 'contract' ? BLOCK_SUGGESTION[current.category] : 'savings',
+      block:
+        type === 'savings_goal' || type === 'debt'
+          ? 'savings'
+          : BLOCK_SUGGESTION[current.category],
       targetAmount: type === 'savings_goal' ? current.targetAmount : null,
       targetDate: type === 'savings_goal' ? current.targetDate : null,
       remainingDebt: type === 'debt' ? current.remainingDebt : null,
@@ -298,6 +317,33 @@ export function CommitmentDialog({
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* Gehört an den Vertrag, nicht an den Monat — beim Erzeugen wird
+                sie in jeden Posten kopiert und bleibt dort überschreibbar. */}
+            <div className="flex flex-col gap-2">
+              <Label>Zahlungsart</Label>
+              <Select
+                value={draft.paymentMethod ?? 'none'}
+                onValueChange={(value) =>
+                  set(
+                    'paymentMethod',
+                    value === 'none' ? null : (value as PaymentMethod)
+                  )
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Keine Angabe</SelectItem>
+                  {PAYMENTS.map((method) => (
+                    <SelectItem key={method} value={method}>
+                      {PAYMENT_LABEL[method]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {isRecurringIrregular ? (

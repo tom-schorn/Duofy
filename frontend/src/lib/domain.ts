@@ -62,6 +62,7 @@ export type Category =
   | 'debt_repayment'
   | 'investment'
   | 'legal'
+  | 'work'
 
 export const CATEGORY_LABEL: Record<Category, string> = {
   income: 'Einnahmen',
@@ -80,6 +81,7 @@ export const CATEGORY_LABEL: Record<Category, string> = {
   debt_repayment: 'Tilgung',
   investment: 'Investition',
   legal: 'Rechtliches',
+  work: 'Beruf',
 }
 
 /**
@@ -108,6 +110,8 @@ export const BLOCK_SUGGESTION: Record<Category, Block> = {
   // keine eigene Gruppe, keine eigene Quote.
   investment: 'wants',
   legal: 'needs',
+  // Werbungskosten: beruflich veranlasst, aus privatem Geld bezahlt.
+  work: 'needs',
 }
 
 export type Rhythm = 'monthly' | 'quarterly' | 'biannual' | 'annual'
@@ -207,7 +211,12 @@ export function monthlyEquivalent(amount: string, rhythm: Rhythm): number {
   return Number(amount) / RHYTHM_INTERVAL[rhythm]
 }
 
-export type CommitmentType = 'contract' | 'savings_goal' | 'debt'
+export type CommitmentType =
+  | 'contract'
+  | 'savings_goal'
+  | 'debt'
+  /** Wiederkehrender Betrag ohne Vertrag: Sprit, Lebensmittel, Taschengeld. */
+  | 'budget'
 
 /** Spiegel von `Commitment` — eine Tabelle für alle drei Typen. */
 export type Commitment = {
@@ -235,6 +244,8 @@ export type Commitment = {
   targetDate: string | null
   /** nur bei debt */
   remainingDebt: string | null
+  /** Wird in die erzeugten Posten kopiert, dort je Monat überschreibbar. */
+  paymentMethod: PaymentMethod | null
 }
 
 /** Der Monat, in dem der Takt beginnt — steckt im Startdatum. */

@@ -19,6 +19,9 @@ class CommitmentType(StrEnum):
     CONTRACT = "contract"
     SAVINGS_GOAL = "savings_goal"
     DEBT = "debt"
+    #: Wiederkehrender Betrag ohne Vertrag dahinter — Sprit, Lebensmittel,
+    #: Taschengeld. Verhält sich wie ein Vertrag, heißt aber nicht so.
+    BUDGET = "budget"
 
 
 class Rhythm(StrEnum):
@@ -75,6 +78,11 @@ class Category(StrEnum):
     DEBT_REPAYMENT = "debt_repayment"
     INVESTMENT = "investment"
     LEGAL = "legal"
+    #: Werbungskosten — beruflich veranlasst, aus privatem Geld bezahlt:
+    #: Arbeitskleidung, Büromaterial, Fachliteratur, Gewerkschaftsbeitrag.
+    #: **Keine** Betriebsausgaben — betriebliche Einnahmen gehören nicht in
+    #: Duofy, sie würden die 50/30/20-Quoten verzerren.
+    WORK = "work"
 
 
 #: **Nur ein Vorschlag fürs Frontend.** Stellt das Auswahlfeld auf den
@@ -101,6 +109,7 @@ BLOCK_SUGGESTION: dict[Category, Block] = {
     # aber rechnerisch Teil der Wünsche.
     Category.INVESTMENT: Block.WANTS,
     Category.LEGAL: Block.NEEDS,
+    Category.WORK: Block.NEEDS,
 }
 
 

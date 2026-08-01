@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from pydantic import Field, model_validator
 
-from app.models.enums import Block, Category, CommitmentType, Rhythm
+from app.models.enums import Block, Category, CommitmentType, PaymentMethod, Rhythm
 from app.schemas.base import Schema
 
 
@@ -18,6 +18,8 @@ class CommitmentBase(Schema):
     first_due_date: date | None = None
     due_day: int = Field(ge=1, le=31)
     active: bool = True
+    #: Wird in die erzeugten Posten kopiert, dort je Monat überschreibbar.
+    payment_method: PaymentMethod | None = None
 
     # nur bei savings_goal
     target_amount: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
@@ -69,6 +71,7 @@ class CommitmentUpdate(Schema):
     first_due_date: date | None = None
     due_day: int | None = Field(default=None, ge=1, le=31)
     active: bool | None = None
+    payment_method: PaymentMethod | None = None
     target_amount: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     target_date: date | None = None
     remaining_debt: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
