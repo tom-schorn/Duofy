@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router'
 import { ArrowLeft, Plus, Users } from 'lucide-react'
 
 import { BudgetSection } from '@/components/BudgetSection'
+import { MonthFlow } from '@/components/MonthFlow'
 import { PositionDialog } from '@/components/PositionDialog'
 import { QueryState } from '@/components/QueryState'
 import { Button } from '@/components/ui/button'
@@ -187,6 +188,8 @@ function PlanBody({
         />
         <Metric label="Noch offen" value={unpaid} hint="noch nicht bezahlt" />
       </section>
+
+      <MonthFlow positions={plan.positions} year={plan.year} month={plan.month} />
 
       <div className="flex flex-col gap-8">
         {/* Einnahmen zuerst — sie sind die Grundlage für alles darunter.

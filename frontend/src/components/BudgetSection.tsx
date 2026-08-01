@@ -1,4 +1,4 @@
-import { Check, Plus, Users } from 'lucide-react'
+import { Check, Plus, User, Users } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -200,14 +200,23 @@ function PositionRow({
       >
         <span className="flex flex-wrap items-center gap-2">
           <span className="font-medium">{position.label}</span>
-          {/* Dieser Posten läuft zusätzlich in einen Haushaltsplan. Er bleibt
-              trotzdem hier — der Haushaltsplan ist keine eigene Tabelle,
-              sondern entsteht aus genau solchen Posten. */}
-          {position.householdId && (
+          {/* In der gemeinsamen Sicht steht hier die Person, nicht der
+              Haushalt — der ist dort in jeder Zeile derselbe und sagt nichts.
+              Im eigenen Plan umgekehrt: dort ist die Person klar, und der
+              Badge zeigt, dass der Posten zusätzlich in einen Haushaltsplan
+              läuft. */}
+          {ownerName ? (
             <Badge variant="secondary" className="gap-1 font-normal">
-              <Users className="size-3" />
-              {householdNames[position.householdId]}
+              <User className="size-3" />
+              {ownerName}
             </Badge>
+          ) : (
+            position.householdId && (
+              <Badge variant="secondary" className="gap-1 font-normal">
+                <Users className="size-3" />
+                {householdNames[position.householdId]}
+              </Badge>
+            )
           )}
         </span>
         <span className="text-muted-foreground truncate text-xs">
@@ -216,9 +225,6 @@ function PositionRow({
             ? ` · ${PAYMENT_LABEL[position.paymentMethod]}`
             : ''}
           {position.commitmentId ? ' · aus Vertrag' : ''}
-          {/* Nur in der gemeinsamen Sicht gesetzt — im eigenen Plan wäre die
-              Angabe überflüssig. */}
-          {ownerName ? ` · ${ownerName}` : ''}
         </span>
       </button>
 
