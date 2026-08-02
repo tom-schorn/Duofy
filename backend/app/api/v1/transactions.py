@@ -94,19 +94,19 @@ async def list_transactions(
 ) -> list[Transaction]:
     """Eigene Buchungen, neueste zuerst. Ohne Zeitraum alle.
 
-    Ein Monat umfasst **zwei** Dinge:
+    Welcher Monat, entscheidet der **Posten** — nicht das Datum:
 
-    * was in diesem Monat geflossen ist, und
-    * was einem Posten dieses Monats zugeordnet ist.
+    * mit Posten  → der Monat des Plans, zu dem der Posten gehört
+    * ohne Posten → der Monat, in dem das Geld floss
 
-    Das zweite ist der Grund. Wohngeld für August wird am 31. Juli überwiesen,
-    ALG1 ebenso — sie gehören in den August-Plan, sind aber im Juli geflossen.
-    Filterte das Buch nur nach dem Zahlungsdatum, wäre der August-Posten
-    gefüllt und die Buchung dazu unsichtbar.
+    Wohngeld für August wird am 31. Juli überwiesen, ALG1 ebenso. Sie gehören
+    in den August und tauchen dort auf, mit ihrem echten Juli-Datum. Genau das
+    machen die meisten Haushaltsbücher falsch: sie legen eine Buchung nach
+    ihrem Datum ab, und damit ist Wohngeld für immer ein Juli-Vorgang.
 
-    Genau das machen die meisten Haushaltsbücher falsch: sie legen eine
-    Buchung nach ihrem Datum ab, und damit ist Wohngeld für immer ein
-    Juli-Vorgang.
+    Die Regel schließt aus, statt zu ergänzen — eine zugeordnete Buchung steht
+    in **einem** Monat, nicht in zweien. Sonst zählte sie doppelt, sobald man
+    Summen über das Buch bildet.
     """
     query = select(Transaction).where(Transaction.owner_id == user.id)
 
@@ -120,7 +120,10 @@ async def list_transactions(
             .join(Plan, Plan.id == PlanPosition.plan_id)
             .where(Plan.user_id == user.id, Plan.year == year, Plan.month == month)
         )
-        query = query.where(or_(in_month, belongs_to_plan))
+        # Ohne Posten zählt das Datum, mit Posten der Plan — nie beides.
+        query = query.where(
+            or_(and_(Transaction.position_id.is_(None), in_month), belongs_to_plan)
+        )
     elif year is not None:
         query = query.where(extract("year", Transaction.occurred_on) == year)
     elif month is not None:
