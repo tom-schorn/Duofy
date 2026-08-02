@@ -133,6 +133,27 @@ def resolve_block(chosen: Block, commitment_type: "CommitmentType | None" = None
     return chosen
 
 
+class AccountType(StrEnum):
+    """Nur **Zahlungskonten** — Dinge mit einem Stand, der sich aus Buchungen ergibt.
+
+    Ein Depot gehört ausdrücklich **nicht** dazu: sein Wert ändert sich durch
+    Kurse, nicht durch Transaktionen. Ein Saldo aus Anfangsbestand plus
+    Buchungen wäre dort dauerhaft falsch. Im Buch steht deshalb nur das
+    Verrechnungskonto, Wertpapierkäufe sind Umbuchungen dorthin.
+    """
+
+    CHECKING = "checking"
+    SAVINGS = "savings"
+    #: Guthabenbasis — verhält sich wie ein normales Konto mit Stand. Eine
+    #: echte Kreditkarte mit Monatsabrechnung wäre ein anderer Fall.
+    CREDIT_CARD = "credit_card"
+    #: Verrechnungskonto zum Depot.
+    SETTLEMENT = "settlement"
+    #: PayPal und Ähnliches.
+    PAYMENT_SERVICE = "payment_service"
+    CASH = "cash"
+
+
 class PaymentMethod(StrEnum):
     WITHDRAWAL = "withdrawal"
     TRANSFER = "transfer"
