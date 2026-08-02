@@ -13,7 +13,7 @@ import uuid
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import extract, func, select
+from sqlalchemy import and_, extract, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
@@ -94,14 +94,36 @@ async def list_transactions(
 ) -> list[Transaction]:
     """Eigene Buchungen, neueste zuerst. Ohne Zeitraum alle.
 
-    Gefiltert wird über `occurred_on`, nicht über den Plan — eine Buchung
-    gehört zu dem Monat, in dem das Geld floss.
+    Ein Monat umfasst **zwei** Dinge:
+
+    * was in diesem Monat geflossen ist, und
+    * was einem Posten dieses Monats zugeordnet ist.
+
+    Das zweite ist der Grund. Wohngeld für August wird am 31. Juli überwiesen,
+    ALG1 ebenso — sie gehören in den August-Plan, sind aber im Juli geflossen.
+    Filterte das Buch nur nach dem Zahlungsdatum, wäre der August-Posten
+    gefüllt und die Buchung dazu unsichtbar.
+
+    Genau das machen die meisten Haushaltsbücher falsch: sie legen eine
+    Buchung nach ihrem Datum ab, und damit ist Wohngeld für immer ein
+    Juli-Vorgang.
     """
     query = select(Transaction).where(Transaction.owner_id == user.id)
 
-    if year is not None:
+    if year is not None and month is not None:
+        in_month = and_(
+            extract("year", Transaction.occurred_on) == year,
+            extract("month", Transaction.occurred_on) == month,
+        )
+        belongs_to_plan = Transaction.position_id.in_(
+            select(PlanPosition.id)
+            .join(Plan, Plan.id == PlanPosition.plan_id)
+            .where(Plan.user_id == user.id, Plan.year == year, Plan.month == month)
+        )
+        query = query.where(or_(in_month, belongs_to_plan))
+    elif year is not None:
         query = query.where(extract("year", Transaction.occurred_on) == year)
-    if month is not None:
+    elif month is not None:
         query = query.where(extract("month", Transaction.occurred_on) == month)
 
     result = await session.execute(
