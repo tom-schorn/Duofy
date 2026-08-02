@@ -83,6 +83,9 @@ class Category(StrEnum):
     #: **Keine** Betriebsausgaben — betriebliche Einnahmen gehören nicht in
     #: Duofy, sie würden die 50/30/20-Quoten verzerren.
     WORK = "work"
+    #: Kontoführung, Überweisungsentgelte, Kartengebühren. Kommt jeden Monat
+    #: und passte in keine der anderen — „Rechtliches" ist es nicht.
+    FEES = "fees"
 
 
 #: **Nur ein Vorschlag fürs Frontend.** Stellt das Auswahlfeld auf den
@@ -110,6 +113,7 @@ BLOCK_SUGGESTION: dict[Category, Block] = {
     Category.INVESTMENT: Block.WANTS,
     Category.LEGAL: Block.NEEDS,
     Category.WORK: Block.NEEDS,
+    Category.FEES: Block.NEEDS,
 }
 
 

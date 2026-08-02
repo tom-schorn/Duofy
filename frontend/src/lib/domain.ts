@@ -63,6 +63,7 @@ export type Category =
   | 'investment'
   | 'legal'
   | 'work'
+  | 'fees'
 
 export const CATEGORY_LABEL: Record<Category, string> = {
   income: 'Einnahmen',
@@ -82,6 +83,7 @@ export const CATEGORY_LABEL: Record<Category, string> = {
   investment: 'Investition',
   legal: 'Rechtliches',
   work: 'Beruf',
+  fees: 'Gebühren',
 }
 
 /**
@@ -112,6 +114,8 @@ export const BLOCK_SUGGESTION: Record<Category, Block> = {
   legal: 'needs',
   // Werbungskosten: beruflich veranlasst, aus privatem Geld bezahlt.
   work: 'needs',
+  // Kontoführung und Kartengebühren — man kann sie nicht abbestellen.
+  fees: 'needs',
 }
 
 export type Rhythm = 'monthly' | 'quarterly' | 'biannual' | 'annual'
