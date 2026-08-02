@@ -1,9 +1,9 @@
-import { NavLink, Outlet } from 'react-router'
+import { NavLink, Outlet, useSearchParams } from 'react-router'
 
-import { ScopeProvider } from '@/lib/scope'
+import { useHouseholds } from '@/lib/queries'
+
 import { CalendarRange, FileText, Users, Wallet } from 'lucide-react'
 
-import { HouseholdSwitcher } from '@/components/HouseholdSwitcher'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { UserMenu } from '@/components/UserMenu'
 import {
@@ -17,6 +17,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
@@ -47,17 +50,20 @@ const NAV = [
 ]
 
 export function AppLayout() {
+  const households = useHouseholds().data ?? []
+  // Der Untereintrag zeigt auf den laufenden Monat — einen „aktuellen"
+  // Haushaltsplan gibt es sonst nicht, er wird ja aus Posten zusammengesetzt.
+  const now = new Date()
+  const [params] = useSearchParams()
+  const active = params.get('household')
+
   return (
-    // Umschließt Sidebar und Inhalt: der Umschalter sitzt in der Sidebar, die
-    // Planungsseite im Outlet — beide brauchen dieselbe Auswahl.
-    <ScopeProvider>
     <SidebarProvider>
       <Sidebar collapsible="icon">
         <SidebarHeader>
           <span className="font-heading px-2 pt-1 text-lg font-semibold group-data-[collapsible=icon]:hidden">
             Duofy
           </span>
-          <HouseholdSwitcher />
         </SidebarHeader>
 
         <SidebarContent>
@@ -66,7 +72,7 @@ export function AppLayout() {
               <SidebarMenu>
                 {NAV.map((item) => (
                   <SidebarMenuItem key={item.to}>
-                    <NavLink to={item.to}>
+                    <NavLink to={item.to} end>
                       {({ isActive }) => (
                         <SidebarMenuButton
                           isActive={isActive}
@@ -77,6 +83,29 @@ export function AppLayout() {
                         </SidebarMenuButton>
                       )}
                     </NavLink>
+
+                    {/* Die gemeinsamen Pläne hängen unter „Haushalt", statt
+                        hinter einem Umschalter zu verschwinden. Ein Menüpunkt
+                        ist ein Ort, den man ansteuert und verlinken kann —
+                        ein Umschalter ändert unsichtbar, was alle Seiten
+                        zeigen. */}
+                    {item.to === '/household' && households.length > 0 && (
+                      <SidebarMenuSub>
+                        {households.map((household) => (
+                          <SidebarMenuSubItem key={household.id}>
+                            <NavLink
+                              to={`/plan/${now.getFullYear()}/${now.getMonth() + 1}?household=${household.id}`}
+                            >
+                              <SidebarMenuSubButton
+                                isActive={active === household.id}
+                              >
+                                <span>{household.name}</span>
+                              </SidebarMenuSubButton>
+                            </NavLink>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    )}
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>
@@ -118,6 +147,5 @@ export function AppLayout() {
         </div>
       </SidebarInset>
     </SidebarProvider>
-    </ScopeProvider>
   )
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useParams, useSearchParams } from 'react-router'
 import { ArrowLeft, Plus, Users } from 'lucide-react'
 
 import { BudgetSection } from '@/components/BudgetSection'
@@ -44,7 +44,6 @@ import {
   type PlanDetail,
   type PlanPosition,
 } from '@/lib/domain'
-import { useScope } from '@/lib/scope'
 
 /**
  * Ein Monatsplan im Detail — das Herzstück.
@@ -57,7 +56,11 @@ import { useScope } from '@/lib/scope'
  */
 export function PlanDetailPage() {
   const { year, month } = useParams()
-  const { householdId } = useScope()
+  // Der Haushalt steht in der URL, nicht in einem globalen Umschalter. Damit
+  // ist die gemeinsame Sicht ein Ort, den man verlinken und neu laden kann —
+  // und es ist sichtbar, warum die Seite anders aussieht.
+  const [params] = useSearchParams()
+  const householdId = params.get('household')
   const shared = householdId !== null
 
   // Beide Hooks stehen immer da — React erlaubt keine bedingten Hooks. Der
@@ -113,6 +116,21 @@ function PlanBody({
   const deletePosition = useDeletePosition()
   const togglePaid = useTogglePaid()
   const confirmPlan = useConfirmPlan()
+
+  // Tab in der URL: sonst landet man nach jedem Neuladen wieder im Plan,
+  // obwohl man gerade im Buch gearbeitet hat. Ein Link auf den Verlauf eines
+  // Monats bleibt so teilbar.
+  //
+  // Die Werte sind englisch, die Beschriftung deutsch: die Oberfläche wird
+  // später übersetzt, eine URL soll dabei stabil bleiben.
+  // Tab in der URL: sonst landet man nach jedem Neuladen wieder im Plan,
+  // obwohl man gerade im Buch gearbeitet hat. Ein Link auf den Verlauf eines
+  // Monats bleibt so teilbar.
+  //
+  // Die Werte sind englisch, die Beschriftung deutsch: die Oberfläche wird
+  // später übersetzt, eine URL soll dabei stabil bleiben.
+  const [params, setParams] = useSearchParams()
+  const tab = params.get('tab') ?? 'plan'
 
   const [editing, setEditing] = useState<PlanPosition | null>(null)
   const [addingTo, setAddingTo] = useState<Block>('wants')
@@ -272,14 +290,28 @@ function PlanBody({
       {/* Tabs statt Untereinander: der Verlauf beantwortet eine andere Frage
           als die Postenliste — „geht der Monat auf" gegen „was steht drin".
           Später kommt „Buch" als dritter Tab dazu. */}
-      <Tabs defaultValue="plan" className="gap-6">
+      <Tabs
+        value={tab}
+        onValueChange={(value) =>
+          // replace statt push: der Tabwechsel soll den Zurück-Knopf nicht
+          // mit Zwischenschritten volllaufen lassen.
+          setParams(
+            (current: URLSearchParams) => {
+              current.set('tab', value)
+              return current
+            },
+            { replace: true }
+          )
+        }
+        className="gap-6"
+      >
         <TabsList>
           <TabsTrigger value="plan">Plan</TabsTrigger>
-          <TabsTrigger value="verlauf">Verlauf</TabsTrigger>
-          <TabsTrigger value="buch">Buch</TabsTrigger>
+          <TabsTrigger value="flow">Verlauf</TabsTrigger>
+          <TabsTrigger value="book">Buch</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="verlauf">
+        <TabsContent value="flow">
           <MonthFlow
             positions={plan.positions}
             year={plan.year}
@@ -287,7 +319,7 @@ function PlanBody({
           />
         </TabsContent>
 
-        <TabsContent value="buch">
+        <TabsContent value="book">
           <MonthBook
             positions={plan.positions}
             year={plan.year}
