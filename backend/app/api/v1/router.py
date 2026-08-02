@@ -1,6 +1,14 @@
 from fastapi import APIRouter
 
-from app.api.v1 import accounts, auth, commitments, households, plans, positions
+from app.api.v1 import (
+    accounts,
+    auth,
+    commitments,
+    households,
+    plans,
+    positions,
+    transactions,
+)
 
 api_router = APIRouter()
 
@@ -11,3 +19,6 @@ api_router.include_router(commitments.router, prefix="/commitments", tags=["comm
 api_router.include_router(plans.router, prefix="/plans", tags=["plans"])
 # Eigener Präfix, damit „positions" nicht als Jahreszahl gelesen wird.
 api_router.include_router(positions.router, prefix="/positions", tags=["positions"])
+api_router.include_router(
+    transactions.router, prefix="/transactions", tags=["transactions"]
+)

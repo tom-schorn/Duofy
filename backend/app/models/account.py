@@ -2,7 +2,7 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import Date, ForeignKey, Numeric, String
+from sqlalchemy import Date, ForeignKey, Index, Numeric, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -28,6 +28,17 @@ class Account(UUIDMixin, TimestampMixin, Base):
 
     __tablename__ = "accounts"
 
+    __table_args__ = (
+        # Höchstens ein Standardkonto je Person — als partieller Index, damit
+        # die Datenbank es erzwingt und nicht die Anwendung daran denken muss.
+        Index(
+            "uq_account_one_default_per_owner",
+            "owner_id",
+            unique=True,
+            postgresql_where=text("is_default"),
+        ),
+    )
+
     owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
 
     name: Mapped[str] = mapped_column(String(100))
@@ -42,6 +53,10 @@ class Account(UUIDMixin, TimestampMixin, Base):
     #: einem beliebigen Zeitpunkt nicht berechenbar — man wüsste nicht, welche
     #: Buchungen schon darin enthalten sind.
     opening_date: Mapped[date] = mapped_column(Date)
+
+    #: Wird bei der Schnelleingabe im Buch vorausgewählt. Das Konto ist dort
+    #: Pflicht — ohne Vorauswahl müsste man es bei jedem Kioskkauf angeben.
+    is_default: Mapped[bool] = mapped_column(default=False)
 
     #: Aufgelöste Konten bleiben stehen, damit alte Buchungen ihren Bezug
     #: behalten — sie tauchen nur nicht mehr in der Auswahl auf.
