@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
-from app.core.permissions import can_access_position, can_assign_to_household, require
+from app.core.permissions import can_assign_to_household, owns_plan, require
 from app.db.session import get_session
 from app.models.plan import Plan, PlanPosition, PlanPositionChange
 from app.models.user import User
@@ -34,7 +34,16 @@ async def _load(
     if plan is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "plan_not_found"})
 
-    require(await can_access_position(session, user, position, plan), "not_allowed")
+    # **Nur eigene Posten.** Ein Haushaltsposten ist zwar für alle Mitglieder
+    # sichtbar, gehört aber weiterhin einer Person — geändert wird er nur von
+    # ihr. Jeder trägt seinen Teil und bucht auf seine eigenen Posten; kauft
+    # der Partner mit ein, wird der Betrag überwiesen und beim Besitzer
+    # verbucht. Ein Zugriff auf fremde Posten wird dafür nicht gebraucht, und
+    # ein Recht, das niemand braucht, ist bei Finanzdaten eins zu viel.
+    #
+    # Gelesen wird der gemeinsame Plan weiterhin von allen — der prüft über
+    # `is_member`, nicht hierüber.
+    require(owns_plan(user, plan), "not_allowed")
     return position, plan
 
 

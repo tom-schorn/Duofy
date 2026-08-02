@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.commitment import Commitment
 from app.models.enums import Role
 from app.models.household import HouseholdMember
-from app.models.plan import Plan, PlanPosition
+from app.models.plan import Plan
 from app.models.user import User
 
 
@@ -69,17 +69,6 @@ def owns_commitment(user: User, commitment: Commitment) -> bool:
 
 def owns_plan(user: User, plan: Plan) -> bool:
     return plan.user_id == user.id
-
-
-async def can_access_position(
-    session: AsyncSession, user: User, position: PlanPosition, plan: Plan
-) -> bool:
-    """Eigener Posten, oder gemeinsamer Posten in einem gemeinsamen Haushalt."""
-    if plan.user_id == user.id:
-        return True
-    if position.household_id is None:
-        return False
-    return await is_member(session, user.id, position.household_id)
 
 
 async def can_assign_to_household(
