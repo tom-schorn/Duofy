@@ -64,6 +64,7 @@ export type Category =
   | 'legal'
   | 'work'
   | 'fees'
+  | 'settlement'
 
 export const CATEGORY_LABEL: Record<Category, string> = {
   income: 'Einnahmen',
@@ -84,6 +85,7 @@ export const CATEGORY_LABEL: Record<Category, string> = {
   legal: 'Rechtliches',
   work: 'Beruf',
   fees: 'Gebühren',
+  settlement: 'Ausgleich',
 }
 
 /**
@@ -116,6 +118,9 @@ export const BLOCK_SUGGESTION: Record<Category, Block> = {
   work: 'needs',
   // Kontoführung und Kartengebühren — man kann sie nicht abbestellen.
   fees: 'needs',
+  // Auslage an ein Haushaltsmitglied. Wirtschaftlich keine eigene Ausgabe —
+  // bei Haushaltsauswertungen ausklammern, siehe Issue #4.
+  settlement: 'needs',
 }
 
 export type Rhythm = 'monthly' | 'quarterly' | 'biannual' | 'annual'

@@ -86,6 +86,11 @@ class Category(StrEnum):
     #: Kontoführung, Überweisungsentgelte, Kartengebühren. Kommt jeden Monat
     #: und passte in keine der anderen — „Rechtliches" ist es nicht.
     FEES = "fees"
+    #: Geld, das an ein Haushaltsmitglied geht, weil es etwas ausgelegt hat.
+    #: Keine Ausgabe im wirtschaftlichen Sinn — der Vorgang wurde schon beim
+    #: anderen gebucht. Bei Auswertungen über den Haushalt ausklammern,
+    #: sonst zählt derselbe Einkauf doppelt. Siehe Issue #4.
+    SETTLEMENT = "settlement"
 
 
 #: **Nur ein Vorschlag fürs Frontend.** Stellt das Auswahlfeld auf den
@@ -114,6 +119,7 @@ BLOCK_SUGGESTION: dict[Category, Block] = {
     Category.LEGAL: Block.NEEDS,
     Category.WORK: Block.NEEDS,
     Category.FEES: Block.NEEDS,
+    Category.SETTLEMENT: Block.NEEDS,
 }
 
 
