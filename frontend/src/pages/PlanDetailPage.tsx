@@ -4,6 +4,7 @@ import { ArrowLeft, Plus, Users } from 'lucide-react'
 
 import { BudgetSection } from '@/components/BudgetSection'
 import { MonthFlow } from '@/components/MonthFlow'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PositionDialog } from '@/components/PositionDialog'
 import { QueryState } from '@/components/QueryState'
 import { Button } from '@/components/ui/button'
@@ -189,8 +190,24 @@ function PlanBody({
         <Metric label="Noch offen" value={unpaid} hint="noch nicht bezahlt" />
       </section>
 
-      <MonthFlow positions={plan.positions} year={plan.year} month={plan.month} />
+      {/* Tabs statt Untereinander: der Verlauf beantwortet eine andere Frage
+          als die Postenliste — „geht der Monat auf" gegen „was steht drin".
+          Später kommt „Buch" als dritter Tab dazu. */}
+      <Tabs defaultValue="plan" className="gap-6">
+        <TabsList>
+          <TabsTrigger value="plan">Plan</TabsTrigger>
+          <TabsTrigger value="verlauf">Verlauf</TabsTrigger>
+        </TabsList>
 
+        <TabsContent value="verlauf">
+          <MonthFlow
+            positions={plan.positions}
+            year={plan.year}
+            month={plan.month}
+          />
+        </TabsContent>
+
+        <TabsContent value="plan">
       <div className="flex flex-col gap-8">
         {/* Einnahmen zuerst — sie sind die Grundlage für alles darunter.
             target={null}, weil es für Einnahmen keine Quote gibt. */}
@@ -227,6 +244,8 @@ function PlanBody({
           />
         ))}
       </div>
+        </TabsContent>
+      </Tabs>
 
       <footer className="flex flex-wrap items-center justify-between gap-4 border-t pt-6">
         <p className="text-muted-foreground text-sm">
