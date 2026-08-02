@@ -98,12 +98,25 @@ class PlanPosition(UUIDMixin, TimestampMixin, Base):
     # `due_day = 31` wird im Februar am 28. bzw. 29. fällig, nicht gar nicht.
     # Hier steht dann der bereits abgeklemmte Tag, nicht die 31.
     due_day: Mapped[int]
+    #: Vom Vertrag kopiert, hier je Monat überschreibbar. Leer = Standardkonto.
+    account_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True
+    )
+
     payment_method: Mapped[PaymentMethod | None] = mapped_column(
         enum_column(PaymentMethod), nullable=True
     )
 
     #: Schützt manuelle Korrekturen davor, beim nächsten Generieren
     #: von der Verpflichtung überschrieben zu werden.
+    #: Ein Budget statt einer Einzelzahlung — Lebensmittel, Sprit, Taschengeld.
+    #:
+    #: Solche Posten hakt man nicht ab: sie füllen sich über den Monat aus
+    #: einzelnen Buchungen. Ein Haken hätte dort keine Bedeutung, ein
+    #: Füllstand schon. Kommt vom Vertragstyp `budget`, bei Einmal-Posten
+    #: frei wählbar.
+    is_budget: Mapped[bool] = mapped_column(default=False)
+
     manually_changed: Mapped[bool] = mapped_column(default=False)
 
     plan: Mapped[Plan] = relationship(back_populates="positions")

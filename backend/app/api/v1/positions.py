@@ -8,15 +8,18 @@ anderen. Jede Änderung wird protokolliert.
 """
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
 from app.core.permissions import can_assign_to_household, owns_plan, require
 from app.db.session import get_session
+from app.models.account import Account
 from app.models.plan import Plan, PlanPosition, PlanPositionChange
+from app.models.transaction import Transaction
 from app.models.user import User
 from app.schemas.plan import PositionRead, PositionUpdate
 
@@ -108,13 +111,53 @@ async def mark_paid(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> PlanPosition:
-    """Abhaken.
+    """Abhaken — und dabei ins Haushaltsbuch buchen.
 
     Getrennt vom Betrag: „abgehakt" und „Betrag eingetragen" sind zwei Dinge.
     Die Miete kann bezahlt sein und exakt dem geplanten Betrag entsprechen.
+
+    **Gebucht wird nur, wenn dem Posten noch keine Buchung zugeordnet ist.**
+    Bei der Miete gibt es keine, der Haken bucht also die 850 €. Beim
+    Lebensmittel-Budget sind über den Monat schon Einkäufe erfasst — dort
+    heißt der Haken nur „Monat durch", und das Buch bleibt die Wahrheit.
+
+    Ohne diese Regel würden 600 € Einkäufe plus Haken 1.200 € ergeben.
     """
     position, _ = await _load(session, position_id, user)
     position.paid_at = datetime.now(UTC)
+
+    already = await session.scalar(
+        select(func.count())
+        .select_from(Transaction)
+        .where(Transaction.position_id == position.id)
+    )
+
+    if not already:
+        # Kontoherkunft: erst der Posten, dann das Standardkonto. Ist keins da,
+        # wird nichts gebucht — das Abhaken selbst darf daran nicht scheitern.
+        account_id = position.account_id
+        if account_id is None:
+            account_id = await session.scalar(
+                select(Account.id).where(Account.owner_id == user.id, Account.is_default)
+            )
+
+        if account_id is not None:
+            session.add(
+                Transaction(
+                    owner_id=user.id,
+                    account_id=account_id,
+                    occurred_on=date.today(),
+                    amount=position.amount_planned,
+                    note=position.label,
+                    category=position.category,
+                    block=position.block,
+                    position_id=position.id,
+                    auto_booked=True,
+                )
+            )
+            await session.flush()
+            position.amount_actual = position.amount_planned
+
     await session.commit()
     await session.refresh(position)
     return position
@@ -126,8 +169,34 @@ async def unmark_paid(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> PlanPosition:
+    """Haken wegnehmen — und die davon erzeugte Buchung mitnehmen.
+
+    Nur die **selbst erzeugte** Buchung, erkennbar an `auto_booked`. Von Hand
+    erfasste Einkäufe am selben Posten bleiben stehen; sie hat der Haken nie
+    angelegt, also nimmt er sie auch nicht mit.
+
+    Das Frontend fragt vorher nach und nennt den Betrag — falls er nachher von
+    Hand korrigiert wurde, sieht man, was verloren geht.
+    """
     position, _ = await _load(session, position_id, user)
     position.paid_at = None
+
+    booked = await session.execute(
+        select(Transaction).where(
+            Transaction.position_id == position.id,
+            Transaction.auto_booked,
+        )
+    )
+    for transaction in booked.scalars():
+        await session.delete(transaction)
+
+    await session.flush()
+
+    total = await session.scalar(
+        select(func.sum(Transaction.amount)).where(Transaction.position_id == position.id)
+    )
+    position.amount_actual = total
+
     await session.commit()
     await session.refresh(position)
     return position

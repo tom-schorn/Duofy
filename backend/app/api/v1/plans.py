@@ -26,7 +26,7 @@ from app.core.permissions import (
 )
 from app.db.session import get_session
 from app.models.commitment import Commitment
-from app.models.enums import Block, PlanStatus
+from app.models.enums import Block, CommitmentType, PlanStatus
 from app.models.household import Household, HouseholdMember
 from app.models.plan import Plan, PlanPosition
 from app.models.user import User
@@ -68,10 +68,21 @@ def _summarize(
     def total(block: Block) -> Decimal:
         return sum((p.amount_planned for p in positions if p.block is block), ZERO)
 
-    unpaid = sum(
-        (p.amount_planned for p in positions if p.block is not Block.INCOME and p.paid_at is None),
-        ZERO,
-    )
+    def remaining(position: PlanPosition) -> Decimal:
+        """Was von diesem Posten noch rausgeht.
+
+        Abgehakt heißt erledigt. Sonst zählt, was vom geplanten Betrag noch
+        nicht im Haushaltsbuch steht: bei 600 € Lebensmittel und 127,50 €
+        erfassten Einkäufen sind noch 472,50 € zu erwarten, nicht 600 €.
+
+        Nie negativ — wer sein Budget überzieht, hat nichts „übrig".
+        """
+        if position.block is Block.INCOME or position.paid_at is not None:
+            return ZERO
+        booked = position.amount_actual or ZERO
+        return max(position.amount_planned - booked, ZERO)
+
+    unpaid = sum((remaining(p) for p in positions), ZERO)
 
     household_ids = sorted(
         {p.household_id for p in positions if p.household_id is not None},
@@ -174,8 +185,12 @@ async def create_plan(
                 # Der 31. existiert nicht in jedem Monat — hier steht der
                 # bereits abgeklemmte Tag, nicht die 31.
                 due_day=commitment.effective_due_day(payload.year, payload.month),
-                # Kommt vom Vertrag, bleibt im Posten überschreibbar.
+                # Kommen vom Vertrag, bleiben im Posten überschreibbar.
+                account_id=commitment.account_id,
                 payment_method=commitment.payment_method,
+                # „Setze ich selbst" wird zum Budget-Posten: kein Haken,
+                # stattdessen ein Füllstand aus den Buchungen.
+                is_budget=commitment.type is CommitmentType.BUDGET,
             )
         )
 

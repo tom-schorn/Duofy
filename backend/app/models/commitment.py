@@ -76,6 +76,18 @@ class Commitment(UUIDMixin, TimestampMixin, Base):
 
     active: Mapped[bool] = mapped_column(default=True)
 
+    #: Von welchem Konto es abgeht. Leer = Standardkonto.
+    #:
+    #: Nötig, weil ein Vertrag nicht zwangsläufig vom Girokonto läuft: das
+    #: Claude-Abo geht über die Kreditkarte, weil dort keine Lastschrift geht.
+    #: Ohne diese Angabe bucht das Abhaken später auf das falsche Konto.
+    #:
+    #: SET NULL statt RESTRICT: löscht man ein Konto, soll der Vertrag bleiben
+    #: und aufs Standardkonto zurückfallen.
+    account_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True
+    )
+
     #: Wie gezahlt wird — gehört an den Vertrag, nicht an den einzelnen Monat.
     #: Wird beim Erzeugen in den Posten kopiert und ist dort überschreibbar,
     #: falls man ausnahmsweise überweist statt abbuchen zu lassen.

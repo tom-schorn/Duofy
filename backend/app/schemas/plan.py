@@ -15,8 +15,12 @@ class PositionBase(Schema):
     category: Category
     block: Block
     due_day: int = Field(ge=1, le=31)
+    #: Vom Vertrag kopiert, hier je Monat überschreibbar. Leer = Standardkonto.
+    account_id: uuid.UUID | None = None
     payment_method: PaymentMethod | None = None
     household_id: uuid.UUID | None = None
+    #: Füllt sich aus Buchungen statt abgehakt zu werden.
+    is_budget: bool = False
 
 
 class PositionCreate(PositionBase):
@@ -32,8 +36,10 @@ class PositionUpdate(Schema):
     category: Category | None = None
     block: Block | None = None
     due_day: int | None = Field(default=None, ge=1, le=31)
+    account_id: uuid.UUID | None = None
     payment_method: PaymentMethod | None = None
     household_id: uuid.UUID | None = None
+    is_budget: bool | None = None
 
 
 class PositionRead(PositionBase):

@@ -18,6 +18,8 @@ class CommitmentBase(Schema):
     first_due_date: date | None = None
     due_day: int = Field(ge=1, le=31)
     active: bool = True
+    #: Von welchem Konto es abgeht. Leer = Standardkonto.
+    account_id: uuid.UUID | None = None
     #: Wird in die erzeugten Posten kopiert, dort je Monat überschreibbar.
     payment_method: PaymentMethod | None = None
 
@@ -71,6 +73,7 @@ class CommitmentUpdate(Schema):
     first_due_date: date | None = None
     due_day: int | None = Field(default=None, ge=1, le=31)
     active: bool | None = None
+    account_id: uuid.UUID | None = None
     payment_method: PaymentMethod | None = None
     target_amount: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     target_date: date | None = None

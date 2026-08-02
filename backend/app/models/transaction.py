@@ -87,6 +87,13 @@ class Transaction(Base, UUIDMixin, TimestampMixin):
         ForeignKey("plan_positions.id", ondelete="SET NULL"), nullable=True
     )
 
+    #: Vom Abhaken erzeugt, nicht von Hand erfasst.
+    #:
+    #: Ein Posten kann mehrere Buchungen haben — beim Lebensmittel-Budget ist
+    #: das der Normalfall. Ohne diese Markierung wüsste das Enthaken nicht,
+    #: welche der Buchungen es wieder mitnehmen soll.
+    auto_booked: Mapped[bool] = mapped_column(default=False)
+
     #: Kennung beim Anbieter — verhindert Dubletten beim späteren CSV- oder
     #: Bankimport. Jetzt kostenlos, später eine Migration auf echten Daten.
     external_ref: Mapped[str | None] = mapped_column(String(200), nullable=True)
