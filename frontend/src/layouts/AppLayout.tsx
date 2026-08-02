@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from 'react-router'
 
 import { ScopeProvider } from '@/lib/scope'
-import { CalendarRange, FileText, Users } from 'lucide-react'
+import { CalendarRange, FileText, Users, Wallet } from 'lucide-react'
 
 import { HouseholdSwitcher } from '@/components/HouseholdSwitcher'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -27,7 +27,8 @@ import { Separator } from '@/components/ui/separator'
  * Die Hülle für alles hinter der Anmeldung.
  *
  * Sidebar und Topbar bleiben stehen, `<Outlet />` tauscht den Mittelteil.
- * Konten fehlen bewusst — dafür gibt es im Backend noch kein Modell.
+ * Konten stehen zwischen Verträgen und Haushalt: sie sind privat wie die
+ * Verträge, aber kein Planungsgegenstand.
  */
 
 /**
@@ -41,6 +42,7 @@ import { Separator } from '@/components/ui/separator'
 const NAV = [
   { to: '/plan', label: 'Planung', icon: CalendarRange },
   { to: '/contracts', label: 'Verträge', icon: FileText },
+  { to: '/accounts', label: 'Konten', icon: Wallet },
   { to: '/household', label: 'Haushalt', icon: Users },
 ]
 

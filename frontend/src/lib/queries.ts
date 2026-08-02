@@ -7,6 +7,7 @@ import {
 
 import { api } from '@/lib/api'
 import type {
+  Account,
   Commitment,
   Household,
   HouseholdPlanDetail,
@@ -16,6 +17,7 @@ import type {
   PlanDetail,
   PlanPosition,
   PlanSummary,
+  Transaction,
 } from '@/lib/domain'
 
 /**
@@ -32,7 +34,10 @@ export const keys = {
   invitations: (householdId: string) =>
     ['households', householdId, 'invitations'] as const,
   myInvitations: ['invitations', 'mine'] as const,
+  accounts: ['accounts'] as const,
   commitments: ['commitments'] as const,
+  transactions: (year: number, month: number) =>
+    ['transactions', year, month] as const,
   plans: ['plans'] as const,
   plan: (year: number, month: number) => ['plans', year, month] as const,
   householdPlan: (householdId: string, year: number, month: number) =>
@@ -124,6 +129,69 @@ export function useDeclineInvitation() {
   return useInvalidating<void, string>(
     (token) => api.post(`/households/invitations/${token}/decline`),
     [keys.myInvitations]
+  )
+}
+
+// --- Konten ---------------------------------------------------------------
+
+export function useAccounts() {
+  return useQuery({
+    queryKey: keys.accounts,
+    queryFn: () => api.get<Account[]>('/accounts'),
+  })
+}
+
+export function useSaveAccount() {
+  // Das Standardkonto wechseln nimmt einem anderen die Markierung — deshalb
+  // immer die ganze Liste neu laden, nicht nur den einen Eintrag.
+  return useInvalidating<Account, Partial<Account> & { id?: string }>(
+    ({ id, ownerId: _o, ...body }) =>
+      id ? api.patch(`/accounts/${id}`, body) : api.post('/accounts', body),
+    [keys.accounts]
+  )
+}
+
+export function useDeleteAccount() {
+  return useInvalidating<void, string>(
+    (id) => api.delete(`/accounts/${id}`),
+    [keys.accounts]
+  )
+}
+
+// --- Haushaltsbuch --------------------------------------------------------
+
+export function useTransactions(year: number, month: number) {
+  return useQuery({
+    queryKey: keys.transactions(year, month),
+    queryFn: () =>
+      api.get<Transaction[]>(`/transactions?year=${year}&month=${month}`),
+  })
+}
+
+/**
+ * Eine Buchung sichern.
+ *
+ * Neben dem Buch muss auch der Plan neu geladen werden: eine zugeordnete
+ * Buchung verändert `amountActual` des Postens, und daran hängen die
+ * Ist-Beträge in der Budgetansicht.
+ */
+export function useSaveTransaction(year: number, month: number) {
+  return useInvalidating<
+    Transaction,
+    Partial<Transaction> & { id?: string }
+  >(
+    ({ id, ownerId: _o, ...body }) =>
+      id
+        ? api.patch(`/transactions/${id}`, body)
+        : api.post('/transactions', body),
+    [keys.transactions(year, month), keys.plan(year, month), keys.plans]
+  )
+}
+
+export function useDeleteTransaction(year: number, month: number) {
+  return useInvalidating<void, string>(
+    (id) => api.delete(`/transactions/${id}`),
+    [keys.transactions(year, month), keys.plan(year, month), keys.plans]
   )
 }
 

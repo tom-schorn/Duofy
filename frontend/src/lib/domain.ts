@@ -246,6 +246,8 @@ export type Commitment = {
   remainingDebt: string | null
   /** Wird in die erzeugten Posten kopiert, dort je Monat überschreibbar. */
   paymentMethod: PaymentMethod | null
+  /** Von welchem Konto es abgeht. null = Standardkonto. */
+  accountId: string | null
 }
 
 /** Der Monat, in dem der Takt beginnt — steckt im Startdatum. */
@@ -255,6 +257,69 @@ export function firstMonthOf(commitment: {
   return commitment.firstDueDate
     ? Number(commitment.firstDueDate.slice(5, 7))
     : null
+}
+
+/**
+ * Nur **Zahlungskonten** — Dinge mit einem Stand, der sich aus Buchungen
+ * ergibt. Ein Depot gehört bewusst nicht dazu: sein Wert kommt von Kursen.
+ * Im Buch steht deshalb nur das Verrechnungskonto.
+ */
+export type AccountType =
+  | 'checking'
+  | 'savings'
+  | 'credit_card'
+  | 'settlement'
+  | 'payment_service'
+  | 'cash'
+
+export const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
+  checking: 'Girokonto',
+  savings: 'Tagesgeld',
+  credit_card: 'Kreditkarte',
+  settlement: 'Verrechnungskonto',
+  payment_service: 'Zahlungsdienst',
+  cash: 'Bargeld',
+}
+
+export type Account = {
+  id: string
+  ownerId?: string
+  name: string
+  type: AccountType
+  /** Als String gehalten, damit beim Tippen nichts gerundet wird. */
+  openingBalance: string
+  /** Stichtag des Anfangsbestands — ohne ihn wäre kein Stand berechenbar. */
+  openingDate: string
+  /** Höchstens eines je Person. Wird bei der Schnelleingabe vorausgewählt. */
+  isDefault: boolean
+  active: boolean
+  externalRef: string | null
+}
+
+/**
+ * Eine Buchung im Haushaltsbuch.
+ *
+ * Kontowirkung und Budgetwirkung sind unabhängig: `counterAccountId` bestimmt
+ * die Stände, `positionId` das Budget. Geld aufs Tagesgeld legen ist beides
+ * zugleich — eine Umbuchung, die die Sparquote erfüllt.
+ */
+export type Transaction = {
+  id: string
+  ownerId?: string
+  accountId: string
+  /** Gesetzt = Umbuchung auf ein eigenes Konto. */
+  counterAccountId: string | null
+  occurredOn: string
+  /** Immer positiv — die Richtung kommt aus `block`. */
+  amount: string
+  note: string | null
+  /** Nur bei einer reinen Umbuchung leer. */
+  category: Category | null
+  block: Block | null
+  positionId: string | null
+  /** Vom Abhaken erzeugt — das Enthaken nimmt genau diese wieder mit. */
+  autoBooked: boolean
+  externalRef: string | null
 }
 
 export type PaymentMethod =
@@ -296,7 +361,16 @@ export type PlanPosition = {
   /** Beim Anlegen eingefroren — spätere Änderungen wirken nicht rückwirkend. */
   block: Block
   dueDay: number
+  /** Vom Vertrag kopiert, je Monat überschreibbar. null = Standardkonto. */
+  accountId: string | null
   paymentMethod: PaymentMethod | null
+  /**
+   * Ein Budget statt einer Einzelzahlung — Lebensmittel, Sprit, Taschengeld.
+   *
+   * Wird **nicht abgehakt**: solche Posten füllen sich über den Monat aus
+   * einzelnen Buchungen. Statt eines Hakens zeigt die Zeile den Füllstand.
+   */
+  isBudget: boolean
   /** NULL = privat. Gesetzt = wandert in diesen Haushaltsplan. */
   householdId: string | null
   /** Leer bei Einmal-Posten, die nicht aus einer Verpflichtung stammen. */

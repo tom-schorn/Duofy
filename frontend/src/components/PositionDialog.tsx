@@ -29,7 +29,7 @@ import {
   type PaymentMethod,
   type PlanPosition,
 } from '@/lib/domain'
-import { useHouseholds } from '@/lib/queries'
+import { useAccounts, useHouseholds } from '@/lib/queries'
 
 /**
  * Einmal-Posten anlegen und bearbeiten.
@@ -62,6 +62,8 @@ function emptyDraft(block: Block): PlanPosition {
     category: DEFAULT_CATEGORY[block],
     block,
     dueDay: 1,
+    accountId: null,
+    isBudget: false,
     paymentMethod: null,
     householdId: null,
     commitmentId: null,
@@ -92,6 +94,7 @@ export function PositionDialog({
   onDelete,
 }: Props) {
   const households = useHouseholds().data ?? []
+  const accounts = useAccounts().data ?? []
   const [draft, setDraft] = useState<PlanPosition>(
     position ?? emptyDraft(block)
   )
@@ -229,6 +232,32 @@ export function PositionDialog({
             </div>
 
             <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-2">
+                <Label>Konto</Label>
+                <Select
+                  value={draft.accountId ?? 'default'}
+                  onValueChange={(value) =>
+                    set('accountId', value === 'default' ? null : value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {/* „Standardkonto" statt einer Vorauswahl: so bleibt der
+                        Posten richtig, wenn du das Standardkonto wechselst. */}
+                    <SelectItem value="default">Standardkonto</SelectItem>
+                    {accounts
+                      .filter((account) => account.active)
+                      .map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="flex flex-col gap-2">
                 <Label>Zahlungsart</Label>
                 <Select

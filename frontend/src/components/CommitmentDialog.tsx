@@ -38,7 +38,7 @@ import {
   type PaymentMethod,
   type Rhythm,
 } from '@/lib/domain'
-import { useHouseholds } from '@/lib/queries'
+import { useAccounts, useHouseholds } from '@/lib/queries'
 
 /**
  * Ein Formular für alle Verträge — Sparpläne und Kredite sind auch Verträge.
@@ -124,6 +124,7 @@ function emptyDraft(): Commitment {
     targetDate: null,
     remainingDebt: null,
     paymentMethod: null,
+    accountId: null,
   }
 }
 
@@ -142,6 +143,7 @@ export function CommitmentDialog({
   onSave,
 }: Props) {
   const households = useHouseholds().data ?? []
+  const accounts = useAccounts().data ?? []
   const [draft, setDraft] = useState<Commitment>(commitment ?? emptyDraft())
 
   // Beim Öffnen neu setzen — sonst hängt der vorige Stand drin.
@@ -319,8 +321,38 @@ export function CommitmentDialog({
               </div>
             </div>
 
-            {/* Gehört an den Vertrag, nicht an den Monat — beim Erzeugen wird
-                sie in jeden Posten kopiert und bleibt dort überschreibbar. */}
+            {/* Beide gehören an den Vertrag, nicht an den Monat — sie werden
+                beim Erzeugen in jeden Posten kopiert und bleiben dort
+                überschreibbar. */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-2">
+                <Label>Konto</Label>
+                <Select
+                  value={draft.accountId ?? 'default'}
+                  onValueChange={(value) =>
+                    set('accountId', value === 'default' ? null : value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {/* „Standardkonto" statt fester Vorauswahl: der Vertrag
+                        bleibt richtig, wenn du das Standardkonto wechselst.
+                        Gesetzt wird es nur, wo es abweicht — das Claude-Abo
+                        läuft über die Kreditkarte, nicht übers Giro. */}
+                    <SelectItem value="default">Standardkonto</SelectItem>
+                    {accounts
+                      .filter((account) => account.active)
+                      .map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
             <div className="flex flex-col gap-2">
               <Label>Zahlungsart</Label>
               <Select
@@ -344,6 +376,7 @@ export function CommitmentDialog({
                   ))}
                 </SelectContent>
               </Select>
+              </div>
             </div>
 
             {isRecurringIrregular ? (

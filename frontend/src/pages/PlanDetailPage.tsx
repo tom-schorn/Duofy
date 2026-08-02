@@ -3,6 +3,17 @@ import { Link, useParams } from 'react-router'
 import { ArrowLeft, Plus, Users } from 'lucide-react'
 
 import { BudgetSection } from '@/components/BudgetSection'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { MonthBook } from '@/components/MonthBook'
 import { MonthFlow } from '@/components/MonthFlow'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PositionDialog } from '@/components/PositionDialog'
@@ -12,8 +23,10 @@ import { Badge } from '@/components/ui/badge'
 import {
   useConfirmPlan,
   useDeletePosition,
+  useAccounts,
   useHouseholdPlan,
   useHouseholds,
+  useTransactions,
   usePlan,
   useSavePosition,
   useTogglePaid,
@@ -105,6 +118,48 @@ function PlanBody({
   const [addingTo, setAddingTo] = useState<Block>('wants')
   const [dialogOpen, setDialogOpen] = useState(false)
 
+  // Für die Rückfrage beim Enthaken: welche Buchung hängt an welchem Posten.
+  const transactions = useTransactions(plan.year, plan.month)
+  const accounts = useAccounts().data ?? []
+  const hasDefaultAccount = accounts.some(
+    (account) => account.active && account.isDefault
+  )
+
+  /** Der Posten, dessen selbst erzeugte Buchung gleich verschwinden würde. */
+  const [confirming, setConfirming] = useState<PlanPosition | null>(null)
+  /** Zuletzt abgehakt, ohne dass gebucht werden konnte. */
+  const [noAccountFor, setNoAccountFor] = useState<string | null>(null)
+
+  const autoBookedOf = (position: PlanPosition) =>
+    transactions.data?.find(
+      (entry) => entry.positionId === position.id && entry.autoBooked
+    )
+
+  /**
+   * Abhaken und Enthaken sind nicht symmetrisch:
+   *
+   * Abhaken legt still eine Buchung an — außer es gibt kein Konto, dann folgt
+   * ein Hinweis. Enthaken **entfernt** die Buchung wieder, und das ist ein
+   * Datenverlust, über den man Bescheid wissen will.
+   */
+  function togglePaidWithGuard(position: PlanPosition) {
+    const paid = isPaid(position)
+
+    if (paid) {
+      if (autoBookedOf(position)) {
+        setConfirming(position)
+        return
+      }
+      togglePaid.mutate({ id: position.id, paid: false })
+      return
+    }
+
+    if (!position.isBudget && !position.accountId && !hasDefaultAccount) {
+      setNoAccountFor(position.label)
+    }
+    togglePaid.mutate({ id: position.id, paid: true })
+  }
+
   const groups = BUDGETS.map((block) => {
     const key = block as keyof typeof QUOTA_KEY
     return {
@@ -190,6 +245,30 @@ function PlanBody({
         <Metric label="Noch offen" value={unpaid} hint="noch nicht bezahlt" />
       </section>
 
+      {noAccountFor && (
+        <p
+          role="alert"
+          className="border-border bg-muted/40 flex flex-wrap items-center gap-2 rounded-lg border p-3 text-sm"
+        >
+          <span>
+            <span className="font-medium">{noAccountFor}</span> ist abgehakt,
+            aber es wurde nichts gebucht — es fehlt ein Standardkonto.
+          </span>
+          <Link to="/accounts" className="underline underline-offset-4">
+            Konto anlegen
+          </Link>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="ml-auto"
+            onClick={() => setNoAccountFor(null)}
+          >
+            Verstanden
+          </Button>
+        </p>
+      )}
+
       {/* Tabs statt Untereinander: der Verlauf beantwortet eine andere Frage
           als die Postenliste — „geht der Monat auf" gegen „was steht drin".
           Später kommt „Buch" als dritter Tab dazu. */}
@@ -197,10 +276,19 @@ function PlanBody({
         <TabsList>
           <TabsTrigger value="plan">Plan</TabsTrigger>
           <TabsTrigger value="verlauf">Verlauf</TabsTrigger>
+          <TabsTrigger value="buch">Buch</TabsTrigger>
         </TabsList>
 
         <TabsContent value="verlauf">
           <MonthFlow
+            positions={plan.positions}
+            year={plan.year}
+            month={plan.month}
+          />
+        </TabsContent>
+
+        <TabsContent value="buch">
+          <MonthBook
             positions={plan.positions}
             year={plan.year}
             month={plan.month}
@@ -221,9 +309,7 @@ function PlanBody({
             setDialogOpen(true)
           }}
           onAdd={handleAdd}
-          onTogglePaid={(position) =>
-            togglePaid.mutate({ id: position.id, paid: !isPaid(position) })
-          }
+          onTogglePaid={togglePaidWithGuard}
         />
 
         {groups.map((group) => (
@@ -238,9 +324,7 @@ function PlanBody({
               setDialogOpen(true)
             }}
             onAdd={handleAdd}
-            onTogglePaid={(position) =>
-              togglePaid.mutate({ id: position.id, paid: !isPaid(position) })
-            }
+            onTogglePaid={togglePaidWithGuard}
           />
         ))}
       </div>
@@ -262,6 +346,47 @@ function PlanBody({
           Monat bestätigen
         </Button>
       </footer>
+
+      {/* Enthaken entfernt die vom Haken erzeugte Buchung. Der Betrag steht
+          in der Frage, damit man sieht, was verloren geht — falls er nach dem
+          Abhaken von Hand korrigiert wurde. */}
+      <AlertDialog
+        open={confirming !== null}
+        onOpenChange={(open) => !open && setConfirming(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Buchung mit entfernen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirming && (
+                <>
+                  Das nimmt die Buchung über{' '}
+                  <span className="text-foreground font-mono font-medium">
+                    {euro.format(
+                      Number(autoBookedOf(confirming)?.amount ?? 0)
+                    )}
+                  </span>{' '}
+                  aus dem Haushaltsbuch. Von Hand erfasste Buchungen an diesem
+                  Posten bleiben stehen.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirming) {
+                  togglePaid.mutate({ id: confirming.id, paid: false })
+                }
+                setConfirming(null)
+              }}
+            >
+              Haken wegnehmen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <PositionDialog
         position={editing}

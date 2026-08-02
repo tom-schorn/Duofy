@@ -153,7 +153,12 @@ function PositionRow({
           Einnahmen lassen sich ebenfalls abhaken, dort heißt es „ist da" statt
           „bezahlt". Auf „Noch offen" wirkt das nicht: die Zahl klammert
           Einnahmen ohnehin aus. */}
-      {readOnly ? (
+      {position.isBudget ? (
+        /* Budget-Posten hakt man nicht ab — sie füllen sich über den Monat
+           aus einzelnen Buchungen. Ein Haken hätte hier keine Bedeutung.
+           Statt eines toten Kästchens steht hier nichts. */
+        <span className="size-6" aria-hidden />
+      ) : readOnly ? (
         // role + aria-label, weil der Zustand sonst nur als Häkchen sichtbar
         // wäre — ohne Knopf gibt es kein aria-pressed, das ihn ansagt.
         <span
@@ -225,17 +230,46 @@ function PositionRow({
             ? ` · ${PAYMENT_LABEL[position.paymentMethod]}`
             : ''}
           {position.commitmentId ? ' · aus Vertrag' : ''}
+          {position.isBudget ? ' · Budget' : ''}
         </span>
       </button>
 
-      <span className="flex flex-col items-end tabular-nums">
-        <span className="font-medium">{euro.format(planned)}</span>
-        {actual !== null && actual !== planned && (
-          <span
-            className={`text-xs ${overspent ? 'text-destructive' : 'text-muted-foreground'}`}
-          >
-            ist {euro.format(actual)}
-          </span>
+      <span className="flex flex-col items-end gap-1 tabular-nums">
+        {position.isBudget ? (
+          <>
+            <span className="text-sm">
+              <span
+                className={`font-medium ${overspent ? 'text-destructive' : ''}`}
+              >
+                {euro.format(actual ?? 0)}
+              </span>
+              <span className="text-muted-foreground">
+                {' '}
+                von {euro.format(planned)}
+              </span>
+            </span>
+            {/* Füllstand statt Haken: die Frage ist „wie viel ist weg", nicht
+                „ist es erledigt". */}
+            <span className="bg-muted h-1 w-24 overflow-hidden rounded-full">
+              <span
+                className={`block h-full rounded-full ${overspent ? 'bg-destructive' : 'bg-chart-1'}`}
+                style={{
+                  width: `${Math.min(((actual ?? 0) / (planned || 1)) * 100, 100)}%`,
+                }}
+              />
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="font-medium">{euro.format(planned)}</span>
+            {actual !== null && actual !== planned && (
+              <span
+                className={`text-xs ${overspent ? 'text-destructive' : 'text-muted-foreground'}`}
+              >
+                ist {euro.format(actual)}
+              </span>
+            )}
+          </>
         )}
       </span>
     </li>
