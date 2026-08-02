@@ -21,7 +21,13 @@ class Settings(BaseSettings):
     postgres_password: str
 
     jwt_secret: str
-    jwt_lifetime_seconds: int = 3600
+    #: 5 Stunden. Eine Stunde war zu kurz — man flog mitten aus der Arbeit,
+    #: weil jede 401 den Token aus dem localStorage räumt.
+    #:
+    #: Das ist ein Kompromiss, keine Lösung: ein gestohlener Token gilt jetzt
+    #: fünf Stunden statt einer. Der saubere Weg sind Refresh-Tokens mit
+    #: kurzlebigem Zugriffstoken im Speicher statt im localStorage — Issue #1.
+    jwt_lifetime_seconds: int = 18000
 
     @property
     def database_url(self) -> str:
