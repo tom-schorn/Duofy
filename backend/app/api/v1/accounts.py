@@ -11,7 +11,7 @@ Anfangsbestand plus den Buchungen danach — sobald es Buchungen gibt.
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
@@ -22,6 +22,22 @@ from app.models.user import User
 from app.schemas.account import AccountCreate, AccountRead, AccountUpdate
 
 router = APIRouter()
+
+
+async def _clear_other_defaults(
+    session: AsyncSession, user: User, keep: uuid.UUID | None = None
+) -> None:
+    """Nimmt allen anderen Konten die Standard-Markierung.
+
+    Die Datenbank lässt über einen partiellen Unique-Index nur eines zu. Ohne
+    dieses Aufräumen bekäme man beim Umstellen einen Integritätsfehler statt
+    des erwarteten Verhaltens — ein neues Standardkonto soll das alte ablösen,
+    nicht abgelehnt werden.
+    """
+    query = update(Account).where(Account.owner_id == user.id, Account.is_default)
+    if keep is not None:
+        query = query.where(Account.id != keep)
+    await session.execute(query.values(is_default=False))
 
 
 async def _load(session: AsyncSession, account_id: uuid.UUID, user: User) -> Account:
@@ -52,6 +68,9 @@ async def create_account(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> Account:
+    if payload.is_default:
+        await _clear_other_defaults(session, user)
+
     account = Account(owner_id=user.id, **payload.model_dump())
     session.add(account)
     await session.commit()
@@ -67,8 +86,12 @@ async def update_account(
     user: User = Depends(current_active_user),
 ) -> Account:
     account = await _load(session, account_id, user)
+    changes = payload.model_dump(exclude_unset=True)
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    if changes.get("is_default"):
+        await _clear_other_defaults(session, user, keep=account.id)
+
+    for field, value in changes.items():
         setattr(account, field, value)
 
     await session.commit()

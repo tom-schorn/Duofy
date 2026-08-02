@@ -13,6 +13,9 @@ class AccountBase(Schema):
     type: AccountType
     opening_balance: Decimal = Field(default=Decimal("0.00"), max_digits=12, decimal_places=2)
     opening_date: date
+    #: Wird bei der Schnelleingabe im Buch vorausgewählt. Höchstens eines je
+    #: Person — setzt man ein zweites, verliert das alte die Markierung.
+    is_default: bool = False
     active: bool = True
     external_ref: str | None = Field(default=None, max_length=200)
 
@@ -30,6 +33,7 @@ class AccountUpdate(Schema):
     type: AccountType | None = None
     opening_balance: Decimal | None = Field(default=None, max_digits=12, decimal_places=2)
     opening_date: date | None = None
+    is_default: bool | None = None
     active: bool | None = None
     external_ref: str | None = Field(default=None, max_length=200)
 
