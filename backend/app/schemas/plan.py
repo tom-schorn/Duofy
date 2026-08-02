@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import Field
@@ -40,6 +40,18 @@ class PositionUpdate(Schema):
     payment_method: PaymentMethod | None = None
     household_id: uuid.UUID | None = None
     is_budget: bool | None = None
+
+
+class PositionPaid(Schema):
+    """Womit der Haken bucht. Beides optional — leer heißt heute, wie geplant.
+
+    Der Tag steht hier, weil das Datum der Zahlung und der Monat des Plans oft
+    auseinanderfallen: ALG1 für August kommt Ende Juli. Der Posten bleibt im
+    August, die Buchung trägt ihr echtes Datum.
+    """
+
+    occurred_on: date | None = None
+    amount: Decimal | None = Field(default=None, gt=0, max_digits=12, decimal_places=2)
 
 
 class PositionRead(PositionBase):

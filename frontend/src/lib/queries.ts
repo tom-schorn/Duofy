@@ -36,6 +36,8 @@ export const keys = {
   myInvitations: ['invitations', 'mine'] as const,
   accounts: ['accounts'] as const,
   commitments: ['commitments'] as const,
+  /** Alle Monate — zum Ungültigmachen, wenn unklar ist, welcher betroffen ist. */
+  allTransactions: ['transactions'] as const,
   transactions: (year: number, month: number) =>
     ['transactions', year, month] as const,
   plans: ['plans'] as const,
@@ -296,11 +298,26 @@ export function useDeletePosition() {
   )
 }
 
+/**
+ * Haken setzen oder wegnehmen.
+ *
+ * Beim Setzen dürfen Datum und Betrag der erzeugten Buchung mitkommen — die
+ * Zahlung liegt oft ein paar Tage zurück. Ohne die beiden Felder bucht das
+ * Backend heute und den geplanten Betrag.
+ *
+ * Räumt auch die Buchungen ab: der Haken erzeugt und löscht sie, das Buch
+ * zeigt sonst weiter, was es vor dem Klick zeigte.
+ */
 export function useTogglePaid() {
-  return useInvalidating<PlanPosition, { id: string; paid: boolean }>(
-    ({ id, paid }) =>
-      paid ? api.post(`/positions/${id}/paid`) : api.delete(`/positions/${id}/paid`),
-    [keys.plans]
+  return useInvalidating<
+    PlanPosition,
+    { id: string; paid: boolean; occurredOn?: string; amount?: string }
+  >(
+    ({ id, paid, occurredOn, amount }) =>
+      paid
+        ? api.post(`/positions/${id}/paid`, { occurredOn, amount })
+        : api.delete(`/positions/${id}/paid`),
+    [keys.plans, keys.allTransactions]
   )
 }
 

@@ -21,7 +21,7 @@ from app.models.account import Account
 from app.models.plan import Plan, PlanPosition, PlanPositionChange
 from app.models.transaction import Transaction
 from app.models.user import User
-from app.schemas.plan import PositionRead, PositionUpdate
+from app.schemas.plan import PositionPaid, PositionRead, PositionUpdate
 
 router = APIRouter()
 
@@ -108,6 +108,7 @@ async def delete_position(
 @router.post("/{position_id}/paid", response_model=PositionRead)
 async def mark_paid(
     position_id: uuid.UUID,
+    payload: PositionPaid | None = None,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> PlanPosition:
@@ -122,9 +123,15 @@ async def mark_paid(
     heißt der Haken nur „Monat durch", und das Buch bleibt die Wahrheit.
 
     Ohne diese Regel würden 600 € Einkäufe plus Haken 1.200 € ergeben.
+
+    `payload` erlaubt beim Abhaken ein anderes Datum und einen anderen Betrag.
+    Gebraucht wird das ständig: die Zahlung liegt ein paar Tage zurück, oder
+    der Abschlag kam anders als geplant. Ohne die beiden Felder müsste man
+    danach ins Buch gehen und die eben erzeugte Buchung korrigieren.
     """
     position, _ = await _load(session, position_id, user)
     position.paid_at = datetime.now(UTC)
+    payload = payload or PositionPaid()
 
     already = await session.scalar(
         select(func.count())
@@ -146,8 +153,8 @@ async def mark_paid(
                 Transaction(
                     owner_id=user.id,
                     account_id=account_id,
-                    occurred_on=date.today(),
-                    amount=position.amount_planned,
+                    occurred_on=payload.occurred_on or date.today(),
+                    amount=payload.amount or position.amount_planned,
                     note=position.label,
                     category=position.category,
                     block=position.block,
@@ -156,7 +163,7 @@ async def mark_paid(
                 )
             )
             await session.flush()
-            position.amount_actual = position.amount_planned
+            position.amount_actual = payload.amount or position.amount_planned
 
     await session.commit()
     await session.refresh(position)

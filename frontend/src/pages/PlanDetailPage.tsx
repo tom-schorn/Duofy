@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router'
 import { ArrowLeft, Plus, Users } from 'lucide-react'
 
 import { BudgetSection } from '@/components/BudgetSection'
+import { PaidDialog } from '@/components/PaidDialog'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -115,6 +116,8 @@ function PlanBody({
   const savePosition = useSavePosition()
   const deletePosition = useDeletePosition()
   const togglePaid = useTogglePaid()
+  // Der Posten, für den gerade das Buchungsfenster offen ist.
+  const [booking, setBooking] = useState<PlanPosition | null>(null)
   const confirmPlan = useConfirmPlan()
 
   // Tab in der URL: sonst landet man nach jedem Neuladen wieder im Plan,
@@ -174,8 +177,19 @@ function PlanBody({
 
     if (!position.isBudget && !position.accountId && !hasDefaultAccount) {
       setNoAccountFor(position.label)
+      togglePaid.mutate({ id: position.id, paid: true })
+      return
     }
-    togglePaid.mutate({ id: position.id, paid: true })
+
+    // Steht schon ein Ist da, sind Buchungen erfasst — dann bucht der Haken
+    // nichts dazu und es gibt nichts zu fragen. Sonst nach Datum und Betrag
+    // fragen, denn beides wandert genau so ins Buch.
+    if (position.amountActual !== null) {
+      togglePaid.mutate({ id: position.id, paid: true })
+      return
+    }
+
+    setBooking(position)
   }
 
   const groups = BUDGETS.map((block) => {
@@ -382,6 +396,18 @@ function PlanBody({
       {/* Enthaken entfernt die vom Haken erzeugte Buchung. Der Betrag steht
           in der Frage, damit man sieht, was verloren geht — falls er nach dem
           Abhaken von Hand korrigiert wurde. */}
+      <PaidDialog
+        position={booking}
+        onClose={() => setBooking(null)}
+        onConfirm={({ occurredOn, amount }) => {
+          if (booking) {
+            togglePaid.mutate({ id: booking.id, paid: true, occurredOn, amount })
+          }
+          setBooking(null)
+        }}
+        pending={togglePaid.isPending}
+      />
+
       <AlertDialog
         open={confirming !== null}
         onOpenChange={(open) => !open && setConfirming(null)}
