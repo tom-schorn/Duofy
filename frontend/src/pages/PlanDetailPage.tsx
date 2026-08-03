@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { MonthBook } from '@/components/MonthBook'
 import { Metric } from '@/components/Metric'
+import { PlanSankey } from '@/components/PlanSankey'
 import { MonthFlow } from '@/components/MonthFlow'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PositionDialog } from '@/components/PositionDialog'
@@ -406,7 +407,12 @@ function PlanBody({
           />
         </TabsContent>
 
-        <TabsContent value="plan">
+        <TabsContent value="plan" className="flex flex-col gap-8">
+          {/* Zuerst das Bild, dann die Listen: „wohin geht es" beantwortet die
+              Frage, mit der man sich hinsetzt. Die Posten darunter sind das
+              Werkzeug, um daran zu drehen. */}
+          <PlanSankey positions={plan.positions} budget={plan.budget} />
+
       <div className="flex flex-col gap-8">
         {/* Einnahmen zuerst — sie sind die Grundlage für alles darunter.
             target={null}, weil es für Einnahmen keine Quote gibt. */}
@@ -872,7 +878,9 @@ function HouseholdPlanBody({
               />
             </TabsContent>
 
-            <TabsContent value="plan">
+            <TabsContent value="plan" className="flex flex-col gap-8">
+              <PlanSankey positions={plan.positions} budget={plan.budget} />
+
               <div className="flex flex-col gap-8">
                 <BudgetSection
                   block="income"
