@@ -260,6 +260,14 @@ export type Commitment = {
   paymentMethod: PaymentMethod | null
   /** Von welchem Konto es abgeht. null = Standardkonto. */
   accountId: string | null
+  /**
+   * Durchlaufender Posten — Geld, das nie zum Ausgeben da war.
+   *
+   * BuT für die Schulsachen und die Nebenkostenrückzahlung kommen an und
+   * wandern sofort weiter. Sie bleiben sichtbar und bewegen das Konto, zählen
+   * aber in kein Budget und in keine Quote.
+   */
+  passThrough: boolean
 }
 
 /** Der Monat, in dem der Takt beginnt — steckt im Startdatum. */
@@ -411,6 +419,14 @@ export type PlanPosition = {
    * einzelnen Buchungen. Statt eines Hakens zeigt die Zeile den Füllstand.
    */
   isBudget: boolean
+  /**
+   * Durchlaufender Posten — Geld, das nie zum Ausgeben da war.
+   *
+   * BuT für die Schulsachen und die Nebenkostenrückzahlung kommen an und
+   * wandern sofort weiter. Sie bleiben sichtbar und bewegen das Konto, zählen
+   * aber in kein Budget und in keine Quote.
+   */
+  passThrough: boolean
   /** NULL = privat. Gesetzt = wandert in diesen Haushaltsplan. */
   householdId: string | null
   /** Leer bei Einmal-Posten, die nicht aus einer Verpflichtung stammen. */
@@ -538,6 +554,8 @@ export function unallocated(plan: PlanSummary): number {
  */
 export function stillDue(position: PlanPosition): number {
   if (position.block === 'income' || isPaid(position)) return 0
+  // Steht und fällt mit seiner Einnahme — kein eigenes Geld fehlt.
+  if (position.passThrough) return 0
   const booked = Number(position.amountActual ?? 0)
   return Math.max(Number(position.amountPlanned) - booked, 0)
 }

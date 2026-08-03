@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -64,6 +65,7 @@ function emptyDraft(block: Block): PlanPosition {
     dueDay: 1,
     accountId: null,
     isBudget: false,
+    passThrough: false,
     paymentMethod: null,
     householdId: null,
     commitmentId: null,
@@ -281,6 +283,25 @@ export function PositionDialog({
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+            {/* Nimmt den Posten aus Budget und Quoten. Nötig für Geld, das
+                  nur durchgereicht wird — sonst sähen 1.139 € weitergeleitet
+                  aus wie 1.139 € gespart. */}
+              <div className="border-border flex items-center justify-between rounded-md border p-3">
+                <div className="flex flex-col pr-4">
+                  <Label htmlFor="position-pass-through">Durchlaufend</Label>
+                  <span className="text-muted-foreground text-xs">
+                    Geld, das nur weitergereicht wird — BuT, eine Rückzahlung,
+                    die sofort weggelegt wird. Zählt in kein Budget und in keine
+                    Quote.
+                  </span>
+                </div>
+                <Switch
+                  id="position-pass-through"
+                  checked={draft.passThrough}
+                  onCheckedChange={(checked) => set('passThrough', checked)}
+                />
               </div>
 
               <div className="flex flex-col gap-2">

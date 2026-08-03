@@ -214,7 +214,13 @@ function PlanBody({
   // „Verplanbar" = was vom Budget noch frei ist, nicht das Budget selbst.
   const allocated = groups.reduce(
     (total, group) =>
-      total + group.rows.reduce((sum, row) => sum + Number(row.amountPlanned), 0),
+      total +
+      group.rows.reduce(
+        // Durchlaufendes ist nie Budget gewesen — weder oben in `plan.budget`
+        // noch hier. Zöge man es nur hier ab, wäre „Verplanbar" zu groß.
+        (sum, row) => (row.passThrough ? sum : sum + Number(row.amountPlanned)),
+        0
+      ),
     0
   )
   const free = Number(plan.budget) - allocated
@@ -511,7 +517,13 @@ function HouseholdPlanBody({
 
   const allocated = groups.reduce(
     (total, group) =>
-      total + group.rows.reduce((sum, row) => sum + Number(row.amountPlanned), 0),
+      total +
+      group.rows.reduce(
+        // Durchlaufendes ist nie Budget gewesen — weder oben in `plan.budget`
+        // noch hier. Zöge man es nur hier ab, wäre „Verplanbar" zu groß.
+        (sum, row) => (row.passThrough ? sum : sum + Number(row.amountPlanned)),
+        0
+      ),
     0
   )
   const free = Number(plan.budget) - allocated

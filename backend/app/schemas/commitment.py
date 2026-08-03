@@ -22,6 +22,8 @@ class CommitmentBase(Schema):
     account_id: uuid.UUID | None = None
     #: Wird in die erzeugten Posten kopiert, dort je Monat überschreibbar.
     payment_method: PaymentMethod | None = None
+    #: Durchlaufender Posten — zählt in keine Quote. Wird ebenfalls kopiert.
+    pass_through: bool = False
 
     # nur bei savings_goal
     target_amount: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
@@ -75,6 +77,7 @@ class CommitmentUpdate(Schema):
     active: bool | None = None
     account_id: uuid.UUID | None = None
     payment_method: PaymentMethod | None = None
+    pass_through: bool | None = None
     target_amount: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     target_date: date | None = None
     remaining_debt: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)

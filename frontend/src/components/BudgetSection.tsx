@@ -53,8 +53,11 @@ export function BudgetSection({
   readOnly = false,
   ownerName,
 }: Props) {
+  // Durchlaufende Posten stehen in der Liste, aber nicht in der Summe: sie
+  // gehören nicht zum Budget, also darf die Quote sie nicht sehen.
   const total = positions.reduce(
-    (sum, position) => sum + Number(position.amountPlanned),
+    (sum, position) =>
+      position.passThrough ? sum : sum + Number(position.amountPlanned),
     0
   )
   const percent = target && target > 0 ? (total / target) * 100 : 0
@@ -231,6 +234,7 @@ function PositionRow({
             : ''}
           {position.commitmentId ? ' · aus Vertrag' : ''}
           {position.isBudget ? ' · Budget' : ''}
+          {position.passThrough ? ' · durchlaufend' : ''}
         </span>
       </button>
 

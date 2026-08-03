@@ -62,11 +62,17 @@ def _summarize(
     Nicht zu verwechseln mit „Verplanbar": das ist der noch freie Rest davon
     und wird im Frontend gebildet, weil es dort ohnehin live mitläuft.
     """
-    income = sum((p.amount_planned for p in positions if p.block is Block.INCOME), ZERO)
+    # Durchlaufende Posten bleiben außen vor — sie sind nie Budget gewesen.
+    # Die Nebenkostenrückzahlung kommt an und wird sofort weggelegt: zählte man
+    # sie mit, wüchse das Budget um 1.139 € und die Sparquote gleich mit,
+    # obwohl der Haushalt keinen Cent mehr zu verteilen hat.
+    counting = [p for p in positions if not p.pass_through]
+
+    income = sum((p.amount_planned for p in counting if p.block is Block.INCOME), ZERO)
     budget = income - (income * buffer_percent / 100)
 
     def total(block: Block) -> Decimal:
-        return sum((p.amount_planned for p in positions if p.block is block), ZERO)
+        return sum((p.amount_planned for p in counting if p.block is block), ZERO)
 
     def remaining(position: PlanPosition) -> Decimal:
         """Was von diesem Posten noch rausgeht.
@@ -78,6 +84,11 @@ def _summarize(
         Nie negativ — wer sein Budget überzieht, hat nichts „übrig".
         """
         if position.block is Block.INCOME or position.paid_at is not None:
+            return ZERO
+        # Ein durchlaufender Posten steht und fällt mit seiner Einnahme.
+        # Bliebe er hier drin, sähe der Monat unterdeckt aus, obwohl kein
+        # eigenes Geld fehlt — nur die Weiterleitung steht noch aus.
+        if position.pass_through:
             return ZERO
         booked = position.amount_actual or ZERO
         return max(position.amount_planned - booked, ZERO)
@@ -191,6 +202,7 @@ async def create_plan(
                 # „Setze ich selbst" wird zum Budget-Posten: kein Haken,
                 # stattdessen ein Füllstand aus den Buchungen.
                 is_budget=commitment.type is CommitmentType.BUDGET,
+                pass_through=commitment.pass_through,
             )
         )
 

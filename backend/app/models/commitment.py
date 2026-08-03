@@ -61,6 +61,18 @@ class Commitment(UUIDMixin, TimestampMixin, Base):
         ForeignKey("households.id", ondelete="SET NULL"), nullable=True
     )
 
+    #: Durchlaufender Posten — Geld, das nie zum Ausgeben da war.
+    #:
+    #: BuT für Lios Schulsachen und die Nebenkostenrückzahlung kommen an und
+    #: wandern sofort weiter. Sie bleiben im Plan sichtbar und bewegen das
+    #: Konto, zählen aber **nicht** ins Budget und in keine Quote.
+    #:
+    #: Ohne diese Unterscheidung bläht ein solcher Betrag das Budget auf und
+    #: die Sparquote gleich mit: 1.139 € durchgereicht sähen aus wie 1.139 €
+    #: gespart. Der Unterschied zu „Sparen Allgemein" ist die Entscheidung —
+    #: dort legt man eigenes Geld zurück, hier reicht man fremdes weiter.
+    pass_through: Mapped[bool] = mapped_column(default=False)
+
     rhythm: Mapped[Rhythm] = mapped_column(enum_column(Rhythm))
 
     #: Wann es das erste Mal fällig wird — Tag, Monat **und Jahr**.

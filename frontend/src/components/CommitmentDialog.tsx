@@ -120,6 +120,7 @@ function emptyDraft(): Commitment {
     firstDueDate: null,
     dueDay: 1,
     active: true,
+    passThrough: false,
     targetAmount: null,
     targetDate: null,
     remainingDebt: null,
@@ -558,6 +559,25 @@ export function CommitmentDialog({
                     ergibt sich das Datum, an dem die Schuld durch ist. */}
               </div>
             )}
+
+            {/* Nimmt den Posten aus Budget und Quoten. Nötig für Geld, das
+                nur durchgereicht wird — sonst sähen 1.139 € weitergeleitet
+                aus wie 1.139 € gespart. */}
+            <div className="border-border flex items-center justify-between rounded-md border p-3">
+              <div className="flex flex-col pr-4">
+                <Label htmlFor="commitment-pass-through">Durchlaufend</Label>
+                <span className="text-muted-foreground text-xs">
+                  Geld, das nur weitergereicht wird — BuT, eine Rückzahlung,
+                  die sofort weggelegt wird. Zählt in kein Budget und in keine
+                  Quote.
+                </span>
+              </div>
+              <Switch
+                id="commitment-pass-through"
+                checked={draft.passThrough}
+                onCheckedChange={(checked) => set('passThrough', checked)}
+              />
+            </div>
 
             <div className="border-border flex items-center justify-between rounded-md border p-3">
               <div className="flex flex-col">

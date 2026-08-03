@@ -21,6 +21,8 @@ class PositionBase(Schema):
     household_id: uuid.UUID | None = None
     #: Füllt sich aus Buchungen statt abgehakt zu werden.
     is_budget: bool = False
+    #: Durchläuft nur — zählt in keine Quote und in kein Budget.
+    pass_through: bool = False
 
 
 class PositionCreate(PositionBase):
@@ -40,6 +42,7 @@ class PositionUpdate(Schema):
     payment_method: PaymentMethod | None = None
     household_id: uuid.UUID | None = None
     is_budget: bool | None = None
+    pass_through: bool | None = None
 
 
 class PositionPaid(Schema):

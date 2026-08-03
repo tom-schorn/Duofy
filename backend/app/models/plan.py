@@ -117,6 +117,18 @@ class PlanPosition(UUIDMixin, TimestampMixin, Base):
     #: frei wählbar.
     is_budget: Mapped[bool] = mapped_column(default=False)
 
+    #: Durchlaufender Posten — Geld, das nie zum Ausgeben da war.
+    #:
+    #: BuT für Lios Schulsachen und die Nebenkostenrückzahlung kommen an und
+    #: wandern sofort weiter. Sie bleiben im Plan sichtbar und bewegen das
+    #: Konto, zählen aber **nicht** ins Budget und in keine Quote.
+    #:
+    #: Ohne diese Unterscheidung bläht ein solcher Betrag das Budget auf und
+    #: die Sparquote gleich mit: 1.139 € durchgereicht sähen aus wie 1.139 €
+    #: gespart. Der Unterschied zu „Sparen Allgemein" ist die Entscheidung —
+    #: dort legt man eigenes Geld zurück, hier reicht man fremdes weiter.
+    pass_through: Mapped[bool] = mapped_column(default=False)
+
     manually_changed: Mapped[bool] = mapped_column(default=False)
 
     plan: Mapped[Plan] = relationship(back_populates="positions")
