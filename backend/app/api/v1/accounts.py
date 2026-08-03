@@ -9,19 +9,24 @@ Anfangsbestand plus den Buchungen danach — sobald es Buchungen gibt.
 """
 
 import uuid
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select, update
+from sqlalchemy import case, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
 from app.core.permissions import require
 from app.db.session import get_session
 from app.models.account import Account
+from app.models.enums import Block
+from app.models.transaction import Transaction
 from app.models.user import User
 from app.schemas.account import AccountCreate, AccountRead, AccountUpdate
 
 router = APIRouter()
+
+ZERO = Decimal("0.00")
 
 
 async def _clear_other_defaults(
@@ -48,18 +53,63 @@ async def _load(session: AsyncSession, account_id: uuid.UUID, user: User) -> Acc
     return account
 
 
+async def _balances(session: AsyncSession, user: User) -> dict[uuid.UUID, Decimal]:
+    """Wieviel jede Buchung am Stand des jeweiligen Kontos bewegt hat.
+
+    Die Buchung trägt kein Vorzeichen, die Richtung steht woanders:
+
+    * **Umbuchung** — verlässt `account_id`, kommt bei `counter_account_id` an.
+    * **sonst** — `block = income` ist Zufluss, alles andere Abfluss.
+
+    Zwei Summen, weil ein Konto in beiden Spalten vorkommen kann: als Quelle
+    der einen Umbuchung und als Ziel der nächsten.
+    """
+    outgoing = await session.execute(
+        select(
+            Transaction.account_id,
+            func.sum(
+                case(
+                    # Umbuchung: geht raus, egal welcher Block.
+                    (Transaction.counter_account_id.isnot(None), -Transaction.amount),
+                    (Transaction.block == Block.INCOME, Transaction.amount),
+                    else_=-Transaction.amount,
+                )
+            ),
+        )
+        .where(Transaction.owner_id == user.id)
+        .group_by(Transaction.account_id)
+    )
+    incoming = await session.execute(
+        select(Transaction.counter_account_id, func.sum(Transaction.amount))
+        .where(Transaction.owner_id == user.id, Transaction.counter_account_id.isnot(None))
+        .group_by(Transaction.counter_account_id)
+    )
+
+    moved: dict[uuid.UUID, Decimal] = {}
+    for account_id, total in list(outgoing.all()) + list(incoming.all()):
+        moved[account_id] = moved.get(account_id, Decimal("0.00")) + total
+    return moved
+
+
 @router.get("", response_model=list[AccountRead])
 async def list_accounts(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
-) -> list[Account]:
-    """Eigene Konten, aufgelöste zuletzt."""
+) -> list[AccountRead]:
+    """Eigene Konten mit Stand, aufgelöste zuletzt."""
     result = await session.execute(
         select(Account)
         .where(Account.owner_id == user.id)
         .order_by(Account.active.desc(), Account.name)
     )
-    return list(result.scalars())
+    moved = await _balances(session, user)
+
+    return [
+        AccountRead.model_validate(account).model_copy(
+            update={"balance": account.opening_balance + moved.get(account.id, ZERO)}
+        )
+        for account in result.scalars()
+    ]
 
 
 @router.post("", response_model=AccountRead, status_code=status.HTTP_201_CREATED)

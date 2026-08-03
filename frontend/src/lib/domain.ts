@@ -306,6 +306,8 @@ export type Account = {
   isDefault: boolean
   active: boolean
   externalRef: string | null
+  /** Anfangsbestand plus alle Buchungen. Kommt vom Server, wird nie gesendet. */
+  balance?: string
 }
 
 /**

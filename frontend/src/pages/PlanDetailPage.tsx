@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { ArrowLeft, Plus, Users } from 'lucide-react'
 
+import { AccountCards } from '@/components/AccountCards'
 import { BudgetSection } from '@/components/BudgetSection'
 import { PaidDialog } from '@/components/PaidDialog'
 import {
@@ -333,7 +334,12 @@ function PlanBody({
           />
         </TabsContent>
 
-        <TabsContent value="book">
+        <TabsContent value="book" className="flex flex-col gap-6">
+          {/* Die Kontostände gehören zum Buch, nicht zum Plan: sie sagen, was
+              wirklich da ist. Unter den Plan-Karten, damit man beides in
+              einem Blick hat. */}
+          <AccountCards />
+
           <MonthBook
             positions={plan.positions}
             year={plan.year}

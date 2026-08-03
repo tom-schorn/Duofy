@@ -42,6 +42,7 @@ class AccountRead(AccountBase):
     id: uuid.UUID
     owner_id: uuid.UUID
 
-    # Kein `balance`: der Stand ergibt sich aus Anfangsbestand plus Buchungen,
-    # und Buchungen gibt es noch nicht. Ein Feld, das jetzt nur den
-    # Anfangsbestand wiederholt, wäre eine Behauptung.
+    #: Anfangsbestand plus alles, was seitdem gebucht wurde. Berechnet, nicht
+    #: gespeichert — eine gespeicherte Zahl liefe irgendwann auseinander, und
+    #: die Buchungen sind ohnehin die Wahrheit.
+    balance: Decimal = Decimal("0.00")
