@@ -1,37 +1,41 @@
 import { QueryState } from '@/components/QueryState'
 import {
+  daysInMonth,
   euro,
   OWN_SCOPE,
   type BalanceHistory,
-  type BalancePoint,
   type BookScope,
 } from '@/lib/domain'
 import { useBalanceHistory } from '@/lib/queries'
 
 /**
- * Was an jedem Tag hoch und was runter ging — das Diagramm des Buchs.
+ * Was an jedem Tag hoch und was runter ging, mit dem verfügbaren Saldo darüber.
  *
- * Zwei Felder, eine gemeinsame Datumsachse:
+ * Balken und Linie liegen in **einem** Bild auf **einer** Euro-Skala:
  *
- * * **oben** der verfügbare Saldo als Stufenlinie
- * * **unten** die Bewegung des Tages, Einnahmen nach oben, Ausgaben nach unten
- *   und dort nach Block gestapelt
+ * * Balken — die Bewegung des Tages. Einnahmen nach oben, Ausgaben nach unten
+ *   und dort gestapelt nach Bedarf, Wünschen und Weggelegtem.
+ * * Linie — der verfügbare Saldo, fortgeschrieben über den Monat.
  *
- * ## Warum zwei Felder und keine zweite Achse
- *
- * Auf einer gemeinsamen Euro-Skala von −1.600 bis 3.200 wäre ein Tag mit 3,14 €
- * ein Balken unter einem Pixel. Eine zweite Y-Achse wäre der andere Ausweg und
- * der schlechtere: sie lässt zwei Kurven vergleichbar aussehen, die es nicht
- * sind, weil die Form der einen allein von der gewählten Skalierung abhängt.
+ * Das ist **keine** zweite Achse. Beide Reihen sind Euro und teilen dieselbe
+ * Nulllinie; die Linie ist die laufende Summe der Balken. Genau deshalb darf
+ * man sie übereinanderlegen — bei zwei Achsen hinge die Form der Linie an einer
+ * gewählten Skalierung und wäre bedeutungslos.
  *
  * ## Warum der **verfügbare** Saldo
  *
- * Sonst gehen Linie und Balken nicht auf. Eine Umbuchung aufs Tagesgeld ist im
- * Gesamtstand neutral, erscheint aber als Ausgabenbalken — am Monatsende fehlte
- * die Differenz. Im verfügbaren Topf verlässt sie den Topf und senkt die Linie
- * um genau den Balken, den sie erzeugt.
+ * Nur so geht die Rechnung auf. Eine Umbuchung aufs Tagesgeld ist im
+ * Gesamtstand neutral, erscheint aber als Ausgabenbalken — die Linie liefe
+ * auseinander. Im verfügbaren Topf verlässt das Geld den Topf und die Linie
+ * sinkt um genau den Balken, den sie erzeugt.
  *
  * Das ist zugleich die Zahl, die im Alltag zählt: was noch greifbar ist.
+ *
+ * ## Warum immer der 1. bis Monatsende
+ *
+ * Die Achse zeigt den ganzen Monat, auch die Tage ohne Bewegung. Sonst läge sie
+ * nicht auf dem Kalender: zwischen dem 3. und dem 28. wäre derselbe Abstand wie
+ * zwischen dem 3. und dem 4., und ein Monat mit drei Buchungen sähe voll aus.
  *
  * ## Warum kalendarisch
  *
@@ -55,78 +59,123 @@ const BLOCKS = [
   { key: 'savings', label: 'Weggelegt', fill: 'var(--chart-4)' },
 ] as const
 
-/** Feldhöhen in viewBox-Einheiten. Nur x skaliert mit dem Container. */
-const SALDO_H = 74
-const BARS_H = 148
+type Tag = {
+  tag: number
+  income: number
+  needs: number
+  wants: number
+  savings: number
+  /** Verfügbarer Saldo am Abend des Tages. */
+  saldo: number
+}
 
 export function BookFlow({ year, month, scope = OWN_SCOPE }: Props) {
-  // onlyAvailable: siehe oben — ohne das gehen Linie und Balken nicht auf.
+  // onlyAvailable: siehe oben — ohne das läuft die Linie von den Balken weg.
   const history = useBalanceHistory(year, month, scope, true)
 
   return (
     <QueryState isPending={history.isPending} error={history.error} rows={2}>
-      {history.data && <Chart data={history.data} />}
+      {history.data && (
+        <Chart data={history.data} year={year} month={month} />
+      )}
     </QueryState>
   )
 }
 
-function raus(point: BalancePoint): number {
-  return BLOCKS.reduce((sum, b) => sum + Number(point.moves[b.key]), 0)
+/**
+ * Ein Eintrag je Tag des Monats — auch ohne Bewegung.
+ *
+ * Der Saldo wird fortgeschrieben, die Bewegung bleibt null. Ohne diese Tage
+ * läge die x-Achse nicht auf dem Kalender.
+ */
+function buildDays(data: BalanceHistory, year: number, month: number): Tag[] {
+  const byDay = new Map(
+    data.points.map((p) => [Number(p.day.slice(8, 10)), p])
+  )
+  const out: Tag[] = []
+  let saldo = Number(data.openingBalance)
+
+  for (let tag = 1; tag <= daysInMonth(year, month); tag += 1) {
+    const treffer = byDay.get(tag)
+    if (treffer) saldo = Number(treffer.balance)
+    out.push({
+      tag,
+      income: Number(treffer?.moves.income ?? 0),
+      needs: Number(treffer?.moves.needs ?? 0),
+      wants: Number(treffer?.moves.wants ?? 0),
+      savings: Number(treffer?.moves.savings ?? 0),
+      saldo,
+    })
+  }
+  return out
 }
 
-function Chart({ data }: { data: BalanceHistory }) {
-  const points = data.points
-  const opening = Number(data.openingBalance)
+/** Runde Schrittweiten für die Beträge links. */
+const STEPS = [
+  5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 2500, 5000, 10000,
+]
+
+/** Drei bis fünf runde Beschriftungen über die Spanne, immer inklusive Null. */
+function ticks(low: number, high: number): number[] {
+  const spanne = high - low || 1
+  const step =
+    STEPS.find((s) => spanne / s <= 5) ?? STEPS[STEPS.length - 1]
+  const werte: number[] = []
+  for (let v = Math.ceil(low / step) * step; v <= high; v += step) werte.push(v)
+  if (!werte.includes(0) && low <= 0 && high >= 0) werte.push(0)
+  return werte.sort((a, b) => a - b)
+}
+
+function Chart({
+  data,
+  year,
+  month,
+}: {
+  data: BalanceHistory
+  year: number
+  month: number
+}) {
+  const days = buildDays(data, year, month)
+  const n = days.length
   const closing = Number(data.closingBalance)
 
-  if (points.length === 0) {
-    return (
-      <section className="bg-card border-border flex flex-col gap-1 rounded-lg border p-5">
-        <p className="font-mono text-2xl font-semibold tabular-nums">
-          {euro.format(closing)}
-        </p>
-        <p className="text-muted-foreground text-sm">
-          Verfügbar. In diesem Monat ist noch nichts gebucht — sobald etwas
-          fließt, steht hier der Verlauf.
-        </p>
-      </section>
-    )
-  }
+  const raus = (d: Tag) => d.needs + d.wants + d.savings
+  const einSumme = days.reduce((s, d) => s + d.income, 0)
+  const ausSumme = days.reduce((s, d) => s + raus(d), 0)
 
-  const rein = points.map((p) => Number(p.moves.income))
-  const ab = points.map(raus)
-  const groesste = Math.max(...rein, ...ab, 1)
+  // Eine Skala für beides: Balken **und** Linie sind Euro. Die Null ist immer
+  // dabei, sonst hätten die Balken keinen Bezugspunkt.
+  const alle = [
+    0,
+    ...days.map((d) => d.income),
+    ...days.map((d) => -raus(d)),
+    ...days.map((d) => d.saldo),
+    Number(data.openingBalance),
+  ]
+  const roh = { low: Math.min(...alle), high: Math.max(...alle) }
+  const luft = (roh.high - roh.low || 1) * 0.08
+  const low = roh.low - luft
+  const high = roh.high + luft
 
-  // Die Nulllinie liegt dort, wo das Verhältnis von rein zu raus es verlangt —
-  // sonst verschenkt ein Monat ohne Einnahmen die halbe Fläche.
-  const obenAnteil =
-    Math.max(...rein) / (Math.max(...rein) + Math.max(...ab) || 1)
-  const nullY = BARS_H * obenAnteil
-  const hoehe = (wert: number, auf: boolean) =>
-    (wert / groesste) * (auf ? nullY : BARS_H - nullY)
+  const x = (tag: number) => ((tag - 0.5) / n) * 100
+  const y = (v: number) => ((high - v) / (high - low)) * 100
+  const breite = Math.min((100 / n) * 0.62, 3)
+  const nullY = y(0)
 
-  const salden = [opening, ...points.map((p) => Number(p.balance))]
-  const hoch = Math.max(...salden)
-  const tief = Math.min(...salden)
-  const spanne = hoch - tief || Math.abs(hoch) || 1
-  const saldoY = (v: number) => 6 + ((hoch - v) / spanne) * (SALDO_H - 14)
-
-  const spalten = points.length
-  const mitte = (i: number) => ((i + 0.5) / spalten) * 100
-  const breite = Math.min(56 / spalten, 5)
-
-  // Stufen, keine Gerade: der Stand hält bis zur nächsten Bewegung.
-  const stufe = points
-    .map((p, i) =>
+  // Stufen, keine Gerade: der Saldo hält bis zur nächsten Bewegung.
+  const linie = days
+    .map((d, i) =>
       i === 0
-        ? `M ${mitte(0)} ${saldoY(opening)} L ${mitte(0)} ${saldoY(Number(p.balance))}`
-        : `L ${mitte(i)} ${saldoY(Number(points[i - 1].balance))} L ${mitte(i)} ${saldoY(Number(p.balance))}`
+        ? `M ${x(d.tag)} ${y(d.saldo)}`
+        : `L ${x(d.tag)} ${y(days[i - 1].saldo)} L ${x(d.tag)} ${y(d.saldo)}`
     )
     .join(' ')
 
-  const einSumme = rein.reduce((s, v) => s + v, 0)
-  const ausSumme = ab.reduce((s, v) => s + v, 0)
-  const tag = (iso: string) => Number(iso.slice(8, 10))
+  const beschriftung = ticks(roh.low, roh.high)
+  // Beschriftete Tage: erster, letzter und dazwischen alle fünf.
+  const tagLabels = days
+    .map((d) => d.tag)
+    .filter((t) => t === 1 || t === n || t % 5 === 0)
 
   return (
     <section className="bg-card border-border flex flex-col gap-4 rounded-lg border p-5">
@@ -142,109 +191,113 @@ function Chart({ data }: { data: BalanceHistory }) {
         </span>
       </header>
 
-      {/* Zwei getrennte Flächen, nicht ein Bild mit Linie darin. Sonst liest
-          man es als Diagramm mit zweiter Y-Achse — und genau das ist es nicht:
-          die Felder haben eigene Maßstäbe und dürfen nicht verglichen werden.
-          Gemeinsam ist nur die Datumsachse darunter. */}
-      <div className="flex w-full flex-col gap-3 overflow-x-auto">
-        <figure className="border-border/60 flex flex-col gap-1 rounded-md border p-3">
-          <figcaption className="text-muted-foreground text-[11px] font-semibold tracking-widest uppercase">
-            Verfügbarer Saldo
-          </figcaption>
-          <svg
-            viewBox={`0 0 100 ${SALDO_H}`}
-            preserveAspectRatio="none"
-            className="h-24 w-full min-w-[30rem]"
-            role="img"
-            aria-label={`Verfügbarer Saldo im Monat. Start ${euro.format(opening)}, Ende ${euro.format(closing)}.`}
-          >
-            <path
-              d={`${stufe} L ${mitte(spalten - 1)} ${SALDO_H} L ${mitte(0)} ${SALDO_H} Z`}
-              className="fill-foreground/10"
-            />
-            <path
-              d={stufe}
-              fill="none"
-              className="stroke-foreground"
-              strokeWidth={2}
-              strokeLinejoin="round"
-              vectorEffect="non-scaling-stroke"
-            />
-          </svg>
-        </figure>
+      {/* Die Beträge links und die Tage unten liegen als HTML über bzw. unter
+          der gestreckten Zeichenfläche. Im SVG selbst würde Text mitskaliert
+          und auf breiten Fenstern riesig. */}
+      <div className="flex w-full gap-2">
+        <div className="text-muted-foreground relative w-14 shrink-0 text-right text-[11px] tabular-nums">
+          {beschriftung.map((v) => (
+            <span
+              key={v}
+              style={{ top: `${y(v)}%` }}
+              className="absolute right-0 -translate-y-1/2 whitespace-nowrap"
+            >
+              {v === 0 ? '0' : Math.round(v).toLocaleString('de-DE')}
+            </span>
+          ))}
+        </div>
 
-        <figure className="border-border/60 flex flex-col gap-1 rounded-md border p-3">
-          <figcaption className="text-muted-foreground text-[11px] font-semibold tracking-widest uppercase">
-            Bewegung je Tag
-          </figcaption>
-          <svg
-            viewBox={`0 0 100 ${BARS_H}`}
-            preserveAspectRatio="none"
-            className="h-44 w-full min-w-[30rem]"
-            role="img"
-            aria-label={`Bewegung je Tag. ${euro.format(einSumme)} eingegangen, ${euro.format(ausSumme)} ausgegeben, nach Block aufgeteilt.`}
-          >
-            <line
-              x1="0"
-              x2="100"
-              y1={nullY}
-              y2={nullY}
-              className="stroke-border"
-              strokeWidth={1}
-              vectorEffect="non-scaling-stroke"
-            />
+        <div className="min-w-0 flex-1">
+          <div className="relative h-64 w-full">
+            <svg
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              className="absolute inset-0 h-full w-full overflow-visible"
+              role="img"
+              aria-label={`Bewegung je Tag und verfügbarer Saldo. Start ${euro.format(Number(data.openingBalance))}, Ende ${euro.format(closing)}. ${euro.format(einSumme)} eingegangen, ${euro.format(ausSumme)} ausgegeben.`}
+            >
+              {/* Hilfslinien zu den Beträgen — zurückhaltend, nur zur Orientierung. */}
+              {beschriftung.map((v) => (
+                <line
+                  key={v}
+                  x1="0"
+                  x2="100"
+                  y1={y(v)}
+                  y2={y(v)}
+                  className={v === 0 ? 'stroke-border' : 'stroke-border/45'}
+                  strokeWidth={1}
+                  vectorEffect="non-scaling-stroke"
+                />
+              ))}
 
-            {points.map((p, i) => {
-              const x = mitte(i) - breite / 2
-              const ein = Number(p.moves.income)
-              let y = nullY
-              return (
-                <g key={p.day}>
-                  {ein > 0 && (
-                    <rect
-                      x={x}
-                      y={nullY - hoehe(ein, true)}
-                      width={breite}
-                      height={hoehe(ein, true)}
-                      className="fill-chart-3"
-                    >
-                      <title>{`${tag(p.day)}. — ${euro.format(ein)} herein`}</title>
-                    </rect>
-                  )}
-                  {BLOCKS.map((b) => {
-                    const wert = Number(p.moves[b.key])
-                    if (wert <= 0) return null
-                    const h = hoehe(wert, false)
-                    const oben = y
-                    y += h
-                    // Lücke zwischen den Segmenten: ohne sie liest man zwei
-                    // gestapelte Flächen als eine.
-                    return (
+              {days.map((d) => {
+                const links = x(d.tag) - breite / 2
+                let unten = nullY
+                return (
+                  <g key={d.tag}>
+                    {d.income > 0 && (
                       <rect
-                        key={b.key}
-                        x={x}
-                        y={oben}
+                        x={links}
+                        y={y(d.income)}
                         width={breite}
-                        height={Math.max(h - 1, 0.5)}
-                        fill={b.fill}
+                        height={nullY - y(d.income)}
+                        className="fill-chart-3"
                       >
-                        <title>{`${tag(p.day)}. — ${b.label} ${euro.format(wert)}`}</title>
+                        <title>{`${d.tag}. — ${euro.format(d.income)} herein`}</title>
                       </rect>
-                    )
-                  })}
-                </g>
-              )
-            })}
-          </svg>
-        </figure>
+                    )}
+                    {BLOCKS.map((b) => {
+                      const wert = d[b.key]
+                      if (wert <= 0) return null
+                      const h = nullY - y(0 - wert)
+                      const oben = unten
+                      unten += h
+                      // Lücke zwischen den Segmenten: ohne sie liest man zwei
+                      // gestapelte Flächen als eine.
+                      return (
+                        <rect
+                          key={b.key}
+                          x={links}
+                          y={oben}
+                          width={breite}
+                          height={Math.max(h - 0.4, 0.3)}
+                          fill={b.fill}
+                        >
+                          <title>{`${d.tag}. — ${b.label} ${euro.format(wert)}`}</title>
+                        </rect>
+                      )
+                    })}
+                  </g>
+                )
+              })}
+
+              <path
+                d={linie}
+                fill="none"
+                className="stroke-foreground"
+                strokeWidth={2}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                vectorEffect="non-scaling-stroke"
+              />
+            </svg>
+          </div>
+
+          <div className="text-muted-foreground relative mt-1.5 h-4 text-[11px] tabular-nums">
+            {tagLabels.map((t) => (
+              <span
+                key={t}
+                style={{ left: `${x(t)}%` }}
+                className="absolute -translate-x-1/2"
+              >
+                {t}.
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div className="text-muted-foreground flex justify-between text-xs tabular-nums">
-        <span>{tag(points[0].day)}.</span>
-        <span>{tag(points[points.length - 1].day)}.</span>
-      </div>
-
-      {/* Legende: bei mehr als einer Serie immer da, Identität nie nur über
+      {/* Legende: bei mehr als einer Reihe immer da, Identität nie nur über
           Farbe. Einnahmen stehen zusätzlich über der Nulllinie. */}
       <ul className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-xs">
         <li className="flex items-center gap-1.5">
@@ -261,7 +314,7 @@ function Chart({ data }: { data: BalanceHistory }) {
           </li>
         ))}
         <li className="flex items-center gap-1.5">
-          <span className="bg-foreground size-2.5 rounded-sm" />
+          <span className="bg-foreground h-0.5 w-4 rounded-full" />
           verfügbarer Saldo
         </li>
       </ul>
