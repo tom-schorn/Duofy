@@ -4,6 +4,7 @@ import { ArrowLeft, Plus, Users } from 'lucide-react'
 
 import { AccountCards } from '@/components/AccountCards'
 import { BookFlow } from '@/components/BookFlow'
+import { BookMetrics } from '@/components/BookMetrics'
 import { BudgetSection } from '@/components/BudgetSection'
 import { PaidDialog } from '@/components/PaidDialog'
 import {
@@ -17,6 +18,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { MonthBook } from '@/components/MonthBook'
+import { Metric } from '@/components/Metric'
 import { MonthFlow } from '@/components/MonthFlow'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PositionDialog } from '@/components/PositionDialog'
@@ -267,17 +269,25 @@ function PlanBody({
         </Button>
       </header>
 
-      <section className="grid gap-3 sm:grid-cols-3">
-        <Metric label="Einnahmen" value={Number(plan.income)} />
-        <Metric
-          label="Verplanbar"
-          value={free}
-          hint="noch nicht verteilt"
-          strong
-          tone={free < 0 ? 'over' : 'neutral'}
-        />
-        <Metric label="Noch offen" value={unpaid} hint="noch nicht bezahlt" />
-      </section>
+      {/* Zwei Sichten, zwei Kartensätze. Der Plan rechnet mit dem Soll —
+          „Verplanbar" ist Budget minus verteilte Posten und darf sich während
+          des Monats nicht bewegen, sonst taugt es zum Planen nicht. Das Buch
+          zeigt daneben, was wirklich geflossen ist. */}
+      {tab === 'book' ? (
+        <BookMetrics year={plan.year} month={plan.month} />
+      ) : (
+        <section className="grid gap-3 sm:grid-cols-3">
+          <Metric label="Einnahmen" value={Number(plan.income)} />
+          <Metric
+            label="Verplanbar"
+            value={free}
+            hint="noch nicht verteilt"
+            strong
+            tone={free < 0 ? 'over' : 'neutral'}
+          />
+          <Metric label="Noch offen" value={unpaid} hint="noch nicht bezahlt" />
+        </section>
+      )}
 
       {noAccountFor && (
         <p
@@ -583,32 +593,3 @@ function HouseholdPlanBody({
   )
 }
 
-function Metric({
-  label,
-  value,
-  hint,
-  strong = false,
-  tone = 'neutral',
-}: {
-  label: string
-  value: number
-  hint?: string
-  strong?: boolean
-  tone?: 'neutral' | 'over'
-}) {
-  return (
-    <div className="bg-card border-border flex flex-col gap-1 rounded-lg border p-4">
-      <span className="text-muted-foreground text-[11px] font-semibold tracking-widest uppercase">
-        {label}
-      </span>
-      <span
-        className={`font-mono tabular-nums ${strong ? 'text-xl font-semibold' : 'text-lg font-medium'} ${
-          tone === 'over' ? 'text-destructive' : ''
-        }`}
-      >
-        {euro.format(value)}
-      </span>
-      {hint && <span className="text-muted-foreground text-xs">{hint}</span>}
-    </div>
-  )
-}
