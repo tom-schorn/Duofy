@@ -212,6 +212,21 @@
     color: inherit !important;
   }
 
+  /* Recharts zeichnet eine **feste** Größe aus der Bildschirmbreite — hier 936
+     px — und misst für den Druck nicht neu. Auf A4 stehen nur 703 px zur
+     Verfügung, das Diagramm wäre rechts abgeschnitten.
+
+     Die Rettung ist die `viewBox`, die Recharts mitliefert: mit `width: 100%`
+     und `height: auto` skaliert das SVG proportional hinein. Die Maße stehen
+     inline am Wrapper, deshalb braucht es `!important`. */
+  [data-slot='chart'],
+  .recharts-wrapper,
+  .recharts-surface {
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
   @page {
     margin: 14mm 12mm;
   }

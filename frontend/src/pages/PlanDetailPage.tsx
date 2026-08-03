@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { MonthBook } from '@/components/MonthBook'
 import { Metric } from '@/components/Metric'
+import { PlanPrintout } from '@/components/PlanPrintout'
 import { PlanSankey } from '@/components/PlanSankey'
 import { langesDatum, today } from '@/lib/dates'
 import { MonthFlow } from '@/components/MonthFlow'
@@ -314,7 +315,10 @@ function PlanBody({
       </p>
 
       <header className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex flex-col gap-2">
+        {/* `min-w-0 flex-1`: ohne das nimmt sich der Textblock die volle Breite
+            und schiebt die Knopfgruppe auf eine eigene Zeile — dort steht sie
+            dann links statt rechts oben. */}
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="font-heading text-3xl font-semibold">
               {MONTH_LABEL[plan.month - 1]} {plan.year}
@@ -334,24 +338,31 @@ function PlanBody({
             es zählt, dass es aufgeht.
           </p>
         </div>
-        {/* Drucken wechselt vorher auf den Plan: gedruckt wird, was im DOM
-            steht, und bei offenem Buch-Reiter wäre das das Buch. */}
-        <Button
-          variant="outline"
+        {/* Eigene Gruppe: der Kopf hat `justify-between` und genau zwei
+            Kinder. Ein dritter Knopf direkt daneben landete in der Mitte,
+            statt rechts bei den anderen zu bleiben. */}
+        <div
+          className="flex shrink-0 flex-wrap items-center gap-2"
           data-print="hide"
-          onClick={() => {
-            setTab('plan')
-            // Ein Tick, damit React den Reiterwechsel gerendert hat.
-            requestAnimationFrame(() => window.print())
-          }}
         >
-          <Printer className="size-4" />
-          Drucken
-        </Button>
-        <Button data-print="hide" onClick={() => handleAdd('wants')}>
-          <Plus className="size-4" />
-          Posten hinzufügen
-        </Button>
+          {/* Drucken wechselt vorher auf den Plan: gedruckt wird, was im DOM
+              steht, und bei offenem Buch-Reiter wäre das das Buch. */}
+          <Button
+            variant="outline"
+            onClick={() => {
+              setTab('plan')
+              // Ein Tick, damit React den Reiterwechsel gerendert hat.
+              requestAnimationFrame(() => window.print())
+            }}
+          >
+            <Printer className="size-4" />
+            Drucken
+          </Button>
+          <Button onClick={() => handleAdd('wants')}>
+            <Plus className="size-4" />
+            Posten hinzufügen
+          </Button>
+        </div>
       </header>
 
       {/* Zwei Sichten, zwei Kartensätze. Der Plan rechnet mit dem Soll —
@@ -454,7 +465,10 @@ function PlanBody({
               Werkzeug, um daran zu drehen. */}
           <PlanSankey positions={plan.positions} budget={plan.budget} />
 
-      <div className="flex flex-col gap-8">
+      {/* Auf Papier ersetzt `PlanPrintout` diese Liste — dort trägt jede Zeile
+          Abzeichen und einen Haken zum Klicken, und aus 26 Posten würden drei
+          Seiten statt einer. */}
+      <div className="flex flex-col gap-8 print:hidden">
         {/* Einnahmen zuerst — sie sind die Grundlage für alles darunter.
             target={null}, weil es für Einnahmen keine Quote gibt. */}
         <BudgetSection
@@ -489,7 +503,12 @@ function PlanBody({
         </TabsContent>
       </Tabs>
 
-      <footer className="flex flex-wrap items-center justify-between gap-4 border-t pt-6">
+      <PlanPrintout plan={plan} />
+
+      <footer
+        data-print="hide"
+        className="flex flex-wrap items-center justify-between gap-4 border-t pt-6"
+      >
         <p className="text-muted-foreground text-sm">
           {plan.status === 'draft'
             ? 'Entwurf — noch nicht bestätigt.'
