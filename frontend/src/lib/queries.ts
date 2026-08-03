@@ -7,6 +7,7 @@ import {
 
 import { api } from '@/lib/api'
 import type {
+  AccessLevel,
   Account,
   BalanceHistory,
   Commitment,
@@ -14,6 +15,7 @@ import type {
   HouseholdPlanDetail,
   Invitation,
   Me,
+  Member,
   MyInvitation,
   PlanDetail,
   PlanPosition,
@@ -87,6 +89,20 @@ export function useLeaveHousehold() {
   return useInvalidating<void, string>(
     (householdId) => api.delete(`/households/${householdId}/members/me`),
     [keys.households]
+  )
+}
+
+/**
+ * Stellt die eigene Freigabe in einem Haushalt um.
+ *
+ * Nur die eigene — deshalb kein Mitglied im Aufruf. Danach ändert sich, was
+ * der Partner sieht, also müssen Pläne und Konten neu geladen werden.
+ */
+export function useSetMyAccess(householdId: string) {
+  return useInvalidating<Member, AccessLevel>(
+    (grantsAccess) =>
+      api.patch(`/households/${householdId}/members/me`, { grantsAccess }),
+    [keys.households, keys.plans, keys.accounts]
   )
 }
 

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.types import enum_column
-from app.models.enums import InvitationStatus, Role
+from app.models.enums import AccessLevel, InvitationStatus, Role
 from app.models.mixins import TimestampMixin, UUIDMixin
 
 #: Wie lange eine Einladung gültig bleibt.
@@ -60,6 +60,15 @@ class HouseholdMember(UUIDMixin, TimestampMixin, Base):
     household_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("households.id", ondelete="CASCADE"))
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     role: Mapped[Role] = mapped_column(enum_column(Role))
+
+    #: Was diese Person den anderen Mitgliedern über sich erlaubt.
+    #:
+    #: Vorgabe `plan`: der Partner sieht die gemeinsamen Posten und sonst
+    #: nichts — kein Buch, keine Konten, keine privaten Posten. Höher stellt
+    #: man es nur selbst, siehe `AccessLevel`.
+    grants_access: Mapped[AccessLevel] = mapped_column(
+        enum_column(AccessLevel), default=AccessLevel.PLAN
+    )
 
     household: Mapped[Household] = relationship(back_populates="members")
 

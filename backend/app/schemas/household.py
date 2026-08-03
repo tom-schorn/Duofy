@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from pydantic import EmailStr, Field
 
-from app.models.enums import InvitationStatus, Role
+from app.models.enums import AccessLevel, InvitationStatus, Role
 from app.schemas.base import Schema
 
 
@@ -16,6 +16,8 @@ class MemberRead(Schema):
     last_name: str
     email: EmailStr
     role: Role
+    #: Was diese Person den anderen über sich erlaubt.
+    grants_access: AccessLevel
 
 
 class HouseholdRead(Schema):
@@ -81,3 +83,9 @@ class InvitationPreview(Schema):
     household_name: str
     invited_by: str
     expires_at: datetime
+
+
+class AccessUpdate(Schema):
+    """Womit man die eigene Freigabe umstellt. Nur die eigene."""
+
+    grants_access: AccessLevel

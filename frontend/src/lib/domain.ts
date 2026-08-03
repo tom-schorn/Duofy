@@ -444,12 +444,36 @@ export type Me = {
 
 export type Role = 'owner' | 'member'
 
+/**
+ * Was jemand den anderen Mitgliedern über sich erlaubt.
+ *
+ * Steht an der **eigenen** Mitgliedschaft: wessen Daten es sind, der
+ * entscheidet. Man kann sich nicht selbst Einblick in fremde Konten geben.
+ */
+export type AccessLevel = 'plan' | 'view' | 'edit'
+
+export const ACCESS_LABEL: Record<AccessLevel, string> = {
+  plan: 'Nur gemeinsame Posten',
+  view: 'Buch und Konten sichtbar',
+  edit: 'Darf auch ändern',
+}
+
+export const ACCESS_HINT: Record<AccessLevel, string> = {
+  plan: 'Der Partner sieht, was ihr gemeinsam plant — sonst nichts.',
+  view: 'Der Partner sieht zusätzlich deine Buchungen, Kontostände und privaten Posten.',
+  edit: 'Der Partner darf deine Posten außerdem ändern und abhaken.',
+}
+
+export const ACCESS_ORDER: AccessLevel[] = ['plan', 'view', 'edit']
+
 export type Member = {
   userId: string
   firstName: string
   lastName: string
   email: string
   role: Role
+  /** Was diese Person den anderen über sich erlaubt. */
+  grantsAccess: AccessLevel
 }
 
 export type Household = {

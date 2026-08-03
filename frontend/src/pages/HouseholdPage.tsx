@@ -19,6 +19,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { QueryState } from '@/components/QueryState'
 import { errorText } from '@/lib/api'
 import {
@@ -30,8 +37,16 @@ import {
   useLeaveHousehold,
   useMe,
   useMyInvitations,
+  useSetMyAccess,
 } from '@/lib/queries'
-import type { Household, Role } from '@/lib/domain'
+import {
+  ACCESS_HINT,
+  ACCESS_LABEL,
+  ACCESS_ORDER,
+  type AccessLevel,
+  type Household,
+  type Role,
+} from '@/lib/domain'
 
 /**
  * Der Haushalt als Planungsebene.
@@ -123,6 +138,23 @@ export function HouseholdPage() {
                     >
                       {ROLE_LABEL[member.role]}
                     </Badge>
+
+                    {/* Die Freigabe steht bei der eigenen Zeile, weil man nur
+                        die eigene setzen kann. Bei den anderen steht sie als
+                        Text da — man soll sehen, was man von ihnen sieht. */}
+                    <span className="w-full pl-11">
+                      {isMe ? (
+                        <AccessChoice
+                          householdId={household.id}
+                          value={member.grantsAccess}
+                        />
+                      ) : (
+                        <span className="text-muted-foreground text-xs">
+                          {member.firstName} teilt:{' '}
+                          {ACCESS_LABEL[member.grantsAccess].toLowerCase()}
+                        </span>
+                      )}
+                    </span>
                   </li>
                 )
               })}
@@ -424,5 +456,52 @@ function CreateHouseholdButton() {
         </DialogContent>
       </Dialog>
     </>
+  )
+}
+
+/**
+ * Was ich den anderen über mich freigebe.
+ *
+ * Bewusst hier und nicht in den Einstellungen: die Entscheidung betrifft
+ * genau die Personen, die daneben in der Liste stehen. Wer sie treffen soll,
+ * muss sehen, wem er sie gibt.
+ */
+function AccessChoice({
+  householdId,
+  value,
+}: {
+  householdId: string
+  value: AccessLevel
+}) {
+  const save = useSetMyAccess(householdId)
+
+  return (
+    <span className="flex flex-col gap-1">
+      <span className="flex flex-wrap items-center gap-2">
+        <span className="text-muted-foreground text-xs">Du teilst:</span>
+        <Select
+          value={value}
+          onValueChange={(next) => save.mutate(next as AccessLevel)}
+          disabled={save.isPending}
+        >
+          <SelectTrigger className="h-8 w-64 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {ACCESS_ORDER.map((level) => (
+              <SelectItem key={level} value={level}>
+                {ACCESS_LABEL[level]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </span>
+      <span className="text-muted-foreground text-xs">{ACCESS_HINT[value]}</span>
+      {save.isError && (
+        <span role="alert" className="text-destructive text-xs">
+          {errorText(save.error)}
+        </span>
+      )}
+    </span>
   )
 }

@@ -19,6 +19,7 @@ from app.models.enums import InvitationStatus, Role
 from app.models.household import Household, HouseholdInvitation, HouseholdMember
 from app.models.user import User
 from app.schemas.household import (
+    AccessUpdate,
     HouseholdCreate,
     HouseholdRead,
     HouseholdUpdate,
@@ -65,6 +66,7 @@ async def _to_read(session: AsyncSession, household: Household) -> HouseholdRead
                 last_name=users[member.user_id].last_name,
                 email=users[member.user_id].email,
                 role=member.role,
+                grants_access=member.grants_access,
             )
             for member in household.members
             if member.user_id in users
@@ -125,6 +127,40 @@ async def update_household(
     await session.commit()
     await session.refresh(household, ["members"])
     return await _to_read(session, household)
+
+
+@router.patch("/{household_id}/members/me", response_model=MemberRead)
+async def set_my_access(
+    household_id: uuid.UUID,
+    payload: AccessUpdate,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_active_user),
+) -> MemberRead:
+    """Stellt ein, was die anderen über einen selbst sehen und ändern dürfen.
+
+    Nur die **eigene** Mitgliedschaft, deshalb `/me`. Sonst könnte sich jemand
+    selbst Einblick in fremde Konten geben — die Stufe wäre wertlos.
+    """
+    member = await session.scalar(
+        select(HouseholdMember).where(
+            HouseholdMember.household_id == household_id,
+            HouseholdMember.user_id == user.id,
+        )
+    )
+    if member is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "not_a_member"})
+
+    member.grants_access = payload.grants_access
+    await session.commit()
+
+    return MemberRead(
+        user_id=user.id,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        email=user.email,
+        role=member.role,
+        grants_access=member.grants_access,
+    )
 
 
 @router.delete("/{household_id}/members/me", status_code=status.HTTP_204_NO_CONTENT)

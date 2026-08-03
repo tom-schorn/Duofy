@@ -15,6 +15,30 @@ class InvitationStatus(StrEnum):
     REVOKED = "revoked"
 
 
+class AccessLevel(StrEnum):
+    """Was ein Mitglied den **anderen** über sich erlaubt.
+
+    Die Stufe steht bewusst an der eigenen Mitgliedschaft, nicht an der des
+    anderen: wessen Daten es sind, der entscheidet. Jasmin kann sich nicht
+    selbst das Recht geben, Toms Buch zu sehen — Tom gibt es ihr.
+
+    Die Stufen bauen aufeinander auf:
+
+        plan   nur die gemeinsamen Posten, wie sie im Haushaltsplan stehen
+        view   dazu das eigene Buch, die Konten und die privaten Posten
+        edit   dazu das Recht, diese Posten zu ändern und abzuhaken
+    """
+
+    PLAN = "plan"
+    VIEW = "view"
+    EDIT = "edit"
+
+    @property
+    def rank(self) -> int:
+        """Für Vergleiche — `level.rank >= AccessLevel.VIEW.rank`."""
+        return {"plan": 0, "view": 1, "edit": 2}[self.value]
+
+
 class CommitmentType(StrEnum):
     CONTRACT = "contract"
     SAVINGS_GOAL = "savings_goal"
