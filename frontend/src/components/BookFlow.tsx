@@ -162,6 +162,14 @@ function Chart({
   const breite = Math.min((100 / n) * 0.62, 3)
   const nullY = y(0)
 
+  /** Balkenhöhe als **Betrag** in viewBox-Einheiten.
+   *
+   *  Vorher stand hier `nullY - y(-wert)`, und das ist für Ausgaben negativ —
+   *  eine negative Höhe zeichnet SVG gar nicht. Alle Ausgabenbalken fehlten
+   *  deshalb komplett. Eine Länge hat kein Vorzeichen; die Richtung entscheidet
+   *  allein, ob der Balken über oder unter der Nulllinie ansetzt. */
+  const laenge = (wert: number) => (wert / (high - low)) * 100
+
   // Stufen, keine Gerade: der Saldo hält bis zur nächsten Bewegung.
   const linie = days
     .map((d, i) =>
@@ -238,9 +246,9 @@ function Chart({
                     {d.income > 0 && (
                       <rect
                         x={links}
-                        y={y(d.income)}
+                        y={nullY - laenge(d.income)}
                         width={breite}
-                        height={nullY - y(d.income)}
+                        height={laenge(d.income)}
                         className="fill-chart-3"
                       >
                         <title>{`${d.tag}. — ${euro.format(d.income)} herein`}</title>
@@ -249,7 +257,7 @@ function Chart({
                     {BLOCKS.map((b) => {
                       const wert = d[b.key]
                       if (wert <= 0) return null
-                      const h = nullY - y(0 - wert)
+                      const h = laenge(wert)
                       const oben = unten
                       unten += h
                       // Lücke zwischen den Segmenten: ohne sie liest man zwei
