@@ -23,6 +23,18 @@ import { PlanSankey } from '@/components/PlanSankey'
 import { MonthFlow } from '@/components/MonthFlow'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PositionDialog } from '@/components/PositionDialog'
+import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+  AlertTitle,
+} from '@/components/ui/alert'
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import { QueryState } from '@/components/QueryState'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -337,27 +349,26 @@ function PlanBody({
       )}
 
       {noAccountFor && (
-        <p
-          role="alert"
-          className="border-border bg-muted/40 flex flex-wrap items-center gap-2 rounded-lg border p-3 text-sm"
-        >
-          <span>
-            <span className="font-medium">{noAccountFor}</span> ist abgehakt,
-            aber es wurde nichts gebucht — es fehlt ein Standardkonto.
-          </span>
-          <Link to="/accounts" className="underline underline-offset-4">
-            Konto anlegen
-          </Link>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="ml-auto"
-            onClick={() => setNoAccountFor(null)}
-          >
-            Verstanden
-          </Button>
-        </p>
+        <Alert>
+          <AlertTitle>Abgehakt, aber nichts gebucht</AlertTitle>
+          <AlertDescription>
+            <span className="font-medium">{noAccountFor}</span> ist erledigt —
+            es fehlt aber ein Standardkonto, auf das die Buchung gehen könnte.{' '}
+            <Link to="/accounts" className="underline underline-offset-4">
+              Konto anlegen
+            </Link>
+          </AlertDescription>
+          <AlertAction>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setNoAccountFor(null)}
+            >
+              Verstanden
+            </Button>
+          </AlertAction>
+        </Alert>
       )}
 
       {/* Tabs statt Untereinander: der Verlauf beantwortet eine andere Frage
@@ -804,10 +815,15 @@ function HouseholdPlanBody({
       </header>
 
       {noPositions ? (
-        <p className="text-muted-foreground bg-card border-border rounded-lg border p-6 text-sm">
-          Für diesen Monat ist noch nichts als gemeinsam markiert. Setz im
-          eigenen Plan bei einem Posten den Haushalt — dann taucht er hier auf.
-        </p>
+        <Empty className="border-border rounded-xl border border-dashed">
+          <EmptyHeader>
+            <EmptyTitle>Noch nichts Gemeinsames</EmptyTitle>
+            <EmptyDescription>
+              Setz im eigenen Plan bei einem Posten den Haushalt — dann taucht
+              er hier auf.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <>
           {tab === 'book' ? (

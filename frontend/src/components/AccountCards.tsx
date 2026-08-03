@@ -1,3 +1,9 @@
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+} from '@/components/ui/card'
 import { QueryState } from '@/components/QueryState'
 import {
   ACCOUNT_TYPE_LABEL,
@@ -48,10 +54,13 @@ function AccountCard({ account }: { account: Account }) {
   const balance = Number(account.balance)
 
   return (
-    <div className="bg-card border-border flex flex-col gap-1 rounded-lg border p-4">
-      <span className="text-muted-foreground truncate text-[11px] font-semibold tracking-widest uppercase">
-        {account.name}
-      </span>
+    <Card size="sm" className="gap-2">
+      <CardHeader>
+        <CardDescription className="truncate text-[11px] font-semibold tracking-widest uppercase">
+          {account.name}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-0.5">
       {/* Ein Minus heißt hier überzogen, nicht „Ausgabe" — deshalb rot. */}
       <span
         className={`font-mono text-lg font-medium tabular-nums ${
@@ -60,11 +69,12 @@ function AccountCard({ account }: { account: Account }) {
       >
         {euro.format(balance)}
       </span>
-      <span className="text-muted-foreground text-xs">
-        {ACCOUNT_TYPE_LABEL[account.type]}
-        {account.ownerName ? ` · ${account.ownerName}` : ''}
-      </span>
-    </div>
+        <span className="text-muted-foreground text-xs">
+          {ACCOUNT_TYPE_LABEL[account.type]}
+          {account.ownerName ? ` · ${account.ownerName}` : ''}
+        </span>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -83,16 +93,20 @@ function TotalCard({ accounts }: { accounts: Account[] }) {
   )
 
   return (
-    <div className="border-border/60 bg-muted/30 flex flex-col gap-1 rounded-lg border border-dashed p-4">
-      <span className="text-muted-foreground text-[11px] font-semibold tracking-widest uppercase">
-        Alle Konten
-      </span>
-      <span className="font-mono text-lg font-medium tabular-nums">
-        {euro.format(total)}
-      </span>
-      <span className="text-muted-foreground text-xs">
-        {accounts.length} Konten
-      </span>
-    </div>
+    <Card size="sm" className="bg-muted/30 gap-2 ring-dashed">
+      <CardHeader>
+        <CardDescription className="text-[11px] font-semibold tracking-widest uppercase">
+          Alle Konten
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-0.5">
+        <span className="font-mono text-lg font-medium tabular-nums">
+          {euro.format(total)}
+        </span>
+        <span className="text-muted-foreground text-xs">
+          {accounts.length} Konten
+        </span>
+      </CardContent>
+    </Card>
   )
 }

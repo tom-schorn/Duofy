@@ -95,7 +95,7 @@ export function HouseholdPage() {
         {households.data?.map((household) => (
           <li
             key={household.id}
-            className="bg-card border-border flex flex-col gap-4 rounded-lg border p-5"
+            className="bg-card flex flex-col gap-4 rounded-xl p-5 ring-1 ring-foreground/10"
           >
             <HouseholdHeader
               household={household}

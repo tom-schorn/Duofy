@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Plus, Star, Trash2 } from 'lucide-react'
 
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+} from '@/components/ui/empty'
 import { QueryState } from '@/components/QueryState'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -93,10 +98,12 @@ export function AccountsPage() {
 
       <QueryState isPending={accounts.isPending} error={accounts.error}>
         {list.length === 0 ? (
-          <p className="text-muted-foreground bg-card border-border rounded-lg border p-6 text-sm">
-            Noch kein Konto. Leg eins an — ohne Konto lässt sich später nichts
-            ins Haushaltsbuch buchen.
-          </p>
+          <Empty className="border-border rounded-xl border border-dashed">
+          <EmptyHeader>
+            <EmptyDescription>Noch kein Konto. Leg eins an — ohne Konto lässt sich später nichts
+            ins Haushaltsbuch buchen.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
         ) : (
           <ul className="flex flex-col gap-3">
             {list.map((account) => (
@@ -107,7 +114,7 @@ export function AccountsPage() {
                     setEditing(account)
                     setOpen(true)
                   }}
-                  className={`bg-card border-border hover:border-ring flex w-full flex-wrap items-center justify-between gap-4 rounded-lg border p-4 text-left transition-colors ${
+                  className={`bg-card ring-foreground/10 hover:ring-ring flex w-full flex-wrap items-center justify-between gap-4 rounded-xl p-4 text-left ring-1 transition-[box-shadow] ${
                     account.active ? '' : 'opacity-60'
                   }`}
                 >

@@ -12,6 +12,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import { QueryState } from '@/components/QueryState'
 import { errorText } from '@/lib/api'
 import {
@@ -79,10 +85,15 @@ export function MonthBook({
 
   if (usable.length === 0 && !readOnly) {
     return (
-      <p className="text-muted-foreground bg-card border-border rounded-lg border p-6 text-sm">
-        Noch kein Konto. Ohne Konto lässt sich nichts buchen — leg unter
-        „Konten" eins an, dann geht es hier weiter.
-      </p>
+      <Empty className="border-border rounded-xl border border-dashed">
+        <EmptyHeader>
+          <EmptyTitle>Noch kein Konto</EmptyTitle>
+          <EmptyDescription>
+            Ohne Konto lässt sich nichts buchen — leg unter „Konten" eins an,
+            dann geht es hier weiter.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     )
   }
 
@@ -178,7 +189,7 @@ function QuickEntry({
   return (
     <form
       onSubmit={submit}
-      className="bg-card border-border flex flex-col gap-3 rounded-lg border p-4"
+      className="bg-card flex flex-col gap-3 rounded-xl p-4 ring-1 ring-foreground/10"
     >
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex w-28 flex-col gap-1.5">

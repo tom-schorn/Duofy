@@ -1,3 +1,9 @@
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+} from '@/components/ui/card'
 import { euro } from '@/lib/domain'
 
 /**
@@ -5,6 +11,10 @@ import { euro } from '@/lib/domain'
  *
  * Eigene Datei, weil Plan und Buch dieselbe Karte benutzen, aber andere Zahlen
  * hineinstellen: der Plan zeigt Soll-Werte, das Buch Ist-Werte.
+ *
+ * Baut auf `Card` aus dem Theme statt auf eigenem Rahmen. Vorher stand hier ein
+ * handgeschriebenes `bg-card border rounded-lg p-4` — dieselbe Absicht, aber
+ * andere Rundung, anderer Rand und andere Abstände als im Rest der Oberfläche.
  */
 export function Metric({
   label,
@@ -20,18 +30,24 @@ export function Metric({
   tone?: 'neutral' | 'over'
 }) {
   return (
-    <div className="bg-card border-border flex flex-col gap-1 rounded-lg border p-4">
-      <span className="text-muted-foreground text-[11px] font-semibold tracking-widest uppercase">
-        {label}
-      </span>
-      <span
-        className={`font-mono tabular-nums ${strong ? 'text-xl font-semibold' : 'text-lg font-medium'} ${
-          tone === 'over' ? 'text-destructive' : ''
-        }`}
-      >
-        {euro.format(value)}
-      </span>
-      {hint && <span className="text-muted-foreground text-xs">{hint}</span>}
-    </div>
+    <Card size="sm" className="gap-2">
+      <CardHeader>
+        <CardDescription className="text-[11px] font-semibold tracking-widest uppercase">
+          {label}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-0.5">
+        <span
+          className={`font-mono tabular-nums ${strong ? 'text-xl font-semibold' : 'text-lg font-medium'} ${
+            tone === 'over' ? 'text-destructive' : ''
+          }`}
+        >
+          {euro.format(value)}
+        </span>
+        {hint && (
+          <span className="text-muted-foreground text-xs">{hint}</span>
+        )}
+      </CardContent>
+    </Card>
   )
 }

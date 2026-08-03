@@ -108,7 +108,7 @@ function PlanCard({
   return (
     <Link
       to={`/plan/${plan.year}/${String(plan.month).padStart(2, '0')}`}
-      className="bg-card border-border hover:border-ring focus-visible:border-ring flex flex-col gap-4 rounded-lg border p-5 transition-colors"
+      className="bg-card ring-foreground/10 hover:ring-ring focus-visible:ring-ring flex flex-col gap-4 rounded-xl p-5 ring-1 transition-[box-shadow]"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
