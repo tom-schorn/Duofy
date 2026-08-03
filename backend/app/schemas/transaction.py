@@ -62,6 +62,9 @@ class TransactionUpdate(Schema):
 class TransactionRead(TransactionBase):
     id: uuid.UUID
     owner_id: uuid.UUID
+    #: Nur in der Haushaltssicht gesetzt: wer gebucht hat. Im eigenen Buch wäre
+    #: die Angabe überflüssig.
+    owner_name: str | None = None
     #: Vom Abhaken erzeugt. Das Frontend zeigt sie deshalb anders an und
     #: warnt, bevor das Enthaken sie wieder entfernt.
     auto_booked: bool = False

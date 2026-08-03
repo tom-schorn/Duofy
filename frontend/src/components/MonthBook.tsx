@@ -15,6 +15,7 @@ import {
 import { QueryState } from '@/components/QueryState'
 import { errorText } from '@/lib/api'
 import {
+  OWN_SCOPE,
   BLOCK_SUGGESTION,
   CATEGORY_LABEL,
   euro,
@@ -22,6 +23,7 @@ import {
   type Category,
   type PlanPosition,
   type Transaction,
+  type BookScope,
 } from '@/lib/domain'
 import {
   useAccounts,
@@ -50,8 +52,8 @@ type Props = {
   positions: PlanPosition[]
   year: number
   month: number
-  /** Fremder Besitzer für die Personenansicht. null = eigenes Buch. */
-  ownerId?: string | null
+  /** Wessen Buch: das eigene, das einer Person oder das des Haushalts. */
+  scope?: BookScope
   /** Einblick heißt ansehen: keine Schnelleingabe, kein Löschen. */
   readOnly?: boolean
 }
@@ -64,11 +66,11 @@ export function MonthBook({
   positions,
   year,
   month,
-  ownerId = null,
+  scope = OWN_SCOPE,
   readOnly = false,
 }: Props) {
-  const transactions = useTransactions(year, month, ownerId)
-  const accounts = useAccounts(ownerId).data ?? []
+  const transactions = useTransactions(year, month, scope)
+  const accounts = useAccounts(scope).data ?? []
   const save = useSaveTransaction(year, month)
   const remove = useDeleteTransaction(year, month)
 
@@ -347,6 +349,7 @@ function Row({
             <>
               {account?.name} <ArrowRight className="inline size-3" />{' '}
               {counter?.name} · Umbuchung
+              {transaction.ownerName ? ` · ${transaction.ownerName}` : ''}
             </>
           ) : (
             <>
@@ -355,6 +358,9 @@ function Row({
                 ? ` · ${CATEGORY_LABEL[transaction.category]}`
                 : ''}
               {position ? ` · ${position.label}` : ''}
+              {/* Nur im gemeinsamen Buch gesetzt — dort ist der Name der
+                  Unterschied zwischen zwei sonst gleichen Zeilen. */}
+              {transaction.ownerName ? ` · ${transaction.ownerName}` : ''}
             </>
           )}
         </span>

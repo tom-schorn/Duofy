@@ -1,10 +1,12 @@
 import { Metric } from '@/components/Metric'
 import { QueryState } from '@/components/QueryState'
 import {
+  OWN_SCOPE,
   euro,
   stillDue,
   type PlanPosition,
   type Transaction,
+  type BookScope,
 } from '@/lib/domain'
 import { useAccounts, useTransactions } from '@/lib/queries'
 
@@ -49,18 +51,18 @@ type Props = {
   month: number
   /** Aus dem Plan — für das, was diesen Monat noch abgeht. */
   positions: PlanPosition[]
-  /** Fremder Besitzer für die Personenansicht. null = eigenes Buch. */
-  ownerId?: string | null
+  /** Wessen Buch: das eigene, das einer Person oder das des Haushalts. */
+  scope?: BookScope
 }
 
 export function BookMetrics({
   year,
   month,
   positions,
-  ownerId = null,
+  scope = OWN_SCOPE,
 }: Props) {
-  const transactions = useTransactions(year, month, ownerId)
-  const accounts = useAccounts(ownerId)
+  const transactions = useTransactions(year, month, scope)
+  const accounts = useAccounts(scope)
 
   const open = (accounts.data ?? []).filter((account) => account.active)
   // Konten, deren Guthaben nicht mehr als verfügbar gilt. Eine Umbuchung

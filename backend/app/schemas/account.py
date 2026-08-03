@@ -46,6 +46,9 @@ class AccountRead(AccountBase):
     id: uuid.UUID
     owner_id: uuid.UUID
 
+    #: Nur in der Haushaltssicht gesetzt: wem das Konto gehört. Im eigenen
+    #: Plan wäre die Angabe überflüssig.
+    owner_name: str | None = None
     #: Anfangsbestand plus alles, was seitdem gebucht wurde. Berechnet, nicht
     #: gespeichert — eine gespeicherte Zahl liefe irgendwann auseinander, und
     #: die Buchungen sind ohnehin die Wahrheit.

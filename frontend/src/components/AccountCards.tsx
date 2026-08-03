@@ -1,5 +1,11 @@
 import { QueryState } from '@/components/QueryState'
-import { ACCOUNT_TYPE_LABEL, euro, type Account } from '@/lib/domain'
+import {
+  ACCOUNT_TYPE_LABEL,
+  euro,
+  OWN_SCOPE,
+  type Account,
+  type BookScope,
+} from '@/lib/domain'
 import { useAccounts } from '@/lib/queries'
 
 /**
@@ -13,12 +19,12 @@ import { useAccounts } from '@/lib/queries'
  * August-Stand — deshalb ändert er sich nicht, wenn man den Monat wechselt.
  */
 type Props = {
-  /** Fremder Besitzer für die Personenansicht. null = eigene Konten. */
-  ownerId?: string | null
+  /** Wessen Buch: das eigene, das einer Person oder das des Haushalts. */
+  scope?: BookScope
 }
 
-export function AccountCards({ ownerId = null }: Props) {
-  const accounts = useAccounts(ownerId)
+export function AccountCards({ scope = OWN_SCOPE }: Props) {
+  const accounts = useAccounts(scope)
   const usable = (accounts.data ?? []).filter((account) => account.active)
 
   if (!accounts.isPending && usable.length === 0) return null
@@ -56,6 +62,7 @@ function AccountCard({ account }: { account: Account }) {
       </span>
       <span className="text-muted-foreground text-xs">
         {ACCOUNT_TYPE_LABEL[account.type]}
+        {account.ownerName ? ` · ${account.ownerName}` : ''}
       </span>
     </div>
   )

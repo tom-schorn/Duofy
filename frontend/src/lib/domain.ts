@@ -329,6 +329,36 @@ export type Account = {
   countsAsAvailable: boolean
   /** Anfangsbestand plus alle Buchungen. Kommt vom Server, wird nie gesendet. */
   balance?: string
+  /** Nur in der Haushaltssicht gesetzt: wem das Konto gehört. */
+  ownerName?: string | null
+}
+
+/**
+ * Wessen Buch gerade gezeigt wird.
+ *
+ * Ein Begriff statt drei optionaler Props: Konten, Buchungen und Verlauf
+ * brauchen alle dieselbe Angabe, und sie muss auch in den Query-Schlüssel —
+ * sonst überschriebe der Haushalt die eigene Liste im Cache.
+ */
+export type BookScope =
+  | { kind: 'own' }
+  | { kind: 'member'; ownerId: string }
+  | { kind: 'household'; householdId: string }
+
+export const OWN_SCOPE: BookScope = { kind: 'own' }
+
+/** Query-Anhang für die API. Beginnt mit `&`, passt also hinter `?year=…`. */
+export function scopeQuery(scope: BookScope): string {
+  if (scope.kind === 'member') return `&owner=${scope.ownerId}`
+  if (scope.kind === 'household') return `&household=${scope.householdId}`
+  return ''
+}
+
+/** Stabiler Teil des Query-Schlüssels. */
+export function scopeKey(scope: BookScope): string {
+  if (scope.kind === 'member') return `member:${scope.ownerId}`
+  if (scope.kind === 'household') return `household:${scope.householdId}`
+  return 'own'
 }
 
 /** Ein Tag mit Bewegung, mit dem Gesamtstand an seinem Ende. */
@@ -371,6 +401,8 @@ export type Transaction = {
   category: Category | null
   block: Block | null
   positionId: string | null
+  /** Nur in der Haushaltssicht gesetzt: wer gebucht hat. */
+  ownerName?: string | null
   /** Vom Abhaken erzeugt — das Enthaken nimmt genau diese wieder mit. */
   autoBooked: boolean
   externalRef: string | null

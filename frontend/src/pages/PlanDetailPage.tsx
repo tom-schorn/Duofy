@@ -48,6 +48,8 @@ import {
   type Block,
   type HouseholdPlanDetail,
   type HouseholdPosition,
+  type BookScope,
+  type Member,
   type MemberPlanDetail,
   type PlanDetail,
   type PlanPosition,
@@ -92,6 +94,17 @@ export function PlanDetailPage() {
     (households.data ?? []).map((household) => [household.id, household.name])
   )
 
+  // replace: der Reiterwechsel soll den Zurück-Knopf nicht mit
+  // Zwischenschritten volllaufen lassen.
+  const setTab = (value: string) =>
+    setParams(
+      (current: URLSearchParams) => {
+        current.set('tab', value)
+        return current
+      },
+      { replace: true }
+    )
+
   return (
     <div className="flex flex-col gap-8">
       <Link
@@ -108,6 +121,13 @@ export function PlanDetailPage() {
               <HouseholdPlanBody
                 plan={householdPlan.data}
                 householdNames={names}
+                members={
+                  (households.data ?? []).find(
+                    (household) => household.id === householdId
+                  )?.members ?? []
+                }
+                tab={params.get('tab') ?? 'plan'}
+                onTab={setTab}
               />
             )
           : foreign
@@ -116,17 +136,7 @@ export function PlanDetailPage() {
                   plan={memberPlan.data}
                   householdNames={names}
                   tab={params.get('tab') ?? 'plan'}
-                  onTab={(value) =>
-                    // replace: der Reiterwechsel soll den Zurück-Knopf nicht
-                    // mit Zwischenschritten volllaufen lassen.
-                    setParams(
-                      (current: URLSearchParams) => {
-                        current.set('tab', value)
-                        return current
-                      },
-                      { replace: true }
-                    )
-                  }
+                  onTab={setTab}
                 />
               )
             : ownPlan.data && (
@@ -570,6 +580,8 @@ function MemberPlanBody({
 
   // Vertretung: abhaken und ändern, wenn die Stufe es hergibt. Neu **anlegen**
   // bleibt aus, siehe `canAdd` in BudgetSection.
+  const scope: BookScope = { kind: 'member', ownerId: plan.ownerId }
+
   const togglePaid = useTogglePaid()
   const savePosition = useSavePosition()
   const [editing, setEditing] = useState<PlanPosition | null>(null)
@@ -620,7 +632,7 @@ function MemberPlanBody({
           year={plan.year}
           month={plan.month}
           positions={plan.positions}
-          ownerId={plan.ownerId}
+          scope={scope}
         />
       ) : (
         <section className="grid gap-3 sm:grid-cols-3">
@@ -652,17 +664,13 @@ function MemberPlanBody({
         </TabsContent>
 
         <TabsContent value="book" className="flex flex-col gap-6">
-          <AccountCards ownerId={plan.ownerId} />
-          <BookFlow
-            year={plan.year}
-            month={plan.month}
-            ownerId={plan.ownerId}
-          />
+          <AccountCards scope={scope} />
+          <BookFlow year={plan.year} month={plan.month} scope={scope} />
           <MonthBook
             positions={plan.positions}
             year={plan.year}
             month={plan.month}
-            ownerId={plan.ownerId}
+            scope={scope}
             readOnly
           />
         </TabsContent>
@@ -722,9 +730,16 @@ function MemberPlanBody({
 function HouseholdPlanBody({
   plan,
   householdNames,
+  members,
+  tab,
+  onTab,
 }: {
   plan: HouseholdPlanDetail
   householdNames: Record<string, string>
+  /** Für den Hinweis, wenn jemand seine Zahlen nicht teilt. */
+  members: Member[]
+  tab: string
+  onTab: (value: string) => void
 }) {
   const groups = BUDGETS.map((block) => {
     const key = block as keyof typeof QUOTA_KEY
@@ -758,6 +773,12 @@ function HouseholdPlanBody({
 
   const noPositions = plan.positions.length === 0
 
+  const scope: BookScope = { kind: 'household', householdId: plan.householdId }
+  // Wer nur die gemeinsamen Posten teilt, fehlt in allen Buch-Summen.
+  const stillPrivate = members
+    .filter((member) => member.grantsAccess === 'plan')
+    .map((member) => member.firstName)
+
   return (
     <>
       <header className="flex flex-col gap-2">
@@ -783,46 +804,105 @@ function HouseholdPlanBody({
         </p>
       ) : (
         <>
-          <section className="grid gap-3 sm:grid-cols-3">
-            <Metric label="Einnahmen" value={Number(plan.income)} />
-            <Metric
-              label="Verplanbar"
-              value={free}
-              hint="noch nicht verteilt"
-              strong
-              tone={free < 0 ? 'over' : 'neutral'}
+          {tab === 'book' ? (
+            <BookMetrics
+              year={plan.year}
+              month={plan.month}
+              positions={plan.positions}
+              scope={scope}
             />
-            <Metric label="Noch offen" value={unpaid} hint="noch nicht bezahlt" />
-          </section>
-
-          <div className="flex flex-col gap-8">
-            <BudgetSection
-              block="income"
-              target={null}
-              positions={incomeRows}
-              householdNames={householdNames}
-              onEdit={() => {}}
-              onAdd={() => {}}
-              onTogglePaid={() => {}}
-              readOnly
-              ownerName={ownerName}
-            />
-
-            {groups.map((group) => (
-              <BudgetSection
-                key={group.block}
-                block={group.block}
-                target={group.target}
-                positions={group.rows}
-                householdNames={householdNames}
-                onEdit={() => {}}
-                onAdd={() => {}}
-                onTogglePaid={() => {}}
-                readOnly
-                ownerName={ownerName}
+          ) : (
+            <section className="grid gap-3 sm:grid-cols-3">
+              <Metric label="Einnahmen" value={Number(plan.income)} />
+              <Metric
+                label="Verplanbar"
+                value={free}
+                hint="noch nicht verteilt"
+                strong
+                tone={free < 0 ? 'over' : 'neutral'}
               />
-            ))}
-          </div>
+              <Metric
+                label="Noch offen"
+                value={unpaid}
+                hint="noch nicht bezahlt"
+              />
+            </section>
+          )}
+
+          {/* Fehlt jemand, sind alle Summen im Buch unvollständig. Das muss
+              dastehen — eine Zahl, der jemand fehlt, ohne dass man es sieht,
+              wäre schlimmer als keine. */}
+          {tab === 'book' && stillPrivate.length > 0 && (
+            <p
+              role="status"
+              className="border-border bg-muted/40 rounded-lg border p-3 text-sm"
+            >
+              {stillPrivate.join(' und ')} teil
+              {stillPrivate.length === 1 ? 't' : 'en'} noch keine Zahlen — die
+              Summen unten sind unvollständig. Umstellen lässt sich das nur von{' '}
+              {stillPrivate.length === 1 ? 'ihr oder ihm' : 'ihnen'} selbst,
+              unter „Haushalt".
+            </p>
+          )}
+
+          <Tabs value={tab} onValueChange={onTab} className="gap-6">
+            <TabsList>
+              <TabsTrigger value="plan">Plan</TabsTrigger>
+              <TabsTrigger value="flow">Verlauf</TabsTrigger>
+              <TabsTrigger value="book">Buch</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="flow">
+              <MonthFlow
+                positions={plan.positions}
+                year={plan.year}
+                month={plan.month}
+              />
+            </TabsContent>
+
+            <TabsContent value="book" className="flex flex-col gap-6">
+              <AccountCards scope={scope} />
+              <BookFlow year={plan.year} month={plan.month} scope={scope} />
+              <MonthBook
+                positions={plan.positions}
+                year={plan.year}
+                month={plan.month}
+                scope={scope}
+                readOnly
+              />
+            </TabsContent>
+
+            <TabsContent value="plan">
+              <div className="flex flex-col gap-8">
+                <BudgetSection
+                  block="income"
+                  target={null}
+                  positions={incomeRows}
+                  householdNames={householdNames}
+                  onEdit={() => {}}
+                  onAdd={() => {}}
+                  onTogglePaid={() => {}}
+                  readOnly
+                  ownerName={ownerName}
+                />
+
+                {groups.map((group) => (
+                  <BudgetSection
+                    key={group.block}
+                    block={group.block}
+                    target={group.target}
+                    positions={group.rows}
+                    householdNames={householdNames}
+                    onEdit={() => {}}
+                    onAdd={() => {}}
+                    onTogglePaid={() => {}}
+                    readOnly
+                    ownerName={ownerName}
+                  />
+                ))}
+              </div>
+            </TabsContent>
+          </Tabs>
         </>
       )}
     </>

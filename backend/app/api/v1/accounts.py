@@ -18,7 +18,12 @@ from sqlalchemy import case, func, literal, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
-from app.core.permissions import granted_level, require
+from app.core.permissions import (
+    granted_level,
+    is_member,
+    require,
+    viewable_members,
+)
 from app.db.session import get_session
 from app.models.account import Account
 from app.models.enums import AccessLevel, Block
@@ -61,6 +66,23 @@ async def _load(session: AsyncSession, account_id: uuid.UUID, user: User) -> Acc
     return account
 
 
+async def _scope(
+    session: AsyncSession,
+    owner: uuid.UUID | None,
+    household: uuid.UUID | None,
+    user: User,
+) -> list[uuid.UUID]:
+    """Wessen Konten gemeint sind — einer oder alle eines Haushalts.
+
+    `household` gewinnt, wenn beides angegeben ist. Im Haushalt zählen nur
+    Mitglieder, die Einblick gegeben haben, siehe `viewable_members`.
+    """
+    if household is not None:
+        require(await is_member(session, user.id, household), "not_household_member")
+        return await viewable_members(session, household, user.id)
+    return [await _target_owner(session, owner, user)]
+
+
 async def _target_owner(
     session: AsyncSession, owner: uuid.UUID | None, user: User
 ) -> uuid.UUID:
@@ -78,7 +100,9 @@ async def _target_owner(
     return owner
 
 
-async def _balances(session: AsyncSession, owner_id: uuid.UUID) -> dict[uuid.UUID, Decimal]:
+async def _balances(
+    session: AsyncSession, owner_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, Decimal]:
     """Wieviel jede Buchung am Stand des jeweiligen Kontos bewegt hat.
 
     Die Buchung trägt kein Vorzeichen, die Richtung steht woanders:
@@ -101,12 +125,15 @@ async def _balances(session: AsyncSession, owner_id: uuid.UUID) -> dict[uuid.UUI
                 )
             ),
         )
-        .where(Transaction.owner_id == owner_id)
+        .where(Transaction.owner_id.in_(owner_ids))
         .group_by(Transaction.account_id)
     )
     incoming = await session.execute(
         select(Transaction.counter_account_id, func.sum(Transaction.amount))
-        .where(Transaction.owner_id == owner_id, Transaction.counter_account_id.isnot(None))
+        .where(
+            Transaction.owner_id.in_(owner_ids),
+            Transaction.counter_account_id.isnot(None),
+        )
         .group_by(Transaction.counter_account_id)
     )
 
@@ -126,7 +153,7 @@ async def _with_balance(
     Anfangsbestand von 150,96 gesetzt wurde. Ein Client, der die Antwort
     anzeigt, zeigte dann eine Zahl, die es nie gab.
     """
-    moved = await _balances(session, owner_id)
+    moved = await _balances(session, [owner_id])
     return AccountRead.model_validate(account).model_copy(
         update={"balance": account.opening_balance + moved.get(account.id, ZERO)}
     )
@@ -135,27 +162,36 @@ async def _with_balance(
 @router.get("", response_model=list[AccountRead])
 async def list_accounts(
     owner: uuid.UUID | None = Query(default=None),
+    household: uuid.UUID | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> list[AccountRead]:
     """Konten mit Stand, aufgelöste zuletzt.
 
-    Ohne `owner` die eigenen. Mit `owner` die eines Mitglieds, das Einblick
-    gegeben hat — für die Personenansicht im Haushalt.
+    Ohne beides die eigenen. Mit `owner` die eines Mitglieds, mit `household`
+    die aller Mitglieder, die Einblick gegeben haben.
     """
-    owner_id = await _target_owner(session, owner, user)
+    owner_ids = await _scope(session, owner, household, user)
+    geteilt = household is not None
+
     result = await session.execute(
-        select(Account)
-        .where(Account.owner_id == owner_id)
-        .order_by(Account.active.desc(), Account.name)
+        select(Account, User.first_name)
+        .join(User, User.id == Account.owner_id)
+        .where(Account.owner_id.in_(owner_ids))
+        .order_by(Account.active.desc(), User.first_name, Account.name)
     )
-    moved = await _balances(session, owner_id)
+    moved = await _balances(session, owner_ids)
 
     return [
         AccountRead.model_validate(account).model_copy(
-            update={"balance": account.opening_balance + moved.get(account.id, ZERO)}
+            update={
+                "balance": account.opening_balance + moved.get(account.id, ZERO),
+                # Nur im Haushalt: dort stehen die Konten mehrerer Personen
+                # nebeneinander und der Name ist der Unterschied.
+                "owner_name": name if geteilt else None,
+            }
         )
-        for account in result.scalars()
+        for account, name in result.all()
     ]
 
 
@@ -173,6 +209,7 @@ async def balance_history(
     year: int = Query(ge=2000, le=2100),
     month: int = Query(ge=1, le=12),
     owner: uuid.UUID | None = Query(default=None),
+    household: uuid.UUID | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> BalanceHistory:
@@ -188,25 +225,25 @@ async def balance_history(
     Muss **vor** `/{account_id}` stehen, sonst versucht FastAPI, „history" als
     UUID zu lesen.
     """
-    owner_id = await _target_owner(session, owner, user)
+    owner_ids = await _scope(session, owner, household, user)
     first = date(year, month, 1)
     last = date(year, month, monthrange(year, month)[1])
 
     opening = await session.scalar(
         select(func.coalesce(func.sum(Account.opening_balance), ZERO)).where(
-            Account.owner_id == owner_id
+            Account.owner_id.in_(owner_ids)
         )
     )
     before = await session.scalar(
         select(func.coalesce(func.sum(_TOTAL_DELTA), ZERO)).where(
-            Transaction.owner_id == owner_id, Transaction.occurred_on < first
+            Transaction.owner_id.in_(owner_ids), Transaction.occurred_on < first
         )
     )
 
     daily = await session.execute(
         select(Transaction.occurred_on, func.sum(_TOTAL_DELTA))
         .where(
-            Transaction.owner_id == owner_id,
+            Transaction.owner_id.in_(owner_ids),
             Transaction.occurred_on >= first,
             Transaction.occurred_on <= last,
         )

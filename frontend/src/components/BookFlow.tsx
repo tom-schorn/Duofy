@@ -1,7 +1,13 @@
 import { useState } from 'react'
 
 import { QueryState } from '@/components/QueryState'
-import { daysInMonth, euro, type BalanceHistory } from '@/lib/domain'
+import {
+  daysInMonth,
+  euro,
+  OWN_SCOPE,
+  type BalanceHistory,
+  type BookScope,
+} from '@/lib/domain'
 import { useBalanceHistory } from '@/lib/queries'
 
 /**
@@ -28,8 +34,8 @@ import { useBalanceHistory } from '@/lib/queries'
 type Props = {
   year: number
   month: number
-  /** Fremder Besitzer für die Personenansicht. null = eigenes Buch. */
-  ownerId?: string | null
+  /** Wessen Buch: das eigene, das einer Person oder das des Haushalts. */
+  scope?: BookScope
 }
 
 type DayStep = {
@@ -42,8 +48,8 @@ type DayStep = {
 /** Luft über und unter der Kurve, damit sie den Rand nicht berührt. */
 const PADDING = 0.12
 
-export function BookFlow({ year, month, ownerId = null }: Props) {
-  const history = useBalanceHistory(year, month, ownerId)
+export function BookFlow({ year, month, scope = OWN_SCOPE }: Props) {
+  const history = useBalanceHistory(year, month, scope)
 
   return (
     <QueryState isPending={history.isPending} error={history.error} rows={2}>

@@ -6,9 +6,11 @@ import {
 } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
+import { OWN_SCOPE, scopeKey, scopeQuery } from '@/lib/domain'
 import type {
   AccessLevel,
   Account,
+  BookScope,
   BalanceHistory,
   Commitment,
   Household,
@@ -39,17 +41,14 @@ export const keys = {
     ['households', householdId, 'invitations'] as const,
   myInvitations: ['invitations', 'mine'] as const,
   accounts: ['accounts'] as const,
-  accountsOf: (ownerId: string | null) => ['accounts', ownerId ?? 'me'] as const,
+  accountsIn: (scope: BookScope) => ['accounts', scopeKey(scope)] as const,
   commitments: ['commitments'] as const,
   /** Alle Monate — zum Ungültigmachen, wenn unklar ist, welcher betroffen ist. */
   allTransactions: ['transactions'] as const,
-  balanceHistory: (
-    year: number,
-    month: number,
-    ownerId: string | null = null
-  ) => ['accounts', 'history', ownerId ?? 'me', year, month] as const,
-  transactions: (year: number, month: number, ownerId: string | null = null) =>
-    ['transactions', ownerId ?? 'me', year, month] as const,
+  balanceHistory: (year: number, month: number, scope: BookScope = OWN_SCOPE) =>
+    ['accounts', 'history', scopeKey(scope), year, month] as const,
+  transactions: (year: number, month: number, scope: BookScope = OWN_SCOPE) =>
+    ['transactions', scopeKey(scope), year, month] as const,
   plans: ['plans'] as const,
   plan: (year: number, month: number) => ['plans', year, month] as const,
   householdPlan: (householdId: string, year: number, month: number) =>
@@ -168,11 +167,11 @@ export function useDeclineInvitation() {
  * Der Besitzer steht im Schlüssel: sonst überschriebe Jasmins Kontoliste die
  * eigene, sobald man ihre Seite öffnet.
  */
-export function useAccounts(ownerId: string | null = null) {
+export function useAccounts(scope: BookScope = OWN_SCOPE) {
   return useQuery({
-    queryKey: keys.accountsOf(ownerId),
-    queryFn: () =>
-      api.get<Account[]>(ownerId ? `/accounts?owner=${ownerId}` : '/accounts'),
+    queryKey: keys.accountsIn(scope),
+    // Der Anhang beginnt mit `&`, deshalb steht ein leeres `?` davor.
+    queryFn: () => api.get<Account[]>(`/accounts?${scopeQuery(scope).slice(1)}`),
   })
 }
 
@@ -186,14 +185,13 @@ export function useAccounts(ownerId: string | null = null) {
 export function useBalanceHistory(
   year: number,
   month: number,
-  ownerId: string | null = null
+  scope: BookScope = OWN_SCOPE
 ) {
   return useQuery({
-    queryKey: keys.balanceHistory(year, month, ownerId),
+    queryKey: keys.balanceHistory(year, month, scope),
     queryFn: () =>
       api.get<BalanceHistory>(
-        `/accounts/history?year=${year}&month=${month}` +
-          (ownerId ? `&owner=${ownerId}` : '')
+        `/accounts/history?year=${year}&month=${month}${scopeQuery(scope)}`
       ),
   })
 }
@@ -220,14 +218,13 @@ export function useDeleteAccount() {
 export function useTransactions(
   year: number,
   month: number,
-  ownerId: string | null = null
+  scope: BookScope = OWN_SCOPE
 ) {
   return useQuery({
-    queryKey: keys.transactions(year, month, ownerId),
+    queryKey: keys.transactions(year, month, scope),
     queryFn: () =>
       api.get<Transaction[]>(
-        `/transactions?year=${year}&month=${month}` +
-          (ownerId ? `&owner=${ownerId}` : '')
+        `/transactions?year=${year}&month=${month}${scopeQuery(scope)}`
       ),
   })
 }

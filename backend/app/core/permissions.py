@@ -73,6 +73,30 @@ async def granted_level(
     return max(stufen, key=lambda s: s.rank) if stufen else AccessLevel.PLAN
 
 
+async def viewable_members(
+    session: AsyncSession, household_id: uuid.UUID, viewer_id: uuid.UUID
+) -> list[uuid.UUID]:
+    """Wessen Zahlen im Haushalt zusammengerechnet werden dürfen.
+
+    Man selbst immer, dazu jedes Mitglied, das mindestens `view` gegeben hat.
+    Wer nur die gemeinsamen Posten teilt, fehlt in der Liste — die Summen sind
+    dann unvollständig, und das Frontend sagt es. Eine Zahl, der jemand fehlt,
+    ohne dass man es sieht, wäre schlimmer als keine.
+
+    Setzt voraus, dass der Fragende selbst Mitglied ist; das prüft der Aufrufer.
+    """
+    result = await session.execute(
+        select(HouseholdMember.user_id, HouseholdMember.grants_access).where(
+            HouseholdMember.household_id == household_id
+        )
+    )
+    return [
+        user_id
+        for user_id, level in result.all()
+        if user_id == viewer_id or AccessLevel(level).rank >= AccessLevel.VIEW.rank
+    ]
+
+
 async def is_household_owner(
     session: AsyncSession, user_id: uuid.UUID, household_id: uuid.UUID
 ) -> bool:
