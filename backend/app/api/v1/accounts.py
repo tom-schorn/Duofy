@@ -99,6 +99,22 @@ async def _balances(session: AsyncSession, user: User) -> dict[uuid.UUID, Decima
     return moved
 
 
+async def _with_balance(
+    session: AsyncSession, account: Account, user: User
+) -> AccountRead:
+    """Ein Konto samt Stand.
+
+    Nötig, weil `balance` berechnet ist und nicht am Objekt hängt: ohne diesen
+    Schritt meldete `POST /accounts` den Vorgabewert 0,00, obwohl gerade ein
+    Anfangsbestand von 150,96 gesetzt wurde. Ein Client, der die Antwort
+    anzeigt, zeigte dann eine Zahl, die es nie gab.
+    """
+    moved = await _balances(session, user)
+    return AccountRead.model_validate(account).model_copy(
+        update={"balance": account.opening_balance + moved.get(account.id, ZERO)}
+    )
+
+
 @router.get("", response_model=list[AccountRead])
 async def list_accounts(
     session: AsyncSession = Depends(get_session),
@@ -193,7 +209,7 @@ async def create_account(
     payload: AccountCreate,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
-) -> Account:
+) -> AccountRead:
     if payload.is_default:
         await _clear_other_defaults(session, user)
 
@@ -201,7 +217,7 @@ async def create_account(
     session.add(account)
     await session.commit()
     await session.refresh(account)
-    return account
+    return await _with_balance(session, account, user)
 
 
 @router.patch("/{account_id}", response_model=AccountRead)
@@ -210,7 +226,7 @@ async def update_account(
     payload: AccountUpdate,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
-) -> Account:
+) -> AccountRead:
     account = await _load(session, account_id, user)
     changes = payload.model_dump(exclude_unset=True)
 
@@ -222,7 +238,7 @@ async def update_account(
 
     await session.commit()
     await session.refresh(account)
-    return account
+    return await _with_balance(session, account, user)
 
 
 @router.delete("/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
