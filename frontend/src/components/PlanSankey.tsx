@@ -144,7 +144,10 @@ function build(positions: PlanPosition[], budget: number) {
     if (klein.length > 0) {
       const rest = klein.reduce((s, p) => s + p.betrag, 0)
       const i = add({
-        name: `Weitere ${klein.length} ${klein.length === 1 ? 'Posten' : 'Posten'}`,
+        name:
+          klein.length === 1
+            ? '1 weiterer Posten'
+            : `${klein.length} weitere Posten`,
         betrag: rest,
         farbe: b.color,
         spalte: 3,
@@ -161,7 +164,10 @@ function build(positions: PlanPosition[], budget: number) {
       name: 'Noch nicht verplant',
       betrag: offen,
       farbe: 'var(--muted-foreground)',
-      spalte: 2,
+      // Spalte 3, nicht 2: der Knoten hat keinen Ausgang, und Recharts schiebt
+      // Senken in die letzte Spalte. Stünde hier 2, läge die Beschriftung
+      // rechts daneben — also außerhalb des Bildes.
+      spalte: 3,
     })
     links.push({
       source: budgetIndex,
@@ -323,7 +329,10 @@ function Kachel({
   const links = knoten.spalte === 3
   const tx = links ? x - 8 : x + width + 8
   const anker = links ? 'end' : 'start'
-  const platz = height > 15
+  // Zwei Zeilen brauchen Höhe. Ist das Band dünn, kommt der Betrag hinter den
+  // Namen — vorher fiel er weg, und ausgerechnet bei den kleinen Posten will
+  // man ihn wissen.
+  const zweizeilig = height > 22
 
   return (
     <Layer>
@@ -338,13 +347,19 @@ function Kachel({
       />
       <text
         x={tx}
-        y={y + height / 2 + (platz ? -2 : 4)}
+        y={y + height / 2 + (zweizeilig ? -2 : 4)}
         textAnchor={anker}
         className="fill-foreground text-[12px]"
       >
         {knoten.name}
+        {!zweizeilig && (
+          <tspan className="fill-muted-foreground font-mono tabular-nums">
+            {'  '}
+            {zeige(knoten.betrag)}
+          </tspan>
+        )}
       </text>
-      {platz && (
+      {zweizeilig && (
         <text
           x={tx}
           y={y + height / 2 + 12}
