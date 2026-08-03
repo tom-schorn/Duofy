@@ -1,6 +1,11 @@
 import { Metric } from '@/components/Metric'
 import { QueryState } from '@/components/QueryState'
-import type { Transaction } from '@/lib/domain'
+import {
+  euro,
+  stillDue,
+  type PlanPosition,
+  type Transaction,
+} from '@/lib/domain'
 import { useAccounts, useTransactions } from '@/lib/queries'
 
 /**
@@ -29,14 +34,24 @@ import { useAccounts, useTransactions } from '@/lib/queries'
  *
  * Welche Konten mitzählen, entscheidet `countsAsAvailable` am Konto: Giro und
  * PayPal ja, Tagesgeld und Depot nein — dort liegt Zweckgebundenes.
+ *
+ * ## „Frei nach Abzug"
+ *
+ * Verfügbar minus dem, was diesen Monat noch abgeht. Erst diese Zahl
+ * beantwortet die Frage, die man im Alltag hat: kann ich mir das jetzt
+ * leisten, ohne dass Ende des Monats eine Lastschrift platzt.
+ *
+ * Sie darf negativ werden, und das ist kein Fehler, sondern die Warnung.
  */
 
 type Props = {
   year: number
   month: number
+  /** Aus dem Plan — für das, was diesen Monat noch abgeht. */
+  positions: PlanPosition[]
 }
 
-export function BookMetrics({ year, month }: Props) {
+export function BookMetrics({ year, month, positions }: Props) {
   const transactions = useTransactions(year, month)
   const accounts = useAccounts()
 
@@ -72,13 +87,16 @@ export function BookMetrics({ year, month }: Props) {
     0
   )
 
+  const due = positions.reduce((total, position) => total + stillDue(position), 0)
+  const leftover = available - due
+
   return (
     <QueryState
       isPending={transactions.isPending || accounts.isPending}
       error={transactions.error ?? accounts.error}
       rows={1}
     >
-      <section className="grid gap-3 sm:grid-cols-3">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Metric label="Eingegangen" value={income} hint="schon angekommen" />
         <Metric
           label="Ausgegeben"
@@ -95,8 +113,14 @@ export function BookMetrics({ year, month }: Props) {
               ? `Stand von ${free[0].name}`
               : `Stand von ${free.length} Konten`
           }
-          strong
           tone={available < 0 ? 'over' : 'neutral'}
+        />
+        <Metric
+          label="Frei nach Abzug"
+          value={leftover}
+          hint={`${euro.format(due)} stehen noch aus`}
+          strong
+          tone={leftover < 0 ? 'over' : 'neutral'}
         />
       </section>
     </QueryState>

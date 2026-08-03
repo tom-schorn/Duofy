@@ -43,6 +43,7 @@ import {
   QUOTA_KEY,
   euro,
   isPaid,
+  stillDue,
   type Block,
   type HouseholdPlanDetail,
   type HouseholdPosition,
@@ -218,10 +219,9 @@ function PlanBody({
   )
   const free = Number(plan.budget) - allocated
 
-  // „Noch offen" = was diesen Monat noch bezahlt werden muss.
-  const unpaid = plan.positions
-    .filter((row) => row.block !== 'income' && !isPaid(row))
-    .reduce((sum, row) => sum + Number(row.amountPlanned), 0)
+  // „Noch offen" = was diesen Monat noch bezahlt werden muss. Schon erfasste
+  // Teilbeträge sind abgezogen, siehe `stillDue`.
+  const unpaid = plan.positions.reduce((sum, row) => sum + stillDue(row), 0)
 
   // Wie viele Posten in welchen Haushalt laufen. Die Zahl steht im Badge, weil
   // ein blanker Name wie ein Besitzverhältnis aussieht — der Plan gehört aber
@@ -274,7 +274,11 @@ function PlanBody({
           des Monats nicht bewegen, sonst taugt es zum Planen nicht. Das Buch
           zeigt daneben, was wirklich geflossen ist. */}
       {tab === 'book' ? (
-        <BookMetrics year={plan.year} month={plan.month} />
+        <BookMetrics
+          year={plan.year}
+          month={plan.month}
+          positions={plan.positions}
+        />
       ) : (
         <section className="grid gap-3 sm:grid-cols-3">
           <Metric label="Einnahmen" value={Number(plan.income)} />

@@ -525,6 +525,23 @@ export function unallocated(plan: PlanSummary): number {
   return Number(plan.budget) - spent
 }
 
+/**
+ * Was von diesem Posten noch aus dem Konto rausgeht.
+ *
+ * Abgehakt heißt erledigt, Einnahmen gehen nie raus. Sonst zählt der Rest zum
+ * geplanten Betrag: bei 600 € Lebensmittel und 127,50 € erfassten Einkäufen
+ * stehen noch 472,50 € an, nicht 600 €.
+ *
+ * Nie negativ — wer sein Budget überzieht, hat nichts „übrig". Gleiche Regel
+ * wie `remaining()` im Backend, damit „Noch offen" und „Frei nach Abzug"
+ * dieselbe Zahl meinen.
+ */
+export function stillDue(position: PlanPosition): number {
+  if (position.block === 'income' || isPaid(position)) return 0
+  const booked = Number(position.amountActual ?? 0)
+  return Math.max(Number(position.amountPlanned) - booked, 0)
+}
+
 /** Ist der Posten schon abgehakt? */
 export function isPaid(position: PlanPosition): boolean {
   return position.paidAt !== null
