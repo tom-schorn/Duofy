@@ -18,6 +18,9 @@ class AccountBase(Schema):
     is_default: bool = False
     active: bool = True
     external_ref: str | None = Field(default=None, max_length=200)
+    #: Zählt Guthaben hier noch als verfügbar? Beim Girokonto ja, beim
+    #: Tagesgeld nein — dort liegt Zweckgebundenes.
+    counts_as_available: bool = True
 
 
 class AccountCreate(AccountBase):
@@ -36,6 +39,7 @@ class AccountUpdate(Schema):
     is_default: bool | None = None
     active: bool | None = None
     external_ref: str | None = Field(default=None, max_length=200)
+    counts_as_available: bool | None = None
 
 
 class AccountRead(AccountBase):

@@ -306,6 +306,13 @@ export type Account = {
   isDefault: boolean
   active: boolean
   externalRef: string | null
+  /**
+   * Zählt Guthaben hier noch als verfügbar?
+   *
+   * Beim Girokonto ja, beim Tagesgeld nein — dort liegt Zweckgebundenes. Eine
+   * Umbuchung auf ein Konto mit `false` gilt im Buch als Ausgabe.
+   */
+  countsAsAvailable: boolean
   /** Anfangsbestand plus alle Buchungen. Kommt vom Server, wird nie gesendet. */
   balance?: string
 }

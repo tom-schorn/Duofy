@@ -59,6 +59,7 @@ function emptyAccount(isFirst: boolean): Account {
     isDefault: isFirst,
     active: true,
     externalRef: null,
+    countsAsAvailable: true,
   }
 }
 
@@ -263,6 +264,23 @@ function AccountDialog({
               <Switch
                 checked={draft.isDefault}
                 onCheckedChange={(value) => set('isDefault', value)}
+              />
+            </div>
+
+            {/* Der Schalter, der das Buch beeinflusst: liegt Zweckgebundenes
+                auf dem Konto, ist eine Umbuchung dorthin eine Ausgabe. */}
+            <div className="border-border flex items-center justify-between gap-4 rounded-lg border p-3">
+              <span className="flex flex-col">
+                <span className="text-sm font-medium">Zählt als verfügbar</span>
+                <span className="text-muted-foreground text-xs">
+                  Aus beim Tagesgeld oder Depot: was dorthin wandert, gilt im
+                  Buch als ausgegeben. An bei Giro und PayPal — dort bleibt das
+                  Geld greifbar.
+                </span>
+              </span>
+              <Switch
+                checked={draft.countsAsAvailable}
+                onCheckedChange={(value) => set('countsAsAvailable', value)}
               />
             </div>
 

@@ -62,6 +62,17 @@ class Account(UUIDMixin, TimestampMixin, Base):
     #: behalten — sie tauchen nur nicht mehr in der Auswahl auf.
     active: Mapped[bool] = mapped_column(default=True)
 
+    #: Zählt Geld auf diesem Konto noch als verfügbar?
+    #:
+    #: Beim Girokonto ja, beim Tagesgeld nein: was dort liegt, ist Rücklage für
+    #: die Insolvenz oder Lios Schulsachen — man kann es nicht noch einmal
+    #: ausgeben. Eine Umbuchung auf ein Konto mit `False` gilt im Buch deshalb
+    #: als **Ausgabe**, obwohl das Geld den Haushalt nicht verlassen hat.
+    #:
+    #: PayPal aufzuladen ist der Gegenfall: das Geld ist weiter greifbar, die
+    #: Umbuchung ändert nichts.
+    counts_as_available: Mapped[bool] = mapped_column(default=True)
+
     #: Kennung beim Anbieter, für den späteren Bankabruf über GoCardless.
     #: Jetzt kostenlos, später eine Migration auf einer gefüllten Tabelle.
     external_ref: Mapped[str | None] = mapped_column(String(200), nullable=True)
