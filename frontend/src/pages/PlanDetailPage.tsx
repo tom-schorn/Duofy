@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router'
 import { ArrowLeft, Plus, Users } from 'lucide-react'
 
 import { AccountCards } from '@/components/AccountCards'
+import { BookFlow } from '@/components/BookFlow'
 import { BudgetSection } from '@/components/BudgetSection'
 import { PaidDialog } from '@/components/PaidDialog'
 import {
@@ -339,6 +340,8 @@ function PlanBody({
               wirklich da ist. Unter den Plan-Karten, damit man beides in
               einem Blick hat. */}
           <AccountCards />
+
+          <BookFlow year={plan.year} month={plan.month} />
 
           <MonthBook
             positions={plan.positions}

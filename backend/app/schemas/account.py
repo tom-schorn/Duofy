@@ -46,3 +46,24 @@ class AccountRead(AccountBase):
     #: gespeichert — eine gespeicherte Zahl liefe irgendwann auseinander, und
     #: die Buchungen sind ohnehin die Wahrheit.
     balance: Decimal = Decimal("0.00")
+
+
+class BalancePoint(Schema):
+    """Ein Tag mit Bewegung, mit dem Stand an seinem Ende."""
+
+    day: date
+    balance: Decimal
+    #: Was an diesem Tag zusammengerechnet passiert ist — die Höhe der Stufe.
+    change: Decimal
+
+
+class BalanceHistory(Schema):
+    """Der Gesamtstand über einen Kalendermonat.
+
+    `opening_balance` ist der Stand **vor** dem Ersten. Ohne ihn stünde die
+    Kurve am Monatsanfang bei null und jeder Monat sähe aus wie ein Neustart.
+    """
+
+    opening_balance: Decimal
+    closing_balance: Decimal
+    points: list[BalancePoint]

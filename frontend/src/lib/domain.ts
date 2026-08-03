@@ -310,6 +310,25 @@ export type Account = {
   balance?: string
 }
 
+/** Ein Tag mit Bewegung, mit dem Gesamtstand an seinem Ende. */
+export type BalancePoint = {
+  day: string
+  balance: string
+  change: string
+}
+
+/**
+ * Der Gesamtstand über einen Kalendermonat.
+ *
+ * `openingBalance` ist der Stand **vor** dem Ersten — ohne ihn stünde die
+ * Kurve am Monatsanfang bei null und jeder Monat sähe aus wie ein Neustart.
+ */
+export type BalanceHistory = {
+  openingBalance: string
+  closingBalance: string
+  points: BalancePoint[]
+}
+
 /**
  * Eine Buchung im Haushaltsbuch.
  *

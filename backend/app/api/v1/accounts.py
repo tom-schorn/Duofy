@@ -9,10 +9,12 @@ Anfangsbestand plus den Buchungen danach — sobald es Buchungen gibt.
 """
 
 import uuid
+from calendar import monthrange
+from datetime import date
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import case, func, select, update
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import case, func, literal, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
@@ -22,7 +24,13 @@ from app.models.account import Account
 from app.models.enums import Block
 from app.models.transaction import Transaction
 from app.models.user import User
-from app.schemas.account import AccountCreate, AccountRead, AccountUpdate
+from app.schemas.account import (
+    AccountCreate,
+    AccountRead,
+    AccountUpdate,
+    BalanceHistory,
+    BalancePoint,
+)
 
 router = APIRouter()
 
@@ -110,6 +118,74 @@ async def list_accounts(
         )
         for account in result.scalars()
     ]
+
+
+#: Wieviel eine Buchung am **Gesamtstand** bewegt. Umbuchungen fehlen bewusst:
+#: sie schieben zwischen eigenen Konten, in der Summe passiert nichts.
+_TOTAL_DELTA = case(
+    (Transaction.counter_account_id.isnot(None), literal(0)),
+    (Transaction.block == Block.INCOME, Transaction.amount),
+    else_=-Transaction.amount,
+)
+
+
+@router.get("/history", response_model=BalanceHistory)
+async def balance_history(
+    year: int = Query(ge=2000, le=2100),
+    month: int = Query(ge=1, le=12),
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_active_user),
+) -> BalanceHistory:
+    """Wie sich der Gesamtstand über einen Kalendermonat entwickelt hat.
+
+    Das Gegenstück zum Verlauf im Plan: der zeigt, wie der Monat gedacht war,
+    dieser, wie er lief.
+
+    **Nach Datum, nicht nach Posten.** Das Buch ordnet eine Buchung dem Monat
+    ihres Postens zu — für eine Kontostandkurve wäre das falsch. Das Geld war
+    am 30. Juli auf dem Konto, auch wenn es für den August gedacht ist.
+
+    Muss **vor** `/{account_id}` stehen, sonst versucht FastAPI, „history" als
+    UUID zu lesen.
+    """
+    first = date(year, month, 1)
+    last = date(year, month, monthrange(year, month)[1])
+
+    opening = await session.scalar(
+        select(func.coalesce(func.sum(Account.opening_balance), ZERO)).where(
+            Account.owner_id == user.id
+        )
+    )
+    before = await session.scalar(
+        select(func.coalesce(func.sum(_TOTAL_DELTA), ZERO)).where(
+            Transaction.owner_id == user.id, Transaction.occurred_on < first
+        )
+    )
+
+    daily = await session.execute(
+        select(Transaction.occurred_on, func.sum(_TOTAL_DELTA))
+        .where(
+            Transaction.owner_id == user.id,
+            Transaction.occurred_on >= first,
+            Transaction.occurred_on <= last,
+        )
+        .group_by(Transaction.occurred_on)
+        .order_by(Transaction.occurred_on)
+    )
+
+    # Ein Punkt je Tag **mit** Bewegung. Die Tage dazwischen ergänzt das
+    # Diagramm als Stufe — sie tragen keine Information.
+    running = (opening or ZERO) + (before or ZERO)
+    points = []
+    for day, delta in daily.all():
+        running += delta
+        points.append(BalancePoint(day=day, balance=running, change=delta))
+
+    return BalanceHistory(
+        opening_balance=(opening or ZERO) + (before or ZERO),
+        closing_balance=running,
+        points=points,
+    )
 
 
 @router.post("", response_model=AccountRead, status_code=status.HTTP_201_CREATED)

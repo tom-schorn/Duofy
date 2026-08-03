@@ -8,6 +8,7 @@ import {
 import { api } from '@/lib/api'
 import type {
   Account,
+  BalanceHistory,
   Commitment,
   Household,
   HouseholdPlanDetail,
@@ -38,6 +39,8 @@ export const keys = {
   commitments: ['commitments'] as const,
   /** Alle Monate — zum Ungültigmachen, wenn unklar ist, welcher betroffen ist. */
   allTransactions: ['transactions'] as const,
+  balanceHistory: (year: number, month: number) =>
+    ['accounts', 'history', year, month] as const,
   transactions: (year: number, month: number) =>
     ['transactions', year, month] as const,
   plans: ['plans'] as const,
@@ -143,6 +146,21 @@ export function useAccounts() {
   })
 }
 
+/**
+ * Der echte Kontostandverlauf eines Kalendermonats.
+ *
+ * Eigener Endpunkt statt aus den Buchungen gerechnet: das Buch ordnet nach
+ * Posten zu, diese Kurve nach Datum. Aus derselben Liste ließe sich beides
+ * nicht ableiten.
+ */
+export function useBalanceHistory(year: number, month: number) {
+  return useQuery({
+    queryKey: keys.balanceHistory(year, month),
+    queryFn: () =>
+      api.get<BalanceHistory>(`/accounts/history?year=${year}&month=${month}`),
+  })
+}
+
 export function useSaveAccount() {
   // Das Standardkonto wechseln nimmt einem anderen die Markierung — deshalb
   // immer die ganze Liste neu laden, nicht nur den einen Eintrag.
@@ -186,14 +204,26 @@ export function useSaveTransaction(year: number, month: number) {
       id
         ? api.patch(`/transactions/${id}`, body)
         : api.post('/transactions', body),
-    [keys.transactions(year, month), keys.plan(year, month), keys.plans]
+    [
+      keys.transactions(year, month),
+      keys.plan(year, month),
+      keys.plans,
+      // Präfix: deckt die Konten **und** ihren Verlauf ab.
+      keys.accounts,
+    ]
   )
 }
 
 export function useDeleteTransaction(year: number, month: number) {
   return useInvalidating<void, string>(
     (id) => api.delete(`/transactions/${id}`),
-    [keys.transactions(year, month), keys.plan(year, month), keys.plans]
+    [
+      keys.transactions(year, month),
+      keys.plan(year, month),
+      keys.plans,
+      // Präfix: deckt die Konten **und** ihren Verlauf ab.
+      keys.accounts,
+    ]
   )
 }
 
@@ -317,7 +347,7 @@ export function useTogglePaid() {
       paid
         ? api.post(`/positions/${id}/paid`, { occurredOn, amount })
         : api.delete(`/positions/${id}/paid`),
-    [keys.plans, keys.allTransactions]
+    [keys.plans, keys.allTransactions, keys.accounts]
   )
 }
 
