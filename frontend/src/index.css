@@ -154,3 +154,65 @@
     @apply font-sans;
     }
 }
+
+/* ---------------------------------------------------------------------------
+   Druck.
+
+   Der Monatsplan soll auf Papier lesbar sein — Jasmin arbeitet mit einer Mappe,
+   und der Planungssamstag findet am Küchentisch statt. Gedruckt wird der Plan,
+   nicht die Oberfläche: Sidebar, Topbar, Reiter und Knöpfe fallen weg.
+
+   `print-color-adjust: exact` ist nötig, weil Browser Hintergründe im Druck
+   sonst wegwerfen — und bei uns tragen die Blockfarben Bedeutung. Ohne das
+   wären Fixkosten, Wünsche und Sparen auf Papier nicht zu unterscheiden.
+--------------------------------------------------------------------------- */
+@media print {
+  /* Kein Sitzungs-Zubehör auf Papier. */
+  [data-slot='sidebar-wrapper'] > [data-slot='sidebar'],
+  [data-sidebar='rail'],
+  [data-slot='sidebar-inset'] > header,
+  [data-print='hide'] {
+    display: none !important;
+  }
+
+  /* Der Inhalt bekommt die ganze Seite. */
+  html,
+  body,
+  [data-slot='sidebar-wrapper'],
+  [data-slot='sidebar-inset'] {
+    background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    min-height: 0 !important;
+  }
+
+  /* Farbige Flächen erhalten: Blockfarbe ist Bedeutung, nicht Schmuck. */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Karten ohne Schatten und Ring, dafür mit dünnem Rahmen — Ringe drucken
+     manche Browser gar nicht. */
+  [data-slot='card'] {
+    box-shadow: none !important;
+    --tw-ring-shadow: 0 0 #0000 !important;
+    border: 1px solid #d4d4d4 !important;
+    break-inside: avoid;
+  }
+
+  /* Ein Block soll nicht mitten in der Postenliste umbrechen. */
+  section {
+    break-inside: avoid;
+  }
+
+  a[href] {
+    text-decoration: none !important;
+    color: inherit !important;
+  }
+
+  @page {
+    margin: 14mm 12mm;
+  }
+}

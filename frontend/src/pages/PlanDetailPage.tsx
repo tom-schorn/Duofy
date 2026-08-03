@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
-import { ArrowLeft, Eye, Pencil, Plus, Users } from 'lucide-react'
+import { ArrowLeft, Eye, Pencil, Plus, Printer, Users } from 'lucide-react'
 
 import { AccountCards } from '@/components/AccountCards'
 import { BookFlow } from '@/components/BookFlow'
@@ -20,6 +20,7 @@ import {
 import { MonthBook } from '@/components/MonthBook'
 import { Metric } from '@/components/Metric'
 import { PlanSankey } from '@/components/PlanSankey'
+import { langesDatum, today } from '@/lib/dates'
 import { MonthFlow } from '@/components/MonthFlow'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PositionDialog } from '@/components/PositionDialog'
@@ -188,6 +189,14 @@ function PlanBody({
   // später übersetzt, eine URL soll dabei stabil bleiben.
   const [params, setParams] = useSearchParams()
   const tab = params.get('tab') ?? 'plan'
+  const setTab = (value: string) =>
+    setParams(
+      (current: URLSearchParams) => {
+        current.set('tab', value)
+        return current
+      },
+      { replace: true }
+    )
 
   const [editing, setEditing] = useState<PlanPosition | null>(null)
   const [addingTo, setAddingTo] = useState<Block>('wants')
@@ -297,6 +306,13 @@ function PlanBody({
 
   return (
     <>
+      {/* Nur auf Papier: ohne Topbar fehlte sonst jeder Hinweis, was das Blatt
+          ist und von wann es stammt. */}
+      <p className="text-muted-foreground hidden text-xs print:block">
+        Duofy · Monatsplan {MONTH_LABEL[plan.month - 1]} {plan.year} · gedruckt
+        am {langesDatum(today())}
+      </p>
+
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -318,7 +334,21 @@ function PlanBody({
             es zählt, dass es aufgeht.
           </p>
         </div>
-        <Button onClick={() => handleAdd('wants')}>
+        {/* Drucken wechselt vorher auf den Plan: gedruckt wird, was im DOM
+            steht, und bei offenem Buch-Reiter wäre das das Buch. */}
+        <Button
+          variant="outline"
+          data-print="hide"
+          onClick={() => {
+            setTab('plan')
+            // Ein Tick, damit React den Reiterwechsel gerendert hat.
+            requestAnimationFrame(() => window.print())
+          }}
+        >
+          <Printer className="size-4" />
+          Drucken
+        </Button>
+        <Button data-print="hide" onClick={() => handleAdd('wants')}>
           <Plus className="size-4" />
           Posten hinzufügen
         </Button>
@@ -389,7 +419,7 @@ function PlanBody({
         }
         className="gap-6"
       >
-        <TabsList>
+        <TabsList data-print="hide">
           <TabsTrigger value="plan">Plan</TabsTrigger>
           <TabsTrigger value="flow">Verlauf</TabsTrigger>
           <TabsTrigger value="book">Buch</TabsTrigger>
@@ -468,6 +498,7 @@ function PlanBody({
         {/* TODO: Im Haushalt müssen beide bestätigen. Dafür fehlt im Backend
             eine Tabelle, die je Mitglied festhält wer zugestimmt hat. */}
         <Button
+          data-print="hide"
           onClick={() => confirmPlan.mutate(plan.id)}
           disabled={plan.status === 'confirmed' || confirmPlan.isPending}
         >
