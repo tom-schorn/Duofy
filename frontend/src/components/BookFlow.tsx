@@ -8,6 +8,7 @@ import {
   YAxis,
 } from 'recharts'
 
+import { Card } from '@/components/ui/card'
 import { QueryState } from '@/components/QueryState'
 import {
   ChartContainer,
@@ -164,7 +165,7 @@ function Chart({
   )
 
   return (
-    <section className="bg-card border-border flex flex-col gap-4 rounded-lg border p-5">
+    <Card className="gap-4 px-5 py-5">
       <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span
           className={`font-mono text-2xl font-semibold tabular-nums ${closing < 0 ? 'text-destructive' : ''}`}
@@ -238,7 +239,7 @@ function Chart({
           <ChartLegend content={<ChartLegendContent />} />
         </ComposedChart>
       </ChartContainer>
-    </section>
+    </Card>
   )
 }
 

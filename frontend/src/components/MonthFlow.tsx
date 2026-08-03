@@ -14,6 +14,12 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart'
+import { Card } from '@/components/ui/card'
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+} from '@/components/ui/empty'
 import {
   Table,
   TableBody,
@@ -167,10 +173,12 @@ export function MonthFlow({ positions, year, month }: Props) {
 
   if (steps.length === 0) {
     return (
-      <p className="text-muted-foreground bg-card border-border rounded-lg border p-6 text-sm">
-        Noch keine Posten — sobald welche da sind, zeigt der Verlauf, wann im
-        Monat es eng wird.
-      </p>
+      <Empty className="border-border rounded-xl border border-dashed">
+        <EmptyHeader>
+          <EmptyDescription>Noch keine Posten — sobald welche da sind, zeigt der Verlauf, wann im
+        Monat es eng wird.</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     )
   }
 
@@ -182,7 +190,7 @@ export function MonthFlow({ positions, year, month }: Props) {
   const shortfall = low < 0 ? Math.abs(low) : 0
 
   return (
-    <section className="flex flex-col gap-5">
+    <Card className="gap-5 px-5 py-5">
       <header className="flex flex-col gap-1">
         {shortfall > 0 ? (
           <>
@@ -323,7 +331,7 @@ export function MonthFlow({ positions, year, month }: Props) {
         Zeilen mit; innerhalb eines Tages gibt es aber keine Reihenfolge, das
         Diagramm zeigt deshalb den Tagesabschluss.
       </p>
-    </section>
+    </Card>
   )
 }
 

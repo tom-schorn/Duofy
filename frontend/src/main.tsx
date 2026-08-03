@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import './index.css'
 import { ThemeProvider } from '@/components/ThemeProvider'
+import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ApiError } from '@/lib/api'
 import { router } from '@/router'
@@ -27,6 +28,9 @@ createRoot(document.getElementById('root')!).render(
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <RouterProvider router={router} />
+          {/* Rückmeldung nach dem Speichern. Vorher passierte alles still —
+              man wusste nur am Ergebnis, ob es geklappt hat. */}
+          <Toaster position="bottom-right" />
         </TooltipProvider>
       </QueryClientProvider>
     </ThemeProvider>

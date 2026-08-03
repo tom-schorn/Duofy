@@ -6,6 +6,8 @@ import {
   EmptyDescription,
   EmptyHeader,
 } from '@/components/ui/empty'
+import { DateField } from '@/components/DateField'
+import { today } from '@/lib/dates'
 import { QueryState } from '@/components/QueryState'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -58,7 +60,7 @@ function emptyAccount(isFirst: boolean): Account {
     name: '',
     type: 'checking',
     openingBalance: '',
-    openingDate: new Date().toISOString().slice(0, 10),
+    openingDate: today(),
     // Das erste Konto ist automatisch der Standard — sonst müsste man beim
     // ersten Buchen erst zurück in die Einstellungen.
     isDefault: isFirst,
@@ -250,12 +252,10 @@ function AccountDialog({
                     berechenbar — man wüsste nicht, welche Buchungen schon
                     im Anfangsbestand stecken. */}
                 <Label htmlFor="account-date">Stand vom</Label>
-                <Input
+                <DateField
                   id="account-date"
-                  type="date"
                   value={draft.openingDate}
-                  onChange={(event) => set('openingDate', event.target.value)}
-                  required
+                  onChange={(iso) => set('openingDate', iso)}
                 />
               </div>
             </div>

@@ -8,9 +8,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { DateField } from '@/components/DateField'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { today } from '@/lib/dates'
 import { euro, type PlanPosition } from '@/lib/domain'
 
 /**
@@ -32,10 +34,6 @@ type Props = {
   onClose: () => void
   onConfirm: (values: { occurredOn: string; amount: string }) => void
   pending: boolean
-}
-
-function today(): string {
-  return new Date().toISOString().slice(0, 10)
 }
 
 export function PaidDialog({ position, onClose, onConfirm, pending }: Props) {
@@ -76,12 +74,10 @@ export function PaidDialog({ position, onClose, onConfirm, pending }: Props) {
           <div className="flex gap-3">
             <div className="flex flex-1 flex-col gap-1.5">
               <Label htmlFor="paid-date">Datum</Label>
-              <Input
+              <DateField
                 id="paid-date"
-                type="date"
                 value={occurredOn}
-                onChange={(event) => setOccurredOn(event.target.value)}
-                required
+                onChange={setOccurredOn}
               />
             </div>
 

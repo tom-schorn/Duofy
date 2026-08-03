@@ -5,6 +5,8 @@ import {
   type UseMutationOptions,
 } from '@tanstack/react-query'
 
+import { toast } from 'sonner'
+
 import { api } from '@/lib/api'
 import { OWN_SCOPE, scopeKey, scopeQuery } from '@/lib/domain'
 import type {
@@ -92,21 +94,24 @@ export function useHouseholds() {
 export function useCreateHousehold() {
   return useInvalidating<Household, { name: string }>(
     (input) => api.post('/households', input),
-    [keys.households]
+    [keys.households],
+    'Haushalt angelegt'
   )
 }
 
 export function useUpdateHousehold() {
   return useInvalidating<Household, { id: string } & Partial<Household>>(
     ({ id, ...changes }) => api.patch(`/households/${id}`, changes),
-    [keys.households]
+    [keys.households],
+    'Haushalt geändert'
   )
 }
 
 export function useLeaveHousehold() {
   return useInvalidating<void, string>(
     (householdId) => api.delete(`/households/${householdId}/members/me`),
-    [keys.households]
+    [keys.households],
+    'Haushalt verlassen'
   )
 }
 
@@ -120,7 +125,8 @@ export function useSetMyAccess(householdId: string) {
   return useInvalidating<Member, AccessLevel>(
     (grantsAccess) =>
       api.patch(`/households/${householdId}/members/me`, { grantsAccess }),
-    [keys.households, keys.plans, keys.accounts]
+    [keys.households, keys.plans, keys.accounts],
+    'Freigabe geändert'
   )
 }
 
@@ -135,7 +141,8 @@ export function useInvitations(householdId: string | null) {
 export function useInvite(householdId: string) {
   return useInvalidating<Invitation, { email: string }>(
     (input) => api.post(`/households/${householdId}/invitations`, input),
-    [keys.invitations(householdId)]
+    [keys.invitations(householdId)],
+    'Einladung verschickt'
   )
 }
 
@@ -143,7 +150,8 @@ export function useRevokeInvitation(householdId: string) {
   return useInvalidating<void, string>(
     (invitationId) =>
       api.delete(`/households/${householdId}/invitations/${invitationId}`),
-    [keys.invitations(householdId)]
+    [keys.invitations(householdId)],
+    'Einladung zurückgezogen'
   )
 }
 
@@ -160,14 +168,16 @@ export function useAcceptInvitation() {
   // fremde Haushaltsposten dazukommen können.
   return useInvalidating<Household, string>(
     (token) => api.post(`/households/invitations/${token}/accept`),
-    [keys.myInvitations, keys.households, keys.plans]
+    [keys.myInvitations, keys.households, keys.plans],
+    'Haushalt beigetreten'
   )
 }
 
 export function useDeclineInvitation() {
   return useInvalidating<void, string>(
     (token) => api.post(`/households/invitations/${token}/decline`),
-    [keys.myInvitations]
+    [keys.myInvitations],
+    'Einladung abgelehnt'
   )
 }
 
@@ -223,14 +233,16 @@ export function useSaveAccount() {
   return useInvalidating<Account, Partial<Account> & { id?: string }>(
     ({ id, ownerId: _o, ...body }) =>
       id ? api.patch(`/accounts/${id}`, body) : api.post('/accounts', body),
-    [keys.accounts]
+    [keys.accounts],
+    'Konto gespeichert'
   )
 }
 
 export function useDeleteAccount() {
   return useInvalidating<void, string>(
     (id) => api.delete(`/accounts/${id}`),
-    [keys.accounts]
+    [keys.accounts],
+    'Konto gelöscht'
   )
 }
 
@@ -272,7 +284,8 @@ export function useSaveTransaction(year: number, month: number) {
       keys.plans,
       // Präfix: deckt die Konten **und** ihren Verlauf ab.
       keys.accounts,
-    ]
+    ],
+    'Buchung gespeichert'
   )
 }
 
@@ -285,7 +298,8 @@ export function useDeleteTransaction(year: number, month: number) {
       keys.plans,
       // Präfix: deckt die Konten **und** ihren Verlauf ab.
       keys.accounts,
-    ]
+    ],
+    'Buchung gelöscht'
   )
 }
 
@@ -309,14 +323,16 @@ export function useSaveCommitment() {
     // Ein geänderter Vertrag wirkt sich erst auf **künftige** Monate aus —
     // bestehende Posten bleiben. Trotzdem beide neu laden, weil ein neu
     // angelegter Monat sofort davon abhängt.
-    [keys.commitments, keys.plans]
+    [keys.commitments, keys.plans],
+    'Vertrag gespeichert'
   )
 }
 
 export function useDeleteCommitment() {
   return useInvalidating<void, string>(
     (id) => api.delete(`/commitments/${id}`),
-    [keys.commitments, keys.plans]
+    [keys.commitments, keys.plans],
+    'Vertrag gelöscht'
   )
 }
 
@@ -379,14 +395,16 @@ export function useMemberPlan(
 export function useCreatePlan() {
   return useInvalidating<PlanDetail, { year: number; month: number }>(
     (input) => api.post('/plans', input),
-    [keys.plans]
+    [keys.plans],
+    'Monat angelegt'
   )
 }
 
 export function useConfirmPlan() {
   return useInvalidating<PlanDetail, string>(
     (planId) => api.post(`/plans/${planId}/confirm`),
-    [keys.plans]
+    [keys.plans],
+    'Monat bestätigt'
   )
 }
 
@@ -400,13 +418,14 @@ export function useSavePosition() {
     return id
       ? api.patch(`/positions/${id}`, body)
       : api.post(`/plans/${planId}/positions`, body)
-  }, [keys.plans])
+  }, [keys.plans], 'Posten gespeichert')
 }
 
 export function useDeletePosition() {
   return useInvalidating<void, string>(
     (id) => api.delete(`/positions/${id}`),
-    [keys.plans]
+    [keys.plans],
+    'Posten gelöscht'
   )
 }
 
@@ -429,7 +448,8 @@ export function useTogglePaid() {
       paid
         ? api.post(`/positions/${id}/paid`, { occurredOn, amount })
         : api.delete(`/positions/${id}/paid`),
-    [keys.plans, keys.allTransactions, keys.accounts]
+    [keys.plans, keys.allTransactions, keys.accounts],
+    'Posten aktualisiert'
   )
 }
 
@@ -443,6 +463,15 @@ export function useTogglePaid() {
 function useInvalidating<TData, TInput>(
   mutationFn: (input: TInput) => Promise<TData>,
   invalidate: readonly (readonly unknown[])[],
+  /**
+   * Was der Toast sagt. An **einer** Stelle statt an jedem Aufrufer — sonst
+   * bekommt die Hälfte der Aktionen eine Rückmeldung und die andere nicht.
+   *
+   * Fehler bleiben draußen: die stehen im Formular neben dem Feld, das sie
+   * betrifft. Ein Toast, der wegfliegt, ist der falsche Ort für etwas, das man
+   * korrigieren soll.
+   */
+  erfolg?: string,
   options?: UseMutationOptions<TData, Error, TInput>
 ) {
   const client = useQueryClient()
@@ -453,6 +482,7 @@ function useInvalidating<TData, TInput>(
       for (const key of invalidate) {
         client.invalidateQueries({ queryKey: key })
       }
+      if (erfolg) toast.success(erfolg)
       options?.onSuccess?.(...args)
     },
   })

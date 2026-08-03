@@ -1,7 +1,13 @@
 import { useState } from 'react'
 import { Layer, Rectangle, Sankey, Tooltip } from 'recharts'
 
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+} from '@/components/ui/empty'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { ChartContainer, type ChartConfig } from '@/components/ui/chart'
 import { euro, type PlanPosition } from '@/lib/domain'
 
@@ -192,15 +198,17 @@ export function PlanSankey({ positions, budget }: Props) {
 
   if (links.length === 0) {
     return (
-      <p className="text-muted-foreground bg-card border-border rounded-lg border p-6 text-sm">
-        Für dieses Diagramm braucht der Monat Einnahmen und Posten. Sobald etwas
-        geplant ist, steht hier, wohin es geht.
-      </p>
+      <Empty className="border-border rounded-xl border border-dashed">
+        <EmptyHeader>
+          <EmptyDescription>Für dieses Diagramm braucht der Monat Einnahmen und Posten. Sobald etwas
+        geplant ist, steht hier, wohin es geht.</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     )
   }
 
   return (
-    <section className="bg-card border-border flex flex-col gap-4 rounded-lg border p-5">
+    <Card className="gap-4 px-5 py-5">
       <header className="flex flex-wrap items-baseline justify-between gap-3">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <span className="font-mono text-2xl font-semibold tabular-nums">
@@ -267,7 +275,7 @@ export function PlanSankey({ positions, budget }: Props) {
           <Tooltip content={<Hinweis zeige={zeige} />} />
         </Sankey>
       </ChartContainer>
-    </section>
+    </Card>
   )
 }
 

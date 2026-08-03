@@ -1,7 +1,9 @@
-import { Check, Plus, User, Users } from 'lucide-react'
+import { Plus, User, Users } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Progress } from '@/components/ui/progress'
 import {
   BLOCK_DOT,
   BLOCK_LABEL,
@@ -23,6 +25,23 @@ import {
  * **Keine Untergruppen.** Wünsche ist eine flache Liste — Investitionen sind
  * ganz normale Posten der Kategorie „Investition", nicht mehr.
  */
+
+/**
+ * Balkenfarbe je Block — **ausgeschrieben**, nicht zusammengesetzt.
+ *
+ * Tailwind liest die Klassen aus dem Quelltext. Ein
+ * `[&_...]:${BLOCK_DOT[block]}` steht dort nie als fertige Klasse und würde
+ * deshalb nicht erzeugt: der Balken bliebe grau. Der Indikator von `Progress`
+ * ist auf `bg-primary` festgelegt, also muss er überschrieben werden.
+ */
+const BAR: Record<Block, string> = {
+  income: '[&_[data-slot=progress-indicator]]:bg-chart-3',
+  needs: '[&_[data-slot=progress-indicator]]:bg-chart-1',
+  wants: '[&_[data-slot=progress-indicator]]:bg-chart-2',
+  savings: '[&_[data-slot=progress-indicator]]:bg-chart-4',
+}
+
+const BAR_OVER = '[&_[data-slot=progress-indicator]]:bg-destructive'
 
 /** Ab wieviel Prozent über der Quote es rot wird. */
 const OVER_QUOTA = 100
@@ -92,12 +111,13 @@ export function BudgetSection({
         </div>
 
         {target !== null && (
-          <div className="bg-muted h-1.5 overflow-hidden rounded-full">
-            <div
-              className={`h-full rounded-full ${isOver ? 'bg-destructive' : BLOCK_DOT[block]}`}
-              style={{ width: `${Math.min(percent, 100)}%` }}
-            />
-          </div>
+          // Der Indikator von `Progress` ist auf `bg-primary` festgelegt; die
+          // Blockfarbe ist bei uns aber Identität, also wird sie überschrieben.
+          <Progress
+            value={Math.min(percent, 100)}
+            aria-label={`${BLOCK_LABEL[block]}: ${Math.round(percent)} % der Quote`}
+            className={`h-1.5 ${isOver ? BAR_OVER : BAR[block]}`}
+          />
         )}
       </header>
 
@@ -168,43 +188,34 @@ function PositionRow({
            aus einzelnen Buchungen. Ein Haken hätte hier keine Bedeutung.
            Statt eines toten Kästchens steht hier nichts. */
         <span className="size-6" aria-hidden />
-      ) : readOnly ? (
-        // role + aria-label, weil der Zustand sonst nur als Häkchen sichtbar
-        // wäre — ohne Knopf gibt es kein aria-pressed, das ihn ansagt.
-        <span
-          role="img"
-          aria-label={
-            paid
-              ? `${position.label} ist erledigt`
-              : `${position.label} steht noch offen`
-          }
-          className={`flex size-6 items-center justify-center rounded border ${
-            paid ? 'bg-chart-4 border-chart-4 text-background' : 'border-border'
-          }`}
-        >
-          {paid && <Check className="size-3.5" strokeWidth={3} />}
-        </span>
       ) : (
-        <button
-          type="button"
-          onClick={() => onTogglePaid(position)}
-          aria-label={
-            paid
-              ? `${position.label} wieder öffnen`
-              : position.block === 'income'
-                ? `${position.label} als erhalten markieren`
-                : `${position.label} abhaken`
-          }
-          aria-pressed={paid}
-          // size-6 statt size-5: WCAG 2.2 SC 2.5.8 verlangt 24 × 24 px.
-          className={`flex size-6 items-center justify-center rounded border transition-colors ${
-            paid
-              ? 'bg-chart-4 border-chart-4 text-background'
-              : 'border-border hover:border-ring'
-          }`}
-        >
-          {paid && <Check className="size-3.5" strokeWidth={3} />}
-        </button>
+        /* `Checkbox` aus dem Theme statt eigenem Knopf. „Erledigt" ist ein
+           Zustand, kein Werkzeugschalter — die Checkbox sagt ihn von sich aus
+           an, in der Nur-Lese-Ansicht als deaktiviert. Vorher stand hier ein
+           Knopf mit `aria-pressed` und daneben ein `role="img"`-Behelf.
+
+           Grün statt Primärfarbe: „bezahlt" gehört zu Sparen/Erledigt, nicht
+           zur Markenfarbe. Die Klasse ist ausgeschrieben, weil Tailwind
+           zusammengesetzte nicht erzeugt.
+
+           Der Rahmen ist size-6, das Kästchen size-4: WCAG 2.2 SC 2.5.8
+           verlangt 24 × 24 px Zielfläche, und die Checkbox bringt ihre über
+           `after:-inset` mit. */
+        <span className="flex size-6 items-center justify-center">
+          <Checkbox
+            checked={paid}
+            disabled={readOnly}
+            onCheckedChange={() => onTogglePaid(position)}
+            aria-label={
+              paid
+                ? `${position.label} wieder öffnen`
+                : position.block === 'income'
+                  ? `${position.label} als erhalten markieren`
+                  : `${position.label} abhaken`
+            }
+            className="data-checked:border-chart-4 data-checked:bg-chart-4 data-checked:text-background"
+          />
+        </span>
       )}
 
       <button
@@ -262,14 +273,11 @@ function PositionRow({
             </span>
             {/* Füllstand statt Haken: die Frage ist „wie viel ist weg", nicht
                 „ist es erledigt". */}
-            <span className="bg-muted h-1 w-24 overflow-hidden rounded-full">
-              <span
-                className={`block h-full rounded-full ${overspent ? 'bg-destructive' : 'bg-chart-1'}`}
-                style={{
-                  width: `${Math.min(((actual ?? 0) / (planned || 1)) * 100, 100)}%`,
-                }}
-              />
-            </span>
+            <Progress
+              value={Math.min(((actual ?? 0) / (planned || 1)) * 100, 100)}
+              aria-label={`${position.label}: ${euro.format(actual ?? 0)} von ${euro.format(planned)}`}
+              className={`w-24 ${overspent ? BAR_OVER : BAR.needs}`}
+            />
           </>
         ) : (
           <>

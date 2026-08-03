@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/empty'
 import { QueryState } from '@/components/QueryState'
 import { errorText } from '@/lib/api'
+import { today } from '@/lib/dates'
 import {
   OWN_SCOPE,
   BLOCK_SUGGESTION,
@@ -62,10 +63,6 @@ type Props = {
   scope?: BookScope
   /** Einblick heißt ansehen: keine Schnelleingabe, kein Löschen. */
   readOnly?: boolean
-}
-
-function today(): string {
-  return new Date().toISOString().slice(0, 10)
 }
 
 export function MonthBook({

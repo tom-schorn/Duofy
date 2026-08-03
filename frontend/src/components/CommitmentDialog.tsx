@@ -11,6 +11,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { DateField } from '@/components/DateField'
+import { today } from '@/lib/dates'
 import { Switch } from '@/components/ui/switch'
 import {
   Select,
@@ -206,7 +208,7 @@ export function CommitmentDialog({
       }
       // Beim Wechsel auf quartalsweise & Co. den heutigen Tag vorschlagen —
       // besser als ein leeres Pflichtfeld.
-      const seed = current.firstDueDate ?? new Date().toISOString().slice(0, 10)
+      const seed = current.firstDueDate ?? today()
       return {
         ...current,
         rhythm,
@@ -412,12 +414,10 @@ export function CommitmentDialog({
             {isRecurringIrregular ? (
               <div className="flex flex-col gap-2">
                 <Label htmlFor="first-due">Erste Fälligkeit</Label>
-                <Input
+                <DateField
                   id="first-due"
-                  type="date"
                   value={draft.firstDueDate ?? ''}
-                  onChange={(event) => handleFirstDueDate(event.target.value)}
-                  required
+                  onChange={handleFirstDueDate}
                 />
                 <p className="text-muted-foreground text-xs">
                   Tag und Monat kommen von hier — das Jahr entscheidet, ab wann
@@ -558,13 +558,11 @@ export function CommitmentDialog({
                 </div>
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="target-date">Zieldatum</Label>
-                  <Input
+                  <DateField
                     id="target-date"
-                    type="date"
                     value={draft.targetDate ?? ''}
-                    onChange={(event) =>
-                      set('targetDate', event.target.value || null)
-                    }
+                    onChange={(iso) => set('targetDate', iso || null)}
+                    placeholder="Kein Zieldatum"
                   />
                 </div>
               </div>
