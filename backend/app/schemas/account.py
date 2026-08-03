@@ -55,6 +55,20 @@ class AccountRead(AccountBase):
     balance: Decimal = Decimal("0.00")
 
 
+class BalanceMoves(Schema):
+    """Die Bewegung eines Tages, aufgeschlüsselt — alles als positive Beträge.
+
+    `change` ist `income - needs - wants - savings`. Reine Umbuchungen, die den
+    Topf verlassen, zählen unter `savings`: sie haben keinen Block, sind aber
+    weggelegtes Geld.
+    """
+
+    income: Decimal
+    needs: Decimal
+    wants: Decimal
+    savings: Decimal
+
+
 class BalancePoint(Schema):
     """Ein Tag mit Bewegung, mit dem Stand an seinem Ende."""
 
@@ -62,6 +76,7 @@ class BalancePoint(Schema):
     balance: Decimal
     #: Was an diesem Tag zusammengerechnet passiert ist — die Höhe der Stufe.
     change: Decimal
+    moves: BalanceMoves
 
 
 class BalanceHistory(Schema):

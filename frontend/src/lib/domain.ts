@@ -361,11 +361,26 @@ export function scopeKey(scope: BookScope): string {
   return 'own'
 }
 
-/** Ein Tag mit Bewegung, mit dem Gesamtstand an seinem Ende. */
+/**
+ * Die Bewegung eines Tages, aufgeschlüsselt — alles positive Beträge.
+ *
+ * `change` ist `income − needs − wants − savings`. Umbuchungen, die den Topf
+ * verlassen, zählen unter `savings`: sie haben keinen Block, sind aber
+ * weggelegtes Geld.
+ */
+export type BalanceMoves = {
+  income: string
+  needs: string
+  wants: string
+  savings: string
+}
+
+/** Ein Tag mit Bewegung, mit dem Stand an seinem Ende. */
 export type BalancePoint = {
   day: string
   balance: string
   change: string
+  moves: BalanceMoves
 }
 
 /**

@@ -14,7 +14,7 @@ from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import case, func, literal, select, update
+from sqlalchemy import and_, case, func, literal, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
@@ -34,6 +34,7 @@ from app.schemas.account import (
     AccountRead,
     AccountUpdate,
     BalanceHistory,
+    BalanceMoves,
     BalancePoint,
 )
 
@@ -195,13 +196,44 @@ async def list_accounts(
     ]
 
 
-#: Wieviel eine Buchung am **Gesamtstand** bewegt. Umbuchungen fehlen bewusst:
-#: sie schieben zwischen eigenen Konten, in der Summe passiert nichts.
-_TOTAL_DELTA = case(
-    (Transaction.counter_account_id.isnot(None), literal(0)),
-    (Transaction.block == Block.INCOME, Transaction.amount),
-    else_=-Transaction.amount,
-)
+def _delta(frei: set[uuid.UUID] | None):
+    """Wieviel eine Buchung am betrachteten Topf bewegt.
+
+    Zwei Töpfe, zwei Rechnungen:
+
+    * **alle Konten** (`frei is None`) — Umbuchungen sind neutral, sie schieben
+      zwischen eigenen Konten und in der Summe passiert nichts.
+    * **nur verfügbare Konten** — eine Umbuchung aufs Tagesgeld **verlässt** den
+      Topf und zählt als Abgang. Das ist der Sinn des Schalters am Konto: was
+      dort liegt, kann man nicht noch einmal ausgeben.
+
+    Der zweite Topf ist der, den man im Buch sehen will. Nur mit ihm gehen die
+    Balken der Tagesbewegung und die Saldolinie auf: eine Umbuchung senkt die
+    Linie um genau den Balken, den sie erzeugt.
+    """
+    if frei is None:
+        return case(
+            (Transaction.counter_account_id.isnot(None), literal(0)),
+            (Transaction.block == Block.INCOME, Transaction.amount),
+            else_=-Transaction.amount,
+        )
+
+    umbuchung = Transaction.counter_account_id.isnot(None)
+    quelle_frei = Transaction.account_id.in_(frei)
+    ziel_frei = Transaction.counter_account_id.in_(frei)
+
+    return case(
+        # Verlässt den Topf.
+        (and_(umbuchung, quelle_frei, ziel_frei.is_(False)), -Transaction.amount),
+        # Kommt zurück, etwa Geld vom Tagesgeld zurückholen.
+        (and_(umbuchung, quelle_frei.is_(False), ziel_frei), Transaction.amount),
+        # Innerhalb des Topfes oder ganz außerhalb: neutral.
+        (umbuchung, literal(0)),
+        # Normale Buchung zählt nur, wenn sie ein freies Konto berührt.
+        (quelle_frei.is_(False), literal(0)),
+        (Transaction.block == Block.INCOME, Transaction.amount),
+        else_=-Transaction.amount,
+    )
 
 
 @router.get("/history", response_model=BalanceHistory)
@@ -210,6 +242,9 @@ async def balance_history(
     month: int = Query(ge=1, le=12),
     owner: uuid.UUID | None = Query(default=None),
     household: uuid.UUID | None = Query(default=None),
+    # Alias, weil der camelCase-Generator nur für Schemas gilt, nicht für
+    # Query-Parameter — die URL soll trotzdem aussehen wie der Rest der API.
+    only_available: bool = Query(default=False, alias="onlyAvailable"),
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> BalanceHistory:
@@ -229,38 +264,69 @@ async def balance_history(
     first = date(year, month, 1)
     last = date(year, month, monthrange(year, month)[1])
 
-    opening = await session.scalar(
-        select(func.coalesce(func.sum(Account.opening_balance), ZERO)).where(
+    konten = await session.execute(
+        select(Account.id, Account.opening_balance, Account.counts_as_available).where(
             Account.owner_id.in_(owner_ids)
         )
     )
+    zeilen = konten.all()
+    frei = {i for i, _, verfuegbar in zeilen if verfuegbar} if only_available else None
+    opening = sum(
+        (b for i, b, verfuegbar in zeilen if frei is None or i in frei), ZERO
+    )
+
+    delta = _delta(frei)
     before = await session.scalar(
-        select(func.coalesce(func.sum(_TOTAL_DELTA), ZERO)).where(
+        select(func.coalesce(func.sum(delta), ZERO)).where(
             Transaction.owner_id.in_(owner_ids), Transaction.occurred_on < first
         )
     )
 
+    # Nach Tag **und Block**, damit das Diagramm die Bewegung aufschlüsseln kann.
+    # Ein Block ist bei reinen Umbuchungen NULL — die landen unter `savings`,
+    # denn eine Umbuchung, die den Topf verlässt, ist weggelegtes Geld.
     daily = await session.execute(
-        select(Transaction.occurred_on, func.sum(_TOTAL_DELTA))
+        select(Transaction.occurred_on, Transaction.block, func.sum(delta))
         .where(
             Transaction.owner_id.in_(owner_ids),
             Transaction.occurred_on >= first,
             Transaction.occurred_on <= last,
         )
-        .group_by(Transaction.occurred_on)
+        .group_by(Transaction.occurred_on, Transaction.block)
         .order_by(Transaction.occurred_on)
     )
 
+    nach_tag: dict[date, dict[str, Decimal]] = {}
+    for day, block, betrag in daily.all():
+        eimer = nach_tag.setdefault(
+            day, {"income": ZERO, "needs": ZERO, "wants": ZERO, "savings": ZERO}
+        )
+        if betrag > 0:
+            # Alles, was in den Topf kommt: Einnahme oder zurückgeholtes Geld.
+            eimer["income"] += betrag
+        elif betrag < 0:
+            schluessel = block.value if block in (Block.NEEDS, Block.WANTS) else "savings"
+            eimer[schluessel] += -betrag
+
     # Ein Punkt je Tag **mit** Bewegung. Die Tage dazwischen ergänzt das
     # Diagramm als Stufe — sie tragen keine Information.
-    running = (opening or ZERO) + (before or ZERO)
+    running = opening + (before or ZERO)
     points = []
-    for day, delta in daily.all():
-        running += delta
-        points.append(BalancePoint(day=day, balance=running, change=delta))
+    for day in sorted(nach_tag):
+        eimer = nach_tag[day]
+        veraenderung = eimer["income"] - eimer["needs"] - eimer["wants"] - eimer["savings"]
+        running += veraenderung
+        points.append(
+            BalancePoint(
+                day=day,
+                balance=running,
+                change=veraenderung,
+                moves=BalanceMoves(**eimer),
+            )
+        )
 
     return BalanceHistory(
-        opening_balance=(opening or ZERO) + (before or ZERO),
+        opening_balance=opening + (before or ZERO),
         closing_balance=running,
         points=points,
     )

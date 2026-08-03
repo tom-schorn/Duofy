@@ -45,8 +45,20 @@ export const keys = {
   commitments: ['commitments'] as const,
   /** Alle Monate — zum Ungültigmachen, wenn unklar ist, welcher betroffen ist. */
   allTransactions: ['transactions'] as const,
-  balanceHistory: (year: number, month: number, scope: BookScope = OWN_SCOPE) =>
-    ['accounts', 'history', scopeKey(scope), year, month] as const,
+  balanceHistory: (
+    year: number,
+    month: number,
+    scope: BookScope = OWN_SCOPE,
+    onlyAvailable = false
+  ) =>
+    [
+      'accounts',
+      'history',
+      scopeKey(scope),
+      year,
+      month,
+      onlyAvailable ? 'frei' : 'alle',
+    ] as const,
   transactions: (year: number, month: number, scope: BookScope = OWN_SCOPE) =>
     ['transactions', scopeKey(scope), year, month] as const,
   plans: ['plans'] as const,
@@ -182,16 +194,25 @@ export function useAccounts(scope: BookScope = OWN_SCOPE) {
  * Posten zu, diese Kurve nach Datum. Aus derselben Liste ließe sich beides
  * nicht ableiten.
  */
+/**
+ * Der Verlauf eines Kalendermonats.
+ *
+ * `onlyAvailable` betrachtet nur die Konten, die als verfügbar gelten. Nur so
+ * gehen Balken und Saldolinie auf: eine Umbuchung aufs Tagesgeld verlässt den
+ * Topf und senkt die Linie um genau den Balken, den sie erzeugt.
+ */
 export function useBalanceHistory(
   year: number,
   month: number,
-  scope: BookScope = OWN_SCOPE
+  scope: BookScope = OWN_SCOPE,
+  onlyAvailable = false
 ) {
   return useQuery({
-    queryKey: keys.balanceHistory(year, month, scope),
+    queryKey: keys.balanceHistory(year, month, scope, onlyAvailable),
     queryFn: () =>
       api.get<BalanceHistory>(
-        `/accounts/history?year=${year}&month=${month}${scopeQuery(scope)}`
+        `/accounts/history?year=${year}&month=${month}` +
+          `${scopeQuery(scope)}${onlyAvailable ? '&onlyAvailable=true' : ''}`
       ),
   })
 }
