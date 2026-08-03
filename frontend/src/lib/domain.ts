@@ -536,6 +536,18 @@ export type PlanSummary = Plan & {
 }
 
 /** Ein Plan samt seinen Posten. */
+/**
+ * Der Plan einer anderen Person — Einblick, kein eigener Plan.
+ *
+ * `mayEdit` sagt nur, ob die Oberfläche Knöpfe anbieten darf. Geprüft wird am
+ * schreibenden Endpunkt, nicht hier.
+ */
+export type MemberPlanDetail = PlanDetail & {
+  ownerId: string
+  ownerName: string
+  mayEdit: boolean
+}
+
 export type PlanDetail = PlanSummary & {
   id: string
   confirmedAt: string | null

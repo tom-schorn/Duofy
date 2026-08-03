@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useSearchParams } from 'react-router'
 
-import { useHouseholds } from '@/lib/queries'
+import { useHouseholds, useMe } from '@/lib/queries'
 
 import { CalendarRange, FileText, Users, Wallet } from 'lucide-react'
 
@@ -51,11 +51,13 @@ const NAV = [
 
 export function AppLayout() {
   const households = useHouseholds().data ?? []
+  const me = useMe().data
   // Der Untereintrag zeigt auf den laufenden Monat — einen „aktuellen"
   // Haushaltsplan gibt es sonst nicht, er wird ja aus Posten zusammengesetzt.
   const now = new Date()
   const [params] = useSearchParams()
   const active = params.get('household')
+  const activeMember = params.get('member')
 
   return (
     <SidebarProvider>
@@ -104,6 +106,31 @@ export function AppLayout() {
                             </NavLink>
                           </SidebarMenuSubItem>
                         ))}
+
+                        {/* Personen, die Einblick gegeben haben. Kein
+                            Umschalter, sondern ein Ort — dieselbe Begründung
+                            wie beim gemeinsamen Plan. Wer nur die gemeinsamen
+                            Posten teilt, erscheint hier nicht. */}
+                        {households
+                          .flatMap((household) => household.members)
+                          .filter(
+                            (member) =>
+                              member.userId !== me?.id &&
+                              member.grantsAccess !== 'plan'
+                          )
+                          .map((member) => (
+                            <SidebarMenuSubItem key={member.userId}>
+                              <NavLink
+                                to={`/plan/${now.getFullYear()}/${now.getMonth() + 1}?member=${member.userId}`}
+                              >
+                                <SidebarMenuSubButton
+                                  isActive={activeMember === member.userId}
+                                >
+                                  <span>{member.firstName}</span>
+                                </SidebarMenuSubButton>
+                              </NavLink>
+                            </SidebarMenuSubItem>
+                          ))}
                       </SidebarMenuSub>
                     )}
                   </SidebarMenuItem>

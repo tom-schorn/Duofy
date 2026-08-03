@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
-import { ArrowLeft, Plus, Users } from 'lucide-react'
+import { ArrowLeft, Eye, Plus, Users } from 'lucide-react'
 
 import { AccountCards } from '@/components/AccountCards'
 import { BookFlow } from '@/components/BookFlow'
@@ -30,6 +30,7 @@ import {
   useDeletePosition,
   useAccounts,
   useHouseholdPlan,
+  useMemberPlan,
   useHouseholds,
   useTransactions,
   usePlan,
@@ -47,6 +48,7 @@ import {
   type Block,
   type HouseholdPlanDetail,
   type HouseholdPosition,
+  type MemberPlanDetail,
   type PlanDetail,
   type PlanPosition,
 } from '@/lib/domain'
@@ -67,17 +69,22 @@ export function PlanDetailPage() {
   // und es ist sichtbar, warum die Seite anders aussieht.
   const [params] = useSearchParams()
   const householdId = params.get('household')
+  // `?member=` zeigt den Plan einer Person, die Einblick gegeben hat. Dieselbe
+  // Begründung wie beim Haushalt: ein Ort in der URL, kein globaler Zustand.
+  const memberId = params.get('member')
   const shared = householdId !== null
+  const foreign = memberId !== null
 
-  // Beide Hooks stehen immer da — React erlaubt keine bedingten Hooks. Der
-  // jeweils ungenutzte ist über `enabled` abgeschaltet und lädt nichts.
-  const ownPlan = usePlan(Number(year), Number(month), !shared)
+  // Alle drei Hooks stehen immer da — React erlaubt keine bedingten Hooks. Die
+  // ungenutzten sind über `enabled` abgeschaltet und laden nichts.
+  const ownPlan = usePlan(Number(year), Number(month), !shared && !foreign)
   const householdPlan = useHouseholdPlan(
     householdId,
     Number(year),
     Number(month)
   )
-  const query = shared ? householdPlan : ownPlan
+  const memberPlan = useMemberPlan(memberId, Number(year), Number(month))
+  const query = shared ? householdPlan : foreign ? memberPlan : ownPlan
 
   const households = useHouseholds()
 
@@ -103,7 +110,14 @@ export function PlanDetailPage() {
                 householdNames={names}
               />
             )
-          : ownPlan.data && (
+          : foreign
+            ? memberPlan.data && (
+                <MemberPlanBody
+                  plan={memberPlan.data}
+                  householdNames={names}
+                />
+              )
+            : ownPlan.data && (
               <PlanBody plan={ownPlan.data} householdNames={names} />
             )}
       </QueryState>
@@ -497,6 +511,110 @@ function PlanBody({
  *
  * Geändert wird deshalb im eigenen Plan. Hier steht nur, wer was trägt.
  */
+/**
+ * Der Plan einer anderen Person — reiner Einblick.
+ *
+ * Nicht dasselbe wie der gemeinsame Plan: der fasst alle Mitglieder zusammen
+ * und zeigt nur Posten mit Haushalt. Hier steht eine Person für sich, samt
+ * ihrer privaten Posten. Beantwortet „wie steht Jasmin da", nicht „tragen wir
+ * den Monat".
+ *
+ * Read-only, auch bei Stufe „darf ändern" — das Ändern kommt als eigener
+ * Schritt, und bis dahin wäre ein Knopf, der 403 liefert, schlimmer als keiner.
+ */
+function MemberPlanBody({
+  plan,
+  householdNames,
+}: {
+  plan: MemberPlanDetail
+  householdNames: Record<string, string>
+}) {
+  const groups = BUDGETS.map((block) => {
+    const key = block as keyof typeof QUOTA_KEY
+    return {
+      block,
+      rows: plan.positions.filter((row) => row.block === block),
+      target: Number(plan.budget) * (Number(plan[QUOTA_KEY[key]]) / 100),
+    }
+  })
+
+  const incomeRows = plan.positions.filter((row) => row.block === 'income')
+
+  const allocated = groups.reduce(
+    (total, group) =>
+      total +
+      group.rows.reduce(
+        (sum, row) => (row.passThrough ? sum : sum + Number(row.amountPlanned)),
+        0
+      ),
+    0
+  )
+  const free = Number(plan.budget) - allocated
+  const unpaid = plan.positions.reduce((sum, row) => sum + stillDue(row), 0)
+
+  return (
+    <>
+      <header className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="font-heading text-3xl font-semibold">
+            {MONTH_LABEL[plan.month - 1]} {plan.year}
+          </h1>
+          <Badge variant="secondary" className="gap-1 font-normal">
+            <Eye className="size-3" />
+            {plan.ownerName}
+          </Badge>
+          <Badge variant={plan.status === 'draft' ? 'outline' : 'secondary'}>
+            {PLAN_STATUS_LABEL[plan.status]}
+          </Badge>
+        </div>
+        <p className="text-muted-foreground">
+          {plan.ownerName}s ganzer Monat, auch die privaten Posten — so
+          freigegeben. Nur zum Ansehen.
+        </p>
+      </header>
+
+      <section className="grid gap-3 sm:grid-cols-3">
+        <Metric label="Einnahmen" value={Number(plan.income)} />
+        <Metric
+          label="Verplanbar"
+          value={free}
+          hint="noch nicht verteilt"
+          strong
+          tone={free < 0 ? 'over' : 'neutral'}
+        />
+        <Metric label="Noch offen" value={unpaid} hint="noch nicht bezahlt" />
+      </section>
+
+      <div className="flex flex-col gap-8">
+        <BudgetSection
+          block="income"
+          target={null}
+          positions={incomeRows}
+          householdNames={householdNames}
+          onEdit={() => {}}
+          onAdd={() => {}}
+          onTogglePaid={() => {}}
+          readOnly
+        />
+
+        {groups.map((group) => (
+          <BudgetSection
+            key={group.block}
+            block={group.block}
+            target={group.target}
+            positions={group.rows}
+            householdNames={householdNames}
+            onEdit={() => {}}
+            onAdd={() => {}}
+            onTogglePaid={() => {}}
+            readOnly
+          />
+        ))}
+      </div>
+    </>
+  )
+}
+
 function HouseholdPlanBody({
   plan,
   householdNames,
@@ -528,9 +646,7 @@ function HouseholdPlanBody({
   )
   const free = Number(plan.budget) - allocated
 
-  const unpaid = plan.positions
-    .filter((row) => row.block !== 'income' && !isPaid(row))
-    .reduce((sum, row) => sum + Number(row.amountPlanned), 0)
+  const unpaid = plan.positions.reduce((sum, row) => sum + stillDue(row), 0)
 
   // Steht in der Zeile hinter der Kategorie: „Miete · 1. · Jasmin".
   const ownerName = (position: PlanPosition) =>

@@ -147,3 +147,16 @@ class HouseholdPlanRead(PlanSummary):
     household_id: uuid.UUID
     household_name: str
     positions: list[HouseholdPositionRead]
+
+
+class MemberPlanRead(PlanRead):
+    """Der Plan einer anderen Person — Einblick, kein eigener Plan.
+
+    `may_edit` ist nur ein Hinweis fürs Frontend, damit es keine Knöpfe
+    anbietet, die zu einem 403 führen. Die Prüfung liegt am schreibenden
+    Endpunkt, nicht hier.
+    """
+
+    owner_id: uuid.UUID
+    owner_name: str
+    may_edit: bool

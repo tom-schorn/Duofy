@@ -20,13 +20,14 @@ from sqlalchemy.orm import selectinload
 from app.core.auth import current_active_user
 from app.core.permissions import (
     can_assign_to_household,
+    granted_level,
     is_member,
     owns_plan,
     require,
 )
 from app.db.session import get_session
 from app.models.commitment import Commitment
-from app.models.enums import Block, CommitmentType, PlanStatus
+from app.models.enums import AccessLevel, Block, CommitmentType, PlanStatus
 from app.models.household import Household, HouseholdMember
 from app.models.plan import Plan, PlanPosition
 from app.models.user import User
@@ -34,6 +35,7 @@ from app.schemas.plan import (
     BudgetTotals,
     HouseholdPlanRead,
     HouseholdPositionRead,
+    MemberPlanRead,
     PlanCreate,
     PlanRead,
     PlanSummary,
@@ -294,6 +296,54 @@ async def create_position(
 
 
 # --- Haushaltssicht -------------------------------------------------------
+
+
+@router.get("/member/{owner_id}/{year}/{month}", response_model=MemberPlanRead)
+async def get_member_plan(
+    owner_id: uuid.UUID,
+    year: int,
+    month: int,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_active_user),
+) -> MemberPlanRead:
+    """Der **ganze** Plan eines Haushaltsmitglieds, samt privater Posten.
+
+    Nicht dasselbe wie der gemeinsame Plan: der zeigt nur Posten mit gesetzter
+    `household_id` und fasst alle Mitglieder zusammen. Hier steht eine Person
+    für sich, so wie sie ihren Monat sieht.
+
+    Verlangt mindestens Stufe `view` — und die gibt der Besitzer selbst, siehe
+    `AccessLevel`. Private Posten sind bewusst dabei: eine Stufe, die das Buch
+    zeigt, aber einen Posten verbirgt, wäre keine Vertrauensstufe, sondern eine
+    Lücke — im Buch stünde die Buchung ohnehin.
+
+    Die Route ist `/member/...`, nicht `/{owner_id}/...` — sonst käme sie
+    `/{year}/{month}` in den Weg.
+    """
+    level = await granted_level(session, owner_id, user.id)
+    require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
+
+    owner = await session.get(User, owner_id)
+    if owner is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "user_not_found"})
+
+    result = await session.execute(
+        select(Plan)
+        .where(Plan.user_id == owner_id, Plan.year == year, Plan.month == month)
+        .options(selectinload(Plan.positions))
+    )
+    plan = result.scalar_one_or_none()
+    if plan is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "plan_not_found"})
+
+    return MemberPlanRead(
+        owner_id=owner.id,
+        owner_name=owner.first_name,
+        # Sagt dem Frontend, ob es Knöpfe anbieten darf. Geprüft wird trotzdem
+        # am schreibenden Endpunkt — das hier ist Anzeige, keine Absicherung.
+        may_edit=level is AccessLevel.EDIT,
+        **_plan_read(plan).model_dump(),
+    )
 
 
 @router.get("/household/{household_id}/{year}/{month}", response_model=HouseholdPlanRead)

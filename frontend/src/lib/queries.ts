@@ -16,6 +16,7 @@ import type {
   Invitation,
   Me,
   Member,
+  MemberPlanDetail,
   MyInvitation,
   PlanDetail,
   PlanPosition,
@@ -49,6 +50,8 @@ export const keys = {
   plan: (year: number, month: number) => ['plans', year, month] as const,
   householdPlan: (householdId: string, year: number, month: number) =>
     ['plans', 'household', householdId, year, month] as const,
+  memberPlan: (ownerId: string, year: number, month: number) =>
+    ['plans', 'member', ownerId, year, month] as const,
 }
 
 // --- Nutzer ---------------------------------------------------------------
@@ -306,6 +309,26 @@ export function useHouseholdPlan(
         `/plans/household/${householdId}/${year}/${month}`
       ),
     enabled: householdId !== null,
+    retry: false,
+  })
+}
+
+/**
+ * Der ganze Plan eines Mitglieds, das Einblick gegeben hat.
+ *
+ * Nicht der gemeinsame Plan: der fasst alle zusammen und zeigt nur Posten mit
+ * Haushalt. Hier steht eine Person für sich, samt privater Posten.
+ */
+export function useMemberPlan(
+  ownerId: string | null,
+  year: number,
+  month: number
+) {
+  return useQuery({
+    queryKey: keys.memberPlan(ownerId ?? '', year, month),
+    queryFn: () =>
+      api.get<MemberPlanDetail>(`/plans/member/${ownerId}/${year}/${month}`),
+    enabled: ownerId !== null,
     retry: false,
   })
 }
