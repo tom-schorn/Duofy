@@ -55,11 +55,9 @@ const BLOCKS = [
   { key: 'savings', label: 'Weggelegt', fill: 'var(--chart-4)' },
 ] as const
 
-/** Feldhöhen in Pixeln. Nur x skaliert mit dem Container, y bleibt fest. */
-const SALDO_H = 84
-const BARS_H = 150
-const AXIS_H = 10
-const GAP = 14
+/** Feldhöhen in viewBox-Einheiten. Nur x skaliert mit dem Container. */
+const SALDO_H = 74
+const BARS_H = 148
 
 export function BookFlow({ year, month, scope = OWN_SCOPE }: Props) {
   // onlyAvailable: siehe oben — ohne das gehen Linie und Balken nicht auf.
@@ -95,7 +93,6 @@ function Chart({ data }: { data: BalanceHistory }) {
     )
   }
 
-  const H = SALDO_H + GAP + BARS_H + AXIS_H
   const rein = points.map((p) => Number(p.moves.income))
   const ab = points.map(raus)
   const groesste = Math.max(...rein, ...ab, 1)
@@ -104,16 +101,15 @@ function Chart({ data }: { data: BalanceHistory }) {
   // sonst verschenkt ein Monat ohne Einnahmen die halbe Fläche.
   const obenAnteil =
     Math.max(...rein) / (Math.max(...rein) + Math.max(...ab) || 1)
-  const barsOben = SALDO_H + GAP
-  const nullY = barsOben + BARS_H * obenAnteil
+  const nullY = BARS_H * obenAnteil
   const hoehe = (wert: number, auf: boolean) =>
-    (wert / groesste) * (auf ? nullY - barsOben : barsOben + BARS_H - nullY)
+    (wert / groesste) * (auf ? nullY : BARS_H - nullY)
 
   const salden = [opening, ...points.map((p) => Number(p.balance))]
   const hoch = Math.max(...salden)
   const tief = Math.min(...salden)
   const spanne = hoch - tief || Math.abs(hoch) || 1
-  const saldoY = (v: number) => 8 + ((hoch - v) / spanne) * (SALDO_H - 18)
+  const saldoY = (v: number) => 6 + ((hoch - v) / spanne) * (SALDO_H - 14)
 
   const spalten = points.length
   const mitte = (i: number) => ((i + 0.5) / spalten) * 100
@@ -146,80 +142,101 @@ function Chart({ data }: { data: BalanceHistory }) {
         </span>
       </header>
 
-      <div className="w-full overflow-x-auto">
-        <svg
-          viewBox={`0 0 100 ${H}`}
-          preserveAspectRatio="none"
-          className="h-[330px] w-full min-w-[32rem]"
-          role="img"
-          aria-label={`Verlauf im Monat. Start ${euro.format(opening)}, Ende ${euro.format(closing)}. ${euro.format(einSumme)} eingegangen, ${euro.format(ausSumme)} ausgegeben.`}
-        >
-          <path
-            d={`${stufe} L ${mitte(spalten - 1)} ${SALDO_H} L ${mitte(0)} ${SALDO_H} Z`}
-            className="fill-foreground/10"
-          />
-          <path
-            d={stufe}
-            fill="none"
-            className="stroke-foreground"
-            strokeWidth={2}
-            strokeLinejoin="round"
-            vectorEffect="non-scaling-stroke"
-          />
+      {/* Zwei getrennte Flächen, nicht ein Bild mit Linie darin. Sonst liest
+          man es als Diagramm mit zweiter Y-Achse — und genau das ist es nicht:
+          die Felder haben eigene Maßstäbe und dürfen nicht verglichen werden.
+          Gemeinsam ist nur die Datumsachse darunter. */}
+      <div className="flex w-full flex-col gap-3 overflow-x-auto">
+        <figure className="border-border/60 flex flex-col gap-1 rounded-md border p-3">
+          <figcaption className="text-muted-foreground text-[11px] font-semibold tracking-widest uppercase">
+            Verfügbarer Saldo
+          </figcaption>
+          <svg
+            viewBox={`0 0 100 ${SALDO_H}`}
+            preserveAspectRatio="none"
+            className="h-24 w-full min-w-[30rem]"
+            role="img"
+            aria-label={`Verfügbarer Saldo im Monat. Start ${euro.format(opening)}, Ende ${euro.format(closing)}.`}
+          >
+            <path
+              d={`${stufe} L ${mitte(spalten - 1)} ${SALDO_H} L ${mitte(0)} ${SALDO_H} Z`}
+              className="fill-foreground/10"
+            />
+            <path
+              d={stufe}
+              fill="none"
+              className="stroke-foreground"
+              strokeWidth={2}
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+            />
+          </svg>
+        </figure>
 
-          {/* Nulllinie der Balken — der einzige Bezugspunkt, den sie brauchen. */}
-          <line
-            x1="0"
-            x2="100"
-            y1={nullY}
-            y2={nullY}
-            className="stroke-border"
-            strokeWidth={1}
-            vectorEffect="non-scaling-stroke"
-          />
+        <figure className="border-border/60 flex flex-col gap-1 rounded-md border p-3">
+          <figcaption className="text-muted-foreground text-[11px] font-semibold tracking-widest uppercase">
+            Bewegung je Tag
+          </figcaption>
+          <svg
+            viewBox={`0 0 100 ${BARS_H}`}
+            preserveAspectRatio="none"
+            className="h-44 w-full min-w-[30rem]"
+            role="img"
+            aria-label={`Bewegung je Tag. ${euro.format(einSumme)} eingegangen, ${euro.format(ausSumme)} ausgegeben, nach Block aufgeteilt.`}
+          >
+            <line
+              x1="0"
+              x2="100"
+              y1={nullY}
+              y2={nullY}
+              className="stroke-border"
+              strokeWidth={1}
+              vectorEffect="non-scaling-stroke"
+            />
 
-          {points.map((p, i) => {
-            const x = mitte(i) - breite / 2
-            const ein = Number(p.moves.income)
-            let y = nullY
-            return (
-              <g key={p.day}>
-                {ein > 0 && (
-                  <rect
-                    x={x}
-                    y={nullY - hoehe(ein, true)}
-                    width={breite}
-                    height={hoehe(ein, true)}
-                    className="fill-chart-3"
-                  >
-                    <title>{`${tag(p.day)}. — ${euro.format(ein)} herein`}</title>
-                  </rect>
-                )}
-                {BLOCKS.map((b) => {
-                  const wert = Number(p.moves[b.key])
-                  if (wert <= 0) return null
-                  const h = hoehe(wert, false)
-                  const oben = y
-                  y += h
-                  // Lücke zwischen den Segmenten: ohne sie liest man zwei
-                  // gestapelte Flächen als eine.
-                  return (
+            {points.map((p, i) => {
+              const x = mitte(i) - breite / 2
+              const ein = Number(p.moves.income)
+              let y = nullY
+              return (
+                <g key={p.day}>
+                  {ein > 0 && (
                     <rect
-                      key={b.key}
                       x={x}
-                      y={oben}
+                      y={nullY - hoehe(ein, true)}
                       width={breite}
-                      height={Math.max(h - 1, 0.5)}
-                      fill={b.fill}
+                      height={hoehe(ein, true)}
+                      className="fill-chart-3"
                     >
-                      <title>{`${tag(p.day)}. — ${b.label} ${euro.format(wert)}`}</title>
+                      <title>{`${tag(p.day)}. — ${euro.format(ein)} herein`}</title>
                     </rect>
-                  )
-                })}
-              </g>
-            )
-          })}
-        </svg>
+                  )}
+                  {BLOCKS.map((b) => {
+                    const wert = Number(p.moves[b.key])
+                    if (wert <= 0) return null
+                    const h = hoehe(wert, false)
+                    const oben = y
+                    y += h
+                    // Lücke zwischen den Segmenten: ohne sie liest man zwei
+                    // gestapelte Flächen als eine.
+                    return (
+                      <rect
+                        key={b.key}
+                        x={x}
+                        y={oben}
+                        width={breite}
+                        height={Math.max(h - 1, 0.5)}
+                        fill={b.fill}
+                      >
+                        <title>{`${tag(p.day)}. — ${b.label} ${euro.format(wert)}`}</title>
+                      </rect>
+                    )
+                  })}
+                </g>
+              )
+            })}
+          </svg>
+        </figure>
       </div>
 
       <div className="text-muted-foreground flex justify-between text-xs tabular-nums">
