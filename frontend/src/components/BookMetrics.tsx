@@ -12,23 +12,23 @@ import { useAccounts, useTransactions } from '@/lib/queries'
  * auf, und das soll auch so bleiben: mit dieser Zahl plant man am
  * Monatsanfang, sie darf nicht den ganzen Monat über wandern.
  *
- * Also zeigt das Buch die andere Seite. „Verfügbar" ist dabei die Zahl, um die
- * es geht: was von dem Geld, das diesen Monat wirklich angekommen ist, noch
- * nicht ausgegeben wurde.
+ * Also zeigt das Buch die andere Seite. Die ersten beiden Karten sind
+ * Monatszahlen aus derselben Liste, die darunter steht — sonst stimmten die
+ * Karten nicht mit dem überein, was man sieht.
  *
- * Eine Einnahme, die noch aussteht, zählt **nicht** mit — anders als im Plan,
- * wo sie das Budget von Anfang an mitträgt. Genau das ist der Unterschied
- * zwischen den beiden Kartensätzen: der Plan rechnet mit dem ganzen Monat, das
- * Buch nur mit dem, was schon passiert ist.
+ * ## „Verfügbar" ist bewusst **keine** Monatszahl
  *
- * Weggespartes gilt als ausgegeben. Wandern 210 € aufs Tagesgeld, sind sie
- * weg — dort liegt die Insolvenzrücklage, man kann sie nicht noch einmal
- * verplanen. Welche Konten so zählen, steht am Konto selbst
- * (`countsAsAvailable`): PayPal aufzuladen ändert nichts, das Geld bleibt
- * greifbar.
+ * Es ist der Stand der Konten, die als verfügbar gelten. Eine Monatsrechnung
+ * kann den echten Kontostand nämlich gar nicht treffen: die August-Einnahmen
+ * kommen Ende Juli, und aus demselben Geld wurden noch die Juli-Ausgaben
+ * bezahlt. Zählte man Einnahmen minus Ausgaben des Augusts, käme mehr heraus,
+ * als tatsächlich da ist — der Juli hat einen Teil schon verbraucht.
  *
- * Gerechnet wird über **dieselbe Liste**, die darunter steht. Sonst stimmten
- * die Karten nicht mit dem überein, was man sieht.
+ * Deshalb behauptet diese Karte nichts, sie schaut nach. Das ist die Zahl, an
+ * der man ablesen kann, ob man sich heute etwas leisten kann.
+ *
+ * Welche Konten mitzählen, entscheidet `countsAsAvailable` am Konto: Giro und
+ * PayPal ja, Tagesgeld und Depot nein — dort liegt Zweckgebundenes.
  */
 
 type Props = {
@@ -40,12 +40,11 @@ export function BookMetrics({ year, month }: Props) {
   const transactions = useTransactions(year, month)
   const accounts = useAccounts()
 
+  const open = (accounts.data ?? []).filter((account) => account.active)
   // Konten, deren Guthaben nicht mehr als verfügbar gilt. Eine Umbuchung
   // dorthin ist die einzige Umbuchung, die im Buch etwas kostet.
   const locked = new Set(
-    (accounts.data ?? [])
-      .filter((account) => !account.countsAsAvailable)
-      .map((account) => account.id)
+    open.filter((account) => !account.countsAsAvailable).map((a) => a.id)
   )
   const rows = transactions.data ?? []
 
@@ -64,7 +63,14 @@ export function BookMetrics({ year, month }: Props) {
       (row) => putAside(row) || (!isTransfer(row) && row.block !== 'income')
     )
   )
-  const available = income - spending
+
+  // Nicht income - spending: siehe oben, das wäre eine Monatszahl und läge
+  // über dem, was wirklich auf den Konten liegt.
+  const free = open.filter((account) => account.countsAsAvailable)
+  const available = free.reduce(
+    (total, account) => total + Number(account.balance ?? 0),
+    0
+  )
 
   return (
     <QueryState
@@ -84,7 +90,11 @@ export function BookMetrics({ year, month }: Props) {
         <Metric
           label="Verfügbar"
           value={available}
-          hint="eingegangen minus ausgegeben"
+          hint={
+            free.length === 1
+              ? `Stand von ${free[0].name}`
+              : `Stand von ${free.length} Konten`
+          }
           strong
           tone={available < 0 ? 'over' : 'neutral'}
         />
