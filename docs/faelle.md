@@ -59,15 +59,17 @@ scheinbar 33 % auf tatsächlich 50,7 %.
 **Situation.** 50 € im Monat fürs neue Handy, vom Girokonto aufs Tagesgeld.
 
 **So trägt man es ein.** Vertrag vom Typ **Sparziel**, Betrag 50, Zielbetrag
-300, Konto **Girokonto** — also das Konto, von dem es weggeht.
+300, Konto **Girokonto**, Zielkonto **Tagesgeld**.
 
-**Warum so.** Das Feld heißt „von welchem Konto es abgeht".
+**Warum so.** Die beiden Felder sagen „woher" und „wohin". Ist ein Zielkonto
+gesetzt, bucht der Haken eine **Umbuchung** statt einer Ausgabe — das Girokonto
+sinkt, das Tagesgeld steigt, der Gesamtstand bleibt gleich. Und das ist richtig:
+die 50 € haben den Haushalt nicht verlassen.
 
-> **Noch unvollständig.** Ein Zielkonto gibt es nicht. Der Haken bucht deshalb
-> eine normale Ausgabe: das Girokonto stimmt, das Tagesgeld wächst nicht mit,
-> und der Gesamtstand fällt um 50 €, die den Haushalt nie verlassen haben. Bis
-> das Zielkonto existiert, muss man die Buchung im Buch von Hand zur Umbuchung
-> machen. Siehe Issue #5.
+Im Buch zählen sie trotzdem als ausgegeben, sobald das Tagesgeld auf „zählt
+nicht als verfügbar" steht — verplanen kann man sie nicht mehr. Siehe Fall 8.
+
+Bleibt das Zielkonto leer, geht das Geld raus. So bei Miete, Strom, Einkauf.
 
 ---
 
@@ -238,7 +240,6 @@ Objekt, das man anlegen könnte.
 
 Noch nicht entschieden oder nicht gebaut:
 
-* **Zielkonto am Sparziel** — Fall 3, Issue #5
 * **Buchung einem Plan zuordnen**, ohne Posten — Fall 1, Issue #2
 * **Bestätigung durch beide** im gemeinsamen Monat — es fehlt die Tabelle
 * **Plan nachziehen**, wenn nach dem Anlegen Verträge dazukommen
