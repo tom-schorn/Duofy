@@ -121,6 +121,7 @@ function emptyDraft(): Commitment {
     dueDay: 1,
     active: true,
     passThrough: false,
+    counterAccountId: null,
     targetAmount: null,
     targetDate: null,
     remainingDebt: null,
@@ -353,6 +354,34 @@ export function CommitmentDialog({
                   </SelectContent>
                 </Select>
               </div>
+              <div className="flex flex-col gap-2">
+                <Label>Zielkonto</Label>
+                <Select
+                  value={draft.counterAccountId ?? 'none'}
+                  onValueChange={(value) =>
+                    set('counterAccountId', value === 'none' ? null : value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Geht raus</SelectItem>
+                    {accounts
+                      .filter((account) => account.id !== draft.accountId)
+                      .map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <span className="text-muted-foreground text-xs">
+                  Nur beim Sparen auf ein eigenes Konto. Dann bucht der Haken
+                  eine Umbuchung, und der Gesamtstand bleibt richtig.
+                </span>
+              </div>
+
 
             <div className="flex flex-col gap-2">
               <Label>Zahlungsart</Label>

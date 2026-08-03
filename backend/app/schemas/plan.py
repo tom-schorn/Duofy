@@ -21,6 +21,8 @@ class PositionBase(Schema):
     household_id: uuid.UUID | None = None
     #: Füllt sich aus Buchungen statt abgehakt zu werden.
     is_budget: bool = False
+    #: Wohin gespart wird. Gesetzt = der Haken bucht eine Umbuchung.
+    counter_account_id: uuid.UUID | None = None
     #: Durchläuft nur — zählt in keine Quote und in kein Budget.
     pass_through: bool = False
 
@@ -42,6 +44,7 @@ class PositionUpdate(Schema):
     payment_method: PaymentMethod | None = None
     household_id: uuid.UUID | None = None
     is_budget: bool | None = None
+    counter_account_id: uuid.UUID | None = None
     pass_through: bool | None = None
 
 

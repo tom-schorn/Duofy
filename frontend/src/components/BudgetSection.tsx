@@ -242,6 +242,7 @@ function PositionRow({
           {position.commitmentId ? ' · aus Vertrag' : ''}
           {position.isBudget ? ' · Budget' : ''}
           {position.passThrough ? ' · durchlaufend' : ''}
+          {position.counterAccountId ? ' · Umbuchung' : ''}
         </span>
       </button>
 

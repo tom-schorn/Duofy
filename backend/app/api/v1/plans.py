@@ -204,6 +204,7 @@ async def create_plan(
                 # „Setze ich selbst" wird zum Budget-Posten: kein Haken,
                 # stattdessen ein Füllstand aus den Buchungen.
                 is_budget=commitment.type is CommitmentType.BUDGET,
+                counter_account_id=commitment.counter_account_id,
                 pass_through=commitment.pass_through,
             )
         )

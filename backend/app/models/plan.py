@@ -117,6 +117,18 @@ class PlanPosition(UUIDMixin, TimestampMixin, Base):
     #: frei wählbar.
     is_budget: Mapped[bool] = mapped_column(default=False)
 
+    #: **Wohin** das Geld geht, wenn es auf ein eigenes Konto wandert.
+    #:
+    #: Gesetzt bei Sparzielen und Tilgungen: 50 € fürs Handy gehen vom Giro aufs
+    #: Tagesgeld. Der Haken bucht dann eine **Umbuchung** statt einer Ausgabe,
+    #: sonst stünde das Geld nirgends mehr — Giro stimmt, Tagesgeld wächst nicht,
+    #: und der Gesamtstand fällt um Geld, das den Haushalt nie verlassen hat.
+    #:
+    #: Leer bei allem, was wirklich rausgeht: Miete, Strom, Einkauf.
+    counter_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True
+    )
+
     #: Durchlaufender Posten — Geld, das nie zum Ausgeben da war.
     #:
     #: BuT für Lios Schulsachen und die Nebenkostenrückzahlung kommen an und

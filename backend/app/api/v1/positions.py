@@ -68,6 +68,40 @@ async def _load(
     return position, plan
 
 
+async def _check_accounts(
+    session: AsyncSession, plan: Plan, changes: dict
+) -> None:
+    """Konten am Posten müssen dem **Planbesitzer** gehören.
+
+    Ohne diese Prüfung könnte man einen Posten auf ein fremdes Konto zeigen
+    lassen — als Vertretung sogar auf das eigene, und die Buchung des anderen
+    liefe dann über den eigenen Stand.
+
+    Quelle und Ziel dürfen nicht dasselbe Konto sein: die Buchung hätte sonst
+    keine Wirkung und die Datenbank lehnt sie über einen CHECK ab.
+    """
+    for field in ("account_id", "counter_account_id"):
+        target = changes.get(field)
+        if target is None:
+            continue
+        account = await session.get(Account, target)
+        require(
+            account is not None and account.owner_id == plan.user_id,
+            "not_account_owner",
+        )
+
+    quelle = changes.get("account_id", ...)
+    ziel = changes.get("counter_account_id", ...)
+    if quelle is ...:
+        quelle = None
+    if ziel is ...:
+        ziel = None
+    # Nur prüfen, wenn beide in dieser Änderung vorkommen oder am Posten
+    # schon stehen — sonst blockierte ein Teil-Update grundlos.
+    if quelle is not None and ziel is not None:
+        require(quelle != ziel, "transfer_needs_two_accounts")
+
+
 @router.patch("/{position_id}", response_model=PositionRead)
 async def update_position(
     position_id: uuid.UUID,
@@ -79,6 +113,13 @@ async def update_position(
     position, plan = await _load(session, position_id, user)
 
     changes = payload.model_dump(exclude_unset=True)
+    merged = {
+        "account_id": changes.get("account_id", position.account_id),
+        "counter_account_id": changes.get(
+            "counter_account_id", position.counter_account_id
+        ),
+    }
+    await _check_accounts(session, plan, merged)
     if "household_id" in changes:
         require(
             await can_assign_to_household(session, plan.user_id, changes["household_id"]),
@@ -169,11 +210,25 @@ async def mark_paid(
                 select(Account.id).where(Account.owner_id == plan.user_id, Account.is_default)
             )
 
-        if account_id is not None:
+        # Ziel gesetzt = **Umbuchung** statt Ausgabe. Beim Sparziel wandert das
+        # Geld aufs Tagesgeld: als Ausgabe gebucht stimmte der Gesamtstand
+        # nicht, weil nichts den Haushalt verlassen hat.
+        #
+        # Fällt das Ziel mit der Quelle zusammen — der Posten hat kein Konto und
+        # das Standardkonto ist genau das Ziel — wird nichts gebucht. Eine
+        # Buchung von einem Konto auf sich selbst wäre falsch, und der Haken
+        # darf daran nicht scheitern.
+        gleiches_konto = (
+            position.counter_account_id is not None
+            and position.counter_account_id == account_id
+        )
+
+        if account_id is not None and not gleiches_konto:
             session.add(
                 Transaction(
                     owner_id=plan.user_id,
                     account_id=account_id,
+                    counter_account_id=position.counter_account_id,
                     occurred_on=payload.occurred_on or date.today(),
                     amount=payload.amount or position.amount_planned,
                     note=position.label,

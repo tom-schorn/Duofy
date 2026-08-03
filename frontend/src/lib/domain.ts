@@ -261,6 +261,12 @@ export type Commitment = {
   /** Von welchem Konto es abgeht. null = Standardkonto. */
   accountId: string | null
   /**
+   * Wohin gespart wird. Gesetzt = der Haken bucht eine **Umbuchung** statt
+   * einer Ausgabe — nötig, sobald das Geld auf ein eigenes Konto wandert.
+   * null bei allem, was wirklich rausgeht.
+   */
+  counterAccountId: string | null
+  /**
    * Durchlaufender Posten — Geld, das nie zum Ausgeben da war.
    *
    * BuT für die Schulsachen und die Nebenkostenrückzahlung kommen an und
@@ -411,6 +417,12 @@ export type PlanPosition = {
   dueDay: number
   /** Vom Vertrag kopiert, je Monat überschreibbar. null = Standardkonto. */
   accountId: string | null
+  /**
+   * Wohin gespart wird. Gesetzt = der Haken bucht eine **Umbuchung** statt
+   * einer Ausgabe — nötig, sobald das Geld auf ein eigenes Konto wandert.
+   * null bei allem, was wirklich rausgeht.
+   */
+  counterAccountId: string | null
   paymentMethod: PaymentMethod | null
   /**
    * Ein Budget statt einer Einzelzahlung — Lebensmittel, Sprit, Taschengeld.
