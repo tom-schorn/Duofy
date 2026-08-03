@@ -6,8 +6,8 @@ import {
   QUOTA_KEY,
   type Block,
   type PaymentMethod,
-  type PlanDetail,
   type PlanPosition,
+  type PlanSummary,
 } from '@/lib/domain'
 
 /**
@@ -33,7 +33,17 @@ import {
  */
 
 type Props = {
-  plan: PlanDetail
+  /**
+   * Absichtlich nur `PlanSummary` plus Posten, nicht `PlanDetail`: der
+   * gemeinsame Plan ist zusammengesetzt und hat weder `id` noch `confirmedAt`.
+   * Gebraucht werden hier ohnehin nur Budget, Quoten und die Posten.
+   */
+  plan: PlanSummary & { positions: PlanPosition[] }
+  /**
+   * Liefert den Vornamen hinter dem Posten, sonst null. Nur im gemeinsamen
+   * Plan gesetzt — dort ist „wer trägt was" der Zweck des Blattes.
+   */
+  ownerName?: (position: PlanPosition) => string | null
 }
 
 /** Toms Legende. Helle Flächen, damit der Text darauf lesbar bleibt. */
@@ -54,7 +64,7 @@ function sortiert(positions: PlanPosition[]): PlanPosition[] {
   )
 }
 
-export function PlanPrintout({ plan }: Props) {
+export function PlanPrintout({ plan, ownerName }: Props) {
   const budget = Number(plan.budget)
 
   const gruppen = [
@@ -113,6 +123,9 @@ export function PlanPrintout({ plan }: Props) {
                 <tr className="text-left text-[9px] uppercase">
                   <th className="w-8 py-0.5 font-medium">Tag</th>
                   <th className="py-0.5 font-medium">Bezeichnung</th>
+                  {ownerName && (
+                    <th className="w-16 py-0.5 font-medium">Wer</th>
+                  )}
                   <th className="w-20 py-0.5 text-right font-medium">Betrag</th>
                   <th className="w-20 py-0.5 text-right font-medium">Summe</th>
                   <th className="w-20 py-0.5 text-right font-medium">Ist</th>
@@ -144,6 +157,9 @@ export function PlanPrintout({ plan }: Props) {
                           <span className="text-[9px]"> · durchlaufend</span>
                         )}
                       </td>
+                      {ownerName && (
+                        <td className="py-0.5">{ownerName(p) ?? ''}</td>
+                      )}
                       <td className="py-0.5 text-right tabular-nums">
                         {euro.format(betrag)}
                       </td>
@@ -164,6 +180,7 @@ export function PlanPrintout({ plan }: Props) {
                   <tr className="font-semibold">
                     <td />
                     <td className="py-0.5">Ist zusammen</td>
+                    {ownerName && <td />}
                     <td />
                     <td />
                     <td className="py-0.5 text-right tabular-nums">

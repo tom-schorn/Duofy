@@ -874,6 +874,8 @@ function HouseholdPlanBody({
   const noPositions = plan.positions.length === 0
 
   const scope: BookScope = { kind: 'household', householdId: plan.householdId }
+  // Siehe `PlanBody`: Recharts misst beim Drucken nicht neu, deshalb vorher.
+  const [druckbreite, setDruckbreite] = useState(false)
   // Wer nur die gemeinsamen Posten teilt, fehlt in allen Buch-Summen.
   const stillPrivate = members
     .filter((member) => member.grantsAccess === 'plan')
@@ -881,6 +883,13 @@ function HouseholdPlanBody({
 
   return (
     <>
+      {/* Nur auf Papier: ohne Topbar fehlte jeder Hinweis, wessen Haushalt das
+          Blatt zeigt und von wann es stammt. */}
+      <p className="text-muted-foreground hidden text-xs print:block">
+        Duofy · Haushalt {plan.householdName} · {MONTH_LABEL[plan.month - 1]}{' '}
+        {plan.year} · gedruckt am {langesDatum(today())}
+      </p>
+
       <header className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="font-heading text-3xl font-semibold">
@@ -896,6 +905,29 @@ function HouseholdPlanBody({
           aller Mitglieder — geändert wird im eigenen Plan.
         </p>
       </header>
+
+      <div className="flex justify-end" data-print="hide">
+        <Button
+          variant="outline"
+          onClick={async () => {
+            onTab('plan')
+            setDruckbreite(true)
+            await new Promise((fertig) =>
+              requestAnimationFrame(() => requestAnimationFrame(fertig))
+            )
+            const zurueck = () => {
+              setDruckbreite(false)
+              window.removeEventListener('afterprint', zurueck)
+            }
+            window.addEventListener('afterprint', zurueck)
+            window.print()
+            setTimeout(zurueck, 5000)
+          }}
+        >
+          <Printer className="size-4" />
+          Drucken
+        </Button>
+      </div>
 
       {noPositions ? (
         <Empty className="border-border rounded-xl border border-dashed">
@@ -951,7 +983,7 @@ function HouseholdPlanBody({
           )}
 
           <Tabs value={tab} onValueChange={onTab} className="gap-6">
-            <TabsList>
+            <TabsList data-print="hide">
               <TabsTrigger value="plan">Plan</TabsTrigger>
               <TabsTrigger value="flow">Verlauf</TabsTrigger>
               <TabsTrigger value="book">Buch</TabsTrigger>
@@ -978,9 +1010,12 @@ function HouseholdPlanBody({
             </TabsContent>
 
             <TabsContent value="plan" className="flex flex-col gap-8">
-              <PlanSankey positions={plan.positions} budget={plan.budget} />
+              <div className={druckbreite ? 'w-[672px]' : undefined}>
+                <PlanSankey positions={plan.positions} budget={plan.budget} />
+              </div>
 
-              <div className="flex flex-col gap-8">
+              {/* Auf Papier ersetzt `PlanPrintout` diese Liste. */}
+              <div className="flex flex-col gap-8 print:hidden">
                 <BudgetSection
                   block="income"
                   target={null}
@@ -1010,6 +1045,10 @@ function HouseholdPlanBody({
               </div>
             </TabsContent>
           </Tabs>
+
+          {/* Seite 2 des Ausdrucks. `ownerName` schaltet die Spalte „Wer" ein —
+              beim gemeinsamen Plan ist genau das die Information. */}
+          <PlanPrintout plan={plan} ownerName={ownerName} />
         </>
       )}
     </>
