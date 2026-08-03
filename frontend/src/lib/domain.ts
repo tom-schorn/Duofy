@@ -65,6 +65,7 @@ export type Category =
   | 'work'
   | 'fees'
   | 'settlement'
+  | 'interest'
 
 export const CATEGORY_LABEL: Record<Category, string> = {
   income: 'Einnahmen',
@@ -86,6 +87,7 @@ export const CATEGORY_LABEL: Record<Category, string> = {
   work: 'Beruf',
   fees: 'Gebühren',
   settlement: 'Ausgleich',
+  interest: 'Zinsen',
 }
 
 /**
@@ -121,6 +123,7 @@ export const BLOCK_SUGGESTION: Record<Category, Block> = {
   // Auslage an ein Haushaltsmitglied. Wirtschaftlich keine eigene Ausgabe —
   // bei Haushaltsauswertungen ausklammern, siehe Issue #4.
   settlement: 'needs',
+  interest: 'income',
 }
 
 export type Rhythm = 'monthly' | 'quarterly' | 'biannual' | 'annual'

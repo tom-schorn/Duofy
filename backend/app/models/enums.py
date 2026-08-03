@@ -91,6 +91,10 @@ class Category(StrEnum):
     #: anderen gebucht. Bei Auswertungen über den Haushalt ausklammern,
     #: sonst zählt derselbe Einkauf doppelt. Siehe Issue #4.
     SETTLEMENT = "settlement"
+    #: Zinsen und Kapitalerträge. Eigene Kategorie statt „Einnahme", weil sie
+    #: nicht aus Arbeit kommen und man sie getrennt sehen will — sie sind
+    #: außerdem das, was man **nicht** plant: sie fallen an.
+    INTEREST = "interest"
 
 
 #: **Nur ein Vorschlag fürs Frontend.** Stellt das Auswahlfeld auf den
@@ -120,6 +124,7 @@ BLOCK_SUGGESTION: dict[Category, Block] = {
     Category.WORK: Block.NEEDS,
     Category.FEES: Block.NEEDS,
     Category.SETTLEMENT: Block.NEEDS,
+    Category.INTEREST: Block.INCOME,
 }
 
 
