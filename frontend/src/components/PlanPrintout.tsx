@@ -129,7 +129,13 @@ export function PlanPrintout({ plan }: Props) {
                     <tr
                       key={p.id}
                       style={art ? { backgroundColor: art.fill } : undefined}
-                      className="border-b border-black/10"
+                      // Durchgestrichen, wenn erledigt: auf Papier hakt man
+                      // nichts an, man sieht auf einen Blick was noch aussteht.
+                      // `line-through` auf der Zeile trifft alle Zellen, auch
+                      // die Beträge — genau so wie mit dem Stift.
+                      className={`border-b border-black/10 ${
+                        isPaid(p) ? 'text-black/55 line-through' : ''
+                      }`}
                     >
                       <td className="py-0.5 tabular-nums">{p.dueDay}.</td>
                       <td className="py-0.5">
@@ -149,9 +155,7 @@ export function PlanPrintout({ plan }: Props) {
                       <td className="py-0.5 text-right tabular-nums">
                         {p.amountActual !== null
                           ? euro.format(Number(p.amountActual))
-                          : isPaid(p)
-                            ? '✓'
-                            : ''}
+                          : ''}
                       </td>
                     </tr>
                   )

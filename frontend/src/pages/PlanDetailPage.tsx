@@ -174,6 +174,19 @@ function PlanBody({
   const togglePaid = useTogglePaid()
   // Der Posten, für den gerade das Buchungsfenster offen ist.
   const [booking, setBooking] = useState<PlanPosition | null>(null)
+  /**
+   * Verengt das Diagramm auf Papierbreite, kurz bevor gedruckt wird.
+   *
+   * Recharts zeichnet ein SVG in der Größe, die es beim Messen vorgefunden hat
+   * — am Bildschirm 936 px. Auf A4 stehen 703 px zur Verfügung, und beim
+   * Drucken misst Recharts nicht neu: sein `ResizeObserver` läuft asynchron und
+   * kommt nach dem Druckbild. Ergebnis war ein abgeschnittenes oder gar nicht
+   * gezeichnetes Diagramm.
+   *
+   * Deshalb passiert die Verengung **vorher und im laufenden Betrieb**, wo das
+   * Nachmessen zuverlässig greift.
+   */
+  const [druckbreite, setDruckbreite] = useState(false)
   const confirmPlan = useConfirmPlan()
 
   // Tab in der URL: sonst landet man nach jedem Neuladen wieder im Plan,
@@ -349,10 +362,26 @@ function PlanBody({
               steht, und bei offenem Buch-Reiter wäre das das Buch. */}
           <Button
             variant="outline"
-            onClick={() => {
+            onClick={async () => {
               setTab('plan')
-              // Ein Tick, damit React den Reiterwechsel gerendert hat.
-              requestAnimationFrame(() => window.print())
+              setDruckbreite(true)
+              // Zwei Frames: einer für Reiter und Breite, einer damit Recharts
+              // nachgemessen und neu gezeichnet hat.
+              await new Promise((fertig) =>
+                requestAnimationFrame(() => requestAnimationFrame(fertig))
+              )
+              // Zurückgesetzt wird bei `afterprint`, nicht direkt nach dem
+              // Aufruf: `window.print()` blockiert nicht in jedem Browser, und
+              // dann wäre das Diagramm schon wieder breit, bevor das Druckbild
+              // entsteht.
+              const zurueck = () => {
+                setDruckbreite(false)
+                window.removeEventListener('afterprint', zurueck)
+              }
+              window.addEventListener('afterprint', zurueck)
+              window.print()
+              // Notausgang, falls der Browser kein `afterprint` schickt.
+              setTimeout(zurueck, 5000)
             }}
           >
             <Printer className="size-4" />
@@ -463,7 +492,11 @@ function PlanBody({
           {/* Zuerst das Bild, dann die Listen: „wohin geht es" beantwortet die
               Frage, mit der man sich hinsetzt. Die Posten darunter sind das
               Werkzeug, um daran zu drehen. */}
-          <PlanSankey positions={plan.positions} budget={plan.budget} />
+          {/* 672 px ist die A4-Breite abzüglich der Ränder — dieselbe Zahl wie
+              das `min-w-[42rem]` des Diagramms. */}
+          <div className={druckbreite ? 'w-[672px]' : undefined}>
+            <PlanSankey positions={plan.positions} budget={plan.budget} />
+          </div>
 
       {/* Auf Papier ersetzt `PlanPrintout` diese Liste — dort trägt jede Zeile
           Abzeichen und einen Haken zum Klicken, und aus 26 Posten würden drei
