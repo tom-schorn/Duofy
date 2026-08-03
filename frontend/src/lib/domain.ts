@@ -29,7 +29,8 @@ export const BLOCK_LABEL: Record<Block, string> = {
 
 /**
  * Budgetfarben. Einnahmen tragen keine eigene — sie stehen über der
- * Aufteilung, nicht darin. `--chart-3` bleibt ungenutzt.
+ * Aufteilung, nicht darin. `--chart-3` trägt deshalb die Einnahmen — die
+ * hatten vorher keine eigene Farbe.
  */
 export const BLOCK_DOT: Record<Block, string> = {
   income: 'bg-muted-foreground',

@@ -56,8 +56,19 @@
    Die 50/30/20-Blöcke liegen auf --chart-*, damit Balken, Chips und
    Summenzeilen dieselbe Zuordnung teilen:
 
-       chart-1  Fixkosten     chart-3  Investition
+       chart-1  Bedarf        chart-3  Einnahmen
        chart-2  Wünsche       chart-4  Sparen
+
+   chart-3 war für „Investition" vorgesehen und blieb ungenutzt, weil
+   Investitionen rechnerisch in den Wünschen liegen. Einnahmen hatten dagegen
+   gar keine Farbe — im Diagramm des Buchs brauchen sie eine.
+
+   Die Töne sind **gesättigter** als die ursprüngliche Tinte-Palette. Grund ist
+   messbar, nicht Geschmack: als vier gleichzeitige Diagrammserien fiel die
+   alte Palette durch. Marineblau gegen Sparen-Grün lag bei ΔE 11,9 — schon mit
+   normalem Sehen kaum zu trennen, und gestapelt liegen die Flächen direkt
+   aneinander. Geprüft wurde über alle Paare, hell und dunkel, samt
+   Farbfehlsichtigkeit.
 
    Rot (--destructive) ist reserviert: nur gerissene Quote und
    unterschrittener Puffer. Nie für Ausgaben oder hohe Beträge.
@@ -82,10 +93,10 @@
     --border: #dbd7cc;
     --input: #dbd7cc;
     --ring: #1e3a5f;
-    --chart-1: #33578a;
-    --chart-2: #8f6b12;
-    --chart-3: #6d4160;
-    --chart-4: #3d6b57;
+    --chart-1: #2b6cb0;
+    --chart-2: #c68a0e;
+    --chart-3: #8e3b6b;
+    --chart-4: #4f9e6a;
     --chart-5: #5a6270;
     --radius: 0.5rem;
     --sidebar: #f6f3ec;
@@ -117,10 +128,10 @@
     --border: #252c39;
     --input: #2c3441;
     --ring: #86ace0;
-    --chart-1: #86ace0;
-    --chart-2: #d3a93d;
-    --chart-3: #bb8fae;
-    --chart-4: #63a889;
+    --chart-1: #4285c9;
+    --chart-2: #c2952f;
+    --chart-3: #a55b86;
+    --chart-4: #4da87c;
     --chart-5: #8e98a8;
     --sidebar: #0e1218;
     --sidebar-foreground: #eceff3;
