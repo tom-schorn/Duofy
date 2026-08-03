@@ -38,6 +38,12 @@ type Props = {
   onTogglePaid: (position: PlanPosition) => void
   /** Gemeinsame Sicht: fremde Posten zeigt man, ändert sie aber nicht. */
   readOnly?: boolean
+  /**
+   * Getrennt von `readOnly`, weil Stufe „darf ändern" genau das erlaubt und
+   * nicht mehr: einen Posten in einem fremden Plan **anzulegen** wäre keine
+   * Vertretung, sondern ein neuer Vertrag im Namen des anderen.
+   */
+  canAdd?: boolean
   /** Liefert den Vornamen der Person hinter dem Posten, sonst null. */
   ownerName?: (position: PlanPosition) => string | null
 }
@@ -51,6 +57,7 @@ export function BudgetSection({
   onAdd,
   onTogglePaid,
   readOnly = false,
+  canAdd = true,
   ownerName,
 }: Props) {
   // Durchlaufende Posten stehen in der Liste, aber nicht in der Summe: sie
@@ -110,7 +117,7 @@ export function BudgetSection({
 
       {/* Anlegen direkt am Budget — dann stimmt die Zuordnung schon, ohne
           dass man sie im Formular suchen muss. */}
-      {!readOnly && (
+      {!readOnly && canAdd && (
       <Button
         type="button"
         variant="ghost"

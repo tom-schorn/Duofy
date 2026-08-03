@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
-import { ArrowLeft, Eye, Plus, Users } from 'lucide-react'
+import { ArrowLeft, Eye, Pencil, Plus, Users } from 'lucide-react'
 
 import { AccountCards } from '@/components/AccountCards'
 import { BookFlow } from '@/components/BookFlow'
@@ -568,6 +568,23 @@ function MemberPlanBody({
   const free = Number(plan.budget) - allocated
   const unpaid = plan.positions.reduce((sum, row) => sum + stillDue(row), 0)
 
+  // Vertretung: abhaken und ändern, wenn die Stufe es hergibt. Neu **anlegen**
+  // bleibt aus, siehe `canAdd` in BudgetSection.
+  const togglePaid = useTogglePaid()
+  const savePosition = useSavePosition()
+  const [editing, setEditing] = useState<PlanPosition | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
+
+  function openEditor(position: PlanPosition) {
+    setEditing(position)
+    setDialogOpen(true)
+  }
+
+  // Ohne Datumsfenster: das gehört dem Besitzer. Als Vertretung hakt man ab,
+  // was fällig war, mit dem geplanten Betrag von heute.
+  const toggle = (position: PlanPosition) =>
+    togglePaid.mutate({ id: position.id, paid: !isPaid(position) })
+
   return (
     <>
       <header className="flex flex-col gap-2">
@@ -579,13 +596,22 @@ function MemberPlanBody({
             <Eye className="size-3" />
             {plan.ownerName}
           </Badge>
+          {plan.mayEdit && (
+            <Badge variant="outline" className="gap-1 font-normal">
+              <Pencil className="size-3" />
+              Vertretung
+            </Badge>
+          )}
           <Badge variant={plan.status === 'draft' ? 'outline' : 'secondary'}>
             {PLAN_STATUS_LABEL[plan.status]}
           </Badge>
         </div>
         <p className="text-muted-foreground">
           {plan.ownerName}s ganzer Monat, auch die privaten Posten — so
-          freigegeben. Nur zum Ansehen.
+          freigegeben.{' '}
+          {plan.mayEdit
+            ? 'Du darfst abhaken und ändern; jede Änderung wird protokolliert.'
+            : 'Nur zum Ansehen.'}
         </p>
       </header>
 
@@ -648,10 +674,11 @@ function MemberPlanBody({
               target={null}
               positions={incomeRows}
               householdNames={householdNames}
-              onEdit={() => {}}
+              onEdit={openEditor}
               onAdd={() => {}}
-              onTogglePaid={() => {}}
-              readOnly
+              onTogglePaid={toggle}
+              readOnly={!plan.mayEdit}
+              canAdd={false}
             />
 
             {groups.map((group) => (
@@ -661,15 +688,33 @@ function MemberPlanBody({
                 target={group.target}
                 positions={group.rows}
                 householdNames={householdNames}
-                onEdit={() => {}}
+                onEdit={openEditor}
                 onAdd={() => {}}
-                onTogglePaid={() => {}}
-                readOnly
+                onTogglePaid={toggle}
+                readOnly={!plan.mayEdit}
+                canAdd={false}
               />
             ))}
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Kein Löschen als Vertretung: ändern ist protokolliert und umkehrbar,
+          löschen ist beides nicht. Der Endpunkt lehnt es ohnehin ab. */}
+      <PositionDialog
+        position={editing}
+        block={editing?.block ?? 'needs'}
+        planId={plan.id}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onSave={(position) =>
+          savePosition.mutate(
+            { ...position, planId: plan.id },
+            { onSuccess: () => setDialogOpen(false) }
+          )
+        }
+        onDelete={null}
+      />
     </>
   )
 }

@@ -15,9 +15,15 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
-from app.core.permissions import can_assign_to_household, owns_plan, require
+from app.core.permissions import (
+    can_assign_to_household,
+    granted_level,
+    owns_plan,
+    require,
+)
 from app.db.session import get_session
 from app.models.account import Account
+from app.models.enums import AccessLevel
 from app.models.plan import Plan, PlanPosition, PlanPositionChange
 from app.models.transaction import Transaction
 from app.models.user import User
@@ -27,7 +33,11 @@ router = APIRouter()
 
 
 async def _load(
-    session: AsyncSession, position_id: uuid.UUID, user: User
+    session: AsyncSession,
+    position_id: uuid.UUID,
+    user: User,
+    *,
+    allow_delegate: bool = True,
 ) -> tuple[PlanPosition, Plan]:
     position = await session.get(PlanPosition, position_id)
     if position is None:
@@ -37,16 +47,24 @@ async def _load(
     if plan is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "plan_not_found"})
 
-    # **Nur eigene Posten.** Ein Haushaltsposten ist zwar für alle Mitglieder
-    # sichtbar, gehört aber weiterhin einer Person — geändert wird er nur von
-    # ihr. Jeder trägt seinen Teil und bucht auf seine eigenen Posten; kauft
-    # der Partner mit ein, wird der Betrag überwiesen und beim Besitzer
-    # verbucht. Ein Zugriff auf fremde Posten wird dafür nicht gebraucht, und
-    # ein Recht, das niemand braucht, ist bei Finanzdaten eins zu viel.
+    # Der eigene Posten ist immer erlaubt.
+    if owns_plan(user, plan):
+        return position, plan
+
+    # Fremde Posten nur mit Stufe `edit` — und die gibt der Besitzer selbst.
+    # Bis dahin gilt weiter: jeder trägt seinen Teil und bucht auf seine
+    # eigenen Posten. Kauft der Partner mit ein, wird der Betrag überwiesen
+    # und beim Besitzer verbucht.
     #
-    # Gelesen wird der gemeinsame Plan weiterhin von allen — der prüft über
-    # `is_member`, nicht hierüber.
-    require(owns_plan(user, plan), "not_allowed")
+    # Nachvollziehbar bleibt es über `plan_position_changes`: dort steht, wer
+    # welches Feld wann geändert hat. Deshalb braucht es keine Sperre, sondern
+    # ein Protokoll.
+    #
+    # `allow_delegate=False` beim Löschen: ändern ist umkehrbar und
+    # protokolliert, löschen ist beides nicht.
+    require(allow_delegate, "not_allowed")
+    level = await granted_level(session, plan.user_id, user.id)
+    require(level is AccessLevel.EDIT, "no_edit_granted")
     return position, plan
 
 
@@ -100,7 +118,7 @@ async def delete_position(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> None:
-    position, _ = await _load(session, position_id, user)
+    position, _ = await _load(session, position_id, user, allow_delegate=False)
     await session.delete(position)
     await session.commit()
 
@@ -129,7 +147,7 @@ async def mark_paid(
     der Abschlag kam anders als geplant. Ohne die beiden Felder müsste man
     danach ins Buch gehen und die eben erzeugte Buchung korrigieren.
     """
-    position, _ = await _load(session, position_id, user)
+    position, plan = await _load(session, position_id, user)
     position.paid_at = datetime.now(UTC)
     payload = payload or PositionPaid()
 
@@ -142,16 +160,19 @@ async def mark_paid(
     if not already:
         # Kontoherkunft: erst der Posten, dann das Standardkonto. Ist keins da,
         # wird nichts gebucht — das Abhaken selbst darf daran nicht scheitern.
+        # **Auf das Konto des Besitzers**, nicht des Abhakenden. Hakt Jasmin
+        # Toms Miete ab, geht das Geld von Toms Konto — sonst entstünde eine
+        # Buchung in ihrem Buch für eine Zahlung, die sie nie geleistet hat.
         account_id = position.account_id
         if account_id is None:
             account_id = await session.scalar(
-                select(Account.id).where(Account.owner_id == user.id, Account.is_default)
+                select(Account.id).where(Account.owner_id == plan.user_id, Account.is_default)
             )
 
         if account_id is not None:
             session.add(
                 Transaction(
-                    owner_id=user.id,
+                    owner_id=plan.user_id,
                     account_id=account_id,
                     occurred_on=payload.occurred_on or date.today(),
                     amount=payload.amount or position.amount_planned,

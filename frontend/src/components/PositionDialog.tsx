@@ -83,7 +83,11 @@ type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSave: (position: PlanPosition) => void
-  onDelete: (position: PlanPosition) => void
+  /**
+   * null = kein Löschen anbieten. Gebraucht für die Vertretung im fremden
+   * Plan: ändern ist protokolliert und umkehrbar, löschen ist beides nicht.
+   */
+  onDelete: ((position: PlanPosition) => void) | null
 }
 
 export function PositionDialog({
@@ -351,14 +355,14 @@ export function PositionDialog({
           </div>
 
           <DialogFooter className="sm:justify-between">
-            {isEdit ? (
+            {isEdit && onDelete !== null ? (
               // TODO: Bestätigung vor dem Löschen, wie bei den Verträgen.
               <Button
                 type="button"
                 variant="ghost"
                 className="text-destructive hover:text-destructive"
                 onClick={() => {
-                  onDelete(draft)
+                  onDelete!(draft)
                   onOpenChange(false)
                 }}
               >
