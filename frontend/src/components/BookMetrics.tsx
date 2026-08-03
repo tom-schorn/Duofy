@@ -12,10 +12,14 @@ import { useTransactions } from '@/lib/queries'
  * auf, und das soll auch so bleiben: mit dieser Zahl plant man am
  * Monatsanfang, sie darf nicht den ganzen Monat über wandern.
  *
- * Also zeigt das Buch die andere Seite. „Ungeplant" ist dabei die
- * interessanteste Zahl: Ausgaben, die zu keinem Posten gehören. Sie sind der
- * Unterschied zwischen dem, was man sich vorgenommen hat, und dem, was
- * passiert ist.
+ * Also zeigt das Buch die andere Seite. „Verfügbar" ist dabei die Zahl, um die
+ * es geht: was von dem Geld, das diesen Monat wirklich angekommen ist, noch
+ * nicht ausgegeben wurde.
+ *
+ * Eine Einnahme, die noch aussteht, zählt **nicht** mit — anders als im Plan,
+ * wo sie das Budget von Anfang an mitträgt. Genau das ist der Unterschied
+ * zwischen den beiden Kartensätzen: der Plan rechnet mit dem ganzen Monat, das
+ * Buch nur mit dem, was schon passiert ist.
  *
  * Gerechnet wird über **dieselbe Liste**, die darunter steht. Sonst stimmten
  * die Karten nicht mit dem überein, was man sieht.
@@ -39,8 +43,8 @@ export function BookMetrics({ year, month }: Props) {
     list.reduce((total, row) => total + Number(row.amount), 0)
 
   const income = sum(rows.filter((row) => row.block === 'income'))
-  const spending = rows.filter((row) => row.block !== 'income')
-  const unplanned = spending.filter((row) => row.positionId === null)
+  const spending = sum(rows.filter((row) => row.block !== 'income'))
+  const available = income - spending
 
   return (
     <QueryState
@@ -49,21 +53,16 @@ export function BookMetrics({ year, month }: Props) {
       rows={1}
     >
       <section className="grid gap-3 sm:grid-cols-3">
-        <Metric label="Eingegangen" value={income} hint="tatsächlich da" />
+        <Metric label="Eingegangen" value={income} hint="schon angekommen" />
+        <Metric label="Ausgegeben" value={spending} hint="ohne Umbuchungen" />
+        {/* Die Kopfzahl des Buchs — das Gegenstück zu „Verplanbar" im Plan.
+            Wird sie negativ, ist mehr rausgegangen als hereingekommen. */}
         <Metric
-          label="Ausgegeben"
-          value={sum(spending)}
-          hint="ohne Umbuchungen"
-        />
-        <Metric
-          label="Ungeplant"
-          value={sum(unplanned)}
-          hint={
-            unplanned.length === 1
-              ? '1 Buchung ohne Posten'
-              : `${unplanned.length} Buchungen ohne Posten`
-          }
-          tone={sum(unplanned) > 0 ? 'over' : 'neutral'}
+          label="Verfügbar"
+          value={available}
+          hint="eingegangen minus ausgegeben"
+          strong
+          tone={available < 0 ? 'over' : 'neutral'}
         />
       </section>
     </QueryState>
