@@ -67,7 +67,7 @@ export function PlanDetailPage() {
   // Der Haushalt steht in der URL, nicht in einem globalen Umschalter. Damit
   // ist die gemeinsame Sicht ein Ort, den man verlinken und neu laden kann —
   // und es ist sichtbar, warum die Seite anders aussieht.
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const householdId = params.get('household')
   // `?member=` zeigt den Plan einer Person, die Einblick gegeben hat. Dieselbe
   // Begründung wie beim Haushalt: ein Ort in der URL, kein globaler Zustand.
@@ -115,6 +115,18 @@ export function PlanDetailPage() {
                 <MemberPlanBody
                   plan={memberPlan.data}
                   householdNames={names}
+                  tab={params.get('tab') ?? 'plan'}
+                  onTab={(value) =>
+                    // replace: der Reiterwechsel soll den Zurück-Knopf nicht
+                    // mit Zwischenschritten volllaufen lassen.
+                    setParams(
+                      (current: URLSearchParams) => {
+                        current.set('tab', value)
+                        return current
+                      },
+                      { replace: true }
+                    )
+                  }
                 />
               )
             : ownPlan.data && (
@@ -525,9 +537,13 @@ function PlanBody({
 function MemberPlanBody({
   plan,
   householdNames,
+  tab,
+  onTab,
 }: {
   plan: MemberPlanDetail
   householdNames: Record<string, string>
+  tab: string
+  onTab: (value: string) => void
 }) {
   const groups = BUDGETS.map((block) => {
     const key = block as keyof typeof QUOTA_KEY
@@ -573,44 +589,87 @@ function MemberPlanBody({
         </p>
       </header>
 
-      <section className="grid gap-3 sm:grid-cols-3">
-        <Metric label="Einnahmen" value={Number(plan.income)} />
-        <Metric
-          label="Verplanbar"
-          value={free}
-          hint="noch nicht verteilt"
-          strong
-          tone={free < 0 ? 'over' : 'neutral'}
+      {tab === 'book' ? (
+        <BookMetrics
+          year={plan.year}
+          month={plan.month}
+          positions={plan.positions}
+          ownerId={plan.ownerId}
         />
-        <Metric label="Noch offen" value={unpaid} hint="noch nicht bezahlt" />
-      </section>
+      ) : (
+        <section className="grid gap-3 sm:grid-cols-3">
+          <Metric label="Einnahmen" value={Number(plan.income)} />
+          <Metric
+            label="Verplanbar"
+            value={free}
+            hint="noch nicht verteilt"
+            strong
+            tone={free < 0 ? 'over' : 'neutral'}
+          />
+          <Metric label="Noch offen" value={unpaid} hint="noch nicht bezahlt" />
+        </section>
+      )}
 
-      <div className="flex flex-col gap-8">
-        <BudgetSection
-          block="income"
-          target={null}
-          positions={incomeRows}
-          householdNames={householdNames}
-          onEdit={() => {}}
-          onAdd={() => {}}
-          onTogglePaid={() => {}}
-          readOnly
-        />
+      <Tabs value={tab} onValueChange={onTab} className="gap-6">
+        <TabsList>
+          <TabsTrigger value="plan">Plan</TabsTrigger>
+          <TabsTrigger value="flow">Verlauf</TabsTrigger>
+          <TabsTrigger value="book">Buch</TabsTrigger>
+        </TabsList>
 
-        {groups.map((group) => (
-          <BudgetSection
-            key={group.block}
-            block={group.block}
-            target={group.target}
-            positions={group.rows}
-            householdNames={householdNames}
-            onEdit={() => {}}
-            onAdd={() => {}}
-            onTogglePaid={() => {}}
+        <TabsContent value="flow">
+          <MonthFlow
+            positions={plan.positions}
+            year={plan.year}
+            month={plan.month}
+          />
+        </TabsContent>
+
+        <TabsContent value="book" className="flex flex-col gap-6">
+          <AccountCards ownerId={plan.ownerId} />
+          <BookFlow
+            year={plan.year}
+            month={plan.month}
+            ownerId={plan.ownerId}
+          />
+          <MonthBook
+            positions={plan.positions}
+            year={plan.year}
+            month={plan.month}
+            ownerId={plan.ownerId}
             readOnly
           />
-        ))}
-      </div>
+        </TabsContent>
+
+        <TabsContent value="plan">
+          <div className="flex flex-col gap-8">
+            <BudgetSection
+              block="income"
+              target={null}
+              positions={incomeRows}
+              householdNames={householdNames}
+              onEdit={() => {}}
+              onAdd={() => {}}
+              onTogglePaid={() => {}}
+              readOnly
+            />
+
+            {groups.map((group) => (
+              <BudgetSection
+                key={group.block}
+                block={group.block}
+                target={group.target}
+                positions={group.rows}
+                householdNames={householdNames}
+                onEdit={() => {}}
+                onAdd={() => {}}
+                onTogglePaid={() => {}}
+                readOnly
+              />
+            ))}
+          </div>
+        </TabsContent>
+      </Tabs>
     </>
   )
 }

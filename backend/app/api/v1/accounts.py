@@ -18,10 +18,10 @@ from sqlalchemy import case, func, literal, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
-from app.core.permissions import require
+from app.core.permissions import granted_level, require
 from app.db.session import get_session
 from app.models.account import Account
-from app.models.enums import Block
+from app.models.enums import AccessLevel, Block
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.schemas.account import (
@@ -61,7 +61,24 @@ async def _load(session: AsyncSession, account_id: uuid.UUID, user: User) -> Acc
     return account
 
 
-async def _balances(session: AsyncSession, user: User) -> dict[uuid.UUID, Decimal]:
+async def _target_owner(
+    session: AsyncSession, owner: uuid.UUID | None, user: User
+) -> uuid.UUID:
+    """Wessen Konten gemeint sind — und ob der Fragende sie sehen darf.
+
+    Ohne `owner` die eigenen. Mit `owner` die eines Haushaltsmitglieds, das
+    mindestens Stufe `view` gegeben hat. Die Stufe gibt der Besitzer selbst,
+    siehe `AccessLevel`.
+    """
+    if owner is None or owner == user.id:
+        return user.id
+
+    level = await granted_level(session, owner, user.id)
+    require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
+    return owner
+
+
+async def _balances(session: AsyncSession, owner_id: uuid.UUID) -> dict[uuid.UUID, Decimal]:
     """Wieviel jede Buchung am Stand des jeweiligen Kontos bewegt hat.
 
     Die Buchung trägt kein Vorzeichen, die Richtung steht woanders:
@@ -84,12 +101,12 @@ async def _balances(session: AsyncSession, user: User) -> dict[uuid.UUID, Decima
                 )
             ),
         )
-        .where(Transaction.owner_id == user.id)
+        .where(Transaction.owner_id == owner_id)
         .group_by(Transaction.account_id)
     )
     incoming = await session.execute(
         select(Transaction.counter_account_id, func.sum(Transaction.amount))
-        .where(Transaction.owner_id == user.id, Transaction.counter_account_id.isnot(None))
+        .where(Transaction.owner_id == owner_id, Transaction.counter_account_id.isnot(None))
         .group_by(Transaction.counter_account_id)
     )
 
@@ -100,7 +117,7 @@ async def _balances(session: AsyncSession, user: User) -> dict[uuid.UUID, Decima
 
 
 async def _with_balance(
-    session: AsyncSession, account: Account, user: User
+    session: AsyncSession, account: Account, owner_id: uuid.UUID
 ) -> AccountRead:
     """Ein Konto samt Stand.
 
@@ -109,7 +126,7 @@ async def _with_balance(
     Anfangsbestand von 150,96 gesetzt wurde. Ein Client, der die Antwort
     anzeigt, zeigte dann eine Zahl, die es nie gab.
     """
-    moved = await _balances(session, user)
+    moved = await _balances(session, owner_id)
     return AccountRead.model_validate(account).model_copy(
         update={"balance": account.opening_balance + moved.get(account.id, ZERO)}
     )
@@ -117,16 +134,22 @@ async def _with_balance(
 
 @router.get("", response_model=list[AccountRead])
 async def list_accounts(
+    owner: uuid.UUID | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> list[AccountRead]:
-    """Eigene Konten mit Stand, aufgelöste zuletzt."""
+    """Konten mit Stand, aufgelöste zuletzt.
+
+    Ohne `owner` die eigenen. Mit `owner` die eines Mitglieds, das Einblick
+    gegeben hat — für die Personenansicht im Haushalt.
+    """
+    owner_id = await _target_owner(session, owner, user)
     result = await session.execute(
         select(Account)
-        .where(Account.owner_id == user.id)
+        .where(Account.owner_id == owner_id)
         .order_by(Account.active.desc(), Account.name)
     )
-    moved = await _balances(session, user)
+    moved = await _balances(session, owner_id)
 
     return [
         AccountRead.model_validate(account).model_copy(
@@ -149,6 +172,7 @@ _TOTAL_DELTA = case(
 async def balance_history(
     year: int = Query(ge=2000, le=2100),
     month: int = Query(ge=1, le=12),
+    owner: uuid.UUID | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> BalanceHistory:
@@ -164,24 +188,25 @@ async def balance_history(
     Muss **vor** `/{account_id}` stehen, sonst versucht FastAPI, „history" als
     UUID zu lesen.
     """
+    owner_id = await _target_owner(session, owner, user)
     first = date(year, month, 1)
     last = date(year, month, monthrange(year, month)[1])
 
     opening = await session.scalar(
         select(func.coalesce(func.sum(Account.opening_balance), ZERO)).where(
-            Account.owner_id == user.id
+            Account.owner_id == owner_id
         )
     )
     before = await session.scalar(
         select(func.coalesce(func.sum(_TOTAL_DELTA), ZERO)).where(
-            Transaction.owner_id == user.id, Transaction.occurred_on < first
+            Transaction.owner_id == owner_id, Transaction.occurred_on < first
         )
     )
 
     daily = await session.execute(
         select(Transaction.occurred_on, func.sum(_TOTAL_DELTA))
         .where(
-            Transaction.owner_id == user.id,
+            Transaction.owner_id == owner_id,
             Transaction.occurred_on >= first,
             Transaction.occurred_on <= last,
         )
@@ -217,7 +242,7 @@ async def create_account(
     session.add(account)
     await session.commit()
     await session.refresh(account)
-    return await _with_balance(session, account, user)
+    return await _with_balance(session, account, user.id)
 
 
 @router.patch("/{account_id}", response_model=AccountRead)
@@ -238,7 +263,7 @@ async def update_account(
 
     await session.commit()
     await session.refresh(account)
-    return await _with_balance(session, account, user)
+    return await _with_balance(session, account, user.id)
 
 
 @router.delete("/{account_id}", status_code=status.HTTP_204_NO_CONTENT)

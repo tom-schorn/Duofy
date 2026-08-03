@@ -28,6 +28,8 @@ import { useBalanceHistory } from '@/lib/queries'
 type Props = {
   year: number
   month: number
+  /** Fremder Besitzer für die Personenansicht. null = eigenes Buch. */
+  ownerId?: string | null
 }
 
 type DayStep = {
@@ -40,8 +42,8 @@ type DayStep = {
 /** Luft über und unter der Kurve, damit sie den Rand nicht berührt. */
 const PADDING = 0.12
 
-export function BookFlow({ year, month }: Props) {
-  const history = useBalanceHistory(year, month)
+export function BookFlow({ year, month, ownerId = null }: Props) {
+  const history = useBalanceHistory(year, month, ownerId)
 
   return (
     <QueryState isPending={history.isPending} error={history.error} rows={2}>

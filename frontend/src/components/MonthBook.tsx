@@ -50,22 +50,32 @@ type Props = {
   positions: PlanPosition[]
   year: number
   month: number
+  /** Fremder Besitzer für die Personenansicht. null = eigenes Buch. */
+  ownerId?: string | null
+  /** Einblick heißt ansehen: keine Schnelleingabe, kein Löschen. */
+  readOnly?: boolean
 }
 
 function today(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-export function MonthBook({ positions, year, month }: Props) {
-  const transactions = useTransactions(year, month)
-  const accounts = useAccounts().data ?? []
+export function MonthBook({
+  positions,
+  year,
+  month,
+  ownerId = null,
+  readOnly = false,
+}: Props) {
+  const transactions = useTransactions(year, month, ownerId)
+  const accounts = useAccounts(ownerId).data ?? []
   const save = useSaveTransaction(year, month)
   const remove = useDeleteTransaction(year, month)
 
   const usable = accounts.filter((account) => account.active)
   const fallback = usable.find((account) => account.isDefault) ?? usable[0]
 
-  if (usable.length === 0) {
+  if (usable.length === 0 && !readOnly) {
     return (
       <p className="text-muted-foreground bg-card border-border rounded-lg border p-6 text-sm">
         Noch kein Konto. Ohne Konto lässt sich nichts buchen — leg unter
@@ -76,14 +86,19 @@ export function MonthBook({ positions, year, month }: Props) {
 
   return (
     <section className="flex flex-col gap-5">
-      <QuickEntry
-        accounts={usable}
-        fallbackAccountId={fallback?.id ?? ''}
-        positions={positions}
-        onSave={(draft) => save.mutate(draft)}
-        pending={save.isPending}
-        error={save.error}
-      />
+      {/* Kein Eingabefeld in fremden Büchern: gebucht wird beim Besitzer.
+          Auch Stufe „darf ändern" bekommt es nicht — das käme mit dem
+          Ändern-Schritt zusammen, sonst führt der Knopf ins Nichts. */}
+      {!readOnly && (
+        <QuickEntry
+          accounts={usable}
+          fallbackAccountId={fallback?.id ?? ''}
+          positions={positions}
+          onSave={(draft) => save.mutate(draft)}
+          pending={save.isPending}
+          error={save.error}
+        />
+      )}
 
       <QueryState
         isPending={transactions.isPending}
@@ -102,7 +117,9 @@ export function MonthBook({ positions, year, month }: Props) {
                 transaction={transaction}
                 accounts={accounts}
                 positions={positions}
-                onDelete={() => remove.mutate(transaction.id)}
+                onDelete={
+                  readOnly ? null : () => remove.mutate(transaction.id)
+                }
               />
             ))}
           </ul>
@@ -298,7 +315,8 @@ function Row({
   transaction: Transaction
   accounts: Account[]
   positions: PlanPosition[]
-  onDelete: () => void
+  /** null = fremdes Buch, dann fehlt der Knopf ganz. */
+  onDelete: (() => void) | null
 }) {
   const account = accounts.find((item) => item.id === transaction.accountId)
   const counter = accounts.find(
@@ -346,16 +364,21 @@ function Row({
         {euro.format(Number(transaction.amount))}
       </span>
 
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        aria-label={`Buchung ${transaction.note ?? ''} löschen`}
-        onClick={onDelete}
-        className="text-muted-foreground hover:text-destructive"
-      >
-        <Trash2 className="size-4" />
-      </Button>
+      {onDelete === null ? (
+        // Platzhalter, damit die Spalten aller Zeilen gleich breit bleiben.
+        <span className="size-9" />
+      ) : (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label={`Buchung ${transaction.note ?? ''} löschen`}
+          onClick={onDelete}
+          className="text-muted-foreground hover:text-destructive"
+        >
+          <Trash2 className="size-4" />
+        </Button>
+      )}
     </li>
   )
 }

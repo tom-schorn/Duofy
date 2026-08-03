@@ -17,9 +17,10 @@ from sqlalchemy import and_, extract, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
-from app.core.permissions import require
+from app.core.permissions import granted_level, require
 from app.db.session import get_session
 from app.models.account import Account
+from app.models.enums import AccessLevel
 from app.models.plan import Plan, PlanPosition
 from app.models.transaction import Transaction
 from app.models.user import User
@@ -89,6 +90,7 @@ async def _load(session: AsyncSession, transaction_id: uuid.UUID, user: User) ->
 async def list_transactions(
     year: int | None = Query(default=None, ge=2000, le=2100),
     month: int | None = Query(default=None, ge=1, le=12),
+    owner: uuid.UUID | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> list[Transaction]:
@@ -108,7 +110,15 @@ async def list_transactions(
     in **einem** Monat, nicht in zweien. Sonst zählte sie doppelt, sobald man
     Summen über das Buch bildet.
     """
-    query = select(Transaction).where(Transaction.owner_id == user.id)
+    owner_id = user.id
+    if owner is not None and owner != user.id:
+        # Buchungen sind privat. Sie hier zu zeigen setzt voraus, dass der
+        # Besitzer mindestens Stufe `view` gegeben hat — er, nicht der Leser.
+        level = await granted_level(session, owner, user.id)
+        require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
+        owner_id = owner
+
+    query = select(Transaction).where(Transaction.owner_id == owner_id)
 
     if year is not None and month is not None:
         in_month = and_(
@@ -118,7 +128,7 @@ async def list_transactions(
         belongs_to_plan = Transaction.position_id.in_(
             select(PlanPosition.id)
             .join(Plan, Plan.id == PlanPosition.plan_id)
-            .where(Plan.user_id == user.id, Plan.year == year, Plan.month == month)
+            .where(Plan.user_id == owner_id, Plan.year == year, Plan.month == month)
         )
         # Ohne Posten zählt das Datum, mit Posten der Plan — nie beides.
         query = query.where(

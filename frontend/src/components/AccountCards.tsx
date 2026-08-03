@@ -12,8 +12,13 @@ import { useAccounts } from '@/lib/queries'
  * Der Stand ist **nicht monatsgebunden**. Ein Konto hat einen Stand, keinen
  * August-Stand — deshalb ändert er sich nicht, wenn man den Monat wechselt.
  */
-export function AccountCards() {
-  const accounts = useAccounts()
+type Props = {
+  /** Fremder Besitzer für die Personenansicht. null = eigene Konten. */
+  ownerId?: string | null
+}
+
+export function AccountCards({ ownerId = null }: Props) {
+  const accounts = useAccounts(ownerId)
   const usable = (accounts.data ?? []).filter((account) => account.active)
 
   if (!accounts.isPending && usable.length === 0) return null

@@ -49,11 +49,18 @@ type Props = {
   month: number
   /** Aus dem Plan — für das, was diesen Monat noch abgeht. */
   positions: PlanPosition[]
+  /** Fremder Besitzer für die Personenansicht. null = eigenes Buch. */
+  ownerId?: string | null
 }
 
-export function BookMetrics({ year, month, positions }: Props) {
-  const transactions = useTransactions(year, month)
-  const accounts = useAccounts()
+export function BookMetrics({
+  year,
+  month,
+  positions,
+  ownerId = null,
+}: Props) {
+  const transactions = useTransactions(year, month, ownerId)
+  const accounts = useAccounts(ownerId)
 
   const open = (accounts.data ?? []).filter((account) => account.active)
   // Konten, deren Guthaben nicht mehr als verfügbar gilt. Eine Umbuchung

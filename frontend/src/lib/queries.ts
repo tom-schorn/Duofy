@@ -39,13 +39,17 @@ export const keys = {
     ['households', householdId, 'invitations'] as const,
   myInvitations: ['invitations', 'mine'] as const,
   accounts: ['accounts'] as const,
+  accountsOf: (ownerId: string | null) => ['accounts', ownerId ?? 'me'] as const,
   commitments: ['commitments'] as const,
   /** Alle Monate — zum Ungültigmachen, wenn unklar ist, welcher betroffen ist. */
   allTransactions: ['transactions'] as const,
-  balanceHistory: (year: number, month: number) =>
-    ['accounts', 'history', year, month] as const,
-  transactions: (year: number, month: number) =>
-    ['transactions', year, month] as const,
+  balanceHistory: (
+    year: number,
+    month: number,
+    ownerId: string | null = null
+  ) => ['accounts', 'history', ownerId ?? 'me', year, month] as const,
+  transactions: (year: number, month: number, ownerId: string | null = null) =>
+    ['transactions', ownerId ?? 'me', year, month] as const,
   plans: ['plans'] as const,
   plan: (year: number, month: number) => ['plans', year, month] as const,
   householdPlan: (householdId: string, year: number, month: number) =>
@@ -158,10 +162,17 @@ export function useDeclineInvitation() {
 
 // --- Konten ---------------------------------------------------------------
 
-export function useAccounts() {
+/**
+ * Konten mit Stand. Mit `ownerId` die eines Mitglieds, das Einblick gegeben hat.
+ *
+ * Der Besitzer steht im Schlüssel: sonst überschriebe Jasmins Kontoliste die
+ * eigene, sobald man ihre Seite öffnet.
+ */
+export function useAccounts(ownerId: string | null = null) {
   return useQuery({
-    queryKey: keys.accounts,
-    queryFn: () => api.get<Account[]>('/accounts'),
+    queryKey: keys.accountsOf(ownerId),
+    queryFn: () =>
+      api.get<Account[]>(ownerId ? `/accounts?owner=${ownerId}` : '/accounts'),
   })
 }
 
@@ -172,11 +183,18 @@ export function useAccounts() {
  * Posten zu, diese Kurve nach Datum. Aus derselben Liste ließe sich beides
  * nicht ableiten.
  */
-export function useBalanceHistory(year: number, month: number) {
+export function useBalanceHistory(
+  year: number,
+  month: number,
+  ownerId: string | null = null
+) {
   return useQuery({
-    queryKey: keys.balanceHistory(year, month),
+    queryKey: keys.balanceHistory(year, month, ownerId),
     queryFn: () =>
-      api.get<BalanceHistory>(`/accounts/history?year=${year}&month=${month}`),
+      api.get<BalanceHistory>(
+        `/accounts/history?year=${year}&month=${month}` +
+          (ownerId ? `&owner=${ownerId}` : '')
+      ),
   })
 }
 
@@ -199,11 +217,18 @@ export function useDeleteAccount() {
 
 // --- Haushaltsbuch --------------------------------------------------------
 
-export function useTransactions(year: number, month: number) {
+export function useTransactions(
+  year: number,
+  month: number,
+  ownerId: string | null = null
+) {
   return useQuery({
-    queryKey: keys.transactions(year, month),
+    queryKey: keys.transactions(year, month, ownerId),
     queryFn: () =>
-      api.get<Transaction[]>(`/transactions?year=${year}&month=${month}`),
+      api.get<Transaction[]>(
+        `/transactions?year=${year}&month=${month}` +
+          (ownerId ? `&owner=${ownerId}` : '')
+      ),
   })
 }
 
