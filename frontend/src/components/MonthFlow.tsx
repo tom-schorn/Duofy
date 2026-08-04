@@ -65,6 +65,8 @@ type Props = {
   positions: PlanPosition[]
   year: number
   month: number
+  /** Höhe der Zeichenfläche. Für den Druck flacher — siehe `PlanSankey`. */
+  hoehe?: string
 }
 
 type DayStep = {
@@ -167,7 +169,12 @@ const CONFIG = {
 /** Kurz für die Achse: 2.000 statt 2.000,00 €. */
 const kompakt = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 })
 
-export function MonthFlow({ positions, year, month }: Props) {
+export function MonthFlow({
+  positions,
+  year,
+  month,
+  hoehe = 'h-60',
+}: Props) {
   const steps = buildSteps(positions, year, month)
   const rows = buildRows(positions, year, month)
 
@@ -218,7 +225,7 @@ export function MonthFlow({ positions, year, month }: Props) {
         )}
       </header>
 
-      <ChartContainer config={CONFIG} className="h-60 w-full">
+      <ChartContainer config={CONFIG} className={`${hoehe} w-full`}>
         <AreaChart data={days} margin={{ left: 4, right: 4, top: 8 }}>
           <defs>
             <linearGradient id="flow-fill" x1="0" y1="0" x2="0" y2="1">
@@ -293,7 +300,9 @@ export function MonthFlow({ positions, year, month }: Props) {
         </AreaChart>
       </ChartContainer>
 
-      <div className="w-full overflow-x-auto">
+      {/* Auf Papier weg: `PlanPrintout` bringt die Posten auf Seite 2, und
+          diese Tabelle allein wären 26 Zeilen zu viel für Seite 1. */}
+      <div className="w-full overflow-x-auto print:hidden">
         <Table>
           <TableHeader>
             <TableRow>
@@ -325,7 +334,7 @@ export function MonthFlow({ positions, year, month }: Props) {
         </Table>
       </div>
 
-      <p className="text-muted-foreground max-w-[70ch] text-xs">
+      <p className="text-muted-foreground max-w-[70ch] text-xs print:hidden">
         Geplante Fälligkeiten, nicht die echten Buchungstage — der Verlauf im
         Buch sieht deshalb anders aus. Der Saldo in der Tabelle läuft über die
         Zeilen mit; innerhalb eines Tages gibt es aber keine Reihenfolge, das

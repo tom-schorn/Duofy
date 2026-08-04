@@ -124,6 +124,7 @@ export function PlanDetailPage() {
     <div className="flex flex-col gap-8">
       <Link
         to="/plan"
+        data-print="hide"
         className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1.5 text-sm"
       >
         <ArrowLeft className="size-4" />
@@ -346,7 +347,7 @@ function PlanBody({
               </Badge>
             ))}
           </div>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground print:hidden">
             Verplane den Monat, bevor er anfängt. Die Quoten sind Richtwerte —
             es zählt, dass es aufgeht.
           </p>
@@ -492,10 +493,34 @@ function PlanBody({
           {/* Zuerst das Bild, dann die Listen: „wohin geht es" beantwortet die
               Frage, mit der man sich hinsetzt. Die Posten darunter sind das
               Werkzeug, um daran zu drehen. */}
+          {/* Der Verlauf gehört auf Seite 1: er beantwortet „wird es eng", und
+              genau das rechnete Tom vorher in der Excel mit zwei Spalten „mit
+              und ohne Kindergeld" nach.
+
+              Aufgebaut nur während der Druckvorbereitung und dabei außerhalb
+              des Bildes geparkt. `hidden` wäre `display: none`, und dann
+              misst Recharts eine Breite von 0 und zeichnet nichts. Absolut
+              positioniert wird das Element gelayoutet, also auch gemessen. */}
+          {druckbreite && (
+            <div className="absolute -left-[9999px] top-0 w-[672px] print:static print:left-auto">
+              <MonthFlow
+                positions={plan.positions}
+                year={plan.year}
+                month={plan.month}
+                hoehe="h-32"
+              />
+            </div>
+          )}
+
           {/* 672 px ist die A4-Breite abzüglich der Ränder — dieselbe Zahl wie
               das `min-w-[42rem]` des Diagramms. */}
           <div className={druckbreite ? 'w-[672px]' : undefined}>
-            <PlanSankey positions={plan.positions} budget={plan.budget} />
+            <PlanSankey
+              positions={plan.positions}
+              budget={plan.budget}
+              hoehe={druckbreite ? 'h-56' : 'h-[26rem]'}
+              grenze={druckbreite ? 0.05 : undefined}
+            />
           </div>
 
       {/* Auf Papier ersetzt `PlanPrintout` diese Liste — dort trägt jede Zeile
@@ -900,7 +925,7 @@ function HouseholdPlanBody({
             {plan.householdName}
           </Badge>
         </div>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground print:hidden">
           Alle Posten, die ihr gemeinsam tragt. Zusammengesetzt aus den Plänen
           aller Mitglieder — geändert wird im eigenen Plan.
         </p>
@@ -994,6 +1019,7 @@ function HouseholdPlanBody({
                 positions={plan.positions}
                 year={plan.year}
                 month={plan.month}
+                hoehe="h-32"
               />
             </TabsContent>
 
@@ -1010,8 +1036,31 @@ function HouseholdPlanBody({
             </TabsContent>
 
             <TabsContent value="plan" className="flex flex-col gap-8">
+              {/* Der Verlauf gehört auf Seite 1: er beantwortet „wird es eng", und
+                  genau das rechnete Tom vorher in der Excel mit zwei Spalten „mit
+                  und ohne Kindergeld" nach.
+
+                  Aufgebaut nur während der Druckvorbereitung und dabei außerhalb
+                  des Bildes geparkt. `hidden` wäre `display: none`, und dann
+                  misst Recharts eine Breite von 0 und zeichnet nichts. Absolut
+                  positioniert wird das Element gelayoutet, also auch gemessen. */}
+              {druckbreite && (
+                <div className="absolute -left-[9999px] top-0 w-[672px] print:static print:left-auto">
+                  <MonthFlow
+                    positions={plan.positions}
+                    year={plan.year}
+                    month={plan.month}
+                  />
+                </div>
+              )}
+
               <div className={druckbreite ? 'w-[672px]' : undefined}>
-                <PlanSankey positions={plan.positions} budget={plan.budget} />
+                <PlanSankey
+                  positions={plan.positions}
+                  budget={plan.budget}
+                  hoehe={druckbreite ? 'h-56' : 'h-[26rem]'}
+                  grenze={druckbreite ? 0.05 : undefined}
+                />
               </div>
 
               {/* Auf Papier ersetzt `PlanPrintout` diese Liste. */}

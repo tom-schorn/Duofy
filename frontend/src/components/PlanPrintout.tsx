@@ -99,7 +99,7 @@ export function PlanPrintout({ plan, ownerName }: Props) {
         let laufend = 0
 
         return (
-          <section key={block} className="mb-4 break-inside-avoid">
+          <section key={block} className="mb-2.5 break-inside-avoid">
             <div className="flex items-baseline justify-between border-b border-black/40 pb-0.5 text-[11px] font-semibold">
               <span className="uppercase">
                 {BLOCK_LABEL[block]}
@@ -118,17 +118,17 @@ export function PlanPrintout({ plan, ownerName }: Props) {
               </span>
             </div>
 
-            <table className="w-full border-collapse text-[10.5px]">
+            <table className="w-full border-collapse text-[10px] leading-tight">
               <thead>
                 <tr className="text-left text-[9px] uppercase">
-                  <th className="w-8 py-0.5 font-medium">Tag</th>
-                  <th className="py-0.5 font-medium">Bezeichnung</th>
+                  <th className="w-8 py-px font-medium">Tag</th>
+                  <th className="py-px font-medium">Bezeichnung</th>
                   {ownerName && (
-                    <th className="w-16 py-0.5 font-medium">Wer</th>
+                    <th className="w-16 py-px font-medium">Wer</th>
                   )}
-                  <th className="w-20 py-0.5 text-right font-medium">Betrag</th>
-                  <th className="w-20 py-0.5 text-right font-medium">Summe</th>
-                  <th className="w-20 py-0.5 text-right font-medium">Ist</th>
+                  <th className="w-20 py-px text-right font-medium">Betrag</th>
+                  <th className="w-20 py-px text-right font-medium">Summe</th>
+                  <th className="w-20 py-px text-right font-medium">Ist</th>
                 </tr>
               </thead>
               <tbody>
@@ -150,25 +150,25 @@ export function PlanPrintout({ plan, ownerName }: Props) {
                         isPaid(p) ? 'text-black/55 line-through' : ''
                       }`}
                     >
-                      <td className="py-0.5 tabular-nums">{p.dueDay}.</td>
-                      <td className="py-0.5">
+                      <td className="py-px tabular-nums">{p.dueDay}.</td>
+                      <td className="py-px">
                         {p.label}
                         {p.passThrough && (
                           <span className="text-[9px]"> · durchlaufend</span>
                         )}
                       </td>
                       {ownerName && (
-                        <td className="py-0.5">{ownerName(p) ?? ''}</td>
+                        <td className="py-px">{ownerName(p) ?? ''}</td>
                       )}
-                      <td className="py-0.5 text-right tabular-nums">
+                      <td className="py-px text-right tabular-nums">
                         {euro.format(betrag)}
                       </td>
                       {/* Durchlaufendes zählt nicht mit — sonst behauptete die
                           Spalte eine Summe, die es nie gab. */}
-                      <td className="py-0.5 text-right tabular-nums">
+                      <td className="py-px text-right tabular-nums">
                         {p.passThrough ? '—' : euro.format(laufend)}
                       </td>
-                      <td className="py-0.5 text-right tabular-nums">
+                      <td className="py-px text-right tabular-nums">
                         {p.amountActual !== null
                           ? euro.format(Number(p.amountActual))
                           : ''}
@@ -179,11 +179,11 @@ export function PlanPrintout({ plan, ownerName }: Props) {
                 {ist > 0 && (
                   <tr className="font-semibold">
                     <td />
-                    <td className="py-0.5">Ist zusammen</td>
+                    <td className="py-px">Ist zusammen</td>
                     {ownerName && <td />}
                     <td />
                     <td />
-                    <td className="py-0.5 text-right tabular-nums">
+                    <td className="py-px text-right tabular-nums">
                       {euro.format(ist)}
                     </td>
                   </tr>

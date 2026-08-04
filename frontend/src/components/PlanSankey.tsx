@@ -40,6 +40,22 @@ type Props = {
   positions: PlanPosition[]
   /** Einnahmen minus Puffer — kommt vom Server. */
   budget: string
+  /**
+   * Ab welchem Anteil am Budget ein Posten ein eigenes Band bekommt.
+   *
+   * Auf Papier gröber als am Bildschirm: dort ist die Fläche flacher, und elf
+   * Knoten in der letzten Spalte schreiben ihre Namen übereinander. Weniger,
+   * dafür dickere Bänder sind gedruckt lesbarer als vollständige.
+   */
+  grenze?: number
+  /**
+   * Höhe der Zeichenfläche als Tailwind-Klasse.
+   *
+   * Für den Druck flacher, damit Seite 1 nicht überläuft. Muss ein Prop sein
+   * und keine `print:`-Klasse: Recharts misst vor dem Druck, und im Druckmedium
+   * wäre es zu spät.
+   */
+  hoehe?: string
 }
 
 /** Ab welchem Anteil am Budget ein Posten ein eigenes Band bekommt. */
@@ -75,9 +91,13 @@ type Kante = { source: number; target: number; value: number; farbe: string }
  * mitgezählt statt mit Namen verknüpft. Bänder mit Wert 0 fallen heraus — sie
  * würden die Aufteilung verzerren und wären ohnehin unsichtbar.
  */
-function build(positions: PlanPosition[], budget: number) {
+function build(
+  positions: PlanPosition[],
+  budget: number,
+  anteil: number
+) {
   const zaehlend = positions.filter((p) => !p.passThrough)
-  const grenze = budget * EIGENES_BAND
+  const grenze = budget * anteil
 
   const nodes: Knoten[] = []
   const links: Kante[] = []
@@ -186,10 +206,15 @@ function build(positions: PlanPosition[], budget: number) {
   return { nodes, links, offen }
 }
 
-export function PlanSankey({ positions, budget }: Props) {
+export function PlanSankey({
+  positions,
+  budget,
+  grenze = EIGENES_BAND,
+  hoehe = 'h-[26rem]',
+}: Props) {
   const [inProzent, setInProzent] = useState(false)
   const summe = Number(budget)
-  const { nodes, links, offen } = build(positions, summe)
+  const { nodes, links, offen } = build(positions, summe, grenze)
 
   const zeige = (v: number) =>
     inProzent
@@ -221,7 +246,7 @@ export function PlanSankey({ positions, budget }: Props) {
 
         {/* Prozent, weil 50/30/20 eine Prozentregel ist — in Euro liest man die
             Quote nicht ab. */}
-        <div className="flex gap-1">
+        <div className="flex gap-1" data-print="hide">
           {[
             { label: '€', wert: false },
             { label: '%', wert: true },
@@ -240,7 +265,10 @@ export function PlanSankey({ positions, budget }: Props) {
         </div>
       </header>
 
-      <ChartContainer config={CONFIG} className="h-[26rem] w-full min-w-[42rem]">
+      <ChartContainer
+        config={CONFIG}
+        className={`${hoehe} w-full min-w-[42rem]`}
+      >
         <Sankey
           data={{ nodes, links }}
           nodeWidth={11}
@@ -342,6 +370,42 @@ function Kachel({
   // man ihn wissen.
   const zweizeilig = height > 22
 
+  /**
+   * Die Blocknamen sitzen **über** ihrem Knoten, nicht daneben.
+   *
+   * Daneben stießen sie auf die Postennamen der letzten Spalte: „Sparen" und
+   * „Sparen Allgemein" liegen auf gleicher Höhe, weil der erste Posten am
+   * oberen Rand seines Blocks ansetzt. Über dem Knoten ist Platz, dort steht
+   * nichts anderes.
+   */
+  if (knoten.spalte === 2) {
+    return (
+      <Layer>
+        <Rectangle
+          x={x}
+          y={y}
+          width={width}
+          height={height}
+          fill={knoten.farbe}
+          radius={1}
+        />
+        <text
+          x={x + width + 6}
+          y={y + 9}
+          textAnchor="start"
+          className="fill-foreground text-[12px]"
+          style={{ paintOrder: 'stroke', stroke: 'var(--card)', strokeWidth: 3 }}
+        >
+          {knoten.name}
+          <tspan className="fill-muted-foreground font-mono tabular-nums">
+            {'  '}
+            {zeige(knoten.betrag)}
+          </tspan>
+        </text>
+      </Layer>
+    )
+  }
+
   return (
     <Layer>
       <Rectangle
@@ -358,6 +422,7 @@ function Kachel({
         y={y + height / 2 + (zweizeilig ? -2 : 4)}
         textAnchor={anker}
         className="fill-foreground text-[12px]"
+        style={{ paintOrder: 'stroke', stroke: 'var(--card)', strokeWidth: 3 }}
       >
         {knoten.name}
         {!zweizeilig && (
@@ -373,6 +438,7 @@ function Kachel({
           y={y + height / 2 + 12}
           textAnchor={anker}
           className="fill-muted-foreground font-mono text-[11px] tabular-nums"
+          style={{ paintOrder: 'stroke', stroke: 'var(--card)', strokeWidth: 3 }}
         >
           {zeige(knoten.betrag)}
         </text>

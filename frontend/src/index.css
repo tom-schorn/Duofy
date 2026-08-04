@@ -194,12 +194,19 @@
   }
 
   /* Karten ohne Schatten und Ring, dafür mit dünnem Rahmen — Ringe drucken
-     manche Browser gar nicht. */
+     manche Browser gar nicht. Enger als am Bildschirm: Seite 1 soll Übersicht
+     **und** Diagramme tragen, und Papier ist teurer als Pixel. */
   [data-slot='card'] {
     box-shadow: none !important;
     --tw-ring-shadow: 0 0 #0000 !important;
     border: 1px solid #d4d4d4 !important;
     break-inside: avoid;
+    --card-spacing: 10px !important;
+  }
+
+  /* Der Plan-Reiter stapelt mit `gap-8` — auf Papier reicht die Hälfte. */
+  [role='tabpanel'] {
+    gap: 1rem !important;
   }
 
   /* Ein Block soll nicht mitten in der Postenliste umbrechen. */
