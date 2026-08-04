@@ -44,3 +44,13 @@ ios/
 CLAUDE.md
 
 CLAUDE.local.md
+
+# Das Wiki ist ein eigenes Git-Repo (Duofy.wiki.git) und liegt hier nur, damit
+# man die Seiten bearbeiten kann. Es darf nicht ins Haupt-Repo wandern.
+wiki/
+
+# Screenshots und Renderproben aus der Arbeit — enthalten echte Beträge
+/*.png
+
+# Arbeitsreste des Browser-Werkzeugs
+.playwright-mcp/
