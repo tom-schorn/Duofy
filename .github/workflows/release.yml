@@ -1,0 +1,44 @@
+name: Release
+
+# Nur `main`. Ein Merge hierher ist die Aussage „das soll raus".
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      erzeugt: ${{ steps.rp.outputs.release_created }}
+      version: ${{ steps.rp.outputs.tag_name }}
+
+    steps:
+      # Zwei Durchgänge, nicht einer:
+      #
+      # 1. Merge auf `main` → release-please liest die Commit-Nachrichten seit dem
+      #    letzten Release, rechnet die nächste Version aus und öffnet einen
+      #    Pull Request „chore(main): release 1.3.0". Darin: CHANGELOG.md,
+      #    version.txt, pyproject.toml, package.json.
+      # 2. Du mergest diesen Pull Request → dieser Lauf erzeugt Tag und
+      #    GitHub-Release. Erst dann ist `release_created` wahr.
+      #
+      # Der Release entsteht also durch dein Zutun, nicht durch einen Merge nach
+      # `main` allein.
+      - uses: googleapis/release-please-action@v5
+        id: rp
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # Wichtig und nicht offensichtlich: Tags und Releases, die mit dem
+  # GITHUB_TOKEN erzeugt werden, lösen **keine** weiteren Workflows aus. Ein
+  # eigener Workflow `on: push: tags` würde nie starten. Deshalb hängt der Bau
+  # des Images hier dran, im selben Lauf.
+  #
+  # TODO: Job „image" ergänzen, sobald das All-in-one-Image existiert (#6).
+  #       Tags: ${{ needs.release.outputs.version }} und `latest`.
+  #       Bedingung: if: needs.release.outputs.erzeugt == 'true'

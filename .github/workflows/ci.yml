@@ -1,0 +1,72 @@
+name: CI
+
+# Läuft auf jedem Pull Request und auf beiden Langzeit-Branches. Auf `develop`
+# und `main` zusätzlich, weil ein Squash-Merge einen Stand erzeugt, den so noch
+# nie jemand gebaut hat.
+on:
+  pull_request:
+  push:
+    branches: [develop, main]
+
+# Ein neuer Push auf denselben Branch bricht den laufenden Durchgang ab. Auf
+# `main` nicht — dort soll jeder Stand geprüft bleiben.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    # Attrappen. Es verbindet sich nichts zur Datenbank, aber `Settings` verlangt
+    # diese Werte beim Import von `app.main` — ohne sie schlägt schon das
+    # Einlesen fehl. `.env.dev` liegt nicht im Repo und darf es auch nicht.
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_DB: duofy
+      POSTGRES_USER: duofy
+      POSTGRES_PASSWORD: dummy
+      JWT_SECRET: dummy-value-for-ci-only
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v9
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      # --frozen: die Sperrdatei wird benutzt, nicht neu erzeugt. Sonst könnte
+      # ein Durchgang mit anderen Abhängigkeiten laufen als der Entwickler.
+      - run: uv sync --frozen
+
+      - run: uv run ruff check app/ tests/
+
+      - run: uv run pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      # Typen zuerst: schlägt das fehl, sagen die anderen beiden nichts mehr aus.
+      - run: npx tsc --noEmit -p tsconfig.app.json
+
+      - run: npm run lint
+
+      - run: npm run build

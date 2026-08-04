@@ -1,0 +1,93 @@
+name: Pull Request
+
+# `edited` ist wichtig: Titel und Text lassen sich nach dem Öffnen ändern, und
+# beides wird hier geprüft. Ohne `edited` bliebe ein grüner Haken stehen, der
+# nichts mehr über den aktuellen Stand sagt.
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  # Der Titel wird beim Squash zur Commit-Nachricht auf `develop`. Daraus bauen
+  # release-please Version und Changelog — ein schiefer Titel erzeugt also eine
+  # falsche Version, nicht bloß eine hässliche Zeile.
+  titel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            refactor
+            test
+            chore
+          # Kein Scope-Zwang: bei zwei Teilen (backend, frontend) sagt der Scope
+          # weniger als der Titel selbst.
+          requireScope: false
+          # Kleinbuchstabe am Anfang ist Konvention, aber kein Fehler wert.
+          subjectPattern: ^.{6,}$
+          subjectPatternError: |
+            Der Titel nach dem Doppelpunkt ist zu kurz. „fix: bug" sagt nichts —
+            schreib hin, was sich ändert.
+
+  # Ohne diese Prüfung wäre die Beitragsvereinbarung eine Bitte. Ein Kästchen in
+  # der Vorlage interessiert GitHub von sich aus nicht.
+  cla:
+    runs-on: ubuntu-latest
+    # release-please öffnet seine Pull Requests selbst und kreuzt nichts an.
+    if: github.actor != 'github-actions[bot]'
+    steps:
+      - name: Kästchen prüfen
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if printf '%s' "$BODY" | grep -qiE '^\s*-\s*\[x\].*Beitragsvereinbarung'; then
+            echo "Beitragsvereinbarung ist angekreuzt."
+          else
+            echo "::error::Das Kästchen zur Beitragsvereinbarung ist nicht angekreuzt."
+            echo "Siehe CLA.md. Kreuze es im Text dieses Pull Requests an, dann läuft"
+            echo "die Prüfung erneut."
+            exit 1
+          fi
+
+  # Herkunftsnachweis: jeder Commit trägt eine Signed-off-by-Zeile. `git commit -s`
+  # setzt sie. Absichtlich hier statt über eine GitHub-App, damit die Prüfung im
+  # Repo sichtbar ist und nicht in einer Einstellung versteckt.
+  dco:
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Vollständige Historie, sonst fehlen die Commits des Branches.
+          fetch-depth: 0
+
+      - name: Signed-off-by prüfen
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          fehlend=0
+          while read -r sha; do
+            [ -z "$sha" ] && continue
+            if ! git log -1 --format='%B' "$sha" | grep -qi '^Signed-off-by: .* <.*@.*>'; then
+              echo "::error::Ohne Signed-off-by: $(git log -1 --format='%h %s' "$sha")"
+              fehlend=1
+            fi
+          done <<< "$(git rev-list "$BASE".."$HEAD")"
+
+          if [ "$fehlend" -eq 1 ]; then
+            echo ""
+            echo "Nachträglich setzen:  git rebase --signoff $BASE"
+            echo "Künftig:              git commit -s"
+            exit 1
+          fi
+          echo "Alle Commits sind signiert."
