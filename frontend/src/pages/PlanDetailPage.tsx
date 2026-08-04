@@ -175,19 +175,6 @@ function PlanBody({
   const togglePaid = useTogglePaid()
   // Der Posten, für den gerade das Buchungsfenster offen ist.
   const [booking, setBooking] = useState<PlanPosition | null>(null)
-  /**
-   * Verengt das Diagramm auf Papierbreite, kurz bevor gedruckt wird.
-   *
-   * Recharts zeichnet ein SVG in der Größe, die es beim Messen vorgefunden hat
-   * — am Bildschirm 936 px. Auf A4 stehen 703 px zur Verfügung, und beim
-   * Drucken misst Recharts nicht neu: sein `ResizeObserver` läuft asynchron und
-   * kommt nach dem Druckbild. Ergebnis war ein abgeschnittenes oder gar nicht
-   * gezeichnetes Diagramm.
-   *
-   * Deshalb passiert die Verengung **vorher und im laufenden Betrieb**, wo das
-   * Nachmessen zuverlässig greift.
-   */
-  const [druckbreite, setDruckbreite] = useState(false)
   const confirmPlan = useConfirmPlan()
 
   // Tab in der URL: sonst landet man nach jedem Neuladen wieder im Plan,
@@ -363,26 +350,12 @@ function PlanBody({
               steht, und bei offenem Buch-Reiter wäre das das Buch. */}
           <Button
             variant="outline"
-            onClick={async () => {
+            onClick={() => {
+              // Nur den Reiter wechseln: gedruckt wird, was im DOM steht.
+              // Die Druckfassung der Diagramme steht dauerhaft bereit, also
+              // funktioniert auch Strg+P ohne diesen Knopf.
               setTab('plan')
-              setDruckbreite(true)
-              // Zwei Frames: einer für Reiter und Breite, einer damit Recharts
-              // nachgemessen und neu gezeichnet hat.
-              await new Promise((fertig) =>
-                requestAnimationFrame(() => requestAnimationFrame(fertig))
-              )
-              // Zurückgesetzt wird bei `afterprint`, nicht direkt nach dem
-              // Aufruf: `window.print()` blockiert nicht in jedem Browser, und
-              // dann wäre das Diagramm schon wieder breit, bevor das Druckbild
-              // entsteht.
-              const zurueck = () => {
-                setDruckbreite(false)
-                window.removeEventListener('afterprint', zurueck)
-              }
-              window.addEventListener('afterprint', zurueck)
-              window.print()
-              // Notausgang, falls der Browser kein `afterprint` schickt.
-              setTimeout(zurueck, 5000)
+              requestAnimationFrame(() => window.print())
             }}
           >
             <Printer className="size-4" />
@@ -493,34 +466,37 @@ function PlanBody({
           {/* Zuerst das Bild, dann die Listen: „wohin geht es" beantwortet die
               Frage, mit der man sich hinsetzt. Die Posten darunter sind das
               Werkzeug, um daran zu drehen. */}
-          {/* Der Verlauf gehört auf Seite 1: er beantwortet „wird es eng", und
-              genau das rechnete Tom vorher in der Excel mit zwei Spalten „mit
-              und ohne Kindergeld" nach.
-
-              Aufgebaut nur während der Druckvorbereitung und dabei außerhalb
-              des Bildes geparkt. `hidden` wäre `display: none`, und dann
-              misst Recharts eine Breite von 0 und zeichnet nichts. Absolut
-              positioniert wird das Element gelayoutet, also auch gemessen. */}
-          {druckbreite && (
-            <div className="absolute -left-[9999px] top-0 w-[672px] print:static print:left-auto">
-              <MonthFlow
-                positions={plan.positions}
-                year={plan.year}
-                month={plan.month}
-                hoehe="h-32"
-              />
-            </div>
-          )}
-
-          {/* 672 px ist die A4-Breite abzüglich der Ränder — dieselbe Zahl wie
-              das `min-w-[42rem]` des Diagramms. */}
-          <div className={druckbreite ? 'w-[672px]' : undefined}>
+          {/* Papierfassung der Diagramme.
+           *
+           *  **Dauerhaft aufgebaut**, nur außerhalb des Bildes geparkt. Vorher wurde sie
+           *  erst beim Klick auf „Drucken" verengt — wer Strg+P nimmt, umging das, und
+           *  dann standen die Diagramme in Bildschirmbreite auf dem Papier und wurden
+           *  abgeschnitten.
+           *
+           *  Absolut positioniert statt `hidden`: `display: none` hätte eine Breite von 0
+           *  ergeben, und Recharts zeichnet dann nichts. So misst es einmal 672 px —
+           *  A4 abzüglich der Ränder — und behält das.
+           */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -left-[9999px] top-0 w-[672px] print:static print:left-auto print:flex print:flex-col print:gap-4"
+          >
+            <MonthFlow
+              positions={plan.positions}
+              year={plan.year}
+              month={plan.month}
+              hoehe="h-32"
+            />
             <PlanSankey
               positions={plan.positions}
               budget={plan.budget}
-              hoehe={druckbreite ? 'h-56' : 'h-[26rem]'}
-              grenze={druckbreite ? 0.05 : undefined}
+              hoehe="h-56"
+              grenze={0.05}
             />
+          </div>
+
+          <div className="print:hidden">
+            <PlanSankey positions={plan.positions} budget={plan.budget} />
           </div>
 
       {/* Auf Papier ersetzt `PlanPrintout` diese Liste — dort trägt jede Zeile
@@ -796,7 +772,7 @@ function MemberPlanBody({
             year={plan.year}
             month={plan.month}
             scope={scope}
-            readOnly
+            readOnly={!plan.mayEdit}
           />
         </TabsContent>
 
@@ -899,8 +875,6 @@ function HouseholdPlanBody({
   const noPositions = plan.positions.length === 0
 
   const scope: BookScope = { kind: 'household', householdId: plan.householdId }
-  // Siehe `PlanBody`: Recharts misst beim Drucken nicht neu, deshalb vorher.
-  const [druckbreite, setDruckbreite] = useState(false)
   // Wer nur die gemeinsamen Posten teilt, fehlt in allen Buch-Summen.
   const stillPrivate = members
     .filter((member) => member.grantsAccess === 'plan')
@@ -934,19 +908,9 @@ function HouseholdPlanBody({
       <div className="flex justify-end" data-print="hide">
         <Button
           variant="outline"
-          onClick={async () => {
+          onClick={() => {
             onTab('plan')
-            setDruckbreite(true)
-            await new Promise((fertig) =>
-              requestAnimationFrame(() => requestAnimationFrame(fertig))
-            )
-            const zurueck = () => {
-              setDruckbreite(false)
-              window.removeEventListener('afterprint', zurueck)
-            }
-            window.addEventListener('afterprint', zurueck)
-            window.print()
-            setTimeout(zurueck, 5000)
+            requestAnimationFrame(() => window.print())
           }}
         >
           <Printer className="size-4" />
@@ -1036,31 +1000,37 @@ function HouseholdPlanBody({
             </TabsContent>
 
             <TabsContent value="plan" className="flex flex-col gap-8">
-              {/* Der Verlauf gehört auf Seite 1: er beantwortet „wird es eng", und
-                  genau das rechnete Tom vorher in der Excel mit zwei Spalten „mit
-                  und ohne Kindergeld" nach.
-
-                  Aufgebaut nur während der Druckvorbereitung und dabei außerhalb
-                  des Bildes geparkt. `hidden` wäre `display: none`, und dann
-                  misst Recharts eine Breite von 0 und zeichnet nichts. Absolut
-                  positioniert wird das Element gelayoutet, also auch gemessen. */}
-              {druckbreite && (
-                <div className="absolute -left-[9999px] top-0 w-[672px] print:static print:left-auto">
-                  <MonthFlow
-                    positions={plan.positions}
-                    year={plan.year}
-                    month={plan.month}
-                  />
-                </div>
-              )}
-
-              <div className={druckbreite ? 'w-[672px]' : undefined}>
+              {/* Papierfassung der Diagramme.
+               *
+               *  **Dauerhaft aufgebaut**, nur außerhalb des Bildes geparkt. Vorher wurde sie
+               *  erst beim Klick auf „Drucken" verengt — wer Strg+P nimmt, umging das, und
+               *  dann standen die Diagramme in Bildschirmbreite auf dem Papier und wurden
+               *  abgeschnitten.
+               *
+               *  Absolut positioniert statt `hidden`: `display: none` hätte eine Breite von 0
+               *  ergeben, und Recharts zeichnet dann nichts. So misst es einmal 672 px —
+               *  A4 abzüglich der Ränder — und behält das.
+               */}
+              <div
+                aria-hidden
+                className="pointer-events-none absolute -left-[9999px] top-0 w-[672px] print:static print:left-auto print:flex print:flex-col print:gap-4"
+              >
+                <MonthFlow
+                  positions={plan.positions}
+                  year={plan.year}
+                  month={plan.month}
+                  hoehe="h-32"
+                />
                 <PlanSankey
                   positions={plan.positions}
                   budget={plan.budget}
-                  hoehe={druckbreite ? 'h-56' : 'h-[26rem]'}
-                  grenze={druckbreite ? 0.05 : undefined}
+                  hoehe="h-56"
+                  grenze={0.05}
                 />
+              </div>
+
+              <div className="print:hidden">
+                <PlanSankey positions={plan.positions} budget={plan.budget} />
               </div>
 
               {/* Auf Papier ersetzt `PlanPrintout` diese Liste. */}

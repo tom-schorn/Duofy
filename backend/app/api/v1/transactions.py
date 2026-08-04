@@ -40,25 +40,48 @@ router = APIRouter()
 ZERO = Decimal("0.00")
 
 
-async def _own_account(session: AsyncSession, account_id: uuid.UUID, user: User) -> None:
+async def _darf_fuer(session: AsyncSession, besitzer: uuid.UUID, user: User) -> None:
+    """Darf `user` im Namen von `besitzer` buchen?
+
+    Eigenes immer. Fremdes nur mit Stufe `edit`, und die gibt der Besitzer
+    selbst. Damit gilt für Buchungen dieselbe Regel wie für Posten — vorher war
+    das auseinander: als Vertretung durfte man einen Posten **abhaken**, was
+    eine Buchung auf dem fremden Konto erzeugt, aber nicht direkt buchen.
+    """
+    if besitzer == user.id:
+        return
+    level = await granted_level(session, besitzer, user.id)
+    require(level is AccessLevel.EDIT, "no_edit_granted")
+
+
+async def _account_owner(
+    session: AsyncSession, account_id: uuid.UUID, user: User
+) -> uuid.UUID:
+    """Wem das Konto gehört — und ob `user` darauf buchen darf."""
     account = await session.get(Account, account_id)
     if account is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "account_not_found"})
-    require(account.owner_id == user.id, "not_account_owner")
+    await _darf_fuer(session, account.owner_id, user)
+    return account.owner_id
 
 
-async def _own_position(session: AsyncSession, position_id: uuid.UUID, user: User) -> None:
+async def _position_owner(
+    session: AsyncSession, position_id: uuid.UUID, user: User
+) -> uuid.UUID:
     """Ein Posten gehört dem Besitzer seines Plans — auch ein Haushaltsposten.
 
-    Ohne diese Prüfung könnte man eigene Buchungen an fremde Posten hängen und
-    damit deren Ist-Betrag verändern.
+    Ohne diese Prüfung könnte man Buchungen an fremde Posten hängen und damit
+    deren Ist-Betrag verändern.
     """
     position = await session.get(PlanPosition, position_id)
     if position is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "position_not_found"})
 
     plan = await session.get(Plan, position.plan_id)
-    require(plan is not None and plan.user_id == user.id, "not_plan_owner")
+    if plan is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "plan_not_found"})
+    await _darf_fuer(session, plan.user_id, user)
+    return plan.user_id
 
 
 async def _recalc_position(session: AsyncSession, position_id: uuid.UUID | None) -> None:
@@ -87,7 +110,7 @@ async def _load(session: AsyncSession, transaction_id: uuid.UUID, user: User) ->
     transaction = await session.get(Transaction, transaction_id)
     if transaction is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "transaction_not_found"})
-    require(transaction.owner_id == user.id, "not_allowed")
+    await _darf_fuer(session, transaction.owner_id, user)
     return transaction
 
 
@@ -172,13 +195,18 @@ async def create_transaction(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> Transaction:
-    await _own_account(session, payload.account_id, user)
+    # Die Buchung gehört dem Besitzer des Kontos, nicht dem, der sie eintippt.
+    # Hakt Tom Jasmins Posten ab, steht die Buchung in **ihrem** Buch — direkt
+    # gebucht muss dasselbe gelten, sonst tauchte ihre Zahlung bei ihm auf.
+    besitzer = await _account_owner(session, payload.account_id, user)
     if payload.counter_account_id is not None:
-        await _own_account(session, payload.counter_account_id, user)
+        ziel = await _account_owner(session, payload.counter_account_id, user)
+        require(ziel == besitzer, "transfer_needs_one_owner")
     if payload.position_id is not None:
-        await _own_position(session, payload.position_id, user)
+        posten = await _position_owner(session, payload.position_id, user)
+        require(posten == besitzer, "position_needs_same_owner")
 
-    transaction = Transaction(owner_id=user.id, **payload.model_dump())
+    transaction = Transaction(owner_id=besitzer, **payload.model_dump())
     session.add(transaction)
     await session.flush()
 
@@ -200,9 +228,11 @@ async def update_transaction(
 
     for field in ("account_id", "counter_account_id"):
         if changes.get(field) is not None:
-            await _own_account(session, changes[field], user)
+            besitzer = await _account_owner(session, changes[field], user)
+            require(besitzer == transaction.owner_id, "not_account_owner")
     if changes.get("position_id") is not None:
-        await _own_position(session, changes["position_id"], user)
+        posten = await _position_owner(session, changes["position_id"], user)
+        require(posten == transaction.owner_id, "position_needs_same_owner")
 
     # Wandert die Buchung zu einem anderen Posten, müssen **beide** neu
     # gerechnet werden — der alte verliert sie, der neue bekommt sie.

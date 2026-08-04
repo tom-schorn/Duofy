@@ -269,7 +269,11 @@ export function useTransactions(
  * Buchung verändert `amountActual` des Postens, und daran hängen die
  * Ist-Beträge in der Budgetansicht.
  */
-export function useSaveTransaction(year: number, month: number) {
+export function useSaveTransaction(
+  year: number,
+  month: number,
+  scope: BookScope = OWN_SCOPE
+) {
   return useInvalidating<
     Transaction,
     Partial<Transaction> & { id?: string }
@@ -279,7 +283,7 @@ export function useSaveTransaction(year: number, month: number) {
         ? api.patch(`/transactions/${id}`, body)
         : api.post('/transactions', body),
     [
-      keys.transactions(year, month),
+      keys.transactions(year, month, scope),
       keys.plan(year, month),
       keys.plans,
       // Präfix: deckt die Konten **und** ihren Verlauf ab.
@@ -289,11 +293,15 @@ export function useSaveTransaction(year: number, month: number) {
   )
 }
 
-export function useDeleteTransaction(year: number, month: number) {
+export function useDeleteTransaction(
+  year: number,
+  month: number,
+  scope: BookScope = OWN_SCOPE
+) {
   return useInvalidating<void, string>(
     (id) => api.delete(`/transactions/${id}`),
     [
-      keys.transactions(year, month),
+      keys.transactions(year, month, scope),
       keys.plan(year, month),
       keys.plans,
       // Präfix: deckt die Konten **und** ihren Verlauf ab.

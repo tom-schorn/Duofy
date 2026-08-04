@@ -61,7 +61,11 @@ type Props = {
   month: number
   /** Wessen Buch: das eigene, das einer Person oder das des Haushalts. */
   scope?: BookScope
-  /** Einblick heißt ansehen: keine Schnelleingabe, kein Löschen. */
+  /**
+   * Nur ansehen. Bei Stufe „darf ändern" ist das falsch: wer den Posten des
+   * anderen abhaken darf, darf auch in dessen Buch buchen — das Abhaken
+   * erzeugt ja genau so eine Buchung.
+   */
   readOnly?: boolean
 }
 
@@ -74,8 +78,8 @@ export function MonthBook({
 }: Props) {
   const transactions = useTransactions(year, month, scope)
   const accounts = useAccounts(scope).data ?? []
-  const save = useSaveTransaction(year, month)
-  const remove = useDeleteTransaction(year, month)
+  const save = useSaveTransaction(year, month, scope)
+  const remove = useDeleteTransaction(year, month, scope)
 
   const usable = accounts.filter((account) => account.active)
   const fallback = usable.find((account) => account.isDefault) ?? usable[0]
@@ -96,9 +100,9 @@ export function MonthBook({
 
   return (
     <section className="flex flex-col gap-5">
-      {/* Kein Eingabefeld in fremden Büchern: gebucht wird beim Besitzer.
-          Auch Stufe „darf ändern" bekommt es nicht — das käme mit dem
-          Ändern-Schritt zusammen, sonst führt der Knopf ins Nichts. */}
+      {/* Die Buchung landet beim **Kontobesitzer**, nicht beim Eintippenden —
+          das entscheidet das Backend aus dem gewählten Konto. Zur Auswahl
+          stehen hier ohnehin nur dessen Konten. */}
       {!readOnly && (
         <QuickEntry
           accounts={usable}
