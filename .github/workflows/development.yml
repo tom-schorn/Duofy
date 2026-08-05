@@ -25,8 +25,14 @@ jobs:
         include:
           - name: backend
             context: backend
+            short: >-
+              Duofy API — household finance planning for couples, families and
+              shared flats
           - name: frontend
             context: frontend
+            short: >-
+              Duofy web interface — household finance planning for couples,
+              families and shared flats
 
     steps:
       - uses: actions/checkout@v7
@@ -47,3 +53,13 @@ jobs:
           # `uv sync` und `npm ci` von vorn.
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+      # Hält die Beschreibung auf Docker Hub mit dem Repo synchron. Ohne das
+      # pflegt man denselben Text an zwei Stellen, und eine davon veraltet.
+      - uses: peter-evans/dockerhub-description@v5
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ secrets.DOCKERHUB_USERNAME }}/duofy-${{ matrix.name }}
+          short-description: ${{ matrix.short }}
+          readme-filepath: docker/README.${{ matrix.name }}.md
