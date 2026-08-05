@@ -38,40 +38,16 @@ jobs:
             Der Titel nach dem Doppelpunkt ist zu kurz. „fix: bug" sagt nichts —
             schreib hin, was sich ändert.
 
-  # Ohne diese Prüfung wäre die Beitragsvereinbarung eine Bitte. Ein Kästchen in
-  # der Vorlage interessiert GitHub von sich aus nicht.
-  cla:
-    runs-on: ubuntu-latest
-    # Zwei Ausnahmen:
-    #  - release-please öffnet seine Pull Requests selbst und kreuzt nichts an
-    #  - die Wege zwischen `develop` und `main` in beide Richtungen. Hin bringen
-    #    sie nur Commits mit, die beim Eingang in `develop` schon geprüft wurden;
-    #    zurück nur die Versionsdateien, die release-please selbst geschrieben
-    #    hat — und die trägt kein Mensch, also auch keine Signatur.
-    if: >-
-      github.actor != 'github-actions[bot]'
-      && github.event.pull_request.base.ref != 'main'
-      && github.event.pull_request.head.ref != 'main'
-    steps:
-      - name: Kästchen prüfen
-        env:
-          BODY: ${{ github.event.pull_request.body }}
-        run: |
-          if printf '%s' "$BODY" | grep -qiE '^\s*-\s*\[x\].*Beitragsvereinbarung'; then
-            echo "Beitragsvereinbarung ist angekreuzt."
-          else
-            echo "::error::Das Kästchen zur Beitragsvereinbarung ist nicht angekreuzt."
-            echo "Siehe CLA.md. Kreuze es im Text dieses Pull Requests an, dann läuft"
-            echo "die Prüfung erneut."
-            exit 1
-          fi
-
   # Herkunftsnachweis: jeder Commit trägt eine Signed-off-by-Zeile. `git commit -s`
   # setzt sie. Absichtlich hier statt über eine GitHub-App, damit die Prüfung im
   # Repo sichtbar ist und nicht in einer Einstellung versteckt.
   dco:
     runs-on: ubuntu-latest
-    # Dieselben zwei Ausnahmen wie oben.
+    # Zwei Ausnahmen:
+    #  - release-please öffnet seine Pull Requests selbst und signiert nicht
+    #  - die Wege zwischen `develop` und `main` in beide Richtungen tragen nur
+    #    Commits, die beim Eingang in `develop` schon geprüft wurden, bzw. die
+    #    Versionsdateien, die release-please geschrieben hat
     if: >-
       github.actor != 'github-actions[bot]'
       && github.event.pull_request.base.ref != 'main'

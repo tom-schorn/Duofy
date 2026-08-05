@@ -30,7 +30,6 @@ Die Commits **innerhalb** deines Branches dürfen heißen wie sie wollen.
 
 ### Vor dem Absenden
 
-- [ ] Ich stimme der [Beitragsvereinbarung](../blob/main/CLA.md) zu
 - [ ] Meine Commits sind mit `git commit -s` signiert
 - [ ] Backend: `ruff check app/` und `pytest` laufen durch
 - [ ] Frontend: `tsc --noEmit -p tsconfig.app.json`, `npm run lint` und

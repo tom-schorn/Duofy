@@ -58,6 +58,6 @@ Concept, roadmap and contribution rules are in the
 
 ## Licence
 
-[PolyForm Noncommercial 1.0.0](https://github.com/tom-schorn/Duofy/blob/main/LICENSE) —
-free for private use and for non-profits, schools and public institutions.
-Commercial operation is reserved to the copyright holder.
+[GNU AGPL-3.0](https://github.com/tom-schorn/Duofy/blob/main/LICENSE) — free to
+use, run, study and change. If you offer a modified version as a network service,
+you have to publish your source as well.
