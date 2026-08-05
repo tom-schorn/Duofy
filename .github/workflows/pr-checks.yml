@@ -42,8 +42,14 @@ jobs:
   # der Vorlage interessiert GitHub von sich aus nicht.
   cla:
     runs-on: ubuntu-latest
-    # release-please öffnet seine Pull Requests selbst und kreuzt nichts an.
-    if: github.actor != 'github-actions[bot]'
+    # Zwei Ausnahmen:
+    #  - release-please öffnet seine Pull Requests selbst und kreuzt nichts an
+    #  - der Weg `develop` → `main` bringt nur Commits mit, die beim Eingang in
+    #    `develop` schon geprüft wurden. Dort noch einmal zu fragen, hieße die
+    #    Vereinbarung von sich selbst zu verlangen.
+    if: >-
+      github.actor != 'github-actions[bot]'
+      && github.event.pull_request.base.ref != 'main'
     steps:
       - name: Kästchen prüfen
         env:
@@ -63,7 +69,10 @@ jobs:
   # Repo sichtbar ist und nicht in einer Einstellung versteckt.
   dco:
     runs-on: ubuntu-latest
-    if: github.actor != 'github-actions[bot]'
+    # Dieselben zwei Ausnahmen wie oben.
+    if: >-
+      github.actor != 'github-actions[bot]'
+      && github.event.pull_request.base.ref != 'main'
     steps:
       - uses: actions/checkout@v7
         with:
