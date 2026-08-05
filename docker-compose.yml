@@ -60,7 +60,7 @@ services:
           memory: 128M
 
   backend:
-    image: tomtombusiness/duofy-backend:latest
+    image: tomtombusiness/duofy-backend:${DUOFY_TAG:-latest}
     restart: unless-stopped
 
     environment:
@@ -90,7 +90,7 @@ services:
           memory: 96M
 
   frontend:
-    image: tomtombusiness/duofy-frontend:latest
+    image: tomtombusiness/duofy-frontend:${DUOFY_TAG:-latest}
     restart: unless-stopped
 
     # Links der Port auf deinem Rechner, rechts der im Container. Willst du
