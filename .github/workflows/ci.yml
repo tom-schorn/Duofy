@@ -37,7 +37,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: astral-sh/setup-uv@v9
+      # Voll gepinnt: setup-uv veröffentlicht keinen mitlaufenden Tag `v9`,
+      # nur `v9.0.0`. Mit `@v9` findet GitHub die Action nicht.
+      - uses: astral-sh/setup-uv@v9.0.0
         with:
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
