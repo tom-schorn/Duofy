@@ -44,9 +44,10 @@ jobs:
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
 
-      # --frozen: die Sperrdatei wird benutzt, nicht neu erzeugt. Sonst könnte
-      # ein Durchgang mit anderen Abhängigkeiten laufen als der Entwickler.
-      - run: uv sync --frozen
+      # --locked: bricht ab, wenn uv.lock nicht zum pyproject.toml passt. Hier
+      # ist der richtige Ort dafür — wer eine Abhängigkeit hinzufügt und
+      # `uv lock` vergisst, sieht es am Pull Request statt später im Image.
+      - run: uv sync --locked
 
       - run: uv run ruff check app/ tests/
 
