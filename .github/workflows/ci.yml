@@ -6,7 +6,10 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [develop, main]
+    branches: [main]
+  # `development.yml` ruft diesen Workflow auf, bevor es Images baut. Deshalb
+  # steht `develop` oben nicht mehr im Push-Auslöser — sonst liefe alles doppelt.
+  workflow_call:
 
 # Ein neuer Push auf denselben Branch bricht den laufenden Durchgang ab. Auf
 # `main` nicht — dort soll jeder Stand geprüft bleiben.

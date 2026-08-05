@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       erzeugt: ${{ steps.rp.outputs.release_created }}
-      version: ${{ steps.rp.outputs.tag_name }}
+      version: ${{ steps.rp.outputs.version }}
 
     steps:
       # Zwei Durchgänge, nicht einer:
@@ -37,8 +37,39 @@ jobs:
   # Wichtig und nicht offensichtlich: Tags und Releases, die mit dem
   # GITHUB_TOKEN erzeugt werden, lösen **keine** weiteren Workflows aus. Ein
   # eigener Workflow `on: push: tags` würde nie starten. Deshalb hängt der Bau
-  # des Images hier dran, im selben Lauf.
-  #
-  # TODO: Job „image" ergänzen, sobald das All-in-one-Image existiert (#6).
-  #       Tags: ${{ needs.release.outputs.version }} und `latest`.
-  #       Bedingung: if: needs.release.outputs.erzeugt == 'true'
+  # der Images hier dran, im selben Lauf.
+  images:
+    needs: release
+    if: needs.release.outputs.erzeugt == 'true'
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          - name: backend
+            context: backend
+          - name: frontend
+            context: frontend
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Zwei Tags: die Version zum Festnageln, `latest` für alle, die einfach
+      # das Neueste wollen. Wer selbst hostet, sollte die Version nehmen — dann
+      # ändert sich nichts unter ihm, solange er nicht selbst zieht.
+      - uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/duofy-${{ matrix.name }}:${{ needs.release.outputs.version }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/duofy-${{ matrix.name }}:latest
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
