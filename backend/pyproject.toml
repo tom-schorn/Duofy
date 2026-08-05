@@ -1,6 +1,6 @@
 [project]
 name = "duofy-backend"
-version = "0.1.0"
+version = "0.1.1"
 description = "Duofy — plan money, don't track it"
 requires-python = ">=3.12"
 
