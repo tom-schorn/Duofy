@@ -44,12 +44,14 @@ jobs:
     runs-on: ubuntu-latest
     # Zwei Ausnahmen:
     #  - release-please öffnet seine Pull Requests selbst und kreuzt nichts an
-    #  - der Weg `develop` → `main` bringt nur Commits mit, die beim Eingang in
-    #    `develop` schon geprüft wurden. Dort noch einmal zu fragen, hieße die
-    #    Vereinbarung von sich selbst zu verlangen.
+    #  - die Wege zwischen `develop` und `main` in beide Richtungen. Hin bringen
+    #    sie nur Commits mit, die beim Eingang in `develop` schon geprüft wurden;
+    #    zurück nur die Versionsdateien, die release-please selbst geschrieben
+    #    hat — und die trägt kein Mensch, also auch keine Signatur.
     if: >-
       github.actor != 'github-actions[bot]'
       && github.event.pull_request.base.ref != 'main'
+      && github.event.pull_request.head.ref != 'main'
     steps:
       - name: Kästchen prüfen
         env:
@@ -73,6 +75,7 @@ jobs:
     if: >-
       github.actor != 'github-actions[bot]'
       && github.event.pull_request.base.ref != 'main'
+      && github.event.pull_request.head.ref != 'main'
     steps:
       - uses: actions/checkout@v7
         with:

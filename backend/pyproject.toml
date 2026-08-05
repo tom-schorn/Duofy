@@ -1,6 +1,10 @@
 [project]
 name = "duofy-backend"
-version = "0.1.1"
+# Bleibt stehen. Die Version von Duofy steht in ../version.txt und wandert
+# von dort in Tag, Changelog und Docker-Tag. Würde release-please sie hier
+# mitheben, passte uv.lock nicht mehr dazu und jeder Bau mit --locked
+# scheiterte. Niemand installiert Duofy als Paket, die Zahl liest keiner.
+version = "0.0.0"
 description = "Duofy — plan money, don't track it"
 requires-python = ">=3.12"
 
