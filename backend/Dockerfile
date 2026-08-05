@@ -12,10 +12,16 @@ WORKDIR /app
 #
 # Dependencies first — this layer only rebuilds when the lockfile changes.
 COPY pyproject.toml uv.lock ./
-RUN uv sync --locked --no-install-project --no-dev
+# --frozen, nicht --locked: beim Release hebt release-please die Version in
+# pyproject.toml, in uv.lock steht sie noch alt, und --locked besteht darauf,
+# dass beide übereinstimmen — jeder Release-Bau würde daran scheitern.
+#
+# Verloren geht dabei nichts: dass die Sperrdatei zum pyproject.toml passt,
+# prüft die CI bei jedem Pull Request mit --locked. Der Image-Bau soll bauen.
+RUN uv sync --frozen --no-install-project --no-dev
 
 COPY . .
-RUN uv sync --locked --no-dev
+RUN uv sync --frozen --no-dev
 
 
 FROM python:3.12-slim-bookworm
