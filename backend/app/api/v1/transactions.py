@@ -1,0 +1,266 @@
+"""Das Haushaltsbuch — was tatsächlich geflossen ist.
+
+Der Plan sagt, wie der Monat gedacht war. Das Buch sagt, wie er lief. Beides
+hängt nur an einer Stelle zusammen: eine Buchung **kann** einem Posten
+zugeordnet werden, muss aber nicht. Der Kiosk ohne Planung steht trotzdem
+drin.
+
+Buchungen sind **privat**, auch im gemeinsamen Haushalt. Im Haushaltsplan sieht
+der Partner `127,50 von 600` — nicht, dass davon 82,40 bei Rewe waren.
+"""
+
+import uuid
+from decimal import Decimal
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import and_, extract, func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.auth import current_active_user
+from app.core.permissions import (
+    granted_level,
+    is_member,
+    require,
+    viewable_members,
+)
+from app.db.session import get_session
+from app.models.account import Account
+from app.models.enums import AccessLevel
+from app.models.plan import Plan, PlanPosition
+from app.models.transaction import Transaction
+from app.models.user import User
+from app.schemas.transaction import (
+    TransactionCreate,
+    TransactionRead,
+    TransactionUpdate,
+)
+
+router = APIRouter()
+
+ZERO = Decimal("0.00")
+
+
+async def _darf_fuer(session: AsyncSession, besitzer: uuid.UUID, user: User) -> None:
+    """Darf `user` im Namen von `besitzer` buchen?
+
+    Eigenes immer. Fremdes nur mit Stufe `edit`, und die gibt der Besitzer
+    selbst. Damit gilt für Buchungen dieselbe Regel wie für Posten — vorher war
+    das auseinander: als Vertretung durfte man einen Posten **abhaken**, was
+    eine Buchung auf dem fremden Konto erzeugt, aber nicht direkt buchen.
+    """
+    if besitzer == user.id:
+        return
+    level = await granted_level(session, besitzer, user.id)
+    require(level is AccessLevel.EDIT, "no_edit_granted")
+
+
+async def _account_owner(
+    session: AsyncSession, account_id: uuid.UUID, user: User
+) -> uuid.UUID:
+    """Wem das Konto gehört — und ob `user` darauf buchen darf."""
+    account = await session.get(Account, account_id)
+    if account is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "account_not_found"})
+    await _darf_fuer(session, account.owner_id, user)
+    return account.owner_id
+
+
+async def _position_owner(
+    session: AsyncSession, position_id: uuid.UUID, user: User
+) -> uuid.UUID:
+    """Ein Posten gehört dem Besitzer seines Plans — auch ein Haushaltsposten.
+
+    Ohne diese Prüfung könnte man Buchungen an fremde Posten hängen und damit
+    deren Ist-Betrag verändern.
+    """
+    position = await session.get(PlanPosition, position_id)
+    if position is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "position_not_found"})
+
+    plan = await session.get(Plan, position.plan_id)
+    if plan is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "plan_not_found"})
+    await _darf_fuer(session, plan.user_id, user)
+    return plan.user_id
+
+
+async def _recalc_position(session: AsyncSession, position_id: uuid.UUID | None) -> None:
+    """Schreibt `amount_actual` als Summe der zugeordneten Buchungen fort.
+
+    Mitgeschrieben statt bei jedem Lesen berechnet: `_summarize`, die
+    Planübersicht und das Frontend lesen die Spalte längst. Eine Unterabfrage
+    an all diesen Stellen wäre teurer und invasiver als eine Zeile hier.
+    """
+    if position_id is None:
+        return
+
+    position = await session.get(PlanPosition, position_id)
+    if position is None:
+        return
+
+    total = await session.scalar(
+        select(func.sum(Transaction.amount)).where(Transaction.position_id == position_id)
+    )
+    # Keine Buchungen mehr: zurück auf NULL, nicht auf 0. „Nichts erfasst" und
+    # „null Euro ausgegeben" sind verschiedene Aussagen.
+    position.amount_actual = total if total is not None else None
+
+
+async def _load(session: AsyncSession, transaction_id: uuid.UUID, user: User) -> Transaction:
+    transaction = await session.get(Transaction, transaction_id)
+    if transaction is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "transaction_not_found"})
+    await _darf_fuer(session, transaction.owner_id, user)
+    return transaction
+
+
+@router.get("", response_model=list[TransactionRead])
+async def list_transactions(
+    year: int | None = Query(default=None, ge=2000, le=2100),
+    month: int | None = Query(default=None, ge=1, le=12),
+    owner: uuid.UUID | None = Query(default=None),
+    household: uuid.UUID | None = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_active_user),
+) -> list[TransactionRead]:
+    """Buchungen, neueste zuerst. Ohne Zeitraum alle.
+
+    Welcher Monat, entscheidet der **Posten** — nicht das Datum:
+
+    * mit Posten  → der Monat des Plans, zu dem der Posten gehört
+    * ohne Posten → der Monat, in dem das Geld floss
+
+    Wohngeld für August wird am 31. Juli überwiesen, ALG1 ebenso. Sie gehören
+    in den August und tauchen dort auf, mit ihrem echten Juli-Datum. Genau das
+    machen die meisten Haushaltsbücher falsch: sie legen eine Buchung nach
+    ihrem Datum ab, und damit ist Wohngeld für immer ein Juli-Vorgang.
+
+    Die Regel schließt aus, statt zu ergänzen — eine zugeordnete Buchung steht
+    in **einem** Monat, nicht in zweien. Sonst zählte sie doppelt, sobald man
+    Summen über das Buch bildet.
+    """
+    # Wessen Buch: das eigene, das einer Person, oder das des Haushalts.
+    # Buchungen sind privat — sichtbar werden sie nur, wenn der Besitzer
+    # mindestens Stufe `view` gegeben hat. Er, nicht der Leser.
+    if household is not None:
+        require(await is_member(session, user.id, household), "not_household_member")
+        owner_ids = await viewable_members(session, household, user.id)
+    elif owner is not None and owner != user.id:
+        level = await granted_level(session, owner, user.id)
+        require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
+        owner_ids = [owner]
+    else:
+        owner_ids = [user.id]
+
+    geteilt = household is not None
+    query = select(Transaction, User.first_name).join(
+        User, User.id == Transaction.owner_id
+    ).where(Transaction.owner_id.in_(owner_ids))
+
+    if year is not None and month is not None:
+        in_month = and_(
+            extract("year", Transaction.occurred_on) == year,
+            extract("month", Transaction.occurred_on) == month,
+        )
+        belongs_to_plan = Transaction.position_id.in_(
+            select(PlanPosition.id)
+            .join(Plan, Plan.id == PlanPosition.plan_id)
+            .where(Plan.user_id.in_(owner_ids), Plan.year == year, Plan.month == month)
+        )
+        # Ohne Posten zählt das Datum, mit Posten der Plan — nie beides.
+        query = query.where(
+            or_(and_(Transaction.position_id.is_(None), in_month), belongs_to_plan)
+        )
+    elif year is not None:
+        query = query.where(extract("year", Transaction.occurred_on) == year)
+    elif month is not None:
+        query = query.where(extract("month", Transaction.occurred_on) == month)
+
+    result = await session.execute(
+        query.order_by(Transaction.occurred_on.desc(), Transaction.created_at.desc())
+    )
+    return [
+        TransactionRead.model_validate(transaction).model_copy(
+            # Nur im Haushalt: dort stehen die Buchungen mehrerer Personen
+            # untereinander und der Name ist der Unterschied.
+            update={"owner_name": name if geteilt else None}
+        )
+        for transaction, name in result.all()
+    ]
+
+
+@router.post("", response_model=TransactionRead, status_code=status.HTTP_201_CREATED)
+async def create_transaction(
+    payload: TransactionCreate,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_active_user),
+) -> Transaction:
+    # Die Buchung gehört dem Besitzer des Kontos, nicht dem, der sie eintippt.
+    # Hakt Tom Jasmins Posten ab, steht die Buchung in **ihrem** Buch — direkt
+    # gebucht muss dasselbe gelten, sonst tauchte ihre Zahlung bei ihm auf.
+    besitzer = await _account_owner(session, payload.account_id, user)
+    if payload.counter_account_id is not None:
+        ziel = await _account_owner(session, payload.counter_account_id, user)
+        require(ziel == besitzer, "transfer_needs_one_owner")
+    if payload.position_id is not None:
+        posten = await _position_owner(session, payload.position_id, user)
+        require(posten == besitzer, "position_needs_same_owner")
+
+    transaction = Transaction(owner_id=besitzer, **payload.model_dump())
+    session.add(transaction)
+    await session.flush()
+
+    await _recalc_position(session, transaction.position_id)
+    await session.commit()
+    await session.refresh(transaction)
+    return transaction
+
+
+@router.patch("/{transaction_id}", response_model=TransactionRead)
+async def update_transaction(
+    transaction_id: uuid.UUID,
+    payload: TransactionUpdate,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_active_user),
+) -> Transaction:
+    transaction = await _load(session, transaction_id, user)
+    changes = payload.model_dump(exclude_unset=True)
+
+    for field in ("account_id", "counter_account_id"):
+        if changes.get(field) is not None:
+            besitzer = await _account_owner(session, changes[field], user)
+            require(besitzer == transaction.owner_id, "not_account_owner")
+    if changes.get("position_id") is not None:
+        posten = await _position_owner(session, changes["position_id"], user)
+        require(posten == transaction.owner_id, "position_needs_same_owner")
+
+    # Wandert die Buchung zu einem anderen Posten, müssen **beide** neu
+    # gerechnet werden — der alte verliert sie, der neue bekommt sie.
+    previous_position = transaction.position_id
+
+    for field, value in changes.items():
+        setattr(transaction, field, value)
+
+    await session.flush()
+    await _recalc_position(session, previous_position)
+    if transaction.position_id != previous_position:
+        await _recalc_position(session, transaction.position_id)
+
+    await session.commit()
+    await session.refresh(transaction)
+    return transaction
+
+
+@router.delete("/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_transaction(
+    transaction_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_active_user),
+) -> None:
+    transaction = await _load(session, transaction_id, user)
+    position_id = transaction.position_id
+
+    await session.delete(transaction)
+    await session.flush()
+    await _recalc_position(session, position_id)
+    await session.commit()

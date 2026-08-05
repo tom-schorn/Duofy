@@ -1,6 +1,10 @@
-# Duofy — Dokumentation
+# Duofy — Konzept & Ideensammlung
 
-Hier landet alles, was kein Code ist: Ideen, Entscheidungen, Konzepte, offene Fragen.
+Wie das Produkt entstanden ist: Ideen, Entscheidungen, offene Fragen.
+
+> **Der gebaute Stand steht in [../datenmodell/](../datenmodell/).**
+> Beim Umsetzen haben sich Namen und Umfang geändert — betroffene Dokumente
+> tragen oben einen Hinweis.
 
 ## Inhalt
 

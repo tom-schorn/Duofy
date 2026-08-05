@@ -24,6 +24,13 @@ dist/
 .env.*
 !.env.example
 
+# Terraform — state holds secrets in plaintext, tfvars holds the API token
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+
 # Capacitor / native builds
 android/
 ios/
@@ -35,3 +42,15 @@ ios/
 
 # Claude project instructions — chezmoi-managed, not part of the repo
 CLAUDE.md
+
+CLAUDE.local.md
+
+# Das Wiki ist ein eigenes Git-Repo (Duofy.wiki.git) und liegt hier nur, damit
+# man die Seiten bearbeiten kann. Es darf nicht ins Haupt-Repo wandern.
+wiki/
+
+# Screenshots und Renderproben aus der Arbeit — enthalten echte Beträge
+/*.png
+
+# Arbeitsreste des Browser-Werkzeugs
+.playwright-mcp/

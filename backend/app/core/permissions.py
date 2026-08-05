@@ -20,9 +20,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.commitment import Commitment
-from app.models.enums import Role
+from app.models.enums import AccessLevel, Role
 from app.models.household import HouseholdMember
-from app.models.plan import Plan, PlanPosition
+from app.models.plan import Plan
 from app.models.user import User
 
 
@@ -43,6 +43,58 @@ async def is_member(session: AsyncSession, user_id: uuid.UUID, household_id: uui
         )
     )
     return result.scalar_one_or_none() is not None
+
+
+async def granted_level(
+    session: AsyncSession, owner_id: uuid.UUID, viewer_id: uuid.UUID
+) -> AccessLevel:
+    """Was `viewer` bei `owner` darf — über alle gemeinsamen Haushalte hinweg.
+
+    Die Stufe hängt an **`owner`s** Mitgliedschaft: er gibt sie, nicht der, der
+    sie nutzen will. Sind beide in mehreren Haushalten zusammen, gilt die
+    höchste — sonst hinge das Recht davon ab, über welchen Haushalt man gerade
+    schaut, und dieselbe Person sähe je nach Weg etwas anderes.
+
+    Sich selbst gegenüber gibt es keine Beschränkung.
+    """
+    if owner_id == viewer_id:
+        return AccessLevel.EDIT
+
+    gemeinsam = select(HouseholdMember.household_id).where(
+        HouseholdMember.user_id == viewer_id
+    )
+    result = await session.execute(
+        select(HouseholdMember.grants_access).where(
+            HouseholdMember.user_id == owner_id,
+            HouseholdMember.household_id.in_(gemeinsam),
+        )
+    )
+    stufen = [AccessLevel(x) for x in result.scalars()]
+    return max(stufen, key=lambda s: s.rank) if stufen else AccessLevel.PLAN
+
+
+async def viewable_members(
+    session: AsyncSession, household_id: uuid.UUID, viewer_id: uuid.UUID
+) -> list[uuid.UUID]:
+    """Wessen Zahlen im Haushalt zusammengerechnet werden dürfen.
+
+    Man selbst immer, dazu jedes Mitglied, das mindestens `view` gegeben hat.
+    Wer nur die gemeinsamen Posten teilt, fehlt in der Liste — die Summen sind
+    dann unvollständig, und das Frontend sagt es. Eine Zahl, der jemand fehlt,
+    ohne dass man es sieht, wäre schlimmer als keine.
+
+    Setzt voraus, dass der Fragende selbst Mitglied ist; das prüft der Aufrufer.
+    """
+    result = await session.execute(
+        select(HouseholdMember.user_id, HouseholdMember.grants_access).where(
+            HouseholdMember.household_id == household_id
+        )
+    )
+    return [
+        user_id
+        for user_id, level in result.all()
+        if user_id == viewer_id or AccessLevel(level).rank >= AccessLevel.VIEW.rank
+    ]
 
 
 async def is_household_owner(
@@ -69,17 +121,6 @@ def owns_commitment(user: User, commitment: Commitment) -> bool:
 
 def owns_plan(user: User, plan: Plan) -> bool:
     return plan.user_id == user.id
-
-
-async def can_access_position(
-    session: AsyncSession, user: User, position: PlanPosition, plan: Plan
-) -> bool:
-    """Eigener Posten, oder gemeinsamer Posten in einem gemeinsamen Haushalt."""
-    if plan.user_id == user.id:
-        return True
-    if position.household_id is None:
-        return False
-    return await is_member(session, user.id, position.household_id)
 
 
 async def can_assign_to_household(

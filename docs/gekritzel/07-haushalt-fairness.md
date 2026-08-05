@@ -1,5 +1,12 @@
 # Haushalt & Fairness
 
+> **Hinweis:** Dieses Dokument ist der **Konzeptstand** und weicht vom
+> gebauten Code ab. Beim Umsetzen wurden Namen und Umfang geändert:
+> `Period` → `Plan`, `Source` → `Commitment`, `Membership` → `HouseholdMember`,
+> und Konten, Aufteilungsschlüssel und Allocations sind **nicht Teil des MVP**.
+>
+> Der aktuelle Stand steht in [../datenmodell/](../datenmodell/).
+
 Wie eigene Accounts und ein gemeinsamer Haushalt zusammengehen — und wie die
 Aufteilung nachweisbar fair wird.
 

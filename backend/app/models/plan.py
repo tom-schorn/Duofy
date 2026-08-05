@@ -3,10 +3,10 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Numeric, String, UniqueConstraint
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.types import enum_column
 from app.models.enums import Block, Category, PaymentMethod, PlanStatus
 from app.models.mixins import TimestampMixin, UUIDMixin
 
@@ -32,9 +32,7 @@ class Plan(UUIDMixin, TimestampMixin, Base):
 
     year: Mapped[int]
     month: Mapped[int]
-    status: Mapped[PlanStatus] = mapped_column(
-        SAEnum(PlanStatus, native_enum=False, length=20), default=PlanStatus.DRAFT
-    )
+    status: Mapped[PlanStatus] = mapped_column(enum_column(PlanStatus), default=PlanStatus.DRAFT)
 
     target_needs: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("50.00"))
     target_wants: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("30.00"))
@@ -79,18 +77,70 @@ class PlanPosition(UUIDMixin, TimestampMixin, Base):
     amount_planned: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     amount_actual: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
 
-    category: Mapped[Category] = mapped_column(SAEnum(Category, native_enum=False, length=20))
+    #: Wann der Posten abgehakt wurde. NULL = steht noch offen.
+    #:
+    #: Bewusst getrennt vom Betrag: „abgehakt" und „Betrag eingetragen" sind
+    #: zwei Dinge. Die Miete kann bezahlt sein und exakt dem geplanten Betrag
+    #: entsprechen — ohne dieses Feld zählte sie fälschlich als offen.
+    #: Passt zur Vision: „die Positionen existieren vorher, hinterher wird nur
+    #: noch abgehakt."
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    category: Mapped[Category] = mapped_column(enum_column(Category))
     #: Wird beim Anlegen abgeleitet und hier **gespeichert** — eine spätere
     #: Änderung der Zuordnung verändert keine bestehenden Pläne.
-    block: Mapped[Block] = mapped_column(SAEnum(Block, native_enum=False, length=20))
+    block: Mapped[Block] = mapped_column(enum_column(Block))
 
+    #: Tag im Monat, an dem der Posten fällig wird.
+    #
+    # TODO: Beim Erzeugen aus einer Verpflichtung den `due_day` des Commitments
+    # auf den letzten Tag **dieses** Monats abklemmen — ein Vertrag mit
+    # `due_day = 31` wird im Februar am 28. bzw. 29. fällig, nicht gar nicht.
+    # Hier steht dann der bereits abgeklemmte Tag, nicht die 31.
     due_day: Mapped[int]
+    #: Vom Vertrag kopiert, hier je Monat überschreibbar. Leer = Standardkonto.
+    account_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True
+    )
+
     payment_method: Mapped[PaymentMethod | None] = mapped_column(
-        SAEnum(PaymentMethod, native_enum=False, length=20), nullable=True
+        enum_column(PaymentMethod), nullable=True
     )
 
     #: Schützt manuelle Korrekturen davor, beim nächsten Generieren
     #: von der Verpflichtung überschrieben zu werden.
+    #: Ein Budget statt einer Einzelzahlung — Lebensmittel, Sprit, Taschengeld.
+    #:
+    #: Solche Posten hakt man nicht ab: sie füllen sich über den Monat aus
+    #: einzelnen Buchungen. Ein Haken hätte dort keine Bedeutung, ein
+    #: Füllstand schon. Kommt vom Vertragstyp `budget`, bei Einmal-Posten
+    #: frei wählbar.
+    is_budget: Mapped[bool] = mapped_column(default=False)
+
+    #: **Wohin** das Geld geht, wenn es auf ein eigenes Konto wandert.
+    #:
+    #: Gesetzt bei Sparzielen und Tilgungen: 50 € fürs Handy gehen vom Giro aufs
+    #: Tagesgeld. Der Haken bucht dann eine **Umbuchung** statt einer Ausgabe,
+    #: sonst stünde das Geld nirgends mehr — Giro stimmt, Tagesgeld wächst nicht,
+    #: und der Gesamtstand fällt um Geld, das den Haushalt nie verlassen hat.
+    #:
+    #: Leer bei allem, was wirklich rausgeht: Miete, Strom, Einkauf.
+    counter_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True
+    )
+
+    #: Durchlaufender Posten — Geld, das nie zum Ausgeben da war.
+    #:
+    #: BuT für Lios Schulsachen und die Nebenkostenrückzahlung kommen an und
+    #: wandern sofort weiter. Sie bleiben im Plan sichtbar und bewegen das
+    #: Konto, zählen aber **nicht** ins Budget und in keine Quote.
+    #:
+    #: Ohne diese Unterscheidung bläht ein solcher Betrag das Budget auf und
+    #: die Sparquote gleich mit: 1.139 € durchgereicht sähen aus wie 1.139 €
+    #: gespart. Der Unterschied zu „Sparen Allgemein" ist die Entscheidung —
+    #: dort legt man eigenes Geld zurück, hier reicht man fremdes weiter.
+    pass_through: Mapped[bool] = mapped_column(default=False)
+
     manually_changed: Mapped[bool] = mapped_column(default=False)
 
     plan: Mapped[Plan] = relationship(back_populates="positions")

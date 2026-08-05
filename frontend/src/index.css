@@ -1,0 +1,234 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    /* Serif für Überschriften — Systemstack, keine zusätzliche Abhängigkeit. */
+    --font-heading: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+    --font-sans: 'Geist Variable', sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* ---------------------------------------------------------------------------
+   Farbrichtung „Tinte" — Marineblau mit Messing.
+
+   Die 50/30/20-Blöcke liegen auf --chart-*, damit Balken, Chips und
+   Summenzeilen dieselbe Zuordnung teilen:
+
+       chart-1  Bedarf        chart-3  Einnahmen
+       chart-2  Wünsche       chart-4  Sparen
+
+   chart-3 war für „Investition" vorgesehen und blieb ungenutzt, weil
+   Investitionen rechnerisch in den Wünschen liegen. Einnahmen hatten dagegen
+   gar keine Farbe — im Diagramm des Buchs brauchen sie eine.
+
+   Die Töne sind **gesättigter** als die ursprüngliche Tinte-Palette. Grund ist
+   messbar, nicht Geschmack: als vier gleichzeitige Diagrammserien fiel die
+   alte Palette durch. Marineblau gegen Sparen-Grün lag bei ΔE 11,9 — schon mit
+   normalem Sehen kaum zu trennen, und gestapelt liegen die Flächen direkt
+   aneinander. Geprüft wurde über alle Paare, hell und dunkel, samt
+   Farbfehlsichtigkeit.
+
+   Rot (--destructive) ist reserviert: nur gerissene Quote und
+   unterschrittener Puffer. Nie für Ausgaben oder hohe Beträge.
+--------------------------------------------------------------------------- */
+
+:root {
+    --background: #fbf9f4;
+    --foreground: #0f141c;
+    --card: #ffffff;
+    --card-foreground: #0f141c;
+    --popover: #ffffff;
+    --popover-foreground: #0f141c;
+    --primary: #1e3a5f;
+    --primary-foreground: #fbf9f4;
+    --secondary: #f1eee6;
+    --secondary-foreground: #1e3a5f;
+    --muted: #f1eee6;
+    --muted-foreground: #5a6270;
+    --accent: #ebe8df;
+    --accent-foreground: #1e3a5f;
+    --destructive: #a63a2e;
+    --border: #dbd7cc;
+    --input: #dbd7cc;
+    --ring: #1e3a5f;
+    --chart-1: #2b6cb0;
+    --chart-2: #c68a0e;
+    --chart-3: #8e3b6b;
+    --chart-4: #4f9e6a;
+    --chart-5: #5a6270;
+    --radius: 0.5rem;
+    --sidebar: #f6f3ec;
+    --sidebar-foreground: #0f141c;
+    --sidebar-primary: #1e3a5f;
+    --sidebar-primary-foreground: #fbf9f4;
+    --sidebar-accent: #ebe8df;
+    --sidebar-accent-foreground: #1e3a5f;
+    --sidebar-border: #dbd7cc;
+    --sidebar-ring: #1e3a5f;
+}
+
+.dark {
+    --background: #0b0e14;
+    --foreground: #eceff3;
+    --card: #141922;
+    --card-foreground: #eceff3;
+    --popover: #141922;
+    --popover-foreground: #eceff3;
+    --primary: #86ace0;
+    --primary-foreground: #0b0e14;
+    --secondary: #1f2531;
+    --secondary-foreground: #eceff3;
+    --muted: #1f2531;
+    --muted-foreground: #8e98a8;
+    --accent: #252c39;
+    --accent-foreground: #eceff3;
+    --destructive: #dd7263;
+    --border: #252c39;
+    --input: #2c3441;
+    --ring: #86ace0;
+    --chart-1: #4285c9;
+    --chart-2: #c2952f;
+    --chart-3: #a55b86;
+    --chart-4: #4da87c;
+    --chart-5: #8e98a8;
+    --sidebar: #0e1218;
+    --sidebar-foreground: #eceff3;
+    --sidebar-primary: #86ace0;
+    --sidebar-primary-foreground: #0b0e14;
+    --sidebar-accent: #1f2531;
+    --sidebar-accent-foreground: #eceff3;
+    --sidebar-border: #252c39;
+    --sidebar-ring: #86ace0;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    }
+  body {
+    @apply bg-background text-foreground;
+    }
+  html {
+    @apply font-sans;
+    }
+}
+
+/* ---------------------------------------------------------------------------
+   Druck.
+
+   Der Monatsplan soll auf Papier lesbar sein — Jasmin arbeitet mit einer Mappe,
+   und der Planungssamstag findet am Küchentisch statt. Gedruckt wird der Plan,
+   nicht die Oberfläche: Sidebar, Topbar, Reiter und Knöpfe fallen weg.
+
+   `print-color-adjust: exact` ist nötig, weil Browser Hintergründe im Druck
+   sonst wegwerfen — und bei uns tragen die Blockfarben Bedeutung. Ohne das
+   wären Fixkosten, Wünsche und Sparen auf Papier nicht zu unterscheiden.
+--------------------------------------------------------------------------- */
+@media print {
+  /* Kein Sitzungs-Zubehör auf Papier. */
+  [data-slot='sidebar-wrapper'] > [data-slot='sidebar'],
+  [data-sidebar='rail'],
+  [data-slot='sidebar-inset'] > header,
+  [data-print='hide'] {
+    display: none !important;
+  }
+
+  /* Der Inhalt bekommt die ganze Seite. */
+  html,
+  body,
+  [data-slot='sidebar-wrapper'],
+  [data-slot='sidebar-inset'] {
+    background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    min-height: 0 !important;
+  }
+
+  /* Farbige Flächen erhalten: Blockfarbe ist Bedeutung, nicht Schmuck. */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Karten ohne Schatten und Ring, dafür mit dünnem Rahmen — Ringe drucken
+     manche Browser gar nicht. Enger als am Bildschirm: Seite 1 soll Übersicht
+     **und** Diagramme tragen, und Papier ist teurer als Pixel. */
+  [data-slot='card'] {
+    box-shadow: none !important;
+    --tw-ring-shadow: 0 0 #0000 !important;
+    border: 1px solid #d4d4d4 !important;
+    break-inside: avoid;
+    --card-spacing: 10px !important;
+  }
+
+  /* Der Plan-Reiter stapelt mit `gap-8` — auf Papier reicht die Hälfte. */
+  [role='tabpanel'] {
+    gap: 1rem !important;
+  }
+
+  /* Ein Block soll nicht mitten in der Postenliste umbrechen. */
+  section {
+    break-inside: avoid;
+  }
+
+  a[href] {
+    text-decoration: none !important;
+    color: inherit !important;
+  }
+
+  /* Diagramme werden **nicht** per CSS zurechtgebogen.
+     `width: 100%` und `height: auto` auf `.recharts-wrapper` ließen ihn auf
+     0 × 0 fallen und das SVG darin mit — gemessen, nicht vermutet. Recharts
+     positioniert den Wrapper absolut, `100 %` bezog sich auf eine 0 breite Box.
+
+     Stattdessen misst Recharts vor dem Druck neu: der Druckknopf verengt den
+     Rahmen auf Papierbreite, wartet einen Frame und ruft dann `window.print()`.
+     Siehe `PlanDetailPage`. */
+
+  @page {
+    margin: 14mm 12mm;
+  }
+}
