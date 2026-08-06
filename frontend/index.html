@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Die Dev-Umgebung ist öffentlich erreichbar, aber nichts hier gehört in
+         einen Suchindex. robots.txt allein reicht nicht: sie verhindert das
+         Crawlen, nicht das Indexieren einer anderweitig gefundenen URL.
+
+         TODO: vor dem ersten öffentlichen Prod-Deployment umgebungsabhängig
+         machen — sonst bleibt auch die Produktionsseite unsichtbar. Der Wert
+         käme dann als VITE_ROBOTS aus den Pages-Variablen in Terraform. -->
+    <meta name="robots" content="noindex, nofollow" />
+
+    <title>Duofy</title>
+    <script>
+      // Setzt den Dunkelmodus, bevor React lädt — sonst blitzt beim Start
+      // kurz die helle Seite auf.
+      ;(function () {
+        var stored = localStorage.getItem('duofy-theme')
+        var dark =
+          stored === 'dark' ||
+          (stored === null &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches)
+        if (dark) document.documentElement.classList.add('dark')
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

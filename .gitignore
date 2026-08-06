@@ -1,0 +1,56 @@
+# Claude — managed via chezmoi, never in the project repo
+.claude/
+
+# Private reference material — real financial data, never in git
+docs/referenz/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+.vite/
+*.local
+
+# Env — production secrets never in git
+.env
+.env.*
+!.env.example
+
+# Terraform — state holds secrets in plaintext, tfvars holds the API token
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+
+# Capacitor / native builds
+android/
+ios/
+
+# OS / editor
+.DS_Store
+.idea/
+*.swp
+
+# Claude project instructions — chezmoi-managed, not part of the repo
+CLAUDE.md
+
+CLAUDE.local.md
+
+# Das Wiki ist ein eigenes Git-Repo (Duofy.wiki.git) und liegt hier nur, damit
+# man die Seiten bearbeiten kann. Es darf nicht ins Haupt-Repo wandern.
+wiki/
+
+# Screenshots und Renderproben aus der Arbeit — enthalten echte Beträge
+/*.png
+
+# Arbeitsreste des Browser-Werkzeugs
+.playwright-mcp/

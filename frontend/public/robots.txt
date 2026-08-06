@@ -1,0 +1,8 @@
+# Duofy ist eine private Anwendung — alles liegt hinter dem Login, es gibt
+# nichts zu indexieren. Cloudflare Pages liefert statische Dateien aus
+# public/ aus, bevor die Catch-All-Regel in _redirects greift.
+#
+# TODO: Sobald es eine öffentliche Prod-Seite gibt, muss diese Datei je
+# Umgebung unterschiedlich sein — Preview weiter gesperrt, Produktion offen.
+User-agent: *
+Disallow: /

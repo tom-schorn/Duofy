@@ -1,0 +1,110 @@
+# Duofy zum Selbsthosten.
+#
+#   1. Diese Datei und .env.example herunterladen
+#   2. .env.example nach .env kopieren und ausfüllen
+#   3. docker compose up -d
+#
+# Danach läuft Duofy auf http://localhost:8080. Für HTTPS und eine eigene Domain
+# stellt man den Reverse Proxy davor, den man ohnehin schon hat — Caddy, nginx
+# proxy manager, Traefik oder einen Cloudflare-Tunnel.
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+
+    # Postgres ist von Haus aus auf einen Server ausgelegt, nicht auf 128 MB:
+    # `shared_buffers` steht ohne Zutun auf 128 MB und träfe die Grenze allein.
+    # Diese Werte sind auf einen Haushalt mit ein paar Nutzern gerechnet.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=32MB
+      - -c
+      - work_mem=2MB
+      - -c
+      - maintenance_work_mem=32MB
+      - -c
+      - effective_cache_size=96MB
+      - -c
+      - max_connections=25
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    volumes:
+      # ACHTUNG, seit Postgres 18 anders: das Volume gehört an
+      # /var/lib/postgresql, **nicht** mehr an /var/lib/postgresql/data.
+      # Die eigentlichen Daten liegen jetzt in /var/lib/postgresql/18/docker.
+      #
+      # Mountet man den alten Pfad, läuft alles scheinbar normal — die Daten
+      # landen aber in einem anonymen Volume und sind beim nächsten Neuerzeugen
+      # des Containers weg. Ohne Fehlermeldung.
+      - duofy_db:/var/lib/postgresql
+
+    # Das Backend migriert beim Start. Läuft es gegen eine Datenbank, die noch
+    # nicht antwortet, bricht es ab — deshalb wartet es unten auf „healthy".
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+    # Zusammen mit Backend und Frontend bleibt Duofy unter 256 MB.
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  backend:
+    image: tomtombusiness/duofy-backend:${DUOFY_TAG:-latest}
+    restart: unless-stopped
+
+    environment:
+      # Fest: so heißt der Datenbank-Container im Docker-Netz.
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      ENVIRONMENT: production
+      # Kein CORS nötig: der Browser spricht nur mit dem Frontend-Container,
+      # der die Anfragen intern weiterreicht. Es gibt keine zweite Herkunft.
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    # Kein `ports`. Das Backend ist nur im Docker-Netz erreichbar — von außen
+    # kommt man ausschließlich über das Frontend daran.
+    expose:
+      - "8000"
+
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+
+  frontend:
+    image: tomtombusiness/duofy-frontend:${DUOFY_TAG:-latest}
+    restart: unless-stopped
+
+    # Links der Port auf deinem Rechner, rechts der im Container. Willst du
+    # Duofy woanders erreichen, ändere nur die linke Zahl in der .env.
+    ports:
+      - "${DUOFY_PORT:-8080}:80"
+
+    depends_on:
+      - backend
+
+    deploy:
+      resources:
+        limits:
+          memory: 32M
+
+volumes:
+  duofy_db:
