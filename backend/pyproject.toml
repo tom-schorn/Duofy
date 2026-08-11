@@ -42,3 +42,9 @@ extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "f
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# Tests and fixtures share one event loop for the whole run. Without this, a
+# session-scoped async fixture — the engine — belongs to a different loop than the
+# test using it, and asyncpg answers every query with "another operation is in
+# progress".
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"

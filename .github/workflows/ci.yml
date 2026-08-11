@@ -24,15 +24,36 @@ jobs:
       run:
         working-directory: backend
 
-    # Attrappen. Es verbindet sich nichts zur Datenbank, aber `Settings` verlangt
-    # diese Werte beim Import von `app.main` — ohne sie schlägt schon das
-    # Einlesen fehl. `.env.dev` liegt nicht im Repo und darf es auch nicht.
+    # The tests need a real Postgres: the models use a partial unique index and CHECK
+    # constraints, and on SQLite those would go unchecked while the suite stayed
+    # green.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: duofy_test
+          POSTGRES_USER: duofy
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        # Without the health check the job races the database and the first test
+        # fails on a connection error.
+        options: >-
+          --health-cmd "pg_isready -U duofy -d duofy_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     env:
       POSTGRES_HOST: localhost
-      POSTGRES_DB: duofy
+      POSTGRES_PORT: 5432
+      # The name has to contain "test": tests/conftest.py refuses to run otherwise,
+      # because its fixtures drop every table.
+      POSTGRES_DB: duofy_test
       POSTGRES_USER: duofy
-      POSTGRES_PASSWORD: dummy
-      JWT_SECRET: dummy-value-for-ci-only
+      POSTGRES_PASSWORD: test
+      # Long enough that PyJWT does not warn about the key length on every signature.
+      JWT_SECRET: dummy-value-for-ci-only-not-a-real-secret
 
     steps:
       - uses: actions/checkout@v7
