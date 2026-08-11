@@ -32,8 +32,7 @@ class Plan(UUIDMixin, TimestampMixin, Base):
 
     year: Mapped[int]
     month: Mapped[int]
-    status: Mapped[PlanStatus] = mapped_column(enum_column(PlanStatus), default=PlanStatus.DRAFT)
-
+    
     target_needs: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("50.00"))
     target_wants: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("30.00"))
     target_savings: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("20.00"))
