@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.types import enum_column
-from app.models.enums import Block, Category, PaymentMethod, PlanStatus
+from app.models.enums import Block, Category, PaymentMethod
 from app.models.mixins import TimestampMixin, UUIDMixin
 
 
@@ -20,6 +20,12 @@ class Plan(UUIDMixin, TimestampMixin, Base):
 
     The quotas are **guidelines**, not rules: there is a target, the actual figure
     stands next to it, and the household decides whether that is acceptable.
+
+    **A plan has no state.** There used to be `draft` / `confirmed`, which claimed
+    there is a moment when a month is finished — there is not. Planning happens on
+    the last Saturday and things still get added during the week after. The state
+    also only existed here: the shared household plan is composed on the fly, so
+    there was never an object to confirm. See issue #8.
     """
 
     __tablename__ = "plans"
@@ -32,15 +38,13 @@ class Plan(UUIDMixin, TimestampMixin, Base):
 
     year: Mapped[int]
     month: Mapped[int]
-    
+
     target_needs: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("50.00"))
     target_wants: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("30.00"))
     target_savings: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("20.00"))
 
     #: How many percent of the income is deliberately left unplanned.
     buffer_percent: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("0.00"))
-
-    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     positions: Mapped[list["PlanPosition"]] = relationship(
         back_populates="plan", cascade="all, delete-orphan"
