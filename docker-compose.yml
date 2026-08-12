@@ -72,6 +72,17 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       ENVIRONMENT: production
+      # No COOKIE_DOMAIN here on purpose. The frontend proxies /api, so browser,
+      # interface and API all share one origin and a host-only cookie is exactly
+      # right — narrower than anything we could set by hand.
+      #
+      # COOKIE_SECURE stays at its default of true. If you run Duofy over plain
+      # http on your own network, set it to false, otherwise the browser discards
+      # the session cookie and nobody stays signed in.
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      # How long somebody stays signed in, counted from their last visit. Thirty
+      # days by default; see .env.example.
+      REFRESH_LIFETIME_SECONDS: ${REFRESH_LIFETIME_SECONDS:-2592000}
       # Kein CORS nötig: der Browser spricht nur mit dem Frontend-Container,
       # der die Anfragen intern weiterreicht. Es gibt keine zweite Herkunft.
 

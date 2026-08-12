@@ -110,6 +110,21 @@ resource "docker_container" "backend" {
     # allowed unless it is added via var.extra_cors_origins.
     "CORS_ORIGINS=${jsonencode(local.cors_origins)}",
     "CORS_ORIGIN_REGEX=${local.cors_origin_regex}",
+
+    # The refresh cookie has to reach both hosts: the frontend sets the session, the
+    # backend reads it. They are different origins but the same *site*, because both
+    # are subdomains of one domain — so a leading dot is enough and SameSite=lax
+    # lets the cookie through.
+    #
+    # A cookie across two unrelated domains would be a third-party cookie, and
+    # Safari drops those entirely. That is why the month-long session depends on
+    # this line.
+    #
+    # The Pages preview URLs (<hash>.*.pages.dev) are a different site and get no
+    # cookie. Previews therefore ask for a sign-in every time, which is acceptable.
+    "COOKIE_DOMAIN=.${var.domain}",
+    "COOKIE_SECURE=true",
+    "COOKIE_SAMESITE=lax",
   ]
 
   # No published ports — cloudflared reaches it by container name.

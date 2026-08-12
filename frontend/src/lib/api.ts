@@ -6,22 +6,81 @@
  *
  * The backend reports errors as a **code** (`{"detail": {"code": "..."}}`) and
  * the wording is added here. That keeps the API free of any language.
+ *
+ * ## Two tokens, and why only one of them is here
+ *
+ * The **access token** lives in the module variable below — in memory, nowhere
+ * else. A reload loses it, which is intended: an injected script cannot read it out
+ * of storage, and it is only good for fifteen minutes anyway.
+ *
+ * The **refresh token** is not in this file at all. It sits in an HttpOnly cookie,
+ * so JavaScript never sees it, and the browser sends it to the refresh endpoint by
+ * itself. That is also why it survives on iOS, where script-writable storage is
+ * deleted after seven days without interaction.
+ *
+ * Every request therefore goes out with `credentials: 'include'`; without it the
+ * browser would leave the cookie at home.
  */
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1'
 
-const TOKEN_KEY = 'duofy-token'
+/**
+ * The access token. In memory on purpose — see the note above.
+ *
+ * `undefined` means "not asked yet", `null` means "asked, and there is no session".
+ * The difference matters at start-up: the route guard has to wait for the answer
+ * instead of sending a returning visitor to the sign-in page.
+ */
+let accessToken: string | null | undefined = undefined
 
-export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY)
+export function getToken(): string | null | undefined {
+  return accessToken
 }
 
 export function setToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token)
+  accessToken = token
 }
 
 export function clearToken(): void {
-  localStorage.removeItem(TOKEN_KEY)
+  accessToken = null
+}
+
+/**
+ * Ask the backend for a new access token, using the cookie.
+ *
+ * **One request for everybody.** A page with five queries produces five 401s at
+ * once; without this the client would fire five refreshes, the first would rotate
+ * the token and the other four would arrive with a value that has just been
+ * replaced — which the backend reads as a stolen token and answers by ending every
+ * session. The pending promise is therefore shared.
+ */
+let pending: Promise<string | null> | null = null
+
+export function refreshSession(): Promise<string | null> {
+  pending ??= (async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+      })
+      if (!response.ok) {
+        accessToken = null
+        return null
+      }
+      const body = (await response.json()) as { access_token: string }
+      accessToken = body.access_token
+      return accessToken
+    } catch {
+      // The backend is unreachable. Not the same as "no session", but there is
+      // nothing to work with either way.
+      accessToken = null
+      return null
+    } finally {
+      pending = null
+    }
+  })()
+
+  return pending
 }
 
 /** An error carrying the backend code — the UI turns it into a sentence. */
@@ -100,25 +159,50 @@ function extractCode(body: unknown, status: number): string {
   return `http_${status}`
 }
 
-async function request<T>(
+async function send(
   path: string,
-  init: RequestInit = {},
-  { form = false }: { form?: boolean } = {}
-): Promise<T> {
-  const token = getToken()
+  init: RequestInit,
+  form: boolean
+): Promise<Response> {
   const headers = new Headers(init.headers)
 
   if (!form && init.body !== undefined) {
     headers.set('Content-Type', 'application/json')
   }
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`)
+  if (accessToken) {
+    headers.set('Authorization', `Bearer ${accessToken}`)
   }
 
-  const response = await fetch(`${BASE_URL}${path}`, { ...init, headers })
+  // `include`, not the default: without it the browser omits the refresh cookie,
+  // and a cross-origin request would never carry a session at all.
+  return fetch(`${BASE_URL}${path}`, {
+    ...init,
+    headers,
+    credentials: 'include',
+  })
+}
+
+async function request<T>(
+  path: string,
+  init: RequestInit = {},
+  { form = false, retry = true }: { form?: boolean; retry?: boolean } = {}
+): Promise<T> {
+  let response = await send(path, init, form)
+
+  // A 401 usually means the fifteen minutes are up, not that the session is over.
+  // So: fetch a new access token once and repeat the request.
+  //
+  // `retry` guards against a loop — the repeat is not allowed to try again, and
+  // the refresh call itself never comes through here.
+  if (response.status === 401 && retry) {
+    const fresh = await refreshSession()
+    if (fresh !== null) {
+      response = await send(path, init, form)
+    }
+  }
 
   if (response.status === 401) {
-    // Token expired or invalid — drop it, the route guard redirects.
+    // Now it really is over: no session, or the backend refused the refresh.
     clearToken()
     throw new ApiError('unauthorized', 401)
   }
@@ -152,16 +236,29 @@ export const api = {
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 
   /**
-   * fastapi-users expects `application/x-www-form-urlencoded` on login, with the
-   * fields `username` and `password` — not JSON.
+   * Sign in. `/auth/login` rather than fastapi-users' `/auth/jwt/login`, because
+   * only ours also starts a session and sets the refresh cookie.
+   *
+   * The body is `application/x-www-form-urlencoded` with the fields `username` and
+   * `password`, as the OAuth2 password flow prescribes — `username` carries the
+   * email address.
+   *
+   * `retry: false`: a 401 here means the password is wrong. Refreshing and trying
+   * again would be pointless and would hide the actual error.
    */
   login: (email: string, password: string) =>
     request<{ access_token: string }>(
-      '/auth/jwt/login',
+      '/auth/login',
       {
         method: 'POST',
         body: new URLSearchParams({ username: email, password }),
       },
-      { form: true }
+      { form: true, retry: false }
     ),
+
+  /**
+   * Sign out. Deletes the session on the server, so it takes effect at once rather
+   * than whenever the refresh token would have expired.
+   */
+  logout: () => request<void>('/auth/logout', { method: 'POST' }, { retry: false }),
 }
