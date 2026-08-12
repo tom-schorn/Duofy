@@ -4,7 +4,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env.dev", extra="ignore")
+    #: `.env.local`, not `.env.dev`: this file describes **one machine**, while the
+    #: dev environment is the one deployed on the server. Naming it after `dev` said
+    #: the opposite of what it holds. The frontend uses the same name, where Vite
+    #: prescribes it.
+    model_config = SettingsConfigDict(env_file=".env.local", extra="ignore")
 
     environment: str = "development"
     debug: bool = True

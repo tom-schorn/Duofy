@@ -8,7 +8,7 @@ Die Datenbank läuft im Container, die App nativ.
 
 ```bash
 # einmalig
-cp .env.example .env.dev
+cp .env.example .env.local
 uv sync
 
 # Datenbank (aus dem Projekt-Root)
@@ -37,7 +37,7 @@ uv run alembic downgrade -1                      # eine zurück
 ```
 app/
 ├── main.py           FastAPI-App, CORS, Health-Endpunkte
-├── core/config.py    Settings aus .env.dev
+├── core/config.py    Settings aus .env.local
 ├── db/
 │   ├── base.py       DeclarativeBase — Basis aller Modelle
 │   └── session.py    Engine + get_session-Dependency

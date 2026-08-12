@@ -47,7 +47,7 @@ from app.main import app
 def pytest_configure() -> None:
     """Refuse to run against anything that is not obviously a test database.
 
-    `Settings` reads `.env.dev` when no environment variables are set, and that file
+    `Settings` reads `.env.local` when no environment variables are set, and that file
     points at a real database with real data in it. The fixture below starts with
     `drop_all`. Without this guard, running `pytest` with no environment set would
     delete the development database — and the command that does it looks completely
