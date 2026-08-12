@@ -80,6 +80,9 @@ services:
       # http on your own network, set it to false, otherwise the browser discards
       # the session cookie and nobody stays signed in.
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      # How long somebody stays signed in, counted from their last visit. Thirty
+      # days by default; see .env.example.
+      REFRESH_LIFETIME_SECONDS: ${REFRESH_LIFETIME_SECONDS:-2592000}
       # Kein CORS nötig: der Browser spricht nur mit dem Frontend-Container,
       # der die Anfragen intern weiterreicht. Es gibt keine zweite Herkunft.
 
