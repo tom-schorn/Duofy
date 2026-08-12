@@ -60,11 +60,6 @@ class Rhythm(StrEnum):
         return {"monthly": 1, "quarterly": 3, "biannual": 6, "annual": 12}[self.value]
 
 
-class PlanStatus(StrEnum):
-    DRAFT = "draft"
-    CONFIRMED = "confirmed"
-
-
 class Block(StrEnum):
     """One of the three 50/30/20 blocks. A guideline, not a rule.
 

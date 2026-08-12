@@ -28,7 +28,6 @@ import {
   BLOCK_LABEL,
   BUDGETS,
   MONTH_LABEL,
-  PLAN_STATUS_LABEL,
   QUOTA_KEY,
   euro,
   unallocated,
@@ -115,9 +114,6 @@ function PlanCard({
           <span className="font-heading text-xl font-semibold">
             {MONTH_LABEL[plan.month - 1]} {plan.year}
           </span>
-          <Badge variant={plan.status === 'draft' ? 'outline' : 'secondary'}>
-            {PLAN_STATUS_LABEL[plan.status]}
-          </Badge>
           {/* Zeigt, dass dieser Plan Posten in einen Haushalt einspeist.
               Der Haushaltsplan ist keine eigene Tabelle — er entsteht aus
               genau diesen Posten. */}

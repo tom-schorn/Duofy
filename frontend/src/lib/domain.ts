@@ -565,11 +565,6 @@ export type MyInvitation = {
   expiresAt: string
 }
 
-export const PLAN_STATUS_LABEL: Record<Plan['status'], string> = {
-  draft: 'Entwurf',
-  confirmed: 'Bestätigt',
-}
-
 /**
  * One row in the plan overview — the totals arrive ready-made from the backend so
  * the overview does not have to load every position of every month.
@@ -606,7 +601,6 @@ export type MemberPlanDetail = PlanDetail & {
 
 export type PlanDetail = PlanSummary & {
   id: string
-  confirmedAt: string | null
   positions: PlanPosition[]
 }
 

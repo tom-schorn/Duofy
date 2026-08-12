@@ -41,7 +41,6 @@ import { QueryState } from '@/components/QueryState'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
-  useConfirmPlan,
   useDeletePosition,
   useAccounts,
   useHouseholdPlan,
@@ -55,7 +54,6 @@ import {
 import {
   BUDGETS,
   MONTH_LABEL,
-  PLAN_STATUS_LABEL,
   QUOTA_KEY,
   euro,
   isPaid,
@@ -174,7 +172,6 @@ function PlanBody({
   const togglePaid = useTogglePaid()
   // The position whose booking dialog is currently open.
   const [booking, setBooking] = useState<PlanPosition | null>(null)
-  const confirmPlan = useConfirmPlan()
 
   // The tab lives in the URL: otherwise every reload lands back in the plan even
   // though one was just working in the book. A link to the flow of a month stays
@@ -317,9 +314,6 @@ function PlanBody({
             <h1 className="font-heading text-3xl font-semibold">
               {MONTH_LABEL[plan.month - 1]} {plan.year}
             </h1>
-            <Badge variant={plan.status === 'draft' ? 'outline' : 'secondary'}>
-              {PLAN_STATUS_LABEL[plan.status]}
-            </Badge>
             {Object.entries(householdCounts).map(([id, count]) => (
               <Badge key={id} variant="secondary" className="gap-1 font-normal">
                 <Users className="size-3" />
@@ -531,25 +525,6 @@ function PlanBody({
 
       <PlanPrintout plan={plan} />
 
-      <footer
-        data-print="hide"
-        className="flex flex-wrap items-center justify-between gap-4 border-t pt-6"
-      >
-        <p className="text-muted-foreground text-sm">
-          {plan.status === 'draft'
-            ? 'Entwurf — noch nicht bestätigt.'
-            : 'Bestätigt. Der Monat läuft.'}
-        </p>
-        {/* TODO: Im Haushalt müssen beide bestätigen. Dafür fehlt im Backend
-            eine Tabelle, die je Mitglied festhält wer zugestimmt hat. */}
-        <Button
-          data-print="hide"
-          onClick={() => confirmPlan.mutate(plan.id)}
-          disabled={plan.status === 'confirmed' || confirmPlan.isPending}
-        >
-          Monat bestätigen
-        </Button>
-      </footer>
 
       {/* Enthaken entfernt die vom Haken erzeugte Buchung. Der Betrag steht
           in der Frage, damit man sieht, was verloren geht — falls er nach dem
@@ -703,9 +678,6 @@ function MemberPlanBody({
               Vertretung
             </Badge>
           )}
-          <Badge variant={plan.status === 'draft' ? 'outline' : 'secondary'}>
-            {PLAN_STATUS_LABEL[plan.status]}
-          </Badge>
         </div>
         <p className="text-muted-foreground">
           {plan.ownerName}s ganzer Monat, auch die privaten Posten — so

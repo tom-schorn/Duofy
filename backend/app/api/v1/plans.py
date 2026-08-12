@@ -8,7 +8,6 @@ live under `/positions`, otherwise `positions` would collide with the year.
 """
 
 import uuid
-from datetime import UTC, datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -26,7 +25,7 @@ from app.core.permissions import (
 )
 from app.db.session import get_session
 from app.models.commitment import Commitment
-from app.models.enums import AccessLevel, Block, CommitmentType, PlanStatus
+from app.models.enums import AccessLevel, Block, CommitmentType
 from app.models.household import Household, HouseholdMember
 from app.models.plan import Plan, PlanPosition
 from app.models.user import User
@@ -52,7 +51,6 @@ def _summarize(
     *,
     year: int,
     month: int,
-    status_: PlanStatus,
     targets: tuple[Decimal, Decimal, Decimal],
     buffer_percent: Decimal,
     positions: list[PlanPosition],
@@ -103,7 +101,6 @@ def _summarize(
     return {
         "year": year,
         "month": month,
-        "status": status_,
         "target_needs": targets[0],
         "target_wants": targets[1],
         "target_savings": targets[2],
@@ -145,7 +142,6 @@ async def list_plans(
             **_summarize(
                 year=plan.year,
                 month=plan.month,
-                status_=plan.status,
                 targets=(plan.target_needs, plan.target_wants, plan.target_savings),
                 buffer_percent=plan.buffer_percent,
                 positions=plan.positions,
@@ -242,26 +238,6 @@ async def update_plan(
     plan = await _load_plan(session, plan_id, user)
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(plan, field, value)
-    await session.commit()
-    await session.refresh(plan, ["positions"])
-    return _plan_read(plan)
-
-
-@router.post("/{plan_id}/confirm", response_model=PlanRead)
-async def confirm_plan(
-    plan_id: uuid.UUID,
-    session: AsyncSession = Depends(get_session),
-    user: User = Depends(current_active_user),
-) -> PlanRead:
-    """Confirm the month.
-
-    TODO: in a household **everyone** would have to confirm. That needs a table
-    recording who agreed — `Plan.confirmed_at` only knows about one plan. Until then
-    everyone confirms for themselves. See issue #8, which may remove states entirely.
-    """
-    plan = await _load_plan(session, plan_id, user)
-    plan.status = PlanStatus.CONFIRMED
-    plan.confirmed_at = datetime.now(UTC)
     await session.commit()
     await session.refresh(plan, ["positions"])
     return _plan_read(plan)
@@ -395,10 +371,6 @@ async def get_household_plan(
         **_summarize(
             year=year,
             month=month,
-            # A composed plan has no status of its own — it would be confirmed once
-            # every individual plan is. Until per-member confirmation exists, this
-            # reports draft.
-            status_=PlanStatus.DRAFT,
             targets=(
                 household.target_needs,
                 household.target_wants,
@@ -416,12 +388,10 @@ async def get_household_plan(
 def _plan_read(plan: Plan) -> PlanRead:
     return PlanRead(
         id=plan.id,
-        confirmed_at=plan.confirmed_at,
         positions=[PositionRead.model_validate(p) for p in plan.positions],
         **_summarize(
             year=plan.year,
             month=plan.month,
-            status_=plan.status,
             targets=(plan.target_needs, plan.target_wants, plan.target_savings),
             buffer_percent=plan.buffer_percent,
             positions=plan.positions,
