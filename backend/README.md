@@ -8,7 +8,7 @@ Die Datenbank läuft im Container, die App nativ.
 
 ```bash
 # einmalig
-cp .env.example .env.local
+cp .env.local.example .env.local
 uv sync
 
 # Datenbank (aus dem Projekt-Root)
