@@ -1,8 +1,8 @@
 name: Pull Request
 
-# `edited` ist wichtig: Titel und Text lassen sich nach dem Öffnen ändern, und
-# beides wird hier geprüft. Ohne `edited` bliebe ein grüner Haken stehen, der
-# nichts mehr über den aktuellen Stand sagt.
+# `edited` matters: title and body can be changed after opening, and both are
+# checked here. Without it a green tick would stay in place while saying nothing
+# about the current state.
 on:
   pull_request:
     types: [opened, edited, reopened, synchronize]
@@ -12,9 +12,9 @@ permissions:
   pull-requests: read
 
 jobs:
-  # Der Titel wird beim Squash zur Commit-Nachricht auf `develop`. Daraus bauen
-  # release-please Version und Changelog — ein schiefer Titel erzeugt also eine
-  # falsche Version, nicht bloß eine hässliche Zeile.
+  # On squash the title becomes the commit message on `develop`, and release-please
+  # derives version and changelog from it. A sloppy title therefore produces a wrong
+  # version, not merely an ugly line.
   titel:
     runs-on: ubuntu-latest
     steps:
@@ -29,25 +29,25 @@ jobs:
             refactor
             test
             chore
-          # Kein Scope-Zwang: bei zwei Teilen (backend, frontend) sagt der Scope
-          # weniger als der Titel selbst.
+          # No scope required: with two parts, backend and frontend, a scope says
+          # less than the title itself.
           requireScope: false
-          # Kleinbuchstabe am Anfang ist Konvention, aber kein Fehler wert.
+          # A lowercase first letter is convention, but not worth failing over.
           subjectPattern: ^.{6,}$
           subjectPatternError: |
-            Der Titel nach dem Doppelpunkt ist zu kurz. „fix: bug" sagt nichts —
-            schreib hin, was sich ändert.
+            The part after the colon is too short. "fix: bug" says nothing — write
+            down what changes.
 
-  # Herkunftsnachweis: jeder Commit trägt eine Signed-off-by-Zeile. `git commit -s`
-  # setzt sie. Absichtlich hier statt über eine GitHub-App, damit die Prüfung im
-  # Repo sichtbar ist und nicht in einer Einstellung versteckt.
+  # Proof of origin: every commit carries a Signed-off-by line, which `git commit -s`
+  # adds. Deliberately here rather than through a GitHub App, so the check is visible
+  # in the repository instead of hidden in a setting.
   dco:
     runs-on: ubuntu-latest
-    # Zwei Ausnahmen:
-    #  - release-please öffnet seine Pull Requests selbst und signiert nicht
-    #  - die Wege zwischen `develop` und `main` in beide Richtungen tragen nur
-    #    Commits, die beim Eingang in `develop` schon geprüft wurden, bzw. die
-    #    Versionsdateien, die release-please geschrieben hat
+    # Two exceptions:
+    #  - release-please opens its own pull requests and signs nothing
+    #  - the routes between `develop` and `main`, in both directions, carry only
+    #    commits already checked on the way into `develop`, or the version files
+    #    release-please wrote itself
     if: >-
       github.actor != 'github-actions[bot]'
       && github.event.pull_request.base.ref != 'main'
@@ -55,27 +55,27 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # Vollständige Historie, sonst fehlen die Commits des Branches.
+          # The full history, otherwise the commits of the branch are missing.
           fetch-depth: 0
 
-      - name: Signed-off-by prüfen
+      - name: Check Signed-off-by
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
-          fehlend=0
+          missing=0
           while read -r sha; do
             [ -z "$sha" ] && continue
             if ! git log -1 --format='%B' "$sha" | grep -qi '^Signed-off-by: .* <.*@.*>'; then
-              echo "::error::Ohne Signed-off-by: $(git log -1 --format='%h %s' "$sha")"
-              fehlend=1
+              echo "::error::Without Signed-off-by: $(git log -1 --format='%h %s' "$sha")"
+              missing=1
             fi
           done <<< "$(git rev-list "$BASE".."$HEAD")"
 
-          if [ "$fehlend" -eq 1 ]; then
+          if [ "$missing" -eq 1 ]; then
             echo ""
-            echo "Nachträglich setzen:  git rebase --signoff $BASE"
-            echo "Künftig:              git commit -s"
+            echo "Add them afterwards:  git rebase --signoff $BASE"
+            echo "From now on:          git commit -s"
             exit 1
           fi
-          echo "Alle Commits sind signiert."
+          echo "Every commit is signed."

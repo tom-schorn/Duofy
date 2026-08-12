@@ -1,18 +1,17 @@
 name: CI
 
-# Läuft auf jedem Pull Request und auf beiden Langzeit-Branches. Auf `develop`
-# und `main` zusätzlich, weil ein Squash-Merge einen Stand erzeugt, den so noch
-# nie jemand gebaut hat.
+# Every pull request, plus `main`. A squash merge creates a state nobody has ever
+# built before, so it is checked again there.
 on:
   pull_request:
   push:
     branches: [main]
-  # `development.yml` ruft diesen Workflow auf, bevor es Images baut. Deshalb
-  # steht `develop` oben nicht mehr im Push-Auslöser — sonst liefe alles doppelt.
+  # `development.yml` calls this workflow before it builds images, which is why
+  # `develop` is no longer in the push trigger above — everything would run twice.
   workflow_call:
 
-# Ein neuer Push auf denselben Branch bricht den laufenden Durchgang ab. Auf
-# `main` nicht — dort soll jeder Stand geprüft bleiben.
+# A new push to the same branch cancels the run in progress. Not on `main`, where
+# every state should stay checked.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
@@ -58,16 +57,16 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Voll gepinnt: setup-uv veröffentlicht keinen mitlaufenden Tag `v9`,
-      # nur `v9.0.0`. Mit `@v9` findet GitHub die Action nicht.
+      # Pinned in full: setup-uv publishes no moving `v9` tag, only `v9.0.0`. With
+      # `@v9` GitHub cannot find the action.
       - uses: astral-sh/setup-uv@v9.0.0
         with:
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
 
-      # --locked: bricht ab, wenn uv.lock nicht zum pyproject.toml passt. Hier
-      # ist der richtige Ort dafür — wer eine Abhängigkeit hinzufügt und
-      # `uv lock` vergisst, sieht es am Pull Request statt später im Image.
+      # --locked fails when uv.lock does not match pyproject.toml. This is the right
+      # place for that check: whoever adds a dependency and forgets `uv lock` sees it
+      # on the pull request rather than later in the image build.
       - run: uv sync --locked
 
       - run: uv run ruff check app/ tests/
@@ -91,7 +90,7 @@ jobs:
 
       - run: npm ci
 
-      # Typen zuerst: schlägt das fehl, sagen die anderen beiden nichts mehr aus.
+      # Types first: if they fail, the other two say nothing useful.
       - run: npx tsc --noEmit -p tsconfig.app.json
 
       - run: npm run lint
