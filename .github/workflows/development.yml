@@ -1,6 +1,6 @@
 name: Development
 
-# Jeder Merge auf `develop` erzeugt frische Images mit dem Tag `dev`.
+# Every merge into `develop` produces fresh images tagged `dev`.
 on:
   push:
     branches: [develop]
@@ -10,9 +10,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Erst prüfen, dann veröffentlichen. Ohne diese Abhängigkeit stünde nach einem
-  # kaputten Merge ein kaputtes `:dev` auf Docker Hub, und wer es zieht, sucht
-  # den Fehler bei sich.
+  # Check first, publish second. Without this dependency a broken merge would put a
+  # broken `:dev` on Docker Hub, and whoever pulls it looks for the fault in their own
+  # setup.
   pruefen:
     uses: ./.github/workflows/ci.yml
 
@@ -49,13 +49,13 @@ jobs:
           context: ${{ matrix.context }}
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/duofy-${{ matrix.name }}:dev
-          # Schichten zwischen den Läufen behalten. Ohne das baut jeder Push
-          # `uv sync` und `npm ci` von vorn.
+          # Keep the layers between runs. Without this, every push rebuilds
+          # `uv sync` and `npm ci` from scratch.
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
 
-      # Hält die Beschreibung auf Docker Hub mit dem Repo synchron. Ohne das
-      # pflegt man denselben Text an zwei Stellen, und eine davon veraltet.
+      # Keeps the Docker Hub description in step with the repository. Otherwise the
+      # same text is maintained in two places and one of them goes stale.
       - uses: peter-evans/dockerhub-description@v5
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
