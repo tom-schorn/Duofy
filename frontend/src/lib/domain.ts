@@ -439,7 +439,6 @@ export const PAYMENT_LABEL: Record<PaymentMethod, string> = {
 export type Plan = {
   year: number
   month: number
-  status: 'draft' | 'confirmed'
   /** Quotas in percent. Guidelines, not rules. */
   targetNeeds: string
   targetWants: string
@@ -605,8 +604,8 @@ export type PlanDetail = PlanSummary & {
 }
 
 /**
- * The shared plan. Composed, not stored — hence no `id` and no `confirmedAt`: there
- * is no object anyone could confirm.
+ * The shared plan. Composed, not stored — hence no `id`: there is no row behind it,
+ * only the positions of every member that carry this `householdId`.
  */
 export type HouseholdPlanDetail = PlanSummary & {
   householdId: string

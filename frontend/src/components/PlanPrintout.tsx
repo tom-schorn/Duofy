@@ -36,8 +36,8 @@ import {
 type Props = {
   /**
    * Deliberately only `PlanSummary` plus positions, not `PlanDetail`: the shared
-   * plan is composed and has neither `id` nor `confirmedAt`. Only the budget, the
-   * quotas and the positions are needed here anyway.
+   * plan is composed and has no `id`. Only the budget, the quotas and the positions
+   * are needed here anyway.
    */
   plan: PlanSummary & { positions: PlanPosition[] }
   /**
