@@ -407,14 +407,6 @@ export function useCreatePlan() {
   )
 }
 
-export function useConfirmPlan() {
-  return useInvalidating<PlanDetail, string>(
-    (planId) => api.post(`/plans/${planId}/confirm`),
-    [keys.plans],
-    'Monat bestätigt'
-  )
-}
-
 // --- Positions --------------------------------------------------------------
 
 type PositionInput = PlanPosition & { planId: string }

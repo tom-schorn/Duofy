@@ -1,39 +1,41 @@
-## Was ändert sich
+## What changes
 
-<!-- Zwei, drei Sätze: was tut dieser Pull Request? -->
+<!-- Two or three sentences: what does this pull request do? -->
 
-## Warum so
+## Why this way
 
-<!-- Nur wenn eine Entscheidung dahintersteckt, die man dem Code nicht ansieht.
-     Sonst weglassen. -->
+<!-- Only if there is a decision behind it that the code does not show. Otherwise
+     leave it out. -->
 
 Closes #
 
 ---
 
-### Zum Titel
+### About the title
 
-Beim Merge wird der **Titel dieses Pull Requests** zur Commit-Nachricht, und daraus
-entstehen Versionsnummer und Changelog. Deshalb muss er dem Muster folgen:
+On merge, the **title of this pull request** becomes the commit message, and the
+version number and changelog are derived from it. So it has to follow the pattern:
 
-| Titel | Nächste Version |
+| Title | Next version |
 |---|---|
-| `fix: correct the category label` | Patch — 1.2.0 → 1.2.1 |
-| `feat: add income as its own type` | Minor — 1.2.0 → 1.3.0 |
-| `feat!: remove plan states` | Major — 1.2.0 → 2.0.0 |
-| `docs:` · `test:` · `refactor:` · `chore:` | keine neue Version |
+| `fix: correct the category label` | patch — 0.2.0 → 0.2.1 |
+| `feat: add income as its own type` | minor — 0.2.0 → 0.3.0 |
+| `feat!: remove plan states` | minor — 0.2.0 → 0.3.0 |
+| `docs:` · `test:` · `refactor:` · `chore:` | no new version |
 
-Bei `feat!` gehört eine Zeile `BREAKING CHANGE: …` in den Rumpf — sie landet im
-Changelog und sagt Selbst-Hostern, was sie beim Update tun müssen.
+Below 1.0 a breaking change bumps the minor version, not the major one — that is
+what the leading zero means. The `!` still belongs on the title, and a line
+`BREAKING CHANGE: …` in the body: it ends up in the changelog and tells
+self-hosters what they have to do when updating.
 
-Die Commits **innerhalb** deines Branches dürfen heißen wie sie wollen.
+The commits **inside** your branch may be called anything.
 
-### Vor dem Absenden
+### Before submitting
 
-- [ ] Meine Commits sind mit `git commit -s` signiert
-- [ ] Backend: `ruff check app/` und `pytest` laufen durch
-- [ ] Frontend: `tsc --noEmit -p tsconfig.app.json`, `npm run lint` und
-      `npm run build` laufen durch
-- [ ] Neue Logik hat einen Test
-- [ ] **Keine echten Daten im Diff** — keine Namen, Beträge, Kontonummern,
-      Zugangsdaten, keine Screenshots mit echten Zahlen
+- [ ] My commits are signed with `git commit -s`
+- [ ] Backend: `ruff check app/ tests/` and `pytest` pass
+- [ ] Frontend: `tsc --noEmit -p tsconfig.app.json`, `npm run lint` and
+      `npm run build` pass
+- [ ] New logic comes with a test
+- [ ] **No real data in the diff** — no names, amounts, account numbers,
+      credentials, no screenshots with real figures

@@ -23,6 +23,9 @@ dist/
 .env
 .env.*
 !.env.example
+# The local templates for backend and frontend. `.env.*` above would swallow them,
+# and `!.env.example` does not reach them because of the extra `.local`.
+!.env.local.example
 
 # Terraform — state holds secrets in plaintext, tfvars holds the API token
 .terraform/

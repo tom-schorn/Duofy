@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from pydantic import Field
 
-from app.models.enums import Block, Category, PaymentMethod, PlanStatus
+from app.models.enums import Block, Category, PaymentMethod
 from app.schemas.base import Schema
 
 
@@ -109,7 +109,6 @@ class PlanSummary(PlanBase):
 
     year: int
     month: int
-    status: PlanStatus
 
     #: Sum of the income positions.
     income: Decimal
@@ -126,7 +125,6 @@ class PlanSummary(PlanBase):
 
 class PlanRead(PlanSummary):
     id: uuid.UUID
-    confirmed_at: datetime | None
     positions: list[PositionRead]
 
 
@@ -143,8 +141,8 @@ class HouseholdPositionRead(PositionRead):
 
 
 class HouseholdPlanRead(PlanSummary):
-    """The shared plan. Composed, not stored — hence no `id` and no `confirmed_at`:
-    there is no object anyone could confirm."""
+    """The shared plan. Composed, not stored — hence no `id`: there is no row behind
+    it, only the positions of every member that carry this `household_id`."""
 
     household_id: uuid.UUID
     household_name: str

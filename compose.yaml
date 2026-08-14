@@ -1,5 +1,9 @@
-# Lokale Entwicklung — nur die Datenbank läuft im Container.
-# Die App startet nativ:  cd backend && uv run uvicorn app.main:app --reload
+# Local development — the database only. The app itself runs natively:
+#
+#     cd backend && uv run uvicorn app.main:app --reload
+#
+# Not to be confused with docker-compose.yml, which is the full stack for
+# self-hosting. See issue #36: `docker compose up` finds this file first.
 
 services:
   db:

@@ -439,7 +439,6 @@ export const PAYMENT_LABEL: Record<PaymentMethod, string> = {
 export type Plan = {
   year: number
   month: number
-  status: 'draft' | 'confirmed'
   /** Quotas in percent. Guidelines, not rules. */
   targetNeeds: string
   targetWants: string
@@ -565,11 +564,6 @@ export type MyInvitation = {
   expiresAt: string
 }
 
-export const PLAN_STATUS_LABEL: Record<Plan['status'], string> = {
-  draft: 'Entwurf',
-  confirmed: 'Bestätigt',
-}
-
 /**
  * One row in the plan overview — the totals arrive ready-made from the backend so
  * the overview does not have to load every position of every month.
@@ -606,13 +600,12 @@ export type MemberPlanDetail = PlanDetail & {
 
 export type PlanDetail = PlanSummary & {
   id: string
-  confirmedAt: string | null
   positions: PlanPosition[]
 }
 
 /**
- * The shared plan. Composed, not stored — hence no `id` and no `confirmedAt`: there
- * is no object anyone could confirm.
+ * The shared plan. Composed, not stored — hence no `id`: there is no row behind it,
+ * only the positions of every member that carry this `householdId`.
  */
 export type HouseholdPlanDetail = PlanSummary & {
   householdId: string

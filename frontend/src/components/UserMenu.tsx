@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/sidebar'
 import { useQueryClient } from '@tanstack/react-query'
 
-import { clearToken } from '@/lib/api'
+import { api, clearToken } from '@/lib/api'
 import { useMe } from '@/lib/queries'
 
 export function UserMenu() {
@@ -30,7 +30,16 @@ export function UserMenu() {
   const lastName = me.data?.lastName ?? ''
   const initials = `${firstName[0] ?? ''}${lastName[0] ?? ''}` || '··'
 
-  function handleLogout() {
+  async function handleLogout() {
+    // Tell the backend first: that deletes the session row, so the refresh cookie
+    // stops working immediately instead of whenever it would have expired. Without
+    // this call, signing out would only clear the browser.
+    //
+    // Failures are ignored on purpose. If the backend is unreachable, signing out
+    // locally is still the right thing to do — the session then ends when the token
+    // expires.
+    await api.logout().catch(() => undefined)
+
     // Token first, cache second — otherwise somebody else data flashes up when the
     // next person signs in right away.
     clearToken()

@@ -10,8 +10,8 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
-# Autogenerate erzeugt fastapi_users_db_sqlalchemy.generics.GUID für User-IDs,
-# vergisst aber den Import. Deshalb fest im Template.
+# Autogenerate emits fastapi_users_db_sqlalchemy.generics.GUID for user IDs but
+# forgets to import it, so the import is wired into this template.
 import fastapi_users_db_sqlalchemy
 ${imports if imports else ""}
 

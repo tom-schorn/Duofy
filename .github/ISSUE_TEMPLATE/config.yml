@@ -1,0 +1,32 @@
+# Issues are for bugs. Everything else has a better place, and the links below take
+# people there instead of leaving them to guess.
+#
+# Why: the issue list is the roadmap. An idea nobody has agreed to build yet sits in
+# it looking like planned work, and after fifty of those nobody can tell what is
+# actually going to happen. Discussions have no such promise attached — an idea can
+# sit there for a year without anyone owing anybody an answer.
+blank_issues_enabled: false
+
+contact_links:
+  - name: An idea, or a case Duofy cannot handle
+    url: https://github.com/tom-schorn/Duofy/discussions/new?category=ideas
+    about: >-
+      A payment that fits no field, a way of splitting costs Duofy does not know,
+      something you would build differently. This is the most valuable feedback
+      there is — Duofy grew out of one household and carries its point of view.
+      Say what does not work for you; the solution comes later. Once we agree on
+      it, an issue follows.
+
+  - name: A question
+    url: https://github.com/tom-schorn/Duofy/discussions/new?category=q-a
+    about: >-
+      About installing, about a figure that does not add up, about why Duofy does
+      something the way it does. Questions are welcome, and the answers stay
+      findable for the next person.
+
+  - name: A security vulnerability
+    url: https://github.com/tom-schorn/Duofy/security/advisories/new
+    about: >-
+      Report it privately, never as a public issue. Duofy holds people's household
+      finances, and a hole described in the open is a hole anyone can walk through
+      until it is fixed.
