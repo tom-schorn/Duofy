@@ -27,11 +27,14 @@ locals {
 }
 
 locals {
-  backend_dir = "${path.module}/../backend"
-
-  # Local tag only — this image is built on the host and never pushed. A registry
-  # prefix here would turn it into a remote reference.
-  backend_image = "duofy-backend:${var.preview_branch}"
+  # The image the pipeline published, not one built here.
+  #
+  # Terraform used to build it on the host from `../backend`. That was work done
+  # twice: every push to `develop` already builds and pushes the same image on
+  # GitHub's runners. Doing it again on a host with 2.9 GB and no swap cost time and
+  # memory for nothing — and it tied this configuration to the source tree lying
+  # next to it, which is why it could not live anywhere else.
+  backend_image = "${var.backend_image_repository}:${var.backend_image_tag}"
 
   # Port uvicorn listens on inside the container. Referenced by the tunnel ingress
   # rule so the two can never drift apart.
@@ -45,44 +48,30 @@ locals {
   # Every Pages preview gets a hostname with a build hash in front, so they cannot be
   # listed. This pattern covers all of them, derived from the assigned subdomain.
   cors_origin_regex = "^https://[a-z0-9-]+\\.${replace(cloudflare_pages_project.frontend.subdomain, ".", "\\.")}$"
-
-  # Only files that actually end up in the image. Caches and tests are excluded by
-  # backend/.dockerignore anyway, but they must not trigger a rebuild either.
-  backend_files = sort(concat(
-    tolist(fileset(local.backend_dir, "app/**/*.py")),
-    tolist(fileset(local.backend_dir, "alembic/**/*.py")),
-    ["pyproject.toml", "uv.lock", "Dockerfile", "alembic.ini", "docker-entrypoint.sh"],
-  ))
-
-  backend_source_hash = sha1(join("", [
-    for f in local.backend_files : filesha1("${local.backend_dir}/${f}")
-  ]))
 }
 
-# The build does NOT go through `docker_image`'s build block. That path is broken on
-# this host: the daemon uses the containerd image store (driver-type
-# io.containerd.snapshotter.v1), which the provider does not support for builds — it
-# fails silently and then falls back to pulling, which dies with "denied".
+# `dev` is a moving tag: it points at whatever `develop` last produced. The tag alone
+# would therefore never tell Terraform that anything changed — `apply` would report
+# "no changes" while the host quietly kept running last week's build.
 #
-# The Docker CLI handles it fine, so the build runs through it. Everything else stays
-# a real Terraform resource.
-resource "terraform_data" "backend_build" {
-  triggers_replace = local.backend_source_hash
-
-  provisioner "local-exec" {
-    command = "docker -H ${var.docker_host} build -t ${local.backend_image} ${local.backend_dir}"
-  }
+# The digest does tell it. A new push moves the digest, `pull_triggers` fires, the
+# image is pulled and the container is replaced with it.
+data "docker_registry_image" "backend" {
+  name = local.backend_image
 }
 
-# Reads the image the build above produced, so the container tracks its id.
-data "docker_image" "backend" {
-  name       = local.backend_image
-  depends_on = [terraform_data.backend_build]
+resource "docker_image" "backend" {
+  name          = data.docker_registry_image.backend.name
+  pull_triggers = [data.docker_registry_image.backend.sha256_digest]
+
+  # Drop the superseded image instead of leaving it on the host. Disk sits at around
+  # 78 %, and a dev image that changes several times a week piles up quickly.
+  keep_locally = false
 }
 
 resource "docker_container" "backend" {
   name    = "duofy-backend"
-  image   = data.docker_image.backend.id
+  image   = docker_image.backend.image_id
   restart = "unless-stopped"
 
   # The host has 2.9 GB and no swap, so every container needs a cap. memory_swap
