@@ -49,6 +49,18 @@ variable "backend_environment" {
   default     = "development"
 }
 
+variable "backend_image_repository" {
+  description = "Docker Hub repository the backend image is pulled from"
+  type        = string
+  default     = "tomtombusiness/duofy-backend"
+}
+
+variable "backend_image_tag" {
+  description = "Which published image this deployment runs — `dev` follows the develop branch, a version like `0.2.0` pins a release"
+  type        = string
+  default     = "dev"
+}
+
 variable "extra_cors_origins" {
   description = "Additional allowed origins, e.g. http://localhost:5173 for running the frontend locally against this backend"
   type        = list(string)
