@@ -21,12 +21,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { CategoryOptions } from '@/components/CategoryOptions'
+import { cn } from '@/lib/utils'
 import {
+  BLOCK_DOT,
   BLOCK_LABEL,
   BUDGETS,
   BLOCK_SUGGESTION,
-  CATEGORY_LABEL,
   DUE_DAY_MAY_SHIFT,
+  categoryGroup,
   MONTH_LABEL,
   PAYMENT_LABEL,
   RHYTHM_LABEL,
@@ -74,7 +77,7 @@ const TYPE_OPTIONS: {
     hint: 'Miete, Handy, Versicherung, Streaming — ohne festes Ende.',
     budgetHint: null,
     namePlaceholder: 'Miete',
-    defaultCategory: 'housing',
+    defaultCategory: 'housing.rent',
   },
   {
     value: 'savings_goal',
@@ -82,7 +85,7 @@ const TYPE_OPTIONS: {
     hint: 'Auto, Urlaub, Zähne — es gibt einen Zielbetrag.',
     budgetHint: 'Alles, was du zurücklegst, zählt hierher.',
     namePlaceholder: 'Auto',
-    defaultCategory: 'reserves',
+    defaultCategory: 'finance.savings',
   },
   {
     value: 'debt',
@@ -92,7 +95,7 @@ const TYPE_OPTIONS: {
     budgetHint:
       'Tilgen ist kein Verbrauch — das Geld ist nicht weg, deine Schuld wird kleiner. Unterm Strich derselbe Vorgang wie Sparen.',
     namePlaceholder: 'Rundfunk-Altrückstand',
-    defaultCategory: 'debt_repayment',
+    defaultCategory: 'finance.debt',
   },
   {
     value: 'budget',
@@ -100,11 +103,10 @@ const TYPE_OPTIONS: {
     hint: 'Sprit, Lebensmittel, Taschengeld — kein Vertrag, du legst den Betrag fest.',
     budgetHint: null,
     namePlaceholder: 'Lebensmittel',
-    defaultCategory: 'groceries',
+    defaultCategory: 'household.groceries',
   },
 ]
 
-const CATEGORIES = Object.keys(CATEGORY_LABEL) as Category[]
 const PAYMENTS = Object.keys(PAYMENT_LABEL) as PaymentMethod[]
 const BLOCKS: Block[] = ['income', ...BUDGETS]
 const RHYTHMS = Object.keys(RHYTHM_LABEL) as Rhythm[]
@@ -115,7 +117,7 @@ function emptyDraft(): Commitment {
     type: 'contract',
     name: '',
     amount: '',
-    category: 'housing',
+    category: 'housing.rent',
     block: 'needs',
     householdId: null,
     rhythm: 'monthly',
@@ -161,7 +163,12 @@ export function CommitmentDialog({
   // Only savings goals and debts are fixed — resolve_block() in the backend
   // overrides them anyway. A budget chooses freely: whether fuel is a need or a
   // want depends on the household.
-  const blockIsFixed = draft.type === 'savings_goal' || draft.type === 'debt'
+  const typeForcesSavings = draft.type === 'savings_goal' || draft.type === 'debt'
+
+  // An income category settles the budget just as firmly: all four of them lead to
+  // Einnahmen. Kept apart from the type, because handleCategory has to know which
+  // of the two is talking.
+  const blockIsFixed = typeForcesSavings || categoryGroup(draft.category) === 'income'
 
   function set<K extends keyof Commitment>(key: K, value: Commitment[K]) {
     setDraft((current) => ({ ...current, [key]: value }))
@@ -196,7 +203,7 @@ export function CommitmentDialog({
     setDraft((current) => ({
       ...current,
       category,
-      block: blockIsFixed ? 'savings' : BLOCK_SUGGESTION[category],
+      block: typeForcesSavings ? 'savings' : BLOCK_SUGGESTION[category],
     }))
   }
 
@@ -470,11 +477,7 @@ export function CommitmentDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {CATEGORIES.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {CATEGORY_LABEL[category]}
-                      </SelectItem>
-                    ))}
+                    <CategoryOptions />
                   </SelectContent>
                 </Select>
               </div>
@@ -482,12 +485,10 @@ export function CommitmentDialog({
               <div className="flex flex-col gap-2">
                 <Label>Budget</Label>
                 {blockIsFixed ? (
-                  <div className="flex flex-col gap-1">
-                    <span className="flex h-9 items-center gap-2 text-sm font-medium">
-                      <span className="bg-chart-4 size-2.5 rounded-sm" />
-                      Sparen
-                    </span>
-                  </div>
+                  <span className="flex h-9 items-center gap-2 text-sm font-medium">
+                    <span className={cn('size-2.5 rounded-sm', BLOCK_DOT[draft.block])} />
+                    {BLOCK_LABEL[draft.block]}
+                  </span>
                 ) : (
                   <Select
                     value={draft.block}

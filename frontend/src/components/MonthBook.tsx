@@ -18,6 +18,7 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from '@/components/ui/empty'
+import { CategoryOptions } from '@/components/CategoryOptions'
 import { QueryState } from '@/components/QueryState'
 import { errorText } from '@/lib/api'
 import { today } from '@/lib/dates'
@@ -52,7 +53,6 @@ import {
  * in the book without counting anywhere.
  */
 
-const CATEGORIES = Object.keys(CATEGORY_LABEL) as Category[]
 
 type Props = {
   positions: PlanPosition[]
@@ -160,7 +160,7 @@ function QuickEntry({
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
   const [positionId, setPositionId] = useState('none')
-  const [category, setCategory] = useState<Category>('groceries')
+  const [category, setCategory] = useState<Category>('household.groceries')
   const [accountId, setAccountId] = useState(fallbackAccountId)
   const [counterAccountId, setCounterAccountId] = useState('none')
 
@@ -251,11 +251,7 @@ function QuickEntry({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {CATEGORIES.map((item) => (
-                  <SelectItem key={item} value={item}>
-                    {CATEGORY_LABEL[item]}
-                  </SelectItem>
-                ))}
+                <CategoryOptions />
               </SelectContent>
             </Select>
           </div>
