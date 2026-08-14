@@ -18,13 +18,15 @@ version number and changelog are derived from it. So it has to follow the patter
 
 | Title | Next version |
 |---|---|
-| `fix: correct the category label` | patch — 1.2.0 → 1.2.1 |
-| `feat: add income as its own type` | minor — 1.2.0 → 1.3.0 |
-| `feat!: remove plan states` | major — 1.2.0 → 2.0.0 |
+| `fix: correct the category label` | patch — 0.2.0 → 0.2.1 |
+| `feat: add income as its own type` | minor — 0.2.0 → 0.3.0 |
+| `feat!: remove plan states` | minor — 0.2.0 → 0.3.0 |
 | `docs:` · `test:` · `refactor:` · `chore:` | no new version |
 
-For `feat!`, a line `BREAKING CHANGE: …` belongs in the body — it ends up in the
-changelog and tells self-hosters what they have to do when updating.
+Below 1.0 a breaking change bumps the minor version, not the major one — that is
+what the leading zero means. The `!` still belongs on the title, and a line
+`BREAKING CHANGE: …` in the body: it ends up in the changelog and tells
+self-hosters what they have to do when updating.
 
 The commits **inside** your branch may be called anything.
 
