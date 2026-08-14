@@ -1,0 +1,68 @@
+name: Bug report
+description: Something does not work the way it should
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Please leave your real figures out of this.** No amounts, no account
+        numbers, no names, no screenshots of your own plan. Duofy is a finance app,
+        and whatever lands in an issue is public and stays public. Made-up numbers
+        describe a bug just as well — `1234.56` breaks in exactly the same way your
+        rent does.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what came out instead.
+      placeholder: |
+        I ticked off a position in the shared plan.
+        I expected the amount to disappear from "Noch offen".
+        Instead the figure stayed the same and only changed after a reload.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: how-run
+    attributes:
+      label: How are you running Duofy
+      options:
+        - Docker Compose, self-hosted
+        - From source, for development
+        - Something else — described above
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: >-
+        The image tag you pulled, or the content of `version.txt`. `dev` and
+        `latest` are answers too — they just move, so please add the date.
+      placeholder: "0.2.0, or dev as of 2026-08-14"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log output
+      description: >-
+        `docker compose logs backend` for anything that goes wrong on the server
+        side, the browser console for anything on screen. Optional — but it usually
+        turns a guess into an answer.
+      render: text
+
+  - type: checkboxes
+    id: no-real-data
+    attributes:
+      label: Before you submit
+      options:
+        - label: >-
+            There are no real amounts, names or account numbers in this report.
+          required: true
+        - label: >-
+            I searched the open issues and this is not one of them.
+          required: true
