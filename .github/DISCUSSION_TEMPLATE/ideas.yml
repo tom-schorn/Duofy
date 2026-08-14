@@ -1,0 +1,57 @@
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Duofy grew out of a single household and carries its point of view. Every
+        case it cannot handle is a place where that point of view was too narrow —
+        so this is the most useful thing you can send.
+
+        The form asks about your **case** before it asks about your solution. Not to
+        be difficult: a described problem can be solved in several ways, and the
+        best one is rarely the first that comes to mind. A described solution can
+        only be built or refused.
+
+        And here as everywhere: **no real amounts, names or account numbers.** Made
+        up figures carry the case just as well.
+
+  - type: textarea
+    id: case
+    attributes:
+      label: What does not work out
+      description: >-
+        Your situation, and where Duofy gets in the way. Concrete beats general —
+        "my employer pays on the 28th and it belongs to the next month" says more
+        than "date handling is inflexible".
+    validations:
+      required: true
+
+  - type: textarea
+    id: today
+    attributes:
+      label: What you do about it today
+      description: >-
+        In Duofy, in a spreadsheet, on paper, or not at all. A workaround shows what
+        the case really needs, and sometimes it turns out Duofy can already do it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: How you would solve it
+      description: Optional. If you already have a picture in mind, it belongs here.
+
+  - type: dropdown
+    id: household
+    attributes:
+      label: Does this concern you alone, or a household
+      description: >-
+        A plan always belongs to one person; the household is a view on top. Which
+        of the two a case sits in usually decides how it can be built at all.
+      options:
+        - Just me
+        - A household — a couple, a family, a shared flat
+        - Both, or I am not sure
+    validations:
+      required: true
