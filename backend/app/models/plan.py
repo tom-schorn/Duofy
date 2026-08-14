@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.types import enum_column
-from app.models.enums import Block, Category, PaymentMethod
+from app.models.enums import CATEGORY_LENGTH, Block, Category, PaymentMethod
 from app.models.mixins import TimestampMixin, UUIDMixin
 
 
@@ -90,7 +90,7 @@ class PlanPosition(UUIDMixin, TimestampMixin, Base):
     #: without this field it would wrongly count as open.
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    category: Mapped[Category] = mapped_column(enum_column(Category))
+    category: Mapped[Category] = mapped_column(enum_column(Category, length=CATEGORY_LENGTH))
     #: Derived on creation and **stored** here — changing the mapping later must
     #: not rewrite plans that already exist.
     block: Mapped[Block] = mapped_column(enum_column(Block))

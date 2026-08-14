@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.db.types import enum_column
-from app.models.enums import Block, Category
+from app.models.enums import CATEGORY_LENGTH, Block, Category
 from app.models.mixins import TimestampMixin, UUIDMixin
 
 
@@ -77,7 +77,7 @@ class Transaction(Base, UUIDMixin, TimestampMixin):
 
     #: Nullable because a pure transfer has no purpose. See the constraint above.
     category: Mapped[Category | None] = mapped_column(
-        enum_column(Category), nullable=True
+        enum_column(Category, length=CATEGORY_LENGTH), nullable=True
     )
     block: Mapped[Block | None] = mapped_column(enum_column(Block), nullable=True)
 

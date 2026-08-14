@@ -45,85 +45,214 @@ export const BUDGETS: Block[] = ['needs', 'wants', 'savings']
 /** Order in lists — income sits above the split, not inside it. */
 export const BUDGET_ORDER: Block[] = ['income', ...BUDGETS]
 
+/**
+ * Mirrored from `Category` in the backend.
+ *
+ * The dot carries the hierarchy: everything before it is the group, and a value
+ * without a dot stands on its own. Nothing else reads the dot — it is the same
+ * single string the API sends and the database stores.
+ */
 export type Category =
-  | 'income'
-  | 'housing'
-  | 'insurance'
-  | 'groceries'
-  | 'health'
-  | 'mobility'
-  | 'communication'
-  | 'children'
-  | 'subscriptions'
-  | 'leisure'
-  | 'vacation'
-  | 'pocket_money'
-  | 'reserves'
-  | 'debt_repayment'
-  | 'investment'
-  | 'legal'
-  | 'work'
-  | 'fees'
-  | 'settlement'
-  | 'interest'
+  // Haushalt
+  | 'household.groceries'
+  | 'household.clothing'
+  | 'household.healthcare'
+  | 'household.personal_care'
+  | 'household.cleaning'
+  // Wohnen
+  | 'housing.rent'
+  | 'housing.utilities'
+  | 'housing.repairs'
+  | 'housing.interior'
+  | 'housing.outdoor'
+  | 'housing.insurance'
+  // Mobilität
+  | 'transport.public'
+  | 'transport.fuel'
+  | 'transport.repairs'
+  | 'transport.fines'
+  | 'transport.purchase'
+  | 'transport.insurance'
+  // Kinder
+  | 'children.care'
+  | 'children.school'
+  | 'children.allowance'
+  // Freizeit
+  | 'leisure.vacation'
+  | 'leisure.hobbies'
+  | 'leisure.entertainment'
+  | 'leisure.memberships'
+  | 'leisure.dining'
+  | 'leisure.subscriptions'
+  // Persönlich
+  | 'personal.insurance'
+  | 'personal.communication'
+  | 'personal.work'
+  | 'personal.legal'
+  // Einnahmen
+  | 'income.earned'
+  | 'income.benefits'
+  | 'income.interest'
+  | 'income.other'
+  // Finanzen
+  | 'finance.savings'
+  | 'finance.debt'
+  | 'finance.investment'
+  | 'finance.fees'
+  | 'finance.settlement'
 
+/** The order here is the order in every dropdown — grouped entries first. */
 export const CATEGORY_LABEL: Record<Category, string> = {
-  income: 'Einnahmen',
+  'household.groceries': 'Lebensmittel',
+  'household.clothing': 'Kleidung',
+  'household.healthcare': 'Gesundheit',
+  'household.personal_care': 'Körperpflege',
+  'household.cleaning': 'Reinigung',
+
+  'housing.rent': 'Miete',
+  'housing.utilities': 'Nebenkosten',
+  'housing.repairs': 'Renovierung & Reparatur',
+  'housing.interior': 'Einrichtung',
+  'housing.outdoor': 'Außenbereich',
+  'housing.insurance': 'Versicherung & Steuern',
+
+  'transport.public': 'Öffentlicher Verkehr',
+  'transport.fuel': 'Kraftstoff',
+  'transport.repairs': 'Reparaturen',
+  'transport.fines': 'Bußgelder & Gebühren',
+  'transport.purchase': 'Fahrzeugkauf',
+  'transport.insurance': 'Versicherung & Steuern',
+
+  'children.care': 'Betreuung',
+  'children.school': 'Schulbedarf',
+  'children.allowance': 'Taschengeld',
+
+  'leisure.vacation': 'Urlaub',
+  'leisure.hobbies': 'Hobbys',
+  'leisure.entertainment': 'Unterhaltung & Spiele',
+  'leisure.memberships': 'Mitgliedschaften',
+  'leisure.dining': 'Essen gehen',
+  'leisure.subscriptions': 'Abos',
+
+  'personal.insurance': 'Versicherung',
+  'personal.communication': 'Kommunikation',
+  'personal.work': 'Beruf',
+  'personal.legal': 'Rechtliches',
+
+  'income.earned': 'Gehalt & Lohn',
+  'income.benefits': 'Transferleistungen',
+  'income.interest': 'Zinsen',
+  'income.other': 'Sonstige Einnahmen',
+
+  'finance.savings': 'Rücklagen',
+  'finance.debt': 'Tilgung',
+  'finance.investment': 'Investition',
+  'finance.fees': 'Gebühren',
+  'finance.settlement': 'Ausgleich',
+}
+
+const CATEGORY_GROUP_LABEL: Record<string, string> = {
+  household: 'Haushalt',
   housing: 'Wohnen',
-  insurance: 'Versicherung',
-  groceries: 'Lebensmittel',
-  health: 'Gesundheit',
-  mobility: 'Mobilität',
-  communication: 'Kommunikation',
+  transport: 'Mobilität',
   children: 'Kinder',
-  subscriptions: 'Abos',
   leisure: 'Freizeit',
-  vacation: 'Urlaub',
-  pocket_money: 'Taschengeld',
-  reserves: 'Rücklagen',
-  debt_repayment: 'Tilgung',
-  investment: 'Investition',
-  legal: 'Rechtliches',
-  work: 'Beruf',
-  fees: 'Gebühren',
-  settlement: 'Ausgleich',
-  interest: 'Zinsen',
+  personal: 'Persönlich',
+  income: 'Einnahmen',
+  finance: 'Finanzen',
+}
+
+/** Everything before the dot — mirrors `Category.group` in the backend. */
+export function categoryGroup(category: Category): string | null {
+  const dot = category.indexOf('.')
+  return dot === -1 ? null : category.slice(0, dot)
 }
 
 /**
- * **A suggestion only.** Mirrored from `BLOCK_SUGGESTION` in the backend.
+ * The categories in dropdown order, cut into their groups.
+ *
+ * Every category currently sits under a heading. A `label` of `null` is what an
+ * entry without a group would produce — it renders without a heading rather than
+ * disappearing, so adding an ungrouped value later cannot break the list.
+ */
+export const CATEGORY_GROUPS: { label: string | null; categories: Category[] }[] = (() => {
+  const groups: { label: string | null; categories: Category[] }[] = []
+
+  for (const category of Object.keys(CATEGORY_LABEL) as Category[]) {
+    const key = categoryGroup(category)
+    const label = key === null ? null : CATEGORY_GROUP_LABEL[key]
+    const previous = groups[groups.length - 1]
+
+    if (previous && previous.label === label) previous.categories.push(category)
+    else groups.push({ label, categories: [category] })
+  }
+
+  return groups
+})()
+
+/**
+ * **A suggestion only.** Mirrored from `BLOCK_SUGGESTION` in the backend, which
+ * derives it from the categories themselves.
  *
  * It preselects the obvious block in the form, nothing more — the user decides.
  * Deliberately not data logic: whether fuel is a need or a want depends on the
  * household.
  */
 export const BLOCK_SUGGESTION: Record<Category, Block> = {
-  income: 'income',
-  housing: 'needs',
-  insurance: 'needs',
-  groceries: 'needs',
-  health: 'needs',
-  mobility: 'needs',
-  communication: 'needs',
-  children: 'needs',
-  subscriptions: 'wants',
-  leisure: 'wants',
-  vacation: 'wants',
-  pocket_money: 'wants',
-  reserves: 'savings',
-  debt_repayment: 'savings',
+  'household.groceries': 'needs',
+  'household.clothing': 'needs',
+  'household.healthcare': 'needs',
+  'household.personal_care': 'needs',
+  'household.cleaning': 'needs',
+
+  'housing.rent': 'needs',
+  'housing.utilities': 'needs',
+  'housing.repairs': 'needs',
+  // Furnishing is a deliberate purchase — unlike a repair it can wait.
+  'housing.interior': 'wants',
+  'housing.outdoor': 'wants',
+  'housing.insurance': 'needs',
+
+  'transport.public': 'needs',
+  'transport.fuel': 'needs',
+  'transport.repairs': 'needs',
+  // Nobody plans a fine, but it is not a want either.
+  'transport.fines': 'needs',
+  'transport.purchase': 'wants',
+  'transport.insurance': 'needs',
+
+  'children.care': 'needs',
+  'children.school': 'needs',
+  'children.allowance': 'wants',
+
+  'leisure.vacation': 'wants',
+  'leisure.hobbies': 'wants',
+  'leisure.entertainment': 'wants',
+  'leisure.memberships': 'wants',
+  'leisure.dining': 'wants',
+  'leisure.subscriptions': 'wants',
+
+  'personal.insurance': 'needs',
+  'personal.communication': 'needs',
+  // Work expenses: caused by the job, paid from private money.
+  'personal.work': 'needs',
+  'personal.legal': 'needs',
+
+  'income.earned': 'income',
+  'income.benefits': 'income',
+  'income.interest': 'income',
+  'income.other': 'income',
+
+  'finance.savings': 'savings',
+  'finance.debt': 'savings',
   // Investments are ordinary wants — no special treatment, no group of their own,
   // no quota of their own.
-  investment: 'wants',
-  legal: 'needs',
-  // Work expenses: caused by the job, paid from private money.
-  work: 'needs',
+  'finance.investment': 'wants',
   // Account and card fees — they cannot be cancelled.
-  fees: 'needs',
+  'finance.fees': 'needs',
   // Reimbursing a household member. Not an expense in economic terms — exclude it
   // from household-wide evaluations, see issue #4.
-  settlement: 'needs',
-  interest: 'income',
+  'finance.settlement': 'needs',
 }
 
 export type Rhythm = 'monthly' | 'quarterly' | 'biannual' | 'annual'

@@ -19,12 +19,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { CategoryOptions } from '@/components/CategoryOptions'
+import { cn } from '@/lib/utils'
 import {
+  BLOCK_DOT,
   BLOCK_LABEL,
   BLOCK_SUGGESTION,
   BUDGET_ORDER,
-  CATEGORY_LABEL,
   PAYMENT_LABEL,
+  categoryGroup,
   type Block,
   type Category,
   type PaymentMethod,
@@ -42,15 +45,14 @@ import { useAccounts, useHouseholds } from '@/lib/queries'
  * commitment generates its positions itself, every month anew.
  */
 
-const CATEGORIES = Object.keys(CATEGORY_LABEL) as Category[]
 const PAYMENTS = Object.keys(PAYMENT_LABEL) as PaymentMethod[]
 
 /** The matching category, so the block does not jump the moment it is picked. */
 const DEFAULT_CATEGORY: Record<Block, Category> = {
-  income: 'income',
-  needs: 'housing',
-  wants: 'leisure',
-  savings: 'reserves',
+  income: 'income.earned',
+  needs: 'housing.rent',
+  wants: 'leisure.hobbies',
+  savings: 'finance.savings',
 }
 
 function emptyDraft(block: Block): PlanPosition {
@@ -120,6 +122,11 @@ export function PositionDialog({
   ) {
     setDraft((current) => ({ ...current, [key]: value }))
   }
+
+  // Every category under Einnahmen leads to the same budget, so there is nothing
+  // left to pick. Showing the field anyway asks the same question twice — under a
+  // heading that reads "Einnahmen" on both sides.
+  const blockIsFixed = categoryGroup(draft.category) === 'income'
 
   function handleCategory(category: Category) {
     setDraft((current) => ({
@@ -206,34 +213,37 @@ export function PositionDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {CATEGORIES.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {CATEGORY_LABEL[category]}
-                      </SelectItem>
-                    ))}
+                    <CategoryOptions />
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="flex flex-col gap-2">
                 <Label>Budget</Label>
-                <Select
-                  value={draft.block}
-                  onValueChange={(value) => set('block', value as Block)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {/* BUDGET_ORDER statt BUDGETS: sonst fehlt „Einnahmen"
-                        und ein Einnahme-Posten wäre nicht bearbeitbar. */}
-                    {BUDGET_ORDER.map((budget) => (
-                      <SelectItem key={budget} value={budget}>
-                        {BLOCK_LABEL[budget]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {blockIsFixed ? (
+                  <span className="flex h-9 items-center gap-2 text-sm font-medium">
+                    <span className={cn('size-2.5 rounded-sm', BLOCK_DOT[draft.block])} />
+                    {BLOCK_LABEL[draft.block]}
+                  </span>
+                ) : (
+                  <Select
+                    value={draft.block}
+                    onValueChange={(value) => set('block', value as Block)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {/* BUDGET_ORDER statt BUDGETS: sonst fehlt „Einnahmen"
+                          und ein Einnahme-Posten wäre nicht bearbeitbar. */}
+                      {BUDGET_ORDER.map((budget) => (
+                        <SelectItem key={budget} value={budget}>
+                          {BLOCK_LABEL[budget]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </div>
 

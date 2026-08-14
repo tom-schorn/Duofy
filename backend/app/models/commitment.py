@@ -8,7 +8,14 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.db.types import enum_column
-from app.models.enums import Block, Category, CommitmentType, PaymentMethod, Rhythm
+from app.models.enums import (
+    CATEGORY_LENGTH,
+    Block,
+    Category,
+    CommitmentType,
+    PaymentMethod,
+    Rhythm,
+)
 from app.models.mixins import TimestampMixin, UUIDMixin
 
 
@@ -52,7 +59,7 @@ class Commitment(UUIDMixin, TimestampMixin, Base):
 
     #: The user's choice. BLOCK_SUGGESTION preselects it in the frontend; for
     #: `debt` and `savings_goal`, resolve_block() overrides it.
-    category: Mapped[Category] = mapped_column(enum_column(Category))
+    category: Mapped[Category] = mapped_column(enum_column(Category, length=CATEGORY_LENGTH))
     block: Mapped[Block] = mapped_column(enum_column(Block))
 
     #: NULL means private. Set means generated positions appear in that household
