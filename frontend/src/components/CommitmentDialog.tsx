@@ -180,22 +180,27 @@ export function CommitmentDialog({
    */
   function handleType(type: CommitmentType) {
     const option = TYPE_OPTIONS.find((item) => item.value === type)!
-    setDraft((current) => ({
-      ...current,
-      type,
+    setDraft((current) => {
       // Only follow along with the category if it still holds the old suggestion.
-      category:
+      const category =
         current.category === typeOption.defaultCategory
           ? option.defaultCategory
-          : current.category,
-      block:
-        type === 'savings_goal' || type === 'debt'
-          ? 'savings'
-          : BLOCK_SUGGESTION[current.category],
-      targetAmount: type === 'savings_goal' ? current.targetAmount : null,
-      targetDate: type === 'savings_goal' ? current.targetDate : null,
-      remainingDebt: type === 'debt' ? current.remainingDebt : null,
-    }))
+          : current.category
+
+      return {
+        ...current,
+        type,
+        category,
+        // Derived from the category that is actually being kept, not from the one
+        // being replaced. Otherwise switching away from a savings goal takes the
+        // new category but leaves the budget on Sparen.
+        block:
+          type === 'savings_goal' || type === 'debt' ? 'savings' : BLOCK_SUGGESTION[category],
+        targetAmount: type === 'savings_goal' ? current.targetAmount : null,
+        targetDate: type === 'savings_goal' ? current.targetDate : null,
+        remainingDebt: type === 'debt' ? current.remainingDebt : null,
+      }
+    })
   }
 
   /** Changing the category preselects the block — not for goals and debts. */
