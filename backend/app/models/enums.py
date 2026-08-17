@@ -43,9 +43,10 @@ class CommitmentType(StrEnum):
     CONTRACT = "contract"
     SAVINGS_GOAL = "savings_goal"
     DEBT = "debt"
-    #: A recurring amount with no contract behind it — fuel, groceries, pocket
-    #: money. Behaves like a contract but is not one, and nobody sends a bill.
     BUDGET = "budget"
+    #: Money coming in — salary, child benefit, interest. Nobody signs a contract
+    #: to receive their own wage, so it is not one.
+    INCOME = "income"
 
 
 class Rhythm(StrEnum):
@@ -219,10 +220,11 @@ BLOCK_SUGGESTION: dict[Category, Block] = {category: category.block for category
 def resolve_block(chosen: Block, commitment_type: "CommitmentType | None" = None) -> Block:
     """Which 50/30/20 block applies to this position?
 
-    Two types are settled by arithmetic and override the choice:
+    Three types are settled by arithmetic and override the choice:
 
         debt          repayment is committed money  →  SAVINGS
         savings_goal  saving is saving              →  SAVINGS
+        income        money coming in is no block   →  INCOME
 
     Everything else is the user's call. Whether fuel is a need or a want depends
     on the household — one person drives to work, another drives for fun.
@@ -232,6 +234,8 @@ def resolve_block(chosen: Block, commitment_type: "CommitmentType | None" = None
     """
     if commitment_type in (CommitmentType.SAVINGS_GOAL, CommitmentType.DEBT):
         return Block.SAVINGS
+    elif commitment_type is CommitmentType.INCOME:
+        return Block.INCOME
     return chosen
 
 
