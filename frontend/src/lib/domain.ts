@@ -355,7 +355,8 @@ export type CommitmentType =
   | 'contract'
   | 'savings_goal'
   | 'debt'
-  /** A recurring amount with no contract: fuel, groceries, pocket money. */
+  /** Money coming in: salary, benefits, interest. Nobody signs a contract for it. */
+  | 'income'
   | 'budget'
 
 /** Mirror of `Commitment` — one table for every type. */

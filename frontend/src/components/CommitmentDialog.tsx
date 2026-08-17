@@ -105,6 +105,15 @@ const TYPE_OPTIONS: {
     namePlaceholder: 'Lebensmittel',
     defaultCategory: 'household.groceries',
   },
+  {
+    value: 'income',
+    label: 'Kommt rein',
+    hint: 'Gehalt, Kindergeld, Zinsen — Geld, das hereinkommt.',
+    budgetHint:
+      'Einnahmen sind kein Verbrauch — aus ihnen entsteht erst das Budget, auf das sich die Quoten beziehen.',
+    namePlaceholder: 'Gehalt',
+    defaultCategory: 'income.earned',
+  },
 ]
 
 const PAYMENTS = Object.keys(PAYMENT_LABEL) as PaymentMethod[]
@@ -164,11 +173,14 @@ export function CommitmentDialog({
   // overrides them anyway. A budget chooses freely: whether fuel is a need or a
   // want depends on the household.
   const typeForcesSavings = draft.type === 'savings_goal' || draft.type === 'debt'
+  // Income is settled the same way, only by resolve_block() sending it to INCOME.
+  const typeForcesIncome = draft.type === 'income'
 
   // An income category settles the budget just as firmly: all four of them lead to
   // Einnahmen. Kept apart from the type, because handleCategory has to know which
   // of the two is talking.
-  const blockIsFixed = typeForcesSavings || categoryGroup(draft.category) === 'income'
+  const blockIsFixed =
+    typeForcesSavings || typeForcesIncome || categoryGroup(draft.category) === 'income'
 
   function set<K extends keyof Commitment>(key: K, value: Commitment[K]) {
     setDraft((current) => ({ ...current, [key]: value }))
@@ -181,11 +193,15 @@ export function CommitmentDialog({
   function handleType(type: CommitmentType) {
     const option = TYPE_OPTIONS.find((item) => item.value === type)!
     setDraft((current) => {
-      // Only follow along with the category if it still holds the old suggestion.
+      // Only follow along with the category if it still holds the old suggestion —
+      // or if it sits on the wrong side of the income line. The income group and
+      // the income type belong together in both directions: a salary filed under
+      // Miete is as wrong as a contract filed under Gehalt.
+      const categoryFits = (categoryGroup(current.category) === 'income') === (type === 'income')
       const category =
-        current.category === typeOption.defaultCategory
-          ? option.defaultCategory
-          : current.category
+        categoryFits && current.category !== typeOption.defaultCategory
+          ? current.category
+          : option.defaultCategory
 
       return {
         ...current,
@@ -195,7 +211,11 @@ export function CommitmentDialog({
         // being replaced. Otherwise switching away from a savings goal takes the
         // new category but leaves the budget on Sparen.
         block:
-          type === 'savings_goal' || type === 'debt' ? 'savings' : BLOCK_SUGGESTION[category],
+          type === 'savings_goal' || type === 'debt'
+            ? 'savings'
+            : type === 'income'
+              ? 'income'
+              : BLOCK_SUGGESTION[category],
         targetAmount: type === 'savings_goal' ? current.targetAmount : null,
         targetDate: type === 'savings_goal' ? current.targetDate : null,
         remainingDebt: type === 'debt' ? current.remainingDebt : null,
@@ -208,7 +228,11 @@ export function CommitmentDialog({
     setDraft((current) => ({
       ...current,
       category,
-      block: typeForcesSavings ? 'savings' : BLOCK_SUGGESTION[category],
+      block: typeForcesSavings
+        ? 'savings'
+        : typeForcesIncome
+          ? 'income'
+          : BLOCK_SUGGESTION[category],
     }))
   }
 
