@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useSearchParams } from 'react-router'
 
+import { HelpPanel } from '@/components/HelpPanel'
 import { MemberSwitcher } from '@/components/MemberSwitcher'
 import { useHouseholds } from '@/lib/queries'
 
@@ -149,8 +150,14 @@ export function AppLayout() {
           <ThemeToggle />
         </header>
 
-        <div className="flex-1 p-6">
-          <Outlet />
+        {/* Die Erklärspalte steht neben dem Inhalt, nicht darüber: sie erklärt
+            die Seite, die man gerade liest. Unter 1280 px blendet sie sich aus —
+            zwei Spalten nebeneinander wären dort beide zu schmal. */}
+        <div className="flex flex-1 items-start">
+          <div className="min-w-0 flex-1 p-6">
+            <Outlet />
+          </div>
+          <HelpPanel />
         </div>
       </SidebarInset>
     </SidebarProvider>
