@@ -12,7 +12,7 @@ cp .env.local.example .env.local
 uv sync
 
 # Datenbank (aus dem Projekt-Root)
-docker compose up -d
+docker compose -f compose.dev.yaml up -d
 
 # App
 uv run uvicorn app.main:app --reload
@@ -65,7 +65,7 @@ Läuft auf Port **5433** (nicht 5432), damit es sich nicht mit anderen lokalen
 Datenbanken beißt.
 
 ```bash
-docker compose logs -f db     # Logs
-docker compose down           # stoppen
-docker compose down -v        # stoppen + Daten löschen
+docker compose -f compose.dev.yaml logs -f db   # Logs
+docker compose -f compose.dev.yaml down         # stoppen
+docker compose -f compose.dev.yaml down -v      # stoppen + Daten löschen
 ```
