@@ -354,10 +354,17 @@ export function useDeleteCommitment() {
 
 // --- Plans ------------------------------------------------------------------
 
-export function usePlans() {
+/**
+ * Every month, newest first — your own or those of a member who granted insight.
+ *
+ * The owner is part of the key, otherwise their months would overwrite yours in
+ * the cache the moment you switch.
+ */
+export function usePlans(ownerId: string | null = null) {
   return useQuery({
-    queryKey: keys.plans,
-    queryFn: () => api.get<PlanSummary[]>('/plans'),
+    queryKey: [...keys.plans, ownerId ?? 'me'] as const,
+    queryFn: () =>
+      api.get<PlanSummary[]>(ownerId === null ? '/plans' : `/plans?owner=${ownerId}`),
   })
 }
 

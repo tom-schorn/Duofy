@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { errorText } from '@/lib/api'
+import { useActiveMember } from '@/hooks/use-active-member'
 import { useCreatePlan, useHouseholds, usePlans } from '@/lib/queries'
 import {
   BLOCK_DOT,
@@ -47,7 +48,11 @@ import {
 const OVER_QUOTA = 100
 
 export function PlansPage() {
-  const plans = usePlans()
+  // `?member=` shows the months of a person who granted insight — see
+  // `MemberSwitcher`. Creating stays with the owner: a month belongs to whoever
+  // plans it, and nobody plans somebody else's first month for them.
+  const active = useActiveMember()
+  const plans = usePlans(active.id)
   const households = useHouseholds()
   const [creating, setCreating] = useState(false)
 
@@ -61,26 +66,31 @@ export function PlansPage() {
         <div className="flex flex-col gap-2">
           <h1 className="font-heading text-3xl font-semibold">Planung</h1>
           <p className="text-muted-foreground">
-            Deine Monatspläne. Klick einen an, um ihn zu verplanen.
+            {active.member === null
+              ? 'Deine Monatspläne. Klick einen an, um ihn zu verplanen.'
+              : `Die Monatspläne von ${active.member.firstName}. Klick einen an, um hineinzuschauen.`}
           </p>
         </div>
-        <Button onClick={() => setCreating(true)}>
-          <Plus className="size-4" />
-          Monat anlegen
-        </Button>
+        {active.id === null && (
+          <Button onClick={() => setCreating(true)}>
+            <Plus className="size-4" />
+            Monat anlegen
+          </Button>
+        )}
       </header>
 
       <QueryState isPending={plans.isPending} error={plans.error}>
         {plans.data?.length === 0 ? (
           <p className="text-muted-foreground border-border rounded-lg border border-dashed p-10 text-center text-sm">
-            Noch kein Monat angelegt. Leg einen an — die Posten aus deinen
-            Verträgen entstehen dabei von selbst.
+            {active.member === null
+              ? 'Noch kein Monat angelegt. Leg einen an — die Posten aus deinen Verträgen entstehen dabei von selbst.'
+              : `${active.member.firstName} hat noch keinen Monat angelegt.`}
           </p>
         ) : (
           <ul className="flex flex-col gap-3">
             {plans.data?.map((plan) => (
               <li key={`${plan.year}-${plan.month}`}>
-                <PlanCard plan={plan} householdNames={names} />
+                <PlanCard plan={plan} householdNames={names} ownerId={active.id} />
               </li>
             ))}
           </ul>
@@ -95,9 +105,12 @@ export function PlansPage() {
 function PlanCard({
   plan,
   householdNames,
+  ownerId,
 }: {
   plan: PlanSummary
   householdNames: Record<string, string>
+  /** Whose month this is, or null for your own. */
+  ownerId: string | null
 }) {
   const unpaid = Number(plan.unpaid)
   const unpaidLabel = unpaid > 0 ? euro.format(unpaid) : 'alles bezahlt'
@@ -106,7 +119,12 @@ function PlanCard({
 
   return (
     <Link
-      to={`/plan/${plan.year}/${String(plan.month).padStart(2, '0')}`}
+      // The person travels with the link — without it a foreign month would open
+      // your own August, or nothing at all.
+      to={{
+        pathname: `/plan/${plan.year}/${String(plan.month).padStart(2, '0')}`,
+        search: ownerId === null ? '' : `?member=${ownerId}`,
+      }}
       className="bg-card ring-foreground/10 hover:ring-ring focus-visible:ring-ring flex flex-col gap-4 rounded-xl p-5 ring-1 transition-[box-shadow]"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
