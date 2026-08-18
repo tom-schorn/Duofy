@@ -637,16 +637,45 @@ export type Role = 'owner' | 'member'
  */
 export type AccessLevel = 'plan' | 'view' | 'edit'
 
-export const ACCESS_LABEL: Record<AccessLevel, string> = {
-  plan: 'Nur gemeinsame Posten',
-  view: 'Buch und Konten sichtbar',
-  edit: 'Darf auch ändern',
+/**
+ * What a level means, per area — the same word promises different things.
+ * "Sehen" on a month is the shared plan plus the private positions; on a contract
+ * it is the contract itself, which nobody used to be able to share at all.
+ */
+export const ACCESS_LABEL: Record<Area, Record<AccessLevel, string>> = {
+  plan: {
+    plan: 'Nur gemeinsame Posten',
+    view: 'Ganzer Monat sichtbar',
+    edit: 'Darf auch ändern',
+  },
+  commitments: {
+    plan: 'Nichts',
+    view: 'Verträge sichtbar',
+    edit: 'Darf auch ändern',
+  },
+  accounts: {
+    plan: 'Nichts',
+    view: 'Buch und Konten sichtbar',
+    edit: 'Darf auch ändern',
+  },
 }
 
-export const ACCESS_HINT: Record<AccessLevel, string> = {
-  plan: 'Der Partner sieht, was ihr gemeinsam plant — sonst nichts.',
-  view: 'Der Partner sieht zusätzlich deine Buchungen, Kontostände und privaten Posten.',
-  edit: 'Der Partner darf deine Posten außerdem ändern und abhaken.',
+export const ACCESS_HINT: Record<Area, Record<AccessLevel, string>> = {
+  plan: {
+    plan: 'Der Partner sieht, was ihr gemeinsam plant — sonst nichts.',
+    view: 'Der Partner sieht zusätzlich deine privaten Posten des Monats.',
+    edit: 'Der Partner darf deine Posten außerdem ändern und abhaken.',
+  },
+  commitments: {
+    plan: 'Deine Verträge, Sparziele und Schulden bleiben für sich.',
+    view: 'Der Partner sieht, was bei dir fest läuft — Betrag, Rhythmus, Kategorie.',
+    edit: 'Der Partner darf deine Verträge außerdem anlegen und ändern.',
+  },
+  accounts: {
+    plan: 'Deine Konten und Buchungen bleiben für sich.',
+    view: 'Der Partner sieht deine Kontostände und jede Buchung darauf.',
+    edit: 'Der Partner darf außerdem buchen und Buchungen ändern.',
+  },
 }
 
 export const ACCESS_ORDER: AccessLevel[] = ['plan', 'view', 'edit']
@@ -657,8 +686,36 @@ export type Member = {
   lastName: string
   email: string
   role: Role
-  /** What this person allows the others to see about themselves. */
-  grantsAccess: AccessLevel
+  /**
+   * What this person allows the others to see about themselves, one level per
+   * area. Sharing the month you plan is a small step; handing over the contracts
+   * behind it is a much larger one, so they are answered separately.
+   */
+  grantsPlan: AccessLevel
+  grantsCommitments: AccessLevel
+  /** Covers the book too — an account you may see comes with its bookings. */
+  grantsAccounts: AccessLevel
+}
+
+/** The three areas a grant can be given for. Mirrors `Area` in the backend. */
+export type Area = 'plan' | 'commitments' | 'accounts'
+
+export const AREA_LABEL: Record<Area, string> = {
+  plan: 'Planung',
+  commitments: 'Verträge',
+  accounts: 'Konten und Buch',
+}
+
+export const AREA_ORDER: Area[] = ['plan', 'commitments', 'accounts']
+
+/** The `Member` fields the levels live in. */
+export type AreaField = 'grantsPlan' | 'grantsCommitments' | 'grantsAccounts'
+
+/** Which field on `Member` carries the level for an area. */
+export const AREA_FIELD: Record<Area, AreaField> = {
+  plan: 'grantsPlan',
+  commitments: 'grantsCommitments',
+  accounts: 'grantsAccounts',
 }
 
 export type Household = {
@@ -716,17 +773,6 @@ export type PlanSummary = Plan & {
 }
 
 /** A plan together with its positions. */
-/**
- * Another person plan — a view into it, not a plan of your own.
- *
- * `mayEdit` only says whether the UI may offer buttons. The actual check happens on
- * the writing endpoint, not here.
- */
-export type MemberPlanDetail = PlanDetail & {
-  ownerId: string
-  ownerName: string
-  mayEdit: boolean
-}
 
 export type PlanDetail = PlanSummary & {
   id: string

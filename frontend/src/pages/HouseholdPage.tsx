@@ -43,8 +43,12 @@ import {
   ACCESS_HINT,
   ACCESS_LABEL,
   ACCESS_ORDER,
+  AREA_FIELD,
+  AREA_LABEL,
+  AREA_ORDER,
   type AccessLevel,
   type Household,
+  type Member,
   type Role,
 } from '@/lib/domain'
 
@@ -141,14 +145,15 @@ export function HouseholdPage() {
                         Text da — man soll sehen, was man von ihnen sieht. */}
                     <span className="w-full pl-11">
                       {isMe ? (
-                        <AccessChoice
-                          householdId={household.id}
-                          value={member.grantsAccess}
-                        />
+                        <AccessChoice householdId={household.id} member={member} />
                       ) : (
-                        <span className="text-muted-foreground text-xs">
-                          {member.firstName} teilt:{' '}
-                          {ACCESS_LABEL[member.grantsAccess].toLowerCase()}
+                        <span className="text-muted-foreground flex flex-col gap-0.5 text-xs">
+                          {AREA_ORDER.map((area) => (
+                            <span key={area}>
+                              {AREA_LABEL[area]}:{' '}
+                              {ACCESS_LABEL[area][member[AREA_FIELD[area]]].toLowerCase()}
+                            </span>
+                          ))}
                         </span>
                       )}
                     </span>
@@ -219,8 +224,9 @@ function HouseholdHeader({
                 Umbenennen
               </DropdownMenuItem>
             )}
-            {/* Die eingebrachten Posten bleiben bestehen und werden wieder
-                privat — `household_id` steht auf ON DELETE SET NULL. */}
+            {/* Die eingebrachten Posten bleiben im Haushalt stehen — vergangene
+                Monate werden nicht umgeschrieben. In neue Pläne fließt nichts
+                mehr, dafür fehlt die Mitgliedschaft. */}
             <DropdownMenuItem
               variant="destructive"
               className="gap-2"
@@ -463,35 +469,51 @@ function CreateHouseholdButton() {
  */
 function AccessChoice({
   householdId,
-  value,
+  member,
 }: {
   householdId: string
-  value: AccessLevel
+  member: Member
 }) {
   const save = useSetMyAccess(householdId)
 
   return (
-    <span className="flex flex-col gap-1">
-      <span className="flex flex-wrap items-center gap-2">
-        <span className="text-muted-foreground text-xs">Du teilst:</span>
-        <Select
-          value={value}
-          onValueChange={(next) => save.mutate(next as AccessLevel)}
-          disabled={save.isPending}
-        >
-          <SelectTrigger className="h-8 w-64 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {ACCESS_ORDER.map((level) => (
-              <SelectItem key={level} value={level}>
-                {ACCESS_LABEL[level]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </span>
-      <span className="text-muted-foreground text-xs">{ACCESS_HINT[value]}</span>
+    <span className="flex flex-col gap-3">
+      <span className="text-muted-foreground text-xs">Du teilst:</span>
+
+      {AREA_ORDER.map((area) => {
+        const level = member[AREA_FIELD[area]]
+        return (
+          <span key={area} className="flex flex-col gap-1">
+            <span className="flex flex-wrap items-center gap-2">
+              <span className="w-32 text-xs font-medium">{AREA_LABEL[area]}</span>
+              <Select
+                value={level}
+                // Only this area travels. What the call leaves out keeps its
+                // level, so the other two are not touched.
+                onValueChange={(next) =>
+                  save.mutate({ [AREA_FIELD[area]]: next as AccessLevel })
+                }
+                disabled={save.isPending}
+              >
+                <SelectTrigger className="h-8 w-64 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ACCESS_ORDER.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {ACCESS_LABEL[area][option]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </span>
+            <span className="text-muted-foreground pl-34 text-xs">
+              {ACCESS_HINT[area][level]}
+            </span>
+          </span>
+        )
+      })}
+
       {save.isError && (
         <span role="alert" className="text-destructive text-xs">
           {errorText(save.error)}

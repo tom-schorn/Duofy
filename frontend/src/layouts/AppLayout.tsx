@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useSearchParams } from 'react-router'
 
-import { useHouseholds, useMe } from '@/lib/queries'
+import { MemberSwitcher } from '@/components/MemberSwitcher'
+import { useHouseholds } from '@/lib/queries'
 
 import { CalendarRange, FileText, Users, Wallet } from 'lucide-react'
 
@@ -51,21 +52,22 @@ const NAV = [
 
 export function AppLayout() {
   const households = useHouseholds().data ?? []
-  const me = useMe().data
   // The sub-entry points at the current month — there is no "current" household
   // plan otherwise, it is composed from positions.
   const now = new Date()
   const [params] = useSearchParams()
   const active = params.get('household')
   const activeMember = params.get('member')
+  const navSearch = activeMember === null ? '' : `?member=${activeMember}`
 
   return (
     <SidebarProvider>
       <Sidebar collapsible="icon">
-        <SidebarHeader>
+        <SidebarHeader className="gap-2">
           <span className="font-heading px-2 pt-1 text-lg font-semibold group-data-[collapsible=icon]:hidden">
             Duofy
           </span>
+          <MemberSwitcher />
         </SidebarHeader>
 
         <SidebarContent>
@@ -74,7 +76,10 @@ export function AppLayout() {
               <SidebarMenu>
                 {NAV.map((item) => (
                   <SidebarMenuItem key={item.to}>
-                    <NavLink to={item.to} end>
+                    {/* Die gewählte Person reist mit. Ohne das fiele man beim
+                        ersten Klick auf „Verträge" wieder auf sich selbst
+                        zurück, ohne dass es jemand ansagt. */}
+                    <NavLink to={{ pathname: item.to, search: navSearch }} end>
                       {({ isActive }) => (
                         <SidebarMenuButton
                           isActive={isActive}
@@ -106,31 +111,6 @@ export function AppLayout() {
                             </NavLink>
                           </SidebarMenuSubItem>
                         ))}
-
-                        {/* Personen, die Einblick gegeben haben. Kein
-                            Umschalter, sondern ein Ort — dieselbe Begründung
-                            wie beim gemeinsamen Plan. Wer nur die gemeinsamen
-                            Posten teilt, erscheint hier nicht. */}
-                        {households
-                          .flatMap((household) => household.members)
-                          .filter(
-                            (member) =>
-                              member.userId !== me?.id &&
-                              member.grantsAccess !== 'plan'
-                          )
-                          .map((member) => (
-                            <SidebarMenuSubItem key={member.userId}>
-                              <NavLink
-                                to={`/plan/${now.getFullYear()}/${now.getMonth() + 1}?member=${member.userId}`}
-                              >
-                                <SidebarMenuSubButton
-                                  isActive={activeMember === member.userId}
-                                >
-                                  <span>{member.firstName}</span>
-                                </SidebarMenuSubButton>
-                              </NavLink>
-                            </SidebarMenuSubItem>
-                          ))}
                       </SidebarMenuSub>
                     )}
                   </SidebarMenuItem>

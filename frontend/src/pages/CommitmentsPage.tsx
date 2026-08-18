@@ -21,6 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { useActiveMember } from '@/hooks/use-active-member'
 import {
   useCommitments,
   useDeleteCommitment,
@@ -79,7 +80,12 @@ function typeDetail(commitment: Commitment) {
 }
 
 export function CommitmentsPage() {
-  const commitments = useCommitments()
+  // `?member=` shows somebody else's commitments — see `MemberSwitcher`. They are
+  // private by default: whoever shares nothing appears in no switcher, and the
+  // endpoint refuses the list anyway.
+  const active = useActiveMember()
+  const commitments = useCommitments(active.id)
+  const mayEdit = active.levelFor('commitments') === 'edit'
   const households = useHouseholds()
   const save = useSaveCommitment()
   const remove = useDeleteCommitment()
@@ -136,14 +142,17 @@ export function CommitmentsPage() {
         <div className="flex flex-col gap-2">
           <h1 className="font-heading text-3xl font-semibold">Verträge</h1>
           <p className="text-muted-foreground">
-            Alles Wiederkehrende — Miete, Abos, Sparpläne, Kredite. Einmal
-            angelegt, erzeugt es seine Posten selbst.
+            {active.member === null
+              ? 'Alles Wiederkehrende — Miete, Abos, Sparpläne, Kredite. Einmal angelegt, erzeugt es seine Posten selbst.'
+              : `Die Verträge von ${active.member.firstName}. ${mayEdit ? 'Du darfst sie ändern.' : 'Nur zum Ansehen.'}`}
           </p>
         </div>
-        <Button onClick={handleAdd}>
-          <Plus className="size-4" />
-          Vertrag anlegen
-        </Button>
+        {mayEdit && (
+          <Button onClick={handleAdd}>
+            <Plus className="size-4" />
+            Vertrag anlegen
+          </Button>
+        )}
       </header>
 
       <QueryState isPending={commitments.isPending} error={commitments.error}>
@@ -207,6 +216,7 @@ export function CommitmentsPage() {
                             variant="ghost"
                             size="icon"
                             className="size-8"
+                            disabled={!mayEdit}
                             aria-label={`${commitment.name} bearbeiten oder löschen`}
                           >
                             <MoreHorizontal className="size-4" />

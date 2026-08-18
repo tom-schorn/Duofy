@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
 from app.core.permissions import (
+    Area,
     granted_level,
     is_member,
     require,
@@ -79,7 +80,7 @@ async def _scope(
     """
     if household is not None:
         require(await is_member(session, user.id, household), "not_household_member")
-        return await viewable_members(session, household, user.id)
+        return await viewable_members(session, household, user.id, Area.ACCOUNTS)
     return [await _target_owner(session, owner, user)]
 
 
@@ -95,7 +96,7 @@ async def _target_owner(
     if owner is None or owner == user.id:
         return user.id
 
-    level = await granted_level(session, owner, user.id)
+    level = await granted_level(session, owner, user.id, Area.ACCOUNTS)
     require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
     return owner
 

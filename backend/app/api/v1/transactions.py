@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
 from app.core.permissions import (
+    Area,
     granted_level,
     is_member,
     require,
@@ -49,7 +50,7 @@ async def _may_book_for(session: AsyncSession, booking_owner: uuid.UUID, user: U
     """
     if booking_owner == user.id:
         return
-    level = await granted_level(session, booking_owner, user.id)
+    level = await granted_level(session, booking_owner, user.id, Area.ACCOUNTS)
     require(level is AccessLevel.EDIT, "no_edit_granted")
 
 
@@ -143,9 +144,9 @@ async def list_transactions(
     # owner decides, not the reader.
     if household is not None:
         require(await is_member(session, user.id, household), "not_household_member")
-        owner_ids = await viewable_members(session, household, user.id)
+        owner_ids = await viewable_members(session, household, user.id, Area.ACCOUNTS)
     elif owner is not None and owner != user.id:
-        level = await granted_level(session, owner, user.id)
+        level = await granted_level(session, owner, user.id, Area.ACCOUNTS)
         require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
         owner_ids = [owner]
     else:

@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
 from app.core.permissions import (
+    Area,
     can_assign_to_household,
     granted_level,
     owns_plan,
@@ -62,7 +63,7 @@ async def _load(
     # `allow_delegate=False` on delete: changing is reversible and recorded,
     # deleting is neither.
     require(allow_delegate, "not_allowed")
-    level = await granted_level(session, plan.user_id, user.id)
+    level = await granted_level(session, plan.user_id, user.id, Area.PLAN)
     require(level is AccessLevel.EDIT, "no_edit_granted")
     return position, plan
 

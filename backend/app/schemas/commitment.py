@@ -89,3 +89,4 @@ class CommitmentRead(CommitmentBase):
     id: uuid.UUID
     type: CommitmentType
     owner_id: uuid.UUID
+
