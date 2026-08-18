@@ -127,13 +127,23 @@ async def _load_plan(session: AsyncSession, plan_id: uuid.UUID, user: User) -> P
 
 @router.get("", response_model=list[PlanSummary])
 async def list_plans(
+    owner: uuid.UUID | None = None,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> list[PlanSummary]:
-    """Alle eigenen Monatspläne, neueste zuerst."""
+    """Monatspläne, neueste zuerst.
+
+    Ohne `owner` die eigenen, mit `owner` die einer Person, die mindestens `view`
+    auf `Area.PLAN` gegeben hat — dieselbe Regel wie beim einzelnen Monat.
+    """
+    owner_id = owner or user.id
+    if owner_id != user.id:
+        level = await granted_level(session, owner_id, user.id, Area.PLAN)
+        require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
+
     result = await session.execute(
         select(Plan)
-        .where(Plan.user_id == user.id)
+        .where(Plan.user_id == owner_id)
         .options(selectinload(Plan.positions))
         .order_by(Plan.year.desc(), Plan.month.desc())
     )
