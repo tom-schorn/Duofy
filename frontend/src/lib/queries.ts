@@ -12,6 +12,7 @@ import { OWN_SCOPE, scopeKey, scopeQuery } from '@/lib/domain'
 import type {
   AccessLevel,
   Account,
+  AreaField,
   BookScope,
   BalanceHistory,
   Commitment,
@@ -20,7 +21,6 @@ import type {
   Invitation,
   Me,
   Member,
-  MemberPlanDetail,
   MyInvitation,
   PlanDetail,
   PlanPosition,
@@ -44,6 +44,7 @@ export const keys = {
   accounts: ['accounts'] as const,
   accountsIn: (scope: BookScope) => ['accounts', scopeKey(scope)] as const,
   commitments: ['commitments'] as const,
+  commitmentsOf: (ownerId: string | null) => ['commitments', ownerId ?? 'me'] as const,
   /** Every month — for invalidating when it is unclear which one is affected. */
   allTransactions: ['transactions'] as const,
   balanceHistory: (
@@ -63,11 +64,12 @@ export const keys = {
   transactions: (year: number, month: number, scope: BookScope = OWN_SCOPE) =>
     ['transactions', scopeKey(scope), year, month] as const,
   plans: ['plans'] as const,
+  /** Prefix of every single-person plan — invalidating it hits yours and theirs. */
   plan: (year: number, month: number) => ['plans', year, month] as const,
+  planOf: (year: number, month: number, ownerId: string | null) =>
+    ['plans', year, month, ownerId ?? 'me'] as const,
   householdPlan: (householdId: string, year: number, month: number) =>
     ['plans', 'household', householdId, year, month] as const,
-  memberPlan: (ownerId: string, year: number, month: number) =>
-    ['plans', 'member', ownerId, year, month] as const,
 }
 
 // --- User -----------------------------------------------------------------
@@ -115,16 +117,16 @@ export function useLeaveHousehold() {
 }
 
 /**
- * Change your own access level in a household.
+ * Change your own access levels in a household.
  *
- * Your own only, hence no member in the call. Afterwards what the others see
- * changes, so plans and accounts have to be reloaded.
+ * Your own only, hence no member in the call. One area at a time: the endpoint
+ * leaves out what the call does not mention, so the other two keep their level.
+ * Afterwards what the others see changes, so everything shared is reloaded.
  */
 export function useSetMyAccess(householdId: string) {
-  return useInvalidating<Member, AccessLevel>(
-    (grantsAccess) =>
-      api.patch(`/households/${householdId}/members/me`, { grantsAccess }),
-    [keys.households, keys.plans, keys.accounts],
+  return useInvalidating<Member, Partial<Record<AreaField, AccessLevel>>>(
+    (grants) => api.patch(`/households/${householdId}/members/me`, grants),
+    [keys.households, keys.plans, keys.accounts, keys.commitments],
     'Freigabe geändert'
   )
 }
@@ -312,10 +314,17 @@ export function useDeleteTransaction(
 
 // --- Commitments ------------------------------------------------------------
 
-export function useCommitments() {
+/**
+ * Commitments — your own, or those of a member who granted insight.
+ *
+ * The owner is part of the key: otherwise their list would overwrite your own in
+ * the cache the moment you switch to them.
+ */
+export function useCommitments(ownerId: string | null = null) {
   return useQuery({
-    queryKey: keys.commitments,
-    queryFn: () => api.get<Commitment[]>('/commitments'),
+    queryKey: keys.commitmentsOf(ownerId),
+    queryFn: () =>
+      api.get<Commitment[]>(ownerId === null ? '/commitments' : `/commitments?owner=${ownerId}`),
   })
 }
 
@@ -352,13 +361,29 @@ export function usePlans() {
   })
 }
 
-export function usePlan(year: number, month: number, enabled = true) {
+/**
+ * One month, whole — your own or that of a member who granted insight.
+ *
+ * Not the shared plan: that one merges everyone and shows only positions with a
+ * household. Here one person stands alone, private positions included.
+ */
+export function usePlan(
+  year: number,
+  month: number,
+  enabled = true,
+  ownerId: string | null = null
+) {
   return useQuery({
-    queryKey: keys.plan(year, month),
-    queryFn: () => api.get<PlanDetail>(`/plans/${year}/${month}`),
+    queryKey: keys.planOf(year, month, ownerId),
+    queryFn: () =>
+      api.get<PlanDetail>(
+        ownerId === null
+          ? `/plans/${year}/${month}`
+          : `/plans/${year}/${month}?owner=${ownerId}`
+      ),
     // A missing plan is not an error worth retrying.
     retry: false,
-    // In household mode your own plan is not needed.
+    // In household mode no single person's plan is needed.
     enabled,
   })
 }
@@ -375,26 +400,6 @@ export function useHouseholdPlan(
         `/plans/household/${householdId}/${year}/${month}`
       ),
     enabled: householdId !== null,
-    retry: false,
-  })
-}
-
-/**
- * The whole plan of a member who granted insight.
- *
- * Not the shared plan: that one merges everyone and shows positions with a
- * household only. Here one person stands alone, private positions included.
- */
-export function useMemberPlan(
-  ownerId: string | null,
-  year: number,
-  month: number
-) {
-  return useQuery({
-    queryKey: keys.memberPlan(ownerId ?? '', year, month),
-    queryFn: () =>
-      api.get<MemberPlanDetail>(`/plans/member/${ownerId}/${year}/${month}`),
-    enabled: ownerId !== null,
     retry: false,
   })
 }

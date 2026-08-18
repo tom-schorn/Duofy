@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { ArrowLeft, Eye, Pencil, Plus, Printer, Users } from 'lucide-react'
 
+import { useActiveMember } from '@/hooks/use-active-member'
 import { AccountCards } from '@/components/AccountCards'
 import { BookFlow } from '@/components/BookFlow'
 import { BookMetrics } from '@/components/BookMetrics'
@@ -44,7 +45,6 @@ import {
   useDeletePosition,
   useAccounts,
   useHouseholdPlan,
-  useMemberPlan,
   useHouseholds,
   useTransactions,
   usePlan,
@@ -63,7 +63,6 @@ import {
   type HouseholdPosition,
   type BookScope,
   type Member,
-  type MemberPlanDetail,
   type PlanDetail,
   type PlanPosition,
 } from '@/lib/domain'
@@ -93,12 +92,15 @@ export function PlanDetailPage() {
   // All three hooks are always present — React does not allow conditional hooks.
   // The unused ones are switched off through `enabled` and load nothing.
   const ownPlan = usePlan(Number(year), Number(month), !shared && !foreign)
+  // Name and level come from the member list the sidebar already loaded — the plan
+  // itself says nothing about whose it is, and it does not have to.
+  const active = useActiveMember()
   const householdPlan = useHouseholdPlan(
     householdId,
     Number(year),
     Number(month)
   )
-  const memberPlan = useMemberPlan(memberId, Number(year), Number(month))
+  const memberPlan = usePlan(Number(year), Number(month), foreign, memberId)
   const query = shared ? householdPlan : foreign ? memberPlan : ownPlan
 
   const households = useHouseholds()
@@ -147,6 +149,9 @@ export function PlanDetailPage() {
             ? memberPlan.data && (
                 <MemberPlanBody
                   plan={memberPlan.data}
+                  ownerId={memberId ?? ''}
+                  ownerName={active.member?.firstName ?? ''}
+                  mayEdit={active.levelFor('plan') === 'edit'}
                   householdNames={names}
                   tab={params.get('tab') ?? 'plan'}
                   onTab={setTab}
@@ -610,11 +615,18 @@ function PlanBody({
  */
 function MemberPlanBody({
   plan,
+  ownerId,
+  ownerName,
+  mayEdit,
   householdNames,
   tab,
   onTab,
 }: {
-  plan: MemberPlanDetail
+  plan: PlanDetail
+  ownerId: string
+  ownerName: string
+  /** Only decides whether buttons are offered. The endpoint checks it again. */
+  mayEdit: boolean
   householdNames: Record<string, string>
   tab: string
   onTab: (value: string) => void
@@ -644,7 +656,7 @@ function MemberPlanBody({
 
   // Acting on their behalf: tick off and change if the level allows it.
   // **Creating** stays out, see `canAdd` in BudgetSection.
-  const scope: BookScope = { kind: 'member', ownerId: plan.ownerId }
+  const scope: BookScope = { kind: 'member', ownerId }
 
   const togglePaid = useTogglePaid()
   const savePosition = useSavePosition()
@@ -670,9 +682,9 @@ function MemberPlanBody({
           </h1>
           <Badge variant="secondary" className="gap-1 font-normal">
             <Eye className="size-3" />
-            {plan.ownerName}
+            {ownerName}
           </Badge>
-          {plan.mayEdit && (
+          {mayEdit && (
             <Badge variant="outline" className="gap-1 font-normal">
               <Pencil className="size-3" />
               Vertretung
@@ -680,9 +692,9 @@ function MemberPlanBody({
           )}
         </div>
         <p className="text-muted-foreground">
-          {plan.ownerName}s ganzer Monat, auch die privaten Posten — so
+          {ownerName}s ganzer Monat, auch die privaten Posten — so
           freigegeben.{' '}
-          {plan.mayEdit
+          {mayEdit
             ? 'Du darfst abhaken und ändern; jede Änderung wird protokolliert.'
             : 'Nur zum Ansehen.'}
         </p>
@@ -732,7 +744,7 @@ function MemberPlanBody({
             year={plan.year}
             month={plan.month}
             scope={scope}
-            readOnly={!plan.mayEdit}
+            readOnly={!mayEdit}
           />
         </TabsContent>
 
@@ -746,7 +758,7 @@ function MemberPlanBody({
               onEdit={openEditor}
               onAdd={() => {}}
               onTogglePaid={toggle}
-              readOnly={!plan.mayEdit}
+              readOnly={!mayEdit}
               canAdd={false}
             />
 
@@ -760,7 +772,7 @@ function MemberPlanBody({
                 onEdit={openEditor}
                 onAdd={() => {}}
                 onTogglePaid={toggle}
-                readOnly={!plan.mayEdit}
+                readOnly={!mayEdit}
                 canAdd={false}
               />
             ))}
@@ -836,8 +848,10 @@ function HouseholdPlanBody({
 
   const scope: BookScope = { kind: 'household', householdId: plan.householdId }
   // Anybody sharing only the joint positions is missing from every book total.
+  // The book hangs on the accounts grant, not on the plan one — somebody can show
+  // their whole month and still keep their bookings to themselves.
   const stillPrivate = members
-    .filter((member) => member.grantsAccess === 'plan')
+    .filter((member) => member.grantsAccounts === 'plan')
     .map((member) => member.firstName)
 
   return (

@@ -17,6 +17,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.auth import current_active_user
 from app.core.permissions import (
+    Area,
     can_assign_to_household,
     granted_level,
     is_member,
@@ -33,7 +34,6 @@ from app.schemas.plan import (
     BudgetTotals,
     HouseholdPlanRead,
     HouseholdPositionRead,
-    MemberPlanRead,
     PlanCreate,
     PlanRead,
     PlanSummary,
@@ -213,12 +213,30 @@ async def create_plan(
 async def get_plan(
     year: int,
     month: int,
+    owner: uuid.UUID | None = None,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> PlanRead:
+    """One month, whole — private positions included.
+
+    Without `owner` your own month. With `owner` that person's, which needs at least
+    `view` on `Area.PLAN`; the level comes from them.
+
+    Private positions are deliberately part of it. A level that shows the book but
+    hides a position would not be a degree of trust but a gap — the booking would
+    stand in the book anyway.
+
+    Not the same as the household plan: that one shows only positions with a
+    `household_id` and merges every member.
+    """
+    owner_id = owner or user.id
+    if owner_id != user.id:
+        level = await granted_level(session, owner_id, user.id, Area.PLAN)
+        require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
+
     result = await session.execute(
         select(Plan)
-        .where(Plan.user_id == user.id, Plan.year == year, Plan.month == month)
+        .where(Plan.user_id == owner_id, Plan.year == year, Plan.month == month)
         .options(selectinload(Plan.positions))
     )
     plan = result.scalar_one_or_none()
@@ -271,54 +289,6 @@ async def create_position(
 
 
 # --- Haushaltssicht -------------------------------------------------------
-
-
-@router.get("/member/{owner_id}/{year}/{month}", response_model=MemberPlanRead)
-async def get_member_plan(
-    owner_id: uuid.UUID,
-    year: int,
-    month: int,
-    session: AsyncSession = Depends(get_session),
-    user: User = Depends(current_active_user),
-) -> MemberPlanRead:
-    """The **whole** plan of a household member, private positions included.
-
-    Not the same as the shared plan: that one shows only positions with
-    `household_id` set and merges every member. Here one person stands alone, the
-    way they see their own month.
-
-    Verlangt mindestens Stufe `view` — und die gibt der Besitzer selbst, siehe
-    `AccessLevel`. Private Posten sind bewusst dabei: eine Stufe, die das Buch
-    zeigt, aber einen Posten verbirgt, wäre keine Vertrauensstufe, sondern eine
-    Lücke — im Buch stünde die Buchung ohnehin.
-
-    Die Route ist `/member/...`, nicht `/{owner_id}/...` — sonst käme sie
-    `/{year}/{month}` in den Weg.
-    """
-    level = await granted_level(session, owner_id, user.id)
-    require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
-
-    owner = await session.get(User, owner_id)
-    if owner is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "user_not_found"})
-
-    result = await session.execute(
-        select(Plan)
-        .where(Plan.user_id == owner_id, Plan.year == year, Plan.month == month)
-        .options(selectinload(Plan.positions))
-    )
-    plan = result.scalar_one_or_none()
-    if plan is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "plan_not_found"})
-
-    return MemberPlanRead(
-        owner_id=owner.id,
-        owner_name=owner.first_name,
-        # Tells the frontend whether to offer buttons. The real check still happens
-        # on the writing endpoint — this is presentation, not protection.
-        may_edit=level is AccessLevel.EDIT,
-        **_plan_read(plan).model_dump(),
-    )
 
 
 @router.get("/household/{household_id}/{year}/{month}", response_model=HouseholdPlanRead)

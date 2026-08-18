@@ -4,8 +4,9 @@ One table for all of them — `type` only says whether the thing has an end. A
 commitment can sit in any block: rent in needs, streaming in wants, a savings plan
 in savings.
 
-Commitments are **private**, even inside a shared household. A member never sees
-another member's contract — only the position it produces, and only if the owner
+Commitments are **private by default**, even inside a shared household. A member
+sees another member's contract only if that member granted `Area.COMMITMENTS`
+insight; without it they see the position it produces, and only if the owner
 attached that position to the household.
 """
 
@@ -16,10 +17,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
-from app.core.permissions import can_assign_to_household, owns_commitment, require
+from app.core.permissions import Area, can_assign_to_household, granted_level, require
 from app.db.session import get_session
 from app.models.commitment import Commitment
-from app.models.enums import resolve_block
+from app.models.enums import AccessLevel, resolve_block
 from app.models.user import User
 from app.schemas.commitment import CommitmentCreate, CommitmentRead, CommitmentUpdate
 
@@ -27,22 +28,44 @@ router = APIRouter()
 
 
 async def _load(session: AsyncSession, commitment_id: uuid.UUID, user: User) -> Commitment:
+    """Load a commitment the user is allowed to change.
+
+    Their own always, and somebody else’s only at level `edit` — the owner grants
+    that themselves. `granted_level()` answers `edit` for oneself, so there is no
+    separate case for the normal path.
+    """
     commitment = await session.get(Commitment, commitment_id)
     if commitment is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "commitment_not_found"})
-    require(owns_commitment(user, commitment), "not_commitment_owner")
+    level = await granted_level(session, commitment.owner_id, user.id, Area.COMMITMENTS)
+    require(level is AccessLevel.EDIT, "no_edit_granted")
     return commitment
 
 
 @router.get("", response_model=list[CommitmentRead])
 async def list_commitments(
+    owner: uuid.UUID | None = None,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> list[Commitment]:
-    """Every commitment of your own, active and retired alike."""
+    """Commitments, active and retired alike.
+
+    Without `owner` your own. With `owner` those of that person, which needs at
+    least `view` on `Area.COMMITMENTS` — and that level comes from them, not from
+    the asker.
+
+    The same shape as `/accounts` and `/transactions`: one route per resource, the
+    person as a parameter. Nothing tells the reader whether a list is their own, and
+    nothing has to.
+    """
+    owner_id = owner or user.id
+    if owner_id != user.id:
+        level = await granted_level(session, owner_id, user.id, Area.COMMITMENTS)
+        require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
+
     result = await session.execute(
         select(Commitment)
-        .where(Commitment.owner_id == user.id)
+        .where(Commitment.owner_id == owner_id)
         .order_by(Commitment.block, Commitment.amount.desc())
     )
     return list(result.scalars())

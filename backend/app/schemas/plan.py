@@ -148,14 +148,3 @@ class HouseholdPlanRead(PlanSummary):
     household_name: str
     positions: list[HouseholdPositionRead]
 
-
-class MemberPlanRead(PlanRead):
-    """Another person’s plan — a view into it, not a plan of your own.
-
-    `may_edit` is a hint for the frontend only, so it does not offer buttons that
-    would end in a 403. The actual check lives on the writing endpoint, not here.
-    """
-
-    owner_id: uuid.UUID
-    owner_name: str
-    may_edit: bool

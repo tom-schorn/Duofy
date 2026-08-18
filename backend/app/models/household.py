@@ -61,12 +61,24 @@ class HouseholdMember(UUIDMixin, TimestampMixin, Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     role: Mapped[Role] = mapped_column(enum_column(Role))
 
-    #: What this person allows the other members to see about themselves.
+    #: What this person allows the other members to see about themselves — one
+    #: level per kind of data, because the three answers genuinely differ. Sharing
+    #: the month you are planning is a small step; handing over the contracts
+    #: behind it is a much larger one.
     #:
-    #: Defaults to `plan`: the others see the shared positions and nothing else —
-    #: no book, no accounts, no private positions. Only the person themselves can
-    #: raise it, see `AccessLevel`.
-    grants_access: Mapped[AccessLevel] = mapped_column(
+    #: All three default to `plan`: the others see the shared positions and nothing
+    #: else — no book, no accounts, no contracts, no private positions. Only the
+    #: person themselves can raise them, see `AccessLevel`.
+    grants_plan: Mapped[AccessLevel] = mapped_column(
+        enum_column(AccessLevel), default=AccessLevel.PLAN
+    )
+    grants_commitments: Mapped[AccessLevel] = mapped_column(
+        enum_column(AccessLevel), default=AccessLevel.PLAN
+    )
+    #: Covers the book as well. An account you may look at comes with its bookings —
+    #: a level that shows the balance but hides how it got there would be a riddle,
+    #: not a permission.
+    grants_accounts: Mapped[AccessLevel] = mapped_column(
         enum_column(AccessLevel), default=AccessLevel.PLAN
     )
 

@@ -36,6 +36,8 @@ import {
   type Account,
   type AccountType,
 } from '@/lib/domain'
+import { useActiveMember } from '@/hooks/use-active-member'
+import { OWN_SCOPE } from '@/lib/domain'
 import { useAccounts, useDeleteAccount, useSaveAccount } from '@/lib/queries'
 
 /**
@@ -69,7 +71,13 @@ function emptyAccount(isFirst: boolean): Account {
 }
 
 export function AccountsPage() {
-  const accounts = useAccounts()
+  // `?member=` shows somebody else's accounts — see `MemberSwitcher`. Their level
+  // decides whether the page offers buttons; the endpoint checks it again anyway.
+  const active = useActiveMember()
+  const accounts = useAccounts(
+    active.id === null ? OWN_SCOPE : { kind: 'member', ownerId: active.id }
+  )
+  const mayEdit = active.levelFor('accounts') === 'edit'
   const [editing, setEditing] = useState<Account | null>(null)
   const [open, setOpen] = useState(false)
 
@@ -86,14 +94,17 @@ export function AccountsPage() {
         <div className="flex flex-col gap-2">
           <h1 className="font-heading text-3xl font-semibold">Konten</h1>
           <p className="text-muted-foreground max-w-2xl">
-            Wo dein Geld liegt. Konten sind privat — für die gemeinsame Planung
-            zählt, was auf den Posten steht.
+            {active.member === null
+              ? 'Wo dein Geld liegt. Konten sind privat — für die gemeinsame Planung zählt, was auf den Posten steht.'
+              : `Die Konten von ${active.member.firstName}. ${mayEdit ? 'Du darfst sie ändern.' : 'Nur zum Ansehen.'}`}
           </p>
         </div>
-        <Button onClick={add}>
-          <Plus className="size-4" />
-          Konto anlegen
-        </Button>
+        {mayEdit && (
+          <Button onClick={add}>
+            <Plus className="size-4" />
+            Konto anlegen
+          </Button>
+        )}
       </header>
 
       <QueryState isPending={accounts.isPending} error={accounts.error}>
@@ -110,6 +121,7 @@ export function AccountsPage() {
               <li key={account.id}>
                 <button
                   type="button"
+                  disabled={!mayEdit}
                   onClick={() => {
                     setEditing(account)
                     setOpen(true)
