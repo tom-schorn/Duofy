@@ -567,21 +567,30 @@ async def _settle_position(session: AsyncSession, position: PlanPosition | None)
     * **`amount_actual`** is the sum of the bookings assigned to the position.
       `_recalc_position` maintains it, and without calling it the month shows
       nothing spent while the money demonstrably left the account.
-    * **`paid_at`** is the tick, and only a **single payment** gets one.
-      Assigning a booking to the rent says "this is the payment for it", so
-      leaving the position open afterwards asks the user to confirm what they
-      just stated.
+    * **`paid_at`** is the tick, and a **single payment** only gets one once the
+      bookings assigned to it reach the planned amount. Assigning a payment says
+      "this is for that position"; assigning a **part** of it does not say the
+      position is settled. A 200 € transfer against 890 € of rent leaves it
+      open, and the next 690 € close it.
 
-    A budget position is **not** ticked. It fills up over the month from many
-    bookings, and a tick would claim groceries are finished for August because
-    one receipt arrived.
+    A budget position is **not** ticked at all. It fills up over the month from
+    many bookings, and a tick would claim groceries are finished for August
+    because one receipt arrived.
     """
     if position is None:
         return
 
     await _recalc_position(session, position.id)
 
-    if not position.is_budget and position.paid_at is None:
+    if position.is_budget or position.paid_at is not None:
+        return
+
+    # `_recalc_position` has just written `amount_actual`, so this reads the
+    # total of every booking on the position, not only the one just made.
+    if (
+        position.amount_actual is not None
+        and position.amount_actual >= position.amount_planned
+    ):
         position.paid_at = datetime.now(UTC)
 
 

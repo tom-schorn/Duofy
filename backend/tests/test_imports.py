@@ -990,3 +990,68 @@ async def test_a_budget_position_fills_up_but_is_not_ticked(
     assert budget.paid_at is None
 
     app.dependency_overrides.clear()
+
+
+async def test_a_part_payment_leaves_the_position_open(
+    client: AsyncClient, session: AsyncSession
+):
+    """Assigning part of a payment does not say the position is settled.
+
+    Two bookings against one rent: the first leaves it open, the second closes
+    it. The rule is the total against the planned amount, not "a booking
+    arrived" — otherwise a 200 € instalment would mark 890 € of rent as paid.
+    """
+    from app.models.plan import Plan, PlanPosition
+
+    user = await make_user(session, "Owner")
+    account = await make_account(session, user, iban=FILE_IBAN)
+
+    plan = Plan(user_id=user.id, year=2026, month=8)
+    session.add(plan)
+    await session.flush()
+    rent = PlanPosition(
+        plan_id=plan.id,
+        label="Miete",
+        amount_planned=Decimal("890.00"),
+        category=Category.HOUSING_RENT,
+        block=Block.NEEDS,
+        due_day=15,
+    )
+    session.add(rent)
+
+    for number, amount in ((1, Decimal("200.00")), (2, Decimal("690.00"))):
+        session.add(
+            ImportedEntry(
+                owner_id=user.id,
+                imported_by_id=user.id,
+                account_id=account.id,
+                external_ref=f"7{number:018d}",
+                occurred_on=date(2026, 8, 15),
+                value_on=date(2026, 8, 15),
+                amount=amount,
+                incoming=False,
+                counterparty_name="Wohnungsgesellschaft",
+            )
+        )
+    await session.commit()
+    sign_in(user)
+
+    rows = await parked(session, user)
+    teil = next(row for row in rows if row.amount == Decimal("200.00"))
+    rest = next(row for row in rows if row.amount == Decimal("690.00"))
+
+    await client.patch(f"/api/v1/imports/{teil.id}", json={"positionId": str(rent.id)})
+    await client.post(f"/api/v1/imports/{teil.id}/book")
+
+    await session.refresh(rent)
+    assert rent.amount_actual == Decimal("200.00")
+    assert rent.paid_at is None, "eine Teilzahlung erledigt die Miete nicht"
+
+    await client.patch(f"/api/v1/imports/{rest.id}", json={"positionId": str(rent.id)})
+    await client.post(f"/api/v1/imports/{rest.id}/book")
+
+    await session.refresh(rent)
+    assert rent.amount_actual == Decimal("890.00")
+    assert rent.paid_at is not None, "zusammen erreichen sie den geplanten Betrag"
+
+    app.dependency_overrides.clear()

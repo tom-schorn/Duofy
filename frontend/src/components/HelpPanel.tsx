@@ -23,6 +23,7 @@ const STORAGE_KEY = 'duofy.help.open'
 /** Which set of entries belongs to the current route. */
 function helpKeyFor(pathname: string, tab: string | null): HelpKey | null {
   if (pathname.startsWith('/plan/')) return tab === 'book' ? 'book' : 'plan'
+  if (pathname === '/book') return 'book'
   if (pathname === '/import') return 'import'
   if (pathname === '/plan') return 'plans'
   if (pathname === '/contracts') return 'commitments'
