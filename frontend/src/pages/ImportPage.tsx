@@ -16,12 +16,14 @@ import { errorText } from '@/lib/api'
 import { longDate } from '@/lib/dates'
 import {
   BLOCK_DOT,
+  CATEGORY_LABEL,
   OWN_SCOPE,
   atLeast,
   euro,
   type Category,
   type ImportedEntry,
   type ImportSummary,
+  type PlanPosition,
 } from '@/lib/domain'
 import {
   useAccounts,
@@ -29,6 +31,7 @@ import {
   useBookEntry,
   useDiscardEntry,
   useImportedEntries,
+  usePlansForMonths,
   useUploadStatement,
 } from '@/lib/queries'
 
@@ -70,6 +73,16 @@ export function ImportPage() {
 
   const rows = (entries.data ?? []).filter((entry) => entry.discardedAt === null)
   const open = rows.filter((entry) => entry.category === null).length
+
+  // Every parked entry needs the positions of **its own** month, and a pile
+  // usually spans two or three.
+  const months = uniqueMonths(rows)
+  const plans = usePlansForMonths(months, active.id)
+  const positionsByMonth = new Map<string, PlanPosition[]>()
+  months.forEach(({ year, month }, index) => {
+    const plan = plans[index]?.data
+    if (plan) positionsByMonth.set(`${year}-${month}`, plan.positions)
+  })
 
   return (
     <div className="flex flex-col gap-6">
@@ -128,7 +141,11 @@ export function ImportPage() {
               {rows.length} geparkt
               {open > 0 && ` · ${open} ohne Kategorie`}
             </p>
-            <EntryTable entries={rows} mayEdit={mayEdit} />
+            <EntryTable
+              entries={rows}
+              mayEdit={mayEdit}
+              positionsByMonth={positionsByMonth}
+            />
           </>
         )}
       </QueryState>
@@ -193,13 +210,34 @@ function Result({
   )
 }
 
+/** The positions of the month this entry falls into. */
+function positionsFor(
+  entry: ImportedEntry,
+  positionsByMonth: Map<string, PlanPosition[]>
+): PlanPosition[] {
+  const [year, month] = entry.occurredOn.split('-')
+  return positionsByMonth.get(`${Number(year)}-${Number(month)}`) ?? []
+}
+
 /** The parked entries, grouped by day. */
+/** The months a pile of entries falls into, each once. */
+function uniqueMonths(entries: ImportedEntry[]): { year: number; month: number }[] {
+  const seen = new Map<string, { year: number; month: number }>()
+  for (const entry of entries) {
+    const [year, month] = entry.occurredOn.split('-')
+    seen.set(`${year}-${Number(month)}`, { year: Number(year), month: Number(month) })
+  }
+  return [...seen.values()]
+}
+
 function EntryTable({
   entries,
   mayEdit,
+  positionsByMonth,
 }: {
   entries: ImportedEntry[]
   mayEdit: boolean
+  positionsByMonth: Map<string, PlanPosition[]>
 }) {
   const assign = useAssignEntry()
   const book = useBookEntry()
@@ -212,7 +250,15 @@ function EntryTable({
       <table className="w-full min-w-[52rem] border-collapse">
         <thead>
           <tr className="border-border border-b">
-            {['Datum', 'Empfänger / Zahler', 'Verwendungszweck', 'Betrag', 'Kategorie', ''].map(
+            {[
+              'Datum',
+              'Empfänger / Zahler',
+              'Verwendungszweck',
+              'Betrag',
+              'Posten im Plan',
+              'Kategorie',
+              '',
+            ].map(
               (head, index) => (
                 <th
                   key={head || index}
@@ -258,26 +304,62 @@ function EntryTable({
                   {euro.format(Number(entry.amount))}
                 </td>
                 <td className="px-3 py-2">
+                  <Select
+                    value={entry.positionId ?? 'none'}
+                    disabled={!mayEdit}
+                    onValueChange={(value) =>
+                      assign.mutate({
+                        id: entry.id,
+                        positionId: value === 'none' ? null : value,
+                      })
+                    }
+                  >
+                    <SelectTrigger className="h-8 max-w-[12rem]">
+                      <SelectValue placeholder="kein Posten" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">kein Posten</SelectItem>
+                      {positionsFor(entry, positionsByMonth).map((position) => (
+                        <SelectItem key={position.id} value={position.id}>
+                          {position.label}
+                          {position.isBudget ? ' · Budget' : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </td>
+                <td className="px-3 py-2">
                   <div className="flex items-center gap-2">
                     {entry.block && (
                       <span
                         className={`size-2 shrink-0 rounded-full ${BLOCK_DOT[entry.block]}`}
                       />
                     )}
-                    <Select
-                      value={entry.category ?? ''}
-                      disabled={!mayEdit}
-                      onValueChange={(value) =>
-                        assign.mutate({ id: entry.id, category: value as Category })
-                      }
-                    >
-                      <SelectTrigger className="h-8 max-w-[13rem]">
-                        <SelectValue placeholder="wählen …" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <CategoryOptions />
-                      </SelectContent>
-                    </Select>
+                    {entry.positionId !== null ? (
+                      // The position carries the category, so it is a
+                      // consequence here and not a question.
+                      <span
+                        className="text-sm"
+                        title="Kommt aus dem Posten"
+                      >
+                        {entry.category ? CATEGORY_LABEL[entry.category] : '—'}
+                      </span>
+                    ) : (
+                      <Select
+                        value={entry.category ?? ''}
+                        disabled={!mayEdit}
+                        onValueChange={(value) =>
+                          assign.mutate({ id: entry.id, category: value as Category })
+                        }
+                      >
+                        <SelectTrigger className="h-8 max-w-[13rem]">
+                          <SelectValue placeholder="wählen …" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <CategoryOptions />
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                 </td>
                 <td className="px-3 py-2 text-right whitespace-nowrap">

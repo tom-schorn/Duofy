@@ -1,5 +1,6 @@
 import {
   useMutation,
+  useQueries,
   useQuery,
   useQueryClient,
   type UseMutationOptions,
@@ -464,6 +465,33 @@ export function useUploadStatement() {
     const suffix = query.size > 0 ? `?${query}` : ''
     return api.upload<ImportSummary>(`/imports${suffix}`, file)
   }, [keys.imports, keys.accounts, keys.allTransactions])
+}
+
+/**
+ * The plans of several months at once, for the import screen.
+ *
+ * A pile of parked entries usually spans two or three months, and each needs the
+ * positions of **its own** month to be assignable. One query per month rather
+ * than a new endpoint: they are cached under the same keys the month view uses,
+ * so opening a month afterwards costs nothing.
+ */
+export function usePlansForMonths(
+  months: { year: number; month: number }[],
+  ownerId: string | null = null
+) {
+  return useQueries({
+    queries: months.map(({ year, month }) => ({
+      queryKey: keys.planOf(year, month, ownerId),
+      queryFn: () =>
+        api.get<PlanDetail>(
+          ownerId === null
+            ? `/plans/${year}/${month}`
+            : `/plans/${year}/${month}?owner=${ownerId}`
+        ),
+      // A month that was never created is a normal answer here, not a failure.
+      retry: false,
+    })),
+  })
 }
 
 /** Put a position or a category on a parked entry. */

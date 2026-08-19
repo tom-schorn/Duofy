@@ -340,3 +340,52 @@ def test_the_upload_limit_is_declared():
 
     assert MAX_UPLOAD_BYTES <= 20 * 1024 * 1024
     assert isinstance(uuid.UUID(int=0), uuid.UUID)
+
+
+async def test_a_position_brings_its_own_category(
+    client: AsyncClient, session: AsyncSession
+):
+    """Assigning a position settles the category — it is not asked twice.
+
+    `PlanPosition.category` is not nullable, so a position always carries one.
+    Letting the two disagree would leave the booking with a category its
+    position does not share.
+    """
+    from app.models.enums import Block, Category
+    from app.models.plan import Plan, PlanPosition
+
+    user = await make_user(session, "Owner")
+    await make_account(session, user, iban=FILE_IBAN)
+
+    plan = Plan(user_id=user.id, year=2026, month=8)
+    session.add(plan)
+    await session.flush()
+    position = PlanPosition(
+        plan_id=plan.id,
+        label="Miete",
+        amount_planned=Decimal("890.00"),
+        category=Category.HOUSING_RENT,
+        block=Block.NEEDS,
+        due_day=15,
+    )
+    session.add(position)
+    await session.commit()
+
+    sign_in(user)
+    await client.post("/api/v1/imports", files=upload_file())
+    entry = (await parked(session, user))[0]
+
+    response = await client.patch(
+        f"/api/v1/imports/{entry.id}", json={"positionId": str(position.id)}
+    )
+    assert response.status_code == 200
+    assert response.json()["category"] == "housing.rent"
+    assert response.json()["block"] == "needs"
+
+    booked = await client.post(f"/api/v1/imports/{entry.id}/book")
+    assert booked.status_code == 200
+
+    rows = await session.execute(select(Transaction))
+    assert rows.scalars().one().position_id == position.id
+
+    app.dependency_overrides.clear()
