@@ -1,0 +1,223 @@
+"""What the CAMT parser has to do, written before the parser exists.
+
+Every case here comes from measuring a real quarterly export, not from the
+specification — these are the places where an export differs from what one
+would assume while reading the schema.
+
+The fixtures are invented: same tags, same codes, same edge cases, made-up
+names and test IBANs. Real exports never enter the repository.
+"""
+
+from decimal import Decimal
+from pathlib import Path
+
+import pytest
+
+from app.services.camt import parse_report, read_upload
+
+FIXTURES = Path(__file__).parent / "fixtures" / "camt"
+
+
+def load(name: str) -> bytes:
+    return (FIXTURES / name).read_bytes()
+
+
+# --------------------------------------------------------------------------
+# The report itself
+# --------------------------------------------------------------------------
+
+
+def test_report_carries_account_and_balances():
+    """The account and both balances come from the report, not from the user.
+
+    The balances are the reason to read them: opening plus every booked entry
+    has to equal closing, and that is a check the import can run on itself.
+    """
+    report = parse_report(load("report_page1.xml"))
+
+    assert report.iban == "DE02120300000000202051"
+    assert report.currency == "EUR"
+    assert report.opening_balance == Decimal("1500.00")
+    assert report.closing_balance == Decimal("721.19")
+
+
+def test_report_knows_its_page():
+    """A report can arrive in several files. Page one is not the last one."""
+    first = parse_report(load("report_page1.xml"))
+    second = parse_report(load("report_page2.xml"))
+
+    assert (first.page, first.last_page) == (1, False)
+    assert (second.page, second.last_page) == (2, True)
+    assert first.id == second.id
+
+
+def test_balances_match_the_entries_across_both_pages():
+    """The self-check: opening plus all booked entries equals closing.
+
+    Pending entries are not part of it — they are not booked yet, and the
+    closing balance does not contain them.
+    """
+    pages = [parse_report(load("report_page1.xml")), parse_report(load("report_page2.xml"))]
+    entries = [entry for page in pages for entry in page.entries]
+
+    moved = sum((entry.amount if entry.incoming else -entry.amount) for entry in entries)
+    assert pages[0].opening_balance + moved == pages[0].closing_balance
+
+
+# --------------------------------------------------------------------------
+# The entries
+# --------------------------------------------------------------------------
+
+
+def test_pending_entries_are_left_out():
+    """camt.052 may carry pending entries, and those still change.
+
+    Importing one means importing something that is not true yet — and its
+    reference is not final either, so the duplicate check would not hold.
+    """
+    report = parse_report(load("report_page1.xml"))
+
+    assert len(report.entries) == 3
+    assert all(entry.external_ref != "9100000000000000003" for entry in report.entries)
+
+
+def test_amount_has_no_sign_and_direction_is_a_flag():
+    """Same shape as `Transaction`, which stores no sign either."""
+    report = parse_report(load("report_page1.xml"))
+    rent = next(e for e in report.entries if e.external_ref == "9100000000000000001")
+
+    assert rent.amount == Decimal("890.00")
+    assert rent.incoming is False
+
+    income = parse_report(load("report_page2.xml")).entries[0]
+    assert income.amount == Decimal("255.00")
+    assert income.incoming is True
+
+
+def test_counterparty_comes_from_creditor_or_debtor():
+    """Which side holds the other party depends on the direction.
+
+    On an outgoing payment it is `Cdtr`, on an incoming one `Dbtr`. Reading only
+    one of them loses half the counterparties — and the counterparty is the key
+    the recognition (#63) is built on.
+    """
+    outgoing = parse_report(load("report_page1.xml")).entries[0]
+    assert outgoing.counterparty_name == "Wohnungsgesellschaft Musterstadt"
+    assert outgoing.counterparty_iban == "DE02500105170137075030"
+
+    incoming = parse_report(load("report_page2.xml")).entries[0]
+    assert incoming.counterparty_name == "Familienkasse Musterstadt"
+    assert incoming.counterparty_iban == "DE02100500000054540402"
+
+
+def test_purpose_falls_back_to_additional_information():
+    """`RmtInf/Ustrd` is missing on roughly a third of a real export.
+
+    Card payments in particular carry their text only in `AddtlNtryInf`. A
+    parser that reads `Ustrd` alone hands the user empty rows.
+    """
+    card = next(
+        entry
+        for entry in parse_report(load("report_page1.xml")).entries
+        if entry.external_ref == "9100000000000000002"
+    )
+
+    assert card.purpose == "Kartenzahlung 18.08 09:14 Terminal 4471"
+    assert card.counterparty_name == "Lebensmittelmarkt Nord"
+    assert card.counterparty_iban is None
+
+
+def test_several_remittance_lines_are_joined():
+    """A purpose may be split over several `Ustrd` elements."""
+    mobile = parse_report(load("report_page2.xml")).entries[1]
+
+    assert mobile.purpose == "Rechnung 08/2026 Vertrag 4471902"
+
+
+def test_a_batch_booking_stays_one_entry():
+    """One `Ntry` with several `TxDtls` is one movement on the account.
+
+    Splitting it into its parts would break the balance check, because the
+    closing balance follows the entry, not its details. The purposes are joined;
+    splitting a booking is a separate feature, not the importer's job.
+    """
+    batch = next(
+        entry
+        for entry in parse_report(load("report_page1.xml")).entries
+        if entry.external_ref == "9100000000000000004"
+    )
+
+    assert batch.amount == Decimal("45.00")
+    assert "Mitgliedsbeitrag 3. Quartal" in batch.purpose
+    assert "Trikotumlage" in batch.purpose
+
+
+def test_dates_are_read_separately():
+    """Booking date and value date are two dates, and they differ in practice."""
+    rent = parse_report(load("report_page1.xml")).entries[0]
+
+    assert rent.booked_on.isoformat() == "2026-08-15"
+    assert rent.value_on.isoformat() == "2026-08-15"
+
+
+def test_external_ref_is_unique_within_a_report():
+    """`AcctSvcrRef` is what makes duplicate detection exact rather than a guess.
+
+    It was unique on every entry of a real export — that is the whole reason to
+    start with CAMT instead of CSV.
+    """
+    entries = parse_report(load("report_page1.xml")).entries
+    refs = [entry.external_ref for entry in entries]
+
+    assert all(refs)
+    assert len(set(refs)) == len(refs)
+
+
+# --------------------------------------------------------------------------
+# What the user uploads
+# --------------------------------------------------------------------------
+
+
+def test_a_zip_yields_every_page():
+    """Banks ship a multi-page report as one ZIP."""
+    reports = read_upload(load("report_both_pages.zip"))
+
+    assert [report.page for report in reports] == [1, 2]
+    assert sum(len(report.entries) for report in reports) == 5
+
+
+def test_a_single_xml_is_accepted_too():
+    reports = read_upload(load("report_page1.xml"))
+
+    assert len(reports) == 1
+    assert reports[0].page == 1
+
+
+def test_something_that_is_not_camt_is_rejected():
+    """The error has to be recognisable — the frontend translates codes."""
+    with pytest.raises(ValueError):
+        read_upload(b"Datum;Betrag;Verwendungszweck\n01.08.2026;-12,99;Abo\n")
+
+
+def test_counterparty_is_the_side_that_is_not_this_account():
+    """Banks do not fill the roles the way the roles are named.
+
+    On a real report every outgoing entry named the other party under `Dbtr`
+    and left `Cdtr` out; on a second account both were filled and either could
+    be the account holder. Reading the role would have lost the counterparty on
+    exactly the entries that matter.
+
+    The rent entry names both sides — the account holder as debtor, the landlord
+    as creditor. The batch booking names only a debtor, although money goes out.
+    Both have to yield the other party.
+    """
+    entries = parse_report(load("report_page1.xml")).entries
+
+    rent = next(e for e in entries if e.external_ref == "9100000000000000001")
+    assert rent.counterparty_name == "Wohnungsgesellschaft Musterstadt"
+    assert rent.counterparty_iban == "DE02500105170137075030"
+
+    batch = next(e for e in entries if e.external_ref == "9100000000000000004")
+    assert batch.incoming is False
+    assert batch.counterparty_name == "Sportverein Musterstadt"
+    assert batch.counterparty_iban == "DE02300209000106531065"
