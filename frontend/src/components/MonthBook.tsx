@@ -18,7 +18,7 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from '@/components/ui/empty'
-import { CategoryOptions } from '@/components/CategoryOptions'
+import { CategoryPicker } from '@/components/CategoryPicker'
 import { QueryState } from '@/components/QueryState'
 import { errorText } from '@/lib/api'
 import { today } from '@/lib/dates'
@@ -243,17 +243,7 @@ function QuickEntry({
         {!chosen && !isTransfer && (
           <div className="flex min-w-40 flex-col gap-1.5">
             <Label className="text-xs">Kategorie</Label>
-            <Select
-              value={category}
-              onValueChange={(value) => setCategory(value as Category)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <CategoryOptions />
-              </SelectContent>
-            </Select>
+            <CategoryPicker value={category} onChange={setCategory} />
           </div>
         )}
 

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { Upload } from 'lucide-react'
 
-import { CategoryOptions } from '@/components/CategoryOptions'
+import { CategoryPicker } from '@/components/CategoryPicker'
 import { QueryState } from '@/components/QueryState'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,7 +20,6 @@ import {
   OWN_SCOPE,
   atLeast,
   euro,
-  type Category,
   type ImportedEntry,
   type ImportSummary,
   type PlanPosition,
@@ -345,20 +344,15 @@ function EntryTable({
                         {entry.category ? CATEGORY_LABEL[entry.category] : '—'}
                       </span>
                     ) : (
-                      <Select
-                        value={entry.category ?? ''}
+                      <CategoryPicker
+                        value={entry.category}
                         disabled={!mayEdit}
-                        onValueChange={(value) =>
-                          assign.mutate({ id: entry.id, category: value as Category })
+                        placeholder="wählen …"
+                        className="h-8 max-w-[13rem]"
+                        onChange={(category) =>
+                          assign.mutate({ id: entry.id, category })
                         }
-                      >
-                        <SelectTrigger className="h-8 max-w-[13rem]">
-                          <SelectValue placeholder="wählen …" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <CategoryOptions />
-                        </SelectContent>
-                      </Select>
+                      />
                     )}
                   </div>
                 </td>

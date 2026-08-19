@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { CategoryOptions } from '@/components/CategoryOptions'
+import { CategoryPicker } from '@/components/CategoryPicker'
 import { cn } from '@/lib/utils'
 import {
   BLOCK_DOT,
@@ -208,14 +208,10 @@ export function PositionDialog({
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-2">
                 <Label>Kategorie</Label>
-                <Select value={draft.category} onValueChange={handleCategory}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <CategoryOptions />
-                  </SelectContent>
-                </Select>
+                <CategoryPicker
+                  value={draft.category}
+                  onChange={handleCategory}
+                />
               </div>
 
               <div className="flex flex-col gap-2">
