@@ -30,6 +30,7 @@ import {
   BUDGETS,
   MONTH_LABEL,
   QUOTA_KEY,
+  atLeast,
   euro,
   unallocated,
   type Block,
@@ -49,9 +50,13 @@ const OVER_QUOTA = 100
 
 export function PlansPage() {
   // `?member=` shows the months of a person who granted insight — see
-  // `MemberSwitcher`. Creating stays with the owner: a month belongs to whoever
-  // plans it, and nobody plans somebody else's first month for them.
+  // `MemberSwitcher`. At level `edit` a month can also be created for them: the
+  // positions come from **their** commitments, so nothing of the helper ends up
+  // in it. Someone who is allowed to plan along needs to be able to start the
+  // month, otherwise the first empty month stops them.
   const active = useActiveMember()
+  // Kein `mayDelete` hier: einen ganzen Monat löschen gibt es nicht.
+  const mayEdit = atLeast(active.levelFor('plan'), 'edit')
   const plans = usePlans(active.id)
   const households = useHouseholds()
   const [creating, setCreating] = useState(false)
@@ -71,7 +76,7 @@ export function PlansPage() {
               : `Die Monatspläne von ${active.member.firstName}. Klick einen an, um hineinzuschauen.`}
           </p>
         </div>
-        {active.id === null && (
+        {mayEdit && (
           <Button onClick={() => setCreating(true)}>
             <Plus className="size-4" />
             Monat anlegen
@@ -84,6 +89,8 @@ export function PlansPage() {
           <p className="text-muted-foreground border-border rounded-lg border border-dashed p-10 text-center text-sm">
             {active.member === null
               ? 'Noch kein Monat angelegt. Leg einen an — die Posten aus deinen Verträgen entstehen dabei von selbst.'
+              : mayEdit
+              ? `${active.member.firstName} hat noch keinen Monat angelegt. Du darfst einen anlegen — die Posten entstehen aus ${active.member.firstName}s Verträgen.`
               : `${active.member.firstName} hat noch keinen Monat angelegt.`}
           </p>
         ) : (
@@ -97,7 +104,12 @@ export function PlansPage() {
         )}
       </QueryState>
 
-      <CreatePlanDialog open={creating} onOpenChange={setCreating} />
+      <CreatePlanDialog
+        open={creating}
+        onOpenChange={setCreating}
+        ownerId={active.id}
+        ownerName={active.member?.firstName ?? null}
+      />
     </div>
   )
 }
@@ -209,9 +221,13 @@ function BudgetRow({ plan, block }: { plan: PlanSummary; block: Block }) {
 }
 
 function CreatePlanDialog({
+  ownerId,
+  ownerName,
   open,
   onOpenChange,
 }: {
+  ownerId: string | null
+  ownerName: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
@@ -229,17 +245,21 @@ function CreatePlanDialog({
         <form
           onSubmit={(event) => {
             event.preventDefault()
-            create.mutate({ year, month }, { onSuccess: () => onOpenChange(false) })
+            create.mutate(
+              { year, month, ownerId },
+              { onSuccess: () => onOpenChange(false) }
+            )
           }}
           className="flex flex-col gap-5"
         >
           <DialogHeader>
             <DialogTitle className="font-heading text-xl">
-              Monat anlegen
+              {ownerName === null ? 'Monat anlegen' : `Monat für ${ownerName} anlegen`}
             </DialogTitle>
             <DialogDescription>
-              Die Posten aus deinen Verträgen entstehen dabei von selbst.
-              Einzelposten schreibst du danach dazu.
+              {ownerName === null
+                ? 'Die Posten aus deinen Verträgen entstehen dabei von selbst. Einzelposten schreibst du danach dazu.'
+                : `Die Posten entstehen aus ${ownerName}s Verträgen, nicht aus deinen. Einzelposten schreibst du danach dazu.`}
             </DialogDescription>
           </DialogHeader>
 
