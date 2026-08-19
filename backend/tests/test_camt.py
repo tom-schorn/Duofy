@@ -221,3 +221,21 @@ def test_counterparty_is_the_side_that_is_not_this_account():
     assert batch.incoming is False
     assert batch.counterparty_name == "Sportverein Musterstadt"
     assert batch.counterparty_iban == "DE02300209000106531065"
+
+
+def test_an_archive_that_unpacks_too_far_is_refused():
+    """A ZIP bomb: a small archive holding a huge member.
+
+    An archive states each member's uncompressed size in its own directory, so
+    the check happens **before** reading — reading is what allocates the memory.
+    Without this, a 1 MB upload exhausted the process.
+    """
+    import io
+    import zipfile
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("bomb.xml", b"\0" * (200 * 1024 * 1024))
+
+    with pytest.raises(ValueError, match="more than"):
+        read_upload(buffer.getvalue())

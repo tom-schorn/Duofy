@@ -42,6 +42,18 @@ _CONTAINERS = (("BkToCstmrAcctRpt", "Rpt"), ("BkToCstmrStmt", "Stmt"))
 #: A ZIP always starts with these four bytes.
 _ZIP_MAGIC = b"PK\x03\x04"
 
+#: Upper bounds for what is unpacked out of an archive.
+#:
+#: A ZIP states the uncompressed size of each member in its own directory, and it
+#: can lie about nothing else: reading a member is what allocates the memory. A
+#: 1 MB archive of one billion zero bytes exhausts the process, which is why the
+#: size is checked **before** reading rather than after.
+#:
+#: A quarter of turnover on two accounts came to roughly 200 KB of XML, so a
+#: yearly statement stays far below these numbers.
+_MAX_MEMBER_BYTES = 50 * 1024 * 1024
+_MAX_TOTAL_BYTES = 200 * 1024 * 1024
+
 
 @dataclass(frozen=True)
 class _Account:
@@ -384,11 +396,25 @@ def _read_archive(data: bytes) -> list[CamtReport]:
     except zipfile.BadZipFile as error:
         raise CamtError("archive cannot be read") from error
 
-    reports = [
-        parse_report(archive.read(name))
-        for name in sorted(archive.namelist())
-        if name.lower().endswith(".xml")
-    ]
+    reports = []
+    unpacked = 0
+
+    for member in sorted(archive.infolist(), key=lambda entry: entry.filename):
+        if not member.filename.lower().endswith(".xml"):
+            continue
+
+        if member.file_size > _MAX_MEMBER_BYTES:
+            raise CamtError(
+                f"{member.filename} unpacks to {member.file_size} bytes, "
+                f"more than the {_MAX_MEMBER_BYTES} allowed"
+            )
+
+        unpacked += member.file_size
+        if unpacked > _MAX_TOTAL_BYTES:
+            raise CamtError(f"archive unpacks to more than {_MAX_TOTAL_BYTES} bytes")
+
+        reports.append(parse_report(archive.read(member)))
+
     if not reports:
         raise CamtError("archive holds no XML file")
 
