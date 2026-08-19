@@ -139,7 +139,7 @@ async def update_commitment(
     # Catch what the database checks anyway, but with a readable error code.
     if commitment.rhythm.value != "monthly" and commitment.first_due_date is None:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"code": "first_due_date_required"}
+            status.HTTP_422_UNPROCESSABLE_CONTENT, detail={"code": "first_due_date_required"}
         )
 
     await session.commit()

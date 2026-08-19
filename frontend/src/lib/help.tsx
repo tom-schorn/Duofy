@@ -21,6 +21,7 @@ export type HelpEntry = {
 
 /** Which page a set of entries belongs to. */
 export type HelpKey =
+  | 'import'
   | 'plans'
   | 'plan'
   | 'book'
@@ -89,6 +90,91 @@ const PLAN_BLOCKS: HelpEntry[] = [
 ]
 
 export const HELP: Record<HelpKey, { title: string; entries: HelpEntry[] }> = {
+  import: {
+    title: 'Import',
+    entries: [
+      {
+        id: 'parking',
+        title: 'Parkposition',
+        body: (
+          <>
+            <p>
+              Was aus einer Bankdatei kommt, wird nicht sofort gebucht, sondern
+              landet hier. Erst wenn du einer Zeile eine Kategorie gibst, wird
+              eine Buchung daraus.
+            </p>
+            <p>
+              Der Zwischenschritt ist Absicht: die Zeilen dürfen liegen bleiben.
+              Du kannst heute zehn zuordnen und den Rest nächste Woche.
+            </p>
+          </>
+        ),
+      },
+      {
+        id: 'file',
+        title: 'Welche Datei',
+        body: (
+          <>
+            <p>
+              Das Format heißt <strong>CAMT</strong> und ist genormt — jede Bank
+              liefert dieselbe Struktur. Im Online-Banking heißt der Export meist
+              „Umsätze exportieren“ und bietet CAMT neben CSV und PDF an.
+            </p>
+            <p>
+              Duofy verbindet sich <strong>nicht</strong> mit deiner Bank und will
+              keine Zugangsdaten. Du lädst die Datei selbst herunter und hier hoch.
+            </p>
+          </>
+        ),
+      },
+      {
+        id: 'account',
+        title: 'Welches Konto',
+        body: (
+          <p>
+            Steht in der Datei: ein Auszug nennt die IBAN, deren Umsätze er
+            enthält. Beim ersten Mal fragt Duofy einmal, welches deiner Konten
+            gemeint ist, und merkt es sich dort. Danach kommt die Frage nicht
+            wieder.
+          </p>
+        ),
+      },
+      {
+        id: 'twice',
+        title: 'Dieselbe Datei zweimal',
+        body: (
+          <p>
+            Schadet nichts. Jede Buchung trägt eine Kennung der Bank; was schon im
+            Buch steht oder schon hier liegt, wird übersprungen. Auch was du
+            verworfen hast, kommt nicht zurück.
+          </p>
+        ),
+      },
+      {
+        id: 'balances',
+        title: 'Salden gehen nicht auf',
+        body: (
+          <p>
+            Ein Auszug nennt Anfangs- und Schlussstand. Duofy rechnet nach: beide
+            plus alle Buchungen dazwischen müssen zusammenpassen. Wenn nicht,
+            fehlt meist eine Seite der Datei — größere Auszüge kommen manchmal als
+            ZIP mit mehreren Teilen.
+          </p>
+        ),
+      },
+      {
+        id: 'nothing-changed',
+        title: 'Was der Import nicht tut',
+        body: (
+          <p>
+            Er ändert deinen Plan nicht und legt keine Verträge an. Er trägt nur
+            ein, was tatsächlich passiert ist. Was passieren <em>soll</em>, steht
+            weiterhin in deinen Verträgen und im Monatsplan.
+          </p>
+        ),
+      },
+    ],
+  },
   plans: {
     title: 'Planung',
     entries: [

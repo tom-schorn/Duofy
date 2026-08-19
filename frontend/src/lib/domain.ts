@@ -627,6 +627,48 @@ export type Me = {
   lastName: string
 }
 
+/** One entry read out of a bank file, waiting to be understood. */
+export type ImportedEntry = {
+  id: string
+  accountId: string
+  ownerId: string
+
+  /** What the bank reported. None of it is editable. */
+  occurredOn: string
+  valueOn: string
+  amount: string
+  incoming: boolean
+  counterpartyName: string | null
+  counterpartyIban: string | null
+  purpose: string | null
+
+  /** The interpretation — empty until somebody assigns it. */
+  positionId: string | null
+  category: Category | null
+  block: Block | null
+
+  discardedAt: string | null
+}
+
+/** What one upload did. */
+export type ImportSummary = {
+  accountId: string
+  iban: string
+  read: number
+  parked: number
+  known: number
+  /**
+   * Opening plus every booked entry equals closing. `false` means a page is
+   * missing or something was misread — the import cannot tell which.
+   */
+  balancesMatch: boolean
+  /**
+   * Set when the file names an IBAN no account carries yet. Not an error: the
+   * user is asked once which account it is, then never again.
+   */
+  unknownIban: string | null
+}
+
 export type Role = 'owner' | 'member'
 
 /**
