@@ -10,6 +10,24 @@ from app.models.enums import Block, Category
 from app.schemas.base import Schema
 
 
+class Suggestion(Schema):
+    """What the import thinks this entry is, and why.
+
+    Never stored — worked out while the list is read. A suggestion written into
+    the row would go stale the moment somebody assigns something, and nothing
+    would ever clean it up.
+
+    The reason is not decoration: a suggestion nobody can check is magic, and
+    magic is not what anyone wants near their money.
+    """
+
+    category: Category
+    #: Only set where the month has a budget position for that category. Single
+    #: payments need amounts and due-date windows, which is #61.
+    position_id: uuid.UUID | None = None
+    reason: str
+
+
 class ImportedEntryRead(Schema):
     """One parked entry.
 
@@ -37,6 +55,9 @@ class ImportedEntryRead(Schema):
     #: Set means thrown out without booking. Such rows stay so that a second
     #: import of the same file does not bring them back.
     discarded_at: datetime | None
+
+    #: Filled only on rows nobody has assigned yet. See `Suggestion`.
+    suggestion: Suggestion | None = None
 
 
 class ImportedEntryUpdate(Schema):

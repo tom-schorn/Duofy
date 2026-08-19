@@ -645,6 +645,19 @@ export type Me = {
   lastName: string
 }
 
+/**
+ * What the import thinks an entry is, and why.
+ *
+ * Worked out on the server while the list is read, never stored — a suggestion
+ * written into the row would go stale the moment somebody assigns something.
+ */
+export type Suggestion = {
+  category: Category
+  /** Only where the month has a budget position for that category. */
+  positionId: string | null
+  reason: string
+}
+
 /** One entry read out of a bank file, waiting to be understood. */
 export type ImportedEntry = {
   id: string
@@ -666,6 +679,9 @@ export type ImportedEntry = {
   block: Block | null
 
   discardedAt: string | null
+
+  /** Only on rows nobody has assigned yet. */
+  suggestion: Suggestion | null
 }
 
 /** What one upload did. */

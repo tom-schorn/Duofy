@@ -502,6 +502,30 @@ export function useAssignEntry() {
   >(({ id, ...body }) => api.patch(`/imports/${id}`, body), [keys.imports])
 }
 
+/**
+ * Take a suggestion and book it, in one go.
+ *
+ * Two requests rather than one endpoint: assigning and booking stay separate
+ * everywhere else, and a combined one would be a third way to do the same
+ * thing. The button is what joins them, not the API.
+ */
+export function useAcceptSuggestion() {
+  return useInvalidating<
+    ImportedEntry,
+    { id: string; category: Category; positionId: string | null }
+  >(
+    async ({ id, category, positionId }) => {
+      await api.patch<ImportedEntry>(
+        `/imports/${id}`,
+        positionId ? { positionId } : { category }
+      )
+      return api.post<ImportedEntry>(`/imports/${id}/book`)
+    },
+    [keys.imports, keys.accounts, keys.allTransactions, keys.plans],
+    'Gebucht'
+  )
+}
+
 /** Turn a parked entry into a booking. The parked row is gone afterwards. */
 export function useBookEntry() {
   return useInvalidating<ImportedEntry, string>(
