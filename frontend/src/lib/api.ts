@@ -111,6 +111,10 @@ const ERROR_TEXT: Record<string, string> = {
   not_household_owner: 'Das darf nur der Besitzer des Haushalts.',
   not_household_member: 'Du bist kein Mitglied dieses Haushalts.',
   not_a_member: 'Du bist kein Mitglied dieses Haushalts.',
+  not_account_owner: 'Dieses Konto gehört jemand anderem.',
+  no_insight_granted: 'Diese Person teilt diesen Bereich nicht mit dir.',
+  no_edit_granted: 'Du darfst hier zusehen, aber nichts ändern.',
+  no_delete_granted: 'Löschen bleibt beim Besitzer.',
 
   // Domain rules
   plan_not_found: 'Für diesen Monat gibt es noch keinen Plan.',
@@ -133,6 +137,30 @@ const ERROR_TEXT: Record<string, string> = {
     'Fälligkeitstag und erste Fälligkeit widersprechen sich.',
   target_only_for_savings_goal: 'Ein Zielbetrag gehört nur zu einem Sparziel.',
   remaining_debt_only_for_debt: 'Eine Restschuld gehört nur zu einer Schuld.',
+
+  // Book and accounts
+  transaction_not_found: 'Diese Buchung gibt es nicht mehr.',
+  transfer_needs_two_accounts:
+    'Eine Umbuchung braucht zwei verschiedene Konten.',
+  transfer_needs_one_owner:
+    'Eine Umbuchung geht nur zwischen Konten derselben Person.',
+  position_needs_same_owner:
+    'Der Posten gehört zu einem anderen Konto als die Buchung.',
+
+  // Sessions — normally invisible, the client refreshes on its own. Shown only
+  // when that fails as well.
+  refresh_token_missing: 'Deine Sitzung ist abgelaufen. Bitte melde dich neu an.',
+  refresh_token_invalid: 'Deine Sitzung ist abgelaufen. Bitte melde dich neu an.',
+
+  // Import
+  not_a_bank_file:
+    'Das sieht nicht nach einer CAMT-Datei aus. Im Online-Banking heißt der Export meist „Umsätze exportieren“ — dort CAMT wählen, nicht CSV oder PDF.',
+  upload_too_large: 'Die Datei ist zu groß. Mehr als 10 MB nimmt der Import nicht.',
+  file_covers_several_accounts:
+    'Die Datei enthält Umsätze mehrerer Konten. Bitte je Konto einzeln exportieren.',
+  account_not_found: 'Dieses Konto gibt es nicht.',
+  imported_entry_not_found: 'Diese Zeile liegt nicht mehr in der Parkposition.',
+  category_missing: 'Ohne Kategorie lässt sich nicht buchen.',
 }
 
 export function errorText(error: unknown): string {
