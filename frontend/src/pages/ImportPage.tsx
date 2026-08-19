@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react'
+import { Fragment, useRef, useState } from 'react'
 import { Upload } from 'lucide-react'
 
-import { CategoryOptions } from '@/components/CategoryOptions'
+import { CategoryPicker } from '@/components/CategoryPicker'
 import { QueryState } from '@/components/QueryState'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,12 +20,12 @@ import {
   OWN_SCOPE,
   atLeast,
   euro,
-  type Category,
   type ImportedEntry,
   type ImportSummary,
   type PlanPosition,
 } from '@/lib/domain'
 import {
+  useAcceptSuggestion,
   useAccounts,
   useAssignEntry,
   useBookEntry,
@@ -240,6 +240,7 @@ function EntryTable({
   positionsByMonth: Map<string, PlanPosition[]>
 }) {
   const assign = useAssignEntry()
+  const accept = useAcceptSuggestion()
   const book = useBookEntry()
   const discard = useDiscardEntry()
 
@@ -277,10 +278,14 @@ function EntryTable({
             const sameDay = entry.occurredOn === previousDay
             previousDay = entry.occurredOn
 
+            const suggestion = entry.suggestion
+
             return (
+              <Fragment key={entry.id}>
               <tr
-                key={entry.id}
-                className={`hover:bg-accent/40 ${sameDay ? '' : 'border-border border-t'}`}
+                className={`hover:bg-accent/40 ${sameDay ? '' : 'border-border border-t'} ${
+                  suggestion ? 'border-b-0' : ''
+                }`}
               >
                 <td
                   className={`px-3 py-2 text-sm whitespace-nowrap tabular-nums ${
@@ -345,20 +350,15 @@ function EntryTable({
                         {entry.category ? CATEGORY_LABEL[entry.category] : '—'}
                       </span>
                     ) : (
-                      <Select
-                        value={entry.category ?? ''}
+                      <CategoryPicker
+                        value={entry.category}
                         disabled={!mayEdit}
-                        onValueChange={(value) =>
-                          assign.mutate({ id: entry.id, category: value as Category })
+                        placeholder="wählen …"
+                        className="h-8 max-w-[13rem]"
+                        onChange={(category) =>
+                          assign.mutate({ id: entry.id, category })
                         }
-                      >
-                        <SelectTrigger className="h-8 max-w-[13rem]">
-                          <SelectValue placeholder="wählen …" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <CategoryOptions />
-                        </SelectContent>
-                      </Select>
+                      />
                     )}
                   </div>
                 </td>
@@ -385,6 +385,52 @@ function EntryTable({
                   )}
                 </td>
               </tr>
+
+              {/* Der Vorschlag steht **unter** der Zeile, nicht in ihren Feldern.
+                  Ein vorausgefülltes Feld ist von einem gewählten nicht zu
+                  unterscheiden — hier ist auf einen Blick klar, was Duofy meint
+                  und was du entschieden hast. */}
+              {suggestion && (
+                <tr className="hover:bg-accent/40">
+                  <td />
+                  <td />
+                  <td colSpan={5} className="px-3 pb-2">
+                    <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
+                      <span className="text-primary">Vorschlag:</span>
+                      <span className="text-foreground">
+                        {CATEGORY_LABEL[suggestion.category]}
+                      </span>
+                      {suggestion.positionId && (
+                        <span>
+                          · Posten{' '}
+                          {positionsFor(entry, positionsByMonth).find(
+                            (position) => position.id === suggestion.positionId
+                          )?.label ?? ''}
+                        </span>
+                      )}
+                      <span className="text-xs">({suggestion.reason})</span>
+                      {mayEdit && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="ml-1 h-7"
+                          disabled={accept.isPending}
+                          onClick={() =>
+                            accept.mutate({
+                              id: entry.id,
+                              category: suggestion.category,
+                              positionId: suggestion.positionId,
+                            })
+                          }
+                        >
+                          Übernehmen
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             )
           })}
         </tbody>

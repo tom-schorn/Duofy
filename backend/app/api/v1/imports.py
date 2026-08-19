@@ -18,22 +18,23 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
-from sqlalchemy import select
+from sqlalchemy import select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
 from app.core.permissions import Area, granted_level, require
 from app.db.session import get_session
 from app.models.account import Account
-from app.models.enums import AccessLevel
+from app.models.enums import AccessLevel, Category
 from app.models.imported_entry import ImportedEntry
-from app.models.plan import PlanPosition
+from app.models.plan import Plan, PlanPosition
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.schemas.imported_entry import (
     ImportedEntryRead,
     ImportedEntryUpdate,
     ImportSummary,
+    Suggestion,
 )
 from app.services.camt import CamtError, read_upload
 
@@ -227,13 +228,165 @@ async def _already_known(
     return {ref for ref in booked.scalars() if ref} | set(parked.scalars())
 
 
+# ---------------------------------------------------------------------------
+# Suggestions
+#
+# Worked out while the list is read, never stored. A suggestion is derived, and
+# derived values that get written down go stale: somebody assigns a category and
+# every row suggested from the old state keeps pointing at it.
+#
+# It also means the answer is always current without a job or a queue. The
+# frontend reloads after every booking anyway — which is what lets the
+# recognition learn **inside** the pile: book the first of eight supermarket
+# rows and the other seven have a suggestion in the same breath.
+# ---------------------------------------------------------------------------
+
+
+#: Legal forms, dropped from a merchant name before comparing.
+#:
+#: The same shop appears as "REWE Markt GmbH" on one statement and as
+#: "rewe markt 4471" on the next; without this they are two different
+#: counterparties. The list is short on purpose — it covers the German forms
+#: that actually turn up, and an unknown one costs a suggestion, not a booking.
+_LEGAL_FORMS = frozenset(
+    {"gmbh", "mbh", "ag", "kg", "kgaa", "ohg", "ug", "se", "co", "ev", "eg", "gbr"}
+)
+
+
+def _normalise(name: str) -> str:
+    """A merchant name reduced to what stays the same between two receipts.
+
+    Case, punctuation, digits and the legal form go — branch numbers and
+    "GmbH & Co. KG" are exactly what differs between two visits to one shop.
+
+    What is left is **weak evidence**, and it is only used where the bank gave no
+    IBAN. That is most card payments, so it earns its keep; but two unrelated
+    shops sharing a first word would be conflated, which is why an IBAN always
+    wins where there is one.
+    """
+    letters = "".join(c if c.isalpha() or c.isspace() else " " for c in name.lower())
+    return " ".join(word for word in letters.split() if word not in _LEGAL_FORMS)
+
+
+async def _learned(
+    session: AsyncSession, owner_id: uuid.UUID, entries: list[ImportedEntry]
+) -> dict[uuid.UUID, tuple[Category, str]]:
+    """What each entry's counterparty was last booked as.
+
+    One query for the whole batch. `DISTINCT ON` takes the most recent booking
+    per counterparty — "last one wins", which is the whole rule. Nothing is
+    weighted, nothing is counted; a correction simply becomes the newest answer.
+
+    The bookings themselves are the memory. A separate table of rules would be a
+    second truth to keep in step with the first.
+    """
+    ibans = {entry.counterparty_iban for entry in entries if entry.counterparty_iban}
+    names = {
+        _normalise(entry.counterparty_name)
+        for entry in entries
+        if entry.counterparty_name and not entry.counterparty_iban
+    }
+    if not ibans and not names:
+        return {}
+
+    rows = await session.execute(
+        select(
+            Transaction.counterparty_iban,
+            Transaction.counterparty_name,
+            Transaction.category,
+            Transaction.occurred_on,
+        )
+        .where(
+            Transaction.owner_id == owner_id,
+            Transaction.category.is_not(None),
+            Transaction.counterparty_name.is_not(None),
+        )
+        .order_by(Transaction.occurred_on.desc(), Transaction.created_at.desc())
+    )
+
+    by_iban: dict[str, Category] = {}
+    by_name: dict[str, Category] = {}
+    for iban, name, category, _ in rows:
+        if iban and iban not in by_iban:
+            by_iban[iban] = category
+        if name:
+            key = _normalise(name)
+            if key not in by_name:
+                by_name[key] = category
+
+    found: dict[uuid.UUID, tuple[Category, str]] = {}
+    for entry in entries:
+        if entry.counterparty_iban and entry.counterparty_iban in by_iban:
+            found[entry.id] = (by_iban[entry.counterparty_iban], "iban")
+        elif entry.counterparty_name:
+            key = _normalise(entry.counterparty_name)
+            if key in by_name:
+                found[entry.id] = (by_name[key], "name")
+    return found
+
+
+async def _budget_positions(
+    session: AsyncSession, owner_id: uuid.UUID, entries: list[ImportedEntry]
+) -> dict[tuple[int, int, Category], uuid.UUID]:
+    """Budget positions of the months this pile falls into, by category.
+
+    Only budget positions. They are filled by many bookings over the month, so
+    the category alone identifies them — no amount, no due-date window, none of
+    the guessing #61 is about. Single payments are left to that issue.
+    """
+    months = {(entry.occurred_on.year, entry.occurred_on.month) for entry in entries}
+    if not months:
+        return {}
+
+    rows = await session.execute(
+        select(Plan.year, Plan.month, PlanPosition.category, PlanPosition.id)
+        .join(PlanPosition, PlanPosition.plan_id == Plan.id)
+        .where(
+            Plan.user_id == owner_id,
+            PlanPosition.is_budget.is_(True),
+            tuple_(Plan.year, Plan.month).in_(months),
+        )
+    )
+    return {(year, month, category): position for year, month, category, position in rows}
+
+
+def _suggest(
+    entry: ImportedEntry,
+    learned: dict[uuid.UUID, tuple[Category, str]],
+    budgets: dict[tuple[int, int, Category], uuid.UUID],
+) -> Suggestion | None:
+    """One suggestion, or none. Assigned entries are left alone."""
+    if entry.category is not None or entry.position_id is not None:
+        return None
+
+    hit = learned.get(entry.id)
+    if hit is None:
+        return None
+
+    category, how = hit
+    where = "der IBAN" if how == "iban" else "dem Namen"
+    return Suggestion(
+        category=category,
+        position_id=budgets.get((entry.occurred_on.year, entry.occurred_on.month, category)),
+        reason=f"zuletzt so gebucht, erkannt an {where}",
+    )
+
+
 @router.get("", response_model=list[ImportedEntryRead])
 async def list_entries(
     owner: uuid.UUID | None = None,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
-) -> list[ImportedEntry]:
-    """The parking area, newest day first. Discarded rows stay out of the list."""
+) -> list[ImportedEntryRead]:
+    """The parking area, newest day first. Discarded rows stay out of the list.
+
+    `external_ref` decides within a day, and it has to: every row of one import
+    is written in a single transaction, and `now()` is the **transaction's**
+    start time, so `created_at` is identical to the microsecond across the whole
+    batch. Without a unique tiebreaker the order is undefined — and an updated
+    row typically comes back last, which made entries jump the moment one of
+    them was given a category.
+    """
     owner_id = owner or user.id
     if owner_id != user.id:
         level = await granted_level(session, owner_id, user.id, Area.ACCOUNTS)
@@ -245,9 +398,23 @@ async def list_entries(
             ImportedEntry.owner_id == owner_id,
             ImportedEntry.discarded_at.is_(None),
         )
-        .order_by(ImportedEntry.occurred_on.desc(), ImportedEntry.created_at)
+        .order_by(
+            ImportedEntry.occurred_on.desc(),
+            ImportedEntry.created_at,
+            ImportedEntry.external_ref,
+        )
     )
-    return list(rows.scalars())
+    entries = list(rows.scalars())
+
+    learned = await _learned(session, owner_id, entries)
+    budgets = await _budget_positions(session, owner_id, entries)
+
+    return [
+        ImportedEntryRead.model_validate(entry).model_copy(
+            update={"suggestion": _suggest(entry, learned, budgets)}
+        )
+        for entry in entries
+    ]
 
 
 @router.patch("/{entry_id}", response_model=ImportedEntryRead)
@@ -297,15 +464,31 @@ async def book(
 
     The parked row goes away afterwards. Its identity survives in
     `Transaction.external_ref`, which is what keeps a second import of the same
-    file from bringing it back.
+    file from bringing it back — and so do the counterparty's name and IBAN,
+    which is what lets anything ever learn from this assignment.
+
+    ## A savings position makes this a transfer
+
+    `PlanPosition.counter_account_id` says where the money goes when it moves to
+    another own account, and `mark_paid` has always honoured it. Booking an
+    import has to do the same: without it a transfer to the savings account
+    becomes an **expense**, the savings account never sees the money, and the
+    savings quota stays empty while the money is demonstrably saved.
     """
     entry = await _load(session, entry_id, user)
     require(entry.category is not None, "category_missing")
+
+    counter_account_id = None
+    if entry.position_id is not None:
+        position = await session.get(PlanPosition, entry.position_id)
+        if position is not None:
+            counter_account_id = position.counter_account_id
 
     session.add(
         Transaction(
             owner_id=entry.owner_id,
             account_id=entry.account_id,
+            counter_account_id=counter_account_id,
             occurred_on=entry.occurred_on,
             amount=entry.amount,
             note=entry.counterparty_name or entry.purpose,
@@ -313,6 +496,8 @@ async def book(
             block=entry.block,
             position_id=entry.position_id,
             external_ref=entry.external_ref,
+            counterparty_name=entry.counterparty_name,
+            counterparty_iban=entry.counterparty_iban,
         )
     )
     await session.delete(entry)

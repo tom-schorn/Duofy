@@ -124,6 +124,10 @@ class Category(StrEnum):
     HOUSEHOLD_HEALTHCARE = ("household.healthcare", "Household", "Healthcare", Block.NEEDS)
     HOUSEHOLD_PERSONAL_CARE = ("household.personal_care", "Household", "Personal Care", Block.NEEDS)
     HOUSEHOLD_CLEANING = ("household.cleaning", "Household", "Cleaning", Block.NEEDS)
+    #: Food, vet, insurance for an animal. A need once the animal is there — the
+    #: decision was a want, the upkeep no longer is. Kept apart from
+    #: `household.healthcare`, which is about people.
+    HOUSEHOLD_PETS = ("household.pets", "Household", "Pets", Block.NEEDS)
 
     # -- Housing -----------------------------------------------------------
     HOUSING_RENT = ("housing.rent", "Housing", "Rent", Block.NEEDS)
@@ -169,6 +173,12 @@ class Category(StrEnum):
     #: Streaming, games, newspapers. Told apart from `leisure.memberships` by what
     #: is being paid for: a service here, belonging to something there.
     LEISURE_SUBSCRIPTIONS = ("leisure.subscriptions", "Leisure", "Subscriptions", Block.WANTS)
+    #: Tobacco and alcohol. Its own entry rather than part of the groceries, and
+    #: the reason is the **block**: groceries are a need, and booking indulgences
+    #: there moves them into the 50 % — which makes the quota look better than
+    #: the household is. The official classification (COICOP) keeps them as a
+    #: division of their own next to food for the same reason.
+    LEISURE_INDULGENCES = ("leisure.indulgences", "Leisure", "Tobacco & Alcohol", Block.WANTS)
 
     # -- Personal ----------------------------------------------------------
     # The counterpart to Housing and Transportation: what hangs on the **person**
@@ -184,6 +194,20 @@ class Category(StrEnum):
     #: the 50/30/20 quotas.
     PERSONAL_WORK = ("personal.work", "Personal", "Work", Block.NEEDS)
     PERSONAL_LEGAL = ("personal.legal", "Personal", "Legal", Block.NEEDS)
+    #: Presents for other people. A want, unlike the rest of this group — the
+    #: group says what something hangs on, not which block it lands in, the same
+    #: way `housing.interior` sits in the wants among fixed housing costs.
+    PERSONAL_GIFTS = ("personal.gifts", "Personal", "Gifts", Block.WANTS)
+    #: Given away freely: association, church, relief organisation. Not
+    #: `leisure.memberships` — that one buys belonging, this one buys nothing.
+    PERSONAL_DONATIONS = ("personal.donations", "Personal", "Donations", Block.WANTS)
+    #: Courses, tuition, tutoring, exam fees. Separate from `personal.work`,
+    #: which covers what an existing job costs — this is what the next one does.
+    PERSONAL_EDUCATION = ("personal.education", "Personal", "Education", Block.NEEDS)
+    #: Income tax, church tax, back payments. The two grouped "Insurance & Taxes"
+    #: entries cover what belongs to a flat or a vehicle; this is what belongs to
+    #: the person and arrives as its own demand.
+    PERSONAL_TAXES = ("personal.taxes", "Personal", "Taxes", Block.NEEDS)
 
     # -- Income ------------------------------------------------------------
     INCOME_EARNED = ("income.earned", "Income", "Salary & Wages", Block.INCOME)

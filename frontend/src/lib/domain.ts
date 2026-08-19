@@ -59,6 +59,7 @@ export type Category =
   | 'household.healthcare'
   | 'household.personal_care'
   | 'household.cleaning'
+  | 'household.pets'
   // Wohnen
   | 'housing.rent'
   | 'housing.utilities'
@@ -84,11 +85,16 @@ export type Category =
   | 'leisure.memberships'
   | 'leisure.dining'
   | 'leisure.subscriptions'
+  | 'leisure.indulgences'
   // Persönlich
   | 'personal.insurance'
   | 'personal.communication'
   | 'personal.work'
   | 'personal.legal'
+  | 'personal.gifts'
+  | 'personal.donations'
+  | 'personal.education'
+  | 'personal.taxes'
   // Einnahmen
   | 'income.earned'
   | 'income.benefits'
@@ -108,6 +114,7 @@ export const CATEGORY_LABEL: Record<Category, string> = {
   'household.healthcare': 'Gesundheit',
   'household.personal_care': 'Körperpflege',
   'household.cleaning': 'Reinigung',
+  'household.pets': 'Haustiere',
 
   'housing.rent': 'Miete',
   'housing.utilities': 'Nebenkosten',
@@ -133,11 +140,16 @@ export const CATEGORY_LABEL: Record<Category, string> = {
   'leisure.memberships': 'Mitgliedschaften',
   'leisure.dining': 'Essen gehen',
   'leisure.subscriptions': 'Abos',
+  'leisure.indulgences': 'Genussmittel',
 
   'personal.insurance': 'Versicherung',
   'personal.communication': 'Kommunikation',
   'personal.work': 'Beruf',
   'personal.legal': 'Rechtliches',
+  'personal.gifts': 'Geschenke',
+  'personal.donations': 'Spenden',
+  'personal.education': 'Bildung',
+  'personal.taxes': 'Steuern',
 
   'income.earned': 'Gehalt & Lohn',
   'income.benefits': 'Transferleistungen',
@@ -204,6 +216,7 @@ export const BLOCK_SUGGESTION: Record<Category, Block> = {
   'household.healthcare': 'needs',
   'household.personal_care': 'needs',
   'household.cleaning': 'needs',
+  'household.pets': 'needs',
 
   'housing.rent': 'needs',
   'housing.utilities': 'needs',
@@ -231,12 +244,17 @@ export const BLOCK_SUGGESTION: Record<Category, Block> = {
   'leisure.memberships': 'wants',
   'leisure.dining': 'wants',
   'leisure.subscriptions': 'wants',
+  'leisure.indulgences': 'wants',
 
   'personal.insurance': 'needs',
   'personal.communication': 'needs',
   // Work expenses: caused by the job, paid from private money.
   'personal.work': 'needs',
   'personal.legal': 'needs',
+  'personal.gifts': 'wants',
+  'personal.donations': 'wants',
+  'personal.education': 'needs',
+  'personal.taxes': 'needs',
 
   'income.earned': 'income',
   'income.benefits': 'income',
@@ -627,6 +645,19 @@ export type Me = {
   lastName: string
 }
 
+/**
+ * What the import thinks an entry is, and why.
+ *
+ * Worked out on the server while the list is read, never stored — a suggestion
+ * written into the row would go stale the moment somebody assigns something.
+ */
+export type Suggestion = {
+  category: Category
+  /** Only where the month has a budget position for that category. */
+  positionId: string | null
+  reason: string
+}
+
 /** One entry read out of a bank file, waiting to be understood. */
 export type ImportedEntry = {
   id: string
@@ -648,6 +679,9 @@ export type ImportedEntry = {
   block: Block | null
 
   discardedAt: string | null
+
+  /** Only on rows nobody has assigned yet. */
+  suggestion: Suggestion | null
 }
 
 /** What one upload did. */
