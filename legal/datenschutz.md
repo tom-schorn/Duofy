@@ -1,7 +1,7 @@
 # Datenschutzerklärung — Duofy
 
-**Stand:** 2026-07-31
-**Letzte Änderung:** 2026-07-31
+**Stand:** 2026-08-19
+**Letzte Änderung:** 2026-08-19
 
 > ⚠️ **Entwurf.** Erstellt aus einer Analyse der Datenmodelle und der
 > Infrastruktur. Alle `[PLATZHALTER]` müssen vom Betreiber gefüllt werden.
@@ -33,11 +33,22 @@ Art. 37 DSGVO liegen nicht vor.
 | Änderungsprotokoll (wer hat welchen Posten wann geändert) | Nachvollziehbarkeit im Haushalt | Art. 6(1)(f) — berechtigtes Interesse | bis Kontolöschung |
 | Haushaltszugehörigkeit und Rolle | gemeinsame Planung | Art. 6(1)(b) | bis Verlassen des Haushalts |
 | E-Mail-Adresse eingeladener Personen | Einladung in einen Haushalt | Art. 6(1)(f) | bis Annahme, Ablehnung oder Ablauf |
-| IP-Adresse, Zeitstempel, User-Agent | Betrieb, Angriffsabwehr | Art. 6(1)(f) | siehe Abschnitt 5 |
+| Importierte Buchungen (Datum, Betrag, Verwendungszweck) | Abgleich mit dem Plan | Art. 6(1)(b) — Vertrag | bis Kontolöschung |
+| **Name und IBAN der Gegenseite einer Buchung** | Zuordnung und Wiedererkennung | Art. 6(1)(f) — berechtigtes Interesse | bis Kontolöschung |
+| IP-Adresse, Zeitstempel, User-Agent | Betrieb, Angriffsabwehr | Art. 6(1)(f) | siehe Abschnitt 6 |
 
-**Besondere Kategorien nach Art. 9 DSGVO werden nicht verarbeitet.** Finanzdaten
-sind rechtlich keine besondere Kategorie, in der Praxis aber hoch schutzbedürftig
-— sie werden entsprechend behandelt.
+**Besondere Kategorien nach Art. 9 DSGVO werden nicht gezielt verarbeitet.**
+Finanzdaten sind rechtlich keine besondere Kategorie, in der Praxis aber hoch
+schutzbedürftig — sie werden entsprechend behandelt.
+
+**Einschränkung seit dem Bankdatei-Import:** Ein Verwendungszweck kann
+unbeabsichtigt Daten nach Art. 9 offenbaren — ein Beitrag an eine Gewerkschaft
+oder Partei, die Rechnung einer Praxis, eine Spende an eine
+Religionsgemeinschaft. Duofy fragt solche Angaben nicht ab und wertet sie nicht
+aus; sie können aber im Text einer importierten Buchung stehen. Für importierte
+Buchungen gilt deshalb dasselbe Schutzniveau wie für alle übrigen Finanzdaten,
+und es findet **keine automatisierte Auswertung des Verwendungszwecks** über die
+Zuordnung zu einer Kategorie hinaus statt.
 
 ---
 
@@ -75,7 +86,47 @@ Ermöglichung der gemeinsamen Nutzung.
 
 ---
 
-## 5. Cloudflare — Auslieferung, Schutz und Netzwerkzugang
+## 5. Import von Bankdateien — Daten anderer Personen
+
+Nutzer können eine Umsatzdatei ihrer Bank hochladen (Format CAMT nach
+ISO 20022). Daraus liest Duofy die Buchungen und legt sie zur Zuordnung ab.
+
+**Was dabei über Dritte gespeichert wird:** Name und IBAN der Gegenseite jeder
+Buchung, soweit die Bank sie in der Datei nennt, sowie der Verwendungszweck.
+Diese Personen sind keine Nutzer von Duofy und haben von der Verarbeitung keine
+Kenntnis.
+
+**Rechtsgrundlage:** Art. 6(1)(f) DSGVO. Das berechtigte Interesse liegt darin,
+eine Buchung ihrem geplanten Posten zuordnen und beim nächsten Import
+wiedererkennen zu können — ohne die Gegenseite ist beides nicht möglich. Die
+Interessen der Dritten überwiegen nicht: es sind dieselben Angaben, die auf jedem
+Kontoauszug stehen, sie werden nicht veröffentlicht, nicht weitergegeben und
+nicht zu Profilen verdichtet.
+
+**Information der Dritten nach Art. 14 DSGVO:** Duofy kennt von diesen Personen
+nur Name und IBAN, keine Kontaktmöglichkeit. Eine Benachrichtigung wäre allein
+über deren Bank möglich und stünde in keinem Verhältnis zur Verarbeitung. Sie
+entfällt deshalb nach **Art. 14(5)(b) DSGVO**; diese Erklärung tritt an ihre
+Stelle.
+
+**Die hochgeladene Datei wird nicht aufbewahrt.** Sie wird gelesen und
+verworfen. Gespeichert wird nur, was für die Zuordnung gebraucht wird — der
+Kontostand, der Kontoinhabername und die Bankkennungen aus der Datei fließen
+nicht in die Datenbank.
+
+**Kein Zugriff auf das Bankkonto.** Duofy verbindet sich nicht mit einer Bank und
+nimmt keine Zugangsdaten entgegen. Verarbeitet wird ausschließlich eine Datei,
+die der Nutzer selbst bei seiner Bank herunterlädt.
+
+**Weitergabe im Haushalt:** Eine importierte Buchung ist nur für den Besitzer des
+Kontos sichtbar, für Haushaltsmitglieder nur dann, wenn dieser ihnen Zugriff auf
+den Bereich „Konten" eingeräumt hat.
+
+**Löschung:** Mit dem Konto werden auch die importierten Buchungen gelöscht.
+
+---
+
+## 6. Cloudflare — Auslieferung, Schutz und Netzwerkzugang
 
 **Anbieter:** Cloudflare, Inc., 101 Townsend St., San Francisco, CA 94107, USA
 sowie Cloudflare Germany GmbH
@@ -97,7 +148,7 @@ erforderlich
 
 ---
 
-## 6. noez GmbH — Serverhosting
+## 7. noez GmbH — Serverhosting
 
 **Anbieter:** noez GmbH, Frankfurt am Main, Deutschland
 **Zweck:** vServer, auf dem Backend und Datenbank laufen
@@ -109,7 +160,7 @@ gespeichert werden
 
 ---
 
-## 7. GitHub — Quellcode und Build
+## 8. GitHub — Quellcode und Build
 
 **Anbieter:** GitHub, Inc. (Microsoft), USA
 **Zweck:** Quellcodeverwaltung; Cloudflare Pages baut das Frontend aus dem
@@ -120,7 +171,7 @@ Repository
 
 ---
 
-## 8. Cookies und lokale Speicherung
+## 9. Cookies und lokale Speicherung
 
 Es werden **keine Tracking-Cookies und keine Analyse-Werkzeuge** eingesetzt.
 Eine Einwilligung nach § 25 TDDDG ist deshalb nicht erforderlich — alle unten
@@ -137,7 +188,7 @@ jeder Anfrage an das Backend gesendet wird.
 
 ---
 
-## 9. Deine Rechte (Art. 15–22 DSGVO)
+## 10. Deine Rechte (Art. 15–22 DSGVO)
 
 Du hast das Recht auf Auskunft (Art. 15), Berichtigung (Art. 16), Löschung
 (Art. 17), Einschränkung der Verarbeitung (Art. 18), Datenübertragbarkeit
@@ -154,7 +205,7 @@ aktuell löscht die Datenbank per CASCADE mit]**
 
 ---
 
-## 10. Widerruf von Einwilligungen
+## 11. Widerruf von Einwilligungen
 
 Der Dienst arbeitet derzeit **ohne einwilligungsbasierte Verarbeitung**. Alle
 Verarbeitungen stützen sich auf Vertragserfüllung oder berechtigtes Interesse.
@@ -164,7 +215,7 @@ ergänzt und eine Widerrufsmöglichkeit bereitgestellt.
 
 ---
 
-## 11. Beschwerderecht
+## 12. Beschwerderecht
 
 Du kannst dich bei einer Datenschutz-Aufsichtsbehörde beschweren. Zuständig ist
 die Behörde deines Wohnsitzes oder die des Verantwortlichen:
@@ -175,7 +226,7 @@ https://www.bfdi.bund.de
 
 ---
 
-## 12. Datensicherheit
+## 13. Datensicherheit
 
 - Übertragung ausschließlich über HTTPS
 - Passwörter werden mit **argon2** gehasht, nie im Klartext gespeichert
@@ -185,7 +236,7 @@ https://www.bfdi.bund.de
 
 ---
 
-## 13. Änderungen
+## 14. Änderungen
 
 Bei wesentlichen Änderungen werden registrierte Nutzer informiert.
-Stand: 2026-07-31
+Stand: 2026-08-19
