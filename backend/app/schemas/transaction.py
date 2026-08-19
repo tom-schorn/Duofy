@@ -68,3 +68,8 @@ class TransactionRead(TransactionBase):
     #: Created by ticking a position off. The frontend marks such bookings and
     #: warns before un-ticking removes them again.
     auto_booked: bool = False
+
+    #: The other side, where the booking came out of an import. Read-only —
+    #: nobody types this in, it is what the bank reported.
+    counterparty_name: str | None = None
+    counterparty_iban: str | None = None

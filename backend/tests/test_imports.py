@@ -389,3 +389,137 @@ async def test_a_position_brings_its_own_category(
     assert rows.scalars().one().position_id == position.id
 
     app.dependency_overrides.clear()
+
+
+async def test_the_order_survives_an_assignment(
+    client: AsyncClient, session: AsyncSession
+):
+    """Entries must not jump when one of them is given a category.
+
+    Six entries **on the same day**, written in one transaction — which is what
+    an import does. `now()` is the transaction's start time, so `created_at` is
+    identical across all six and cannot decide anything. Without a unique
+    tiebreaker Postgres returns them in whatever order it likes, and the row
+    that was just updated comes back last.
+
+    The fixture cannot produce this: its five entries fall on five different
+    days, so the date alone settles the order and the bug stays hidden.
+    """
+    user = await make_user(session, "Owner")
+    account = await make_account(session, user, iban=FILE_IBAN)
+
+    for number in range(6):
+        session.add(
+            ImportedEntry(
+                owner_id=user.id,
+                imported_by_id=user.id,
+                account_id=account.id,
+                external_ref=f"9{number:018d}",
+                occurred_on=date(2026, 8, 14),
+                value_on=date(2026, 8, 14),
+                amount=Decimal("10.00") + number,
+                incoming=False,
+                purpose=f"Zeile {number}",
+            )
+        )
+    await session.commit()
+    sign_in(user)
+
+    before = [row["id"] for row in (await client.get("/api/v1/imports")).json()]
+    assert len(before) == 6
+
+    middle = before[3]
+    await client.patch(f"/api/v1/imports/{middle}", json={"category": "housing.rent"})
+
+    after = [row["id"] for row in (await client.get("/api/v1/imports")).json()]
+    assert after == before
+
+    app.dependency_overrides.clear()
+
+
+async def test_booking_keeps_the_counterparty(
+    client: AsyncClient, session: AsyncSession
+):
+    """Name and IBAN survive on the booking.
+
+    The parked row is deleted when it becomes a booking. Without these two
+    columns the counterparty would only live on as free text in `note`, and
+    nothing could ever be looked up by it — every assignment made by hand would
+    be lost to the recognition meant to learn from it.
+    """
+    user = await make_user(session, "Owner")
+    await make_account(session, user, iban=FILE_IBAN)
+    await session.commit()
+    sign_in(user)
+    await client.post("/api/v1/imports", files=upload_file())
+
+    entry = next(
+        row for row in await parked(session, user) if row.counterparty_iban is not None
+    )
+    await client.patch(f"/api/v1/imports/{entry.id}", json={"category": "housing.rent"})
+    await client.post(f"/api/v1/imports/{entry.id}/book")
+
+    rows = await session.execute(select(Transaction))
+    transaction = rows.scalars().one()
+    assert transaction.counterparty_name == entry.counterparty_name
+    assert transaction.counterparty_iban == entry.counterparty_iban
+
+    app.dependency_overrides.clear()
+
+
+async def test_a_savings_position_books_a_transfer(
+    client: AsyncClient, session: AsyncSession
+):
+    """Assigning a savings position makes the booking a transfer.
+
+    `PlanPosition.counter_account_id` says where the money goes, and `mark_paid`
+    has always honoured it. Without the same here, a transfer to the savings
+    account became an **expense**: the savings account never saw the money and
+    the savings quota stayed empty while the money was demonstrably saved.
+    """
+    from app.models.enums import AccountType, Block, Category
+    from app.models.plan import Plan, PlanPosition
+
+    user = await make_user(session, "Owner")
+    giro = await make_account(session, user, iban=FILE_IBAN)
+    savings = Account(
+        owner_id=user.id,
+        name="Tagesgeld",
+        type=AccountType.SAVINGS,
+        opening_balance=Decimal("0.00"),
+        opening_date=date(2026, 1, 1),
+        counts_as_available=False,
+    )
+    session.add(savings)
+    await session.flush()
+
+    plan = Plan(user_id=user.id, year=2026, month=8)
+    session.add(plan)
+    await session.flush()
+    position = PlanPosition(
+        plan_id=plan.id,
+        label="Rücklage",
+        amount_planned=Decimal("890.00"),
+        category=Category.FINANCE_SAVINGS,
+        block=Block.SAVINGS,
+        due_day=15,
+        counter_account_id=savings.id,
+    )
+    session.add(position)
+    await session.commit()
+
+    sign_in(user)
+    await client.post("/api/v1/imports", files=upload_file())
+    entry = (await parked(session, user))[0]
+
+    await client.patch(
+        f"/api/v1/imports/{entry.id}", json={"positionId": str(position.id)}
+    )
+    await client.post(f"/api/v1/imports/{entry.id}/book")
+
+    rows = await session.execute(select(Transaction))
+    transaction = rows.scalars().one()
+    assert transaction.account_id == giro.id
+    assert transaction.counter_account_id == savings.id
+
+    app.dependency_overrides.clear()

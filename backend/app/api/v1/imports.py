@@ -233,7 +233,15 @@ async def list_entries(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> list[ImportedEntry]:
-    """The parking area, newest day first. Discarded rows stay out of the list."""
+    """The parking area, newest day first. Discarded rows stay out of the list.
+
+    `external_ref` decides within a day, and it has to: every row of one import
+    is written in a single transaction, and `now()` is the **transaction's**
+    start time, so `created_at` is identical to the microsecond across the whole
+    batch. Without a unique tiebreaker the order is undefined — and an updated
+    row typically comes back last, which made entries jump the moment one of
+    them was given a category.
+    """
     owner_id = owner or user.id
     if owner_id != user.id:
         level = await granted_level(session, owner_id, user.id, Area.ACCOUNTS)
@@ -245,7 +253,11 @@ async def list_entries(
             ImportedEntry.owner_id == owner_id,
             ImportedEntry.discarded_at.is_(None),
         )
-        .order_by(ImportedEntry.occurred_on.desc(), ImportedEntry.created_at)
+        .order_by(
+            ImportedEntry.occurred_on.desc(),
+            ImportedEntry.created_at,
+            ImportedEntry.external_ref,
+        )
     )
     return list(rows.scalars())
 
@@ -297,15 +309,31 @@ async def book(
 
     The parked row goes away afterwards. Its identity survives in
     `Transaction.external_ref`, which is what keeps a second import of the same
-    file from bringing it back.
+    file from bringing it back — and so do the counterparty's name and IBAN,
+    which is what lets anything ever learn from this assignment.
+
+    ## A savings position makes this a transfer
+
+    `PlanPosition.counter_account_id` says where the money goes when it moves to
+    another own account, and `mark_paid` has always honoured it. Booking an
+    import has to do the same: without it a transfer to the savings account
+    becomes an **expense**, the savings account never sees the money, and the
+    savings quota stays empty while the money is demonstrably saved.
     """
     entry = await _load(session, entry_id, user)
     require(entry.category is not None, "category_missing")
+
+    counter_account_id = None
+    if entry.position_id is not None:
+        position = await session.get(PlanPosition, entry.position_id)
+        if position is not None:
+            counter_account_id = position.counter_account_id
 
     session.add(
         Transaction(
             owner_id=entry.owner_id,
             account_id=entry.account_id,
+            counter_account_id=counter_account_id,
             occurred_on=entry.occurred_on,
             amount=entry.amount,
             note=entry.counterparty_name or entry.purpose,
@@ -313,6 +341,8 @@ async def book(
             block=entry.block,
             position_id=entry.position_id,
             external_ref=entry.external_ref,
+            counterparty_name=entry.counterparty_name,
+            counterparty_iban=entry.counterparty_iban,
         )
     )
     await session.delete(entry)

@@ -96,3 +96,18 @@ class Transaction(Base, UUIDMixin, TimestampMixin):
     #: Identifier at the provider — prevents duplicates on a later CSV or bank
     #: import. Free to add now, a migration on real data later.
     external_ref: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    #: The other side of an imported booking, kept as the file reported it.
+    #:
+    #: Not decoration. The parked row is deleted once it becomes a booking, and
+    #: without these two columns the counterparty would survive only as free text
+    #: in `note` — from which nothing can be looked up. Everything a person
+    #: assigns by hand would then be lost to the recognition that is supposed to
+    #: learn from it, and the first months of use would teach it nothing.
+    #:
+    #: The IBAN is the key that matters: it is exact, while a merchant name
+    #: differs by a space or a branch number. Both are empty on bookings entered
+    #: by hand — there is no other side to record there.
+    counterparty_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    #: 34 characters is the longest an IBAN gets.
+    counterparty_iban: Mapped[str | None] = mapped_column(String(34), nullable=True)
