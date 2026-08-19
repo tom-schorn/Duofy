@@ -699,10 +699,10 @@ async def test_a_budget_position_comes_with_the_suggestion(
     app.dependency_overrides.clear()
 
 
-async def test_an_assigned_row_gets_no_suggestion(
+async def test_an_assigned_row_without_a_matching_budget_gets_nothing(
     client: AsyncClient, session: AsyncSession
 ):
-    """Once somebody decided, the import stops offering an opinion."""
+    """A chosen category with no budget position for it: nothing to add."""
     user = await make_user(session, "Owner")
     account = await make_account(session, user, iban=FILE_IBAN)
     session.add(
@@ -736,5 +736,171 @@ async def test_an_assigned_row_gets_no_suggestion(
     sign_in(user)
 
     assert (await client.get("/api/v1/imports")).json()[0]["suggestion"] is None
+
+    app.dependency_overrides.clear()
+
+
+async def test_a_payment_service_gets_no_suggestion(
+    client: AsyncClient, session: AsyncSession
+):
+    """One counterparty, many purposes — the case that would be confidently wrong.
+
+    PayPal, Klarna, Amazon, a card statement: the recipient says nothing about
+    what was bought. Suggesting the last category there is wrong most of the
+    time, so the recognition stays quiet instead.
+    """
+    user = await make_user(session, "Owner")
+    account = await make_account(session, user, iban=FILE_IBAN)
+    paypal = "DE02100500000054540402"
+
+    for day, category, block in (
+        (5, Category.LEISURE_HOBBIES, Block.WANTS),
+        (12, Category.HOUSEHOLD_CLOTHING, Block.NEEDS),
+        (19, Category.LEISURE_ENTERTAINMENT, Block.WANTS),
+    ):
+        session.add(
+            Transaction(
+                owner_id=user.id,
+                account_id=account.id,
+                occurred_on=date(2026, 7, day),
+                amount=Decimal("20.00"),
+                category=category,
+                block=block,
+                counterparty_iban=paypal,
+                counterparty_name="Zahlungsdienst",
+            )
+        )
+    session.add(
+        ImportedEntry(
+            owner_id=user.id,
+            imported_by_id=user.id,
+            account_id=account.id,
+            external_ref="8000000000000000096",
+            occurred_on=date(2026, 8, 12),
+            value_on=date(2026, 8, 12),
+            amount=Decimal("31.00"),
+            incoming=False,
+            counterparty_name="Zahlungsdienst",
+            counterparty_iban=paypal,
+        )
+    )
+    await session.commit()
+    sign_in(user)
+
+    assert (await client.get("/api/v1/imports")).json()[0]["suggestion"] is None
+
+    app.dependency_overrides.clear()
+
+
+async def test_one_slip_does_not_poison_a_counterparty(
+    client: AsyncClient, session: AsyncSession
+):
+    """A mistyped category falls out of the window instead of silencing the shop.
+
+    Only the newest three are asked. Book the supermarket right twice after a
+    slip and it speaks again — otherwise a single wrong click would cost the
+    suggestion for good.
+    """
+    user = await make_user(session, "Owner")
+    account = await make_account(session, user, iban=FILE_IBAN)
+    shop = "DE02300209000106531065"
+
+    for day, category, block in (
+        (2, Category.LEISURE_DINING, Block.WANTS),  # der Ausrutscher
+        (9, Category.HOUSEHOLD_GROCERIES, Block.NEEDS),
+        (16, Category.HOUSEHOLD_GROCERIES, Block.NEEDS),
+        (23, Category.HOUSEHOLD_GROCERIES, Block.NEEDS),
+    ):
+        session.add(
+            Transaction(
+                owner_id=user.id,
+                account_id=account.id,
+                occurred_on=date(2026, 7, day),
+                amount=Decimal("20.00"),
+                category=category,
+                block=block,
+                counterparty_iban=shop,
+                counterparty_name="Markt",
+            )
+        )
+    session.add(
+        ImportedEntry(
+            owner_id=user.id,
+            imported_by_id=user.id,
+            account_id=account.id,
+            external_ref="8000000000000000095",
+            occurred_on=date(2026, 8, 12),
+            value_on=date(2026, 8, 12),
+            amount=Decimal("18.40"),
+            incoming=False,
+            counterparty_name="Markt",
+            counterparty_iban=shop,
+        )
+    )
+    await session.commit()
+    sign_in(user)
+
+    suggestion = (await client.get("/api/v1/imports")).json()[0]["suggestion"]
+    assert suggestion is not None
+    assert suggestion["category"] == "household.groceries"
+
+    app.dependency_overrides.clear()
+
+
+async def test_your_own_category_still_gets_its_budget_position(
+    client: AsyncClient, session: AsyncSession
+):
+    """Choosing a category by hand must not switch the help off.
+
+    The budget position follows from the category alone — no learning, no
+    tolerance, no guessing. Staying quiet here meant the import stopped helping
+    exactly when the answer was most certain.
+    """
+    from app.models.plan import Plan, PlanPosition
+
+    user = await make_user(session, "Owner")
+    account = await make_account(session, user, iban=FILE_IBAN)
+
+    plan = Plan(user_id=user.id, year=2026, month=8)
+    session.add(plan)
+    await session.flush()
+    budget = PlanPosition(
+        plan_id=plan.id,
+        label="Lebensmittel",
+        amount_planned=Decimal("520.00"),
+        category=Category.HOUSEHOLD_GROCERIES,
+        block=Block.NEEDS,
+        due_day=1,
+        is_budget=True,
+    )
+    session.add(budget)
+    session.add(
+        ImportedEntry(
+            owner_id=user.id,
+            imported_by_id=user.id,
+            account_id=account.id,
+            external_ref="8000000000000000094",
+            occurred_on=date(2026, 8, 12),
+            value_on=date(2026, 8, 12),
+            amount=Decimal("18.40"),
+            incoming=False,
+            counterparty_name="Ein Laden ohne Geschichte",
+        )
+    )
+    await session.commit()
+    sign_in(user)
+
+    entry = (await parked(session, user))[0]
+    # Nichts gelernt, also zunächst kein Vorschlag.
+    assert (await client.get("/api/v1/imports")).json()[0]["suggestion"] is None
+
+    await client.patch(
+        f"/api/v1/imports/{entry.id}", json={"category": "household.groceries"}
+    )
+
+    suggestion = (await client.get("/api/v1/imports")).json()[0]["suggestion"]
+    assert suggestion is not None
+    assert suggestion["positionId"] == str(budget.id)
+    assert "Budgetposten" in suggestion["reason"]
 
     app.dependency_overrides.clear()

@@ -146,7 +146,7 @@ export const CATEGORY_LABEL: Record<Category, string> = {
   'personal.communication': 'Kommunikation',
   'personal.work': 'Beruf',
   'personal.legal': 'Rechtliches',
-  'personal.gifts': 'Geschenke',
+  'personal.gifts': 'Geschenke & Feiern',
   'personal.donations': 'Spenden',
   'personal.education': 'Bildung',
   'personal.taxes': 'Steuern',

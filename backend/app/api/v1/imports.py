@@ -268,14 +268,29 @@ def _normalise(name: str) -> str:
     return " ".join(word for word in letters.split() if word not in _LEGAL_FORMS)
 
 
+#: How many past bookings of one counterparty have to agree.
+#:
+#: A payment service is one counterparty for many purposes: PayPal, Klarna,
+#: Amazon, a card statement. Suggesting the last category there is wrong most of
+#: the time, and confidently wrong is worse than silent.
+#:
+#: So the last few bookings have to agree before anything is offered. Three,
+#: because it also lets a single mistyped category fall out of the window
+#: instead of poisoning that counterparty for good — and because a counterparty
+#: booked only once is still worth following, which is what makes the first pile
+#: teach itself.
+_AGREEING_BOOKINGS = 3
+
+
 async def _learned(
     session: AsyncSession, owner_id: uuid.UUID, entries: list[ImportedEntry]
 ) -> dict[uuid.UUID, tuple[Category, str]]:
-    """What each entry's counterparty was last booked as.
+    """What each entry's counterparty was booked as, where that is unambiguous.
 
-    One query for the whole batch. `DISTINCT ON` takes the most recent booking
-    per counterparty — "last one wins", which is the whole rule. Nothing is
-    weighted, nothing is counted; a correction simply becomes the newest answer.
+    One query for the whole batch. The newest bookings per counterparty decide —
+    "last one wins" — but only while the last `_AGREEING_BOOKINGS` of them say
+    the same thing. Where they disagree the counterparty says nothing about the
+    purpose, and no suggestion is better than a plausible wrong one.
 
     The bookings themselves are the memory. A separate table of rules would be a
     second truth to keep in step with the first.
@@ -304,15 +319,25 @@ async def _learned(
         .order_by(Transaction.occurred_on.desc(), Transaction.created_at.desc())
     )
 
-    by_iban: dict[str, Category] = {}
-    by_name: dict[str, Category] = {}
+    # Collect the newest few per key, then let them vote.
+    recent_iban: dict[str, list[Category]] = {}
+    recent_name: dict[str, list[Category]] = {}
     for iban, name, category, _ in rows:
-        if iban and iban not in by_iban:
-            by_iban[iban] = category
+        if iban:
+            seen = recent_iban.setdefault(iban, [])
+            if len(seen) < _AGREEING_BOOKINGS:
+                seen.append(category)
         if name:
-            key = _normalise(name)
-            if key not in by_name:
-                by_name[key] = category
+            seen = recent_name.setdefault(_normalise(name), [])
+            if len(seen) < _AGREEING_BOOKINGS:
+                seen.append(category)
+
+    def agreed(seen: list[Category]) -> Category | None:
+        """The category, if the recent bookings are of one mind about it."""
+        return seen[0] if seen and len(set(seen)) == 1 else None
+
+    by_iban = {key: found for key, seen in recent_iban.items() if (found := agreed(seen))}
+    by_name = {key: found for key, seen in recent_name.items() if (found := agreed(seen))}
 
     found: dict[uuid.UUID, tuple[Category, str]] = {}
     for entry in entries:
@@ -355,9 +380,34 @@ def _suggest(
     learned: dict[uuid.UUID, tuple[Category, str]],
     budgets: dict[tuple[int, int, Category], uuid.UUID],
 ) -> Suggestion | None:
-    """One suggestion, or none. Assigned entries are left alone."""
-    if entry.category is not None or entry.position_id is not None:
+    """One suggestion, or none.
+
+    Two cases, and the second needs nothing learned at all:
+
+    * **Nothing assigned yet** — the counterparty says what this was last time,
+      and a matching budget position comes along with it
+    * **A category chosen by hand, no position** — the budget position follows
+      from that category alone. Leaving this out meant the moment somebody
+      decided for themselves, the import stopped helping — exactly when the
+      answer was most certain
+
+    An entry that already has a position is left alone. There is nothing left to
+    suggest, and second-guessing a decision is not a suggestion.
+    """
+    if entry.position_id is not None:
         return None
+
+    month = (entry.occurred_on.year, entry.occurred_on.month)
+
+    if entry.category is not None:
+        position_id = budgets.get((*month, entry.category))
+        if position_id is None:
+            return None
+        return Suggestion(
+            category=entry.category,
+            position_id=position_id,
+            reason="Budgetposten dieses Monats für deine Kategorie",
+        )
 
     hit = learned.get(entry.id)
     if hit is None:
@@ -367,7 +417,7 @@ def _suggest(
     where = "der IBAN" if how == "iban" else "dem Namen"
     return Suggestion(
         category=category,
-        position_id=budgets.get((entry.occurred_on.year, entry.occurred_on.month, category)),
+        position_id=budgets.get((*month, category)),
         reason=f"zuletzt so gebucht, erkannt an {where}",
     )
 

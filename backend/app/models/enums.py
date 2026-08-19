@@ -194,10 +194,15 @@ class Category(StrEnum):
     #: the 50/30/20 quotas.
     PERSONAL_WORK = ("personal.work", "Personal", "Work", Block.NEEDS)
     PERSONAL_LEGAL = ("personal.legal", "Personal", "Legal", Block.NEEDS)
-    #: Presents for other people. A want, unlike the rest of this group — the
-    #: group says what something hangs on, not which block it lands in, the same
-    #: way `housing.interior` sits in the wants among fixed housing costs.
-    PERSONAL_GIFTS = ("personal.gifts", "Personal", "Gifts", Block.WANTS)
+    #: Presents for other people, and what a celebration costs besides them —
+    #: decorations, candles, paper plates. Both together on purpose: a single
+    #: birthday shop holds the present and the trimmings, and splitting that
+    #: receipt asks a question with no good answer.
+    #:
+    #: A want, unlike the rest of this group — the group says what something
+    #: hangs on, not which block it lands in, the same way `housing.interior`
+    #: sits in the wants among fixed housing costs.
+    PERSONAL_GIFTS = ("personal.gifts", "Personal", "Gifts & Celebrations", Block.WANTS)
     #: Given away freely: association, church, relief organisation. Not
     #: `leisure.memberships` — that one buys belonging, this one buys nothing.
     PERSONAL_DONATIONS = ("personal.donations", "Personal", "Donations", Block.WANTS)
