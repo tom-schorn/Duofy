@@ -901,7 +901,7 @@ async def test_your_own_category_still_gets_its_budget_position(
     suggestion = (await client.get("/api/v1/imports")).json()[0]["suggestion"]
     assert suggestion is not None
     assert suggestion["positionId"] == str(budget.id)
-    assert "Budgetposten" in suggestion["reason"]
+    assert "einziger Posten" in suggestion["reason"]
 
     app.dependency_overrides.clear()
 
@@ -1053,5 +1053,108 @@ async def test_a_part_payment_leaves_the_position_open(
     await session.refresh(rent)
     assert rent.amount_actual == Decimal("890.00")
     assert rent.paid_at is not None, "zusammen erreichen sie den geplanten Betrag"
+
+    app.dependency_overrides.clear()
+
+
+async def test_a_single_payment_is_suggested_when_it_is_the_only_one(
+    client: AsyncClient, session: AsyncSession
+):
+    """Rent is not a budget, and it does not need tolerances either.
+
+    A month holds one rent position. Once the category is known, the position
+    follows from it — no amount, no due-date window. The tolerances of #61 are
+    only needed where a category has several positions.
+    """
+    from app.models.plan import Plan, PlanPosition
+
+    user = await make_user(session, "Owner")
+    await make_account(session, user, iban=FILE_IBAN)
+
+    plan = Plan(user_id=user.id, year=2026, month=8)
+    session.add(plan)
+    await session.flush()
+    rent = PlanPosition(
+        plan_id=plan.id,
+        label="Miete",
+        amount_planned=Decimal("890.00"),
+        category=Category.HOUSING_RENT,
+        block=Block.NEEDS,
+        due_day=15,
+    )
+    session.add(rent)
+    await session.commit()
+
+    sign_in(user)
+    await client.post("/api/v1/imports", files=upload_file())
+    entry = next(
+        row for row in await parked(session, user) if row.amount == Decimal("890.00")
+    )
+
+    await client.patch(f"/api/v1/imports/{entry.id}", json={"category": "housing.rent"})
+
+    suggestion = next(
+        row["suggestion"]
+        for row in (await client.get("/api/v1/imports")).json()
+        if row["id"] == str(entry.id)
+    )
+    assert suggestion["positionId"] == str(rent.id)
+
+    app.dependency_overrides.clear()
+
+
+async def test_the_amount_decides_between_two_positions_of_one_category(
+    client: AsyncClient, session: AsyncSession
+):
+    """Two insurances in one category: only then does the amount matter.
+
+    And only within a euro. Two of 18.40 and 91.00 are told apart; two of 18.40
+    and 18.39 are not, and then nothing is offered rather than a coin toss.
+    """
+    from app.models.plan import Plan, PlanPosition
+
+    user = await make_user(session, "Owner")
+    account = await make_account(session, user, iban=FILE_IBAN)
+
+    plan = Plan(user_id=user.id, year=2026, month=8)
+    session.add(plan)
+    await session.flush()
+    for label, amount in (("Hausrat", "18.40"), ("Haftpflicht", "91.00")):
+        session.add(
+            PlanPosition(
+                plan_id=plan.id,
+                label=label,
+                amount_planned=Decimal(amount),
+                category=Category.PERSONAL_INSURANCE,
+                block=Block.NEEDS,
+                due_day=13,
+            )
+        )
+    session.add(
+        ImportedEntry(
+            owner_id=user.id,
+            imported_by_id=user.id,
+            account_id=account.id,
+            external_ref="6000000000000000001",
+            occurred_on=date(2026, 8, 13),
+            value_on=date(2026, 8, 13),
+            amount=Decimal("91.00"),
+            incoming=False,
+            counterparty_name="Versicherungskammer",
+        )
+    )
+    await session.commit()
+    sign_in(user)
+
+    entry = (await parked(session, user))[0]
+    await client.patch(
+        f"/api/v1/imports/{entry.id}", json={"category": "personal.insurance"}
+    )
+
+    suggestion = (await client.get("/api/v1/imports")).json()[0]["suggestion"]
+    haftpflicht = await session.execute(
+        select(PlanPosition).where(PlanPosition.label == "Haftpflicht")
+    )
+    assert suggestion["positionId"] == str(haftpflicht.scalar_one().id)
 
     app.dependency_overrides.clear()

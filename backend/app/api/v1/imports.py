@@ -351,35 +351,67 @@ async def _learned(
     return found
 
 
-async def _budget_positions(
+async def _positions_by_category(
     session: AsyncSession, owner_id: uuid.UUID, entries: list[ImportedEntry]
-) -> dict[tuple[int, int, Category], uuid.UUID]:
-    """Budget positions of the months this pile falls into, by category.
+) -> dict[tuple[int, int, Category], list[PlanPosition]]:
+    """The positions of the months this pile falls into, grouped by category.
 
-    Only budget positions. They are filled by many bookings over the month, so
-    the category alone identifies them — no amount, no due-date window, none of
-    the guessing #61 is about. Single payments are left to that issue.
+    Budget positions and single payments together, because the question is the
+    same for both: **is there exactly one candidate?** A month holds one
+    groceries budget, one rent, one mobile contract — the category settles it,
+    and no amount has to be compared.
+
+    Only where a category has several positions does the amount decide, and only
+    then are the tolerances of #61 needed at all. Which is most of the time not.
     """
     months = {(entry.occurred_on.year, entry.occurred_on.month) for entry in entries}
     if not months:
         return {}
 
     rows = await session.execute(
-        select(Plan.year, Plan.month, PlanPosition.category, PlanPosition.id)
+        select(Plan.year, Plan.month, PlanPosition)
         .join(PlanPosition, PlanPosition.plan_id == Plan.id)
         .where(
             Plan.user_id == owner_id,
-            PlanPosition.is_budget.is_(True),
             tuple_(Plan.year, Plan.month).in_(months),
         )
     )
-    return {(year, month, category): position for year, month, category, position in rows}
+
+    grouped: dict[tuple[int, int, Category], list[PlanPosition]] = {}
+    for year, month, position in rows:
+        grouped.setdefault((year, month, position.category), []).append(position)
+    return grouped
+
+
+def _position_for(
+    entry: ImportedEntry,
+    category: Category,
+    positions: dict[tuple[int, int, Category], list[PlanPosition]],
+) -> uuid.UUID | None:
+    """The position this entry most likely belongs to, or none.
+
+    One candidate means it is that one — a paid position included, since a
+    budget takes many bookings and a single payment may arrive in instalments.
+
+    Several candidates are what the amount is for: the closest match wins, and
+    only if it is within a euro. Two insurances of 18.40 and 91.00 are told
+    apart that way; two of 18.40 and 18.39 are not, and then nothing is offered
+    rather than a coin toss.
+    """
+    candidates = positions.get((entry.occurred_on.year, entry.occurred_on.month, category))
+    if not candidates:
+        return None
+    if len(candidates) == 1:
+        return candidates[0].id
+
+    closest = min(candidates, key=lambda p: abs(p.amount_planned - entry.amount))
+    return closest.id if abs(closest.amount_planned - entry.amount) <= 1 else None
 
 
 def _suggest(
     entry: ImportedEntry,
     learned: dict[uuid.UUID, tuple[Category, str]],
-    budgets: dict[tuple[int, int, Category], uuid.UUID],
+    positions: dict[tuple[int, int, Category], list[PlanPosition]],
 ) -> Suggestion | None:
     """One suggestion, or none.
 
@@ -398,16 +430,14 @@ def _suggest(
     if entry.position_id is not None:
         return None
 
-    month = (entry.occurred_on.year, entry.occurred_on.month)
-
     if entry.category is not None:
-        position_id = budgets.get((*month, entry.category))
+        position_id = _position_for(entry, entry.category, positions)
         if position_id is None:
             return None
         return Suggestion(
             category=entry.category,
             position_id=position_id,
-            reason="Budgetposten dieses Monats für deine Kategorie",
+            reason="einziger Posten dieses Monats für deine Kategorie",
         )
 
     hit = learned.get(entry.id)
@@ -418,7 +448,7 @@ def _suggest(
     where = "der IBAN" if how == "iban" else "dem Namen"
     return Suggestion(
         category=category,
-        position_id=budgets.get((*month, category)),
+        position_id=_position_for(entry, category, positions),
         reason=f"zuletzt so gebucht, erkannt an {where}",
     )
 
@@ -458,11 +488,11 @@ async def list_entries(
     entries = list(rows.scalars())
 
     learned = await _learned(session, owner_id, entries)
-    budgets = await _budget_positions(session, owner_id, entries)
+    positions = await _positions_by_category(session, owner_id, entries)
 
     return [
         ImportedEntryRead.model_validate(entry).model_copy(
-            update={"suggestion": _suggest(entry, learned, budgets)}
+            update={"suggestion": _suggest(entry, learned, positions)}
         )
         for entry in entries
     ]
