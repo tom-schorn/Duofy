@@ -31,6 +31,7 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { errorText } from '@/lib/api'
 import {
+  atLeast,
   ACCOUNT_TYPE_LABEL,
   euro,
   type Account,
@@ -77,7 +78,8 @@ export function AccountsPage() {
   const accounts = useAccounts(
     active.id === null ? OWN_SCOPE : { kind: 'member', ownerId: active.id }
   )
-  const mayEdit = active.levelFor('accounts') === 'edit'
+  const mayEdit = atLeast(active.levelFor('accounts'), 'edit')
+  const mayDelete = atLeast(active.levelFor('accounts'), 'delete')
   const [editing, setEditing] = useState<Account | null>(null)
   const [open, setOpen] = useState(false)
 
@@ -160,17 +162,25 @@ export function AccountsPage() {
         )}
       </QueryState>
 
-      <AccountDialog account={editing} open={open} onOpenChange={setOpen} />
+      <AccountDialog
+        account={editing}
+        mayDelete={mayDelete}
+        open={open}
+        onOpenChange={setOpen}
+      />
     </div>
   )
 }
 
 function AccountDialog({
   account,
+  mayDelete,
   open,
   onOpenChange,
 }: {
   account: Account | null
+  /** Only decides whether the button is offered. The endpoint checks it again. */
+  mayDelete: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
@@ -323,7 +333,7 @@ function AccountDialog({
           </div>
 
           <DialogFooter className="gap-2 sm:justify-between">
-            {isEdit ? (
+            {isEdit && mayDelete ? (
               <Button
                 type="button"
                 variant="ghost"

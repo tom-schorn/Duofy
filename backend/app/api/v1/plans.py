@@ -117,11 +117,31 @@ def _summarize(
     }
 
 
-async def _load_plan(session: AsyncSession, plan_id: uuid.UUID, user: User) -> Plan:
+async def _load_plan(
+    session: AsyncSession,
+    plan_id: uuid.UUID,
+    user: User,
+    *,
+    allow_delegate: bool = True,
+) -> Plan:
+    """A month, either your own or one you stand in for.
+
+    Same ladder as `positions.py::_load`: your own always, somebody else only at
+    level `edit` in `Area.PLAN`, and only the owner can grant that. Standing in
+    for someone means being able to do the same things they can — a delegate who
+    may correct a position but not add one would be stuck the moment something
+    is missing, which is the usual reason for helping in the first place.
+    """
     plan = await session.get(Plan, plan_id, options=[selectinload(Plan.positions)])
     if plan is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "plan_not_found"})
-    require(owns_plan(user, plan), "not_plan_owner")
+
+    if owns_plan(user, plan):
+        return plan
+
+    require(allow_delegate, "not_plan_owner")
+    level = await granted_level(session, plan.user_id, user.id, Area.PLAN)
+    require(level.rank >= AccessLevel.EDIT.rank, "no_edit_granted")
     return plan
 
 
@@ -164,6 +184,7 @@ async def list_plans(
 @router.post("", response_model=PlanRead, status_code=status.HTTP_201_CREATED)
 async def create_plan(
     payload: PlanCreate,
+    owner: uuid.UUID | None = None,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> PlanRead:
@@ -172,10 +193,21 @@ async def create_plan(
     Positions are generated from every active commitment falling due in that month.
     Deliberately **no** "copy last month" — the recurring part comes from the
     commitments, one-off items are entered by hand.
+
+    Without `owner` your own month, with `owner` that of a person who granted
+    `edit` in `Area.PLAN`. **Everything is read from the owner**, not from
+    whoever is calling: the plan, the commitments it grows from, the check for a
+    month that already exists. Taking the caller for any one of those would
+    quietly build the wrong person a month out of the wrong contracts.
     """
+    owner_id = owner or user.id
+    if owner_id != user.id:
+        level = await granted_level(session, owner_id, user.id, Area.PLAN)
+        require(level.rank >= AccessLevel.EDIT.rank, "no_edit_granted")
+
     existing = await session.execute(
         select(Plan).where(
-            Plan.user_id == user.id,
+            Plan.user_id == owner_id,
             Plan.year == payload.year,
             Plan.month == payload.month,
         )
@@ -183,10 +215,10 @@ async def create_plan(
     if existing.scalar_one_or_none() is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, detail={"code": "plan_already_exists"})
 
-    plan = Plan(user_id=user.id, year=payload.year, month=payload.month)
+    plan = Plan(user_id=owner_id, year=payload.year, month=payload.month)
 
     commitments = await session.execute(
-        select(Commitment).where(Commitment.owner_id == user.id, Commitment.active.is_(True))
+        select(Commitment).where(Commitment.owner_id == owner_id, Commitment.active.is_(True))
     )
     for commitment in commitments.scalars():
         if not commitment.is_due_in(payload.year, payload.month):

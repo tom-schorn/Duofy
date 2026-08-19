@@ -411,12 +411,21 @@ export function useHouseholdPlan(
   })
 }
 
+/**
+ * Create a month — your own, or that of a member who granted `edit`.
+ *
+ * The owner goes into the query string, never into the body: the endpoint reads
+ * the plan **and** the commitments it grows from off that one value, and a body
+ * field would have looked like data rather than like a target.
+ */
 export function useCreatePlan() {
-  return useInvalidating<PlanDetail, { year: number; month: number }>(
-    (input) => api.post('/plans', input),
-    [keys.plans],
-    'Monat angelegt'
-  )
+  return useInvalidating<
+    PlanDetail,
+    { year: number; month: number; ownerId?: string | null }
+  >(({ ownerId, ...body }) => {
+    const path = ownerId ? `/plans?owner=${ownerId}` : '/plans'
+    return api.post(path, body)
+  }, [keys.plans], 'Monat angelegt')
 }
 
 // --- Positions --------------------------------------------------------------

@@ -59,6 +59,7 @@ import {
   isPaid,
   stillDue,
   type Block,
+  atLeast,
   type HouseholdPlanDetail,
   type HouseholdPosition,
   type BookScope,
@@ -151,7 +152,8 @@ export function PlanDetailPage() {
                   plan={memberPlan.data}
                   ownerId={memberId ?? ''}
                   ownerName={active.member?.firstName ?? ''}
-                  mayEdit={active.levelFor('plan') === 'edit'}
+                  mayEdit={atLeast(active.levelFor('plan'), 'edit')}
+                  mayDelete={atLeast(active.levelFor('plan'), 'delete')}
                   householdNames={names}
                   tab={params.get('tab') ?? 'plan'}
                   onTab={setTab}
@@ -618,6 +620,7 @@ function MemberPlanBody({
   ownerId,
   ownerName,
   mayEdit,
+  mayDelete,
   householdNames,
   tab,
   onTab,
@@ -627,6 +630,8 @@ function MemberPlanBody({
   ownerName: string
   /** Only decides whether buttons are offered. The endpoint checks it again. */
   mayEdit: boolean
+  /** A step above `mayEdit`: deleting is neither logged nor reversible. */
+  mayDelete: boolean
   householdNames: Record<string, string>
   tab: string
   onTab: (value: string) => void
@@ -654,17 +659,29 @@ function MemberPlanBody({
   const free = Number(plan.budget) - allocated
   const unpaid = plan.positions.reduce((sum, row) => sum + stillDue(row), 0)
 
-  // Acting on their behalf: tick off and change if the level allows it.
-  // **Creating** stays out, see `canAdd` in BudgetSection.
+  // Acting on their behalf: at level `edit` everything the owner can do except
+  // deleting. Adding used to be excluded on the grounds that a new position is a
+  // decision, not a correction — but somebody who helps plan runs into a missing
+  // position immediately, and sending them away at that point makes the whole
+  // delegation useless. Deleting stays out: changing is logged and reversible,
+  // deleting is neither.
   const scope: BookScope = { kind: 'member', ownerId }
 
   const togglePaid = useTogglePaid()
   const savePosition = useSavePosition()
+  const deletePosition = useDeletePosition()
   const [editing, setEditing] = useState<PlanPosition | null>(null)
+  const [addingTo, setAddingTo] = useState<Block>('wants')
   const [dialogOpen, setDialogOpen] = useState(false)
 
   function openEditor(position: PlanPosition) {
     setEditing(position)
+    setDialogOpen(true)
+  }
+
+  function handleAdd(block: Block) {
+    setEditing(null)
+    setAddingTo(block)
     setDialogOpen(true)
   }
 
@@ -690,13 +707,21 @@ function MemberPlanBody({
               Vertretung
             </Badge>
           )}
+          {mayEdit && (
+            <Button size="sm" className="ml-auto" onClick={() => handleAdd('wants')}>
+              <Plus className="size-4" />
+              Posten hinzufügen
+            </Button>
+          )}
         </div>
         <p className="text-muted-foreground">
           {ownerName}s ganzer Monat, auch die privaten Posten — so
           freigegeben.{' '}
-          {mayEdit
-            ? 'Du darfst abhaken und ändern; jede Änderung wird protokolliert.'
-            : 'Nur zum Ansehen.'}
+          {!mayEdit
+            ? 'Nur zum Ansehen.'
+            : mayDelete
+              ? 'Du darfst abhaken, ändern, dazuschreiben und löschen; jede Änderung wird protokolliert.'
+              : 'Du darfst abhaken, ändern und Posten dazuschreiben; jede Änderung wird protokolliert. Löschen bleibt beim Besitzer.'}
         </p>
       </header>
 
@@ -756,10 +781,10 @@ function MemberPlanBody({
               positions={incomeRows}
               householdNames={householdNames}
               onEdit={openEditor}
-              onAdd={() => {}}
+              onAdd={handleAdd}
               onTogglePaid={toggle}
               readOnly={!mayEdit}
-              canAdd={false}
+              canAdd={mayEdit}
             />
 
             {groups.map((group) => (
@@ -770,21 +795,22 @@ function MemberPlanBody({
                 positions={group.rows}
                 householdNames={householdNames}
                 onEdit={openEditor}
-                onAdd={() => {}}
+                onAdd={handleAdd}
                 onTogglePaid={toggle}
                 readOnly={!mayEdit}
-                canAdd={false}
+                canAdd={mayEdit}
               />
             ))}
           </div>
         </TabsContent>
       </Tabs>
 
-      {/* Kein Löschen als Vertretung: ändern ist protokolliert und umkehrbar,
-          löschen ist beides nicht. Der Endpunkt lehnt es ohnehin ab. */}
+      {/* Löschen nur ab der Stufe `delete`: ändern steht im Protokoll und lässt
+          sich zurücknehmen, löschen tut beides nicht. Der Endpunkt prüft es
+          ohnehin noch einmal. */}
       <PositionDialog
         position={editing}
-        block={editing?.block ?? 'needs'}
+        block={editing?.block ?? addingTo}
         planId={plan.id}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
@@ -794,7 +820,14 @@ function MemberPlanBody({
             { onSuccess: () => setDialogOpen(false) }
           )
         }
-        onDelete={null}
+        onDelete={
+          mayDelete && editing
+            ? () => {
+                deletePosition.mutate(editing.id)
+                setDialogOpen(false)
+              }
+            : null
+        }
       />
     </>
   )

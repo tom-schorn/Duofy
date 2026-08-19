@@ -38,7 +38,7 @@ async def _load(
     position_id: uuid.UUID,
     user: User,
     *,
-    allow_delegate: bool = True,
+    needs: AccessLevel = AccessLevel.EDIT,
 ) -> tuple[PlanPosition, Plan]:
     position = await session.get(PlanPosition, position_id)
     if position is None:
@@ -52,19 +52,21 @@ async def _load(
     if owns_plan(user, plan):
         return position, plan
 
-    # Somebody else position only at level `edit`, and only the owner can grant
-    # that. Without it everyone carries their own part and books on their own
-    # positions.
+    # Somebody else position only from the level the owner granted, and only the
+    # owner can grant it. Without it everyone carries their own part and books on
+    # their own positions.
     #
     # It stays traceable through `plan_position_changes`, which records who changed
     # which field when. That is why this needs a log rather than a lock: locking
     # would get in the way far more often than it helps.
     #
-    # `allow_delegate=False` on delete: changing is reversible and recorded,
-    # deleting is neither.
-    require(allow_delegate, "not_allowed")
+    # Deleting asks for `delete` rather than `edit`: a change is in that log and
+    # can be undone, a deletion is in neither.
     level = await granted_level(session, plan.user_id, user.id, Area.PLAN)
-    require(level is AccessLevel.EDIT, "no_edit_granted")
+    require(
+        level.rank >= needs.rank,
+        "no_delete_granted" if needs is AccessLevel.DELETE else "no_edit_granted",
+    )
     return position, plan
 
 
@@ -159,7 +161,7 @@ async def delete_position(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> None:
-    position, _ = await _load(session, position_id, user, allow_delegate=False)
+    position, _ = await _load(session, position_id, user, needs=AccessLevel.DELETE)
     await session.delete(position)
     await session.commit()
 

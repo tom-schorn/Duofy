@@ -396,13 +396,92 @@ export const HELP: Record<HelpKey, { title: string; entries: HelpEntry[] }> = {
         body: (
           <>
             <p>
-              Was die anderen von dir sehen, entscheidest du getrennt für Planung,
-              Verträge und Konten. Jeweils in drei Stufen: nur die gemeinsamen Posten,
-              sehen, oder sehen und ändern.
+              Was die anderen von dir sehen, entscheidest du getrennt für drei
+              Bereiche. Die Stufe vergibst nur du selbst und nur für dich;
+              zurücknehmen kannst du sie jederzeit, ohne jemanden zu fragen.
             </p>
             <p>
-              Die Stufe vergibst nur du selbst und nur für dich. Zurücknehmen kannst du
-              sie jederzeit; niemand muss dem zustimmen.
+              Jeder Bereich hat dieselben vier Stufen, und sie bauen aufeinander
+              auf — wer ändern darf, darf auch sehen.
+            </p>
+          </>
+        ),
+      },
+      {
+        id: 'areas',
+        title: 'Die drei Bereiche',
+        body: (
+          <>
+            <p>
+              <strong>Planung</strong> — deine Monatspläne und die Posten darin.
+              Auf der untersten Stufe sieht der andere nur, was ihr gemeinsam
+              plant; darüber auch deine privaten Posten.
+            </p>
+            <p>
+              <strong>Verträge</strong> — was bei dir dauerhaft läuft: Verträge,
+              Sparziele, Schulden, Einnahmen. Das ist der Bereich, aus dem sich
+              deine Monate von selbst füllen.
+            </p>
+            <p>
+              <strong>Konten</strong> — deine Konten <em>und</em> das Haushaltsbuch.
+              Beides zusammen, mit Absicht: einen Kontostand zu sehen, ohne die
+              Buchungen zu kennen, aus denen er entsteht, wäre ein Rätsel und
+              keine Auskunft.
+            </p>
+          </>
+        ),
+      },
+      {
+        id: 'levels',
+        title: 'Die vier Stufen',
+        body: (
+          <>
+            <p>
+              <strong>Nichts</strong> — bei der Planung heißt das: nur die
+              gemeinsamen Posten. Bei Verträgen und Konten: gar nichts.
+            </p>
+            <p>
+              <strong>Sehen</strong> — der andere sieht alles in diesem Bereich,
+              auch das Private, und kann nichts davon anfassen.
+            </p>
+            <p>
+              <strong>Ändern</strong> — dazu anlegen, ändern und abhaken. Das ist
+              die Stufe für jemanden, der dir beim Einrichten oder beim Planen
+              hilft. Jede Änderung an einem Posten steht mit Namen im Protokoll.
+            </p>
+            <p>
+              <strong>Löschen</strong> — endgültig wegnehmen. Eine eigene Stufe,
+              weil sich die beiden im Schaden unterscheiden: eine falsche
+              Änderung steht im Protokoll und lässt sich zurücknehmen, eine
+              Löschung steht nirgends und ist weg. Die meisten brauchen sie nie.
+            </p>
+          </>
+        ),
+      },
+      {
+        id: 'areas-hang-together',
+        title: 'Wie die Bereiche zusammenhängen',
+        body: (
+          <>
+            <p>
+              Die drei sind unabhängig — <em>Ändern</em> bei der Planung sagt
+              nichts über deine Verträge. Aber sie hängen inhaltlich zusammen,
+              und das merkt man beim Benutzen:
+            </p>
+            <p>
+              Ein Monat entsteht aus den <strong>Verträgen</strong>. Wer dir beim
+              Planen helfen soll, aber keinen Zugriff auf die Verträge hat, kann
+              den Monat anlegen und sieht doch nicht, woher die Posten kommen.
+            </p>
+            <p>
+              Ein Posten abhaken erzeugt eine Buchung auf einem{' '}
+              <strong>Konto</strong>. Ohne den Bereich Konten sieht der andere
+              also die Wirkung seines eigenen Häkchens nicht.
+            </p>
+            <p>
+              Für echte Vertretung — jemand hilft dir, Duofy einzurichten und zu
+              führen — braucht es <em>Ändern</em> in allen dreien. Für einen Blick
+              auf den gemeinsamen Monat reicht die unterste Stufe bei der Planung.
             </p>
           </>
         ),

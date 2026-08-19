@@ -57,9 +57,9 @@ type Props = {
   /** Shared view: other people positions are shown but not changed. */
   readOnly?: boolean
   /**
-   * Separate from `readOnly`, because the "may change" level allows exactly that
-   * and no more: **creating** a position in somebody else plan would not be acting
-   * on their behalf, it would be a new commitment in their name.
+   * Separate from `readOnly`, because the two are not the same question: a
+   * household plan is read-only for everyone and offers no adding either, while
+   * standing in for a member at level `edit` allows both.
    */
   canAdd?: boolean
   /** Returns the first name of the person behind the position, otherwise null. */

@@ -35,6 +35,7 @@ import {
   CATEGORY_LABEL,
   MONTH_LABEL,
   RHYTHM_LABEL,
+  atLeast,
   dueMonths,
   euro,
   firstMonthOf,
@@ -85,7 +86,8 @@ export function CommitmentsPage() {
   // endpoint refuses the list anyway.
   const active = useActiveMember()
   const commitments = useCommitments(active.id)
-  const mayEdit = active.levelFor('commitments') === 'edit'
+  const mayEdit = atLeast(active.levelFor('commitments'), 'edit')
+  const mayDelete = atLeast(active.levelFor('commitments'), 'delete')
   const households = useHouseholds()
   const save = useSaveCommitment()
   const remove = useDeleteCommitment()
@@ -230,14 +232,16 @@ export function CommitmentsPage() {
                             <Pencil className="size-4" />
                             Bearbeiten
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onSelect={() => setPendingDelete(commitment)}
-                            variant="destructive"
-                            className="gap-2"
-                          >
-                            <Trash2 className="size-4" />
-                            Löschen
-                          </DropdownMenuItem>
+                          {mayDelete && (
+                            <DropdownMenuItem
+                              onSelect={() => setPendingDelete(commitment)}
+                              variant="destructive"
+                              className="gap-2"
+                            >
+                              <Trash2 className="size-4" />
+                              Löschen
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </li>
