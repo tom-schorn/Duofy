@@ -21,6 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from sqlalchemy import select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.transactions import _recalc_position
 from app.core.auth import current_active_user
 from app.core.permissions import Area, granted_level, require
 from app.db.session import get_session
@@ -528,11 +529,12 @@ async def book(
     entry = await _load(session, entry_id, user)
     require(entry.category is not None, "category_missing")
 
-    counter_account_id = None
-    if entry.position_id is not None:
-        position = await session.get(PlanPosition, entry.position_id)
-        if position is not None:
-            counter_account_id = position.counter_account_id
+    position = (
+        await session.get(PlanPosition, entry.position_id)
+        if entry.position_id is not None
+        else None
+    )
+    counter_account_id = position.counter_account_id if position else None
 
     session.add(
         Transaction(
@@ -551,8 +553,36 @@ async def book(
         )
     )
     await session.delete(entry)
+    await session.flush()
+    await _settle_position(session, position)
     await session.commit()
     return entry
+
+
+async def _settle_position(session: AsyncSession, position: PlanPosition | None) -> None:
+    """Let the plan know that this position was paid.
+
+    Two separate things, and the model keeps them apart on purpose:
+
+    * **`amount_actual`** is the sum of the bookings assigned to the position.
+      `_recalc_position` maintains it, and without calling it the month shows
+      nothing spent while the money demonstrably left the account.
+    * **`paid_at`** is the tick, and only a **single payment** gets one.
+      Assigning a booking to the rent says "this is the payment for it", so
+      leaving the position open afterwards asks the user to confirm what they
+      just stated.
+
+    A budget position is **not** ticked. It fills up over the month from many
+    bookings, and a tick would claim groceries are finished for August because
+    one receipt arrived.
+    """
+    if position is None:
+        return
+
+    await _recalc_position(session, position.id)
+
+    if not position.is_budget and position.paid_at is None:
+        position.paid_at = datetime.now(UTC)
 
 
 @router.delete("/{entry_id}", response_model=ImportedEntryRead)

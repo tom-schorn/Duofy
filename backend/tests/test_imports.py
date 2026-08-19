@@ -904,3 +904,89 @@ async def test_your_own_category_still_gets_its_budget_position(
     assert "Budgetposten" in suggestion["reason"]
 
     app.dependency_overrides.clear()
+
+
+async def test_booking_ticks_off_a_single_position(
+    client: AsyncClient, session: AsyncSession
+):
+    """The plan has to notice that the rent was paid.
+
+    Two things, kept apart by the model: `amount_actual` is the sum of the
+    bookings assigned to the position, `paid_at` is the tick. Assigning a
+    booking to the rent says "this is the payment for it" — leaving the position
+    open afterwards would ask the user to confirm what they just stated.
+    """
+    from app.models.plan import Plan, PlanPosition
+
+    user = await make_user(session, "Owner")
+    await make_account(session, user, iban=FILE_IBAN)
+
+    plan = Plan(user_id=user.id, year=2026, month=8)
+    session.add(plan)
+    await session.flush()
+    rent = PlanPosition(
+        plan_id=plan.id,
+        label="Miete",
+        amount_planned=Decimal("890.00"),
+        category=Category.HOUSING_RENT,
+        block=Block.NEEDS,
+        due_day=15,
+    )
+    session.add(rent)
+    await session.commit()
+    assert rent.paid_at is None
+
+    sign_in(user)
+    await client.post("/api/v1/imports", files=upload_file())
+    entry = next(
+        row for row in await parked(session, user) if row.amount == Decimal("890.00")
+    )
+
+    await client.patch(f"/api/v1/imports/{entry.id}", json={"positionId": str(rent.id)})
+    await client.post(f"/api/v1/imports/{entry.id}/book")
+
+    await session.refresh(rent)
+    assert rent.amount_actual == Decimal("890.00")
+    assert rent.paid_at is not None
+
+    app.dependency_overrides.clear()
+
+
+async def test_a_budget_position_fills_up_but_is_not_ticked(
+    client: AsyncClient, session: AsyncSession
+):
+    """Groceries are not finished for August because one receipt arrived."""
+    from app.models.plan import Plan, PlanPosition
+
+    user = await make_user(session, "Owner")
+    await make_account(session, user, iban=FILE_IBAN)
+
+    plan = Plan(user_id=user.id, year=2026, month=8)
+    session.add(plan)
+    await session.flush()
+    budget = PlanPosition(
+        plan_id=plan.id,
+        label="Lebensmittel",
+        amount_planned=Decimal("520.00"),
+        category=Category.HOUSEHOLD_GROCERIES,
+        block=Block.NEEDS,
+        due_day=1,
+        is_budget=True,
+    )
+    session.add(budget)
+    await session.commit()
+
+    sign_in(user)
+    await client.post("/api/v1/imports", files=upload_file())
+    entry = next(
+        row for row in await parked(session, user) if row.amount == Decimal("63.82")
+    )
+
+    await client.patch(f"/api/v1/imports/{entry.id}", json={"positionId": str(budget.id)})
+    await client.post(f"/api/v1/imports/{entry.id}/book")
+
+    await session.refresh(budget)
+    assert budget.amount_actual == Decimal("63.82")
+    assert budget.paid_at is None
+
+    app.dependency_overrides.clear()
