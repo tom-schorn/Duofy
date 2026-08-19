@@ -4,7 +4,7 @@ import { HelpPanel } from '@/components/HelpPanel'
 import { MemberSwitcher } from '@/components/MemberSwitcher'
 import { useHouseholds } from '@/lib/queries'
 
-import { CalendarRange, FileText, Users, Wallet } from 'lucide-react'
+import { CalendarRange, FileText, Upload, Users, Wallet } from 'lucide-react'
 
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { UserMenu } from '@/components/UserMenu'
@@ -48,6 +48,7 @@ const NAV = [
   { to: '/plan', label: 'Planung', icon: CalendarRange },
   { to: '/contracts', label: 'Verträge', icon: FileText },
   { to: '/accounts', label: 'Konten', icon: Wallet },
+  { to: '/import', label: 'Import', icon: Upload },
   { to: '/household', label: 'Haushalt', icon: Users },
 ]
 

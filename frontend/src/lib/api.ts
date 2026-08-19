@@ -236,6 +236,17 @@ export const api = {
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 
   /**
+   * Send a file. `form: true` on purpose — the Content-Type has to stay unset so
+   * the browser can add the multipart boundary itself. Setting it by hand
+   * produces a request the server cannot take apart.
+   */
+  upload: <T>(path: string, file: File) => {
+    const body = new FormData()
+    body.append('file', file)
+    return request<T>(path, { method: 'POST', body }, { form: true })
+  },
+
+  /**
    * Sign in. `/auth/login` rather than fastapi-users' `/auth/jwt/login`, because
    * only ours also starts a session and sets the refresh cookie.
    *

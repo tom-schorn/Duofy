@@ -4,9 +4,7 @@ import {
   useQueryClient,
   type UseMutationOptions,
 } from '@tanstack/react-query'
-
 import { toast } from 'sonner'
-
 import { api } from '@/lib/api'
 import { OWN_SCOPE, scopeKey, scopeQuery } from '@/lib/domain'
 import type {
@@ -15,9 +13,12 @@ import type {
   AreaField,
   BookScope,
   BalanceHistory,
+  Category,
   Commitment,
   Household,
   HouseholdPlanDetail,
+  ImportSummary,
+  ImportedEntry,
   Invitation,
   Me,
   Member,
@@ -63,6 +64,7 @@ export const keys = {
     ] as const,
   transactions: (year: number, month: number, scope: BookScope = OWN_SCOPE) =>
     ['transactions', scopeKey(scope), year, month] as const,
+  imports: ['imports'] as const,
   plans: ['plans'] as const,
   /** Prefix of every single-person plan — invalidating it hits yours and theirs. */
   plan: (year: number, month: number) => ['plans', year, month] as const,
@@ -426,6 +428,68 @@ export function useCreatePlan() {
     const path = ownerId ? `/plans?owner=${ownerId}` : '/plans'
     return api.post(path, body)
   }, [keys.plans], 'Monat angelegt')
+}
+
+// --- Import -----------------------------------------------------------------
+
+/**
+ * The parking area of one person — your own, or that of a member who granted
+ * insight into the accounts area.
+ */
+export function useImportedEntries(ownerId: string | null = null) {
+  return useQuery({
+    queryKey: [...keys.imports, ownerId ?? 'me'] as const,
+    queryFn: () =>
+      api.get<ImportedEntry[]>(
+        ownerId === null ? '/imports' : `/imports?owner=${ownerId}`
+      ),
+  })
+}
+
+/**
+ * Upload a bank file.
+ *
+ * `accountId` is only sent on the second attempt, after the answer said the IBAN
+ * belongs to no account yet. It is written onto that account, so the question
+ * comes up once per account rather than once per upload.
+ */
+export function useUploadStatement() {
+  return useInvalidating<
+    ImportSummary,
+    { file: File; ownerId?: string | null; accountId?: string }
+  >(({ file, ownerId, accountId }) => {
+    const query = new URLSearchParams()
+    if (ownerId) query.set('owner', ownerId)
+    if (accountId) query.set('account', accountId)
+    const suffix = query.size > 0 ? `?${query}` : ''
+    return api.upload<ImportSummary>(`/imports${suffix}`, file)
+  }, [keys.imports, keys.accounts, keys.allTransactions])
+}
+
+/** Put a position or a category on a parked entry. */
+export function useAssignEntry() {
+  return useInvalidating<
+    ImportedEntry,
+    { id: string; positionId?: string | null; category?: Category | null }
+  >(({ id, ...body }) => api.patch(`/imports/${id}`, body), [keys.imports])
+}
+
+/** Turn a parked entry into a booking. The parked row is gone afterwards. */
+export function useBookEntry() {
+  return useInvalidating<ImportedEntry, string>(
+    (id) => api.post(`/imports/${id}/book`),
+    [keys.imports, keys.accounts, keys.allTransactions, keys.plans],
+    'Gebucht'
+  )
+}
+
+/** Throw an entry out. The row stays, so a second import does not bring it back. */
+export function useDiscardEntry() {
+  return useInvalidating<ImportedEntry, string>(
+    (id) => api.delete(`/imports/${id}`),
+    [keys.imports],
+    'Verworfen'
+  )
 }
 
 // --- Positions --------------------------------------------------------------

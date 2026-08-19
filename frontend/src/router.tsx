@@ -9,6 +9,7 @@ import { PlanDetailPage } from '@/pages/PlanDetailPage'
 import { AccountsPage } from '@/pages/AccountsPage'
 import { CommitmentsPage } from '@/pages/CommitmentsPage'
 import { HouseholdPage } from '@/pages/HouseholdPage'
+import { ImportPage } from '@/pages/ImportPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 
 export const router = createBrowserRouter([
@@ -31,6 +32,11 @@ export const router = createBrowserRouter([
           // commitments too. Grouped by block, not by type.
           { path: '/contracts', element: <CommitmentsPage /> },
           { path: '/accounts', element: <AccountsPage /> },
+
+          // Bank files in, bookings out. Its own page because CSV and the bank
+          // connection will arrive here too, and because it is a place things
+          // are allowed to lie around in.
+          { path: '/import', element: <ImportPage /> },
 
           { path: '/household', element: <HouseholdPage /> },
         ],
