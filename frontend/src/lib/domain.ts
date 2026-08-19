@@ -635,7 +635,27 @@ export type Role = 'owner' | 'member'
  * Sits on your **own** membership: whoever owns the data decides. Nobody can grant
  * themselves insight into somebody else accounts.
  */
-export type AccessLevel = 'plan' | 'view' | 'edit'
+export type AccessLevel = 'plan' | 'view' | 'edit' | 'delete'
+
+/**
+ * The rungs, in order. Mirrors `AccessLevel.rank` in the backend.
+ *
+ * **Compare with `atLeast`, never with `===`.** A check written as
+ * `level === 'edit'` turns false the moment a higher level exists, which takes
+ * the right to edit away from exactly the person who was trusted most. That
+ * happened once already, in three places at the same time.
+ */
+const ACCESS_RANK: Record<AccessLevel, number> = {
+  plan: 0,
+  view: 1,
+  edit: 2,
+  delete: 3,
+}
+
+/** Is `level` at least `needed`? */
+export function atLeast(level: AccessLevel, needed: AccessLevel): boolean {
+  return ACCESS_RANK[level] >= ACCESS_RANK[needed]
+}
 
 /**
  * What a level means, per area — the same word promises different things.
@@ -646,17 +666,20 @@ export const ACCESS_LABEL: Record<Area, Record<AccessLevel, string>> = {
   plan: {
     plan: 'Nur gemeinsame Posten',
     view: 'Ganzer Monat sichtbar',
-    edit: 'Darf auch ändern',
+    edit: 'Darf ändern und anlegen',
+    delete: 'Darf auch löschen',
   },
   commitments: {
     plan: 'Nichts',
     view: 'Verträge sichtbar',
-    edit: 'Darf auch ändern',
+    edit: 'Darf ändern und anlegen',
+    delete: 'Darf auch löschen',
   },
   accounts: {
     plan: 'Nichts',
     view: 'Buch und Konten sichtbar',
-    edit: 'Darf auch ändern',
+    edit: 'Darf ändern und anlegen',
+    delete: 'Darf auch löschen',
   },
 }
 
@@ -664,21 +687,24 @@ export const ACCESS_HINT: Record<Area, Record<AccessLevel, string>> = {
   plan: {
     plan: 'Der Partner sieht, was ihr gemeinsam plant — sonst nichts.',
     view: 'Der Partner sieht zusätzlich deine privaten Posten des Monats.',
-    edit: 'Der Partner darf deine Posten außerdem ändern und abhaken.',
+    edit: 'Der Partner darf Monate anlegen, Posten dazuschreiben, ändern und abhaken.',
+    delete: 'Der Partner darf Posten außerdem endgültig löschen. Änderungen stehen im Protokoll, Löschungen nicht.',
   },
   commitments: {
     plan: 'Deine Verträge, Sparziele und Schulden bleiben für sich.',
     view: 'Der Partner sieht, was bei dir fest läuft — Betrag, Rhythmus, Kategorie.',
-    edit: 'Der Partner darf deine Verträge außerdem anlegen und ändern.',
+    edit: 'Der Partner darf Verträge für dich anlegen und ändern — der Weg, wenn dir jemand beim Einrichten hilft.',
+    delete: 'Der Partner darf Verträge außerdem löschen. Schon erzeugte Posten bleiben stehen, künftige entstehen nicht mehr.',
   },
   accounts: {
     plan: 'Deine Konten und Buchungen bleiben für sich.',
     view: 'Der Partner sieht deine Kontostände und jede Buchung darauf.',
-    edit: 'Der Partner darf außerdem buchen und Buchungen ändern.',
+    edit: 'Der Partner darf Konten anlegen und ändern und auf ihnen buchen.',
+    delete: 'Der Partner darf Konten und Buchungen außerdem löschen. Eine gelöschte Buchung hinterlässt eine Lücke im Kontostand, die nichts erklärt.',
   },
 }
 
-export const ACCESS_ORDER: AccessLevel[] = ['plan', 'view', 'edit']
+export const ACCESS_ORDER: AccessLevel[] = ['plan', 'view', 'edit', 'delete']
 
 export type Member = {
   userId: string

@@ -40,18 +40,30 @@ router = APIRouter()
 ZERO = Decimal("0.00")
 
 
-async def _may_book_for(session: AsyncSession, booking_owner: uuid.UUID, user: User) -> None:
-    """May `user` book on behalf of `owner_id`?
+async def _may_book_for(
+    session: AsyncSession,
+    booking_owner: uuid.UUID,
+    user: User,
+    *,
+    needs: AccessLevel = AccessLevel.EDIT,
+) -> None:
+    """May `user` act on bookings of `booking_owner`?
 
-    Your own always. Somebody else only at level `edit`, granted by the owner. This
-    puts bookings under the same rule as positions — the two used to disagree: a
+    Your own always. Somebody else from the level the owner granted. This puts
+    bookings under the same rule as positions — the two used to disagree: a
     delegate could **tick off** a position, which creates a booking on the other
     account, but could not book directly.
+
+    `needs` separates changing from deleting: a wrong booking can be corrected,
+    a deleted one leaves a gap in a balance that nothing explains.
     """
     if booking_owner == user.id:
         return
     level = await granted_level(session, booking_owner, user.id, Area.ACCOUNTS)
-    require(level is AccessLevel.EDIT, "no_edit_granted")
+    require(
+        level.rank >= needs.rank,
+        "no_delete_granted" if needs is AccessLevel.DELETE else "no_edit_granted",
+    )
 
 
 async def _account_owner(
@@ -106,11 +118,17 @@ async def _recalc_position(session: AsyncSession, position_id: uuid.UUID | None)
     position.amount_actual = total if total is not None else None
 
 
-async def _load(session: AsyncSession, transaction_id: uuid.UUID, user: User) -> Transaction:
+async def _load(
+    session: AsyncSession,
+    transaction_id: uuid.UUID,
+    user: User,
+    *,
+    needs: AccessLevel = AccessLevel.EDIT,
+) -> Transaction:
     transaction = await session.get(Transaction, transaction_id)
     if transaction is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "transaction_not_found"})
-    await _may_book_for(session, transaction.owner_id, user)
+    await _may_book_for(session, transaction.owner_id, user, needs=needs)
     return transaction
 
 
@@ -258,7 +276,7 @@ async def delete_transaction(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> None:
-    transaction = await _load(session, transaction_id, user)
+    transaction = await _load(session, transaction_id, user, needs=AccessLevel.DELETE)
     position_id = transaction.position_id
 
     await session.delete(transaction)

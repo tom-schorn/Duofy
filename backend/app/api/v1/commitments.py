@@ -27,18 +27,27 @@ from app.schemas.commitment import CommitmentCreate, CommitmentRead, CommitmentU
 router = APIRouter()
 
 
-async def _load(session: AsyncSession, commitment_id: uuid.UUID, user: User) -> Commitment:
-    """Load a commitment the user is allowed to change.
+async def _load(
+    session: AsyncSession,
+    commitment_id: uuid.UUID,
+    user: User,
+    *,
+    needs: AccessLevel = AccessLevel.EDIT,
+) -> Commitment:
+    """Load a commitment the user is allowed to act on.
 
-    Their own always, and somebody else’s only at level `edit` — the owner grants
-    that themselves. `granted_level()` answers `edit` for oneself, so there is no
-    separate case for the normal path.
+    Their own always, and somebody else’s from the level the owner granted.
+    `granted_level()` answers `edit` for oneself, so there is no separate case
+    for the normal path. `needs` separates changing from deleting.
     """
     commitment = await session.get(Commitment, commitment_id)
     if commitment is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "commitment_not_found"})
     level = await granted_level(session, commitment.owner_id, user.id, Area.COMMITMENTS)
-    require(level is AccessLevel.EDIT, "no_edit_granted")
+    require(
+        level.rank >= needs.rank,
+        "no_delete_granted" if needs is AccessLevel.DELETE else "no_edit_granted",
+    )
     return commitment
 
 
@@ -74,11 +83,22 @@ async def list_commitments(
 @router.post("", response_model=CommitmentRead, status_code=status.HTTP_201_CREATED)
 async def create_commitment(
     payload: CommitmentCreate,
+    owner: uuid.UUID | None = None,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> Commitment:
+    """Create a commitment — your own, or that of a member who granted `edit`.
+
+    The household check runs against the **owner**: a contract may only go into a
+    household its owner belongs to, and that stays true no matter who types it in.
+    """
+    owner_id = owner or user.id
+    if owner_id != user.id:
+        level = await granted_level(session, owner_id, user.id, Area.COMMITMENTS)
+        require(level.rank >= AccessLevel.EDIT.rank, "no_edit_granted")
+
     require(
-        await can_assign_to_household(session, user.id, payload.household_id),
+        await can_assign_to_household(session, owner_id, payload.household_id),
         "not_household_member",
     )
 
@@ -87,7 +107,7 @@ async def create_commitment(
     # overridden so that repayment cannot pass as a want.
     data["block"] = resolve_block(payload.block, payload.type)
 
-    commitment = Commitment(owner_id=user.id, **data)
+    commitment = Commitment(owner_id=owner_id, **data)
     session.add(commitment)
     await session.commit()
     await session.refresh(commitment)
@@ -138,6 +158,6 @@ async def delete_commitment(
     Positions already generated stay — `commitment_id` is ON DELETE SET NULL.
     Nothing new is generated for future months.
     """
-    commitment = await _load(session, commitment_id, user)
+    commitment = await _load(session, commitment_id, user, needs=AccessLevel.DELETE)
     await session.delete(commitment)
     await session.commit()

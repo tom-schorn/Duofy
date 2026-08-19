@@ -26,17 +26,30 @@ class AccessLevel(StrEnum):
 
         plan   only the shared positions, as they appear in the household plan
         view   plus the own book, the accounts and the private positions
-        edit   plus the right to change and tick off those positions
+        edit   plus the right to change, add and tick off
+        delete plus the right to remove things for good
+
+    `delete` is a step of its own rather than part of `edit` because the two
+    differ in what they cost when they go wrong. A wrong change is visible in
+    `plan_position_changes` and can be changed back; a deletion is neither
+    recorded nor reversible. Somebody helping to fill things in needs `edit`,
+    almost never `delete`.
+
+    **Always compare with `rank`, never with `is`.** A check written as
+    `level is AccessLevel.EDIT` stops being true the moment a higher level
+    exists, and takes the right to edit away from the very people who were
+    trusted most.
     """
 
     PLAN = "plan"
     VIEW = "view"
     EDIT = "edit"
+    DELETE = "delete"
 
     @property
     def rank(self) -> int:
         """For comparisons — `level.rank >= AccessLevel.VIEW.rank`."""
-        return {"plan": 0, "view": 1, "edit": 2}[self.value]
+        return {"plan": 0, "view": 1, "edit": 2, "delete": 3}[self.value]
 
 
 class CommitmentType(StrEnum):
