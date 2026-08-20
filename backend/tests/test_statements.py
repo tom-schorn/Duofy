@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from app.services.camt import parse_report, read_upload
+from app.services.statements import parse_report, read_upload
 
 FIXTURES = Path(__file__).parent / "fixtures" / "camt"
 
@@ -193,10 +193,17 @@ def test_a_single_xml_is_accepted_too():
     assert reports[0].page == 1
 
 
-def test_something_that_is_not_camt_is_rejected():
-    """The error has to be recognisable — the frontend translates codes."""
-    with pytest.raises(ValueError):
-        read_upload(b"Datum;Betrag;Verwendungszweck\n01.08.2026;-12,99;Abo\n")
+def test_a_small_csv_is_read_rather_than_refused():
+    """This used to be the "not a bank file" case, and is no longer.
+
+    Three columns with a date and an amount are a statement, even without a
+    metadata block above them. The test stays as a reminder that adding a reader
+    changes what counts as unreadable.
+    """
+    reports = read_upload(b"Datum;Betrag;Verwendungszweck\n01.08.2026;-12,99;Abo\n")
+
+    assert len(reports[0].entries) == 1
+    assert reports[0].entries[0].amount == Decimal("12.99")
 
 
 def test_counterparty_is_the_side_that_is_not_this_account():
@@ -239,3 +246,106 @@ def test_an_archive_that_unpacks_too_far_is_refused():
 
     with pytest.raises(ValueError, match="more than"):
         read_upload(buffer.getvalue())
+
+
+# --------------------------------------------------------------------------
+# CSV
+# --------------------------------------------------------------------------
+
+CSV_FIXTURES = Path(__file__).parent / "fixtures" / "csv"
+
+
+def load_csv(name: str = "ing.csv") -> bytes:
+    return (CSV_FIXTURES / name).read_bytes()
+
+
+def test_the_format_is_recognised_from_the_content():
+    """Not from the file name — a `.csv` that is really XML happens."""
+    reports = read_upload(load_csv())
+
+    assert len(reports) == 1
+    assert len(reports[0].entries) == 6
+
+
+def test_the_account_comes_out_of_the_metadata_block():
+    """ING writes eight lines of account details above the table."""
+    report = read_upload(load_csv())[0]
+
+    assert report.iban == "DE02120300000000202051"
+
+
+def test_the_header_is_found_below_the_metadata():
+    """The table does not start on line one, and the header is not line one either."""
+    entries = read_upload(load_csv())[0].entries
+
+    assert entries[0].counterparty_name == "Mobilfunk Testanbieter"
+    assert entries[0].booked_on.isoformat() == "2026-08-16"
+
+
+def test_the_purpose_is_the_text_and_not_the_kind_of_booking():
+    """`Buchungstext` sits before `Verwendungszweck` and holds "Lastschrift".
+
+    Matching the first fitting **column** would file that word as the purpose of
+    every direct debit. Priority follows the synonym list instead.
+    """
+    entries = read_upload(load_csv())[0].entries
+
+    assert entries[0].purpose == "Rechnung 08/2026 Vertrag 4471902"
+    assert all(entry.purpose != "Lastschrift" for entry in entries)
+
+
+def test_umlauts_in_a_column_name():
+    """"Auftraggeber/Empfänger" — one bank writes ä, the next writes ae."""
+    entries = read_upload(load_csv())[0].entries
+
+    assert all(entry.counterparty_name for entry in entries)
+
+
+def test_german_numbers_and_dates():
+    entries = read_upload(load_csv())[0].entries
+    rent = entries[1]
+
+    assert rent.amount == Decimal("890.00")
+    assert rent.incoming is False
+    assert rent.booked_on.isoformat() == "2026-08-15"
+
+    benefit = entries[4]
+    assert benefit.amount == Decimal("255.00")
+    assert benefit.incoming is True
+
+
+def test_the_balances_come_from_the_running_balance():
+    """Opening is not stated anywhere — it follows from closing minus the sum."""
+    report = read_upload(load_csv())[0]
+    moved = sum(
+        (entry.amount if entry.incoming else -entry.amount) for entry in report.entries
+    )
+
+    assert report.closing_balance == Decimal("721.19")
+    assert report.opening_balance + moved == report.closing_balance
+
+
+def test_two_identical_bookings_on_one_day_stay_apart():
+    """The case that makes CSV workable at all.
+
+    A CSV export carries no reference number. Two bookings of the same amount on
+    the same day are indistinguishable by date and amount — but they leave the
+    account at different running balances, and that is what the built key uses.
+    """
+    entries = read_upload(load_csv())[0].entries
+    kiosk = [entry for entry in entries if entry.amount == Decimal("6.50")]
+
+    assert len(kiosk) == 2
+    assert kiosk[0].external_ref != kiosk[1].external_ref
+
+
+def test_an_empty_purpose_is_none_rather_than_empty():
+    entries = read_upload(load_csv())[0].entries
+
+    assert entries[5].purpose is None
+    assert entries[5].counterparty_name == "Lebensmittelmarkt Nord"
+
+
+def test_something_that_is_neither_xml_nor_a_statement():
+    with pytest.raises(ValueError):
+        read_upload(b"Hallo;Welt\nkein;Kontoauszug\n")

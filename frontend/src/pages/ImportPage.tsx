@@ -91,7 +91,7 @@ export function ImportPage() {
           <h1 className="font-heading text-3xl font-semibold">Import</h1>
           <p className="text-muted-foreground">
             {active.member === null
-              ? 'Lade eine Umsatzdatei deiner Bank hoch. Die Buchungen warten hier, bis du sie zuordnest.'
+              ? 'Lade eine Umsatzdatei deiner Bank hoch — CAMT oder CSV. Die Buchungen warten hier, bis du sie zuordnest.'
               : `Die Parkposition von ${active.member.firstName}.`}
           </p>
         </div>
@@ -100,7 +100,7 @@ export function ImportPage() {
             <input
               ref={fileInput}
               type="file"
-              accept=".xml,.zip,application/xml,text/xml,application/zip"
+              accept=".xml,.zip,.csv,application/xml,text/xml,application/zip,text/csv"
               className="hidden"
               onChange={(event) => {
                 const file = event.target.files?.[0]

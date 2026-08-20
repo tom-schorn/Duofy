@@ -1,9 +1,15 @@
-"""Reading a CAMT account report into plain objects.
+"""Reading a bank statement into plain objects — CAMT today, CSV beside it.
 
-No database, no HTTP, no user — a file goes in, a report comes out. That is
-deliberate: this is the piece with the highest chance of being wrong, and the
-only one that can be checked against a real bank export without setting
-anything up. Everything the importer does with the result lives elsewhere.
+The shape is the same for both: a file goes in, a report with entries comes
+out. Everything the importer does afterwards — parking, recognising, booking —
+never learns which format it came from, and that is the point. FinTS and MT940
+would slot in here as further readers without touching anything downstream.
+
+No database, no HTTP, no user. That is deliberate: this is the piece with the
+highest chance of being wrong, and the only one that can be checked against a
+real bank export without setting anything up.
+
+## CAMT
 
 CAMT is ISO 20022, so the same structure comes out of every bank. What differs
 is which optional elements a bank fills, and that is where the surprises are.
@@ -24,6 +30,8 @@ are accepted. They differ in two element names and nothing else that matters
 here.
 """
 
+import csv
+import hashlib
 import io
 import zipfile
 from dataclasses import dataclass
@@ -63,7 +71,7 @@ class _Account:
     owner: str | None
 
 
-class CamtError(ValueError):
+class StatementError(ValueError):
     """The file is not a CAMT report this parser can read.
 
     A `ValueError`, because that is what a caller handling bad input expects.
@@ -73,7 +81,7 @@ class CamtError(ValueError):
 
 
 @dataclass(frozen=True)
-class CamtEntry:
+class StatementEntry:
     """One movement on the account.
 
     Shaped like `Transaction` on purpose: **no sign on the amount**, direction
@@ -108,7 +116,7 @@ class CamtEntry:
 
 
 @dataclass(frozen=True)
-class CamtReport:
+class StatementReport:
     """One page of one report, for one account."""
 
     #: `Rpt/Id`. The pages of a report share it, which is how they are
@@ -126,34 +134,51 @@ class CamtReport:
     page: int
     last_page: bool
 
-    entries: list[CamtEntry]
+    entries: list[StatementEntry]
 
 
-def read_upload(data: bytes) -> list[CamtReport]:
-    """Read what the user uploaded: one XML file, or a ZIP holding several.
+def read_upload(data: bytes, *, iban: str = "") -> list[StatementReport]:
+    """Read what the user uploaded, whatever shape it arrived in.
+
+    The format is recognised from the content, not from the file name: a
+    `.csv` that is really XML happens, and a browser will call anything
+    `application/octet-stream` given the chance.
 
     Returns the pages in page order. A ZIP is not assumed to be sorted — banks
     name the files by sequence, but nothing guarantees the archive follows.
     """
     if data[:4] == _ZIP_MAGIC:
         reports = _read_archive(data)
-    else:
+    elif _looks_like_xml(data):
         reports = [parse_report(data)]
+    else:
+        reports = [parse_csv(data, iban=iban)]
 
     return sorted(reports, key=lambda report: report.page)
 
 
-def parse_report(data: bytes) -> CamtReport:
+def _looks_like_xml(data: bytes) -> bool:
+    """Does this start with an XML declaration or a tag?
+
+    Only the first bytes are examined, past any byte-order mark and whitespace.
+    A CSV can hold angle brackets in a remittance line, so looking further would
+    be worse than looking less.
+    """
+    head = data[:512].lstrip(b"\xef\xbb\xbf").lstrip()
+    return head.startswith(b"<")
+
+
+def parse_report(data: bytes) -> StatementReport:
     """Read one CAMT XML file."""
     try:
         root = ElementTree.fromstring(data)
     except ElementTree.ParseError as error:
-        raise CamtError(f"not valid XML: {error}") from error
+        raise StatementError(f"not valid XML: {error}") from error
 
     namespace = _namespace(root)
     tag = _local_name(root.tag)
     if tag != _DOCUMENT:
-        raise CamtError(f"root element is <{tag}>, expected <{_DOCUMENT}>")
+        raise StatementError(f"root element is <{tag}>, expected <{_DOCUMENT}>")
 
     report = _container(root, namespace)
     element = _required(report, "Acct", namespace)
@@ -163,7 +188,7 @@ def parse_report(data: bytes) -> CamtReport:
     )
     pagination = report.find(_path("RptPgntn", namespace))
 
-    return CamtReport(
+    return StatementReport(
         id=_text(report, "Id", namespace) or "",
         iban=account.iban,
         currency=_text(element, "Ccy", namespace) or "",
@@ -191,7 +216,7 @@ def parse_report(data: bytes) -> CamtReport:
 
 def _entry(
     element: ElementTree.Element, account: _Account, namespace: str
-) -> CamtEntry | None:
+) -> StatementEntry | None:
     """One `Ntry`, or `None` if it is not a booked entry.
 
     Pending entries are dropped here rather than filtered by the caller: an
@@ -205,7 +230,7 @@ def _entry(
     details = element.findall(_path("NtryDtls/TxDtls", namespace))
     name, iban = _counterparty(details, account, incoming, namespace)
 
-    return CamtEntry(
+    return StatementEntry(
         external_ref=_reference(element, details, namespace),
         booked_on=_date(element, "BookgDt", namespace),
         value_on=_date(element, "ValDt", namespace),
@@ -255,7 +280,7 @@ def _reference(
         if reference:
             return reference
 
-    raise CamtError("entry without AcctSvcrRef — cannot be recognised on re-import")
+    raise StatementError("entry without AcctSvcrRef — cannot be recognised on re-import")
 
 
 def _counterparty(
@@ -351,7 +376,7 @@ def _balance(report: ElementTree.Element, code: str, namespace: str) -> Decimal:
         amount = _decimal(_text(balance, "Amt", namespace))
         return amount if _text(balance, "CdtDbtInd", namespace) == "CRDT" else -amount
 
-    raise CamtError(f"report has no {code} balance")
+    raise StatementError(f"report has no {code} balance")
 
 
 def _date(element: ElementTree.Element, name: str, namespace: str) -> date:
@@ -363,7 +388,7 @@ def _date(element: ElementTree.Element, name: str, namespace: str) -> date:
     """
     text = _text(element, f"{name}/Dt", namespace) or _text(element, f"{name}/DtTm", namespace)
     if not text:
-        raise CamtError(f"entry without {name}")
+        raise StatementError(f"entry without {name}")
 
     return date.fromisoformat(text[:10])
 
@@ -371,12 +396,12 @@ def _date(element: ElementTree.Element, name: str, namespace: str) -> date:
 def _decimal(text: str | None) -> Decimal:
     """An amount. `Decimal`, never float — see the rule in CLAUDE.md."""
     if not text:
-        raise CamtError("amount is missing")
+        raise StatementError("amount is missing")
 
     try:
         return Decimal(text.strip())
     except InvalidOperation as error:
-        raise CamtError(f"amount {text!r} is not a number") from error
+        raise StatementError(f"amount {text!r} is not a number") from error
 
 
 # ---------------------------------------------------------------------------
@@ -384,7 +409,7 @@ def _decimal(text: str | None) -> Decimal:
 # ---------------------------------------------------------------------------
 
 
-def _read_archive(data: bytes) -> list[CamtReport]:
+def _read_archive(data: bytes) -> list[StatementReport]:
     """Every XML file inside a ZIP.
 
     Non-XML members are skipped rather than rejected: archives carry the
@@ -394,7 +419,7 @@ def _read_archive(data: bytes) -> list[CamtReport]:
     try:
         archive = zipfile.ZipFile(io.BytesIO(data))
     except zipfile.BadZipFile as error:
-        raise CamtError("archive cannot be read") from error
+        raise StatementError("archive cannot be read") from error
 
     reports = []
     unpacked = 0
@@ -404,21 +429,260 @@ def _read_archive(data: bytes) -> list[CamtReport]:
             continue
 
         if member.file_size > _MAX_MEMBER_BYTES:
-            raise CamtError(
+            raise StatementError(
                 f"{member.filename} unpacks to {member.file_size} bytes, "
                 f"more than the {_MAX_MEMBER_BYTES} allowed"
             )
 
         unpacked += member.file_size
         if unpacked > _MAX_TOTAL_BYTES:
-            raise CamtError(f"archive unpacks to more than {_MAX_TOTAL_BYTES} bytes")
+            raise StatementError(f"archive unpacks to more than {_MAX_TOTAL_BYTES} bytes")
 
         reports.append(parse_report(archive.read(member)))
 
     if not reports:
-        raise CamtError("archive holds no XML file")
+        raise StatementError("archive holds no XML file")
 
     return reports
+
+
+# ---------------------------------------------------------------------------
+# CSV
+#
+# Nothing about CSV is standardised — that is what CAMT exists for. But German
+# banks all draw on the same vocabulary, handed down from DTAUS and MT940, so
+# the columns can be matched **by name** instead of by position. One reader with
+# a list of synonyms covers far more than one parser per bank, and it does not
+# break the next time a bank adds a column.
+# ---------------------------------------------------------------------------
+
+#: What a column may be called. First match wins, compared case-insensitively
+#: with everything but letters removed — "Auftraggeber/Empfänger" and
+#: "Beguenstigter / Zahlungspflichtiger" differ only in punctuation.
+_COLUMNS: dict[str, tuple[str, ...]] = {
+    "booked_on": ("buchung", "buchungstag", "buchungsdatum", "datum"),
+    "value_on": ("wertstellung", "wertstellungsdatum", "valuta", "valutadatum"),
+    "counterparty": (
+        "auftraggeberempfaenger",
+        "empfaenger",
+        "beguenstigterzahlungspflichtiger",
+        "namezahlungsbeteiligter",
+        "zahlungsbeteiligter",
+    ),
+    "purpose": ("verwendungszweck", "buchungstext", "vorgangverwendungszweck"),
+    "amount": ("betrag", "umsatz", "betrageur"),
+    "balance": ("saldo", "kontostand"),
+    "iban": ("iban", "kontonummeriban", "ibanzahlungsbeteiligter"),
+}
+
+#: Encodings to try, in order. German bank exports are rarely UTF-8; cp1252 is
+#: the usual one and latin-1 never fails, which makes it the last resort rather
+#: than a choice.
+_ENCODINGS = ("utf-8-sig", "cp1252", "latin-1")
+
+
+#: Umlauts, because a bank writes "Empfänger" and the next one "Empfaenger".
+_UMLAUTS = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
+
+
+def _key(name: str) -> str:
+    """A column name reduced to plain letters, for comparing."""
+    return "".join(c for c in name.lower().translate(_UMLAUTS) if c.isalpha())
+
+
+def _decode(data: bytes) -> str:
+    for encoding in _ENCODINGS:
+        try:
+            return data.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    raise StatementError("the file uses an encoding this import cannot read")
+
+
+def _find_header(rows: list[list[str]]) -> int:
+    """The row the table starts on.
+
+    Banks put a block of metadata above it — ING writes eight lines of account
+    details first. The header is the first row that names at least a date and an
+    amount, which is a stronger signal than counting separators: the metadata
+    block has rows with two fields, and so would a badly split table.
+    """
+    for index, row in enumerate(rows[:40]):
+        found = {
+            field
+            for field, names in _COLUMNS.items()
+            for cell in row
+            if _key(cell) in names
+        }
+        if "amount" in found and ("booked_on" in found or "value_on" in found):
+            return index
+
+    raise StatementError("no table header found — is this a statement export?")
+
+
+def _decimal_de(text: str) -> Decimal:
+    """`1.234,56` into a `Decimal`. Never a float, see the rule in CLAUDE.md."""
+    cleaned = text.strip().replace(".", "").replace(",", ".").replace("+", "")
+    if not cleaned:
+        raise StatementError("empty amount")
+    try:
+        return Decimal(cleaned)
+    except InvalidOperation as error:
+        raise StatementError(f"amount {text!r} is not a number") from error
+
+
+def _date_de(text: str) -> date:
+    """`14.08.2026`, and the two-digit year some exports still write."""
+    parts = text.strip().split(".")
+    if len(parts) != 3:
+        raise StatementError(f"date {text!r} is not in day.month.year form")
+
+    day, month, year = (int(part) for part in parts)
+    if year < 100:
+        year += 2000
+    return date(year, month, day)
+
+
+def parse_csv(data: bytes, *, iban: str = "") -> StatementReport:
+    """Read a CSV export.
+
+    `iban` comes from the caller where the file itself does not say — some
+    exports name the account only in the file name. ING writes it into the
+    metadata block, and that wins.
+    """
+    text = _decode(data)
+    dialect_delimiter = ";" if text.count(";") >= text.count(",") else ","
+    rows = [
+        row
+        for row in csv.reader(io.StringIO(text), delimiter=dialect_delimiter)
+        if any(cell.strip() for cell in row)
+    ]
+    if not rows:
+        raise StatementError("the file is empty")
+
+    header_at = _find_header(rows)
+    header = rows[header_at]
+
+    # Priority follows the **synonym list**, not the column order. ING places
+    # "Buchungstext" — which holds the kind of booking, not its text — before
+    # "Verwendungszweck"; taking the first matching column would file the word
+    # "Lastschrift" as the purpose of every direct debit.
+    keys = [_key(cell) for cell in header]
+    index_of: dict[str, int] = {}
+    for field, names in _COLUMNS.items():
+        for name in names:
+            if name in keys:
+                index_of[field] = keys.index(name)
+                break
+
+    account_iban = _iban_from_metadata(rows[:header_at]) or iban
+
+    entries: list[StatementEntry] = []
+    for row in rows[header_at + 1 :]:
+        if len(row) < len(header):
+            continue
+        entry = _csv_entry(row, index_of, account_iban)
+        if entry is not None:
+            entries.append(entry)
+
+    if not entries:
+        raise StatementError("the table holds no bookings")
+
+    balances = [
+        _decimal_de(row[index_of["balance"]])
+        for row in rows[header_at + 1 :]
+        if "balance" in index_of and len(row) >= len(header) and row[index_of["balance"]].strip()
+    ]
+    moved = sum(entry.amount if entry.incoming else -entry.amount for entry in entries)
+
+    # The running balance turns "closing" into something known: the last row of
+    # the table is where the account stood. Opening follows by subtraction, and
+    # with both the balance check works exactly as it does for CAMT.
+    closing = balances[0] if balances else Decimal("0.00")
+    opening = closing - moved if balances else Decimal("0.00")
+
+    return StatementReport(
+        id="",
+        iban=account_iban,
+        currency="EUR",
+        opening_balance=opening,
+        closing_balance=closing,
+        page=1,
+        last_page=True,
+        entries=entries,
+    )
+
+
+def _iban_from_metadata(rows: list[list[str]]) -> str:
+    """The account IBAN out of the block above the table, if it is there."""
+    for row in rows:
+        for position, cell in enumerate(row):
+            if _key(cell) == "iban" and position + 1 < len(row):
+                return row[position + 1].replace(" ", "").strip()
+    return ""
+
+
+def _csv_entry(
+    row: list[str], index_of: dict[str, int], account_iban: str
+) -> StatementEntry | None:
+    """One table row, or `None` where it carries no amount."""
+    if "amount" not in index_of:
+        raise StatementError("the table has no amount column")
+
+    raw_amount = row[index_of["amount"]].strip()
+    if not raw_amount:
+        return None
+
+    signed = _decimal_de(raw_amount)
+    booked = row[index_of["booked_on"]] if "booked_on" in index_of else ""
+    valued = row[index_of["value_on"]] if "value_on" in index_of else ""
+    booked_on = _date_de(booked or valued)
+
+    def cell(field: str) -> str | None:
+        if field not in index_of:
+            return None
+        value = " ".join(row[index_of[field]].split())
+        return value or None
+
+    counterparty_iban = cell("iban")
+    if counterparty_iban and counterparty_iban.replace(" ", "") == account_iban:
+        counterparty_iban = None
+
+    return StatementEntry(
+        # No reference number anywhere in a CSV export, so one is built. The
+        # running balance is what makes it dependable: two identical bookings on
+        # the same day still leave the account at different intermediate
+        # balances. See `StatementEntry.external_ref`.
+        external_ref=_csv_reference(row, index_of, booked_on, signed),
+        booked_on=booked_on,
+        value_on=_date_de(valued) if valued else booked_on,
+        amount=abs(signed),
+        incoming=signed > 0,
+        counterparty_name=cell("counterparty"),
+        counterparty_iban=counterparty_iban,
+        purpose=cell("purpose"),
+    )
+
+
+def _csv_reference(
+    row: list[str], index_of: dict[str, int], booked_on: date, signed: Decimal
+) -> str:
+    """A stand-in for the reference number a CSV export does not have.
+
+    Date, amount and the **running balance** — the last of which is what makes
+    it work. Two identical bookings on one day are indistinguishable by date and
+    amount alone, but they leave the account at different balances.
+
+    Prefixed so it cannot collide with a bank's own reference: importing the
+    same account once as CAMT and once as CSV produces two different keys for
+    one booking, and pretending otherwise would hide that rather than fix it.
+    """
+    parts = [booked_on.isoformat(), f"{signed:f}"]
+    if "balance" in index_of:
+        parts.append(row[index_of["balance"]].strip())
+
+    digest = hashlib.sha256("|".join(parts).encode()).hexdigest()[:24]
+    return f"csv:{digest}"
 
 
 # ---------------------------------------------------------------------------
@@ -459,7 +723,7 @@ def _text(element: ElementTree.Element | None, path: str, namespace: str) -> str
 def _required(element: ElementTree.Element, path: str, namespace: str) -> ElementTree.Element:
     found = element.find(_path(path, namespace))
     if found is None:
-        raise CamtError(f"report has no <{path}>")
+        raise StatementError(f"report has no <{path}>")
     return found
 
 
@@ -476,7 +740,7 @@ def _container(root: ElementTree.Element, namespace: str) -> ElementTree.Element
 
         reports = wrapper.findall(_path(inner, namespace))
         if len(reports) != 1:
-            raise CamtError(f"document holds {len(reports)} reports, expected exactly one")
+            raise StatementError(f"document holds {len(reports)} reports, expected exactly one")
         return reports[0]
 
-    raise CamtError("document is neither camt.052 nor camt.053")
+    raise StatementError("document is neither camt.052 nor camt.053")
