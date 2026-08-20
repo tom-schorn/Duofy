@@ -37,7 +37,7 @@ from app.schemas.imported_entry import (
     ImportSummary,
     Suggestion,
 )
-from app.services.camt import CamtError, read_upload
+from app.services.statements import StatementError, read_upload
 
 router = APIRouter()
 
@@ -98,19 +98,30 @@ async def upload(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> ImportSummary:
-    """Read a CAMT file and park what it holds.
+    """Read a statement and park what it holds.
 
-    The account comes **from the file**: a report names the IBAN whose turnover
-    it contains. On the first upload of an unknown IBAN the client is asked once
-    which account is meant and repeats the call with `account=`; the IBAN is then
-    remembered on that account and never asked again.
+    CAMT or CSV — the format is recognised from the content, and everything
+    after this point works the same either way.
+
+    The account comes **from the file** where it says so: CAMT names the IBAN of
+    the report, and a CSV export usually carries it in the block above the table.
+    On the first upload of an unknown IBAN the client is asked once which account
+    is meant and repeats the call with `account=`; the IBAN is then remembered on
+    that account and never asked again.
+
+    Where a CSV names no IBAN at all, the chosen account supplies it — which is
+    why `account` is passed down into the reader.
     """
     owner_id = owner or user.id
     await _may_act_for(session, owner_id, user)
 
+    chosen = await session.get(Account, account) if account is not None else None
     try:
-        reports = read_upload(await _read_body(file))
-    except CamtError as error:
+        reports = read_upload(
+            await _read_body(file),
+            iban=(chosen.external_ref or "") if chosen else "",
+        )
+    except StatementError as error:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail={"code": "not_a_bank_file", "message": str(error)},

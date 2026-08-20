@@ -167,6 +167,11 @@ async def test_balances_are_checked(client: AsyncClient, session: AsyncSession):
 async def test_something_that_is_not_a_bank_file(
     client: AsyncClient, session: AsyncSession
 ):
+    """Neither XML nor a table with dates and amounts in it.
+
+    The CSV that used to stand here is readable now, which is the point of
+    having added a reader — so the case needs a file that really is nothing.
+    """
     user = await make_user(session, "Owner")
     await make_account(session, user, iban=FILE_IBAN)
     await session.commit()
@@ -174,7 +179,7 @@ async def test_something_that_is_not_a_bank_file(
 
     response = await client.post(
         "/api/v1/imports",
-        files={"file": ("umsaetze.csv", b"Datum;Betrag\n01.08.2026;-12,99\n", "text/csv")},
+        files={"file": ("notizen.txt", b"Einkaufen nicht vergessen\nMilch, Brot\n", "text/plain")},
     )
     assert response.status_code == 422
     assert response.json()["detail"]["code"] == "not_a_bank_file"
@@ -1156,5 +1161,66 @@ async def test_the_amount_decides_between_two_positions_of_one_category(
         select(PlanPosition).where(PlanPosition.label == "Haftpflicht")
     )
     assert suggestion["positionId"] == str(haftpflicht.scalar_one().id)
+
+    app.dependency_overrides.clear()
+
+
+async def test_a_csv_export_is_imported_like_a_camt_file(
+    client: AsyncClient, session: AsyncSession
+):
+    """The reader changes, nothing after it does.
+
+    Same parking area, same duplicate check, same recognition — the format is
+    recognised from the content and never mentioned again.
+    """
+    user = await make_user(session, "Owner")
+    account = await make_account(session, user, iban="DE02120300000000202051")
+    await session.commit()
+    sign_in(user)
+
+    csv_file = (
+        Path(__file__).parent / "fixtures" / "csv" / "ing.csv"
+    ).read_bytes()
+
+    response = await client.post(
+        "/api/v1/imports",
+        files={"file": ("umsaetze.csv", csv_file, "text/csv")},
+    )
+    assert response.status_code == 201
+    body = response.json()
+    assert body["read"] == 6
+    assert body["parked"] == 6
+    assert body["balancesMatch"] is True
+    assert body["accountId"] == str(account.id)
+
+    rows = await parked(session, user)
+    assert len(rows) == 6
+    assert all(row.counterparty_name for row in rows)
+
+    app.dependency_overrides.clear()
+
+
+async def test_the_same_csv_twice_changes_nothing(
+    client: AsyncClient, session: AsyncSession
+):
+    """A CSV has no reference number, so the key is built from the running balance.
+
+    Two identical bookings on one day are only told apart by the intermediate
+    balance — the fixture holds exactly that pair.
+    """
+    user = await make_user(session, "Owner")
+    await make_account(session, user, iban="DE02120300000000202051")
+    await session.commit()
+    sign_in(user)
+
+    csv_file = (Path(__file__).parent / "fixtures" / "csv" / "ing.csv").read_bytes()
+    files = {"file": ("umsaetze.csv", csv_file, "text/csv")}
+
+    await client.post("/api/v1/imports", files=files)
+    second = await client.post("/api/v1/imports", files=files)
+
+    assert second.json()["parked"] == 0
+    assert second.json()["known"] == 6
+    assert len(await parked(session, user)) == 6
 
     app.dependency_overrides.clear()

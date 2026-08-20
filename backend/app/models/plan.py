@@ -46,8 +46,18 @@ class Plan(UUIDMixin, TimestampMixin, Base):
     #: How many percent of the income is deliberately left unplanned.
     buffer_percent: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("0.00"))
 
+    #: Ordered on purpose. Without `order_by` the database returns them however
+    #: it likes, and an updated row typically comes back last — so changing one
+    #: position made the whole list jump.
+    #:
+    #: By due day, because that is the order a month is worked through. `id`
+    #: settles the rest: two positions can fall due on the same day, and
+    #: `created_at` cannot separate them either — a generated month writes every
+    #: position in one transaction, and `now()` is the transaction's start time.
     positions: Mapped[list["PlanPosition"]] = relationship(
-        back_populates="plan", cascade="all, delete-orphan"
+        back_populates="plan",
+        cascade="all, delete-orphan",
+        order_by="(PlanPosition.due_day, PlanPosition.id)",
     )
 
 
