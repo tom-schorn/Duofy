@@ -699,10 +699,10 @@ async def test_a_budget_position_comes_with_the_suggestion(
     app.dependency_overrides.clear()
 
 
-async def test_an_assigned_row_gets_no_suggestion(
+async def test_an_assigned_row_without_a_matching_budget_gets_nothing(
     client: AsyncClient, session: AsyncSession
 ):
-    """Once somebody decided, the import stops offering an opinion."""
+    """A chosen category with no budget position for it: nothing to add."""
     user = await make_user(session, "Owner")
     account = await make_account(session, user, iban=FILE_IBAN)
     session.add(
@@ -736,5 +736,425 @@ async def test_an_assigned_row_gets_no_suggestion(
     sign_in(user)
 
     assert (await client.get("/api/v1/imports")).json()[0]["suggestion"] is None
+
+    app.dependency_overrides.clear()
+
+
+async def test_a_payment_service_gets_no_suggestion(
+    client: AsyncClient, session: AsyncSession
+):
+    """One counterparty, many purposes — the case that would be confidently wrong.
+
+    PayPal, Klarna, Amazon, a card statement: the recipient says nothing about
+    what was bought. Suggesting the last category there is wrong most of the
+    time, so the recognition stays quiet instead.
+    """
+    user = await make_user(session, "Owner")
+    account = await make_account(session, user, iban=FILE_IBAN)
+    paypal = "DE02100500000054540402"
+
+    for day, category, block in (
+        (5, Category.LEISURE_HOBBIES, Block.WANTS),
+        (12, Category.HOUSEHOLD_CLOTHING, Block.NEEDS),
+        (19, Category.LEISURE_ENTERTAINMENT, Block.WANTS),
+    ):
+        session.add(
+            Transaction(
+                owner_id=user.id,
+                account_id=account.id,
+                occurred_on=date(2026, 7, day),
+                amount=Decimal("20.00"),
+                category=category,
+                block=block,
+                counterparty_iban=paypal,
+                counterparty_name="Zahlungsdienst",
+            )
+        )
+    session.add(
+        ImportedEntry(
+            owner_id=user.id,
+            imported_by_id=user.id,
+            account_id=account.id,
+            external_ref="8000000000000000096",
+            occurred_on=date(2026, 8, 12),
+            value_on=date(2026, 8, 12),
+            amount=Decimal("31.00"),
+            incoming=False,
+            counterparty_name="Zahlungsdienst",
+            counterparty_iban=paypal,
+        )
+    )
+    await session.commit()
+    sign_in(user)
+
+    assert (await client.get("/api/v1/imports")).json()[0]["suggestion"] is None
+
+    app.dependency_overrides.clear()
+
+
+async def test_one_slip_does_not_poison_a_counterparty(
+    client: AsyncClient, session: AsyncSession
+):
+    """A mistyped category falls out of the window instead of silencing the shop.
+
+    Only the newest three are asked. Book the supermarket right twice after a
+    slip and it speaks again — otherwise a single wrong click would cost the
+    suggestion for good.
+    """
+    user = await make_user(session, "Owner")
+    account = await make_account(session, user, iban=FILE_IBAN)
+    shop = "DE02300209000106531065"
+
+    for day, category, block in (
+        (2, Category.LEISURE_DINING, Block.WANTS),  # der Ausrutscher
+        (9, Category.HOUSEHOLD_GROCERIES, Block.NEEDS),
+        (16, Category.HOUSEHOLD_GROCERIES, Block.NEEDS),
+        (23, Category.HOUSEHOLD_GROCERIES, Block.NEEDS),
+    ):
+        session.add(
+            Transaction(
+                owner_id=user.id,
+                account_id=account.id,
+                occurred_on=date(2026, 7, day),
+                amount=Decimal("20.00"),
+                category=category,
+                block=block,
+                counterparty_iban=shop,
+                counterparty_name="Markt",
+            )
+        )
+    session.add(
+        ImportedEntry(
+            owner_id=user.id,
+            imported_by_id=user.id,
+            account_id=account.id,
+            external_ref="8000000000000000095",
+            occurred_on=date(2026, 8, 12),
+            value_on=date(2026, 8, 12),
+            amount=Decimal("18.40"),
+            incoming=False,
+            counterparty_name="Markt",
+            counterparty_iban=shop,
+        )
+    )
+    await session.commit()
+    sign_in(user)
+
+    suggestion = (await client.get("/api/v1/imports")).json()[0]["suggestion"]
+    assert suggestion is not None
+    assert suggestion["category"] == "household.groceries"
+
+    app.dependency_overrides.clear()
+
+
+async def test_your_own_category_still_gets_its_budget_position(
+    client: AsyncClient, session: AsyncSession
+):
+    """Choosing a category by hand must not switch the help off.
+
+    The budget position follows from the category alone — no learning, no
+    tolerance, no guessing. Staying quiet here meant the import stopped helping
+    exactly when the answer was most certain.
+    """
+    from app.models.plan import Plan, PlanPosition
+
+    user = await make_user(session, "Owner")
+    account = await make_account(session, user, iban=FILE_IBAN)
+
+    plan = Plan(user_id=user.id, year=2026, month=8)
+    session.add(plan)
+    await session.flush()
+    budget = PlanPosition(
+        plan_id=plan.id,
+        label="Lebensmittel",
+        amount_planned=Decimal("520.00"),
+        category=Category.HOUSEHOLD_GROCERIES,
+        block=Block.NEEDS,
+        due_day=1,
+        is_budget=True,
+    )
+    session.add(budget)
+    session.add(
+        ImportedEntry(
+            owner_id=user.id,
+            imported_by_id=user.id,
+            account_id=account.id,
+            external_ref="8000000000000000094",
+            occurred_on=date(2026, 8, 12),
+            value_on=date(2026, 8, 12),
+            amount=Decimal("18.40"),
+            incoming=False,
+            counterparty_name="Ein Laden ohne Geschichte",
+        )
+    )
+    await session.commit()
+    sign_in(user)
+
+    entry = (await parked(session, user))[0]
+    # Nichts gelernt, also zunächst kein Vorschlag.
+    assert (await client.get("/api/v1/imports")).json()[0]["suggestion"] is None
+
+    await client.patch(
+        f"/api/v1/imports/{entry.id}", json={"category": "household.groceries"}
+    )
+
+    suggestion = (await client.get("/api/v1/imports")).json()[0]["suggestion"]
+    assert suggestion is not None
+    assert suggestion["positionId"] == str(budget.id)
+    assert "einziger Posten" in suggestion["reason"]
+
+    app.dependency_overrides.clear()
+
+
+async def test_booking_ticks_off_a_single_position(
+    client: AsyncClient, session: AsyncSession
+):
+    """The plan has to notice that the rent was paid.
+
+    Two things, kept apart by the model: `amount_actual` is the sum of the
+    bookings assigned to the position, `paid_at` is the tick. Assigning a
+    booking to the rent says "this is the payment for it" — leaving the position
+    open afterwards would ask the user to confirm what they just stated.
+    """
+    from app.models.plan import Plan, PlanPosition
+
+    user = await make_user(session, "Owner")
+    await make_account(session, user, iban=FILE_IBAN)
+
+    plan = Plan(user_id=user.id, year=2026, month=8)
+    session.add(plan)
+    await session.flush()
+    rent = PlanPosition(
+        plan_id=plan.id,
+        label="Miete",
+        amount_planned=Decimal("890.00"),
+        category=Category.HOUSING_RENT,
+        block=Block.NEEDS,
+        due_day=15,
+    )
+    session.add(rent)
+    await session.commit()
+    assert rent.paid_at is None
+
+    sign_in(user)
+    await client.post("/api/v1/imports", files=upload_file())
+    entry = next(
+        row for row in await parked(session, user) if row.amount == Decimal("890.00")
+    )
+
+    await client.patch(f"/api/v1/imports/{entry.id}", json={"positionId": str(rent.id)})
+    await client.post(f"/api/v1/imports/{entry.id}/book")
+
+    await session.refresh(rent)
+    assert rent.amount_actual == Decimal("890.00")
+    assert rent.paid_at is not None
+
+    app.dependency_overrides.clear()
+
+
+async def test_a_budget_position_fills_up_but_is_not_ticked(
+    client: AsyncClient, session: AsyncSession
+):
+    """Groceries are not finished for August because one receipt arrived."""
+    from app.models.plan import Plan, PlanPosition
+
+    user = await make_user(session, "Owner")
+    await make_account(session, user, iban=FILE_IBAN)
+
+    plan = Plan(user_id=user.id, year=2026, month=8)
+    session.add(plan)
+    await session.flush()
+    budget = PlanPosition(
+        plan_id=plan.id,
+        label="Lebensmittel",
+        amount_planned=Decimal("520.00"),
+        category=Category.HOUSEHOLD_GROCERIES,
+        block=Block.NEEDS,
+        due_day=1,
+        is_budget=True,
+    )
+    session.add(budget)
+    await session.commit()
+
+    sign_in(user)
+    await client.post("/api/v1/imports", files=upload_file())
+    entry = next(
+        row for row in await parked(session, user) if row.amount == Decimal("63.82")
+    )
+
+    await client.patch(f"/api/v1/imports/{entry.id}", json={"positionId": str(budget.id)})
+    await client.post(f"/api/v1/imports/{entry.id}/book")
+
+    await session.refresh(budget)
+    assert budget.amount_actual == Decimal("63.82")
+    assert budget.paid_at is None
+
+    app.dependency_overrides.clear()
+
+
+async def test_a_part_payment_leaves_the_position_open(
+    client: AsyncClient, session: AsyncSession
+):
+    """Assigning part of a payment does not say the position is settled.
+
+    Two bookings against one rent: the first leaves it open, the second closes
+    it. The rule is the total against the planned amount, not "a booking
+    arrived" — otherwise a 200 € instalment would mark 890 € of rent as paid.
+    """
+    from app.models.plan import Plan, PlanPosition
+
+    user = await make_user(session, "Owner")
+    account = await make_account(session, user, iban=FILE_IBAN)
+
+    plan = Plan(user_id=user.id, year=2026, month=8)
+    session.add(plan)
+    await session.flush()
+    rent = PlanPosition(
+        plan_id=plan.id,
+        label="Miete",
+        amount_planned=Decimal("890.00"),
+        category=Category.HOUSING_RENT,
+        block=Block.NEEDS,
+        due_day=15,
+    )
+    session.add(rent)
+
+    for number, amount in ((1, Decimal("200.00")), (2, Decimal("690.00"))):
+        session.add(
+            ImportedEntry(
+                owner_id=user.id,
+                imported_by_id=user.id,
+                account_id=account.id,
+                external_ref=f"7{number:018d}",
+                occurred_on=date(2026, 8, 15),
+                value_on=date(2026, 8, 15),
+                amount=amount,
+                incoming=False,
+                counterparty_name="Wohnungsgesellschaft",
+            )
+        )
+    await session.commit()
+    sign_in(user)
+
+    rows = await parked(session, user)
+    teil = next(row for row in rows if row.amount == Decimal("200.00"))
+    rest = next(row for row in rows if row.amount == Decimal("690.00"))
+
+    await client.patch(f"/api/v1/imports/{teil.id}", json={"positionId": str(rent.id)})
+    await client.post(f"/api/v1/imports/{teil.id}/book")
+
+    await session.refresh(rent)
+    assert rent.amount_actual == Decimal("200.00")
+    assert rent.paid_at is None, "eine Teilzahlung erledigt die Miete nicht"
+
+    await client.patch(f"/api/v1/imports/{rest.id}", json={"positionId": str(rent.id)})
+    await client.post(f"/api/v1/imports/{rest.id}/book")
+
+    await session.refresh(rent)
+    assert rent.amount_actual == Decimal("890.00")
+    assert rent.paid_at is not None, "zusammen erreichen sie den geplanten Betrag"
+
+    app.dependency_overrides.clear()
+
+
+async def test_a_single_payment_is_suggested_when_it_is_the_only_one(
+    client: AsyncClient, session: AsyncSession
+):
+    """Rent is not a budget, and it does not need tolerances either.
+
+    A month holds one rent position. Once the category is known, the position
+    follows from it — no amount, no due-date window. The tolerances of #61 are
+    only needed where a category has several positions.
+    """
+    from app.models.plan import Plan, PlanPosition
+
+    user = await make_user(session, "Owner")
+    await make_account(session, user, iban=FILE_IBAN)
+
+    plan = Plan(user_id=user.id, year=2026, month=8)
+    session.add(plan)
+    await session.flush()
+    rent = PlanPosition(
+        plan_id=plan.id,
+        label="Miete",
+        amount_planned=Decimal("890.00"),
+        category=Category.HOUSING_RENT,
+        block=Block.NEEDS,
+        due_day=15,
+    )
+    session.add(rent)
+    await session.commit()
+
+    sign_in(user)
+    await client.post("/api/v1/imports", files=upload_file())
+    entry = next(
+        row for row in await parked(session, user) if row.amount == Decimal("890.00")
+    )
+
+    await client.patch(f"/api/v1/imports/{entry.id}", json={"category": "housing.rent"})
+
+    suggestion = next(
+        row["suggestion"]
+        for row in (await client.get("/api/v1/imports")).json()
+        if row["id"] == str(entry.id)
+    )
+    assert suggestion["positionId"] == str(rent.id)
+
+    app.dependency_overrides.clear()
+
+
+async def test_the_amount_decides_between_two_positions_of_one_category(
+    client: AsyncClient, session: AsyncSession
+):
+    """Two insurances in one category: only then does the amount matter.
+
+    And only within a euro. Two of 18.40 and 91.00 are told apart; two of 18.40
+    and 18.39 are not, and then nothing is offered rather than a coin toss.
+    """
+    from app.models.plan import Plan, PlanPosition
+
+    user = await make_user(session, "Owner")
+    account = await make_account(session, user, iban=FILE_IBAN)
+
+    plan = Plan(user_id=user.id, year=2026, month=8)
+    session.add(plan)
+    await session.flush()
+    for label, amount in (("Hausrat", "18.40"), ("Haftpflicht", "91.00")):
+        session.add(
+            PlanPosition(
+                plan_id=plan.id,
+                label=label,
+                amount_planned=Decimal(amount),
+                category=Category.PERSONAL_INSURANCE,
+                block=Block.NEEDS,
+                due_day=13,
+            )
+        )
+    session.add(
+        ImportedEntry(
+            owner_id=user.id,
+            imported_by_id=user.id,
+            account_id=account.id,
+            external_ref="6000000000000000001",
+            occurred_on=date(2026, 8, 13),
+            value_on=date(2026, 8, 13),
+            amount=Decimal("91.00"),
+            incoming=False,
+            counterparty_name="Versicherungskammer",
+        )
+    )
+    await session.commit()
+    sign_in(user)
+
+    entry = (await parked(session, user))[0]
+    await client.patch(
+        f"/api/v1/imports/{entry.id}", json={"category": "personal.insurance"}
+    )
+
+    suggestion = (await client.get("/api/v1/imports")).json()[0]["suggestion"]
+    haftpflicht = await session.execute(
+        select(PlanPosition).where(PlanPosition.label == "Haftpflicht")
+    )
+    assert suggestion["positionId"] == str(haftpflicht.scalar_one().id)
 
     app.dependency_overrides.clear()

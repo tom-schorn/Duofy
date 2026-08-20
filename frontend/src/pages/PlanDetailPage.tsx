@@ -3,8 +3,6 @@ import { Link, useParams, useSearchParams } from 'react-router'
 import { ArrowLeft, Eye, Pencil, Plus, Printer, Users } from 'lucide-react'
 
 import { useActiveMember } from '@/hooks/use-active-member'
-import { AccountCards } from '@/components/AccountCards'
-import { BookFlow } from '@/components/BookFlow'
 import { BookMetrics } from '@/components/BookMetrics'
 import { BudgetSection } from '@/components/BudgetSection'
 import { PaidDialog } from '@/components/PaidDialog'
@@ -18,7 +16,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { MonthBook } from '@/components/MonthBook'
 import { Metric } from '@/components/Metric'
 import { PlanPrintout } from '@/components/PlanPrintout'
 import { PlanSankey } from '@/components/PlanSankey'
@@ -77,6 +74,8 @@ import {
  * The quotas are **guidelines**, not rules. There is a target, the actual figure
  * stands next to it, and one decides whether that is acceptable.
  */
+const TABS = new Set(['plan', 'flow'])
+
 export function PlanDetailPage() {
   const { year, month } = useParams()
   // The household lives in the URL, not in a global switcher. That makes the
@@ -142,7 +141,7 @@ export function PlanDetailPage() {
                     (household) => household.id === householdId
                   )?.members ?? []
                 }
-                tab={params.get('tab') ?? 'plan'}
+                tab={TABS.has(params.get('tab') ?? '') ? params.get('tab')! : 'plan'}
                 onTab={setTab}
               />
             )
@@ -155,7 +154,7 @@ export function PlanDetailPage() {
                   mayEdit={atLeast(active.levelFor('plan'), 'edit')}
                   mayDelete={atLeast(active.levelFor('plan'), 'delete')}
                   householdNames={names}
-                  tab={params.get('tab') ?? 'plan'}
+                  tab={TABS.has(params.get('tab') ?? '') ? params.get('tab')! : 'plan'}
                   onTab={setTab}
                 />
               )
@@ -187,7 +186,9 @@ function PlanBody({
   // The values are English while the labels are German: the interface will be
   // translated later and a URL should stay stable through that.
   const [params, setParams] = useSearchParams()
-  const tab = params.get('tab') ?? 'plan'
+  // `book` war einmal ein Reiter und ist jetzt eine eigene Seite. Alte Links
+  // und Lesezeichen zeigen sonst auf einen Reiter ohne Inhalt.
+  const tab = TABS.has(params.get('tab') ?? '') ? params.get('tab')! : 'plan'
   const setTab = (value: string) =>
     setParams(
       (current: URLSearchParams) => {
@@ -430,26 +431,10 @@ function PlanBody({
         <TabsList data-print="hide">
           <TabsTrigger value="plan">Plan</TabsTrigger>
           <TabsTrigger value="flow">Verlauf</TabsTrigger>
-          <TabsTrigger value="book">Buch</TabsTrigger>
         </TabsList>
 
         <TabsContent value="flow">
           <MonthFlow
-            positions={plan.positions}
-            year={plan.year}
-            month={plan.month}
-          />
-        </TabsContent>
-
-        <TabsContent value="book" className="flex flex-col gap-6">
-          {/* Die Kontostände gehören zum Buch, nicht zum Plan: sie sagen, was
-              wirklich da ist. Unter den Plan-Karten, damit man beides in
-              einem Blick hat. */}
-          <AccountCards />
-
-          <BookFlow year={plan.year} month={plan.month} />
-
-          <MonthBook
             positions={plan.positions}
             year={plan.year}
             month={plan.month}
@@ -531,7 +516,6 @@ function PlanBody({
       </Tabs>
 
       <PlanPrintout plan={plan} />
-
 
       {/* Enthaken entfernt die vom Haken erzeugte Buchung. Der Betrag steht
           in der Frage, damit man sieht, was verloren geht — falls er nach dem
@@ -750,7 +734,6 @@ function MemberPlanBody({
         <TabsList>
           <TabsTrigger value="plan">Plan</TabsTrigger>
           <TabsTrigger value="flow">Verlauf</TabsTrigger>
-          <TabsTrigger value="book">Buch</TabsTrigger>
         </TabsList>
 
         <TabsContent value="flow">
@@ -758,18 +741,6 @@ function MemberPlanBody({
             positions={plan.positions}
             year={plan.year}
             month={plan.month}
-          />
-        </TabsContent>
-
-        <TabsContent value="book" className="flex flex-col gap-6">
-          <AccountCards scope={scope} />
-          <BookFlow year={plan.year} month={plan.month} scope={scope} />
-          <MonthBook
-            positions={plan.positions}
-            year={plan.year}
-            month={plan.month}
-            scope={scope}
-            readOnly={!mayEdit}
           />
         </TabsContent>
 
@@ -982,7 +953,6 @@ function HouseholdPlanBody({
             <TabsList data-print="hide">
               <TabsTrigger value="plan">Plan</TabsTrigger>
               <TabsTrigger value="flow">Verlauf</TabsTrigger>
-              <TabsTrigger value="book">Buch</TabsTrigger>
             </TabsList>
 
             <TabsContent value="flow">
@@ -991,18 +961,6 @@ function HouseholdPlanBody({
                 year={plan.year}
                 month={plan.month}
                 height="h-32"
-              />
-            </TabsContent>
-
-            <TabsContent value="book" className="flex flex-col gap-6">
-              <AccountCards scope={scope} />
-              <BookFlow year={plan.year} month={plan.month} scope={scope} />
-              <MonthBook
-                positions={plan.positions}
-                year={plan.year}
-                month={plan.month}
-                scope={scope}
-                readOnly
               />
             </TabsContent>
 
