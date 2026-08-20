@@ -1,7 +1,8 @@
 import { Fragment, useRef, useState } from 'react'
-import { Upload } from 'lucide-react'
+import { AlertTriangle, ArrowLeftRight, Upload } from 'lucide-react'
 
 import { CategoryPicker } from '@/components/CategoryPicker'
+import { PositionPicker, type PositionMonth } from '@/components/PositionPicker'
 import { QueryState } from '@/components/QueryState'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,6 +21,7 @@ import {
   OWN_SCOPE,
   atLeast,
   euro,
+  type Account,
   type ImportedEntry,
   type ImportSummary,
   type PlanPosition,
@@ -145,6 +147,7 @@ export function ImportPage() {
               entries={rows}
               mayEdit={mayEdit}
               positionsByMonth={positionsByMonth}
+              accounts={accounts.data ?? []}
             />
           </>
         )}
@@ -210,22 +213,58 @@ function Result({
   )
 }
 
-/** The positions of the month this entry falls into. */
-function positionsFor(
-  entry: ImportedEntry,
-  positionsByMonth: Map<string, PlanPosition[]>
-): PlanPosition[] {
-  const [year, month] = entry.occurredOn.split('-')
-  return positionsByMonth.get(`${Number(year)}-${Number(month)}`) ?? []
+/** The month an entry was booked in, and the one after it. */
+function monthsFor(entry: ImportedEntry): { year: number; month: number }[] {
+  const [year, month] = entry.occurredOn.split('-').map(Number)
+  return [
+    { year, month },
+    month === 12 ? { year: year + 1, month: 1 } : { year, month: month + 1 },
+  ]
 }
 
-/** The parked entries, grouped by day. */
-/** The months a pile of entries falls into, each once. */
+/**
+ * The two months this entry may belong to, each with its positions.
+ *
+ * A planning month is not a calendar month: rent leaves the account on the 28th
+ * for the month starting on the 1st. Offering only the calendar month means the
+ * entries easiest to place are the ones with no position to place them on.
+ */
+function choicesFor(
+  entry: ImportedEntry,
+  positionsByMonth: Map<string, PlanPosition[]>
+): PositionMonth[] {
+  return monthsFor(entry).map(({ year, month }) => ({
+    year,
+    month,
+    positions: positionsByMonth.get(`${year}-${month}`) ?? [],
+  }))
+}
+
+/**
+ * The label of a suggested position, looked for in both months.
+ *
+ * Naming it matters more than it looks: a suggestion pointing at "Miete" is
+ * checkable, one pointing at an id is not.
+ */
+function namePosition(
+  entry: ImportedEntry,
+  positionsByMonth: Map<string, PlanPosition[]>,
+  positionId: string
+): string {
+  for (const { positions } of choicesFor(entry, positionsByMonth)) {
+    const found = positions.find((position) => position.id === positionId)
+    if (found) return found.label
+  }
+  return ''
+}
+
+/** Every month a pile of entries can reach, each once. */
 function uniqueMonths(entries: ImportedEntry[]): { year: number; month: number }[] {
   const seen = new Map<string, { year: number; month: number }>()
   for (const entry of entries) {
-    const [year, month] = entry.occurredOn.split('-')
-    seen.set(`${year}-${Number(month)}`, { year: Number(year), month: Number(month) })
+    for (const { year, month } of monthsFor(entry)) {
+      seen.set(`${year}-${month}`, { year, month })
+    }
   }
   return [...seen.values()]
 }
@@ -234,10 +273,12 @@ function EntryTable({
   entries,
   mayEdit,
   positionsByMonth,
+  accounts,
 }: {
   entries: ImportedEntry[]
   mayEdit: boolean
   positionsByMonth: Map<string, PlanPosition[]>
+  accounts: Account[]
 }) {
   const assign = useAssignEntry()
   const accept = useAcceptSuggestion()
@@ -309,29 +350,23 @@ function EntryTable({
                   {euro.format(Number(entry.amount))}
                 </td>
                 <td className="px-3 py-2">
-                  <Select
-                    value={entry.positionId ?? 'none'}
-                    disabled={!mayEdit}
-                    onValueChange={(value) =>
-                      assign.mutate({
-                        id: entry.id,
-                        positionId: value === 'none' ? null : value,
-                      })
-                    }
-                  >
-                    <SelectTrigger className="h-8 max-w-[12rem]">
-                      <SelectValue placeholder="kein Posten" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">kein Posten</SelectItem>
-                      {positionsFor(entry, positionsByMonth).map((position) => (
-                        <SelectItem key={position.id} value={position.id}>
-                          {position.label}
-                          {position.isBudget ? ' · Budget' : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {entry.counterAccountId === null ? (
+                    <PositionPicker
+                      months={choicesFor(entry, positionsByMonth)}
+                      value={entry.positionId}
+                      disabled={!mayEdit}
+                      className="h-8 max-w-[12rem]"
+                      onChange={(positionId) =>
+                        assign.mutate({ id: entry.id, positionId })
+                      }
+                    />
+                  ) : (
+                    // Eine Umbuchung füllt keinen Posten. Das Feld wegzulassen
+                    // ist die Aussage — ein leeres, das trotzdem anklickbar
+                    // wäre, lädt zu einer Zuordnung ein, die beim Buchen
+                    // wieder verschwindet.
+                    <span className="text-muted-foreground text-sm">—</span>
+                  )}
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-2">
@@ -340,7 +375,32 @@ function EntryTable({
                         className={`size-2 shrink-0 rounded-full ${BLOCK_DOT[entry.block]}`}
                       />
                     )}
-                    {entry.positionId !== null ? (
+                    {entry.counterAccountId !== null ? (
+                      // Umbuchung: keine Kategorie, sondern ein Ziel. Die
+                      // Frage lautet wohin, nicht wofür — das Geld wurde nicht
+                      // ausgegeben, es liegt woanders.
+                      <span className="flex items-center gap-2 text-sm">
+                        <ArrowLeftRight className="text-muted-foreground size-3.5" />
+                        {entry.incoming ? 'von' : 'nach'}{' '}
+                        {accounts.find(
+                          (account) => account.id === entry.counterAccountId
+                        )?.name ?? 'anderem Konto'}
+                        {mayEdit && (
+                          <button
+                            type="button"
+                            className="text-muted-foreground hover:text-foreground text-xs underline"
+                            onClick={() =>
+                              assign.mutate({
+                                id: entry.id,
+                                counterAccountId: null,
+                              })
+                            }
+                          >
+                            zurücknehmen
+                          </button>
+                        )}
+                      </span>
+                    ) : entry.positionId !== null ? (
                       // The position carries the category, so it is a
                       // consequence here and not a question.
                       <span
@@ -368,7 +428,11 @@ function EntryTable({
                       <Button
                         size="sm"
                         variant="ghost"
-                        disabled={entry.category === null || book.isPending}
+                        disabled={
+                          (entry.category === null &&
+                            entry.counterAccountId === null) ||
+                          book.isPending
+                        }
                         onClick={() => book.mutate(entry.id)}
                       >
                         Buchen
@@ -395,38 +459,86 @@ function EntryTable({
                   <td />
                   <td />
                   <td colSpan={5} className="px-3 pb-2">
-                    <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
-                      <span className="text-primary">Vorschlag:</span>
-                      <span className="text-foreground">
-                        {CATEGORY_LABEL[suggestion.category]}
-                      </span>
-                      {suggestion.positionId && (
-                        <span>
-                          · Posten{' '}
-                          {positionsFor(entry, positionsByMonth).find(
-                            (position) => position.id === suggestion.positionId
-                          )?.label ?? ''}
+                    {suggestion.kind === 'already_booked' ? (
+                      /* Kein Vorschlag, sondern eine Warnung. Diese Zeile ist
+                         die zweite Hälfte einer Bewegung, die schon im Buch
+                         steht — sie zu buchen zählt dasselbe Geld doppelt.
+                         Deshalb steht hier kein „Übernehmen". */
+                      <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
+                        <AlertTriangle className="size-4 text-amber-600 dark:text-amber-500" />
+                        <span className="text-foreground">
+                          {suggestion.certain
+                            ? `Schon gebucht — die andere Seite dieser Umbuchung steht im Buch (${suggestion.counterAccountName}).`
+                            : `Könnte die andere Seite einer Umbuchung sein, die schon im Buch steht (${suggestion.counterAccountName}). Dann wäre Buchen doppelt.`}
                         </span>
-                      )}
-                      <span className="text-xs">({suggestion.reason})</span>
-                      {mayEdit && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="ml-1 h-7"
-                          disabled={accept.isPending}
-                          onClick={() =>
-                            accept.mutate({
-                              id: entry.id,
-                              category: suggestion.category,
-                              positionId: suggestion.positionId,
-                            })
-                          }
-                        >
-                          Übernehmen
-                        </Button>
-                      )}
-                    </div>
+                        {mayEdit && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="ml-1 h-7"
+                            disabled={discard.isPending}
+                            onClick={() => discard.mutate(entry.id)}
+                          >
+                            Verwerfen
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
+                        <span className="text-primary">Vorschlag:</span>
+                        {suggestion.kind === 'transfer' ? (
+                          <span className="text-foreground flex items-center gap-1.5">
+                            <ArrowLeftRight className="size-3.5" />
+                            {/* Geraten wird als Frage formuliert, Erkanntes als
+                                Aussage. Beides gleich zu zeigen ließe den
+                                sicheren Fall so wacklig aussehen wie den
+                                anderen. */}
+                            {suggestion.certain ? 'Umbuchung' : 'Umbuchung?'}{' '}
+                            {entry.incoming ? 'von' : 'nach'}{' '}
+                            {suggestion.counterAccountName}
+                          </span>
+                        ) : (
+                          <>
+                            <span className="text-foreground">
+                              {suggestion.category
+                                ? CATEGORY_LABEL[suggestion.category]
+                                : ''}
+                            </span>
+                            {suggestion.positionId && (
+                              <span>
+                                · Posten{' '}
+                                {namePosition(
+                                  entry,
+                                  positionsByMonth,
+                                  suggestion.positionId
+                                )}
+                              </span>
+                            )}
+                          </>
+                        )}
+                        <span className="text-xs">({suggestion.reason})</span>
+                        {mayEdit && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="ml-1 h-7"
+                            disabled={accept.isPending}
+                            onClick={() =>
+                              accept.mutate({
+                                id: entry.id,
+                                category: suggestion.category,
+                                positionId: suggestion.positionId,
+                                counterAccountId: suggestion.counterAccountId,
+                              })
+                            }
+                          >
+                            {suggestion.kind === 'transfer'
+                              ? 'Als Umbuchung buchen'
+                              : 'Übernehmen'}
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </td>
                 </tr>
               )}

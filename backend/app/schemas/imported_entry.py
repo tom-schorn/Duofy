@@ -3,11 +3,23 @@
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import Field
 
 from app.models.enums import Block, Category
 from app.schemas.base import Schema
+
+#: What kind of answer this suggestion is. Three, because they lead to three
+#: different buttons — and a screen that offers "Übernehmen" for all of them
+#: would book a duplicate on the third.
+#:
+#: * **category** — what this was for. The everyday case.
+#: * **transfer** — money moving to another account of the same owner. Not
+#:   spending, so the question is "where to", not "what for".
+#: * **already_booked** — the *other side* of a movement the book already holds.
+#:   Nothing to book here; the entry is thrown out.
+SuggestionKind = Literal["category", "transfer", "already_booked"]
 
 
 class Suggestion(Schema):
@@ -21,10 +33,31 @@ class Suggestion(Schema):
     magic is not what anyone wants near their money.
     """
 
-    category: Category
-    #: Only set where the month has a budget position for that category. Single
-    #: payments need amounts and due-date windows, which is #61.
+    kind: SuggestionKind = "category"
+
+    #: Empty on a transfer, and on the entry that is already booked. A movement
+    #: between own accounts has no category — see `ImportedEntry`.
+    category: Category | None = None
+    #: The position this belongs to, where exactly one candidate fits. Looked for
+    #: in the month of the booking and in the one after it: a payment made in
+    #: late August often belongs to September's plan.
     position_id: uuid.UUID | None = None
+
+    #: On a transfer: the own account the money goes to or comes from.
+    counter_account_id: uuid.UUID | None = None
+    #: Its name, so the row can say "nach Sparkonto" without a second lookup.
+    counter_account_name: str | None = None
+
+    #: Whether the other side was **named** or merely inferred.
+    #:
+    #: `True` means the bank supplied an IBAN and it belongs to one of the
+    #: owner's accounts — there is nothing to doubt. `False` means the pairing
+    #: comes from amount, direction and date alone, which is what is left when
+    #: the bank names nobody. The screen says so: a guess is phrased as a
+    #: question, a fact as a statement. Presenting the two the same way would
+    #: make the reliable case look as shaky as the other one.
+    certain: bool = True
+
     reason: str
 
 
@@ -52,6 +85,9 @@ class ImportedEntryRead(Schema):
     category: Category | None
     block: Block | None
 
+    #: Set means this entry is a transfer to another own account, not spending.
+    counter_account_id: uuid.UUID | None
+
     #: Set means thrown out without booking. Such rows stay so that a second
     #: import of the same file does not bring them back.
     discarded_at: datetime | None
@@ -65,10 +101,15 @@ class ImportedEntryUpdate(Schema):
 
     A position carries its own category, so sending both is redundant — the
     endpoint takes the position's and ignores whatever category came with it.
+
+    `counter_account_id` is the other kind of answer: it says the movement went
+    to another own account. Setting it clears category and position, because a
+    transfer is not spending and has nothing to fill.
     """
 
     position_id: uuid.UUID | None = None
     category: Category | None = None
+    counter_account_id: uuid.UUID | None = None
 
 
 class ImportSummary(Schema):

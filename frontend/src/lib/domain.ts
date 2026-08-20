@@ -652,9 +652,33 @@ export type Me = {
  * written into the row would go stale the moment somebody assigns something.
  */
 export type Suggestion = {
-  category: Category
-  /** Only where the month has a budget position for that category. */
+  /**
+   * Which of three questions this answers — they lead to three different
+   * buttons, and a row that offered "Übernehmen" for all of them would book a
+   * duplicate on the third.
+   *
+   * * `category` — what this was for. The everyday case
+   * * `transfer` — money moving to another own account. Not spending
+   * * `alreadyBooked` — the other side of a movement the book already holds
+   */
+  kind: 'category' | 'transfer' | 'already_booked'
+  /** Empty on a transfer: a movement between own accounts has no category. */
+  category: Category | null
+  /** The position it fits, from the month of the booking or the one after. */
   positionId: string | null
+  /** On a transfer: the own account the money goes to or comes from. */
+  counterAccountId: string | null
+  counterAccountName: string | null
+  /**
+   * Was the other side **named** or only inferred?
+   *
+   * `true` means the bank supplied an IBAN belonging to one of your accounts —
+   * nothing to doubt. `false` means amount, direction and date alone, which is
+   * all that is left when the bank names nobody. The row phrases a guess as a
+   * question and a fact as a statement; showing both the same way would make
+   * the reliable case look as shaky as the other one.
+   */
+  certain: boolean
   reason: string
 }
 
@@ -677,6 +701,9 @@ export type ImportedEntry = {
   positionId: string | null
   category: Category | null
   block: Block | null
+
+  /** Set means this is a transfer to another own account, not spending. */
+  counterAccountId: string | null
 
   discardedAt: string | null
 

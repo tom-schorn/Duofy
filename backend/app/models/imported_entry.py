@@ -93,6 +93,23 @@ class ImportedEntry(Base, UUIDMixin, TimestampMixin):
 
     # ---- What the user says -------------------------------------------------
 
+    #: Where the money went, when it went to another account of the same owner.
+    #:
+    #: This is the answer to a **different question** than category and position.
+    #: A transfer between own accounts is not spending — asking what it was for
+    #: would get an answer that is wrong however it is given, and the 50/30/20
+    #: figures would count money that never left the household.
+    #:
+    #: Set means the entry becomes a transfer: `Transaction.counter_account_id`
+    #: is filled and `category` may stay empty, which the check constraint on
+    #: `transactions` allows exactly for this case.
+    #:
+    #: RESTRICT like `account_id`: an account still named by a parked row is
+    #: deactivated, not deleted.
+    counter_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=True
+    )
+
     #: SET NULL: deleting a position must not delete the parked row with it.
     position_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("plan_positions.id", ondelete="SET NULL"), nullable=True

@@ -2,13 +2,29 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from app.models.enums import AccountType
 from app.schemas.base import Schema
+from app.services.statements import normalise_iban
 
 
-class AccountBase(Schema):
+class _IbanField:
+    """Shared by create and update: the IBAN arrives however the user typed it.
+
+    Grouped in fours is how a bank prints it, so that is how it gets typed. It
+    is compared against what a statement reports, and there it is unspaced —
+    normalising on the way in means the comparison is a plain `==` everywhere
+    else. An empty field means "no IBAN", not an empty string.
+    """
+
+    @field_validator("external_ref")
+    @classmethod
+    def _tidy_iban(cls, value: str | None) -> str | None:
+        return normalise_iban(value) or None
+
+
+class AccountBase(_IbanField, Schema):
     name: str = Field(min_length=1, max_length=100)
     type: AccountType
     opening_balance: Decimal = Field(default=Decimal("0.00"), max_digits=12, decimal_places=2)
@@ -17,6 +33,12 @@ class AccountBase(Schema):
     #: second one clears the flag on the first.
     is_default: bool = False
     active: bool = True
+    #: The account's IBAN. Optional, and the one thing that lets a transfer be
+    #: recognised as one: a parked entry whose counterparty IBAN is this is not
+    #: an expense, it is money moving between the user's own accounts.
+    #:
+    #: An import writes it by itself. Typing it by hand is for the account that
+    #: never delivers a file — the savings account is the usual one.
     external_ref: str | None = Field(default=None, max_length=200)
     #: Does money here still count as spendable? True for a current account,
     #: false for savings, where the money is already earmarked.
@@ -27,7 +49,7 @@ class AccountCreate(AccountBase):
     pass
 
 
-class AccountUpdate(Schema):
+class AccountUpdate(_IbanField, Schema):
     """Everything optional. The opening balance stays editable — it is easy to
     mistype when creating the account, and as long as there are no bookings
     nothing depends on it."""

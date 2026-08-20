@@ -71,6 +71,22 @@ class _Account:
     owner: str | None
 
 
+def normalise_iban(value: str | None) -> str:
+    """An IBAN reduced to what two of them have to share to be the same one.
+
+    Banks print it grouped ("DE12 3456 …"), export it unspaced, and occasionally
+    in lower case. Duofy compares IBANs to decide whether a counterparty is one
+    of the user's **own** accounts — a stray space there would silently turn a
+    transfer back into an expense, which is exactly the mistake #71 is about.
+
+    So every IBAN is put through here at the edge where it enters: the reader,
+    and the account schema. Nothing downstream has to remember.
+    """
+    if not value:
+        return ""
+    return "".join(character for character in value if not character.isspace()).upper()
+
+
 class StatementError(ValueError):
     """The file is not a CAMT report this parser can read.
 
@@ -152,7 +168,7 @@ def read_upload(data: bytes, *, iban: str = "") -> list[StatementReport]:
     elif _looks_like_xml(data):
         reports = [parse_report(data)]
     else:
-        reports = [parse_csv(data, iban=iban)]
+        reports = [parse_csv(data, iban=normalise_iban(iban))]
 
     return sorted(reports, key=lambda report: report.page)
 
@@ -183,7 +199,7 @@ def parse_report(data: bytes) -> StatementReport:
     report = _container(root, namespace)
     element = _required(report, "Acct", namespace)
     account = _Account(
-        iban=_text(element, "Id/IBAN", namespace) or "",
+        iban=normalise_iban(_text(element, "Id/IBAN", namespace)),
         owner=_text(element, "Ownr/Nm", namespace),
     )
     pagination = report.find(_path("RptPgntn", namespace))
@@ -314,9 +330,9 @@ def _counterparty(
     for detail in details:
         for role in ("Dbtr", "Cdtr"):
             name = _text(detail, f"RltdPties/{role}/Pty/Nm", namespace)
-            iban = _text(detail, f"RltdPties/{role}Acct/Id/IBAN", namespace)
+            iban = normalise_iban(_text(detail, f"RltdPties/{role}Acct/Id/IBAN", namespace))
             if name or iban:
-                sides.append((role, name, iban))
+                sides.append((role, name, iban or None))
 
     def is_own(name: str | None, iban: str | None) -> bool:
         if iban and account.iban:
@@ -618,7 +634,7 @@ def _iban_from_metadata(rows: list[list[str]]) -> str:
     for row in rows:
         for position, cell in enumerate(row):
             if _key(cell) == "iban" and position + 1 < len(row):
-                return row[position + 1].replace(" ", "").strip()
+                return normalise_iban(row[position + 1])
     return ""
 
 
@@ -644,8 +660,8 @@ def _csv_entry(
         value = " ".join(row[index_of[field]].split())
         return value or None
 
-    counterparty_iban = cell("iban")
-    if counterparty_iban and counterparty_iban.replace(" ", "") == account_iban:
+    counterparty_iban = normalise_iban(cell("iban")) or None
+    if counterparty_iban and counterparty_iban == account_iban:
         counterparty_iban = None
 
     return StatementEntry(

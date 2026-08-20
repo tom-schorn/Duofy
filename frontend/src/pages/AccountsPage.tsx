@@ -280,6 +280,30 @@ function AccountDialog({
               </div>
             </div>
 
+            {/* Die IBAN ist der Schlüssel zur Umbuchungserkennung: steht sie als
+                Gegenpartei auf einer importierten Zeile, ist das keine Ausgabe,
+                sondern eine Bewegung zwischen zwei eigenen Konten. Ein Import
+                trägt sie von allein ein — von Hand ist sie für das Konto da,
+                das nie eine Datei liefert. Meist das Sparkonto, und das ist
+                genau das, wohin am häufigsten umgebucht wird. */}
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="account-iban">IBAN</Label>
+              <Input
+                id="account-iban"
+                value={draft.externalRef ?? ''}
+                onChange={(event) =>
+                  set('externalRef', event.target.value || null)
+                }
+                placeholder="DE00 0000 0000 0000 0000 00"
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <p className="text-muted-foreground text-xs">
+                Freiwillig. Damit erkennt Duofy Umbuchungen auf dieses Konto und
+                fragt nicht nach einer Kategorie.
+              </p>
+            </div>
+
             <div className="border-border flex items-center justify-between gap-4 rounded-lg border p-3">
               <span className="flex flex-col">
                 <span className="text-sm font-medium">Standardkonto</span>
