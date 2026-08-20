@@ -494,11 +494,16 @@ export function usePlansForMonths(
   })
 }
 
-/** Put a position or a category on a parked entry. */
+/** Put a position, a category or an own account on a parked entry. */
 export function useAssignEntry() {
   return useInvalidating<
     ImportedEntry,
-    { id: string; positionId?: string | null; category?: Category | null }
+    {
+      id: string
+      positionId?: string | null
+      category?: Category | null
+      counterAccountId?: string | null
+    }
   >(({ id, ...body }) => api.patch(`/imports/${id}`, body), [keys.imports])
 }
 
@@ -512,13 +517,23 @@ export function useAssignEntry() {
 export function useAcceptSuggestion() {
   return useInvalidating<
     ImportedEntry,
-    { id: string; category: Category; positionId: string | null }
+    {
+      id: string
+      category?: Category | null
+      positionId?: string | null
+      counterAccountId?: string | null
+    }
   >(
-    async ({ id, category, positionId }) => {
-      await api.patch<ImportedEntry>(
-        `/imports/${id}`,
-        positionId ? { positionId } : { category }
-      )
+    async ({ id, category, positionId, counterAccountId }) => {
+      // One of the three, in the order that settles the most: an own account
+      // makes it a transfer and clears the rest, a position brings its own
+      // category, a category stands alone.
+      const body = counterAccountId
+        ? { counterAccountId }
+        : positionId
+          ? { positionId }
+          : { category }
+      await api.patch<ImportedEntry>(`/imports/${id}`, body)
       return api.post<ImportedEntry>(`/imports/${id}/book`)
     },
     [keys.imports, keys.accounts, keys.allTransactions, keys.plans],

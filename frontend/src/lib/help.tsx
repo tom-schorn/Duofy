@@ -163,6 +163,57 @@ export const HELP: Record<HelpKey, { title: string; entries: HelpEntry[] }> = {
         ),
       },
       {
+        id: 'transfer',
+        title: 'Umbuchung statt Ausgabe',
+        body: (
+          <>
+            <p>
+              Geld von deinem Girokonto aufs Sparkonto ist keine Ausgabe — es
+              liegt nur woanders. Duofy erkennt das an der IBAN der Gegenseite:
+              gehört sie einem deiner Konten, fragt es nicht nach einer
+              Kategorie, sondern schlägt die Umbuchung vor.
+            </p>
+            <p>
+              Damit das geht, muss die IBAN am Konto stehen. Bei Konten, von
+              denen du eine Datei hochlädst, trägt Duofy sie selbst ein. Beim
+              Sparkonto, das nie eine liefert, trägst du sie einmal von Hand ein
+              — unter <strong>Konten</strong>.
+            </p>
+            <p>
+              Nennt die Bank gar keine Gegenseite — bei Kreditkarten üblich —,
+              sucht Duofy nach der zweiten Hälfte: gleicher Betrag,
+              Gegenrichtung, ein paar Tage auseinander, ein anderes deiner
+              Konten. Das steht dann mit Fragezeichen da, weil es geraten ist.
+            </p>
+          </>
+        ),
+      },
+      {
+        id: 'other-side',
+        title: 'Die andere Seite',
+        body: (
+          <p>
+            Eine Umbuchung steht in <em>beiden</em> Auszügen: einmal als Abgang,
+            einmal als Eingang. Duofy merkt, wenn eine Zeile die zweite Hälfte
+            von etwas ist, das schon im Buch steht, und bietet sie nicht noch
+            einmal zum Buchen an. Zweimal gebucht wäre es eine Ausgabe, die
+            keine war, und eine Einnahme, die keine war.
+          </p>
+        ),
+      },
+      {
+        id: 'which-month',
+        title: 'Welcher Monat',
+        body: (
+          <p>
+            Beim Posten wählst du erst den Monat, dann den Posten. Der Grund:
+            ein Planungsmonat ist kein Kalendermonat. Die Miete geht am 28.
+            raus für den Monat, der am 1. anfängt. Deshalb stehen der Monat der
+            Buchung <em>und</em> der darauf zur Auswahl.
+          </p>
+        ),
+      },
+      {
         id: 'nothing-changed',
         title: 'Was der Import nicht tut',
         body: (
@@ -451,6 +502,26 @@ export const HELP: Record<HelpKey, { title: string; entries: HelpEntry[] }> = {
             eine Rücklage liegt, hat einen Stand, ist aber nicht das, was diesen Monat
             zur Verfügung steht — dafür gibt es den Schalter am Konto.
           </p>
+        ),
+      },
+      {
+        id: 'iban',
+        title: 'Wozu die IBAN',
+        body: (
+          <>
+            <p>
+              Freiwillig, und für eine Sache da: Umbuchungen. Steht die IBAN
+              eines deiner Konten als Gegenseite auf einer importierten Zeile,
+              weiß Duofy, dass das Geld nicht ausgegeben wurde, sondern nur
+              woanders liegt — und fragt nicht nach einer Kategorie.
+            </p>
+            <p>
+              Bei Konten, von denen du eine Datei hochlädst, trägt Duofy sie
+              selbst ein. Von Hand brauchst du sie für das Konto, das nie eine
+              Datei liefert — meist das Sparkonto, und genau dorthin wird am
+              häufigsten umgebucht.
+            </p>
+          </>
         ),
       },
     ],
