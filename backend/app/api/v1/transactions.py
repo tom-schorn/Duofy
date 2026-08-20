@@ -195,7 +195,15 @@ async def list_transactions(
         query = query.where(extract("month", Transaction.occurred_on) == month)
 
     result = await session.execute(
-        query.order_by(Transaction.occurred_on.desc(), Transaction.created_at.desc())
+        query.order_by(
+            Transaction.occurred_on.desc(),
+            Transaction.created_at.desc(),
+            # Settles the rest, and it has to: an import writes every booking of
+            # a batch in one transaction, so `created_at` is identical across
+            # them. Without this the order is undefined and an edited booking
+            # comes back somewhere else in the list.
+            Transaction.id,
+        )
     )
     return [
         TransactionRead.model_validate(transaction).model_copy(
