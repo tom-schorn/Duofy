@@ -1,0 +1,89 @@
+name: Feature spec
+description: An agreed feature, written down so it can be built without guessing
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **For agreed work only.** An idea starts in
+        [Discussions › Ideas](https://github.com/tom-schorn/Duofy/discussions/new?category=ideas);
+        once we agree on it, it becomes a spec here.
+
+        Write it so that someone who was not in the conversation can build it —
+        including you, three weeks from now. And as everywhere in Duofy:
+        **no real amounts, names or account numbers.**
+
+  - type: textarea
+    id: purpose
+    attributes:
+      label: Purpose
+      description: >-
+        What problem does this solve, and for whom? One or two paragraphs. If the
+        reason is not written here, it gets lost.
+      placeholder: |
+        Savings goals today only exist as a commitment that produces a rate. Nobody
+        can see how much has actually been put aside for a goal …
+    validations:
+      required: true
+
+  - type: textarea
+    id: data-model
+    attributes:
+      label: Data model
+      description: >-
+        New tables, columns, constraints, enum values. Name the file and the
+        existing model it builds on. Say what is stored and what is derived.
+      placeholder: |
+        `Transaction.savings_goal_id` — nullable FK to `commitments.id` …
+    validations:
+      required: true
+
+  - type: textarea
+    id: automations
+    attributes:
+      label: Automations
+      description: >-
+        What happens without the user doing it — plan generation, ticking off,
+        validation, recalculation. Trigger → effect.
+      placeholder: |
+        Generating a month: a goal whose balance has reached the target produces
+        no position …
+
+  - type: textarea
+    id: decisions
+    attributes:
+      label: Decisions and why
+      description: >-
+        Choices made on purpose, with the reason and the alternative that was
+        turned down. This is the part you will look up later.
+      placeholder: |
+        **Hard limit, no setting.** Duofy fixes rules instead of offering options —
+        one decision fewer for the user. Rejected: a warning that can be dismissed.
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: >-
+        Checkable statements. Done means every box can be ticked, including the
+        edge cases.
+      value: |
+        - [ ] 
+    validations:
+      required: true
+
+  - type: textarea
+    id: open-questions
+    attributes:
+      label: Open questions
+      description: >-
+        Anything not decided yet. Keeps half-finished thoughts out of the sections
+        above. Empty is fine.
+
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Not in scope
+      description: >-
+        Related things this issue deliberately does not do, with a link to their
+        issue if there is one.
