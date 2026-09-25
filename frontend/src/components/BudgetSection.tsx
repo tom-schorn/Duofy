@@ -6,18 +6,18 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Progress } from '@/components/ui/progress'
 import {
-  BLOCK_DOT,
-  blockLabel,
+  BUDGET_DOT,
+  budgetLabel,
   categoryLabel,
   paymentLabel,
   euro,
   isPaid,
-  type Block,
+  type Budget,
   type PlanPosition,
 } from '@/lib/domain'
 
 /**
- * One block with target against actual, and its positions.
+ * One budget with target against actual, and its positions.
  *
  * Deliberately **one** component for your own plan and the household: the rules are
  * the same, only the data source changes.
@@ -27,14 +27,14 @@ import {
  */
 
 /**
- * Bar colour per block — **written out**, never composed.
+ * Bar colour per budget — **written out**, never composed.
  *
- * Tailwind reads the classes out of the source text. A `[&_...]:${BLOCK_DOT[block]}`
+ * Tailwind reads the classes out of the source text. A `[&_...]:${BUDGET_DOT[budget]}`
  * never appears there as a finished class and would therefore not be generated: the
  * bar would stay grey. The `Progress` indicator is fixed to `bg-primary`, so it has
  * to be overridden.
  */
-const BAR: Record<Block, string> = {
+const BAR: Record<Budget, string> = {
   income: '[&_[data-slot=progress-indicator]]:bg-chart-3',
   needs: '[&_[data-slot=progress-indicator]]:bg-chart-1',
   wants: '[&_[data-slot=progress-indicator]]:bg-chart-2',
@@ -47,13 +47,13 @@ const BAR_OVER = '[&_[data-slot=progress-indicator]]:bg-destructive'
 const OVER_QUOTA = 100
 
 type Props = {
-  block: Block
+  budget: Budget
   /** Target from the quota — null for income, which has none. */
   target: number | null
   positions: PlanPosition[]
   householdNames: Record<string, string>
   onEdit: (position: PlanPosition) => void
-  onAdd: (block: Block) => void
+  onAdd: (budget: Budget) => void
   onTogglePaid: (position: PlanPosition) => void
   /** Shared view: other people positions are shown but not changed. */
   readOnly?: boolean
@@ -68,7 +68,7 @@ type Props = {
 }
 
 export function BudgetSection({
-  block,
+  budget,
   target,
   positions,
   householdNames,
@@ -95,8 +95,8 @@ export function BudgetSection({
       <header className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between gap-4">
           <h2 className="flex items-center gap-2 text-sm font-semibold tracking-wide uppercase">
-            <span className={`size-2.5 rounded-sm ${BLOCK_DOT[block]}`} />
-            {blockLabel(block)}
+            <span className={`size-2.5 rounded-sm ${BUDGET_DOT[budget]}`} />
+            {budgetLabel(budget)}
           </h2>
           <span className="text-sm tabular-nums">
             <span className={isOver ? 'text-destructive font-semibold' : 'font-semibold'}>
@@ -112,15 +112,15 @@ export function BudgetSection({
         </div>
 
         {target !== null && (
-          // The `Progress` indicator is fixed to `bg-primary`, but here the block
+          // The `Progress` indicator is fixed to `bg-primary`, but here the budget
           // colour carries identity, so it is overridden.
           <Progress
             value={Math.min(percent, 100)}
             aria-label={t('budget.quotaLabel', {
-              budget: blockLabel(block),
+              budget: budgetLabel(budget),
               percent: Math.round(percent),
             })}
-            className={`h-1.5 ${isOver ? BAR_OVER : BAR[block]}`}
+            className={`h-1.5 ${isOver ? BAR_OVER : BAR[budget]}`}
           />
         )}
       </header>
@@ -146,11 +146,11 @@ export function BudgetSection({
         type="button"
         variant="ghost"
         size="sm"
-        onClick={() => onAdd(block)}
+        onClick={() => onAdd(budget)}
         className="text-muted-foreground hover:text-foreground w-fit"
       >
         <Plus className="size-4" />
-        {t('budget.addPosition', { budget: blockLabel(block) })}
+        {t('budget.addPosition', { budget: budgetLabel(budget) })}
       </Button>
       )}
     </section>
@@ -188,8 +188,8 @@ function PositionRow({
           Income can be ticked off too; there it means "it arrived" rather than
           "paid". It does not affect what is still open: that figure excludes income
           anyway. */}
-      {position.isBudget ? (
-        /* Budget positions are not ticked off — they fill up over the month from
+      {position.isLimit ? (
+        /* Limit positions are not ticked off — they fill up over the month from
            individual bookings. A tick would mean nothing here, so instead of a dead
            box there is nothing. */
         <span className="size-6" aria-hidden />
@@ -214,7 +214,7 @@ function PositionRow({
             aria-label={
               paid
                 ? t('budget.reopen', { label: position.label })
-                : position.block === 'income'
+                : position.budget === 'income'
                   ? t('budget.markReceived', { label: position.label })
                   : t('budget.tick', { label: position.label })
             }
@@ -257,14 +257,14 @@ function PositionRow({
             ? ` · ${paymentLabel(position.paymentMethod)}`
             : ''}
           {position.commitmentId ? ` · ${t('budget.fromCommitment')}` : ''}
-          {position.isBudget ? ` · ${t('budget.limit')}` : ''}
+          {position.isLimit ? ` · ${t('budget.limit')}` : ''}
           {position.passThrough ? ` · ${t('budget.passThrough')}` : ''}
           {position.counterAccountId ? ` · ${t('budget.transfer')}` : ''}
         </span>
       </button>
 
       <span className="flex flex-col items-end gap-1 tabular-nums">
-        {position.isBudget ? (
+        {position.isLimit ? (
           <>
             <span className="text-sm">
               <span

@@ -9,8 +9,8 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import {
-  BLOCK_DOT,
-  BLOCK_SUGGESTION,
+  BUDGET_DOT,
+  BUDGET_SUGGESTION,
   CATEGORY_GROUPS,
   categoryGroupLabel,
   categoryLabel,
@@ -77,7 +77,7 @@ export function CategoryPicker({
           <span className="flex min-w-0 items-center gap-2">
             {value !== null && (
               <span
-                className={cn('size-2 shrink-0 rounded-full', BLOCK_DOT[BLOCK_SUGGESTION[value]])}
+                className={cn('size-2 shrink-0 rounded-full', BUDGET_DOT[BUDGET_SUGGESTION[value]])}
               />
             )}
             <span className="truncate">
@@ -134,7 +134,7 @@ export function CategoryPicker({
                     <span
                       className={cn(
                         'size-2 shrink-0 rounded-full',
-                        BLOCK_DOT[BLOCK_SUGGESTION[category]]
+                        BUDGET_DOT[BUDGET_SUGGESTION[category]]
                       )}
                     />
                     <span className="truncate">{categoryLabel(category)}</span>

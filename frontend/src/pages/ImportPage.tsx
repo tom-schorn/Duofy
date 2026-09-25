@@ -17,7 +17,7 @@ import { useActiveMember } from '@/hooks/use-active-member'
 import { errorText } from '@/lib/api'
 import { longDate } from '@/lib/dates'
 import {
-  BLOCK_DOT,
+  BUDGET_DOT,
   categoryLabel,
   OWN_SCOPE,
   atLeast,
@@ -384,9 +384,9 @@ function EntryTable({
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-2">
-                    {entry.block && (
+                    {entry.budget && (
                       <span
-                        className={`size-2 shrink-0 rounded-full ${BLOCK_DOT[entry.block]}`}
+                        className={`size-2 shrink-0 rounded-full ${BUDGET_DOT[entry.budget]}`}
                       />
                     )}
                     {entry.counterAccountId !== null ? (

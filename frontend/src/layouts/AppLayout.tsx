@@ -41,7 +41,7 @@ import { Separator } from '@/components/ui/separator'
  * One page for every commitment — savings plans and loans are commitments too.
  *
  * This used to be three entries split by `Commitment.type`. That was the wrong
- * axis: a commitment can sit in **any** block (rent → needs, streaming → wants,
+ * axis: a commitment can sit in **any** budget (rent → needs, streaming → wants,
  * a savings plan → savings). `type` only says whether the thing has an end — a
  * property, not a navigation point.
  */

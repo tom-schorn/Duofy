@@ -30,7 +30,7 @@ export const router = createBrowserRouter([
           { path: '/plan/:year/:month', element: <PlanDetailPage /> },
 
           // One page for every commitment — savings plans and loans are
-          // commitments too. Grouped by block, not by type.
+          // commitments too. Grouped by budget, not by type.
           { path: '/contracts', element: <CommitmentsPage /> },
           // Das Buch steht für sich: eine Buchung gehört zu einem Konto,
           // nicht zu einem Plan. Im Monatsplan bleibt es als Tab, weil man

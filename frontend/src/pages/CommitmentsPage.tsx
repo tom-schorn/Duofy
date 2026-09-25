@@ -30,8 +30,8 @@ import {
   useSaveCommitment,
 } from '@/lib/queries'
 import {
-  BLOCK_DOT,
-  blockLabel,
+  BUDGET_DOT,
+  budgetLabel,
   BUDGET_ORDER,
   categoryLabel,
   monthLabel,
@@ -46,12 +46,12 @@ import {
 import { i18n, locale } from '@/lib/i18n'
 
 /**
- * Every commitment on one page, grouped by block.
+ * Every commitment on one page, grouped by budget.
  *
  * Savings plans and loans are commitments too — in the model it is one table
  * (`Commitment`), and `type` only says whether the thing has an end. Grouping is by
- * **block**, because that is the axis that matters when planning: a commitment can
- * sit in any block.
+ * **budget**, because that is the axis that matters when planning: a commitment can
+ * sit in any budget.
  *
  * The same grouping as in the plan — one structure, two pages.
  */
@@ -108,9 +108,9 @@ export function CommitmentsPage() {
   )
   const rowsAll = commitments.data ?? []
 
-  const groups = BUDGET_ORDER.map((block) => {
+  const groups = BUDGET_ORDER.map((budget) => {
     const rows = rowsAll
-      .filter((commitment) => commitment.block === block)
+      .filter((commitment) => commitment.budget === budget)
       .sort(
         (a, b) =>
           monthlyEquivalent(b.amount, b.rhythm) -
@@ -124,7 +124,7 @@ export function CommitmentsPage() {
           sum + monthlyEquivalent(commitment.amount, commitment.rhythm),
         0
       )
-    return { block, rows, total }
+    return { budget, rows, total }
   }).filter((group) => group.rows.length > 0)
 
   function handleAdd() {
@@ -174,13 +174,13 @@ export function CommitmentsPage() {
       ) : (
         <div className="flex flex-col gap-8">
           {groups.map((group) => (
-            <section key={group.block} className="flex flex-col gap-3">
+            <section key={group.budget} className="flex flex-col gap-3">
               <div className="flex items-baseline justify-between gap-4 border-b pb-2">
                 <h2 className="flex items-center gap-2 text-sm font-semibold tracking-wide uppercase">
                   <span
-                    className={`size-2.5 rounded-sm ${BLOCK_DOT[group.block]}`}
+                    className={`size-2.5 rounded-sm ${BUDGET_DOT[group.budget]}`}
                   />
-                  {blockLabel(group.block)}
+                  {budgetLabel(group.budget)}
                 </h2>
                 <span className="text-muted-foreground text-sm tabular-nums">
                   {euro.format(group.total)}
@@ -214,6 +214,7 @@ export function CommitmentsPage() {
                           {commitment.householdId
                             ? ` · ${householdNames[commitment.householdId] ?? t('plans.household')}`
                             : ` · ${t('commitments.private')}`}
+                          {commitment.isLimit ? ` · ${t('budget.limit')}` : ''}
                           {detail ? ` · ${detail}` : ''}
                         </span>
                       </div>

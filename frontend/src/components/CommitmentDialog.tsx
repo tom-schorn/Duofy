@@ -25,10 +25,10 @@ import {
 import { CategoryPicker } from '@/components/CategoryPicker'
 import { cn } from '@/lib/utils'
 import {
-  BLOCK_DOT,
-  blockLabel,
-  BUDGETS,
-  BLOCK_SUGGESTION,
+  BUDGET_DOT,
+  budgetLabel,
+  BUDGET_ORDER,
+  BUDGET_SUGGESTION,
   DUE_DAY_MAY_SHIFT,
   categoryGroup,
   monthLabel,
@@ -37,7 +37,7 @@ import {
   dueMonths,
   effectiveDueDay,
   firstMonthOf,
-  type Block,
+  type Budget,
   type Category,
   type Commitment,
   type CommitmentType,
@@ -52,24 +52,22 @@ import { useAccounts, useHouseholds } from '@/lib/queries'
  * One form for every commitment — savings plans and loans are commitments too.
  *
  * The type comes first, in everyday words, and drives the extra fields:
- *   contract      → none
+ *   contract      → none, plus the optional `isLimit` flag
  *   savings_goal  → target amount, target date
  *   debt          → remaining debt
- *   budget        → none, but the block is freely selectable
  *
  * The CHECK constraints in the database enforce exactly this mapping.
  *
- * For savings_goal and debt, `resolve_block()` in the backend overrides the block
+ * For savings_goal and debt, `resolve_budget()` in the backend overrides the budget
  * choice and always sets savings. That is why there is no picker there but the
- * reason instead — a greyed-out field would have suggested it might still work. The
- * field is still called `block` in code and Budget in the UI.
+ * reason instead — a greyed-out field would have suggested it might still work.
  */
 
 const TYPE_OPTIONS: {
   value: CommitmentType
   label: string
   hint: string
-  /** Why the block is fixed — shown in place of the picker. Catalog keys, like the other texts. */
+  /** Why the budget is fixed — shown in place of the picker. Catalog keys, like the other texts. */
   budgetHint: string | null
   namePlaceholder: string
   defaultCategory: Category
@@ -100,14 +98,6 @@ const TYPE_OPTIONS: {
     defaultCategory: 'finance.debt',
   },
   {
-    value: 'budget',
-    label: 'commitmentDialog.types.budget.label',
-    hint: 'commitmentDialog.types.budget.hint',
-    budgetHint: null,
-    namePlaceholder: 'commitmentDialog.types.budget.namePlaceholder',
-    defaultCategory: 'household.groceries',
-  },
-  {
     value: 'income',
     label: 'commitmentDialog.types.income.label',
     hint: 'commitmentDialog.types.income.hint',
@@ -118,7 +108,6 @@ const TYPE_OPTIONS: {
 ]
 
 const PAYMENTS = PAYMENT_METHODS
-const BLOCKS: Block[] = ['income', ...BUDGETS]
 const RHYTHMS = Object.keys(RHYTHM_INTERVAL) as Rhythm[]
 
 function emptyDraft(): Commitment {
@@ -128,7 +117,8 @@ function emptyDraft(): Commitment {
     name: '',
     amount: '',
     category: 'housing.rent',
-    block: 'needs',
+    budget: 'needs',
+    isLimit: false,
     householdId: null,
     rhythm: 'monthly',
     firstDueDate: null,
@@ -171,17 +161,17 @@ export function CommitmentDialog({
   const isEdit = commitment !== null
   const typeOption = TYPE_OPTIONS.find((option) => option.value === draft.type)!
   const isRecurringIrregular = draft.rhythm !== 'monthly'
-  // Only savings goals and debts are fixed — resolve_block() in the backend
-  // overrides them anyway. A budget chooses freely: whether fuel is a need or a
+  // Only savings goals and debts are fixed — resolve_budget() in the backend
+  // overrides them anyway. A contract chooses freely: whether fuel is a need or a
   // want depends on the household.
   const typeForcesSavings = draft.type === 'savings_goal' || draft.type === 'debt'
-  // Income is settled the same way, only by resolve_block() sending it to INCOME.
+  // Income is settled the same way, only by resolve_budget() sending it to INCOME.
   const typeForcesIncome = draft.type === 'income'
 
   // An income category settles the budget just as firmly: all four of them lead to
   // Einnahmen. Kept apart from the type, because handleCategory has to know which
   // of the two is talking.
-  const blockIsFixed =
+  const budgetIsFixed =
     typeForcesSavings || typeForcesIncome || categoryGroup(draft.category) === 'income'
 
   function set<K extends keyof Commitment>(key: K, value: Commitment[K]) {
@@ -212,12 +202,15 @@ export function CommitmentDialog({
         // Derived from the category that is actually being kept, not from the one
         // being replaced. Otherwise switching away from a savings goal takes the
         // new category but leaves the budget on Sparen.
-        block:
+        budget:
           type === 'savings_goal' || type === 'debt'
             ? 'savings'
             : type === 'income'
               ? 'income'
-              : BLOCK_SUGGESTION[category],
+              : BUDGET_SUGGESTION[category],
+        // The limit flag only makes sense on a running contract — Lebensmittel and
+        // Sprit are contracts, not savings goals, debts or income.
+        isLimit: type === 'contract' ? current.isLimit : false,
         targetAmount: type === 'savings_goal' ? current.targetAmount : null,
         targetDate: type === 'savings_goal' ? current.targetDate : null,
         remainingDebt: type === 'debt' ? current.remainingDebt : null,
@@ -225,16 +218,16 @@ export function CommitmentDialog({
     })
   }
 
-  /** Changing the category preselects the block — not for goals and debts. */
+  /** Changing the category preselects the budget — not for goals and debts. */
   function handleCategory(category: Category) {
     setDraft((current) => ({
       ...current,
       category,
-      block: typeForcesSavings
+      budget: typeForcesSavings
         ? 'savings'
         : typeForcesIncome
           ? 'income'
-          : BLOCK_SUGGESTION[category],
+          : BUDGET_SUGGESTION[category],
     }))
   }
 
@@ -515,23 +508,23 @@ export function CommitmentDialog({
 
               <div className="flex flex-col gap-2">
                 <Label>{t('common.budget')}</Label>
-                {blockIsFixed ? (
+                {budgetIsFixed ? (
                   <span className="flex h-9 items-center gap-2 text-sm font-medium">
-                    <span className={cn('size-2.5 rounded-sm', BLOCK_DOT[draft.block])} />
-                    {blockLabel(draft.block)}
+                    <span className={cn('size-2.5 rounded-sm', BUDGET_DOT[draft.budget])} />
+                    {budgetLabel(draft.budget)}
                   </span>
                 ) : (
                   <Select
-                    value={draft.block}
-                    onValueChange={(value) => set('block', value as Block)}
+                    value={draft.budget}
+                    onValueChange={(value) => set('budget', value as Budget)}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {BLOCKS.map((block) => (
-                        <SelectItem key={block} value={block}>
-                          {blockLabel(block)}
+                      {BUDGET_ORDER.map((budget) => (
+                        <SelectItem key={budget} value={budget}>
+                          {budgetLabel(budget)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -544,6 +537,28 @@ export function CommitmentDialog({
               <p className="text-muted-foreground bg-muted rounded-md px-3 py-2 text-xs">
                 {t(typeOption.budgetHint)}
               </p>
+            )}
+
+            {/* Nur bei „Läuft weiter": ein Sparziel, eine Schuld und Einnahmen
+                haben ohnehin einen festen Betrag oder gar keinen — das Häkchen
+                „Limit" entscheidet nur dort etwas, wo der Betrag frei gewählt
+                wird und wiederkehrend ist. Ersetzt den früheren eigenen Typ
+                „Setze ich selbst": Bestandsverträge dieses Typs wandern bei der
+                Migration hierher, mit gesetztem Kennzeichen. */}
+            {draft.type === 'contract' && (
+              <div className="border-border flex items-center justify-between rounded-md border p-3">
+                <div className="flex flex-col pr-4">
+                  <Label htmlFor="commitment-limit">{t('commitmentDialog.limit')}</Label>
+                  <span className="text-muted-foreground text-xs">
+                    {t('commitmentDialog.limitHint')}
+                  </span>
+                </div>
+                <Switch
+                  id="commitment-limit"
+                  checked={draft.isLimit}
+                  onCheckedChange={(checked) => set('isLimit', checked)}
+                />
+              </div>
             )}
 
             <div className="flex flex-col gap-2">
