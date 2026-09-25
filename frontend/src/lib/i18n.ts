@@ -17,6 +17,8 @@
  */
 
 import i18n, { type InitOptions } from 'i18next'
+import type { Locale } from 'react-day-picker'
+import { de as deDates } from 'react-day-picker/locale'
 import { initReactI18next } from 'react-i18next'
 
 import de from '@/locales/de.json'
@@ -53,6 +55,22 @@ if (!i18n.isInitialized) {
 /** The active language, for `Intl` — never a hard-coded `de-DE`. */
 export function locale(): string {
   return i18n.resolvedLanguage ?? i18n.language ?? FALLBACK_LANGUAGE
+}
+
+/**
+ * The date picker's language pack per language — month and weekday names, and
+ * the first day of the week (Monday in German).
+ *
+ * `Intl` does not cover the picker: it takes a date-fns locale. A new language
+ * adds one line here, taken from `react-day-picker/locale`.
+ */
+export const DATE_LOCALES: Record<string, Locale> = {
+  de: deDates,
+}
+
+/** The picker's pack for the active language; an unknown one gets German. */
+export function dateLocale(language: string = locale()): Locale {
+  return DATE_LOCALES[language] ?? DATE_LOCALES[FALLBACK_LANGUAGE]
 }
 
 export { i18n }

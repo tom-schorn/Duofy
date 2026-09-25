@@ -6,6 +6,7 @@ import {
   type Locale,
 } from "react-day-picker"
 
+import { dateLocale } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from "lucide-react"
@@ -16,7 +17,7 @@ function Calendar({
   showOutsideDays = true,
   captionLayout = "label",
   buttonVariant = "ghost",
-  locale,
+  locale = dateLocale(),
   formatters,
   components,
   ...props
