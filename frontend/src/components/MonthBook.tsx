@@ -25,7 +25,7 @@ import { errorText } from '@/lib/api'
 import { today } from '@/lib/dates'
 import {
   OWN_SCOPE,
-  BLOCK_SUGGESTION,
+  BUDGET_SUGGESTION,
   categoryLabel,
   euro,
   type Account,
@@ -49,7 +49,7 @@ import {
  * it does not have to be. An unplanned purchase belongs in the book all the same.
  *
  * The quick entry is built for speed, because it is used daily. Picking a position
- * makes the booking inherit its category and block, leaving three fields. Without a
+ * makes the booking inherit its category and budget, leaving three fields. Without a
  * position the category is asked for, because a booking with no purpose would sit
  * in the book without counting anywhere.
  */
@@ -181,7 +181,7 @@ function QuickEntry({
       // transfer without a position needs no purpose — there the answer is "where
       // to", not "what for".
       category: chosen ? chosen.category : isTransfer ? null : category,
-      block: chosen ? chosen.block : isTransfer ? null : BLOCK_SUGGESTION[category],
+      budget: chosen ? chosen.budget : isTransfer ? null : BUDGET_SUGGESTION[category],
       positionId: chosen ? chosen.id : null,
     })
     setAmount('')

@@ -1,12 +1,12 @@
 import { useTranslation } from 'react-i18next'
 import {
-  blockLabel,
+  budgetLabel,
   BUDGETS,
   euro,
   isPaid,
   paymentLabel,
   QUOTA_KEY,
-  type Block,
+  type Budget,
   type PaymentMethod,
   type PlanPosition,
   type PlanSummary,
@@ -16,10 +16,10 @@ import { formatShare } from '@/lib/format'
 /**
  * The position list for paper — page two of the printout.
  *
- * Modelled on a spreadsheet kept for years: five columns, grouped by block, rows
+ * Modelled on a spreadsheet kept for years: five columns, grouped by budget, rows
  * coloured by payment method. The **running total** is the column the screen does
  * not have — at the kitchen table it tells you where you stand in the middle of a
- * block without adding anything up.
+ * budget without adding anything up.
  *
  * A component of its own rather than a restyled screen list: there every row
  * carries badges, a category and a tick box to click. On paper that is ballast, and
@@ -27,7 +27,7 @@ import { formatShare } from '@/lib/format'
  *
  * ## Colours
  *
- * The payment method, not the block colours — on paper what matters is **how**
+ * The payment method, not the budget colours — on paper what matters is **how**
  * something is paid:
  *
  *     withdrawal · transfer · standing order or direct debit · special
@@ -39,8 +39,8 @@ import { formatShare } from '@/lib/format'
 type Props = {
   /**
    * Deliberately only `PlanSummary` plus positions, not `PlanDetail`: the shared
-   * plan is composed and has no `id`. Only the budget, the quotas and the positions
-   * are needed here anyway.
+   * plan is composed and has no `id`. Only the distributable amount, the quotas and
+   * the positions are needed here anyway.
    */
   plan: PlanSummary & { positions: PlanPosition[] }
   /**
@@ -70,13 +70,13 @@ function sortiert(positions: PlanPosition[]): PlanPosition[] {
 
 export function PlanPrintout({ plan, ownerName }: Props) {
   const { t } = useTranslation()
-  const budget = Number(plan.budget)
+  const distributable = Number(plan.distributable)
 
   const gruppen = [
-    { block: 'income' as Block, quote: null },
-    ...BUDGETS.map((block) => ({
-      block,
-      quote: Number(plan[QUOTA_KEY[block as keyof typeof QUOTA_KEY]]),
+    { budget: 'income' as Budget, quote: null },
+    ...BUDGETS.map((budget) => ({
+      budget,
+      quote: Number(plan[QUOTA_KEY[budget as keyof typeof QUOTA_KEY]]),
     })),
   ]
 
@@ -84,7 +84,7 @@ export function PlanPrintout({ plan, ownerName }: Props) {
     <div className="hidden print:block">
       {/* Erzwungener Umbruch: Seite 1 ist Übersicht und Diagramm, Seite 2 sind
           die Posten. Ohne das entscheidet der Browser, und dann reißt es mitten
-          in einem Block.
+          in einem Budget-Abschnitt.
 
           Die Regel sitzt an der Überschrift, nicht an einem leeren `div` —
           leere Elemente überspringen manche Browser beim Umbruch. */}
@@ -92,9 +92,9 @@ export function PlanPrintout({ plan, ownerName }: Props) {
         {t('printout.heading', { number: plan.positions.length })}
       </h2>
 
-      {gruppen.map(({ block, quote }) => {
+      {gruppen.map(({ budget, quote }) => {
         const zeilen = sortiert(
-          plan.positions.filter((p) => p.block === block)
+          plan.positions.filter((p) => p.budget === budget)
         )
         if (zeilen.length === 0) return null
 
@@ -104,10 +104,10 @@ export function PlanPrintout({ plan, ownerName }: Props) {
         let laufend = 0
 
         return (
-          <section key={block} className="mb-2.5 break-inside-avoid">
+          <section key={budget} className="mb-2.5 break-inside-avoid">
             <div className="flex items-baseline justify-between border-b border-black/40 pb-0.5 text-[11px] font-semibold">
               <span className="uppercase">
-                {blockLabel(block)}
+                {budgetLabel(budget)}
                 {quote !== null && (
                   <span className="font-normal">
                     {' '}
@@ -117,10 +117,10 @@ export function PlanPrintout({ plan, ownerName }: Props) {
               </span>
               <span className="tabular-nums">
                 {euro.format(soll)}
-                {quote !== null && budget > 0 && (
+                {quote !== null && distributable > 0 && (
                   <span className="font-normal">
                     {' '}
-                    · {t('printout.actualShare', { percent: formatShare((soll / budget) * 100) })}
+                    · {t('printout.actualShare', { percent: formatShare((soll / distributable) * 100) })}
                   </span>
                 )}
               </span>
