@@ -570,10 +570,10 @@ async def _positions_by_category(
 ) -> dict[tuple[int, int, Category], list[PlanPosition]]:
     """The positions of the months this pile falls into, grouped by category.
 
-    Budget positions and single payments together, because the question is the
-    same for both: **is there exactly one candidate?** A month holds one
-    groceries budget, one rent, one mobile contract — the category settles it,
-    and no amount has to be compared.
+    Limits and single payments together, because the question is the same for
+    both: **is there exactly one candidate?** A month holds one groceries limit,
+    one rent, one mobile contract — the category settles it, and no amount has to
+    be compared.
 
     Only where a category has several positions does the amount decide, and only
     then are the tolerances of #61 needed at all. Which is most of the time not.
@@ -642,7 +642,7 @@ def _closest(candidates: list[PlanPosition], entry: ImportedEntry) -> uuid.UUID 
     """Which of one month's positions of a category this entry fits.
 
     One candidate means it is that one — a paid position included, since a
-    budget takes many bookings and a single payment may arrive in instalments.
+    limit takes many bookings and a single payment may arrive in instalments.
 
     Several candidates are what the amount is for: the closest match wins, and
     only if it is within a euro. Two insurances of 18.40 and 91.00 are told
@@ -840,7 +840,7 @@ async def assign(
 
     A **counter account** is the other kind of answer altogether. Setting one
     says the money moved between the owner's own accounts, and then there is
-    nothing to categorise — so category, block and position are cleared with it.
+    nothing to categorise — so category, budget and position are cleared with it.
     Clearing the counter account leaves the row blank rather than restoring what
     was there before: the two readings are mutually exclusive, and guessing back
     into one of them would be a decision nobody made.
@@ -855,7 +855,7 @@ async def assign(
         if entry.counter_account_id is not None:
             entry.position_id = None
             entry.category = None
-            entry.block = None
+            entry.budget = None
 
     if "position_id" in changes:
         entry.position_id = changes["position_id"]
@@ -867,11 +867,11 @@ async def assign(
                 )
             require(position.plan_id is not None, "position_not_found")
             entry.category = position.category
-            entry.block = position.block
+            entry.budget = position.budget
 
     if "category" in changes and entry.position_id is None:
         entry.category = changes["category"]
-        entry.block = changes["category"].block if changes["category"] else None
+        entry.budget = changes["category"].budget if changes["category"] else None
 
     # A purpose and a transfer cannot both be true. Whichever arrived in this
     # call wins, so choosing a category on a row marked as a transfer takes the
@@ -966,7 +966,7 @@ async def book(
             amount=entry.amount,
             note=entry.counterparty_name or entry.purpose,
             category=entry.category,
-            block=entry.block,
+            budget=entry.budget,
             position_id=entry.position_id,
             external_ref=entry.external_ref,
             counterparty_name=entry.counterparty_name,
@@ -994,7 +994,7 @@ async def _settle_position(session: AsyncSession, position: PlanPosition | None)
       position is settled. A 200 € transfer against 890 € of rent leaves it
       open, and the next 690 € close it.
 
-    A budget position is **not** ticked at all. It fills up over the month from
+    A limit position is **not** ticked at all. It fills up over the month from
     many bookings, and a tick would claim groceries are finished for August
     because one receipt arrived.
     """
@@ -1003,7 +1003,7 @@ async def _settle_position(session: AsyncSession, position: PlanPosition | None)
 
     await _recalc_position(session, position.id)
 
-    if position.is_budget or position.paid_at is not None:
+    if position.is_limit or position.paid_at is not None:
         return
 
     # `_recalc_position` has just written `amount_actual`, so this reads the

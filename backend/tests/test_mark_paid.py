@@ -20,7 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.account import Account
-from app.models.enums import AccountType, Block, Category
+from app.models.enums import AccountType, Budget, Category
 from app.models.plan import Plan, PlanPosition
 from app.models.transaction import Transaction
 from app.models.user import User
@@ -61,7 +61,7 @@ async def make_position(
         label=label,
         amount_planned=Decimal(amount_planned),
         category=Category.LEISURE_SUBSCRIPTIONS,
-        block=Block.WANTS,
+        budget=Budget.WANTS,
         due_day=15,
         account_id=account_id,
     )
@@ -218,7 +218,7 @@ async def test_unmark_paid_leaves_a_later_hand_entered_booking_alone(
         occurred_on=date(2026, 9, 20),
         amount=Decimal("23.40"),
         category=Category.LEISURE_SUBSCRIPTIONS,
-        block=Block.WANTS,
+        budget=Budget.WANTS,
         position_id=position.id,
         auto_booked=False,
     )

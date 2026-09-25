@@ -92,7 +92,7 @@ function buildSteps(
   for (const position of positions) {
     const day = effectiveDueDay(position.dueDay, year, month)
     const amount = Number(position.amountPlanned)
-    const change = position.block === 'income' ? amount : -amount
+    const change = position.budget === 'income' ? amount : -amount
 
     const entry = byDay.get(day) ?? { change: 0, labels: [] }
     entry.change += change
@@ -133,7 +133,7 @@ function buildRows(
       day: effectiveDueDay(position.dueDay, year, month),
       label: position.label,
       amount:
-        position.block === 'income'
+        position.budget === 'income'
           ? Number(position.amountPlanned)
           : -Number(position.amountPlanned),
     }))

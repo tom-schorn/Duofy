@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.types import enum_column
-from app.models.enums import CATEGORY_LENGTH, Block, Category, PaymentMethod
+from app.models.enums import CATEGORY_LENGTH, Budget, Category, PaymentMethod
 from app.models.mixins import TimestampMixin, UUIDMixin
 
 
@@ -103,7 +103,7 @@ class PlanPosition(UUIDMixin, TimestampMixin, Base):
     category: Mapped[Category] = mapped_column(enum_column(Category, length=CATEGORY_LENGTH))
     #: Derived on creation and **stored** here — changing the mapping later must
     #: not rewrite plans that already exist.
-    block: Mapped[Block] = mapped_column(enum_column(Block))
+    budget: Mapped[Budget] = mapped_column(enum_column(Budget))
 
     #: Day of the month the position falls due.
     #
@@ -121,12 +121,15 @@ class PlanPosition(UUIDMixin, TimestampMixin, Base):
         enum_column(PaymentMethod), nullable=True
     )
 
-    #: A budget rather than a single payment — groceries, fuel, pocket money.
+    #: A limit rather than a single payment — groceries, fuel, pocket money.
     #:
     #: Such a position is not ticked off: it fills up over the month from
     #: individual bookings. A tick would mean nothing there, a fill level does.
-    #: Comes from commitment type `budget`, freely choosable on one-off positions.
-    is_budget: Mapped[bool] = mapped_column(default=False)
+    #: Copied from `Commitment.is_limit`, freely choosable on one-off positions.
+    #:
+    #: A snapshot, like `category` and `budget`: changing the commitment later
+    #: must not rewrite months that already exist.
+    is_limit: Mapped[bool] = mapped_column(default=False)
 
     #: **Where** the money goes when it moves to another own account.
     #:

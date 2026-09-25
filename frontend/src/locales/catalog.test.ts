@@ -11,8 +11,8 @@
  *   not failed — it falls back to German at runtime
  *
  * The code is read as source, not executed: `t('plan.title')` is found where it
- * is written. A key built at runtime (`enums.block.${block}`) marks its prefix as
- * used, and a string literal that names an existing key counts as a use, since
+ * is written. A key built at runtime (`enums.budget.${budget}`) marks its prefix
+ * as used, and a string literal that names an existing key counts as a use, since
  * keys also travel through tables (`label: 'nav.plan'`).
  */
 
@@ -73,7 +73,7 @@ function isTranslateCall(node: ts.Node): node is ts.CallExpression {
 type Usage = {
   /** Keys written out in `t('…')` or `i18nKey="…"`. */
   direct: Map<string, string>
-  /** Prefixes of keys built at runtime: `enums.block.` */
+  /** Prefixes of keys built at runtime: `enums.budget.` */
   prefixes: Set<string>
   /** String literals anywhere — a key can travel through a table. */
   literals: Set<string>

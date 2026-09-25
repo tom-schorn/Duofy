@@ -68,7 +68,7 @@ function plan(overrides: Partial<PlanSummary> = {}): PlanSummary {
     targetSavings: '20.00',
     bufferPercent: '0.00',
     income: '2000.00',
-    budget: '2000.00',
+    distributable: '2000.00',
     spent: { needs: '0.00', wants: '0.00', savings: '0.00' },
     unpaid: '0.00',
     householdIds: [],
@@ -77,11 +77,11 @@ function plan(overrides: Partial<PlanSummary> = {}): PlanSummary {
 }
 
 describe('unallocated', () => {
-  it('is the whole budget when nothing is allocated yet', () => {
+  it('is the whole distributable amount when nothing is allocated yet', () => {
     expect(unallocated(plan())).toBe(2000)
   })
 
-  it('subtracts what all three blocks have spent', () => {
+  it('subtracts what all three budgets have spent', () => {
     expect(
       unallocated(
         plan({ spent: { needs: '600.00', wants: '300.00', savings: '200.00' } })
@@ -89,18 +89,18 @@ describe('unallocated', () => {
     ).toBe(900)
   })
 
-  it('can go negative when the blocks overspend the budget', () => {
+  it('can go negative when the budgets overspend the distributable amount', () => {
     expect(
       unallocated(
-        plan({ budget: '1000.00', spent: { needs: '800.00', wants: '400.00', savings: '0.00' } })
+        plan({ distributable: '1000.00', spent: { needs: '800.00', wants: '400.00', savings: '0.00' } })
       )
     ).toBe(-200)
   })
 })
 
 describe('QUOTA_KEY', () => {
-  it('maps each block to the matching target field on the plan', () => {
-    // What every call site relies on: plan[QUOTA_KEY[block]] reads the right
+  it('maps each budget to the matching target field on the plan', () => {
+    // What every call site relies on: plan[QUOTA_KEY[budget]] reads the right
     // percentage. A typo here would silently read the wrong quota.
     const summary = plan({ targetNeeds: '55.00', targetWants: '25.00', targetSavings: '20.00' })
     expect(summary[QUOTA_KEY.needs]).toBe('55.00')
@@ -116,12 +116,12 @@ function position(overrides: Partial<PlanPosition> = {}): PlanPosition {
     amountPlanned: '600.00',
     amountActual: null,
     category: 'housing.rent',
-    block: 'needs',
+    budget: 'needs',
     dueDay: 1,
     accountId: null,
     counterAccountId: null,
     paymentMethod: null,
-    isBudget: false,
+    isLimit: false,
     passThrough: false,
     householdId: null,
     commitmentId: null,
@@ -158,10 +158,16 @@ describe('stillDue', () => {
   })
 
   it('is zero for income — income never leaves the account', () => {
-    expect(stillDue(position({ block: 'income', amountPlanned: '3000.00' }))).toBe(0)
+    expect(stillDue(position({ budget: 'income', amountPlanned: '3000.00' }))).toBe(0)
   })
 
-  it('is zero for a pass-through position, budget notwithstanding', () => {
+  it('is zero for a pass-through position, planned amount notwithstanding', () => {
     expect(stillDue(position({ passThrough: true, amountPlanned: '400.00' }))).toBe(0)
+  })
+
+  it('is zero for a limit position, whatever remains unbooked', () => {
+    expect(
+      stillDue(position({ isLimit: true, amountPlanned: '600.00', amountActual: '127.50' }))
+    ).toBe(0)
   })
 })

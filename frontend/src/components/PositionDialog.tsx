@@ -23,13 +23,13 @@ import {
 import { CategoryPicker } from '@/components/CategoryPicker'
 import { cn } from '@/lib/utils'
 import {
-  BLOCK_DOT,
-  blockLabel,
-  BLOCK_SUGGESTION,
+  BUDGET_DOT,
+  budgetLabel,
+  BUDGET_SUGGESTION,
   BUDGET_ORDER,
   paymentLabel,
   categoryGroup,
-  type Block,
+  type Budget,
   type Category,
   type PaymentMethod,
   type PlanPosition,
@@ -40,7 +40,7 @@ import { useAccounts, useHouseholds } from '@/lib/queries'
 /**
  * Create and edit one-off positions.
  *
- * Deliberately short: label, amount, block — that is all it takes to put a planned
+ * Deliberately short: label, amount, budget — that is all it takes to put a planned
  * purchase into the month. The rest is prefilled and only touched when needed.
  *
  * Anything recurring does **not** belong here but on the commitments page. A
@@ -49,25 +49,25 @@ import { useAccounts, useHouseholds } from '@/lib/queries'
 
 const PAYMENTS = PAYMENT_METHODS
 
-/** The matching category, so the block does not jump the moment it is picked. */
-const DEFAULT_CATEGORY: Record<Block, Category> = {
+/** The matching category, so the budget does not jump the moment it is picked. */
+const DEFAULT_CATEGORY: Record<Budget, Category> = {
   income: 'income.earned',
   needs: 'housing.rent',
   wants: 'leisure.hobbies',
   savings: 'finance.savings',
 }
 
-function emptyDraft(block: Block): PlanPosition {
+function emptyDraft(budget: Budget): PlanPosition {
   return {
     id: '',
     label: '',
     amountPlanned: '',
     amountActual: null,
-    category: DEFAULT_CATEGORY[block],
-    block,
+    category: DEFAULT_CATEGORY[budget],
+    budget,
     dueDay: 1,
     accountId: null,
-    isBudget: false,
+    isLimit: false,
     counterAccountId: null,
     passThrough: false,
     paymentMethod: null,
@@ -80,8 +80,8 @@ function emptyDraft(block: Block): PlanPosition {
 type Props = {
   /** null means create, otherwise edit. */
   position: PlanPosition | null
-  /** The block the position should land in — prefilled when creating. */
-  block: Block
+  /** The budget the position should land in — prefilled when creating. */
+  budget: Budget
   /** Which plan the new position belongs to. */
   planId: string
   open: boolean
@@ -96,7 +96,7 @@ type Props = {
 
 export function PositionDialog({
   position,
-  block,
+  budget,
   planId: _planId,
   open,
   onOpenChange,
@@ -107,12 +107,12 @@ export function PositionDialog({
   const households = useHouseholds().data ?? []
   const accounts = useAccounts().data ?? []
   const [draft, setDraft] = useState<PlanPosition>(
-    position ?? emptyDraft(block)
+    position ?? emptyDraft(budget)
   )
 
   useEffect(() => {
-    if (open) setDraft(position ?? emptyDraft(block))
-  }, [open, position, block])
+    if (open) setDraft(position ?? emptyDraft(budget))
+  }, [open, position, budget])
 
   const isEdit = position !== null
   // Positions generated from a commitment have a source — label and assignment
@@ -129,13 +129,13 @@ export function PositionDialog({
   // Every category under Einnahmen leads to the same budget, so there is nothing
   // left to pick. Showing the field anyway asks the same question twice — under a
   // heading that reads "Einnahmen" on both sides.
-  const blockIsFixed = categoryGroup(draft.category) === 'income'
+  const budgetIsFixed = categoryGroup(draft.category) === 'income'
 
   function handleCategory(category: Category) {
     setDraft((current) => ({
       ...current,
       category,
-      block: BLOCK_SUGGESTION[category],
+      budget: BUDGET_SUGGESTION[category],
     }))
   }
 
@@ -219,15 +219,15 @@ export function PositionDialog({
 
               <div className="flex flex-col gap-2">
                 <Label>{t('common.budget')}</Label>
-                {blockIsFixed ? (
+                {budgetIsFixed ? (
                   <span className="flex h-9 items-center gap-2 text-sm font-medium">
-                    <span className={cn('size-2.5 rounded-sm', BLOCK_DOT[draft.block])} />
-                    {blockLabel(draft.block)}
+                    <span className={cn('size-2.5 rounded-sm', BUDGET_DOT[draft.budget])} />
+                    {budgetLabel(draft.budget)}
                   </span>
                 ) : (
                   <Select
-                    value={draft.block}
-                    onValueChange={(value) => set('block', value as Block)}
+                    value={draft.budget}
+                    onValueChange={(value) => set('budget', value as Budget)}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -235,9 +235,9 @@ export function PositionDialog({
                     <SelectContent>
                       {/* BUDGET_ORDER statt BUDGETS: sonst fehlt „Einnahmen"
                           und ein Einnahme-Posten wäre nicht bearbeitbar. */}
-                      {BUDGET_ORDER.map((budget) => (
-                        <SelectItem key={budget} value={budget}>
-                          {blockLabel(budget)}
+                      {BUDGET_ORDER.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {budgetLabel(option)}
                         </SelectItem>
                       ))}
                     </SelectContent>

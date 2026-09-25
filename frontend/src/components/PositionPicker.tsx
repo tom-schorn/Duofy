@@ -9,7 +9,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import {
-  BLOCK_DOT,
+  BUDGET_DOT,
   categoryLabel,
   monthLabel,
   euro,
@@ -155,13 +155,13 @@ export function PositionPicker({
                     <span
                       className={cn(
                         'size-2 shrink-0 rounded-full',
-                        BLOCK_DOT[position.block]
+                        BUDGET_DOT[position.budget]
                       )}
                     />
                     <span className="flex min-w-0 flex-col">
                       <span className="truncate">
                         {position.label}
-                        {position.isBudget && ` · ${t('positionPicker.budget')}`}
+                        {position.isLimit && ` · ${t('positionPicker.limit')}`}
                       </span>
                       {/* Der Betrag steht dabei, weil zwei Posten derselben
                           Kategorie sich sonst nur im Namen unterscheiden —

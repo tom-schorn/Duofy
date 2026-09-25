@@ -26,8 +26,8 @@ import { errorText } from '@/lib/api'
 import { useActiveMember } from '@/hooks/use-active-member'
 import { useCreatePlan, useHouseholds, usePlans } from '@/lib/queries'
 import {
-  BLOCK_DOT,
-  blockLabel,
+  BUDGET_DOT,
+  budgetLabel,
   BUDGETS,
   MONTHS,
   monthLabel,
@@ -35,7 +35,7 @@ import {
   atLeast,
   euro,
   unallocated,
-  type Block,
+  type Budget,
   type PlanSummary,
 } from '@/lib/domain'
 import { formatNumber } from '@/lib/format'
@@ -43,7 +43,7 @@ import { formatNumber } from '@/lib/format'
 /**
  * Overview of every monthly plan. One click opens a plan in detail.
  *
- * Each card shows target against actual for the three blocks. The totals arrive
+ * Each card shows target against actual for the three budgets. The totals arrive
  * ready-made from the backend — the overview does not load every position of every
  * month just to add them up.
  */
@@ -131,7 +131,8 @@ function PlanCard({
   const unpaid = Number(plan.unpaid)
   const { t } = useTranslation()
   const unpaidLabel = unpaid > 0 ? euro.format(unpaid) : t('plans.allPaid')
-  // What is left to allocate is the free remainder of the budget, not the budget.
+  // What is left to allocate is the free remainder of the distributable amount,
+  // not the amount itself.
   const free = unallocated(plan)
 
   return (
@@ -182,19 +183,19 @@ function PlanCard({
       </div>
 
       <div className="flex flex-col gap-2">
-        {BUDGETS.map((block) => (
-          <BudgetRow key={block} plan={plan} block={block} />
+        {BUDGETS.map((budget) => (
+          <BudgetRow key={budget} plan={plan} budget={budget} />
         ))}
       </div>
     </Link>
   )
 }
 
-function BudgetRow({ plan, block }: { plan: PlanSummary; block: Block }) {
-  const key = block as keyof typeof QUOTA_KEY
+function BudgetRow({ plan, budget }: { plan: PlanSummary; budget: Budget }) {
+  const key = budget as keyof typeof QUOTA_KEY
   const { t } = useTranslation()
   const quota = Number(plan[QUOTA_KEY[key]])
-  const target = Number(plan.budget) * (quota / 100)
+  const target = Number(plan.distributable) * (quota / 100)
   const actual = Number(plan.spent[key])
   const percent = target > 0 ? (actual / target) * 100 : 0
   const isOver = percent > OVER_QUOTA
@@ -202,8 +203,8 @@ function BudgetRow({ plan, block }: { plan: PlanSummary; block: Block }) {
   return (
     <div className="grid grid-cols-[7rem_1fr_auto] items-center gap-3 text-xs">
       <span className="flex items-center gap-2">
-        <span className={`size-2 rounded-sm ${BLOCK_DOT[block]}`} />
-        {blockLabel(block)}
+        <span className={`size-2 rounded-sm ${BUDGET_DOT[budget]}`} />
+        {budgetLabel(budget)}
         <span className="text-muted-foreground">
           {t('common.percent', { value: formatNumber(quota) })}
         </span>
@@ -211,7 +212,7 @@ function BudgetRow({ plan, block }: { plan: PlanSummary; block: Block }) {
 
       <span className="bg-muted h-1.5 overflow-hidden rounded-full">
         <span
-          className={`block h-full rounded-full ${isOver ? 'bg-destructive' : BLOCK_DOT[block]}`}
+          className={`block h-full rounded-full ${isOver ? 'bg-destructive' : BUDGET_DOT[budget]}`}
           style={{ width: `${Math.min(percent, 100)}%` }}
         />
       </span>

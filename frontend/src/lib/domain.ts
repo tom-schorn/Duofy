@@ -11,26 +11,19 @@
 
 import { i18n, locale } from '@/lib/i18n'
 
-/**
- * Called **Budget** in the UI.
- *
- * TODO: rename it to `Budget` in the code as well. That only works together with
- * the backend, where the enum is called `Block` (`app/models/enums.py`). While the
- * two differ, every API call would need a translation layer — so rename the
- * backend first, then follow here.
- */
-export type Block = 'income' | 'needs' | 'wants' | 'savings'
+/** Called **Budget** in the UI — one of the three 50/30/20 pots, or income. */
+export type Budget = 'income' | 'needs' | 'wants' | 'savings'
 
 /** The wording for `needs` is not final yet — a shorter word is under discussion. */
-export function blockLabel(block: Block): string {
-  return i18n.t(`enums.block.${block}`)
+export function budgetLabel(budget: Budget): string {
+  return i18n.t(`enums.budget.${budget}`)
 }
 
 /**
- * Block colours. Income sits above the split rather than inside it, so it uses a
+ * Budget colours. Income sits above the split rather than inside it, so it uses a
  * muted tone instead of one of the three chart colours.
  */
-export const BLOCK_DOT: Record<Block, string> = {
+export const BUDGET_DOT: Record<Budget, string> = {
   income: 'bg-muted-foreground',
   needs: 'bg-chart-1',
   wants: 'bg-chart-2',
@@ -39,10 +32,10 @@ export const BLOCK_DOT: Record<Block, string> = {
 
 
 /** The three budgets — 50 · 30 · 20, in that order. */
-export const BUDGETS: Block[] = ['needs', 'wants', 'savings']
+export const BUDGETS: Budget[] = ['needs', 'wants', 'savings']
 
 /** Order in lists — income sits above the split, not inside it. */
-export const BUDGET_ORDER: Block[] = ['income', ...BUDGETS]
+export const BUDGET_ORDER: Budget[] = ['income', ...BUDGETS]
 
 /**
  * Mirrored from `Category` in the backend.
@@ -202,14 +195,14 @@ export const CATEGORY_GROUPS: { group: string | null; categories: Category[] }[]
 })()
 
 /**
- * **A suggestion only.** Mirrored from `BLOCK_SUGGESTION` in the backend, which
+ * **A suggestion only.** Mirrored from `BUDGET_SUGGESTION` in the backend, which
  * derives it from the categories themselves.
  *
- * It preselects the obvious block in the form, nothing more — the user decides.
+ * It preselects the obvious budget in the form, nothing more — the user decides.
  * Deliberately not data logic: whether fuel is a need or a want depends on the
  * household.
  */
-export const BLOCK_SUGGESTION: Record<Category, Block> = {
+export const BUDGET_SUGGESTION: Record<Category, Budget> = {
   'household.groceries': 'needs',
   'household.clothing': 'needs',
   'household.healthcare': 'needs',
@@ -376,7 +369,6 @@ export type CommitmentType =
   | 'debt'
   /** Money coming in: salary, benefits, interest. Nobody signs a contract for it. */
   | 'income'
-  | 'budget'
 
 /** Mirror of `Commitment` — one table for every type. */
 export type Commitment = {
@@ -387,7 +379,14 @@ export type Commitment = {
   /** Kept as a string so nothing gets rounded while typing. */
   amount: string
   category: Category
-  block: Block
+  budget: Budget
+  /**
+   * No fixed sum that gets ticked off — Lebensmittel, Sprit, Taschengeld. The
+   * generated position fills up over the month from bookings instead, and shows as
+   * running ("laufend") rather than with a checkbox. Sits on the commitment, not
+   * only on the position, because it is decided once and copied in every month.
+   */
+  isLimit: boolean
   /** null means private. Set means generated positions go into that household. */
   householdId: string | null
   rhythm: Rhythm
@@ -517,7 +516,7 @@ export function scopeKey(scope: BookScope): string {
  * One day of movement, broken down — every figure a positive amount.
  *
  * `change` is `income − needs − wants − savings`. Transfers leaving the spendable
- * pot count under `savings`: they carry no block, but the money has been put aside.
+ * pot count under `savings`: they carry no budget, but the money has been put aside.
  */
 export type BalanceMoves = {
   income: string
@@ -560,12 +559,12 @@ export type Transaction = {
   /** Set means a transfer to another own account. */
   counterAccountId: string | null
   occurredOn: string
-  /** Always positive — the direction comes from `block`. */
+  /** Always positive — the direction comes from `budget`. */
   amount: string
   note: string | null
   /** Empty on a pure transfer only. */
   category: Category | null
-  block: Block | null
+  budget: Budget | null
   positionId: string | null
   /** Only set in the household view: who booked it. */
   ownerName?: string | null
@@ -615,7 +614,7 @@ export type PlanPosition = {
   amountActual: string | null
   category: Category
   /** Frozen on creation — later changes do not act retroactively. */
-  block: Block
+  budget: Budget
   dueDay: number
   /** Copied from the commitment, overridable per month. null means the default. */
   accountId: string | null
@@ -627,12 +626,14 @@ export type PlanPosition = {
   counterAccountId: string | null
   paymentMethod: PaymentMethod | null
   /**
-   * A budget rather than a single payment — groceries, fuel, pocket money.
+   * No fixed sum, no single payment — groceries, fuel, pocket money. Copied from
+   * the commitment's `isLimit` when the position is generated.
    *
    * **Not ticked off**: such positions fill up over the month from individual
-   * bookings. Instead of a tick box the row shows a fill level.
+   * bookings. Instead of a tick box the row shows a fill level, and counts towards
+   * no "noch offen".
    */
-  isBudget: boolean
+  isLimit: boolean
   /**
    * A pass-through position — money that was never there to be spent.
    *
@@ -711,7 +712,7 @@ export type ImportedEntry = {
   /** The interpretation — empty until somebody assigns it. */
   positionId: string | null
   category: Category | null
-  block: Block | null
+  budget: Budget | null
 
   /** Set means this is a transfer to another own account, not spending. */
   counterAccountId: string | null
@@ -865,11 +866,12 @@ export type MyInvitation = {
 export type PlanSummary = Plan & {
   income: string
   /**
-   * Income minus buffer — the basis the quotas refer to. **Not** the same as what
-   * is left to allocate; that is the remainder of it.
+   * Income minus buffer — the basis the quotas refer to, shown in the UI as
+   * "Verteilbar". **Not** the same as what is left to allocate; that is the
+   * remainder of it.
    */
-  budget: string
-  /** Allocated per block. */
+  distributable: string
+  /** Allocated per budget. */
   spent: Record<'needs' | 'wants' | 'savings', string>
   /** Sum of the positions that are not ticked off yet. */
   unpaid: string
@@ -900,25 +902,27 @@ export type HouseholdPosition = PlanPosition & {
   ownerName: string
 }
 
-/** What of the budget has not been allocated to the three blocks yet. */
+/** What of the distributable amount has not been allocated to the three budgets yet. */
 export function unallocated(plan: PlanSummary): number {
   const spent =
     Number(plan.spent.needs) + Number(plan.spent.wants) + Number(plan.spent.savings)
-  return Number(plan.budget) - spent
+  return Number(plan.distributable) - spent
 }
 
 /**
  * What is still to leave the account for this position.
  *
- * Ticked off means done, and income never leaves. Otherwise what counts is the
- * planned amount minus what the book already records: a 600 budget with 127.50 of
- * purchases booked still expects 472.50, not 600.
+ * Ticked off means done, and income never leaves. A limit position never carries
+ * a tick either — it has no due amount of its own, only a fill level, so it never
+ * counts towards "Noch offen". Otherwise what counts is the planned amount minus
+ * what the book already records: a 600 limit with 127.50 of purchases booked still
+ * expects 472.50, not 600.
  *
- * Never negative — overspending a budget does not leave anything over. Same rule as
+ * Never negative — overspending a limit does not leave anything over. Same rule as
  * `remaining()` in the backend, so that both figures mean the same thing.
  */
 export function stillDue(position: PlanPosition): number {
-  if (position.block === 'income' || isPaid(position)) return 0
+  if (position.budget === 'income' || isPaid(position) || position.isLimit) return 0
   // Stands and falls with its own income — no money of your own is missing.
   if (position.passThrough) return 0
   const booked = Number(position.amountActual ?? 0)

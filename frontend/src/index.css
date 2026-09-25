@@ -163,7 +163,7 @@
    plan, not the interface — sidebar, top bar, tabs and buttons drop out.
 
    `print-color-adjust: exact` is required because browsers otherwise discard
-   backgrounds when printing, and here the block colours carry meaning. Without it,
+   backgrounds when printing, and here the budget colours carry meaning. Without it,
    needs, wants and savings would be indistinguishable on paper.
 --------------------------------------------------------------------------- */
 @media print {
@@ -187,7 +187,7 @@
     min-height: 0 !important;
   }
 
-  /* Keep coloured areas: a block colour is meaning, not decoration. */
+  /* Keep coloured areas: a budget colour is meaning, not decoration. */
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;

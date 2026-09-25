@@ -1,8 +1,9 @@
-"""Contracts, budgets, savings goals and debts.
+"""Contracts, limits, savings goals and debts.
 
-One table for all of them — `type` only says whether the thing has an end. A
-commitment can sit in any block: rent in needs, streaming in wants, a savings plan
-in savings.
+One table for all of them — `type` only says whether the thing has an end, and
+`is_limit` whether the amount is a single payment or a limit that fills up over
+the month. A commitment can sit in any budget: rent in needs, streaming in
+wants, a savings plan in savings.
 
 Commitments are **private by default**, even inside a shared household. A member
 sees another member's contract only if that member granted `Area.COMMITMENTS`
@@ -20,7 +21,7 @@ from app.core.auth import current_active_user
 from app.core.permissions import Area, can_assign_to_household, granted_level, require
 from app.db.session import get_session
 from app.models.commitment import Commitment
-from app.models.enums import AccessLevel, resolve_block
+from app.models.enums import AccessLevel, resolve_budget
 from app.models.user import User
 from app.schemas.commitment import CommitmentCreate, CommitmentRead, CommitmentUpdate
 
@@ -75,7 +76,7 @@ async def list_commitments(
     result = await session.execute(
         select(Commitment)
         .where(Commitment.owner_id == owner_id)
-        .order_by(Commitment.block, Commitment.amount.desc())
+        .order_by(Commitment.budget, Commitment.amount.desc())
     )
     return list(result.scalars())
 
@@ -103,9 +104,9 @@ async def create_commitment(
     )
 
     data = payload.model_dump()
-    # For savings goals and debts the block is settled — the user choice is
+    # For savings goals and debts the budget is settled — the user choice is
     # overridden so that repayment cannot pass as a want.
-    data["block"] = resolve_block(payload.block, payload.type)
+    data["budget"] = resolve_budget(payload.budget, payload.type)
 
     commitment = Commitment(owner_id=owner_id, **data)
     session.add(commitment)
@@ -133,8 +134,8 @@ async def update_commitment(
     for field, value in changes.items():
         setattr(commitment, field, value)
 
-    # Re-derive after every change — the type can override the block.
-    commitment.block = resolve_block(commitment.block, commitment.type)
+    # Re-derive after every change — the type can override the budget.
+    commitment.budget = resolve_budget(commitment.budget, commitment.type)
 
     # Catch what the database checks anyway, but with a readable error code.
     if commitment.rhythm.value != "monthly" and commitment.first_due_date is None:

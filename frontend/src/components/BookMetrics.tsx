@@ -82,11 +82,11 @@ export function BookMetrics({
     row.counterAccountId !== null && locked.has(row.counterAccountId)
 
   const income = sum(
-    rows.filter((row) => !isTransfer(row) && row.block === 'income')
+    rows.filter((row) => !isTransfer(row) && row.budget === 'income')
   )
   const spending = sum(
     rows.filter(
-      (row) => putAside(row) || (!isTransfer(row) && row.block !== 'income')
+      (row) => putAside(row) || (!isTransfer(row) && row.budget !== 'income')
     )
   )
 

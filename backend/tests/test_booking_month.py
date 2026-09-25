@@ -15,7 +15,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.account import Account
-from app.models.enums import AccountType, Block, Category
+from app.models.enums import AccountType, Budget, Category
 from app.models.plan import Plan, PlanPosition
 from app.models.transaction import Transaction
 from app.models.user import User
@@ -49,7 +49,7 @@ async def make_position(
         label="Wohngeld",
         amount_planned=Decimal("450.00"),
         category=Category.INCOME_BENEFITS,
-        block=Block.INCOME,
+        budget=Budget.INCOME,
         due_day=1,
     )
     session.add(position)
@@ -78,7 +78,7 @@ async def test_a_booking_with_a_position_follows_the_plan_month(
             occurred_on=date(2026, 7, 31),
             amount=Decimal("450.00"),
             category=Category.INCOME_BENEFITS,
-            block=Block.INCOME,
+            budget=Budget.INCOME,
             position_id=august_position.id,
         )
     )
@@ -104,7 +104,7 @@ async def test_a_booking_without_a_position_follows_its_own_date(
             occurred_on=date(2026, 7, 15),
             amount=Decimal("23.40"),
             category=Category.LEISURE_SUBSCRIPTIONS,
-            block=Block.WANTS,
+            budget=Budget.WANTS,
             position_id=None,
         )
     )
@@ -134,7 +134,7 @@ async def test_a_booking_never_counts_in_both_months(
             occurred_on=date(2026, 7, 31),
             amount=Decimal("450.00"),
             category=Category.INCOME_BENEFITS,
-            block=Block.INCOME,
+            budget=Budget.INCOME,
             position_id=august_position.id,
         )
     )
