@@ -12,7 +12,6 @@ that make that split worth having:
 
 import uuid
 
-import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import Area, granted_level
@@ -65,7 +64,6 @@ async def add_member(
     return member
 
 
-@pytest.mark.anyio
 async def test_areas_do_not_leak_into_each_other(session: AsyncSession) -> None:
     """Insight into the month says nothing about the contracts behind it."""
     owner = await make_user(session, "Owner")
@@ -79,7 +77,6 @@ async def test_areas_do_not_leak_into_each_other(session: AsyncSession) -> None:
     assert await granted_level(session, owner.id, viewer.id, Area.ACCOUNTS) is AccessLevel.PLAN
 
 
-@pytest.mark.anyio
 async def test_the_owner_grants_not_the_asker(session: AsyncSession) -> None:
     """What the asker granted about themselves does not raise what they may see."""
     owner = await make_user(session, "Owner")
@@ -91,7 +88,6 @@ async def test_the_owner_grants_not_the_asker(session: AsyncSession) -> None:
     assert await granted_level(session, owner.id, viewer.id, Area.COMMITMENTS) is AccessLevel.VIEW
 
 
-@pytest.mark.anyio
 async def test_the_highest_grant_wins_across_households(session: AsyncSession) -> None:
     """Otherwise the right would depend on which household one looks through."""
     owner = await make_user(session, "Owner")
@@ -106,7 +102,6 @@ async def test_the_highest_grant_wins_across_households(session: AsyncSession) -
     assert await granted_level(session, owner.id, viewer.id, Area.ACCOUNTS) is AccessLevel.EDIT
 
 
-@pytest.mark.anyio
 async def test_strangers_get_nothing(session: AsyncSession) -> None:
     """No shared household at all is the same answer as sharing only the plan."""
     owner = await make_user(session, "Owner")
@@ -119,7 +114,6 @@ async def test_strangers_get_nothing(session: AsyncSession) -> None:
     )
 
 
-@pytest.mark.anyio
 async def test_no_restriction_towards_yourself(session: AsyncSession) -> None:
     """Your own data is `edit` in every area, membership or not."""
     owner = await make_user(session, "Owner")

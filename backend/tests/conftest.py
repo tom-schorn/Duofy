@@ -62,11 +62,6 @@ def pytest_configure() -> None:
 
 
 @pytest.fixture(scope="session")
-def anyio_backend() -> str:
-    return "asyncio"
-
-
-@pytest.fixture(scope="session")
 async def engine() -> AsyncGenerator:
     """One engine for the whole run, with the schema built once.
 
