@@ -568,7 +568,8 @@
     "createDescription": "Wer anlegt, wird Besitzer. Danach kannst du jemanden einladen.",
     "name": "Name",
     "namePlaceholder": "Unser Haushalt",
-    "youShare": "Du teilst:"
+    "youShare": "Du teilst:",
+    "invitePlaceholder": "partner@beispiel.de"
   },
   "import": {
     "leadMember": "Die Parkposition von {{name}}.",

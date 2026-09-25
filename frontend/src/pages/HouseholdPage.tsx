@@ -289,7 +289,7 @@ function InviteDialog({
             <Input
               id="invite-email"
               type="email"
-              placeholder="partner@beispiel.de"
+              placeholder={t('household.invitePlaceholder')}
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               required
