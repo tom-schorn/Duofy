@@ -5,16 +5,21 @@ block, so a category without a block cannot be written down at all. The frontend
 holds the same list a second time — the German labels and `BLOCK_SUGGESTION` —
 and that copy is maintained by hand.
 
+Since #98 the labels live in the translation catalog, `frontend/src/locales/
+de.json` under `enums.category`, nested along the dot of the value
+(`enums.category.personal.gifts`). `BLOCK_SUGGESTION` stays in `domain.ts`.
+
 That makes it the last place where the two halves can drift apart, and drifting
 is silent: a category the frontend does not know renders as a raw value like
 `personal.gifts`, and a block that disagrees preselects the wrong one.
 
-So the test reads the TypeScript file. Unusual for a backend test, and the point
+So the test reads the frontend files. Unusual for a backend test, and the point
 of it: nothing else notices.
 
 Part of #13.
 """
 
+import json
 import re
 from pathlib import Path
 
@@ -22,7 +27,9 @@ import pytest
 
 from app.models.enums import Category
 
-DOMAIN = Path(__file__).parents[2] / "frontend" / "src" / "lib" / "domain.ts"
+FRONTEND = Path(__file__).parents[2] / "frontend" / "src"
+DOMAIN = FRONTEND / "lib" / "domain.ts"
+CATALOG = FRONTEND / "locales" / "de.json"
 
 
 def table(name: str) -> dict[str, str]:
@@ -35,7 +42,20 @@ def table(name: str) -> dict[str, str]:
 
 @pytest.fixture(scope="module")
 def labels() -> dict[str, str]:
-    return table("CATEGORY_LABEL")
+    """The German category labels from the catalog, flattened back to the values.
+
+    `{"personal": {"gifts": "…"}}` becomes `{"personal.gifts": "…"}` — the same
+    shape the categories have in the backend. A value without a dot would stand
+    on its own, as a plain string.
+    """
+    catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
+    labels: dict[str, str] = {}
+    for group, entries in catalog["enums"]["category"].items():
+        if isinstance(entries, str):
+            labels[group] = entries
+        else:
+            labels.update({f"{group}.{name}": label for name, label in entries.items()})
+    return labels
 
 
 @pytest.fixture(scope="module")
