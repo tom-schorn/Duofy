@@ -24,9 +24,11 @@ keine eigene Tabelle. Der Haushalt besitzt nichts — kein Konto, keinen Plan.
 
 - **Code englisch:** Bezeichner, Kommentare, Commit- und PR-Titel
 - **Deutsch:** Issues, Wiki, README, diese Datei
-- Die Programmierrichtlinien im Wiki sagen noch „alles auf Englisch" — veraltet,
-  wird überarbeitet
-- Der Endnutzer sieht Deutsch; das Backend liefert **Codes, nie Sätze**
+- **Oberfläche:** vorerst nur Deutsch. Weitere Sprachen sollen andere per Pull
+  Request beisteuern können, ohne Code anzufassen — Texte gehören deshalb nicht
+  fest in Komponenten. Eine Übersetzungseinheit gibt es noch nicht; heute stehen
+  Oberflächentexte direkt in den Komponenten und Fehlercodes in `src/lib/api.ts`
+- Das Backend liefert **Codes, nie Sätze**
 
 ## Repo
 
@@ -71,11 +73,40 @@ Genau das läuft in der CI. Backend-Tests brauchen ein echtes Postgres
   auf einer Seite
 - **Im Code nachsehen, nicht raten.** Aussagen über das Verhalten der App erst nach
   Blick in den Quelltext
+- **Wer ein Feature ändert, zieht das Wiki nach** (siehe unten)
+
+## Wiki
+
+Das Wiki ist ein eigenes Git-Repo, nicht Teil dieses Repos:
+
+```bash
+git clone https://github.com/tom-schorn/Duofy.wiki.git
+```
+
+Schreiben geht nur per Git mit Push-Rechten, nicht über die GitHub-API oder den
+MCP-Server. Eine Sitzung ohne Push-Rechte schreibt die Änderung als Patch oder
+Befehlsfolge auf und übergibt sie.
+
+**Offener Umbau (#96), einmalig:** Das Wiki wird nur noch deutsch.
+
+1. Alle englischen Seiten löschen (die ohne `-de`-Endung, außer `_Sidebar.md`
+   und `_Footer.md`, falls vorhanden)
+2. Jede `*-de.md` auf den Namen ohne Endung umbenennen (`git mv
+   Installation-de.md Installation.md`, `Home-de.md` → `Home.md` usw.)
+3. Alle Links `](Seite-de)` → `](Seite)` in allen Seiten und in `_Sidebar.md`
+4. Sprachumschalter und Hinweise auf die englische Fassung entfernen
+5. Programmierrichtlinien, Abschnitt „Sprache": Code englisch, Issues und Doku
+   deutsch, Oberfläche vorerst deutsch mit Übersetzungseinheit
+6. Prüfen, dass jeder Link aus dem README ins Wiki noch trifft
+
+**Danach laufend:** Die Seiten werden Stück für Stück überarbeitet, jeweils wenn
+ihr Thema in einem Issue dran ist. Stand nach #83 bis #95 prüfen: kein `Block`,
+kein `Rhythm`, kein `remaining_debt`, Verlauf und Monatsübertrag wie in #93/#94.
 
 ## Regeln, die überall gelten
 
 - **Keine echten Daten** — keine echten Beträge, Namen, Kontonummern, IBANs in
-  Code, Tests, Issues, Commits oder Screenshots. Das Repo ist öffentlich
+  Code, Tests, Issues, Commits, Wiki oder Screenshots. Das Repo ist öffentlich
 - **Beträge** immer `Numeric` / `Decimal`, nie `Float`
 - **Enums** über `enum_column()` aus `app/db/types.py` (speichert den Wert, nicht
   den Namen)
