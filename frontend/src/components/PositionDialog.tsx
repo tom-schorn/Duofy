@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import {
   Dialog,
@@ -102,6 +103,7 @@ export function PositionDialog({
   onSave,
   onDelete,
 }: Props) {
+  const { t } = useTranslation()
   const households = useHouseholds().data ?? []
   const accounts = useAccounts().data ?? []
   const [draft, setDraft] = useState<PlanPosition>(
@@ -150,23 +152,23 @@ export function PositionDialog({
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <DialogHeader>
             <DialogTitle className="font-heading text-xl">
-              {isEdit ? 'Posten bearbeiten' : 'Posten hinzufügen'}
+              {isEdit ? t('positionDialog.editTitle') : t('positionDialog.addTitle')}
             </DialogTitle>
             <DialogDescription>
               {fromCommitment
-                ? 'Kommt aus einem Vertrag. Änderungen hier gelten nur für diesen Monat.'
-                : 'Gilt nur für diesen Monat. Wiederkehrendes gehört zu den Verträgen.'}
+                ? t('positionDialog.fromCommitment')
+                : t('positionDialog.oneOff')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="label">Bezeichnung</Label>
+              <Label htmlFor="label">{t('positionDialog.label')}</Label>
               <Input
                 id="label"
                 value={draft.label}
                 onChange={(event) => set('label', event.target.value)}
-                placeholder="Rollo fürs Wohnzimmer"
+                placeholder={t('positionDialog.labelPlaceholder')}
                 required
                 autoFocus
               />
@@ -174,7 +176,7 @@ export function PositionDialog({
 
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="planned">Betrag</Label>
+                <Label htmlFor="planned">{t('common.amount')}</Label>
                 <Input
                   id="planned"
                   type="number"
@@ -185,13 +187,13 @@ export function PositionDialog({
                   onChange={(event) =>
                     set('amountPlanned', event.target.value)
                   }
-                  placeholder="0,00"
+                  placeholder={t('common.amountPlaceholder')}
                   required
                 />
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label htmlFor="pos-due-day">Fällig am</Label>
+                <Label htmlFor="pos-due-day">{t('common.dueOn')}</Label>
                 <Input
                   id="pos-due-day"
                   type="number"
@@ -208,7 +210,7 @@ export function PositionDialog({
 
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-2">
-                <Label>Kategorie</Label>
+                <Label>{t('common.category')}</Label>
                 <CategoryPicker
                   value={draft.category}
                   onChange={handleCategory}
@@ -216,7 +218,7 @@ export function PositionDialog({
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label>Budget</Label>
+                <Label>{t('common.budget')}</Label>
                 {blockIsFixed ? (
                   <span className="flex h-9 items-center gap-2 text-sm font-medium">
                     <span className={cn('size-2.5 rounded-sm', BLOCK_DOT[draft.block])} />
@@ -246,7 +248,7 @@ export function PositionDialog({
 
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-2">
-                <Label>Konto</Label>
+                <Label>{t('common.account')}</Label>
                 <Select
                   value={draft.accountId ?? 'default'}
                   onValueChange={(value) =>
@@ -259,7 +261,7 @@ export function PositionDialog({
                   <SelectContent>
                     {/* „Standardkonto" statt einer Vorauswahl: so bleibt der
                         Posten richtig, wenn du das Standardkonto wechselst. */}
-                    <SelectItem value="default">Standardkonto</SelectItem>
+                    <SelectItem value="default">{t('common.defaultAccount')}</SelectItem>
                     {accounts
                       .filter((account) => account.active)
                       .map((account) => (
@@ -272,7 +274,7 @@ export function PositionDialog({
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label>Zielkonto</Label>
+                <Label>{t('common.counterAccount')}</Label>
                 <Select
                   value={draft.counterAccountId ?? 'none'}
                   onValueChange={(value) =>
@@ -283,7 +285,7 @@ export function PositionDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Geht raus</SelectItem>
+                    <SelectItem value="none">{t('common.goesOut')}</SelectItem>
                     {accounts
                       .filter((account) => account.id !== draft.accountId)
                       .map((account) => (
@@ -294,13 +296,12 @@ export function PositionDialog({
                   </SelectContent>
                 </Select>
                 <span className="text-muted-foreground text-xs">
-                  Nur beim Sparen auf ein eigenes Konto. Dann bucht der Haken
-                  eine Umbuchung, und der Gesamtstand bleibt richtig.
+                  {t('common.counterAccountHint')}
                 </span>
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label>Zahlungsart</Label>
+                <Label>{t('common.paymentMethod')}</Label>
                 <Select
                   value={draft.paymentMethod ?? 'none'}
                   onValueChange={(value) =>
@@ -314,7 +315,7 @@ export function PositionDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">offen</SelectItem>
+                    <SelectItem value="none">{t('common.paymentOpen')}</SelectItem>
                     {PAYMENTS.map((method) => (
                       <SelectItem key={method} value={method}>
                         {paymentLabel(method)}
@@ -329,11 +330,9 @@ export function PositionDialog({
                   aus wie 1.139 € gespart. */}
               <div className="border-border flex items-center justify-between rounded-md border p-3">
                 <div className="flex flex-col pr-4">
-                  <Label htmlFor="position-pass-through">Durchlaufend</Label>
+                  <Label htmlFor="position-pass-through">{t('common.passThrough')}</Label>
                   <span className="text-muted-foreground text-xs">
-                    Geld, das nur weitergereicht wird — BuT, eine Rückzahlung,
-                    die sofort weggelegt wird. Zählt in kein Budget und in keine
-                    Quote.
+                    {t('common.passThroughHint')}
                   </span>
                 </div>
                 <Switch
@@ -344,7 +343,7 @@ export function PositionDialog({
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label>Zuordnung</Label>
+                <Label>{t('common.assignment')}</Label>
                 <Select
                   value={draft.householdId ?? 'private'}
                   onValueChange={(value) =>
@@ -355,7 +354,7 @@ export function PositionDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="private">Nur mein Plan</SelectItem>
+                    <SelectItem value="private">{t('common.privateOnly')}</SelectItem>
                     {households.map((household) => (
                       <SelectItem key={household.id} value={household.id}>
                         {household.name}
@@ -368,7 +367,7 @@ export function PositionDialog({
 
             {isEdit && (
               <div className="flex flex-col gap-2">
-                <Label htmlFor="actual">Tatsächlich bezahlt</Label>
+                <Label htmlFor="actual">{t('positionDialog.actual')}</Label>
                 <Input
                   id="actual"
                   type="number"
@@ -379,11 +378,10 @@ export function PositionDialog({
                   onChange={(event) =>
                     set('amountActual', event.target.value || null)
                   }
-                  placeholder="noch offen"
+                  placeholder={t('positionDialog.actualPlaceholder')}
                 />
                 <p className="text-muted-foreground text-xs">
-                  Nur nötig, wenn der Betrag vom geplanten abweicht. Abgehakt
-                  wird in der Liste.
+                  {t('positionDialog.actualHint')}
                 </p>
               </div>
             )}
@@ -401,7 +399,7 @@ export function PositionDialog({
                   onOpenChange(false)
                 }}
               >
-                Löschen
+                {t('common.delete')}
               </Button>
             ) : (
               <span />
@@ -412,10 +410,10 @@ export function PositionDialog({
                 variant="outline"
                 onClick={() => onOpenChange(false)}
               >
-                Abbrechen
+                {t('common.cancel')}
               </Button>
               <Button type="submit">
-                {isEdit ? 'Speichern' : 'Hinzufügen'}
+                {isEdit ? t('common.save') : t('common.add')}
               </Button>
             </div>
           </DialogFooter>

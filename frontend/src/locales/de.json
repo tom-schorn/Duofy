@@ -307,7 +307,26 @@
   "common": {
     "date": "Datum",
     "amount": "Betrag",
-    "cancel": "Abbrechen"
+    "cancel": "Abbrechen",
+    "dueDay": "{{day}}.",
+    "amountPlaceholder": "0,00",
+    "dueOn": "Fällig am",
+    "category": "Kategorie",
+    "budget": "Budget",
+    "account": "Konto",
+    "defaultAccount": "Standardkonto",
+    "counterAccount": "Zielkonto",
+    "goesOut": "Geht raus",
+    "counterAccountHint": "Nur beim Sparen auf ein eigenes Konto. Dann bucht der Haken eine Umbuchung, und der Gesamtstand bleibt richtig.",
+    "paymentMethod": "Zahlungsart",
+    "paymentOpen": "offen",
+    "passThrough": "Durchlaufend",
+    "passThroughHint": "Geld, das nur weitergereicht wird — BuT, eine Rückzahlung, die sofort weggelegt wird. Zählt in kein Budget und in keine Quote.",
+    "assignment": "Zuordnung",
+    "privateOnly": "Nur mein Plan",
+    "delete": "Löschen",
+    "save": "Speichern",
+    "add": "Hinzufügen"
   },
   "positionPicker": {
     "none": "kein Posten",
@@ -319,5 +338,42 @@
     "lead": "Was tatsächlich gelaufen ist — Kontostände und jede Buchung darauf.",
     "noPlan": "Für diesen Monat gibt es keinen Plan. Buchen geht trotzdem — nur zuordnen lässt sich nichts, solange keine Posten da sind.",
     "leadMember": "Das Buch von {{name}}."
+  },
+  "budget": {
+    "of": "von {{amount}}",
+    "quotaLabel": "{{budget}}: {{percent}} % der Quote",
+    "addPosition": "Posten in {{budget}}",
+    "reopen": "{{label}} wieder öffnen",
+    "markReceived": "{{label}} als erhalten markieren",
+    "tick": "{{label}} abhaken",
+    "fromCommitment": "aus Vertrag",
+    "limit": "Budget",
+    "passThrough": "durchlaufend",
+    "transfer": "Umbuchung",
+    "fillLabel": "{{label}}: {{actual}} von {{planned}}",
+    "actual": "ist {{amount}}"
+  },
+  "printout": {
+    "heading": "Posten — {{number}} Stück",
+    "target": "Soll {{percent}} %",
+    "actualShare": "Ist {{percent}} %",
+    "day": "Tag",
+    "label": "Bezeichnung",
+    "who": "Wer",
+    "sum": "Summe",
+    "actual": "Ist",
+    "actualTotal": "Ist zusammen",
+    "standingOrderOrDebit": "Dauerauftrag / Lastschrift"
+  },
+  "positionDialog": {
+    "editTitle": "Posten bearbeiten",
+    "addTitle": "Posten hinzufügen",
+    "fromCommitment": "Kommt aus einem Vertrag. Änderungen hier gelten nur für diesen Monat.",
+    "oneOff": "Gilt nur für diesen Monat. Wiederkehrendes gehört zu den Verträgen.",
+    "label": "Bezeichnung",
+    "labelPlaceholder": "Rollo fürs Wohnzimmer",
+    "actual": "Tatsächlich bezahlt",
+    "actualPlaceholder": "noch offen",
+    "actualHint": "Nur nötig, wenn der Betrag vom geplanten abweicht. Abgehakt wird in der Liste."
   }
 }
