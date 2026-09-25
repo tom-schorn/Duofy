@@ -637,11 +637,12 @@
     "nothingSharedHint": "Setz im eigenen Plan bei einem Posten den Haushalt — dann taucht er hier auf."
   },
   "ui": {
-    "close": "Close",
+    "close": "Schließen",
     "sidebar": {
-      "title": "Sidebar",
-      "description": "Displays the mobile sidebar.",
-      "toggle": "Toggle Sidebar"
-    }
+      "title": "Seitenleiste",
+      "description": "Zeigt die Seitenleiste auf dem Handy.",
+      "toggle": "Seitenleiste ein- oder ausblenden"
+    },
+    "notifications": "Benachrichtigungen"
   }
 }
