@@ -1,72 +1,74 @@
-name: Feature spec
-description: An agreed feature, written down so it can be built without guessing
+name: Feature-Spezifikation
+description: Ein abgestimmtes Feature, so aufgeschrieben, dass man es ohne Raten bauen kann
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        **For agreed work only.** An idea starts in
+        **Nur für abgestimmte Arbeit.** Eine Idee beginnt in
         [Discussions › Ideas](https://github.com/tom-schorn/Duofy/discussions/new?category=ideas);
-        once we agree on it, it becomes a spec here.
+        sobald wir uns einig sind, wird hier eine Spezifikation daraus.
 
-        Write it so that someone who was not in the conversation can build it —
-        including you, three weeks from now. And as everywhere in Duofy:
-        **no real amounts, names or account numbers.**
+        So schreiben, dass jemand, der nicht beim Gespräch dabei war, es bauen kann —
+        auch du selbst in drei Wochen. Und wie überall in Duofy:
+        **keine echten Beträge, Namen oder Kontonummern.**
 
   - type: textarea
     id: purpose
     attributes:
-      label: Purpose
+      label: Zweck
       description: >-
-        What problem does this solve, and for whom? One or two paragraphs. If the
-        reason is not written here, it gets lost.
+        Welches Problem löst das, und für wen? Ein oder zwei Absätze. Steht der
+        Grund nicht hier, geht er verloren.
       placeholder: |
-        Savings goals today only exist as a commitment that produces a rate. Nobody
-        can see how much has actually been put aside for a goal …
+        Sparziele gibt es heute nur als Vertrag, der eine Rate erzeugt. Niemand
+        sieht, wie viel für ein Ziel tatsächlich zurückgelegt ist …
     validations:
       required: true
 
   - type: textarea
     id: data-model
     attributes:
-      label: Data model
+      label: Datenmodell
       description: >-
-        New tables, columns, constraints, enum values. Name the file and the
-        existing model it builds on. Say what is stored and what is derived.
+        Neue Tabellen, Spalten, Constraints, Enum-Werte. Datei und bestehendes
+        Modell nennen, auf dem es aufbaut. Sagen, was gespeichert und was
+        abgeleitet wird.
       placeholder: |
-        `Transaction.savings_goal_id` — nullable FK to `commitments.id` …
+        `Transaction.savings_goal_id` — nullable FK auf `commitments.id` …
     validations:
       required: true
 
   - type: textarea
     id: automations
     attributes:
-      label: Automations
+      label: Automatisierungen
       description: >-
-        What happens without the user doing it — plan generation, ticking off,
-        validation, recalculation. Trigger → effect.
+        Was passiert, ohne dass der Nutzer es tut — Monat erzeugen, Abhaken,
+        Validierung, Neuberechnung. Auslöser → Wirkung.
       placeholder: |
-        Generating a month: a goal whose balance has reached the target produces
-        no position …
+        Monat erzeugen: Ein Ziel, dessen Stand das Ziel erreicht hat, erzeugt
+        keinen Posten …
 
   - type: textarea
     id: decisions
     attributes:
-      label: Decisions and why
+      label: Entscheidungen und warum
       description: >-
-        Choices made on purpose, with the reason and the alternative that was
-        turned down. This is the part you will look up later.
+        Bewusste Entscheidungen, mit Grund und der verworfenen Alternative. Das
+        ist der Teil, den du später nachschlägst.
       placeholder: |
-        **Hard limit, no setting.** Duofy fixes rules instead of offering options —
-        one decision fewer for the user. Rejected: a warning that can be dismissed.
+        **Harte Grenze, keine Einstellung.** Duofy legt Regeln fest, statt
+        Optionen anzubieten — eine Entscheidung weniger für den Nutzer.
+        Verworfen: eine Warnung, die man wegklicken kann.
 
   - type: textarea
     id: acceptance
     attributes:
-      label: Acceptance criteria
+      label: Akzeptanzkriterien
       description: >-
-        Checkable statements. Done means every box can be ticked, including the
-        edge cases.
+        Prüfbare Aussagen. Fertig heißt: Jedes Kästchen lässt sich abhaken,
+        Randfälle eingeschlossen.
       value: |
         - [ ] 
     validations:
@@ -75,15 +77,15 @@ body:
   - type: textarea
     id: open-questions
     attributes:
-      label: Open questions
+      label: Offene Fragen
       description: >-
-        Anything not decided yet. Keeps half-finished thoughts out of the sections
-        above. Empty is fine.
+        Alles, was noch nicht entschieden ist. Hält halbfertige Gedanken aus den
+        Abschnitten oben heraus. Leer ist in Ordnung.
 
   - type: textarea
     id: out-of-scope
     attributes:
-      label: Not in scope
+      label: Nicht im Umfang
       description: >-
-        Related things this issue deliberately does not do, with a link to their
-        issue if there is one.
+        Verwandtes, das dieses Issue bewusst nicht macht, mit Link auf das
+        zugehörige Issue, falls es eins gibt.
