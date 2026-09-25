@@ -34,6 +34,7 @@ async def make_commitment(
     due_day: int = 1,
     active: bool = True,
     amount: str = "50.00",
+    is_limit: bool = False,
 ) -> Commitment:
     commitment = Commitment(
         owner_id=owner.id,
@@ -46,6 +47,7 @@ async def make_commitment(
         first_due_date=first_due_date,
         due_day=due_day,
         active=active,
+        is_limit=is_limit,
     )
     session.add(commitment)
     await session.flush()
@@ -218,3 +220,38 @@ async def test_creating_the_same_month_twice_is_rejected(
         select(Plan).where(Plan.user_id == owner.id, Plan.year == 2026, Plan.month == 9)
     )
     assert still_there is not None
+
+
+async def test_a_limit_commitment_makes_a_limit_position(
+    client: AsyncClient, session: AsyncSession, owner: User
+):
+    """`is_limit` is copied, the way `category` and `payment_method` are.
+
+    Before #106 this followed from the commitment type `budget`. The type is
+    gone, so the flag has to travel on its own — otherwise a grocery limit would
+    come back as a single payment with a tick box, and ticking it would book the
+    full 600 on top of the receipts already collected.
+    """
+    await make_commitment(session, owner, "Groceries", is_limit=True)
+    await make_commitment(session, owner, "Rent")
+    await session.commit()
+
+    response = await client.post("/api/v1/plans", json={"year": 2026, "month": 9})
+    assert response.status_code == 201
+
+    plan = (
+        await session.execute(select(Plan).where(Plan.user_id == owner.id))
+    ).scalar_one()
+    positions = (
+        (
+            await session.execute(
+                select(PlanPosition).where(PlanPosition.plan_id == plan.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert {position.label: position.is_limit for position in positions} == {
+        "Groceries": True,
+        "Rent": False,
+    }

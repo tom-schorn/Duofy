@@ -179,7 +179,7 @@ async def mark_paid(
     things. A payment can be done and match the planned amount exactly.
 
     **A booking is only created if the position has none yet.** A rent position has
-    none, so ticking it off books the full amount. A grocery budget already collected
+    none, so ticking it off books the full amount. A grocery limit already collected
     purchases over the month — there the tick only means "month done", and the book
     stays the truth.
 

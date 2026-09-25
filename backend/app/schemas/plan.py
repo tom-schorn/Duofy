@@ -19,8 +19,8 @@ class PositionBase(Schema):
     account_id: uuid.UUID | None = None
     payment_method: PaymentMethod | None = None
     household_id: uuid.UUID | None = None
-    #: Fills up from bookings instead of being ticked off.
-    is_budget: bool = False
+    #: A limit: fills up from bookings instead of being ticked off.
+    is_limit: bool = False
     #: Where the money is saved to. Set means ticking off books a transfer.
     counter_account_id: uuid.UUID | None = None
     #: Passes through only — counts towards no quota and no budget.
@@ -43,7 +43,7 @@ class PositionUpdate(Schema):
     account_id: uuid.UUID | None = None
     payment_method: PaymentMethod | None = None
     household_id: uuid.UUID | None = None
-    is_budget: bool | None = None
+    is_limit: bool | None = None
     counter_account_id: uuid.UUID | None = None
     pass_through: bool | None = None
 

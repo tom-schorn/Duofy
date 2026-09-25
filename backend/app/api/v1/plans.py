@@ -26,7 +26,7 @@ from app.core.permissions import (
 )
 from app.db.session import get_session
 from app.models.commitment import Commitment
-from app.models.enums import AccessLevel, Budget, CommitmentType
+from app.models.enums import AccessLevel, Budget
 from app.models.household import Household, HouseholdMember
 from app.models.plan import Plan, PlanPosition
 from app.models.user import User
@@ -82,6 +82,11 @@ def _summarize(
         Never negative — overspending a budget does not leave anything over.
         """
         if position.budget is Budget.INCOME or position.paid_at is not None:
+            return ZERO
+        # A limit is never "still to go out": it has no tick, it runs until the
+        # month is over. Counting its remainder would keep every month looking
+        # unfinished right up to the 31st.
+        if position.is_limit:
             return ZERO
         # A pass-through position stands and falls with its own income. Counting it
         # here would make the month look underfunded although no money of your own
@@ -237,9 +242,9 @@ async def create_plan(
                 # Copied from the commitment, still overridable on the position.
                 account_id=commitment.account_id,
                 payment_method=commitment.payment_method,
-                # A budget commitment becomes a budget position: no tick box, a
-                # fill level fed by bookings instead.
-                is_budget=commitment.type is CommitmentType.BUDGET,
+                # A limit stays a limit in every month it is planned: no tick
+                # box, a fill level fed by bookings instead.
+                is_limit=commitment.is_limit,
                 counter_account_id=commitment.counter_account_id,
                 pass_through=commitment.pass_through,
             )

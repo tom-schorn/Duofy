@@ -93,6 +93,19 @@ class Commitment(UUIDMixin, TimestampMixin, Base):
     #: aside, here one forwards somebody else's.
     pass_through: Mapped[bool] = mapped_column(default=False)
 
+    #: The planned amount is a **limit**, not a single payment.
+    #:
+    #: Rent is 890 and is paid once: it gets a tick, and the tick is the truth.
+    #: Groceries are 600 and fill up over the month from single purchases: a tick
+    #: there would claim August is finished because one receipt arrived. So a
+    #: limit position carries no tick — what it shows is a fill level, and the
+    #: month ends it.
+    #:
+    #: It sits on the commitment rather than on the position because groceries are
+    #: planned every month. `create_plan` copies it onto each position, the way it
+    #: copies `category` and `payment_method`.
+    is_limit: Mapped[bool] = mapped_column(default=False)
+
     rhythm: Mapped[Rhythm] = mapped_column(enum_column(Rhythm))
 
     #: When it falls due for the first time — day, month **and year**.

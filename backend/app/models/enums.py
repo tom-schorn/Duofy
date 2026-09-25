@@ -53,10 +53,17 @@ class AccessLevel(StrEnum):
 
 
 class CommitmentType(StrEnum):
+    """What kind of commitment this is — **not** how its amount behaves.
+
+    Whether the planned amount is a single payment or a limit that fills up over
+    the month is `Commitment.is_limit`, not a type of its own. A grocery limit is
+    as much a contract with the supermarket as rent is with the landlord; the
+    difference is the amount, and one flag says it without multiplying the types.
+    """
+
     CONTRACT = "contract"
     SAVINGS_GOAL = "savings_goal"
     DEBT = "debt"
-    BUDGET = "budget"
     #: Money coming in — salary, child benefit, interest. Nobody signs a contract
     #: to receive their own wage, so it is not one.
     INCOME = "income"

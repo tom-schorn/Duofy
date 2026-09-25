@@ -641,10 +641,10 @@ async def test_a_card_payment_is_recognised_by_its_name(
     app.dependency_overrides.clear()
 
 
-async def test_a_budget_position_comes_with_the_suggestion(
+async def test_a_limit_position_comes_with_the_suggestion(
     client: AsyncClient, session: AsyncSession
 ):
-    """A budget position is identified by its category alone.
+    """A limit position is identified by its category alone.
 
     It fills up from many bookings over the month, so there is no amount to
     match and no due-date window to guess — the guessing is #61's problem, and
@@ -658,16 +658,16 @@ async def test_a_budget_position_comes_with_the_suggestion(
     plan = Plan(user_id=user.id, year=2026, month=8)
     session.add(plan)
     await session.flush()
-    budget = PlanPosition(
+    limit = PlanPosition(
         plan_id=plan.id,
         label="Lebensmittel",
         amount_planned=Decimal("520.00"),
         category=Category.HOUSEHOLD_GROCERIES,
         budget=Budget.NEEDS,
         due_day=1,
-        is_budget=True,
+        is_limit=True,
     )
-    session.add(budget)
+    session.add(limit)
     session.add(
         Transaction(
             owner_id=user.id,
@@ -699,15 +699,15 @@ async def test_a_budget_position_comes_with_the_suggestion(
 
     suggestion = (await client.get("/api/v1/imports")).json()[0]["suggestion"]
     assert suggestion["category"] == "household.groceries"
-    assert suggestion["positionId"] == str(budget.id)
+    assert suggestion["positionId"] == str(limit.id)
 
     app.dependency_overrides.clear()
 
 
-async def test_an_assigned_row_without_a_matching_budget_gets_nothing(
+async def test_an_assigned_row_without_a_matching_limit_gets_nothing(
     client: AsyncClient, session: AsyncSession
 ):
-    """A chosen category with no budget position for it: nothing to add."""
+    """A chosen category with no limit position for it: nothing to add."""
     user = await make_user(session, "Owner")
     account = await make_account(session, user, iban=FILE_IBAN)
     session.add(
@@ -852,12 +852,12 @@ async def test_one_slip_does_not_poison_a_counterparty(
     app.dependency_overrides.clear()
 
 
-async def test_your_own_category_still_gets_its_budget_position(
+async def test_your_own_category_still_gets_its_limit_position(
     client: AsyncClient, session: AsyncSession
 ):
     """Choosing a category by hand must not switch the help off.
 
-    The budget position follows from the category alone — no learning, no
+    The limit position follows from the category alone — no learning, no
     tolerance, no guessing. Staying quiet here meant the import stopped helping
     exactly when the answer was most certain.
     """
@@ -869,16 +869,16 @@ async def test_your_own_category_still_gets_its_budget_position(
     plan = Plan(user_id=user.id, year=2026, month=8)
     session.add(plan)
     await session.flush()
-    budget = PlanPosition(
+    limit = PlanPosition(
         plan_id=plan.id,
         label="Lebensmittel",
         amount_planned=Decimal("520.00"),
         category=Category.HOUSEHOLD_GROCERIES,
         budget=Budget.NEEDS,
         due_day=1,
-        is_budget=True,
+        is_limit=True,
     )
-    session.add(budget)
+    session.add(limit)
     session.add(
         ImportedEntry(
             owner_id=user.id,
@@ -905,7 +905,7 @@ async def test_your_own_category_still_gets_its_budget_position(
 
     suggestion = (await client.get("/api/v1/imports")).json()[0]["suggestion"]
     assert suggestion is not None
-    assert suggestion["positionId"] == str(budget.id)
+    assert suggestion["positionId"] == str(limit.id)
     assert "einziger Posten" in suggestion["reason"]
 
     app.dependency_overrides.clear()
@@ -957,7 +957,7 @@ async def test_booking_ticks_off_a_single_position(
     app.dependency_overrides.clear()
 
 
-async def test_a_budget_position_fills_up_but_is_not_ticked(
+async def test_a_limit_position_fills_up_but_is_not_ticked(
     client: AsyncClient, session: AsyncSession
 ):
     """Groceries are not finished for August because one receipt arrived."""
@@ -969,16 +969,16 @@ async def test_a_budget_position_fills_up_but_is_not_ticked(
     plan = Plan(user_id=user.id, year=2026, month=8)
     session.add(plan)
     await session.flush()
-    budget = PlanPosition(
+    limit = PlanPosition(
         plan_id=plan.id,
         label="Lebensmittel",
         amount_planned=Decimal("520.00"),
         category=Category.HOUSEHOLD_GROCERIES,
         budget=Budget.NEEDS,
         due_day=1,
-        is_budget=True,
+        is_limit=True,
     )
-    session.add(budget)
+    session.add(limit)
     await session.commit()
 
     sign_in(user)
@@ -987,12 +987,12 @@ async def test_a_budget_position_fills_up_but_is_not_ticked(
         row for row in await parked(session, user) if row.amount == Decimal("63.82")
     )
 
-    await client.patch(f"/api/v1/imports/{entry.id}", json={"positionId": str(budget.id)})
+    await client.patch(f"/api/v1/imports/{entry.id}", json={"positionId": str(limit.id)})
     await client.post(f"/api/v1/imports/{entry.id}/book")
 
-    await session.refresh(budget)
-    assert budget.amount_actual == Decimal("63.82")
-    assert budget.paid_at is None
+    await session.refresh(limit)
+    assert limit.amount_actual == Decimal("63.82")
+    assert limit.paid_at is None
 
     app.dependency_overrides.clear()
 
@@ -1065,7 +1065,7 @@ async def test_a_part_payment_leaves_the_position_open(
 async def test_a_single_payment_is_suggested_when_it_is_the_only_one(
     client: AsyncClient, session: AsyncSession
 ):
-    """Rent is not a budget, and it does not need tolerances either.
+    """Rent is not a limit, and it does not need tolerances either.
 
     A month holds one rent position. Once the category is known, the position
     follows from it — no amount, no due-date window. The tolerances of #61 are

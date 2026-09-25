@@ -1,8 +1,9 @@
-"""Contracts, budgets, savings goals and debts.
+"""Contracts, limits, savings goals and debts.
 
-One table for all of them — `type` only says whether the thing has an end. A
-commitment can sit in any budget: rent in needs, streaming in wants, a savings plan
-in savings.
+One table for all of them — `type` only says whether the thing has an end, and
+`is_limit` whether the amount is a single payment or a limit that fills up over
+the month. A commitment can sit in any budget: rent in needs, streaming in
+wants, a savings plan in savings.
 
 Commitments are **private by default**, even inside a shared household. A member
 sees another member's contract only if that member granted `Area.COMMITMENTS`

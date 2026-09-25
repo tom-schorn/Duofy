@@ -121,12 +121,15 @@ class PlanPosition(UUIDMixin, TimestampMixin, Base):
         enum_column(PaymentMethod), nullable=True
     )
 
-    #: A budget rather than a single payment — groceries, fuel, pocket money.
+    #: A limit rather than a single payment — groceries, fuel, pocket money.
     #:
     #: Such a position is not ticked off: it fills up over the month from
     #: individual bookings. A tick would mean nothing there, a fill level does.
-    #: Comes from commitment type `budget`, freely choosable on one-off positions.
-    is_budget: Mapped[bool] = mapped_column(default=False)
+    #: Copied from `Commitment.is_limit`, freely choosable on one-off positions.
+    #:
+    #: A snapshot, like `category` and `budget`: changing the commitment later
+    #: must not rewrite months that already exist.
+    is_limit: Mapped[bool] = mapped_column(default=False)
 
     #: **Where** the money goes when it moves to another own account.
     #:
