@@ -634,5 +634,13 @@
     "householdLead": "Alle Posten, die ihr gemeinsam tragt. Zusammengesetzt aus den Plänen aller Mitglieder — geändert wird im eigenen Plan.",
     "nothingShared": "Noch nichts Gemeinsames",
     "nothingSharedHint": "Setz im eigenen Plan bei einem Posten den Haushalt — dann taucht er hier auf."
+  },
+  "ui": {
+    "close": "Close",
+    "sidebar": {
+      "title": "Sidebar",
+      "description": "Displays the mobile sidebar.",
+      "toggle": "Toggle Sidebar"
+    }
   }
 }
