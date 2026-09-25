@@ -568,5 +568,41 @@
     "name": "Name",
     "namePlaceholder": "Unser Haushalt",
     "youShare": "Du teilst:"
+  },
+  "import": {
+    "leadMember": "Die Parkposition von {{name}}.",
+    "parkedCount": "{{number}} geparkt",
+    "withoutCategory": "{{number}} ohne Kategorie",
+    "unknownIban": "Die Datei gehört zu <iban>{{iban}}</iban>. Zu welchem Konto?",
+    "read": "<number>{{number}}</number> gelesen",
+    "parked": "<number>{{number}}</number> geparkt",
+    "known": "{{number}} schon bekannt",
+    "table": {
+      "date": "Datum",
+      "counterparty": "Empfänger / Zahler",
+      "purpose": "Verwendungszweck",
+      "position": "Posten im Plan"
+    },
+    "alreadyBooked": "Schon gebucht — die andere Seite dieser Umbuchung steht im Buch ({{name}}).",
+    "maybeBooked": "Könnte die andere Seite einer Umbuchung sein, die schon im Buch steht ({{name}}). Dann wäre Buchen doppelt.",
+    "suggestedPosition": "Posten",
+    "lead": "Lade eine Umsatzdatei deiner Bank hoch — CAMT oder CSV. Die Buchungen warten hier, bis du sie zuordnest.",
+    "reading": "Wird gelesen …",
+    "upload": "Datei hochladen",
+    "empty": "Die Parkposition ist leer.",
+    "rememberAccount": "Duofy merkt sich die Antwort am Konto — beim nächsten Mal geht es von allein.",
+    "pickAccount": "Konto wählen …",
+    "balancesDiffer": "Die Salden gehen nicht auf — fehlt eine Seite der Datei?",
+    "from": "von",
+    "to": "nach",
+    "otherAccount": "anderem Konto",
+    "undo": "zurücknehmen",
+    "fromPosition": "Kommt aus dem Posten",
+    "pick": "wählen …",
+    "discard": "Verwerfen",
+    "suggestion": "Vorschlag:",
+    "transferGuess": "Umbuchung?",
+    "bookAsTransfer": "Als Umbuchung buchen",
+    "accept": "Übernehmen"
   }
 }
