@@ -54,7 +54,7 @@ const MARKERS = {
 }
 
 /** The three budgets, explained once and shown on the plan page. */
-const PLAN_BLOCKS = ['blocks.needs', 'blocks.wants', 'blocks.savings']
+const PLAN_BUDGETS = ['budgets.needs', 'budgets.wants', 'budgets.savings']
 
 /** Catalog paths of the entries, in the order the column lists them. */
 const ENTRIES: Record<HelpKey, string[]> = {
@@ -70,7 +70,7 @@ const ENTRIES: Record<HelpKey, string[]> = {
     'nothing-changed',
   ].map((id) => `import.entries.${id}`),
   plans: ['overview', 'switch', 'ritual'].map((id) => `plans.entries.${id}`),
-  plan: ['plan.entries.month', ...PLAN_BLOCKS, 'plan.entries.tick'],
+  plan: ['plan.entries.month', ...PLAN_BUDGETS, 'plan.entries.tick'],
   book: ['book', 'assignment', 'transfer', 'shared-book'].map(
     (id) => `book.entries.${id}`
   ),

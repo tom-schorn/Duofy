@@ -46,7 +46,7 @@
     "unreachable": "Das Backend ist gerade nicht erreichbar."
   },
   "enums": {
-    "block": {
+    "budget": {
       "income": "Einnahmen",
       "needs": "Fixkosten",
       "wants": "Wünsche",
@@ -336,7 +336,7 @@
   "positionPicker": {
     "none": "kein Posten",
     "noPlan": "kein Plan",
-    "budget": "Budget"
+    "limit": "Limit"
   },
   "book": {
     "title": "Buch",
@@ -352,7 +352,7 @@
     "markReceived": "{{label}} als erhalten markieren",
     "tick": "{{label}} abhaken",
     "fromCommitment": "aus Vertrag",
-    "limit": "Budget",
+    "limit": "Limit",
     "passThrough": "durchlaufend",
     "transfer": "Umbuchung",
     "fillLabel": "{{label}}: {{actual}} von {{planned}}",
@@ -400,18 +400,15 @@
         "budgetHint": "Tilgen ist kein Verbrauch — das Geld ist nicht weg, deine Schuld wird kleiner. Unterm Strich derselbe Vorgang wie Sparen.",
         "namePlaceholder": "Rundfunk-Altrückstand"
       },
-      "budget": {
-        "label": "Setze ich selbst",
-        "hint": "Sprit, Lebensmittel, Taschengeld — kein Vertrag, du legst den Betrag fest.",
-        "namePlaceholder": "Lebensmittel"
-      },
       "income": {
         "label": "Kommt rein",
         "hint": "Gehalt, Kindergeld, Zinsen — Geld, das hereinkommt.",
-        "budgetHint": "Einnahmen sind kein Verbrauch — aus ihnen entsteht erst das Budget, auf das sich die Quoten beziehen.",
+        "budgetHint": "Einnahmen sind kein Verbrauch — aus ihnen entsteht erst das Verteilbare, auf das sich die Quoten beziehen.",
         "namePlaceholder": "Gehalt"
       }
     },
+    "limit": "Limit",
+    "limitHint": "Sprit, Lebensmittel, Taschengeld — kein fester Betrag zum Abhaken, du legst nur die Höhe fest. Der Posten läuft über den Monat und füllt sich aus den Buchungen.",
     "dueIn": "Fällt an am {{day}}. in {{months}}",
     "firstTime": "erstmals {{month}} {{year}}.",
     "dayShifts": "Den {{day}}. gibt es nicht in jedem Monat — dann rutscht es auf den letzten Tag. Im Februar {{year}} also auf den {{februaryDay}}.",
@@ -474,11 +471,11 @@
     "wants": "Wünsche",
     "savings": "Sparen",
     "income": "Einnahmen",
-    "budget": "Budget",
+    "distributable": "Verteilbar",
     "oneMore": "1 weiterer Posten",
     "more": "{{number}} weitere Posten",
     "unplanned": "Noch nicht verplant",
-    "summary": "Budget · davon {{amount}} noch nicht verplant",
+    "summary": "Verteilbar · davon {{amount}} noch nicht verplant",
     "empty": "Für dieses Diagramm braucht der Monat Einnahmen und Posten. Sobald etwas geplant ist, steht hier, wohin es geht."
   },
   "plans": {
