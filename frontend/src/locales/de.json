@@ -330,7 +330,8 @@
     "create": "Anlegen",
     "dayOfMonth": "{{day}}. {{month}}",
     "percent": "{{value}} %",
-    "edit": "Bearbeiten"
+    "edit": "Bearbeiten",
+    "and": "und"
   },
   "positionPicker": {
     "none": "kein Posten",
@@ -604,5 +605,34 @@
     "transferGuess": "Umbuchung?",
     "bookAsTransfer": "Als Umbuchung buchen",
     "accept": "Übernehmen"
+  },
+  "plan": {
+    "printHeader": "Duofy · Monatsplan {{month}} {{year}} · gedruckt am {{date}}",
+    "positionsFrom": "{{number}} Posten aus {{household}}",
+    "noAccount": "<name>{{name}}</name> ist erledigt — es fehlt aber ein Standardkonto, auf das die Buchung gehen könnte.",
+    "untickText": "Das nimmt die Buchung über <amount>{{amount}}</amount> aus dem Haushaltsbuch. Von Hand erfasste Buchungen an diesem Posten bleiben stehen.",
+    "memberLead": "{{name}}s ganzer Monat, auch die privaten Posten — so freigegeben.",
+    "printHeaderHousehold": "Duofy · Haushalt {{household}} · {{month}} {{year}} · gedruckt am {{date}}",
+    "stillPrivateOne": "{{names}} teilt noch keine Zahlen — die Summen unten sind unvollständig. Umstellen lässt sich das nur von ihr oder ihm selbst, unter „Haushalt\".",
+    "stillPrivateMany": "{{names}} teilen noch keine Zahlen — die Summen unten sind unvollständig. Umstellen lässt sich das nur von ihnen selbst, unter „Haushalt\".",
+    "allPlans": "Alle Pläne",
+    "lead": "Verplane den Monat, bevor er anfängt. Die Quoten sind Richtwerte — es zählt, dass es aufgeht.",
+    "print": "Drucken",
+    "income": "Einnahmen",
+    "notDistributed": "noch nicht verteilt",
+    "notPaid": "noch nicht bezahlt",
+    "noAccountTitle": "Abgehakt, aber nichts gebucht",
+    "understood": "Verstanden",
+    "tabPlan": "Plan",
+    "tabFlow": "Verlauf",
+    "untickTitle": "Buchung mit entfernen?",
+    "untick": "Haken wegnehmen",
+    "standIn": "Vertretung",
+    "viewOnly": "Nur zum Ansehen.",
+    "mayDelete": "Du darfst abhaken, ändern, dazuschreiben und löschen; jede Änderung wird protokolliert.",
+    "mayEdit": "Du darfst abhaken, ändern und Posten dazuschreiben; jede Änderung wird protokolliert. Löschen bleibt beim Besitzer.",
+    "householdLead": "Alle Posten, die ihr gemeinsam tragt. Zusammengesetzt aus den Plänen aller Mitglieder — geändert wird im eigenen Plan.",
+    "nothingShared": "Noch nichts Gemeinsames",
+    "nothingSharedHint": "Setz im eigenen Plan bei einem Posten den Haushalt — dann taucht er hier auf."
   }
 }
