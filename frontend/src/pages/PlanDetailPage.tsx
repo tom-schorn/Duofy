@@ -56,7 +56,7 @@ import {
   euro,
   isPaid,
   stillDue,
-  type Block,
+  type Budget,
   atLeast,
   type HouseholdPlanDetail,
   type HouseholdPosition,
@@ -70,7 +70,7 @@ import {
  * One monthly plan in detail — the heart of the app.
  *
  * The flow follows the ritual: expect the income, subtract the buffer, distribute
- * the rest across the three blocks, check whether it works out, confirm.
+ * the rest across the three budgets, check whether it works out, confirm.
  *
  * The quotas are **guidelines**, not rules. There is a target, the actual figure
  * stands next to it, and one decides whether that is acceptable.
@@ -202,7 +202,7 @@ function PlanBody({
     )
 
   const [editing, setEditing] = useState<PlanPosition | null>(null)
-  const [addingTo, setAddingTo] = useState<Block>('wants')
+  const [addingTo, setAddingTo] = useState<Budget>('wants')
   const [dialogOpen, setDialogOpen] = useState(false)
 
   // For the confirmation when un-ticking: which booking hangs off which position.
@@ -241,7 +241,7 @@ function PlanBody({
       return
     }
 
-    if (!position.isBudget && !position.accountId && !hasDefaultAccount) {
+    if (!position.isLimit && !position.accountId && !hasDefaultAccount) {
       setNoAccountFor(position.label)
       togglePaid.mutate({ id: position.id, paid: true })
       return
@@ -258,33 +258,35 @@ function PlanBody({
     setBooking(position)
   }
 
-  const groups = BUDGETS.map((block) => {
-    const key = block as keyof typeof QUOTA_KEY
+  const groups = BUDGETS.map((budget) => {
+    const key = budget as keyof typeof QUOTA_KEY
     return {
-      block,
-      rows: plan.positions.filter((row) => row.block === block),
+      budget,
+      rows: plan.positions.filter((row) => row.budget === budget),
       quota: Number(plan[QUOTA_KEY[key]]),
-      target: Number(plan.budget) * (Number(plan[QUOTA_KEY[key]]) / 100),
+      target: Number(plan.distributable) * (Number(plan[QUOTA_KEY[key]]) / 100),
     }
   })
 
   // Income deliberately sits outside `groups`: it has no quota and must not flow
-  // into `allocated`, otherwise the remaining budget would be wrong.
-  const incomeRows = plan.positions.filter((row) => row.block === 'income')
+  // into `allocated`, otherwise the remainder would be wrong.
+  const incomeRows = plan.positions.filter((row) => row.budget === 'income')
 
-  // What is left to allocate is the free remainder of the budget, not the budget.
+  // What is left to allocate is the free remainder of the distributable amount,
+  // not the amount itself.
   const allocated = groups.reduce(
     (total, group) =>
       total +
       group.rows.reduce(
-        // Pass-through money was never budget — neither in `plan.budget` above nor
-        // here. Subtracting it only here would make the remainder too large.
+        // Pass-through money was never distributable — neither in
+        // `plan.distributable` above nor here. Subtracting it only here would make
+        // the remainder too large.
         (sum, row) => (row.passThrough ? sum : sum + Number(row.amountPlanned)),
         0
       ),
     0
   )
-  const free = Number(plan.budget) - allocated
+  const free = Number(plan.distributable) - allocated
 
   // What is still open is what has to be paid this month. Partial amounts already
   // recorded are subtracted, see `stillDue`.
@@ -301,9 +303,9 @@ function PlanBody({
     {}
   )
 
-  function handleAdd(block: Block) {
+  function handleAdd(budget: Budget) {
     setEditing(null)
-    setAddingTo(block)
+    setAddingTo(budget)
     setDialogOpen(true)
   }
 
@@ -478,14 +480,14 @@ function PlanBody({
             />
             <PlanSankey
               positions={plan.positions}
-              budget={plan.budget}
+              distributable={plan.distributable}
               height="h-56"
               threshold={0.05}
             />
           </div>
 
           <div className="print:hidden">
-            <PlanSankey positions={plan.positions} budget={plan.budget} />
+            <PlanSankey positions={plan.positions} distributable={plan.distributable} />
           </div>
 
       {/* Auf Papier ersetzt `PlanPrintout` diese Liste — dort trägt jede Zeile
@@ -495,7 +497,7 @@ function PlanBody({
         {/* Einnahmen zuerst — sie sind die Grundlage für alles darunter.
             target={null}, weil es für Einnahmen keine Quote gibt. */}
         <BudgetSection
-          block="income"
+          budget="income"
           target={null}
           positions={incomeRows}
           householdNames={householdNames}
@@ -509,8 +511,8 @@ function PlanBody({
 
         {groups.map((group) => (
           <BudgetSection
-            key={group.block}
-            block={group.block}
+            key={group.budget}
+            budget={group.budget}
             target={group.target}
             positions={group.rows}
             householdNames={householdNames}
@@ -588,7 +590,7 @@ function PlanBody({
 
       <PositionDialog
         position={editing}
-        block={editing?.block ?? addingTo}
+        budget={editing?.budget ?? addingTo}
         planId={plan.id}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
@@ -637,16 +639,16 @@ function MemberPlanBody({
   onTab: (value: string) => void
 }) {
   const { t } = useTranslation()
-  const groups = BUDGETS.map((block) => {
-    const key = block as keyof typeof QUOTA_KEY
+  const groups = BUDGETS.map((budget) => {
+    const key = budget as keyof typeof QUOTA_KEY
     return {
-      block,
-      rows: plan.positions.filter((row) => row.block === block),
-      target: Number(plan.budget) * (Number(plan[QUOTA_KEY[key]]) / 100),
+      budget,
+      rows: plan.positions.filter((row) => row.budget === budget),
+      target: Number(plan.distributable) * (Number(plan[QUOTA_KEY[key]]) / 100),
     }
   })
 
-  const incomeRows = plan.positions.filter((row) => row.block === 'income')
+  const incomeRows = plan.positions.filter((row) => row.budget === 'income')
 
   const allocated = groups.reduce(
     (total, group) =>
@@ -657,7 +659,7 @@ function MemberPlanBody({
       ),
     0
   )
-  const free = Number(plan.budget) - allocated
+  const free = Number(plan.distributable) - allocated
   const unpaid = plan.positions.reduce((sum, row) => sum + stillDue(row), 0)
 
   // Acting on their behalf: at level `edit` everything the owner can do except
@@ -672,7 +674,7 @@ function MemberPlanBody({
   const savePosition = useSavePosition()
   const deletePosition = useDeletePosition()
   const [editing, setEditing] = useState<PlanPosition | null>(null)
-  const [addingTo, setAddingTo] = useState<Block>('wants')
+  const [addingTo, setAddingTo] = useState<Budget>('wants')
   const [dialogOpen, setDialogOpen] = useState(false)
 
   function openEditor(position: PlanPosition) {
@@ -680,9 +682,9 @@ function MemberPlanBody({
     setDialogOpen(true)
   }
 
-  function handleAdd(block: Block) {
+  function handleAdd(budget: Budget) {
     setEditing(null)
-    setAddingTo(block)
+    setAddingTo(budget)
     setDialogOpen(true)
   }
 
@@ -763,7 +765,7 @@ function MemberPlanBody({
         <TabsContent value="plan">
           <div className="flex flex-col gap-8">
             <BudgetSection
-              block="income"
+              budget="income"
               target={null}
               positions={incomeRows}
               householdNames={householdNames}
@@ -776,8 +778,8 @@ function MemberPlanBody({
 
             {groups.map((group) => (
               <BudgetSection
-                key={group.block}
-                block={group.block}
+                key={group.budget}
+                budget={group.budget}
                 target={group.target}
                 positions={group.rows}
                 householdNames={householdNames}
@@ -797,7 +799,7 @@ function MemberPlanBody({
           ohnehin noch einmal. */}
       <PositionDialog
         position={editing}
-        block={editing?.block ?? addingTo}
+        budget={editing?.budget ?? addingTo}
         planId={plan.id}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
@@ -835,29 +837,30 @@ function HouseholdPlanBody({
   onTab: (value: string) => void
 }) {
   const { t } = useTranslation()
-  const groups = BUDGETS.map((block) => {
-    const key = block as keyof typeof QUOTA_KEY
+  const groups = BUDGETS.map((budget) => {
+    const key = budget as keyof typeof QUOTA_KEY
     return {
-      block,
-      rows: plan.positions.filter((row) => row.block === block),
-      target: Number(plan.budget) * (Number(plan[QUOTA_KEY[key]]) / 100),
+      budget,
+      rows: plan.positions.filter((row) => row.budget === budget),
+      target: Number(plan.distributable) * (Number(plan[QUOTA_KEY[key]]) / 100),
     }
   })
 
-  const incomeRows = plan.positions.filter((row) => row.block === 'income')
+  const incomeRows = plan.positions.filter((row) => row.budget === 'income')
 
   const allocated = groups.reduce(
     (total, group) =>
       total +
       group.rows.reduce(
-        // Pass-through money was never budget — neither in `plan.budget` above nor
-        // here. Subtracting it only here would make the remainder too large.
+        // Pass-through money was never distributable — neither in
+        // `plan.distributable` above nor here. Subtracting it only here would make
+        // the remainder too large.
         (sum, row) => (row.passThrough ? sum : sum + Number(row.amountPlanned)),
         0
       ),
     0
   )
-  const free = Number(plan.budget) - allocated
+  const free = Number(plan.distributable) - allocated
 
   const unpaid = plan.positions.reduce((sum, row) => sum + stillDue(row), 0)
 
@@ -1007,20 +1010,20 @@ function HouseholdPlanBody({
                 />
                 <PlanSankey
                   positions={plan.positions}
-                  budget={plan.budget}
+                  distributable={plan.distributable}
                   height="h-56"
                   threshold={0.05}
                 />
               </div>
 
               <div className="print:hidden">
-                <PlanSankey positions={plan.positions} budget={plan.budget} />
+                <PlanSankey positions={plan.positions} distributable={plan.distributable} />
               </div>
 
               {/* Auf Papier ersetzt `PlanPrintout` diese Liste. */}
               <div className="flex flex-col gap-8 print:hidden">
                 <BudgetSection
-                  block="income"
+                  budget="income"
                   target={null}
                   positions={incomeRows}
                   householdNames={householdNames}
@@ -1033,8 +1036,8 @@ function HouseholdPlanBody({
 
                 {groups.map((group) => (
                   <BudgetSection
-                    key={group.block}
-                    block={group.block}
+                    key={group.budget}
+                    budget={group.budget}
                     target={group.target}
                     positions={group.rows}
                     householdNames={householdNames}

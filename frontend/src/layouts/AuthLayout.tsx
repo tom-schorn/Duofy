@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ThemeToggle } from '@/components/ThemeToggle'
-import { blockLabel, type Block } from '@/lib/domain'
+import { budgetLabel, type Budget } from '@/lib/domain'
 
 /**
  * Split screen for sign-in and registration.
@@ -15,11 +15,11 @@ import { blockLabel, type Block } from '@/lib/domain'
  * automatically.
  */
 
-/** The three budgets — 50 · 30 · 20. The backend enum is called `Block`. */
-const BLOCKS: { block: Block; color: string }[] = [
-  { block: 'needs', color: 'bg-chart-1' },
-  { block: 'wants', color: 'bg-chart-2' },
-  { block: 'savings', color: 'bg-chart-4' },
+/** The three budgets — 50 · 30 · 20. */
+const BUDGETS: { budget: Budget; color: string }[] = [
+  { budget: 'needs', color: 'bg-chart-1' },
+  { budget: 'wants', color: 'bg-chart-2' },
+  { budget: 'savings', color: 'bg-chart-4' },
 ]
 
 export function AuthLayout({ children }: { children: ReactNode }) {
@@ -38,13 +38,13 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           </blockquote>
 
           <ul className="flex flex-col gap-3">
-            {BLOCKS.map((block) => (
+            {BUDGETS.map((budget) => (
               <li
-                key={block.block}
+                key={budget.budget}
                 className="text-foreground/80 flex items-center gap-3 text-sm"
               >
-                <span className={`size-2.5 rounded-sm ${block.color}`} />
-                {blockLabel(block.block)}
+                <span className={`size-2.5 rounded-sm ${budget.color}`} />
+                {budgetLabel(budget.budget)}
               </li>
             ))}
           </ul>
