@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronDown, Check } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -11,7 +12,8 @@ import {
   BLOCK_DOT,
   BLOCK_SUGGESTION,
   CATEGORY_GROUPS,
-  CATEGORY_LABEL,
+  categoryGroupLabel,
+  categoryLabel,
   type Category,
 } from '@/lib/domain'
 import { cn } from '@/lib/utils'
@@ -38,7 +40,7 @@ export function CategoryPicker({
   value,
   onChange,
   disabled = false,
-  placeholder = 'Kategorie wählen …',
+  placeholder,
   className,
 }: {
   value: Category | null
@@ -47,6 +49,7 @@ export function CategoryPicker({
   placeholder?: string
   className?: string
 }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [group, setGroup] = useState<string | null>(null)
 
@@ -56,7 +59,7 @@ export function CategoryPicker({
     if (!open) setGroup(null)
   }, [open])
 
-  const chosen = CATEGORY_GROUPS.find((entry) => entry.label === group)
+  const chosen = CATEGORY_GROUPS.find((entry) => entry.group === group)
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -78,7 +81,9 @@ export function CategoryPicker({
               />
             )}
             <span className="truncate">
-              {value === null ? placeholder : CATEGORY_LABEL[value]}
+              {value === null
+                ? (placeholder ?? t('categoryPicker.placeholder'))
+                : categoryLabel(value)}
             </span>
           </span>
           <ChevronDown className="size-4 shrink-0 opacity-50" />
@@ -89,13 +94,15 @@ export function CategoryPicker({
         {chosen === undefined ? (
           <ul className="max-h-80 overflow-y-auto py-1">
             {CATEGORY_GROUPS.map((entry) => (
-              <li key={entry.label ?? 'ungrouped'}>
+              <li key={entry.group ?? 'ungrouped'}>
                 <button
                   type="button"
-                  onClick={() => setGroup(entry.label)}
+                  onClick={() => setGroup(entry.group)}
                   className="hover:bg-accent flex w-full items-center justify-between px-3 py-2 text-sm"
                 >
-                  {entry.label ?? 'Ohne Gruppe'}
+                  {entry.group === null
+                    ? t('categoryPicker.ungrouped')
+                    : categoryGroupLabel(entry.group)}
                   <span className="text-muted-foreground text-xs tabular-nums">
                     {entry.categories.length}
                   </span>
@@ -111,7 +118,7 @@ export function CategoryPicker({
               className="hover:bg-accent border-border flex w-full items-center gap-1.5 border-b px-3 py-2 text-sm font-medium"
             >
               <ChevronLeft className="size-4" />
-              {chosen.label}
+              {chosen.group !== null && categoryGroupLabel(chosen.group)}
             </button>
             <ul className="max-h-72 overflow-y-auto py-1">
               {chosen.categories.map((category) => (
@@ -130,7 +137,7 @@ export function CategoryPicker({
                         BLOCK_DOT[BLOCK_SUGGESTION[category]]
                       )}
                     />
-                    <span className="truncate">{CATEGORY_LABEL[category]}</span>
+                    <span className="truncate">{categoryLabel(category)}</span>
                     {category === value && <Check className="ml-auto size-4 shrink-0" />}
                   </button>
                 </li>

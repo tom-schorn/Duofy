@@ -1,14 +1,17 @@
+import { useTranslation } from 'react-i18next'
 import {
-  BLOCK_LABEL,
+  blockLabel,
   BUDGETS,
   euro,
   isPaid,
+  paymentLabel,
   QUOTA_KEY,
   type Block,
   type PaymentMethod,
   type PlanPosition,
   type PlanSummary,
 } from '@/lib/domain'
+import { formatShare } from '@/lib/format'
 
 /**
  * The position list for paper — page two of the printout.
@@ -48,12 +51,12 @@ type Props = {
 }
 
 /** The payment-method legend. Light fills so the text on them stays readable. */
-const ZAHLART: Record<PaymentMethod, { label: string; fill: string }> = {
-  withdrawal: { label: 'Abhebung', fill: '#dcefe0' },
-  transfer: { label: 'Überweisung', fill: '#fae3cd' },
-  standing_order: { label: 'Dauerauftrag', fill: '#f7dce8' },
-  direct_debit: { label: 'Lastschrift', fill: '#f7dce8' },
-  special: { label: 'Besonderheit', fill: '#faf0c8' },
+const ZAHLART: Record<PaymentMethod, { fill: string }> = {
+  withdrawal: { fill: '#dcefe0' },
+  transfer: { fill: '#fae3cd' },
+  standing_order: { fill: '#f7dce8' },
+  direct_debit: { fill: '#f7dce8' },
+  special: { fill: '#faf0c8' },
 }
 
 /** By due day; on the same day the larger amount first. */
@@ -66,6 +69,7 @@ function sortiert(positions: PlanPosition[]): PlanPosition[] {
 }
 
 export function PlanPrintout({ plan, ownerName }: Props) {
+  const { t } = useTranslation()
   const budget = Number(plan.budget)
 
   const gruppen = [
@@ -85,7 +89,7 @@ export function PlanPrintout({ plan, ownerName }: Props) {
           Die Regel sitzt an der Überschrift, nicht an einem leeren `div` —
           leere Elemente überspringen manche Browser beim Umbruch. */}
       <h2 className="mb-3 break-before-page text-base font-semibold">
-        Posten — {plan.positions.length} Stück
+        {t('printout.heading', { number: plan.positions.length })}
       </h2>
 
       {gruppen.map(({ block, quote }) => {
@@ -103,9 +107,12 @@ export function PlanPrintout({ plan, ownerName }: Props) {
           <section key={block} className="mb-2.5 break-inside-avoid">
             <div className="flex items-baseline justify-between border-b border-black/40 pb-0.5 text-[11px] font-semibold">
               <span className="uppercase">
-                {BLOCK_LABEL[block]}
+                {blockLabel(block)}
                 {quote !== null && (
-                  <span className="font-normal"> · Soll {quote} %</span>
+                  <span className="font-normal">
+                    {' '}
+                    · {t('printout.target', { percent: quote })}
+                  </span>
                 )}
               </span>
               <span className="tabular-nums">
@@ -113,7 +120,7 @@ export function PlanPrintout({ plan, ownerName }: Props) {
                 {quote !== null && budget > 0 && (
                   <span className="font-normal">
                     {' '}
-                    · Ist {((soll / budget) * 100).toFixed(1).replace('.', ',')} %
+                    · {t('printout.actualShare', { percent: formatShare((soll / budget) * 100) })}
                   </span>
                 )}
               </span>
@@ -122,14 +129,20 @@ export function PlanPrintout({ plan, ownerName }: Props) {
             <table className="w-full border-collapse text-[10px] leading-tight">
               <thead>
                 <tr className="text-left text-[9px] uppercase">
-                  <th className="w-8 py-px font-medium">Tag</th>
-                  <th className="py-px font-medium">Bezeichnung</th>
+                  <th className="w-8 py-px font-medium">{t('printout.day')}</th>
+                  <th className="py-px font-medium">{t('printout.label')}</th>
                   {ownerName && (
-                    <th className="w-16 py-px font-medium">Wer</th>
+                    <th className="w-16 py-px font-medium">{t('printout.who')}</th>
                   )}
-                  <th className="w-20 py-px text-right font-medium">Betrag</th>
-                  <th className="w-20 py-px text-right font-medium">Summe</th>
-                  <th className="w-20 py-px text-right font-medium">Ist</th>
+                  <th className="w-20 py-px text-right font-medium">
+                    {t('common.amount')}
+                  </th>
+                  <th className="w-20 py-px text-right font-medium">
+                    {t('printout.sum')}
+                  </th>
+                  <th className="w-20 py-px text-right font-medium">
+                    {t('printout.actual')}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -151,11 +164,16 @@ export function PlanPrintout({ plan, ownerName }: Props) {
                         isPaid(p) ? 'text-black/55 line-through' : ''
                       }`}
                     >
-                      <td className="py-px tabular-nums">{p.dueDay}.</td>
+                      <td className="py-px tabular-nums">
+                        {t('common.dueDay', { day: p.dueDay })}
+                      </td>
                       <td className="py-px">
                         {p.label}
                         {p.passThrough && (
-                          <span className="text-[9px]"> · durchlaufend</span>
+                          <span className="text-[9px]">
+                            {' '}
+                            · {t('budget.passThrough')}
+                          </span>
                         )}
                       </td>
                       {ownerName && (
@@ -180,7 +198,7 @@ export function PlanPrintout({ plan, ownerName }: Props) {
                 {ist > 0 && (
                   <tr className="font-semibold">
                     <td />
-                    <td className="py-px">Ist zusammen</td>
+                    <td className="py-px">{t('printout.actualTotal')}</td>
                     {ownerName && <td />}
                     <td />
                     <td />
@@ -199,13 +217,15 @@ export function PlanPrintout({ plan, ownerName }: Props) {
         {Object.entries(ZAHLART)
           // Standing order and direct debit share a colour — show it once.
           .filter(([key]) => key !== 'direct_debit')
-          .map(([key, { label, fill }]) => (
+          .map(([key, { fill }]) => (
             <span key={key} className="flex items-center gap-1">
               <span
                 className="inline-block size-2 border border-black/20"
                 style={{ backgroundColor: fill }}
               />
-              {key === 'standing_order' ? 'Dauerauftrag / Lastschrift' : label}
+              {key === 'standing_order'
+                ? t('printout.standingOrderOrDebit')
+                : paymentLabel(key as PaymentMethod)}
             </span>
           ))}
       </div>

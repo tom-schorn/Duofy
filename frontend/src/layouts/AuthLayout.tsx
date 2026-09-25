@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { blockLabel, type Block } from '@/lib/domain'
 
 /**
  * Split screen for sign-in and registration.
@@ -14,13 +16,15 @@ import { ThemeToggle } from '@/components/ThemeToggle'
  */
 
 /** The three budgets — 50 · 30 · 20. The backend enum is called `Block`. */
-const BLOCKS = [
-  { label: 'Fixkosten', color: 'bg-chart-1' },
-  { label: 'Wünsche', color: 'bg-chart-2' },
-  { label: 'Sparen', color: 'bg-chart-4' },
+const BLOCKS: { block: Block; color: string }[] = [
+  { block: 'needs', color: 'bg-chart-1' },
+  { block: 'wants', color: 'bg-chart-2' },
+  { block: 'savings', color: 'bg-chart-4' },
 ]
 
 export function AuthLayout({ children }: { children: ReactNode }) {
+  const { t } = useTranslation()
+
   return (
     <div className="grid min-h-svh lg:grid-cols-2">
       <aside className="dark hidden flex-col justify-between bg-[#1E3A5F] p-12 lg:flex">
@@ -30,24 +34,24 @@ export function AuthLayout({ children }: { children: ReactNode }) {
 
         <div className="flex flex-col gap-10">
           <blockquote className="text-foreground font-heading max-w-md text-3xl leading-tight font-semibold text-balance">
-            Duofy plant Geld, es zählt es nicht.
+            {t('auth.claim')}
           </blockquote>
 
           <ul className="flex flex-col gap-3">
             {BLOCKS.map((block) => (
               <li
-                key={block.label}
+                key={block.block}
                 className="text-foreground/80 flex items-center gap-3 text-sm"
               >
                 <span className={`size-2.5 rounded-sm ${block.color}`} />
-                {block.label}
+                {blockLabel(block.block)}
               </li>
             ))}
           </ul>
         </div>
 
         <p className="text-foreground/70 max-w-xs text-sm">
-          Gemeinsam planen, getrennt besitzen.
+          {t('auth.tagline')}
         </p>
       </aside>
 

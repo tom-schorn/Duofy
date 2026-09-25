@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LogOut, MoreHorizontal, Pencil, Plus, UserPlus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -40,17 +41,18 @@ import {
   useSetMyAccess,
 } from '@/lib/queries'
 import {
-  ACCESS_HINT,
-  ACCESS_LABEL,
+  accessHint,
+  accessLabel,
   ACCESS_ORDER,
   AREA_FIELD,
-  AREA_LABEL,
+  areaLabel,
   AREA_ORDER,
   type AccessLevel,
   type Household,
   type Member,
   type Role,
 } from '@/lib/domain'
+import { shortDate } from '@/lib/dates'
 
 /**
  * The household as a planning layer.
@@ -65,12 +67,14 @@ import {
  * (`target_needs` and friends on `Household`), the interface for them does not.
  */
 
+/** Catalog keys of the roles. */
 const ROLE_LABEL: Record<Role, string> = {
-  owner: 'Besitzer',
-  member: 'Mitglied',
+  owner: 'household.roles.owner',
+  member: 'household.roles.member',
 }
 
 export function HouseholdPage() {
+  const { t } = useTranslation()
   const households = useHouseholds()
   const me = useMe()
   const [invitingTo, setInvitingTo] = useState<Household | null>(null)
@@ -80,10 +84,9 @@ export function HouseholdPage() {
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-2">
-          <h1 className="font-heading text-3xl font-semibold">Haushalt</h1>
+          <h1 className="font-heading text-3xl font-semibold">{t('household.title')}</h1>
           <p className="text-muted-foreground max-w-2xl">
-            Ein Haushalt sagt nur, wer zusammen plant. Er besitzt nichts —
-            Konten und Verträge gehören immer einer Person.
+            {t('household.lead')}
           </p>
         </div>
         <CreateHouseholdButton />
@@ -124,7 +127,7 @@ export function HouseholdPage() {
                         </span>
                         {isMe && (
                           <Badge variant="outline" className="font-normal">
-                            du
+                            {t('household.you')}
                           </Badge>
                         )}
                       </span>
@@ -137,7 +140,7 @@ export function HouseholdPage() {
                       variant={member.role === 'owner' ? 'secondary' : 'outline'}
                       className="ml-auto font-normal"
                     >
-                      {ROLE_LABEL[member.role]}
+                      {t(ROLE_LABEL[member.role])}
                     </Badge>
 
                     {/* Die Freigabe steht bei der eigenen Zeile, weil man nur
@@ -150,8 +153,8 @@ export function HouseholdPage() {
                         <span className="text-muted-foreground flex flex-col gap-0.5 text-xs">
                           {AREA_ORDER.map((area) => (
                             <span key={area}>
-                              {AREA_LABEL[area]}:{' '}
-                              {ACCESS_LABEL[area][member[AREA_FIELD[area]]].toLowerCase()}
+                              {areaLabel(area)}:{' '}
+                              {accessLabel(area, member[AREA_FIELD[area]]).toLowerCase()}
                             </span>
                           ))}
                         </span>
@@ -184,6 +187,7 @@ function HouseholdHeader({
   onInvite: () => void
 }) {
   const leave = useLeaveHousehold()
+  const { t } = useTranslation()
   const me = household.members.find((member) => member.userId === currentUserId)
   const isOwner = me?.role === 'owner'
 
@@ -194,14 +198,14 @@ function HouseholdHeader({
           {household.name}
         </span>
         <span className="text-muted-foreground text-sm">
-          {household.members.length} Mitglieder
+          {t('household.memberCount', { number: household.members.length })}
         </span>
       </div>
 
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" onClick={onInvite}>
           <UserPlus className="size-4" />
-          Einladen
+          {t('household.invite')}
         </Button>
 
         <DropdownMenu>
@@ -221,7 +225,7 @@ function HouseholdHeader({
               // TODO: a dialog for renaming.
               <DropdownMenuItem className="gap-2">
                 <Pencil className="size-4" />
-                Umbenennen
+                {t('household.rename')}
               </DropdownMenuItem>
             )}
             {/* Die eingebrachten Posten bleiben im Haushalt stehen — vergangene
@@ -233,7 +237,7 @@ function HouseholdHeader({
               onSelect={() => leave.mutate(household.id)}
             >
               <LogOut className="size-4" />
-              Austreten
+              {t('household.leave')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -250,6 +254,7 @@ function InviteDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const [email, setEmail] = useState('')
+  const { t } = useTranslation()
   const invite = useInvite(household?.id ?? '')
 
   return (
@@ -272,27 +277,25 @@ function InviteDialog({
         >
           <DialogHeader>
             <DialogTitle className="font-heading text-xl">
-              Zu „{household?.name}" einladen
+              {t('household.inviteTitle', { name: household?.name })}
             </DialogTitle>
             <DialogDescription>
-              Wer beitritt, sieht ab dann alle Posten, die in diesen Haushalt
-              eingebracht wurden — und darf sie ändern.
+              {t('household.inviteDescription')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="invite-email">E-Mail</Label>
+            <Label htmlFor="invite-email">{t('auth.email')}</Label>
             <Input
               id="invite-email"
               type="email"
-              placeholder="partner@beispiel.de"
+              placeholder={t('household.invitePlaceholder')}
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               required
             />
             <p className="text-muted-foreground text-xs">
-              Private Posten bleiben privat. Nur was ausdrücklich dem Haushalt
-              zugeordnet ist, wird geteilt.
+              {t('household.inviteHint')}
             </p>
           </div>
 
@@ -308,10 +311,10 @@ function InviteDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              Abbrechen
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={invite.isPending}>
-              {invite.isPending ? 'Wird gesendet…' : 'Einladung senden'}
+              {invite.isPending ? t('household.sending') : t('household.sendInvite')}
             </Button>
           </DialogFooter>
         </form>
@@ -329,6 +332,7 @@ function InviteDialog({
  */
 function PendingInvitations() {
   const invitations = useMyInvitations()
+  const { t } = useTranslation()
   const accept = useAcceptInvitation()
   const decline = useDeclineInvitation()
 
@@ -345,12 +349,13 @@ function PendingInvitations() {
             <UserPlus className="text-primary size-5 shrink-0" />
             <span className="flex min-w-0 flex-col">
               <span className="font-medium">
-                {invitation.invitedBy} lädt dich in „{invitation.householdName}"
-                ein
+                {t('household.invitedBy', {
+                  name: invitation.invitedBy,
+                  household: invitation.householdName,
+                })}
               </span>
               <span className="text-muted-foreground text-xs">
-                Gültig bis{' '}
-                {new Date(invitation.expiresAt).toLocaleDateString('de-DE')}
+                {t('household.validUntil', { date: shortDate(invitation.expiresAt) })}
               </span>
             </span>
           </span>
@@ -362,14 +367,14 @@ function PendingInvitations() {
               onClick={() => decline.mutate(invitation.token)}
               disabled={decline.isPending || accept.isPending}
             >
-              Ablehnen
+              {t('household.decline')}
             </Button>
             <Button
               size="sm"
               onClick={() => accept.mutate(invitation.token)}
               disabled={accept.isPending || decline.isPending}
             >
-              Beitreten
+              {t('household.join')}
             </Button>
           </span>
         </li>
@@ -389,13 +394,14 @@ function PendingInvitations() {
 function CreateHouseholdButton() {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
+  const { t } = useTranslation()
   const create = useCreateHousehold()
 
   return (
     <>
       <Button onClick={() => setOpen(true)}>
         <Plus className="size-4" />
-        Haushalt anlegen
+        {t('household.create')}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -417,20 +423,20 @@ function CreateHouseholdButton() {
           >
             <DialogHeader>
               <DialogTitle className="font-heading text-xl">
-                Haushalt anlegen
+                {t('household.create')}
               </DialogTitle>
               <DialogDescription>
-                Wer anlegt, wird Besitzer. Danach kannst du jemanden einladen.
+                {t('household.createDescription')}
               </DialogDescription>
             </DialogHeader>
 
             <div className="flex flex-col gap-2">
-              <Label htmlFor="household-name">Name</Label>
+              <Label htmlFor="household-name">{t('household.name')}</Label>
               <Input
                 id="household-name"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                placeholder="Unser Haushalt"
+                placeholder={t('household.namePlaceholder')}
                 required
                 autoFocus
               />
@@ -448,10 +454,10 @@ function CreateHouseholdButton() {
                 variant="outline"
                 onClick={() => setOpen(false)}
               >
-                Abbrechen
+                {t('common.cancel')}
               </Button>
               <Button type="submit" disabled={create.isPending}>
-                {create.isPending ? 'Wird angelegt\u2026' : 'Anlegen'}
+                {create.isPending ? t('plans.creating') : t('common.create')}
               </Button>
             </DialogFooter>
           </form>
@@ -475,17 +481,18 @@ function AccessChoice({
   member: Member
 }) {
   const save = useSetMyAccess(householdId)
+  const { t } = useTranslation()
 
   return (
     <span className="flex flex-col gap-3">
-      <span className="text-muted-foreground text-xs">Du teilst:</span>
+      <span className="text-muted-foreground text-xs">{t('household.youShare')}</span>
 
       {AREA_ORDER.map((area) => {
         const level = member[AREA_FIELD[area]]
         return (
           <span key={area} className="flex flex-col gap-1">
             <span className="flex flex-wrap items-center gap-2">
-              <span className="w-32 text-xs font-medium">{AREA_LABEL[area]}</span>
+              <span className="w-32 text-xs font-medium">{areaLabel(area)}</span>
               <Select
                 value={level}
                 // Only this area travels. What the call leaves out keeps its
@@ -501,14 +508,14 @@ function AccessChoice({
                 <SelectContent>
                   {ACCESS_ORDER.map((option) => (
                     <SelectItem key={option} value={option}>
-                      {ACCESS_LABEL[area][option]}
+                      {accessLabel(area, option)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </span>
             <span className="text-muted-foreground pl-34 text-xs">
-              {ACCESS_HINT[area][level]}
+              {accessHint(area, level)}
             </span>
           </span>
         )

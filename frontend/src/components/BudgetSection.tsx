@@ -1,4 +1,5 @@
 import { Plus, User, Users } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -6,9 +7,9 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Progress } from '@/components/ui/progress'
 import {
   BLOCK_DOT,
-  BLOCK_LABEL,
-  CATEGORY_LABEL,
-  PAYMENT_LABEL,
+  blockLabel,
+  categoryLabel,
+  paymentLabel,
   euro,
   isPaid,
   type Block,
@@ -78,6 +79,7 @@ export function BudgetSection({
   canAdd = true,
   ownerName,
 }: Props) {
+  const { t } = useTranslation()
   // Pass-through positions appear in the list but not in the total: they are not
   // part of the budget, so the quota must not see them.
   const total = positions.reduce(
@@ -94,7 +96,7 @@ export function BudgetSection({
         <div className="flex items-baseline justify-between gap-4">
           <h2 className="flex items-center gap-2 text-sm font-semibold tracking-wide uppercase">
             <span className={`size-2.5 rounded-sm ${BLOCK_DOT[block]}`} />
-            {BLOCK_LABEL[block]}
+            {blockLabel(block)}
           </h2>
           <span className="text-sm tabular-nums">
             <span className={isOver ? 'text-destructive font-semibold' : 'font-semibold'}>
@@ -103,7 +105,7 @@ export function BudgetSection({
             {target !== null && (
               <span className="text-muted-foreground">
                 {' '}
-                von {euro.format(target)}
+                {t('budget.of', { amount: euro.format(target) })}
               </span>
             )}
           </span>
@@ -114,7 +116,10 @@ export function BudgetSection({
           // colour carries identity, so it is overridden.
           <Progress
             value={Math.min(percent, 100)}
-            aria-label={`${BLOCK_LABEL[block]}: ${Math.round(percent)} % der Quote`}
+            aria-label={t('budget.quotaLabel', {
+              budget: blockLabel(block),
+              percent: Math.round(percent),
+            })}
             className={`h-1.5 ${isOver ? BAR_OVER : BAR[block]}`}
           />
         )}
@@ -145,7 +150,7 @@ export function BudgetSection({
         className="text-muted-foreground hover:text-foreground w-fit"
       >
         <Plus className="size-4" />
-        Posten in {BLOCK_LABEL[block]}
+        {t('budget.addPosition', { budget: blockLabel(block) })}
       </Button>
       )}
     </section>
@@ -168,6 +173,7 @@ function PositionRow({
   ownerName: string | null
 }) {
   const planned = Number(position.amountPlanned)
+  const { t } = useTranslation()
   const actual =
     position.amountActual === null ? null : Number(position.amountActual)
   // Only flag real overruns — staying below the quota is not a problem.
@@ -207,10 +213,10 @@ function PositionRow({
             onCheckedChange={() => onTogglePaid(position)}
             aria-label={
               paid
-                ? `${position.label} wieder öffnen`
+                ? t('budget.reopen', { label: position.label })
                 : position.block === 'income'
-                  ? `${position.label} als erhalten markieren`
-                  : `${position.label} abhaken`
+                  ? t('budget.markReceived', { label: position.label })
+                  : t('budget.tick', { label: position.label })
             }
             className="data-checked:border-chart-4 data-checked:bg-chart-4 data-checked:text-background"
           />
@@ -245,14 +251,15 @@ function PositionRow({
           )}
         </span>
         <span className="text-muted-foreground truncate text-xs">
-          {CATEGORY_LABEL[position.category]} · {position.dueDay}.
+          {categoryLabel(position.category)} ·{' '}
+          {t('common.dueDay', { day: position.dueDay })}
           {position.paymentMethod
-            ? ` · ${PAYMENT_LABEL[position.paymentMethod]}`
+            ? ` · ${paymentLabel(position.paymentMethod)}`
             : ''}
-          {position.commitmentId ? ' · aus Vertrag' : ''}
-          {position.isBudget ? ' · Budget' : ''}
-          {position.passThrough ? ' · durchlaufend' : ''}
-          {position.counterAccountId ? ' · Umbuchung' : ''}
+          {position.commitmentId ? ` · ${t('budget.fromCommitment')}` : ''}
+          {position.isBudget ? ` · ${t('budget.limit')}` : ''}
+          {position.passThrough ? ` · ${t('budget.passThrough')}` : ''}
+          {position.counterAccountId ? ` · ${t('budget.transfer')}` : ''}
         </span>
       </button>
 
@@ -267,14 +274,18 @@ function PositionRow({
               </span>
               <span className="text-muted-foreground">
                 {' '}
-                von {euro.format(planned)}
+                {t('budget.of', { amount: euro.format(planned) })}
               </span>
             </span>
             {/* Füllstand statt Haken: die Frage ist „wie viel ist weg", nicht
                 „ist es erledigt". */}
             <Progress
               value={Math.min(((actual ?? 0) / (planned || 1)) * 100, 100)}
-              aria-label={`${position.label}: ${euro.format(actual ?? 0)} von ${euro.format(planned)}`}
+              aria-label={t('budget.fillLabel', {
+                label: position.label,
+                actual: euro.format(actual ?? 0),
+                planned: euro.format(planned),
+              })}
               className={`w-24 ${overspent ? BAR_OVER : BAR.needs}`}
             />
           </>
@@ -285,7 +296,7 @@ function PositionRow({
               <span
                 className={`text-xs ${overspent ? 'text-destructive' : 'text-muted-foreground'}`}
               >
-                ist {euro.format(actual)}
+                {t('budget.actual', { amount: euro.format(actual) })}
               </span>
             )}
           </>

@@ -1,4 +1,5 @@
 import { Check, Monitor, Moon, Sun } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -10,18 +11,19 @@ import {
 import { useTheme, type Theme } from '@/components/ThemeProvider'
 
 const OPTIONS: { value: Theme; label: string; icon: typeof Sun }[] = [
-  { value: 'light', label: 'Hell', icon: Sun },
-  { value: 'dark', label: 'Dunkel', icon: Moon },
-  { value: 'system', label: 'System', icon: Monitor },
+  { value: 'light', label: 'theme.light', icon: Sun },
+  { value: 'dark', label: 'theme.dark', icon: Moon },
+  { value: 'system', label: 'theme.system', icon: Monitor },
 ]
 
 export function ThemeToggle() {
+  const { t } = useTranslation()
   const { theme, setTheme } = useTheme()
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="size-8" aria-label="Darstellung">
+        <Button variant="ghost" size="icon" className="size-8" aria-label={t('theme.label')}>
           {/* Beide Symbole liegen übereinander, nur eines ist sichtbar —
               so springt nichts, wenn der Modus wechselt. */}
           <Sun className="size-4 scale-100 rotate-0 transition-transform dark:scale-0 dark:-rotate-90" />
@@ -36,7 +38,7 @@ export function ThemeToggle() {
             className="gap-2"
           >
             <option.icon className="size-4" />
-            {option.label}
+            {t(option.label)}
             {theme === option.value && <Check className="ml-auto size-4" />}
           </DropdownMenuItem>
         ))}

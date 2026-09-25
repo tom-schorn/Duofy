@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import {
   Dialog,
@@ -25,14 +26,14 @@ import { CategoryPicker } from '@/components/CategoryPicker'
 import { cn } from '@/lib/utils'
 import {
   BLOCK_DOT,
-  BLOCK_LABEL,
+  blockLabel,
   BUDGETS,
   BLOCK_SUGGESTION,
   DUE_DAY_MAY_SHIFT,
   categoryGroup,
-  MONTH_LABEL,
-  PAYMENT_LABEL,
-  RHYTHM_LABEL,
+  monthLabel,
+  paymentLabel,
+  rhythmLabel,
   dueMonths,
   effectiveDueDay,
   firstMonthOf,
@@ -42,6 +43,8 @@ import {
   type CommitmentType,
   type PaymentMethod,
   type Rhythm,
+  PAYMENT_METHODS,
+  RHYTHM_INTERVAL,
 } from '@/lib/domain'
 import { useAccounts, useHouseholds } from '@/lib/queries'
 
@@ -66,59 +69,57 @@ const TYPE_OPTIONS: {
   value: CommitmentType
   label: string
   hint: string
-  /** Why the block is fixed — shown in place of the picker. */
+  /** Why the block is fixed — shown in place of the picker. Catalog keys, like the other texts. */
   budgetHint: string | null
   namePlaceholder: string
   defaultCategory: Category
 }[] = [
   {
     value: 'contract',
-    label: 'Läuft weiter',
-    hint: 'Miete, Handy, Versicherung, Streaming — ohne festes Ende.',
+    label: 'commitmentDialog.types.contract.label',
+    hint: 'commitmentDialog.types.contract.hint',
     budgetHint: null,
-    namePlaceholder: 'Miete',
+    namePlaceholder: 'commitmentDialog.types.contract.namePlaceholder',
     defaultCategory: 'housing.rent',
   },
   {
     value: 'savings_goal',
-    label: 'Hat ein Ziel',
-    hint: 'Auto, Urlaub, Zähne — es gibt einen Zielbetrag.',
-    budgetHint: 'Alles, was du zurücklegst, zählt hierher.',
-    namePlaceholder: 'Auto',
+    label: 'commitmentDialog.types.savings_goal.label',
+    hint: 'commitmentDialog.types.savings_goal.hint',
+    budgetHint: 'commitmentDialog.types.savings_goal.budgetHint',
+    namePlaceholder: 'commitmentDialog.types.savings_goal.namePlaceholder',
     defaultCategory: 'finance.savings',
   },
   {
     value: 'debt',
-    label: 'Wird abbezahlt',
-    hint: 'Kredit oder Rückstand — läuft auf null.',
+    label: 'commitmentDialog.types.debt.label',
+    hint: 'commitmentDialog.types.debt.hint',
     // The reason, in one sentence.
-    budgetHint:
-      'Tilgen ist kein Verbrauch — das Geld ist nicht weg, deine Schuld wird kleiner. Unterm Strich derselbe Vorgang wie Sparen.',
-    namePlaceholder: 'Rundfunk-Altrückstand',
+    budgetHint: 'commitmentDialog.types.debt.budgetHint',
+    namePlaceholder: 'commitmentDialog.types.debt.namePlaceholder',
     defaultCategory: 'finance.debt',
   },
   {
     value: 'budget',
-    label: 'Setze ich selbst',
-    hint: 'Sprit, Lebensmittel, Taschengeld — kein Vertrag, du legst den Betrag fest.',
+    label: 'commitmentDialog.types.budget.label',
+    hint: 'commitmentDialog.types.budget.hint',
     budgetHint: null,
-    namePlaceholder: 'Lebensmittel',
+    namePlaceholder: 'commitmentDialog.types.budget.namePlaceholder',
     defaultCategory: 'household.groceries',
   },
   {
     value: 'income',
-    label: 'Kommt rein',
-    hint: 'Gehalt, Kindergeld, Zinsen — Geld, das hereinkommt.',
-    budgetHint:
-      'Einnahmen sind kein Verbrauch — aus ihnen entsteht erst das Budget, auf das sich die Quoten beziehen.',
-    namePlaceholder: 'Gehalt',
+    label: 'commitmentDialog.types.income.label',
+    hint: 'commitmentDialog.types.income.hint',
+    budgetHint: 'commitmentDialog.types.income.budgetHint',
+    namePlaceholder: 'commitmentDialog.types.income.namePlaceholder',
     defaultCategory: 'income.earned',
   },
 ]
 
-const PAYMENTS = Object.keys(PAYMENT_LABEL) as PaymentMethod[]
+const PAYMENTS = PAYMENT_METHODS
 const BLOCKS: Block[] = ['income', ...BUDGETS]
-const RHYTHMS = Object.keys(RHYTHM_LABEL) as Rhythm[]
+const RHYTHMS = Object.keys(RHYTHM_INTERVAL) as Rhythm[]
 
 function emptyDraft(): Commitment {
   return {
@@ -157,6 +158,7 @@ export function CommitmentDialog({
   onOpenChange,
   onSave,
 }: Props) {
+  const { t } = useTranslation()
   const households = useHouseholds().data ?? []
   const accounts = useAccounts().data ?? []
   const [draft, setDraft] = useState<Commitment>(commitment ?? emptyDraft())
@@ -288,11 +290,10 @@ export function CommitmentDialog({
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <DialogHeader>
             <DialogTitle className="font-heading text-xl">
-              {isEdit ? 'Vertrag bearbeiten' : 'Vertrag anlegen'}
+              {isEdit ? t('commitmentDialog.editTitle') : t('commitmentDialog.addTitle')}
             </DialogTitle>
             <DialogDescription>
-              Einmal anlegen — die Posten für jeden Monat entstehen daraus von
-              selbst.
+              {t('commitmentDialog.description')}
             </DialogDescription>
           </DialogHeader>
 
@@ -307,21 +308,21 @@ export function CommitmentDialog({
                   onClick={() => handleType(option.value)}
                   aria-pressed={draft.type === option.value}
                 >
-                  {option.label}
+                  {t(option.label)}
                 </Button>
               ))}
             </div>
-            <p className="text-muted-foreground text-xs">{typeOption.hint}</p>
+            <p className="text-muted-foreground text-xs">{t(typeOption.hint)}</p>
           </div>
 
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="name">Bezeichnung</Label>
+              <Label htmlFor="name">{t('positionDialog.label')}</Label>
               <Input
                 id="name"
                 value={draft.name}
                 onChange={(event) => set('name', event.target.value)}
-                placeholder={typeOption.namePlaceholder}
+                placeholder={t(typeOption.namePlaceholder)}
                 required
               />
             </div>
@@ -329,7 +330,7 @@ export function CommitmentDialog({
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="amount">
-                  {draft.type === 'debt' ? 'Rate' : 'Betrag'}
+                  {draft.type === 'debt' ? t('commitmentDialog.rate') : t('common.amount')}
                 </Label>
                 <Input
                   id="amount"
@@ -339,13 +340,13 @@ export function CommitmentDialog({
                   inputMode="decimal"
                   value={draft.amount}
                   onChange={(event) => set('amount', event.target.value)}
-                  placeholder="0,00"
+                  placeholder={t('common.amountPlaceholder')}
                   required
                 />
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label>Rhythmus</Label>
+                <Label>{t('commitmentDialog.rhythm')}</Label>
                 <Select value={draft.rhythm} onValueChange={handleRhythm}>
                   <SelectTrigger>
                     <SelectValue />
@@ -353,7 +354,7 @@ export function CommitmentDialog({
                   <SelectContent>
                     {RHYTHMS.map((rhythm) => (
                       <SelectItem key={rhythm} value={rhythm}>
-                        {RHYTHM_LABEL[rhythm]}
+                        {rhythmLabel(rhythm)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -366,7 +367,7 @@ export function CommitmentDialog({
                 überschreibbar. */}
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-2">
-                <Label>Konto</Label>
+                <Label>{t('common.account')}</Label>
                 <Select
                   value={draft.accountId ?? 'default'}
                   onValueChange={(value) =>
@@ -381,7 +382,7 @@ export function CommitmentDialog({
                         bleibt richtig, wenn du das Standardkonto wechselst.
                         Gesetzt wird es nur, wo es abweicht — das Claude-Abo
                         läuft über die Kreditkarte, nicht übers Giro. */}
-                    <SelectItem value="default">Standardkonto</SelectItem>
+                    <SelectItem value="default">{t('common.defaultAccount')}</SelectItem>
                     {accounts
                       .filter((account) => account.active)
                       .map((account) => (
@@ -393,7 +394,7 @@ export function CommitmentDialog({
                 </Select>
               </div>
               <div className="flex flex-col gap-2">
-                <Label>Zielkonto</Label>
+                <Label>{t('common.counterAccount')}</Label>
                 <Select
                   value={draft.counterAccountId ?? 'none'}
                   onValueChange={(value) =>
@@ -404,7 +405,7 @@ export function CommitmentDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Geht raus</SelectItem>
+                    <SelectItem value="none">{t('common.goesOut')}</SelectItem>
                     {accounts
                       .filter((account) => account.id !== draft.accountId)
                       .map((account) => (
@@ -415,14 +416,13 @@ export function CommitmentDialog({
                   </SelectContent>
                 </Select>
                 <span className="text-muted-foreground text-xs">
-                  Nur beim Sparen auf ein eigenes Konto. Dann bucht der Haken
-                  eine Umbuchung, und der Gesamtstand bleibt richtig.
+                  {t('common.counterAccountHint')}
                 </span>
               </div>
 
 
             <div className="flex flex-col gap-2">
-              <Label>Zahlungsart</Label>
+              <Label>{t('common.paymentMethod')}</Label>
               <Select
                 value={draft.paymentMethod ?? 'none'}
                 onValueChange={(value) =>
@@ -436,10 +436,10 @@ export function CommitmentDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Keine Angabe</SelectItem>
+                  <SelectItem value="none">{t('commitmentDialog.noPaymentMethod')}</SelectItem>
                   {PAYMENTS.map((method) => (
                     <SelectItem key={method} value={method}>
-                      {PAYMENT_LABEL[method]}
+                      {paymentLabel(method)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -449,20 +449,19 @@ export function CommitmentDialog({
 
             {isRecurringIrregular ? (
               <div className="flex flex-col gap-2">
-                <Label htmlFor="first-due">Erste Fälligkeit</Label>
+                <Label htmlFor="first-due">{t('commitmentDialog.firstDue')}</Label>
                 <DateField
                   id="first-due"
                   value={draft.firstDueDate ?? ''}
                   onChange={handleFirstDueDate}
                 />
                 <p className="text-muted-foreground text-xs">
-                  Tag und Monat kommen von hier — das Jahr entscheidet, ab wann
-                  Posten entstehen.
+                  {t('commitmentDialog.firstDueHint')}
                 </p>
               </div>
             ) : (
               <div className="flex flex-col gap-2">
-                <Label htmlFor="due-day">Fällig am</Label>
+                <Label htmlFor="due-day">{t('common.dueOn')}</Label>
                 <Input
                   id="due-day"
                   type="number"
@@ -481,18 +480,25 @@ export function CommitmentDialog({
               <p className="text-muted-foreground bg-muted flex flex-col gap-1 rounded-md px-3 py-2 text-xs">
                 {months.length > 0 && (
                   <span>
-                    Fällt an am {draft.dueDay}. in{' '}
-                    {months.map((month) => MONTH_LABEL[month - 1]).join(', ')}
+                    {t('commitmentDialog.dueIn', {
+                      day: draft.dueDay,
+                      months: months.map((month) => monthLabel(month)).join(', '),
+                    })}
                     {draft.firstDueDate
-                      ? ` — erstmals ${MONTH_LABEL[Number(draft.firstDueDate.slice(5, 7)) - 1]} ${draft.firstDueDate.slice(0, 4)}.`
+                      ? ` — ${t('commitmentDialog.firstTime', {
+                          month: monthLabel(Number(draft.firstDueDate.slice(5, 7))),
+                          year: draft.firstDueDate.slice(0, 4),
+                        })}`
                       : '.'}
                   </span>
                 )}
                 {dueDayShifts && (
                   <span>
-                    Den {draft.dueDay}. gibt es nicht in jedem Monat — dann
-                    rutscht es auf den letzten Tag. Im Februar {shiftYear} also
-                    auf den {februaryDay}.
+                    {t('commitmentDialog.dayShifts', {
+                      day: draft.dueDay,
+                      year: shiftYear,
+                      februaryDay,
+                    })}
                   </span>
                 )}
               </p>
@@ -500,7 +506,7 @@ export function CommitmentDialog({
 
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-2">
-                <Label>Kategorie</Label>
+                <Label>{t('common.category')}</Label>
                 <CategoryPicker
                   value={draft.category}
                   onChange={handleCategory}
@@ -508,11 +514,11 @@ export function CommitmentDialog({
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label>Budget</Label>
+                <Label>{t('common.budget')}</Label>
                 {blockIsFixed ? (
                   <span className="flex h-9 items-center gap-2 text-sm font-medium">
                     <span className={cn('size-2.5 rounded-sm', BLOCK_DOT[draft.block])} />
-                    {BLOCK_LABEL[draft.block]}
+                    {blockLabel(draft.block)}
                   </span>
                 ) : (
                   <Select
@@ -525,7 +531,7 @@ export function CommitmentDialog({
                     <SelectContent>
                       {BLOCKS.map((block) => (
                         <SelectItem key={block} value={block}>
-                          {BLOCK_LABEL[block]}
+                          {blockLabel(block)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -536,12 +542,12 @@ export function CommitmentDialog({
 
             {typeOption.budgetHint && (
               <p className="text-muted-foreground bg-muted rounded-md px-3 py-2 text-xs">
-                {typeOption.budgetHint}
+                {t(typeOption.budgetHint)}
               </p>
             )}
 
             <div className="flex flex-col gap-2">
-              <Label>Zuordnung</Label>
+              <Label>{t('common.assignment')}</Label>
               <Select
                 value={draft.householdId ?? 'private'}
                 onValueChange={(value) =>
@@ -552,7 +558,7 @@ export function CommitmentDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="private">Nur mein Plan</SelectItem>
+                  <SelectItem value="private">{t('common.privateOnly')}</SelectItem>
                   {households.map((household) => (
                     <SelectItem key={household.id} value={household.id}>
                       {household.name}
@@ -561,15 +567,14 @@ export function CommitmentDialog({
                 </SelectContent>
               </Select>
               <p className="text-muted-foreground text-xs">
-                In welchem Plan die Posten landen. Einmal entschieden, gilt für
-                alle künftigen Monate.
+                {t('commitmentDialog.assignmentHint')}
               </p>
             </div>
 
             {draft.type === 'savings_goal' && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="target-amount">Zielbetrag</Label>
+                  <Label htmlFor="target-amount">{t('commitmentDialog.targetAmount')}</Label>
                   <Input
                     id="target-amount"
                     type="number"
@@ -579,16 +584,16 @@ export function CommitmentDialog({
                     onChange={(event) =>
                       set('targetAmount', event.target.value || null)
                     }
-                    placeholder="0,00"
+                    placeholder={t('common.amountPlaceholder')}
                   />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="target-date">Zieldatum</Label>
+                  <Label htmlFor="target-date">{t('commitmentDialog.targetDate')}</Label>
                   <DateField
                     id="target-date"
                     value={draft.targetDate ?? ''}
                     onChange={(iso) => set('targetDate', iso || null)}
-                    placeholder="Kein Zieldatum"
+                    placeholder={t('commitmentDialog.noTargetDate')}
                   />
                 </div>
               </div>
@@ -596,7 +601,7 @@ export function CommitmentDialog({
 
             {draft.type === 'debt' && (
               <div className="flex flex-col gap-2">
-                <Label htmlFor="remaining-debt">Restschuld</Label>
+                <Label htmlFor="remaining-debt">{t('commitmentDialog.remainingDebt')}</Label>
                 <Input
                   id="remaining-debt"
                   type="number"
@@ -606,7 +611,7 @@ export function CommitmentDialog({
                   onChange={(event) =>
                     set('remainingDebt', event.target.value || null)
                   }
-                  placeholder="0,00"
+                  placeholder={t('common.amountPlaceholder')}
                 />
                 {/* TODO: Restschuld nach jeder Tilgung fortschreiben — daraus
                     ergibt sich das Datum, an dem die Schuld durch ist. */}
@@ -618,11 +623,9 @@ export function CommitmentDialog({
                 aus wie 1.139 € gespart. */}
             <div className="border-border flex items-center justify-between rounded-md border p-3">
               <div className="flex flex-col pr-4">
-                <Label htmlFor="commitment-pass-through">Durchlaufend</Label>
+                <Label htmlFor="commitment-pass-through">{t('common.passThrough')}</Label>
                 <span className="text-muted-foreground text-xs">
-                  Geld, das nur weitergereicht wird — BuT, eine Rückzahlung,
-                  die sofort weggelegt wird. Zählt in kein Budget und in keine
-                  Quote.
+                  {t('common.passThroughHint')}
                 </span>
               </div>
               <Switch
@@ -634,9 +637,9 @@ export function CommitmentDialog({
 
             <div className="border-border flex items-center justify-between rounded-md border p-3">
               <div className="flex flex-col">
-                <Label htmlFor="active">Aktiv</Label>
+                <Label htmlFor="active">{t('commitmentDialog.active')}</Label>
                 <span className="text-muted-foreground text-xs">
-                  Inaktive erzeugen keine neuen Posten.
+                  {t('commitmentDialog.activeHint')}
                 </span>
               </div>
               <Switch
@@ -653,9 +656,9 @@ export function CommitmentDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              Abbrechen
+              {t('common.cancel')}
             </Button>
-            <Button type="submit">{isEdit ? 'Speichern' : 'Anlegen'}</Button>
+            <Button type="submit">{isEdit ? t('common.save') : t('common.create')}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

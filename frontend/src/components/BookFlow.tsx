@@ -7,6 +7,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import type { TFunction } from 'i18next'
+import { useTranslation } from 'react-i18next'
 
 import { Card } from '@/components/ui/card'
 import { QueryState } from '@/components/QueryState'
@@ -21,10 +23,12 @@ import {
 import {
   daysInMonth,
   euro,
+  monthLabel,
   OWN_SCOPE,
   type BalanceHistory,
   type BookScope,
 } from '@/lib/domain'
+import { formatNumber } from '@/lib/format'
 import { useBalanceHistory } from '@/lib/queries'
 
 /**
@@ -86,13 +90,15 @@ type Props = {
  * is why the bars reference `var(--color-needs)` rather than the colour itself — the
  * design tokens stay the single source.
  */
-const CONFIG = {
-  income: { label: 'Einnahmen', color: 'var(--chart-3)' },
-  needs: { label: 'Bedarf', color: 'var(--chart-1)' },
-  wants: { label: 'Wünsche', color: 'var(--chart-2)' },
-  savings: { label: 'Weggelegt', color: 'var(--chart-4)' },
-  saldo: { label: 'Verfügbarer Saldo', color: 'var(--foreground)' },
-} satisfies ChartConfig
+function chartConfig(t: TFunction) {
+  return {
+    income: { label: t('bookFlow.income'), color: 'var(--chart-3)' },
+    needs: { label: t('bookFlow.needs'), color: 'var(--chart-1)' },
+    wants: { label: t('bookFlow.wants'), color: 'var(--chart-2)' },
+    savings: { label: t('bookFlow.savings'), color: 'var(--chart-4)' },
+    saldo: { label: t('bookFlow.balance'), color: 'var(--foreground)' },
+  } satisfies ChartConfig
+}
 
 /** The expense blocks from the zero line downwards, in a fixed order. */
 const SPENDING = ['needs', 'wants', 'savings'] as const
@@ -144,8 +150,6 @@ function buildRows(data: BalanceHistory, year: number, month: number): Row[] {
   return rows
 }
 
-/** Short form for the axis: 2,000 rather than 2,000.00. */
-const kompakt = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 })
 
 function Chart({
   data,
@@ -156,6 +160,8 @@ function Chart({
   year: number
   month: number
 }) {
+  const { t } = useTranslation()
+  const config = chartConfig(t)
   const rows = buildRows(data, year, month)
   const closing = Number(data.closingBalance)
 
@@ -174,12 +180,14 @@ function Chart({
           {euro.format(closing)}
         </span>
         <span className="text-muted-foreground text-sm">
-          verfügbar · {euro.format(einSumme)} herein, {euro.format(ausSumme)}{' '}
-          hinaus
+          {t('bookFlow.summary', {
+            income: euro.format(einSumme),
+            spending: euro.format(ausSumme),
+          })}
         </span>
       </header>
 
-      <ChartContainer config={CONFIG} className="h-72 w-full">
+      <ChartContainer config={config} className="h-72 w-full">
         <ComposedChart data={rows} margin={{ left: 4, right: 4, top: 8 }}>
           <CartesianGrid vertical={false} />
           <XAxis
@@ -188,13 +196,14 @@ function Chart({
             axisLine={false}
             tickMargin={8}
             interval={4}
-            tickFormatter={(t) => `${t}.`}
+            tickFormatter={(day) => t('common.dueDay', { day })}
           />
           <YAxis
             tickLine={false}
             axisLine={false}
             width={52}
-            tickFormatter={(v) => kompakt.format(v)}
+            // Short form for the axis: 2,000 rather than 2,000.00.
+            tickFormatter={(v) => formatNumber(v, { maximumFractionDigits: 0 })}
           />
           {/* Die Null ist der Bezugspunkt der Balken — sie muss sichtbar sein,
               auch wenn das Gitter sie zufällig nicht trifft. */}
@@ -203,12 +212,14 @@ function Chart({
           <ChartTooltip
             content={
               <ChartTooltipContent
-                labelFormatter={(t) => `${t}. ${MONAT[month - 1]}`}
+                labelFormatter={(day) =>
+                  t('common.dayOfMonth', { day, month: monthLabel(month) })
+                }
                 // Expenses are negative in the data so they stack downwards. The
                 // tooltip wants the amount, not the sign.
                 formatter={(value, name) => (
                   <span className="flex w-full justify-between gap-3">
-                    <span>{CONFIG[name as keyof typeof CONFIG].label}</span>
+                    <span>{config[name as keyof typeof config].label}</span>
                     <span className="font-mono tabular-nums">
                       {euro.format(Math.abs(Number(value)))}
                     </span>
@@ -243,18 +254,3 @@ function Chart({
     </Card>
   )
 }
-
-const MONAT = [
-  'Januar',
-  'Februar',
-  'März',
-  'April',
-  'Mai',
-  'Juni',
-  'Juli',
-  'August',
-  'September',
-  'Oktober',
-  'November',
-  'Dezember',
-]

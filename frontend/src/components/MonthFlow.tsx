@@ -7,6 +7,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { Trans, useTranslation } from 'react-i18next'
 
 import {
   ChartContainer,
@@ -32,8 +33,10 @@ import {
   daysInMonth,
   effectiveDueDay,
   euro,
+  monthLabel,
   type PlanPosition,
 } from '@/lib/domain'
+import { formatNumber } from '@/lib/format'
 
 /**
  * The planned flow of money across the month — when does what come in and go out.
@@ -162,12 +165,6 @@ function buildDays(steps: DayStep[], lastDay: number) {
   return out
 }
 
-const CONFIG = {
-  saldo: { label: 'Geplanter Saldo', color: 'var(--foreground)' },
-} satisfies ChartConfig
-
-/** Short form for the axis: 2,000 rather than 2,000.00. */
-const kompakt = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 })
 
 export function MonthFlow({
   positions,
@@ -175,6 +172,10 @@ export function MonthFlow({
   month,
   height = 'h-60',
 }: Props) {
+  const { t } = useTranslation()
+  const config = {
+    saldo: { label: t('monthFlow.balance'), color: 'var(--foreground)' },
+  } satisfies ChartConfig
   const steps = buildSteps(positions, year, month)
   const rows = buildRows(positions, year, month)
 
@@ -182,8 +183,7 @@ export function MonthFlow({
     return (
       <Empty className="border-border rounded-xl border border-dashed">
         <EmptyHeader>
-          <EmptyDescription>Noch keine Posten — sobald welche da sind, zeigt der Verlauf, wann im
-        Monat es eng wird.</EmptyDescription>
+          <EmptyDescription>{t('monthFlow.empty')}</EmptyDescription>
         </EmptyHeader>
       </Empty>
     )
@@ -202,30 +202,29 @@ export function MonthFlow({
         {shortfall > 0 ? (
           <>
             <p className="text-2xl font-semibold">
-              Du brauchst am 1. mindestens{' '}
-              <span className="font-mono tabular-nums">
-                {euro.format(shortfall)}
-              </span>
+              <Trans
+                i18nKey="monthFlow.shortfall"
+                values={{ amount: euro.format(shortfall) }}
+                components={{ amount: <span className="font-mono tabular-nums" /> }}
+              />
             </p>
             <p className="text-muted-foreground text-sm">
-              Tiefpunkt am {lowStep?.day}. — davor fällt mehr an, als bis dahin
-              hereinkommt.
+              {t('monthFlow.lowPoint', { day: lowStep?.day })}
             </p>
           </>
         ) : (
           <>
             <p className="text-2xl font-semibold">
-              Der Monat trägt sich durchgehend selbst.
+              {t('monthFlow.selfCarrying')}
             </p>
             <p className="text-muted-foreground text-sm">
-              Zu keinem Zeitpunkt steht mehr aus, als bis dahin hereingekommen
-              ist.
+              {t('monthFlow.selfCarryingHint')}
             </p>
           </>
         )}
       </header>
 
-      <ChartContainer config={CONFIG} className={`${height} w-full`}>
+      <ChartContainer config={config} className={`${height} w-full`}>
         <AreaChart data={days} margin={{ left: 4, right: 4, top: 8 }}>
           <defs>
             <linearGradient id="flow-fill" x1="0" y1="0" x2="0" y2="1">
@@ -249,13 +248,14 @@ export function MonthFlow({
             axisLine={false}
             tickMargin={8}
             interval={4}
-            tickFormatter={(d) => `${d}.`}
+            tickFormatter={(day) => t('common.dueDay', { day })}
           />
           <YAxis
             tickLine={false}
             axisLine={false}
             width={52}
-            tickFormatter={(v) => kompakt.format(v)}
+            // Short form for the axis: 2,000 rather than 2,000.00.
+            tickFormatter={(v) => formatNumber(v, { maximumFractionDigits: 0 })}
           />
           {/* Die Null ist der Bezug: darunter fehlt Geld, das am 1. dasein muss. */}
           <ReferenceLine y={0} className="stroke-border" strokeWidth={1} />
@@ -263,10 +263,12 @@ export function MonthFlow({
           <ChartTooltip
             content={
               <ChartTooltipContent
-                labelFormatter={(d) => `${d}. ${MONAT[month - 1]}`}
+                labelFormatter={(day) =>
+                  t('common.dayOfMonth', { day, month: monthLabel(month) })
+                }
                 formatter={(value) => (
                   <span className="flex w-full justify-between gap-3">
-                    <span>Geplanter Saldo</span>
+                    <span>{t('monthFlow.balance')}</span>
                     <span className="font-mono tabular-nums">
                       {euro.format(Number(value))}
                     </span>
@@ -306,17 +308,17 @@ export function MonthFlow({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-14">Tag</TableHead>
-              <TableHead>Posten</TableHead>
-              <TableHead className="text-right">Betrag</TableHead>
-              <TableHead className="text-right">Saldo</TableHead>
+              <TableHead className="w-14">{t('monthFlow.day')}</TableHead>
+              <TableHead>{t('monthFlow.position')}</TableHead>
+              <TableHead className="text-right">{t('common.amount')}</TableHead>
+              <TableHead className="text-right">{t('monthFlow.saldo')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.map((row, i) => (
               <TableRow key={`${row.day}-${row.label}-${i}`}>
                 <TableCell className="text-muted-foreground tabular-nums">
-                  {row.day}.
+                  {t('common.dueDay', { day: row.day })}
                 </TableCell>
                 <TableCell>{row.label}</TableCell>
                 <TableCell className="font-mono text-right tabular-nums">
@@ -335,26 +337,8 @@ export function MonthFlow({
       </div>
 
       <p className="text-muted-foreground max-w-[70ch] text-xs print:hidden">
-        Geplante Fälligkeiten, nicht die echten Buchungstage — der Verlauf im
-        Buch sieht deshalb anders aus. Der Saldo in der Tabelle läuft über die
-        Zeilen mit; innerhalb eines Tages gibt es aber keine Reihenfolge, das
-        Diagramm zeigt deshalb den Tagesabschluss.
+        {t('monthFlow.footnote')}
       </p>
     </Card>
   )
 }
-
-const MONAT = [
-  'Januar',
-  'Februar',
-  'März',
-  'April',
-  'Mai',
-  'Juni',
-  'Juli',
-  'August',
-  'September',
-  'Oktober',
-  'November',
-  'Dezember',
-]

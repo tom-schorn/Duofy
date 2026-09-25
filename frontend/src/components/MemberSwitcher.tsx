@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 
 import {
@@ -34,6 +35,7 @@ export function sharesAnything(member: Member): boolean {
 const MYSELF = 'me'
 
 export function MemberSwitcher() {
+  const { t } = useTranslation()
   const me = useMe().data
   const households = useHouseholds().data ?? []
   const [params] = useSearchParams()
@@ -69,12 +71,12 @@ export function MemberSwitcher() {
     <Select value={active} onValueChange={handleSwitch}>
       <SelectTrigger
         className="h-8 w-full text-xs group-data-[collapsible=icon]:hidden"
-        aria-label="Person, deren Zahlen angezeigt werden"
+        aria-label={t('memberSwitcher.label')}
       >
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value={MYSELF}>{me?.firstName ?? 'Ich'}</SelectItem>
+        <SelectItem value={MYSELF}>{me?.firstName ?? t('memberSwitcher.me')}</SelectItem>
         {[...shared.values()].map((member) => (
           <SelectItem key={member.userId} value={member.userId}>
             {member.firstName}

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { ChevronsUpDown, LogOut, Settings } from 'lucide-react'
 
@@ -21,6 +22,7 @@ import { api, clearToken } from '@/lib/api'
 import { useMe } from '@/lib/queries'
 
 export function UserMenu() {
+  const { t } = useTranslation()
   const { isMobile } = useSidebar()
   const navigate = useNavigate()
   const client = useQueryClient()
@@ -77,20 +79,20 @@ export function UserMenu() {
             side={isMobile ? 'bottom' : 'right'}
           >
             <DropdownMenuLabel className="text-muted-foreground text-xs">
-              Konto
+              {t('userMenu.account')}
             </DropdownMenuLabel>
 
             {/* TODO: Route /einstellungen bauen — Name, E-Mail, Passwort ändern. */}
             <DropdownMenuItem className="gap-2">
               <Settings className="size-4 shrink-0" />
-              Einstellungen
+              {t('userMenu.settings')}
             </DropdownMenuItem>
 
             <DropdownMenuSeparator />
 
             <DropdownMenuItem onSelect={handleLogout} className="gap-2">
               <LogOut className="size-4 shrink-0" />
-              Abmelden
+              {t('userMenu.logout')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

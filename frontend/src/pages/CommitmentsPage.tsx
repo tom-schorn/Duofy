@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
 
 import { CommitmentDialog } from '@/components/CommitmentDialog'
@@ -30,11 +31,11 @@ import {
 } from '@/lib/queries'
 import {
   BLOCK_DOT,
-  BLOCK_LABEL,
+  blockLabel,
   BUDGET_ORDER,
-  CATEGORY_LABEL,
-  MONTH_LABEL,
-  RHYTHM_LABEL,
+  categoryLabel,
+  monthLabel,
+  rhythmLabel,
   atLeast,
   dueMonths,
   euro,
@@ -42,6 +43,7 @@ import {
   monthlyEquivalent,
   type Commitment,
 } from '@/lib/domain'
+import { i18n, locale } from '@/lib/i18n'
 
 /**
  * Every commitment on one page, grouped by block.
@@ -57,30 +59,35 @@ import {
 /** Monthly needs no addition — the rest shows when it actually falls due. */
 function rhythmText(commitment: Commitment) {
   const months = dueMonths(commitment.rhythm, firstMonthOf(commitment))
-  if (months.length === 0) return RHYTHM_LABEL[commitment.rhythm]
-  const short = months.map((month) => MONTH_LABEL[month - 1].slice(0, 3))
-  return `${RHYTHM_LABEL[commitment.rhythm]} · ${short.join(', ')}`
+  if (months.length === 0) return rhythmLabel(commitment.rhythm)
+  const short = months.map((month) => monthLabel(month).slice(0, 3))
+  return `${rhythmLabel(commitment.rhythm)} · ${short.join(', ')}`
 }
 
 /** What follows from the type — a target or a remaining debt, nothing else. */
 function typeDetail(commitment: Commitment) {
   if (commitment.type === 'savings_goal' && commitment.targetAmount) {
     const date = commitment.targetDate
-      ? new Date(commitment.targetDate).toLocaleDateString('de-DE', {
+      ? new Date(commitment.targetDate).toLocaleDateString(locale(), {
           month: '2-digit',
           year: 'numeric',
         })
       : null
     const target = euro.format(Number(commitment.targetAmount))
-    return date ? `Ziel ${target} bis ${date}` : `Ziel ${target}`
+    return date
+      ? i18n.t('commitments.targetUntil', { target, date })
+      : i18n.t('commitments.target', { target })
   }
   if (commitment.type === 'debt' && commitment.remainingDebt) {
-    return `Rest ${euro.format(Number(commitment.remainingDebt))}`
+    return i18n.t('commitments.remaining', {
+      amount: euro.format(Number(commitment.remainingDebt)),
+    })
   }
   return null
 }
 
 export function CommitmentsPage() {
+  const { t } = useTranslation()
   // `?member=` shows somebody else's commitments — see `MemberSwitcher`. They are
   // private by default: whoever shares nothing appears in no switcher, and the
   // endpoint refuses the list anyway.
@@ -142,17 +149,19 @@ export function CommitmentsPage() {
     <div className="flex flex-col gap-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-2">
-          <h1 className="font-heading text-3xl font-semibold">Verträge</h1>
+          <h1 className="font-heading text-3xl font-semibold">{t('commitments.title')}</h1>
           <p className="text-muted-foreground">
             {active.member === null
-              ? 'Alles Wiederkehrende — Miete, Abos, Sparpläne, Kredite. Einmal angelegt, erzeugt es seine Posten selbst.'
-              : `Die Verträge von ${active.member.firstName}. ${mayEdit ? 'Du darfst sie ändern.' : 'Nur zum Ansehen.'}`}
+              ? t('commitments.lead')
+              : mayEdit
+                ? t('commitments.leadMemberEdit', { name: active.member.firstName })
+                : t('commitments.leadMemberView', { name: active.member.firstName })}
           </p>
         </div>
         {mayEdit && (
           <Button onClick={handleAdd}>
             <Plus className="size-4" />
-            Vertrag anlegen
+            {t('commitments.create')}
           </Button>
         )}
       </header>
@@ -160,7 +169,7 @@ export function CommitmentsPage() {
       <QueryState isPending={commitments.isPending} error={commitments.error}>
       {groups.length === 0 ? (
         <p className="text-muted-foreground border-border rounded-lg border border-dashed p-10 text-center text-sm">
-          Noch kein Vertrag angelegt.
+          {t('commitments.empty')}
         </p>
       ) : (
         <div className="flex flex-col gap-8">
@@ -171,11 +180,11 @@ export function CommitmentsPage() {
                   <span
                     className={`size-2.5 rounded-sm ${BLOCK_DOT[group.block]}`}
                   />
-                  {BLOCK_LABEL[group.block]}
+                  {blockLabel(group.block)}
                 </h2>
                 <span className="text-muted-foreground text-sm tabular-nums">
                   {euro.format(group.total)}
-                  <span className="ml-1 text-xs">Ø / Monat</span>
+                  <span className="ml-1 text-xs">{t('commitments.perMonth')}</span>
                 </span>
               </div>
 
@@ -194,16 +203,17 @@ export function CommitmentsPage() {
                           {commitment.name}
                           {!commitment.active && (
                             <Badge variant="outline" className="font-normal">
-                              inaktiv
+                              {t('commitments.inactive')}
                             </Badge>
                           )}
                         </span>
                         <span className="text-muted-foreground truncate text-xs">
-                          {CATEGORY_LABEL[commitment.category]} ·{' '}
-                          {rhythmText(commitment)} · {commitment.dueDay}.
+                          {categoryLabel(commitment.category)} ·{' '}
+                          {rhythmText(commitment)} ·{' '}
+                          {t('common.dueDay', { day: commitment.dueDay })}
                           {commitment.householdId
-                            ? ` · ${householdNames[commitment.householdId] ?? 'Haushalt'}`
-                            : ' · privat'}
+                            ? ` · ${householdNames[commitment.householdId] ?? t('plans.household')}`
+                            : ` · ${t('commitments.private')}`}
                           {detail ? ` · ${detail}` : ''}
                         </span>
                       </div>
@@ -219,7 +229,7 @@ export function CommitmentsPage() {
                             size="icon"
                             className="size-8"
                             disabled={!mayEdit}
-                            aria-label={`${commitment.name} bearbeiten oder löschen`}
+                            aria-label={t('commitments.menuLabel', { name: commitment.name })}
                           >
                             <MoreHorizontal className="size-4" />
                           </Button>
@@ -230,7 +240,7 @@ export function CommitmentsPage() {
                             className="gap-2"
                           >
                             <Pencil className="size-4" />
-                            Bearbeiten
+                            {t('common.edit')}
                           </DropdownMenuItem>
                           {mayDelete && (
                             <DropdownMenuItem
@@ -239,7 +249,7 @@ export function CommitmentsPage() {
                               className="gap-2"
                             >
                               <Trash2 className="size-4" />
-                              Löschen
+                              {t('common.delete')}
                             </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>
@@ -268,17 +278,16 @@ export function CommitmentsPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="font-heading">
-              „{pendingDelete?.name}" löschen?
+              {t('commitments.deleteTitle', { name: pendingDelete?.name })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Bereits geplante Posten in laufenden Monaten bleiben stehen. Für
-              künftige Monate entsteht nichts mehr.
+              {t('commitments.deleteText')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete}>
-              Löschen
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

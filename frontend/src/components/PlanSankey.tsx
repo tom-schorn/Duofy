@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Layer, Rectangle, Sankey, Tooltip } from 'recharts'
+import type { TFunction } from 'i18next'
+import { useTranslation } from 'react-i18next'
 
 import {
   Empty,
@@ -10,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { ChartContainer, type ChartConfig } from '@/components/ui/chart'
 import { euro, type PlanPosition } from '@/lib/domain'
+import { formatShare } from '@/lib/format'
 
 /**
  * Where the budget goes — read from left to right.
@@ -61,18 +64,21 @@ type Props = {
 /** From which share of the budget a position gets a band of its own. */
 const OWN_BAND = 0.02
 
+/** `label` is a catalog key. */
 const BLOCKS = [
-  { key: 'needs', label: 'Bedarf', color: 'var(--chart-1)' },
-  { key: 'wants', label: 'Wünsche', color: 'var(--chart-2)' },
-  { key: 'savings', label: 'Sparen', color: 'var(--chart-4)' },
+  { key: 'needs', label: 'sankey.needs', color: 'var(--chart-1)' },
+  { key: 'wants', label: 'sankey.wants', color: 'var(--chart-2)' },
+  { key: 'savings', label: 'sankey.savings', color: 'var(--chart-4)' },
 ] as const
 
-const CONFIG = {
-  income: { label: 'Einnahmen', color: 'var(--chart-3)' },
-  needs: { label: 'Bedarf', color: 'var(--chart-1)' },
-  wants: { label: 'Wünsche', color: 'var(--chart-2)' },
-  savings: { label: 'Sparen', color: 'var(--chart-4)' },
-} satisfies ChartConfig
+function chartConfig(t: TFunction) {
+  return {
+    income: { label: t('sankey.income'), color: 'var(--chart-3)' },
+    needs: { label: t('sankey.needs'), color: 'var(--chart-1)' },
+    wants: { label: t('sankey.wants'), color: 'var(--chart-2)' },
+    savings: { label: t('sankey.savings'), color: 'var(--chart-4)' },
+  } satisfies ChartConfig
+}
 
 type Knoten = {
   name: string
@@ -94,7 +100,8 @@ type Kante = { source: number; target: number; value: number; farbe: string }
 function build(
   positions: PlanPosition[],
   budget: number,
-  anteil: number
+  anteil: number,
+  t: TFunction
 ) {
   const zaehlend = positions.filter((p) => !p.passThrough)
   const threshold = budget * anteil
@@ -110,7 +117,7 @@ function build(
     .sort((a, b) => b.betrag - a.betrag)
 
   const budgetIndex = add({
-    name: 'Budget',
+    name: t('sankey.budget'),
     betrag: budget,
     farbe: 'var(--muted-foreground)',
     spalte: 1,
@@ -143,7 +150,7 @@ function build(
     verteilt += summe
 
     const blockIndex = add({
-      name: b.label,
+      name: t(b.label),
       betrag: summe,
       farbe: b.color,
       spalte: 2,
@@ -172,8 +179,8 @@ function build(
       const i = add({
         name:
           klein.length === 1
-            ? '1 weiterer Posten'
-            : `${klein.length} weitere Posten`,
+            ? t('sankey.oneMore')
+            : t('sankey.more', { number: klein.length }),
         betrag: rest,
         farbe: b.color,
         spalte: 3,
@@ -187,7 +194,7 @@ function build(
   const offen = budget - verteilt
   if (offen > 0) {
     const i = add({
-      name: 'Noch nicht verplant',
+      name: t('sankey.unplanned'),
       betrag: offen,
       farbe: 'var(--muted-foreground)',
       // Column 3, not 2: the node has no outgoing link, and Recharts pushes sinks
@@ -212,21 +219,21 @@ export function PlanSankey({
   threshold = OWN_BAND,
   height = 'h-[26rem]',
 }: Props) {
+  const { t } = useTranslation()
   const [inProzent, setInProzent] = useState(false)
   const summe = Number(budget)
-  const { nodes, links, offen } = build(positions, summe, threshold)
+  const { nodes, links, offen } = build(positions, summe, threshold, t)
 
   const zeige = (v: number) =>
     inProzent
-      ? `${((v / summe) * 100).toFixed(1).replace('.', ',')} %`
+      ? t('common.percent', { value: formatShare((v / summe) * 100) })
       : euro.format(v)
 
   if (links.length === 0) {
     return (
       <Empty className="border-border rounded-xl border border-dashed">
         <EmptyHeader>
-          <EmptyDescription>Für dieses Diagramm braucht der Monat Einnahmen und Posten. Sobald etwas
-        geplant ist, steht hier, wohin es geht.</EmptyDescription>
+          <EmptyDescription>{t('sankey.empty')}</EmptyDescription>
         </EmptyHeader>
       </Empty>
     )
@@ -240,7 +247,7 @@ export function PlanSankey({
             {euro.format(summe)}
           </span>
           <span className="text-muted-foreground text-sm">
-            Budget · davon {euro.format(offen)} noch nicht verplant
+            {t('sankey.summary', { amount: euro.format(offen) })}
           </span>
         </div>
 
@@ -266,7 +273,7 @@ export function PlanSankey({
       </header>
 
       <ChartContainer
-        config={CONFIG}
+        config={chartConfig(t)}
         className={`${height} w-full min-w-[42rem]`}
       >
         <Sankey

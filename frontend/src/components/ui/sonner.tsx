@@ -1,14 +1,17 @@
 import { useTheme } from "next-themes"
+import { useTranslation } from "react-i18next"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
 
 const Toaster = ({ ...props }: ToasterProps) => {
+  const { t } = useTranslation()
   const { theme = "system" } = useTheme()
 
   return (
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
+      containerAriaLabel={t("ui.notifications")}
       icons={{
         success: (
           <CircleCheckIcon className="size-4" />

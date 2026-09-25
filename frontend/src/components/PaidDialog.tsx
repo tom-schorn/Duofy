@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import {
   Dialog,
@@ -37,6 +38,7 @@ type Props = {
 }
 
 export function PaidDialog({ position, onClose, onConfirm, pending }: Props) {
+  const { t } = useTranslation()
   const [occurredOn, setOccurredOn] = useState(today())
   const [amount, setAmount] = useState('')
 
@@ -65,15 +67,17 @@ export function PaidDialog({ position, onClose, onConfirm, pending }: Props) {
       <DialogContent className="sm:max-w-md">
         <form onSubmit={submit} className="flex flex-col gap-5">
           <DialogHeader>
-            <DialogTitle>{position.label} abhaken</DialogTitle>
+            <DialogTitle>
+              {t('paidDialog.title', { label: position.label })}
+            </DialogTitle>
             <DialogDescription>
-              Das legt zugleich die Buchung im Haushaltsbuch an.
+              {t('paidDialog.description')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex gap-3">
             <div className="flex flex-1 flex-col gap-1.5">
-              <Label htmlFor="paid-date">Datum</Label>
+              <Label htmlFor="paid-date">{t('common.date')}</Label>
               <DateField
                 id="paid-date"
                 value={occurredOn}
@@ -82,7 +86,7 @@ export function PaidDialog({ position, onClose, onConfirm, pending }: Props) {
             </div>
 
             <div className="flex w-36 flex-col gap-1.5">
-              <Label htmlFor="paid-amount">Betrag</Label>
+              <Label htmlFor="paid-amount">{t('common.amount')}</Label>
               <Input
                 id="paid-amount"
                 type="number"
@@ -100,17 +104,19 @@ export function PaidDialog({ position, onClose, onConfirm, pending }: Props) {
               sagt wie das Feld daneben. */}
           {differs && (
             <p className="text-muted-foreground text-sm" role="status">
-              Geplant waren {euro.format(planned)} — der Posten steht danach auf{' '}
-              {euro.format(entered)}.
+              {t('paidDialog.differs', {
+                planned: euro.format(planned),
+                entered: euro.format(entered),
+              })}
             </p>
           )}
 
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>
-              Abbrechen
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending ? 'Bucht…' : 'Abhaken'}
+              {pending ? t('paidDialog.pending') : t('paidDialog.submit')}
             </Button>
           </DialogFooter>
         </form>

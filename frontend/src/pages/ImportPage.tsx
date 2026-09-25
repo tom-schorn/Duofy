@@ -1,4 +1,5 @@
 import { Fragment, useRef, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { AlertTriangle, ArrowLeftRight, Upload } from 'lucide-react'
 
 import { CategoryPicker } from '@/components/CategoryPicker'
@@ -17,7 +18,7 @@ import { errorText } from '@/lib/api'
 import { longDate } from '@/lib/dates'
 import {
   BLOCK_DOT,
-  CATEGORY_LABEL,
+  categoryLabel,
   OWN_SCOPE,
   atLeast,
   euro,
@@ -45,6 +46,7 @@ import {
  * for a week — that is what a parking area is for.
  */
 export function ImportPage() {
+  const { t } = useTranslation()
   const active = useActiveMember()
   const mayEdit = atLeast(active.levelFor('accounts'), 'edit')
 
@@ -90,11 +92,11 @@ export function ImportPage() {
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-2">
-          <h1 className="font-heading text-3xl font-semibold">Import</h1>
+          <h1 className="font-heading text-3xl font-semibold">{t('nav.import')}</h1>
           <p className="text-muted-foreground">
             {active.member === null
-              ? 'Lade eine Umsatzdatei deiner Bank hoch — CAMT oder CSV. Die Buchungen warten hier, bis du sie zuordnest.'
-              : `Die Parkposition von ${active.member.firstName}.`}
+              ? t('import.lead')
+              : t('import.leadMember', { name: active.member.firstName })}
           </p>
         </div>
         {mayEdit && (
@@ -112,7 +114,7 @@ export function ImportPage() {
             />
             <Button onClick={() => fileInput.current?.click()} disabled={upload.isPending}>
               <Upload className="size-4" />
-              {upload.isPending ? 'Wird gelesen …' : 'Datei hochladen'}
+              {upload.isPending ? t('import.reading') : t('import.upload')}
             </Button>
           </>
         )}
@@ -135,13 +137,13 @@ export function ImportPage() {
       <QueryState isPending={entries.isPending} error={entries.error}>
         {rows.length === 0 ? (
           <p className="text-muted-foreground border-border rounded-lg border border-dashed p-10 text-center text-sm">
-            Die Parkposition ist leer.
+            {t('import.empty')}
           </p>
         ) : (
           <>
             <p className="text-muted-foreground text-sm">
-              {rows.length} geparkt
-              {open > 0 && ` · ${open} ohne Kategorie`}
+              {t('import.parkedCount', { number: rows.length })}
+              {open > 0 && ` · ${t('import.withoutCategory', { number: open })}`}
             </p>
             <EntryTable
               entries={rows}
@@ -166,20 +168,23 @@ function Result({
   accounts: { id: string; name: string }[]
   onPickAccount: (accountId: string) => void
 }) {
+  const { t } = useTranslation()
   if (summary.unknownIban) {
     return (
       <div className="border-border bg-card flex flex-col gap-3 rounded-lg border p-4">
         <p className="text-sm">
-          Die Datei gehört zu <span className="font-medium">{summary.unknownIban}</span>.
-          Zu welchem Konto?
+          <Trans
+            i18nKey="import.unknownIban"
+            values={{ iban: summary.unknownIban }}
+            components={{ iban: <span className="font-medium" /> }}
+          />
         </p>
         <p className="text-muted-foreground text-sm">
-          Duofy merkt sich die Antwort am Konto — beim nächsten Mal geht es von
-          allein.
+          {t('import.rememberAccount')}
         </p>
         <Select onValueChange={onPickAccount}>
           <SelectTrigger className="max-w-xs">
-            <SelectValue placeholder="Konto wählen …" />
+            <SelectValue placeholder={t('import.pickAccount')} />
           </SelectTrigger>
           <SelectContent>
             {accounts.map((account) => (
@@ -196,17 +201,25 @@ function Result({
   return (
     <div className="border-border bg-card flex flex-wrap gap-x-8 gap-y-2 rounded-lg border p-4 text-sm">
       <span>
-        <span className="font-medium">{summary.read}</span> gelesen
+        <Trans
+          i18nKey="import.read"
+          values={{ number: summary.read }}
+          components={{ number: <span className="font-medium" /> }}
+        />
       </span>
       <span>
-        <span className="font-medium">{summary.parked}</span> geparkt
+        <Trans
+          i18nKey="import.parked"
+          values={{ number: summary.parked }}
+          components={{ number: <span className="font-medium" /> }}
+        />
       </span>
       <span className="text-muted-foreground">
-        {summary.known} schon bekannt
+        {t('import.known', { number: summary.known })}
       </span>
       {!summary.balancesMatch && (
         <span className="text-destructive">
-          Die Salden gehen nicht auf — fehlt eine Seite der Datei?
+          {t('import.balancesDiffer')}
         </span>
       )}
     </div>
@@ -281,6 +294,7 @@ function EntryTable({
   accounts: Account[]
 }) {
   const assign = useAssignEntry()
+  const { t } = useTranslation()
   const accept = useAcceptSuggestion()
   const book = useBookEntry()
   const discard = useDiscardEntry()
@@ -293,22 +307,22 @@ function EntryTable({
         <thead>
           <tr className="border-border border-b">
             {[
-              'Datum',
-              'Empfänger / Zahler',
-              'Verwendungszweck',
-              'Betrag',
-              'Posten im Plan',
-              'Kategorie',
+              'import.table.date',
+              'import.table.counterparty',
+              'import.table.purpose',
+              'common.amount',
+              'import.table.position',
+              'common.category',
               '',
             ].map(
               (head, index) => (
                 <th
                   key={head || index}
                   className={`text-muted-foreground px-3 py-2 text-xs font-medium tracking-wide uppercase ${
-                    head === 'Betrag' ? 'text-right' : 'text-left'
+                    head === 'common.amount' ? 'text-right' : 'text-left'
                   }`}
                 >
-                  {head}
+                  {head && t(head)}
                 </th>
               )
             )}
@@ -381,10 +395,10 @@ function EntryTable({
                       // ausgegeben, es liegt woanders.
                       <span className="flex items-center gap-2 text-sm">
                         <ArrowLeftRight className="text-muted-foreground size-3.5" />
-                        {entry.incoming ? 'von' : 'nach'}{' '}
+                        {entry.incoming ? t('import.from') : t('import.to')}{' '}
                         {accounts.find(
                           (account) => account.id === entry.counterAccountId
-                        )?.name ?? 'anderem Konto'}
+                        )?.name ?? t('import.otherAccount')}
                         {mayEdit && (
                           <button
                             type="button"
@@ -396,7 +410,7 @@ function EntryTable({
                               })
                             }
                           >
-                            zurücknehmen
+                            {t('import.undo')}
                           </button>
                         )}
                       </span>
@@ -405,15 +419,15 @@ function EntryTable({
                       // consequence here and not a question.
                       <span
                         className="text-sm"
-                        title="Kommt aus dem Posten"
+                        title={t('import.fromPosition')}
                       >
-                        {entry.category ? CATEGORY_LABEL[entry.category] : '—'}
+                        {entry.category ? categoryLabel(entry.category) : '—'}
                       </span>
                     ) : (
                       <CategoryPicker
                         value={entry.category}
                         disabled={!mayEdit}
-                        placeholder="wählen …"
+                        placeholder={t('import.pick')}
                         className="h-8 max-w-[13rem]"
                         onChange={(category) =>
                           assign.mutate({ id: entry.id, category })
@@ -435,7 +449,7 @@ function EntryTable({
                         }
                         onClick={() => book.mutate(entry.id)}
                       >
-                        Buchen
+                        {t('monthBook.book')}
                       </Button>
                       <Button
                         size="sm"
@@ -443,7 +457,7 @@ function EntryTable({
                         className="text-muted-foreground"
                         onClick={() => discard.mutate(entry.id)}
                       >
-                        Verwerfen
+                        {t('import.discard')}
                       </Button>
                     </>
                   )}
@@ -468,8 +482,8 @@ function EntryTable({
                         <AlertTriangle className="size-4 text-amber-600 dark:text-amber-500" />
                         <span className="text-foreground">
                           {suggestion.certain
-                            ? `Schon gebucht — die andere Seite dieser Umbuchung steht im Buch (${suggestion.counterAccountName}).`
-                            : `Könnte die andere Seite einer Umbuchung sein, die schon im Buch steht (${suggestion.counterAccountName}). Dann wäre Buchen doppelt.`}
+                            ? t('import.alreadyBooked', { name: suggestion.counterAccountName })
+                            : t('import.maybeBooked', { name: suggestion.counterAccountName })}
                         </span>
                         {mayEdit && (
                           <Button
@@ -479,13 +493,13 @@ function EntryTable({
                             disabled={discard.isPending}
                             onClick={() => discard.mutate(entry.id)}
                           >
-                            Verwerfen
+                            {t('import.discard')}
                           </Button>
                         )}
                       </div>
                     ) : (
                       <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
-                        <span className="text-primary">Vorschlag:</span>
+                        <span className="text-primary">{t('import.suggestion')}</span>
                         {suggestion.kind === 'transfer' ? (
                           <span className="text-foreground flex items-center gap-1.5">
                             <ArrowLeftRight className="size-3.5" />
@@ -493,20 +507,20 @@ function EntryTable({
                                 Aussage. Beides gleich zu zeigen ließe den
                                 sicheren Fall so wacklig aussehen wie den
                                 anderen. */}
-                            {suggestion.certain ? 'Umbuchung' : 'Umbuchung?'}{' '}
-                            {entry.incoming ? 'von' : 'nach'}{' '}
+                            {suggestion.certain ? t('budget.transfer') : t('import.transferGuess')}{' '}
+                            {entry.incoming ? t('import.from') : t('import.to')}{' '}
                             {suggestion.counterAccountName}
                           </span>
                         ) : (
                           <>
                             <span className="text-foreground">
                               {suggestion.category
-                                ? CATEGORY_LABEL[suggestion.category]
+                                ? categoryLabel(suggestion.category)
                                 : ''}
                             </span>
                             {suggestion.positionId && (
                               <span>
-                                · Posten{' '}
+                                · {t('import.suggestedPosition')}{' '}
                                 {namePosition(
                                   entry,
                                   positionsByMonth,
@@ -533,8 +547,8 @@ function EntryTable({
                             }
                           >
                             {suggestion.kind === 'transfer'
-                              ? 'Als Umbuchung buchen'
-                              : 'Übernehmen'}
+                              ? t('import.bookAsTransfer')
+                              : t('import.accept')}
                           </Button>
                         )}
                       </div>

@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useSearchParams } from 'react-router'
+import { useTranslation } from 'react-i18next'
 
 import { HelpPanel } from '@/components/HelpPanel'
 import { MemberSwitcher } from '@/components/MemberSwitcher'
@@ -45,15 +46,16 @@ import { Separator } from '@/components/ui/separator'
  * property, not a navigation point.
  */
 const NAV = [
-  { to: '/plan', label: 'Planung', icon: CalendarRange },
-  { to: '/contracts', label: 'Verträge', icon: FileText },
-  { to: '/book', label: 'Buch', icon: BookOpen },
-  { to: '/accounts', label: 'Konten', icon: Wallet },
-  { to: '/import', label: 'Import', icon: Upload },
-  { to: '/household', label: 'Haushalt', icon: Users },
+  { to: '/plan', label: 'nav.plan', icon: CalendarRange },
+  { to: '/contracts', label: 'nav.commitments', icon: FileText },
+  { to: '/book', label: 'nav.book', icon: BookOpen },
+  { to: '/accounts', label: 'nav.accounts', icon: Wallet },
+  { to: '/import', label: 'nav.import', icon: Upload },
+  { to: '/household', label: 'nav.household', icon: Users },
 ]
 
 export function AppLayout() {
+  const { t } = useTranslation()
   const households = useHouseholds().data ?? []
   // The sub-entry points at the current month — there is no "current" household
   // plan otherwise, it is composed from positions.
@@ -86,10 +88,10 @@ export function AppLayout() {
                       {({ isActive }) => (
                         <SidebarMenuButton
                           isActive={isActive}
-                          tooltip={item.label}
+                          tooltip={t(item.label)}
                         >
                           <item.icon className="size-4" />
-                          <span>{item.label}</span>
+                          <span>{t(item.label)}</span>
                         </SidebarMenuButton>
                       )}
                     </NavLink>
