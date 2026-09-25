@@ -326,7 +326,8 @@
     "privateOnly": "Nur mein Plan",
     "delete": "Löschen",
     "save": "Speichern",
-    "add": "Hinzufügen"
+    "add": "Hinzufügen",
+    "create": "Anlegen"
   },
   "positionPicker": {
     "none": "kein Posten",
@@ -375,5 +376,55 @@
     "actual": "Tatsächlich bezahlt",
     "actualPlaceholder": "noch offen",
     "actualHint": "Nur nötig, wenn der Betrag vom geplanten abweicht. Abgehakt wird in der Liste."
+  },
+  "commitmentDialog": {
+    "types": {
+      "contract": {
+        "label": "Läuft weiter",
+        "hint": "Miete, Handy, Versicherung, Streaming — ohne festes Ende.",
+        "namePlaceholder": "Miete"
+      },
+      "savings_goal": {
+        "label": "Hat ein Ziel",
+        "hint": "Auto, Urlaub, Zähne — es gibt einen Zielbetrag.",
+        "budgetHint": "Alles, was du zurücklegst, zählt hierher.",
+        "namePlaceholder": "Auto"
+      },
+      "debt": {
+        "label": "Wird abbezahlt",
+        "hint": "Kredit oder Rückstand — läuft auf null.",
+        "budgetHint": "Tilgen ist kein Verbrauch — das Geld ist nicht weg, deine Schuld wird kleiner. Unterm Strich derselbe Vorgang wie Sparen.",
+        "namePlaceholder": "Rundfunk-Altrückstand"
+      },
+      "budget": {
+        "label": "Setze ich selbst",
+        "hint": "Sprit, Lebensmittel, Taschengeld — kein Vertrag, du legst den Betrag fest.",
+        "namePlaceholder": "Lebensmittel"
+      },
+      "income": {
+        "label": "Kommt rein",
+        "hint": "Gehalt, Kindergeld, Zinsen — Geld, das hereinkommt.",
+        "budgetHint": "Einnahmen sind kein Verbrauch — aus ihnen entsteht erst das Budget, auf das sich die Quoten beziehen.",
+        "namePlaceholder": "Gehalt"
+      }
+    },
+    "dueIn": "Fällt an am {{day}}. in {{months}}",
+    "firstTime": "erstmals {{month}} {{year}}.",
+    "dayShifts": "Den {{day}}. gibt es nicht in jedem Monat — dann rutscht es auf den letzten Tag. Im Februar {{year}} also auf den {{februaryDay}}.",
+    "editTitle": "Vertrag bearbeiten",
+    "addTitle": "Vertrag anlegen",
+    "description": "Einmal anlegen — die Posten für jeden Monat entstehen daraus von selbst.",
+    "rate": "Rate",
+    "rhythm": "Rhythmus",
+    "noPaymentMethod": "Keine Angabe",
+    "firstDue": "Erste Fälligkeit",
+    "firstDueHint": "Tag und Monat kommen von hier — das Jahr entscheidet, ab wann Posten entstehen.",
+    "assignmentHint": "In welchem Plan die Posten landen. Einmal entschieden, gilt für alle künftigen Monate.",
+    "targetAmount": "Zielbetrag",
+    "targetDate": "Zieldatum",
+    "noTargetDate": "Kein Zieldatum",
+    "remainingDebt": "Restschuld",
+    "active": "Aktiv",
+    "activeHint": "Inaktive erzeugen keine neuen Posten."
   }
 }
