@@ -71,7 +71,13 @@ jobs:
 
       - run: uv run ruff check app/ tests/
 
-      - run: uv run pytest -q
+      # #101 diagnostics — temporary, not part of the fix, do not merge. Runs the
+      # smallest failing slice first, with -s so tests/conftest.py's DIAG101 lines
+      # reach the log; continue-on-error so the normal run below still happens.
+      - run: uv run pytest -q -s -p no:cacheprovider tests/test_area_permissions.py
+        continue-on-error: true
+
+      - run: uv run pytest -q -s
 
   frontend:
     runs-on: ubuntu-latest
