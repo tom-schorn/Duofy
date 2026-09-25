@@ -1,13 +1,15 @@
 /**
- * A mirror of the backend enums in `backend/app/models/enums.py`, plus the German
- * labels for the UI.
+ * A mirror of the backend enums in `backend/app/models/enums.py`, plus the
+ * functions that turn them into words for the UI.
  *
- * TODO: once i18n is in place the labels move into the translation files (`de`,
- * `en`) and only the types stay here.
+ * The words themselves live in the catalog (`src/locales/de.json`, under
+ * `enums.*`) — only the types, orders and rules stay here.
  *
  * The keys match the backend enum values exactly — a divergence only shows up at
  * runtime.
  */
+
+import { i18n, locale } from '@/lib/i18n'
 
 /**
  * Called **Budget** in the UI.
@@ -20,11 +22,8 @@
 export type Block = 'income' | 'needs' | 'wants' | 'savings'
 
 /** The wording for `needs` is not final yet — a shorter word is under discussion. */
-export const BLOCK_LABEL: Record<Block, string> = {
-  income: 'Einnahmen',
-  needs: 'Fixkosten',
-  wants: 'Wünsche',
-  savings: 'Sparen',
+export function blockLabel(block: Block): string {
+  return i18n.t(`enums.block.${block}`)
 }
 
 /**
@@ -108,70 +107,68 @@ export type Category =
   | 'finance.settlement'
 
 /** The order here is the order in every dropdown — grouped entries first. */
-export const CATEGORY_LABEL: Record<Category, string> = {
-  'household.groceries': 'Lebensmittel',
-  'household.clothing': 'Kleidung',
-  'household.healthcare': 'Gesundheit',
-  'household.personal_care': 'Körperpflege',
-  'household.cleaning': 'Reinigung',
-  'household.pets': 'Haustiere',
+export const CATEGORIES: Category[] = [
+  'household.groceries',
+  'household.clothing',
+  'household.healthcare',
+  'household.personal_care',
+  'household.cleaning',
+  'household.pets',
 
-  'housing.rent': 'Miete',
-  'housing.utilities': 'Nebenkosten',
-  'housing.repairs': 'Renovierung & Reparatur',
-  'housing.interior': 'Einrichtung',
-  'housing.outdoor': 'Außenbereich',
-  'housing.insurance': 'Versicherung & Steuern',
+  'housing.rent',
+  'housing.utilities',
+  'housing.repairs',
+  'housing.interior',
+  'housing.outdoor',
+  'housing.insurance',
 
-  'transport.public': 'Öffentlicher Verkehr',
-  'transport.fuel': 'Kraftstoff',
-  'transport.repairs': 'Reparaturen',
-  'transport.fines': 'Bußgelder & Gebühren',
-  'transport.purchase': 'Fahrzeugkauf',
-  'transport.insurance': 'Versicherung & Steuern',
+  'transport.public',
+  'transport.fuel',
+  'transport.repairs',
+  'transport.fines',
+  'transport.purchase',
+  'transport.insurance',
 
-  'children.care': 'Betreuung',
-  'children.school': 'Schulbedarf',
-  'children.allowance': 'Taschengeld',
+  'children.care',
+  'children.school',
+  'children.allowance',
 
-  'leisure.vacation': 'Urlaub',
-  'leisure.hobbies': 'Hobbys',
-  'leisure.entertainment': 'Unterhaltung & Spiele',
-  'leisure.memberships': 'Mitgliedschaften',
-  'leisure.dining': 'Essen gehen',
-  'leisure.subscriptions': 'Abos',
-  'leisure.indulgences': 'Genussmittel',
+  'leisure.vacation',
+  'leisure.hobbies',
+  'leisure.entertainment',
+  'leisure.memberships',
+  'leisure.dining',
+  'leisure.subscriptions',
+  'leisure.indulgences',
 
-  'personal.insurance': 'Versicherung',
-  'personal.communication': 'Kommunikation',
-  'personal.work': 'Beruf',
-  'personal.legal': 'Rechtliches',
-  'personal.gifts': 'Geschenke & Feiern',
-  'personal.donations': 'Spenden',
-  'personal.education': 'Bildung',
-  'personal.taxes': 'Steuern',
+  'personal.insurance',
+  'personal.communication',
+  'personal.work',
+  'personal.legal',
+  'personal.gifts',
+  'personal.donations',
+  'personal.education',
+  'personal.taxes',
 
-  'income.earned': 'Gehalt & Lohn',
-  'income.benefits': 'Transferleistungen',
-  'income.interest': 'Zinsen',
-  'income.other': 'Sonstige Einnahmen',
+  'income.earned',
+  'income.benefits',
+  'income.interest',
+  'income.other',
 
-  'finance.savings': 'Rücklagen',
-  'finance.debt': 'Tilgung',
-  'finance.investment': 'Investition',
-  'finance.fees': 'Gebühren',
-  'finance.settlement': 'Ausgleich',
+  'finance.savings',
+  'finance.debt',
+  'finance.investment',
+  'finance.fees',
+  'finance.settlement',
+]
+
+export function categoryLabel(category: Category): string {
+  return i18n.t(`enums.category.${category}`)
 }
 
-const CATEGORY_GROUP_LABEL: Record<string, string> = {
-  household: 'Haushalt',
-  housing: 'Wohnen',
-  transport: 'Mobilität',
-  children: 'Kinder',
-  leisure: 'Freizeit',
-  personal: 'Persönlich',
-  income: 'Einnahmen',
-  finance: 'Finanzen',
+/** The heading of a category group — `household`, `housing`, … */
+export function categoryGroupLabel(group: string): string {
+  return i18n.t(`enums.categoryGroup.${group}`)
 }
 
 /** Everything before the dot — mirrors `Category.group` in the backend. */
@@ -183,20 +180,22 @@ export function categoryGroup(category: Category): string | null {
 /**
  * The categories in dropdown order, cut into their groups.
  *
- * Every category currently sits under a heading. A `label` of `null` is what an
+ * Every category currently sits under a heading. A `group` of `null` is what an
  * entry without a group would produce — it renders without a heading rather than
  * disappearing, so adding an ungrouped value later cannot break the list.
+ *
+ * Carries the group **key**, not its label: the label depends on the language
+ * and is looked up when rendering (`categoryGroupLabel`).
  */
-export const CATEGORY_GROUPS: { label: string | null; categories: Category[] }[] = (() => {
-  const groups: { label: string | null; categories: Category[] }[] = []
+export const CATEGORY_GROUPS: { group: string | null; categories: Category[] }[] = (() => {
+  const groups: { group: string | null; categories: Category[] }[] = []
 
-  for (const category of Object.keys(CATEGORY_LABEL) as Category[]) {
-    const key = categoryGroup(category)
-    const label = key === null ? null : CATEGORY_GROUP_LABEL[key]
+  for (const category of CATEGORIES) {
+    const group = categoryGroup(category)
     const previous = groups[groups.length - 1]
 
-    if (previous && previous.label === label) previous.categories.push(category)
-    else groups.push({ label, categories: [category] })
+    if (previous && previous.group === group) previous.categories.push(category)
+    else groups.push({ group, categories: [category] })
   }
 
   return groups
@@ -275,11 +274,8 @@ export const BLOCK_SUGGESTION: Record<Category, Block> = {
 
 export type Rhythm = 'monthly' | 'quarterly' | 'biannual' | 'annual'
 
-export const RHYTHM_LABEL: Record<Rhythm, string> = {
-  monthly: 'monatlich',
-  quarterly: 'quartalsweise',
-  biannual: 'halbjährlich',
-  annual: 'jährlich',
+export function rhythmLabel(rhythm: Rhythm): string {
+  return i18n.t(`enums.rhythm.${rhythm}`)
 }
 
 /** Distance in months — mirrors `Rhythm.interval`. */
@@ -290,20 +286,15 @@ export const RHYTHM_INTERVAL: Record<Rhythm, number> = {
   annual: 12,
 }
 
-export const MONTH_LABEL = [
-  'Januar',
-  'Februar',
-  'März',
-  'April',
-  'Mai',
-  'Juni',
-  'Juli',
-  'August',
-  'September',
-  'Oktober',
-  'November',
-  'Dezember',
-]
+/** The months, 1 to 12. */
+export const MONTHS: number[] = Array.from({ length: 12 }, (_, index) => index + 1)
+
+/** `März` for 3 — the name comes from `Intl` in the active language. */
+export function monthLabel(month: number): string {
+  return new Intl.DateTimeFormat(locale(), { month: 'long' }).format(
+    new Date(2000, month - 1, 1)
+  )
+}
 
 /**
  * Which months does this fall due in? Mirrors `Commitment.is_due_in()`.
@@ -328,10 +319,20 @@ export function dueMonths(rhythm: Rhythm, firstMonth: number | null): number[] {
   return months
 }
 
-export const euro = new Intl.NumberFormat('de-DE', {
-  style: 'currency',
-  currency: 'EUR',
-})
+/**
+ * Amounts in euro, formatted for the active language.
+ *
+ * Built per call rather than once at load time: a constant would freeze the
+ * language the app happened to start with.
+ */
+export const euro = {
+  format(value: number | bigint): string {
+    return new Intl.NumberFormat(locale(), {
+      style: 'currency',
+      currency: 'EUR',
+    }).format(value)
+  },
+}
 
 /** Day 0 of the next month is the last day of this one — leap years included. */
 export function daysInMonth(year: number, month: number): number {
@@ -444,13 +445,18 @@ export type AccountType =
   | 'payment_service'
   | 'cash'
 
-export const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
-  checking: 'Girokonto',
-  savings: 'Tagesgeld',
-  credit_card: 'Kreditkarte',
-  settlement: 'Verrechnungskonto',
-  payment_service: 'Zahlungsdienst',
-  cash: 'Bargeld',
+/** Every account type, in the order of the dropdown. */
+export const ACCOUNT_TYPES: AccountType[] = [
+  'checking',
+  'savings',
+  'credit_card',
+  'settlement',
+  'payment_service',
+  'cash',
+]
+
+export function accountTypeLabel(type: AccountType): string {
+  return i18n.t(`enums.accountType.${type}`)
 }
 
 export type Account = {
@@ -575,12 +581,17 @@ export type PaymentMethod =
   | 'direct_debit'
   | 'special'
 
-export const PAYMENT_LABEL: Record<PaymentMethod, string> = {
-  withdrawal: 'Abhebung',
-  transfer: 'Überweisung',
-  standing_order: 'Dauerauftrag',
-  direct_debit: 'Lastschrift',
-  special: 'Besonderheit',
+/** Every payment method, in the order of the dropdown. */
+export const PAYMENT_METHODS: PaymentMethod[] = [
+  'withdrawal',
+  'transfer',
+  'standing_order',
+  'direct_debit',
+  'special',
+]
+
+export function paymentLabel(method: PaymentMethod): string {
+  return i18n.t(`enums.paymentMethod.${method}`)
 }
 
 /** Mirror of `Plan` — always belongs to a person, never to a household. */
@@ -765,46 +776,13 @@ export function atLeast(level: AccessLevel, needed: AccessLevel): boolean {
  * "Sehen" on a month is the shared plan plus the private positions; on a contract
  * it is the contract itself, which nobody used to be able to share at all.
  */
-export const ACCESS_LABEL: Record<Area, Record<AccessLevel, string>> = {
-  plan: {
-    plan: 'Nur gemeinsame Posten',
-    view: 'Ganzer Monat sichtbar',
-    edit: 'Darf ändern und anlegen',
-    delete: 'Darf auch löschen',
-  },
-  commitments: {
-    plan: 'Nichts',
-    view: 'Verträge sichtbar',
-    edit: 'Darf ändern und anlegen',
-    delete: 'Darf auch löschen',
-  },
-  accounts: {
-    plan: 'Nichts',
-    view: 'Buch und Konten sichtbar',
-    edit: 'Darf ändern und anlegen',
-    delete: 'Darf auch löschen',
-  },
+export function accessLabel(area: Area, level: AccessLevel): string {
+  return i18n.t(`enums.access.${area}.${level}`)
 }
 
-export const ACCESS_HINT: Record<Area, Record<AccessLevel, string>> = {
-  plan: {
-    plan: 'Der Partner sieht, was ihr gemeinsam plant — sonst nichts.',
-    view: 'Der Partner sieht zusätzlich deine privaten Posten des Monats.',
-    edit: 'Der Partner darf Monate anlegen, Posten dazuschreiben, ändern und abhaken.',
-    delete: 'Der Partner darf Posten außerdem endgültig löschen. Änderungen stehen im Protokoll, Löschungen nicht.',
-  },
-  commitments: {
-    plan: 'Deine Verträge, Sparziele und Schulden bleiben für sich.',
-    view: 'Der Partner sieht, was bei dir fest läuft — Betrag, Rhythmus, Kategorie.',
-    edit: 'Der Partner darf Verträge für dich anlegen und ändern — der Weg, wenn dir jemand beim Einrichten hilft.',
-    delete: 'Der Partner darf Verträge außerdem löschen. Schon erzeugte Posten bleiben stehen, künftige entstehen nicht mehr.',
-  },
-  accounts: {
-    plan: 'Deine Konten und Buchungen bleiben für sich.',
-    view: 'Der Partner sieht deine Kontostände und jede Buchung darauf.',
-    edit: 'Der Partner darf Konten anlegen und ändern und auf ihnen buchen.',
-    delete: 'Der Partner darf Konten und Buchungen außerdem löschen. Eine gelöschte Buchung hinterlässt eine Lücke im Kontostand, die nichts erklärt.',
-  },
+/** One sentence on what the level allows, per area. */
+export function accessHint(area: Area, level: AccessLevel): string {
+  return i18n.t(`enums.accessHint.${area}.${level}`)
 }
 
 export const ACCESS_ORDER: AccessLevel[] = ['plan', 'view', 'edit', 'delete']
@@ -829,10 +807,8 @@ export type Member = {
 /** The three areas a grant can be given for. Mirrors `Area` in the backend. */
 export type Area = 'plan' | 'commitments' | 'accounts'
 
-export const AREA_LABEL: Record<Area, string> = {
-  plan: 'Planung',
-  commitments: 'Verträge',
-  accounts: 'Konten und Buch',
+export function areaLabel(area: Area): string {
+  return i18n.t(`enums.area.${area}`)
 }
 
 export const AREA_ORDER: Area[] = ['plan', 'commitments', 'accounts']

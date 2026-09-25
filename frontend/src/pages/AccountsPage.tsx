@@ -32,10 +32,11 @@ import { Switch } from '@/components/ui/switch'
 import { errorText } from '@/lib/api'
 import {
   atLeast,
-  ACCOUNT_TYPE_LABEL,
+  accountTypeLabel,
   euro,
   type Account,
   type AccountType,
+  ACCOUNT_TYPES,
 } from '@/lib/domain'
 import { useActiveMember } from '@/hooks/use-active-member'
 import { OWN_SCOPE } from '@/lib/domain'
@@ -53,7 +54,7 @@ import { useAccounts, useDeleteAccount, useSaveAccount } from '@/lib/queries'
  * transfer to it.
  */
 
-const TYPES = Object.keys(ACCOUNT_TYPE_LABEL) as AccountType[]
+const TYPES = ACCOUNT_TYPES
 
 function emptyAccount(isFirst: boolean): Account {
   return {
@@ -148,7 +149,7 @@ export function AccountsPage() {
                       )}
                     </span>
                     <span className="text-muted-foreground text-xs">
-                      {ACCOUNT_TYPE_LABEL[account.type]} · Anfangsbestand vom{' '}
+                      {accountTypeLabel(account.type)} · Anfangsbestand vom{' '}
                       {new Date(account.openingDate).toLocaleDateString('de-DE')}
                     </span>
                   </span>
@@ -244,7 +245,7 @@ function AccountDialog({
                 <SelectContent>
                   {TYPES.map((type) => (
                     <SelectItem key={type} value={type}>
-                      {ACCOUNT_TYPE_LABEL[type]}
+                      {accountTypeLabel(type)}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useLocation, useSearchParams } from 'react-router'
 import { ChevronRight, PanelRightClose, PanelRightOpen } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
-import { HELP, type HelpKey } from '@/lib/help'
+import { helpFor, type HelpKey } from '@/lib/help'
 import { cn } from '@/lib/utils'
 
 /**
@@ -33,6 +34,7 @@ function helpKeyFor(pathname: string, tab: string | null): HelpKey | null {
 }
 
 export function HelpPanel() {
+  const { t } = useTranslation()
   const location = useLocation()
   const [params] = useSearchParams()
   const [shown, setShown] = useState(
@@ -45,7 +47,7 @@ export function HelpPanel() {
   // width and give nothing back.
   if (key === null) return null
 
-  const help = HELP[key]
+  const help = helpFor(key)
 
   function toggle(next: boolean) {
     setShown(next)
@@ -59,7 +61,7 @@ export function HelpPanel() {
           variant="ghost"
           size="icon"
           onClick={() => toggle(true)}
-          aria-label="Erklärungen einblenden"
+          aria-label={t('helpPanel.show')}
         >
           <PanelRightOpen className="size-4" />
         </Button>
@@ -72,7 +74,7 @@ export function HelpPanel() {
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-col">
           <span className="text-muted-foreground font-mono text-[10px] tracking-widest uppercase">
-            Erklärung
+            {t('helpPanel.heading')}
           </span>
           <strong className="text-sm font-semibold">{help.title}</strong>
         </div>
@@ -81,7 +83,7 @@ export function HelpPanel() {
           size="icon"
           className="-mt-1"
           onClick={() => toggle(false)}
-          aria-label="Erklärungen ausblenden"
+          aria-label={t('helpPanel.hide')}
         >
           <PanelRightClose className="size-4" />
         </Button>
@@ -128,7 +130,7 @@ export function HelpPanel() {
       <p className="text-muted-foreground mt-auto border-t pt-3 text-[11px]">
         {/* TODO: Auszug aus dem Wiki laden statt aus `help.tsx`, sobald es die
             Artikel gibt — und von hier dorthin verlinken. */}
-        Kurzfassung. Die ausführlichen Artikel entstehen im Wiki.
+        {t('helpPanel.footer')}
       </p>
     </aside>
   )

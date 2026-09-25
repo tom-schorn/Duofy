@@ -9,8 +9,8 @@ import {
 } from '@/components/ui/popover'
 import {
   BLOCK_DOT,
-  CATEGORY_LABEL,
-  MONTH_LABEL,
+  categoryLabel,
+  monthLabel,
   euro,
   type PlanPosition,
 } from '@/lib/domain'
@@ -102,7 +102,7 @@ export function PositionPicker({
                   className="hover:bg-accent flex w-full items-center justify-between px-3 py-2 text-sm disabled:opacity-50"
                 >
                   <span>
-                    {MONTH_LABEL[entry.month - 1]} {entry.year}
+                    {monthLabel(entry.month)} {entry.year}
                   </span>
                   <span className="text-muted-foreground text-xs tabular-nums">
                     {/* Nothing planned reads as an empty month, not as an
@@ -137,7 +137,7 @@ export function PositionPicker({
               className="hover:bg-accent border-border flex w-full items-center gap-1.5 border-b px-3 py-2 text-sm font-medium"
             >
               <ChevronLeft className="size-4" />
-              {MONTH_LABEL[chosen.month - 1]} {chosen.year}
+              {monthLabel(chosen.month)} {chosen.year}
             </button>
             <ul className="max-h-72 overflow-y-auto py-1">
               {chosen.positions.map((position) => (
@@ -165,7 +165,7 @@ export function PositionPicker({
                           Kategorie sich sonst nur im Namen unterscheiden —
                           und genau dann ist der Betrag die Antwort. */}
                       <span className="text-muted-foreground text-xs">
-                        {CATEGORY_LABEL[position.category]} ·{' '}
+                        {categoryLabel(position.category)} ·{' '}
                         {euro.format(Number(position.amountPlanned))}
                       </span>
                     </span>

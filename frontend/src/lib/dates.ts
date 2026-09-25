@@ -9,6 +9,8 @@
  * Use these helpers everywhere instead of `toISOString`.
  */
 
+import { locale } from '@/lib/i18n'
+
 /** `2026-08-03` built from the **local** date parts. */
 export function toIsoDay(date: Date): string {
   const year = date.getFullYear()
@@ -35,14 +37,19 @@ export function fromIsoDay(iso: string): Date | undefined {
   return new Date(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]))
 }
 
-const LONG_DATE = new Intl.DateTimeFormat('de-DE', {
-  day: '2-digit',
-  month: 'long',
-  year: 'numeric',
-})
-
 /** `03. August 2026` — for buttons that show a chosen date. */
 export function longDate(iso: string): string {
   const date = fromIsoDay(iso)
-  return date ? LONG_DATE.format(date) : ''
+  return date
+    ? new Intl.DateTimeFormat(locale(), {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+      }).format(date)
+    : ''
+}
+
+/** `03.08.2026` — the short form, in the active language. */
+export function shortDate(value: string | Date): string {
+  return new Date(value).toLocaleDateString(locale())
 }

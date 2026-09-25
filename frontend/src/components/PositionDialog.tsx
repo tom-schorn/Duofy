@@ -23,15 +23,16 @@ import { CategoryPicker } from '@/components/CategoryPicker'
 import { cn } from '@/lib/utils'
 import {
   BLOCK_DOT,
-  BLOCK_LABEL,
+  blockLabel,
   BLOCK_SUGGESTION,
   BUDGET_ORDER,
-  PAYMENT_LABEL,
+  paymentLabel,
   categoryGroup,
   type Block,
   type Category,
   type PaymentMethod,
   type PlanPosition,
+  PAYMENT_METHODS,
 } from '@/lib/domain'
 import { useAccounts, useHouseholds } from '@/lib/queries'
 
@@ -45,7 +46,7 @@ import { useAccounts, useHouseholds } from '@/lib/queries'
  * commitment generates its positions itself, every month anew.
  */
 
-const PAYMENTS = Object.keys(PAYMENT_LABEL) as PaymentMethod[]
+const PAYMENTS = PAYMENT_METHODS
 
 /** The matching category, so the block does not jump the moment it is picked. */
 const DEFAULT_CATEGORY: Record<Block, Category> = {
@@ -219,7 +220,7 @@ export function PositionDialog({
                 {blockIsFixed ? (
                   <span className="flex h-9 items-center gap-2 text-sm font-medium">
                     <span className={cn('size-2.5 rounded-sm', BLOCK_DOT[draft.block])} />
-                    {BLOCK_LABEL[draft.block]}
+                    {blockLabel(draft.block)}
                   </span>
                 ) : (
                   <Select
@@ -234,7 +235,7 @@ export function PositionDialog({
                           und ein Einnahme-Posten wäre nicht bearbeitbar. */}
                       {BUDGET_ORDER.map((budget) => (
                         <SelectItem key={budget} value={budget}>
-                          {BLOCK_LABEL[budget]}
+                          {blockLabel(budget)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -316,7 +317,7 @@ export function PositionDialog({
                     <SelectItem value="none">offen</SelectItem>
                     {PAYMENTS.map((method) => (
                       <SelectItem key={method} value={method}>
-                        {PAYMENT_LABEL[method]}
+                        {paymentLabel(method)}
                       </SelectItem>
                     ))}
                   </SelectContent>

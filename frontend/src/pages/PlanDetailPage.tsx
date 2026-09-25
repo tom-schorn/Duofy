@@ -50,7 +50,7 @@ import {
 } from '@/lib/queries'
 import {
   BUDGETS,
-  MONTH_LABEL,
+  monthLabel,
   QUOTA_KEY,
   euro,
   isPaid,
@@ -309,7 +309,7 @@ function PlanBody({
       {/* Nur auf Papier: ohne Topbar fehlte sonst jeder Hinweis, was das Blatt
           ist und von wann es stammt. */}
       <p className="text-muted-foreground hidden text-xs print:block">
-        Duofy · Monatsplan {MONTH_LABEL[plan.month - 1]} {plan.year} · gedruckt
+        Duofy · Monatsplan {monthLabel(plan.month)} {plan.year} · gedruckt
         am {longDate(today())}
       </p>
 
@@ -320,7 +320,7 @@ function PlanBody({
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="font-heading text-3xl font-semibold">
-              {MONTH_LABEL[plan.month - 1]} {plan.year}
+              {monthLabel(plan.month)} {plan.year}
             </h1>
             {Object.entries(householdCounts).map(([id, count]) => (
               <Badge key={id} variant="secondary" className="gap-1 font-normal">
@@ -679,7 +679,7 @@ function MemberPlanBody({
       <header className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="font-heading text-3xl font-semibold">
-            {MONTH_LABEL[plan.month - 1]} {plan.year}
+            {monthLabel(plan.month)} {plan.year}
           </h1>
           <Badge variant="secondary" className="gap-1 font-normal">
             <Eye className="size-3" />
@@ -863,14 +863,14 @@ function HouseholdPlanBody({
       {/* Nur auf Papier: ohne Topbar fehlte jeder Hinweis, wessen Haushalt das
           Blatt zeigt und von wann es stammt. */}
       <p className="text-muted-foreground hidden text-xs print:block">
-        Duofy · Haushalt {plan.householdName} · {MONTH_LABEL[plan.month - 1]}{' '}
+        Duofy · Haushalt {plan.householdName} · {monthLabel(plan.month)}{' '}
         {plan.year} · gedruckt am {longDate(today())}
       </p>
 
       <header className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="font-heading text-3xl font-semibold">
-            {MONTH_LABEL[plan.month - 1]} {plan.year}
+            {monthLabel(plan.month)} {plan.year}
           </h1>
           <Badge variant="secondary" className="gap-1 font-normal">
             <Users className="size-3" />

@@ -5,7 +5,7 @@
  * the environment and is never hard-coded.
  *
  * The backend reports errors as a **code** (`{"detail": {"code": "..."}}`) and
- * the wording is added here. That keeps the API free of any language.
+ * the wording comes from the catalog. That keeps the API free of any language.
  *
  * ## Two tokens, and why only one of them is here
  *
@@ -21,6 +21,8 @@
  * Every request therefore goes out with `credentials: 'include'`; without it the
  * browser would leave the cookie at home.
  */
+
+import { i18n } from '@/lib/i18n'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1'
 
@@ -96,78 +98,17 @@ export class ApiError extends Error {
   }
 }
 
-/** German wording for the codes the backend knows. */
-const ERROR_TEXT: Record<string, string> = {
-  // Sign-in
-  LOGIN_BAD_CREDENTIALS: 'E-Mail oder Passwort stimmt nicht.',
-  LOGIN_USER_NOT_VERIFIED: 'Bitte bestätige zuerst deine E-Mail-Adresse.',
-  REGISTER_USER_ALREADY_EXISTS: 'Diese E-Mail ist schon vergeben.',
-  REGISTER_INVALID_PASSWORD: 'Das Passwort erfüllt die Anforderungen nicht.',
-
-  // Permissions
-  not_allowed: 'Dazu fehlt dir die Berechtigung.',
-  not_plan_owner: 'Dieser Plan gehört jemand anderem.',
-  not_commitment_owner: 'Dieser Vertrag gehört jemand anderem.',
-  not_household_owner: 'Das darf nur der Besitzer des Haushalts.',
-  not_household_member: 'Du bist kein Mitglied dieses Haushalts.',
-  not_a_member: 'Du bist kein Mitglied dieses Haushalts.',
-  not_account_owner: 'Dieses Konto gehört jemand anderem.',
-  no_insight_granted: 'Diese Person teilt diesen Bereich nicht mit dir.',
-  no_edit_granted: 'Du darfst hier zusehen, aber nichts ändern.',
-  no_delete_granted: 'Löschen bleibt beim Besitzer.',
-
-  // Domain rules
-  plan_not_found: 'Für diesen Monat gibt es noch keinen Plan.',
-  plan_already_exists: 'Für diesen Monat gibt es schon einen Plan.',
-  commitment_not_found: 'Der Vertrag existiert nicht mehr.',
-  position_not_found: 'Der Posten existiert nicht mehr.',
-  household_not_found: 'Der Haushalt existiert nicht mehr.',
-  last_owner_cannot_leave:
-    'Du bist der letzte Besitzer — übergib den Haushalt, bevor du austrittst.',
-  already_a_member: 'Diese Person ist schon im Haushalt.',
-  invitation_already_open: 'An diese Adresse läuft schon eine Einladung.',
-  invitation_not_found: 'Diese Einladung gibt es nicht.',
-  invitation_not_open: 'Diese Einladung wurde schon bearbeitet.',
-  invitation_expired: 'Diese Einladung ist abgelaufen.',
-  invitation_email_mismatch:
-    'Die Einladung gilt für eine andere E-Mail-Adresse.',
-  first_due_date_required:
-    'Bei nicht-monatlichem Rhythmus braucht es eine erste Fälligkeit.',
-  due_day_must_match_first_due_date:
-    'Fälligkeitstag und erste Fälligkeit widersprechen sich.',
-  target_only_for_savings_goal: 'Ein Zielbetrag gehört nur zu einem Sparziel.',
-  remaining_debt_only_for_debt: 'Eine Restschuld gehört nur zu einer Schuld.',
-
-  // Book and accounts
-  transaction_not_found: 'Diese Buchung gibt es nicht mehr.',
-  transfer_needs_two_accounts:
-    'Eine Umbuchung braucht zwei verschiedene Konten.',
-  transfer_needs_one_owner:
-    'Eine Umbuchung geht nur zwischen Konten derselben Person.',
-  position_needs_same_owner:
-    'Der Posten gehört zu einem anderen Konto als die Buchung.',
-
-  // Sessions — normally invisible, the client refreshes on its own. Shown only
-  // when that fails as well.
-  refresh_token_missing: 'Deine Sitzung ist abgelaufen. Bitte melde dich neu an.',
-  refresh_token_invalid: 'Deine Sitzung ist abgelaufen. Bitte melde dich neu an.',
-
-  // Import
-  not_a_bank_file:
-    'Das sieht nicht nach einer CAMT-Datei aus. Im Online-Banking heißt der Export meist „Umsätze exportieren“ — dort CAMT wählen, nicht CSV oder PDF.',
-  upload_too_large: 'Die Datei ist zu groß. Mehr als 10 MB nimmt der Import nicht.',
-  file_covers_several_accounts:
-    'Die Datei enthält Umsätze mehrerer Konten. Bitte je Konto einzeln exportieren.',
-  account_not_found: 'Dieses Konto gibt es nicht.',
-  imported_entry_not_found: 'Diese Zeile liegt nicht mehr in der Parkposition.',
-  category_missing: 'Ohne Kategorie lässt sich nicht buchen.',
-}
-
+/**
+ * The sentence for an error, from the catalog (`errors.<code>`).
+ *
+ * A code the catalog does not know gets a general sentence rather than the raw
+ * code — the backend may learn a new one before the catalog does.
+ */
 export function errorText(error: unknown): string {
   if (error instanceof ApiError) {
-    return ERROR_TEXT[error.code] ?? 'Da ist etwas schiefgegangen.'
+    return i18n.t(`errors.${error.code}`, { defaultValue: i18n.t('errors.unknown') })
   }
-  return 'Das Backend ist gerade nicht erreichbar.'
+  return i18n.t('errors.unreachable')
 }
 
 /** Pull the error code out of the response, whatever shape it arrives in. */

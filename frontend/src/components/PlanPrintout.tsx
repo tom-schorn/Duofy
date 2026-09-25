@@ -1,5 +1,5 @@
 import {
-  BLOCK_LABEL,
+  blockLabel,
   BUDGETS,
   euro,
   isPaid,
@@ -103,7 +103,7 @@ export function PlanPrintout({ plan, ownerName }: Props) {
           <section key={block} className="mb-2.5 break-inside-avoid">
             <div className="flex items-baseline justify-between border-b border-black/40 pb-0.5 text-[11px] font-semibold">
               <span className="uppercase">
-                {BLOCK_LABEL[block]}
+                {blockLabel(block)}
                 {quote !== null && (
                   <span className="font-normal"> · Soll {quote} %</span>
                 )}

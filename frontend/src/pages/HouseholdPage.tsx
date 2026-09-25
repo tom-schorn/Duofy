@@ -40,11 +40,11 @@ import {
   useSetMyAccess,
 } from '@/lib/queries'
 import {
-  ACCESS_HINT,
-  ACCESS_LABEL,
+  accessHint,
+  accessLabel,
   ACCESS_ORDER,
   AREA_FIELD,
-  AREA_LABEL,
+  areaLabel,
   AREA_ORDER,
   type AccessLevel,
   type Household,
@@ -150,8 +150,8 @@ export function HouseholdPage() {
                         <span className="text-muted-foreground flex flex-col gap-0.5 text-xs">
                           {AREA_ORDER.map((area) => (
                             <span key={area}>
-                              {AREA_LABEL[area]}:{' '}
-                              {ACCESS_LABEL[area][member[AREA_FIELD[area]]].toLowerCase()}
+                              {areaLabel(area)}:{' '}
+                              {accessLabel(area, member[AREA_FIELD[area]]).toLowerCase()}
                             </span>
                           ))}
                         </span>
@@ -485,7 +485,7 @@ function AccessChoice({
         return (
           <span key={area} className="flex flex-col gap-1">
             <span className="flex flex-wrap items-center gap-2">
-              <span className="w-32 text-xs font-medium">{AREA_LABEL[area]}</span>
+              <span className="w-32 text-xs font-medium">{areaLabel(area)}</span>
               <Select
                 value={level}
                 // Only this area travels. What the call leaves out keeps its
@@ -501,14 +501,14 @@ function AccessChoice({
                 <SelectContent>
                   {ACCESS_ORDER.map((option) => (
                     <SelectItem key={option} value={option}>
-                      {ACCESS_LABEL[area][option]}
+                      {accessLabel(area, option)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </span>
             <span className="text-muted-foreground pl-34 text-xs">
-              {ACCESS_HINT[area][level]}
+              {accessHint(area, level)}
             </span>
           </span>
         )

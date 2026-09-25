@@ -26,9 +26,10 @@ import { useActiveMember } from '@/hooks/use-active-member'
 import { useCreatePlan, useHouseholds, usePlans } from '@/lib/queries'
 import {
   BLOCK_DOT,
-  BLOCK_LABEL,
+  blockLabel,
   BUDGETS,
-  MONTH_LABEL,
+  MONTHS,
+  monthLabel,
   QUOTA_KEY,
   atLeast,
   euro,
@@ -142,7 +143,7 @@ function PlanCard({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-heading text-xl font-semibold">
-            {MONTH_LABEL[plan.month - 1]} {plan.year}
+            {monthLabel(plan.month)} {plan.year}
           </span>
           {/* Zeigt, dass dieser Plan Posten in einen Haushalt einspeist.
               Der Haushaltsplan ist keine eigene Tabelle — er entsteht aus
@@ -197,7 +198,7 @@ function BudgetRow({ plan, block }: { plan: PlanSummary; block: Block }) {
     <div className="grid grid-cols-[7rem_1fr_auto] items-center gap-3 text-xs">
       <span className="flex items-center gap-2">
         <span className={`size-2 rounded-sm ${BLOCK_DOT[block]}`} />
-        {BLOCK_LABEL[block]}
+        {blockLabel(block)}
         <span className="text-muted-foreground">{quota} %</span>
       </span>
 
@@ -274,9 +275,9 @@ function CreatePlanDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {MONTH_LABEL.map((label, index) => (
-                    <SelectItem key={label} value={String(index + 1)}>
-                      {label}
+                  {MONTHS.map((month) => (
+                    <SelectItem key={month} value={String(month)}>
+                      {monthLabel(month)}
                     </SelectItem>
                   ))}
                 </SelectContent>

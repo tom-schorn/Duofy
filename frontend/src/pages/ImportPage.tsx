@@ -17,7 +17,7 @@ import { errorText } from '@/lib/api'
 import { longDate } from '@/lib/dates'
 import {
   BLOCK_DOT,
-  CATEGORY_LABEL,
+  categoryLabel,
   OWN_SCOPE,
   atLeast,
   euro,
@@ -407,7 +407,7 @@ function EntryTable({
                         className="text-sm"
                         title="Kommt aus dem Posten"
                       >
-                        {entry.category ? CATEGORY_LABEL[entry.category] : '—'}
+                        {entry.category ? categoryLabel(entry.category) : '—'}
                       </span>
                     ) : (
                       <CategoryPicker
@@ -501,7 +501,7 @@ function EntryTable({
                           <>
                             <span className="text-foreground">
                               {suggestion.category
-                                ? CATEGORY_LABEL[suggestion.category]
+                                ? categoryLabel(suggestion.category)
                                 : ''}
                             </span>
                             {suggestion.positionId && (

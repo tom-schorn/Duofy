@@ -30,11 +30,11 @@ import {
 } from '@/lib/queries'
 import {
   BLOCK_DOT,
-  BLOCK_LABEL,
+  blockLabel,
   BUDGET_ORDER,
-  CATEGORY_LABEL,
-  MONTH_LABEL,
-  RHYTHM_LABEL,
+  categoryLabel,
+  monthLabel,
+  rhythmLabel,
   atLeast,
   dueMonths,
   euro,
@@ -57,9 +57,9 @@ import {
 /** Monthly needs no addition — the rest shows when it actually falls due. */
 function rhythmText(commitment: Commitment) {
   const months = dueMonths(commitment.rhythm, firstMonthOf(commitment))
-  if (months.length === 0) return RHYTHM_LABEL[commitment.rhythm]
-  const short = months.map((month) => MONTH_LABEL[month - 1].slice(0, 3))
-  return `${RHYTHM_LABEL[commitment.rhythm]} · ${short.join(', ')}`
+  if (months.length === 0) return rhythmLabel(commitment.rhythm)
+  const short = months.map((month) => monthLabel(month).slice(0, 3))
+  return `${rhythmLabel(commitment.rhythm)} · ${short.join(', ')}`
 }
 
 /** What follows from the type — a target or a remaining debt, nothing else. */
@@ -171,7 +171,7 @@ export function CommitmentsPage() {
                   <span
                     className={`size-2.5 rounded-sm ${BLOCK_DOT[group.block]}`}
                   />
-                  {BLOCK_LABEL[group.block]}
+                  {blockLabel(group.block)}
                 </h2>
                 <span className="text-muted-foreground text-sm tabular-nums">
                   {euro.format(group.total)}
@@ -199,7 +199,7 @@ export function CommitmentsPage() {
                           )}
                         </span>
                         <span className="text-muted-foreground truncate text-xs">
-                          {CATEGORY_LABEL[commitment.category]} ·{' '}
+                          {categoryLabel(commitment.category)} ·{' '}
                           {rhythmText(commitment)} · {commitment.dueDay}.
                           {commitment.householdId
                             ? ` · ${householdNames[commitment.householdId] ?? 'Haushalt'}`

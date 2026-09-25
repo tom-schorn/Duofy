@@ -6,9 +6,9 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Progress } from '@/components/ui/progress'
 import {
   BLOCK_DOT,
-  BLOCK_LABEL,
-  CATEGORY_LABEL,
-  PAYMENT_LABEL,
+  blockLabel,
+  categoryLabel,
+  paymentLabel,
   euro,
   isPaid,
   type Block,
@@ -94,7 +94,7 @@ export function BudgetSection({
         <div className="flex items-baseline justify-between gap-4">
           <h2 className="flex items-center gap-2 text-sm font-semibold tracking-wide uppercase">
             <span className={`size-2.5 rounded-sm ${BLOCK_DOT[block]}`} />
-            {BLOCK_LABEL[block]}
+            {blockLabel(block)}
           </h2>
           <span className="text-sm tabular-nums">
             <span className={isOver ? 'text-destructive font-semibold' : 'font-semibold'}>
@@ -114,7 +114,7 @@ export function BudgetSection({
           // colour carries identity, so it is overridden.
           <Progress
             value={Math.min(percent, 100)}
-            aria-label={`${BLOCK_LABEL[block]}: ${Math.round(percent)} % der Quote`}
+            aria-label={`${blockLabel(block)}: ${Math.round(percent)} % der Quote`}
             className={`h-1.5 ${isOver ? BAR_OVER : BAR[block]}`}
           />
         )}
@@ -145,7 +145,7 @@ export function BudgetSection({
         className="text-muted-foreground hover:text-foreground w-fit"
       >
         <Plus className="size-4" />
-        Posten in {BLOCK_LABEL[block]}
+        Posten in {blockLabel(block)}
       </Button>
       )}
     </section>
@@ -245,9 +245,9 @@ function PositionRow({
           )}
         </span>
         <span className="text-muted-foreground truncate text-xs">
-          {CATEGORY_LABEL[position.category]} · {position.dueDay}.
+          {categoryLabel(position.category)} · {position.dueDay}.
           {position.paymentMethod
-            ? ` · ${PAYMENT_LABEL[position.paymentMethod]}`
+            ? ` · ${paymentLabel(position.paymentMethod)}`
             : ''}
           {position.commitmentId ? ' · aus Vertrag' : ''}
           {position.isBudget ? ' · Budget' : ''}

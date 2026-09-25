@@ -6,7 +6,7 @@ import { BookFlow } from '@/components/BookFlow'
 import { MonthBook } from '@/components/MonthBook'
 import { Button } from '@/components/ui/button'
 import { useActiveMember } from '@/hooks/use-active-member'
-import { MONTH_LABEL, OWN_SCOPE, atLeast, type BookScope } from '@/lib/domain'
+import { monthLabel, OWN_SCOPE, atLeast, type BookScope } from '@/lib/domain'
 import { usePlan } from '@/lib/queries'
 
 /**
@@ -61,7 +61,7 @@ export function BookPage() {
             <ChevronLeft className="size-4" />
           </Button>
           <span className="min-w-40 text-center font-medium tabular-nums">
-            {MONTH_LABEL[month - 1]} {year}
+            {monthLabel(month)} {year}
           </span>
           <Button variant="ghost" size="icon" onClick={() => shift(1)}>
             <ChevronRight className="size-4" />

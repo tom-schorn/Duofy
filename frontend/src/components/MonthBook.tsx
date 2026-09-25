@@ -25,7 +25,7 @@ import { today } from '@/lib/dates'
 import {
   OWN_SCOPE,
   BLOCK_SUGGESTION,
-  CATEGORY_LABEL,
+  categoryLabel,
   euro,
   type Account,
   type Category,
@@ -352,7 +352,7 @@ function Row({
             <>
               {account?.name}
               {transaction.category
-                ? ` · ${CATEGORY_LABEL[transaction.category]}`
+                ? ` · ${categoryLabel(transaction.category)}`
                 : ''}
               {position ? ` · ${position.label}` : ''}
               {/* Nur im gemeinsamen Buch gesetzt — dort ist der Name der

@@ -6,7 +6,7 @@ import {
 } from '@/components/ui/card'
 import { QueryState } from '@/components/QueryState'
 import {
-  ACCOUNT_TYPE_LABEL,
+  accountTypeLabel,
   euro,
   OWN_SCOPE,
   type Account,
@@ -71,7 +71,7 @@ function AccountCard({ account }: { account: Account }) {
         {euro.format(balance)}
       </span>
         <span className="text-muted-foreground text-xs">
-          {ACCOUNT_TYPE_LABEL[account.type]}
+          {accountTypeLabel(account.type)}
           {account.ownerName ? ` · ${account.ownerName}` : ''}
         </span>
       </CardContent>

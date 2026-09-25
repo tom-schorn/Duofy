@@ -25,14 +25,14 @@ import { CategoryPicker } from '@/components/CategoryPicker'
 import { cn } from '@/lib/utils'
 import {
   BLOCK_DOT,
-  BLOCK_LABEL,
+  blockLabel,
   BUDGETS,
   BLOCK_SUGGESTION,
   DUE_DAY_MAY_SHIFT,
   categoryGroup,
-  MONTH_LABEL,
-  PAYMENT_LABEL,
-  RHYTHM_LABEL,
+  monthLabel,
+  paymentLabel,
+  rhythmLabel,
   dueMonths,
   effectiveDueDay,
   firstMonthOf,
@@ -42,6 +42,8 @@ import {
   type CommitmentType,
   type PaymentMethod,
   type Rhythm,
+  PAYMENT_METHODS,
+  RHYTHM_INTERVAL,
 } from '@/lib/domain'
 import { useAccounts, useHouseholds } from '@/lib/queries'
 
@@ -116,9 +118,9 @@ const TYPE_OPTIONS: {
   },
 ]
 
-const PAYMENTS = Object.keys(PAYMENT_LABEL) as PaymentMethod[]
+const PAYMENTS = PAYMENT_METHODS
 const BLOCKS: Block[] = ['income', ...BUDGETS]
-const RHYTHMS = Object.keys(RHYTHM_LABEL) as Rhythm[]
+const RHYTHMS = Object.keys(RHYTHM_INTERVAL) as Rhythm[]
 
 function emptyDraft(): Commitment {
   return {
@@ -353,7 +355,7 @@ export function CommitmentDialog({
                   <SelectContent>
                     {RHYTHMS.map((rhythm) => (
                       <SelectItem key={rhythm} value={rhythm}>
-                        {RHYTHM_LABEL[rhythm]}
+                        {rhythmLabel(rhythm)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -439,7 +441,7 @@ export function CommitmentDialog({
                   <SelectItem value="none">Keine Angabe</SelectItem>
                   {PAYMENTS.map((method) => (
                     <SelectItem key={method} value={method}>
-                      {PAYMENT_LABEL[method]}
+                      {paymentLabel(method)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -482,9 +484,9 @@ export function CommitmentDialog({
                 {months.length > 0 && (
                   <span>
                     Fällt an am {draft.dueDay}. in{' '}
-                    {months.map((month) => MONTH_LABEL[month - 1]).join(', ')}
+                    {months.map((month) => monthLabel(month)).join(', ')}
                     {draft.firstDueDate
-                      ? ` — erstmals ${MONTH_LABEL[Number(draft.firstDueDate.slice(5, 7)) - 1]} ${draft.firstDueDate.slice(0, 4)}.`
+                      ? ` — erstmals ${monthLabel(Number(draft.firstDueDate.slice(5, 7)))} ${draft.firstDueDate.slice(0, 4)}.`
                       : '.'}
                   </span>
                 )}
@@ -512,7 +514,7 @@ export function CommitmentDialog({
                 {blockIsFixed ? (
                   <span className="flex h-9 items-center gap-2 text-sm font-medium">
                     <span className={cn('size-2.5 rounded-sm', BLOCK_DOT[draft.block])} />
-                    {BLOCK_LABEL[draft.block]}
+                    {blockLabel(draft.block)}
                   </span>
                 ) : (
                   <Select
@@ -525,7 +527,7 @@ export function CommitmentDialog({
                     <SelectContent>
                       {BLOCKS.map((block) => (
                         <SelectItem key={block} value={block}>
-                          {BLOCK_LABEL[block]}
+                          {blockLabel(block)}
                         </SelectItem>
                       ))}
                     </SelectContent>
