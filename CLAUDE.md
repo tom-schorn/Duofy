@@ -26,8 +26,10 @@ keine eigene Tabelle. Der Haushalt besitzt nichts — kein Konto, keinen Plan.
 - **Deutsch:** Issues, Wiki, README, diese Datei
 - **Oberfläche:** vorerst nur Deutsch. Weitere Sprachen sollen andere per Pull
   Request beisteuern können, ohne Code anzufassen — Texte gehören deshalb nicht
-  fest in Komponenten. Eine Übersetzungseinheit gibt es noch nicht; heute stehen
-  Oberflächentexte direkt in den Komponenten und Fehlercodes in `src/lib/api.ts`
+  fest in Komponenten. Die Übersetzungseinheit baut #98 (`react-i18next`,
+  `src/locales/de.json`); bis dahin stehen Oberflächentexte direkt in den
+  Komponenten und Fehlercodes in `src/lib/api.ts`. Nach #98 kommt jeder neue
+  Text als Schlüssel in den Katalog
 - Das Backend liefert **Codes, nie Sätze**
 
 ## Repo
@@ -96,8 +98,9 @@ Befehlsfolge auf und übergibt sie.
 3. Alle Links `](Seite-de)` → `](Seite)` in allen Seiten und in `_Sidebar.md`
 4. Sprachumschalter und Hinweise auf die englische Fassung entfernen
 5. Programmierrichtlinien, Abschnitt „Sprache": Code englisch, Issues und Doku
-   deutsch, Oberfläche vorerst deutsch mit Übersetzungseinheit
-6. Prüfen, dass jeder Link aus dem README ins Wiki noch trifft
+   deutsch, Oberfläche vorerst deutsch mit Übersetzungseinheit (#98)
+6. Neue Seite „Neue Sprache beitragen" (#98)
+7. Prüfen, dass jeder Link aus dem README ins Wiki noch trifft
 
 **Danach laufend:** Die Seiten werden Stück für Stück überarbeitet, jeweils wenn
 ihr Thema in einem Issue dran ist. Stand nach #83 bis #95 prüfen: kein `Block`,
@@ -143,7 +146,8 @@ kein `Rhythm`, kein `remaining_debt`, Verlauf und Monatsübertrag wie in #93/#94
 V1 = erste Version für andere; danach nur Bugfix-Releases (1.0.x). Reihenfolge
 nach Abhängigkeiten:
 
-1. #13 Test-Fundament → #83 Modell aufräumen
+1. #13 Test-Fundament → #83 Modell aufräumen, #98 Übersetzungseinheit (vor
+   allem, was neue Texte bringt)
 2. #95, #87, #10
 3. #94 → #4
 4. #88 → #93
