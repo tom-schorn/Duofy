@@ -223,5 +223,62 @@
   "categoryPicker": {
     "placeholder": "Kategorie wählen …",
     "ungrouped": "Ohne Gruppe"
+  },
+  "auth": {
+    "claim": "Duofy plant Geld, es zählt es nicht.",
+    "tagline": "Gemeinsam planen, getrennt besitzen.",
+    "login": {
+      "title": "Willkommen zurück",
+      "lead": "Plan den Monat, bevor er anfängt.",
+      "forgot": "Passwort vergessen?",
+      "pending": "Wird geprüft…",
+      "submit": "Anmelden",
+      "noAccount": "Noch kein Konto?",
+      "register": "Registrieren"
+    },
+    "email": "E-Mail",
+    "emailPlaceholder": "name@beispiel.de",
+    "password": "Passwort",
+    "register": {
+      "title": "Konto anlegen",
+      "lead": "Dein Geld bleibt deins — der Haushalt kommt später dazu.",
+      "firstName": "Vorname",
+      "lastName": "Nachname",
+      "passwordRule": "Mindestens 8 Zeichen.",
+      "pending": "Wird angelegt…",
+      "hasAccount": "Schon ein Konto?",
+      "login": "Anmelden"
+    }
+  },
+  "nav": {
+    "plan": "Planung",
+    "commitments": "Verträge",
+    "book": "Buch",
+    "accounts": "Konten",
+    "import": "Import",
+    "household": "Haushalt"
+  },
+  "theme": {
+    "light": "Hell",
+    "dark": "Dunkel",
+    "system": "System",
+    "label": "Darstellung"
+  },
+  "memberSwitcher": {
+    "label": "Person, deren Zahlen angezeigt werden",
+    "me": "Ich"
+  },
+  "userMenu": {
+    "account": "Konto",
+    "settings": "Einstellungen",
+    "logout": "Abmelden"
+  },
+  "notFound": {
+    "title": "Diese Seite gibt es nicht",
+    "text": "Vielleicht ein alter Link, vielleicht ein Tippfehler. Beides kein Weltuntergang.",
+    "back": "Zur Planung"
+  },
+  "dateField": {
+    "placeholder": "Datum wählen"
   }
 }

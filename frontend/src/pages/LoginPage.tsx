@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { useMutation } from '@tanstack/react-query'
@@ -10,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { api, errorText, setToken } from '@/lib/api'
 
 export function LoginPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -37,22 +39,22 @@ export function LoginPage() {
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         <header className="flex flex-col gap-2">
           <h1 className="font-heading text-3xl font-semibold">
-            Willkommen zurück
+            {t('auth.login.title')}
           </h1>
           <p className="text-muted-foreground text-sm">
-            Plan den Monat, bevor er anfängt.
+            {t('auth.login.lead')}
           </p>
         </header>
 
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="email">E-Mail</Label>
+            <Label htmlFor="email">{t('auth.email')}</Label>
             <Input
               id="email"
               name="email"
               type="email"
               autoComplete="email"
-              placeholder="name@beispiel.de"
+              placeholder={t('auth.emailPlaceholder')}
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               required
@@ -61,14 +63,14 @@ export function LoginPage() {
 
           <div className="flex flex-col gap-2">
             <div className="flex items-baseline justify-between">
-              <Label htmlFor="password">Passwort</Label>
+              <Label htmlFor="password">{t('auth.password')}</Label>
               {/* TODO: Route /passwort-vergessen bauen. Das Backend hat den
                   Reset-Endpunkt schon (fastapi-users), die Seite fehlt. */}
               <Link
                 to="#"
                 className="text-muted-foreground hover:text-foreground text-xs underline underline-offset-4"
               >
-                Passwort vergessen?
+                {t('auth.login.forgot')}
               </Link>
             </div>
             <Input
@@ -90,16 +92,16 @@ export function LoginPage() {
         )}
 
         <Button type="submit" className="w-full" disabled={login.isPending}>
-          {login.isPending ? 'Wird geprüft…' : 'Anmelden'}
+          {login.isPending ? t('auth.login.pending') : t('auth.login.submit')}
         </Button>
 
         <p className="text-muted-foreground text-center text-sm">
-          Noch kein Konto?{' '}
+          {t('auth.login.noAccount')}{' '}
           <Link
             to="/register"
             className="text-foreground font-medium underline underline-offset-4"
           >
-            Registrieren
+            {t('auth.login.register')}
           </Link>
         </p>
       </form>

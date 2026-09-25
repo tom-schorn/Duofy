@@ -1,5 +1,6 @@
 import { CalendarDays } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
@@ -36,9 +37,10 @@ export function DateField({
   id,
   value,
   onChange,
-  placeholder = 'Datum wählen',
+  placeholder,
   disabled,
 }: Props) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const gewaehlt = value ? fromIsoDay(value) : undefined
 
@@ -56,7 +58,9 @@ export function DateField({
           {value ? (
             longDate(value)
           ) : (
-            <span className="text-muted-foreground">{placeholder}</span>
+            <span className="text-muted-foreground">
+              {placeholder ?? t('dateField.placeholder')}
+            </span>
           )}
         </Button>
       </PopoverTrigger>
