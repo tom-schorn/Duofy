@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { ChevronRight, Plus, Users } from 'lucide-react'
 
@@ -37,6 +38,7 @@ import {
   type Block,
   type PlanSummary,
 } from '@/lib/domain'
+import { formatNumber } from '@/lib/format'
 
 /**
  * Overview of every monthly plan. One click opens a plan in detail.
@@ -50,6 +52,7 @@ import {
 const OVER_QUOTA = 100
 
 export function PlansPage() {
+  const { t } = useTranslation()
   // `?member=` shows the months of a person who granted insight — see
   // `MemberSwitcher`. At level `edit` a month can also be created for them: the
   // positions come from **their** commitments, so nothing of the helper ends up
@@ -70,17 +73,17 @@ export function PlansPage() {
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-2">
-          <h1 className="font-heading text-3xl font-semibold">Planung</h1>
+          <h1 className="font-heading text-3xl font-semibold">{t('plans.title')}</h1>
           <p className="text-muted-foreground">
             {active.member === null
-              ? 'Deine Monatspläne. Klick einen an, um ihn zu verplanen.'
-              : `Die Monatspläne von ${active.member.firstName}. Klick einen an, um hineinzuschauen.`}
+              ? t('plans.lead')
+              : t('plans.leadMember', { name: active.member.firstName })}
           </p>
         </div>
         {mayEdit && (
           <Button onClick={() => setCreating(true)}>
             <Plus className="size-4" />
-            Monat anlegen
+            {t('plans.create')}
           </Button>
         )}
       </header>
@@ -89,10 +92,10 @@ export function PlansPage() {
         {plans.data?.length === 0 ? (
           <p className="text-muted-foreground border-border rounded-lg border border-dashed p-10 text-center text-sm">
             {active.member === null
-              ? 'Noch kein Monat angelegt. Leg einen an — die Posten aus deinen Verträgen entstehen dabei von selbst.'
+              ? t('plans.empty')
               : mayEdit
-              ? `${active.member.firstName} hat noch keinen Monat angelegt. Du darfst einen anlegen — die Posten entstehen aus ${active.member.firstName}s Verträgen.`
-              : `${active.member.firstName} hat noch keinen Monat angelegt.`}
+              ? t('plans.emptyMemberEdit', { name: active.member.firstName })
+              : t('plans.emptyMember', { name: active.member.firstName })}
           </p>
         ) : (
           <ul className="flex flex-col gap-3">
@@ -126,7 +129,8 @@ function PlanCard({
   ownerId: string | null
 }) {
   const unpaid = Number(plan.unpaid)
-  const unpaidLabel = unpaid > 0 ? euro.format(unpaid) : 'alles bezahlt'
+  const { t } = useTranslation()
+  const unpaidLabel = unpaid > 0 ? euro.format(unpaid) : t('plans.allPaid')
   // What is left to allocate is the free remainder of the budget, not the budget.
   const free = unallocated(plan)
 
@@ -151,7 +155,7 @@ function PlanCard({
           {plan.householdIds.map((id) => (
             <Badge key={id} variant="secondary" className="gap-1 font-normal">
               <Users className="size-3" />
-              {householdNames[id] ?? 'Haushalt'}
+              {householdNames[id] ?? t('plans.household')}
             </Badge>
           ))}
         </div>
@@ -160,7 +164,7 @@ function PlanCard({
 
       <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
         <span>
-          <span className="text-muted-foreground">Verplanbar </span>
+          <span className="text-muted-foreground">{t('plans.allocatable')}{' '}</span>
           <span
             className={`font-medium tabular-nums ${free < 0 ? 'text-destructive' : ''}`}
           >
@@ -168,7 +172,7 @@ function PlanCard({
           </span>
         </span>
         <span>
-          <span className="text-muted-foreground">Noch offen </span>
+          <span className="text-muted-foreground">{t('plans.open')}{' '}</span>
           <span
             className={`font-medium tabular-nums ${unpaid > 0 ? '' : 'text-muted-foreground'}`}
           >
@@ -188,6 +192,7 @@ function PlanCard({
 
 function BudgetRow({ plan, block }: { plan: PlanSummary; block: Block }) {
   const key = block as keyof typeof QUOTA_KEY
+  const { t } = useTranslation()
   const quota = Number(plan[QUOTA_KEY[key]])
   const target = Number(plan.budget) * (quota / 100)
   const actual = Number(plan.spent[key])
@@ -199,7 +204,9 @@ function BudgetRow({ plan, block }: { plan: PlanSummary; block: Block }) {
       <span className="flex items-center gap-2">
         <span className={`size-2 rounded-sm ${BLOCK_DOT[block]}`} />
         {blockLabel(block)}
-        <span className="text-muted-foreground">{quota} %</span>
+        <span className="text-muted-foreground">
+          {t('common.percent', { value: formatNumber(quota) })}
+        </span>
       </span>
 
       <span className="bg-muted h-1.5 overflow-hidden rounded-full">
@@ -215,7 +222,10 @@ function BudgetRow({ plan, block }: { plan: PlanSummary; block: Block }) {
         >
           {euro.format(actual)}
         </span>
-        <span className="text-muted-foreground"> von {euro.format(target)}</span>
+        <span className="text-muted-foreground">
+          {' '}
+          {t('budget.of', { amount: euro.format(target) })}
+        </span>
       </span>
     </div>
   )
@@ -233,6 +243,7 @@ function CreatePlanDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const today = new Date()
+  const { t } = useTranslation()
   const [year, setYear] = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth() + 1)
   const create = useCreatePlan()
@@ -255,18 +266,20 @@ function CreatePlanDialog({
         >
           <DialogHeader>
             <DialogTitle className="font-heading text-xl">
-              {ownerName === null ? 'Monat anlegen' : `Monat für ${ownerName} anlegen`}
+              {ownerName === null
+                ? t('plans.create')
+                : t('plans.createFor', { name: ownerName })}
             </DialogTitle>
             <DialogDescription>
               {ownerName === null
-                ? 'Die Posten aus deinen Verträgen entstehen dabei von selbst. Einzelposten schreibst du danach dazu.'
-                : `Die Posten entstehen aus ${ownerName}s Verträgen, nicht aus deinen. Einzelposten schreibst du danach dazu.`}
+                ? t('plans.createHint')
+                : t('plans.createForHint', { name: ownerName })}
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">
-              <Label>Monat</Label>
+              <Label>{t('plans.month')}</Label>
               <Select
                 value={String(month)}
                 onValueChange={(value) => setMonth(Number(value))}
@@ -285,7 +298,7 @@ function CreatePlanDialog({
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label>Jahr</Label>
+              <Label>{t('plans.year')}</Label>
               <Select
                 value={String(year)}
                 onValueChange={(value) => setYear(Number(value))}
@@ -316,10 +329,10 @@ function CreatePlanDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              Abbrechen
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={create.isPending}>
-              {create.isPending ? 'Wird angelegt…' : 'Anlegen'}
+              {create.isPending ? t('plans.creating') : t('common.create')}
             </Button>
           </DialogFooter>
         </form>

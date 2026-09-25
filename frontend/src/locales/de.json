@@ -329,7 +329,8 @@
     "add": "Hinzufügen",
     "create": "Anlegen",
     "dayOfMonth": "{{day}}. {{month}}",
-    "percent": "{{value}} %"
+    "percent": "{{value}} %",
+    "edit": "Bearbeiten"
   },
   "positionPicker": {
     "none": "kein Posten",
@@ -478,5 +479,41 @@
     "unplanned": "Noch nicht verplant",
     "summary": "Budget · davon {{amount}} noch nicht verplant",
     "empty": "Für dieses Diagramm braucht der Monat Einnahmen und Posten. Sobald etwas geplant ist, steht hier, wohin es geht."
+  },
+  "plans": {
+    "leadMember": "Die Monatspläne von {{name}}. Klick einen an, um hineinzuschauen.",
+    "emptyMemberEdit": "{{name}} hat noch keinen Monat angelegt. Du darfst einen anlegen — die Posten entstehen aus {{name}}s Verträgen.",
+    "emptyMember": "{{name}} hat noch keinen Monat angelegt.",
+    "createFor": "Monat für {{name}} anlegen",
+    "createForHint": "Die Posten entstehen aus {{name}}s Verträgen, nicht aus deinen. Einzelposten schreibst du danach dazu.",
+    "title": "Planung",
+    "lead": "Deine Monatspläne. Klick einen an, um ihn zu verplanen.",
+    "create": "Monat anlegen",
+    "empty": "Noch kein Monat angelegt. Leg einen an — die Posten aus deinen Verträgen entstehen dabei von selbst.",
+    "allPaid": "alles bezahlt",
+    "household": "Haushalt",
+    "allocatable": "Verplanbar",
+    "open": "Noch offen",
+    "createHint": "Die Posten aus deinen Verträgen entstehen dabei von selbst. Einzelposten schreibst du danach dazu.",
+    "month": "Monat",
+    "year": "Jahr",
+    "creating": "Wird angelegt…"
+  },
+  "commitments": {
+    "targetUntil": "Ziel {{target}} bis {{date}}",
+    "target": "Ziel {{target}}",
+    "remaining": "Rest {{amount}}",
+    "leadMemberEdit": "Die Verträge von {{name}}. Du darfst sie ändern.",
+    "leadMemberView": "Die Verträge von {{name}}. Nur zum Ansehen.",
+    "private": "privat",
+    "menuLabel": "{{name}} bearbeiten oder löschen",
+    "deleteTitle": "„{{name}}\" löschen?",
+    "title": "Verträge",
+    "lead": "Alles Wiederkehrende — Miete, Abos, Sparpläne, Kredite. Einmal angelegt, erzeugt es seine Posten selbst.",
+    "create": "Vertrag anlegen",
+    "empty": "Noch kein Vertrag angelegt.",
+    "perMonth": "Ø / Monat",
+    "inactive": "inaktiv",
+    "deleteText": "Bereits geplante Posten in laufenden Monaten bleiben stehen. Für künftige Monate entsteht nichts mehr."
   }
 }
