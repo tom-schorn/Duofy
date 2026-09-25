@@ -10,7 +10,7 @@ from app.db.base import Base
 from app.db.types import enum_column
 from app.models.enums import (
     CATEGORY_LENGTH,
-    Block,
+    Budget,
     Category,
     CommitmentType,
     PaymentMethod,
@@ -57,10 +57,10 @@ class Commitment(UUIDMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(200))
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
 
-    #: The user's choice. BLOCK_SUGGESTION preselects it in the frontend; for
-    #: `debt` and `savings_goal`, resolve_block() overrides it.
+    #: The user's choice. BUDGET_SUGGESTION preselects it in the frontend; for
+    #: `debt` and `savings_goal`, resolve_budget() overrides it.
     category: Mapped[Category] = mapped_column(enum_column(Category, length=CATEGORY_LENGTH))
-    block: Mapped[Block] = mapped_column(enum_column(Block))
+    budget: Mapped[Budget] = mapped_column(enum_column(Budget))
 
     #: NULL means private. Set means generated positions appear in that household
     #: plan. Decided once, it applies to every future month.

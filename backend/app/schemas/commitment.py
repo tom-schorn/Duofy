@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from pydantic import Field, model_validator
 
-from app.models.enums import Block, Category, CommitmentType, PaymentMethod, Rhythm
+from app.models.enums import Budget, Category, CommitmentType, PaymentMethod, Rhythm
 from app.schemas.base import Schema
 
 
@@ -12,7 +12,7 @@ class CommitmentBase(Schema):
     name: str = Field(min_length=1, max_length=200)
     amount: Decimal = Field(ge=0, max_digits=12, decimal_places=2)
     category: Category
-    block: Block
+    budget: Budget
     household_id: uuid.UUID | None = None
     rhythm: Rhythm
     first_due_date: date | None = None
@@ -70,7 +70,7 @@ class CommitmentUpdate(Schema):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     amount: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     category: Category | None = None
-    block: Block | None = None
+    budget: Budget | None = None
     household_id: uuid.UUID | None = None
     rhythm: Rhythm | None = None
     first_due_date: date | None = None

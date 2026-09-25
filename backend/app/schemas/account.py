@@ -81,7 +81,7 @@ class BalanceMoves(Schema):
     """One day of movement, broken down — every figure a positive amount.
 
     `change` is `income - needs - wants - savings`. Pure transfers leaving the
-    spendable pot count under `savings`: they carry no block, but the money has
+    spendable pot count under `savings`: they carry no budget, but the money has
     been put aside.
     """
 

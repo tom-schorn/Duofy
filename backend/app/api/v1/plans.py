@@ -26,7 +26,7 @@ from app.core.permissions import (
 )
 from app.db.session import get_session
 from app.models.commitment import Commitment
-from app.models.enums import AccessLevel, Block, CommitmentType
+from app.models.enums import AccessLevel, Budget, CommitmentType
 from app.models.household import Household, HouseholdMember
 from app.models.plan import Plan, PlanPosition
 from app.models.user import User
@@ -57,20 +57,20 @@ def _summarize(
 ) -> dict:
     """The figures the overview and the detail page show.
 
-    `budget` is income minus buffer — the basis the quotas are computed on. Not to
-    be confused with what is left to allocate: that is the remainder of it and is
-    derived in the frontend, where it updates live anyway.
+    `distributable` is income minus buffer — the basis the quotas are computed on.
+    Not to be confused with what is left to allocate: that is the remainder of it
+    and is derived in the frontend, where it updates live anyway.
     """
-    # Pass-through positions stay out — they were never budget. Counting them would
-    # inflate the budget and the savings quota with it, although the household has
-    # not a cent more to distribute.
+    # Pass-through positions stay out — that money was never there to distribute.
+    # Counting it would inflate `distributable` and the savings quota with it,
+    # although the household has not a cent more to spend.
     counting = [p for p in positions if not p.pass_through]
 
-    income = sum((p.amount_planned for p in counting if p.block is Block.INCOME), ZERO)
-    budget = income - (income * buffer_percent / 100)
+    income = sum((p.amount_planned for p in counting if p.budget is Budget.INCOME), ZERO)
+    distributable = income - (income * buffer_percent / 100)
 
-    def total(block: Block) -> Decimal:
-        return sum((p.amount_planned for p in counting if p.block is block), ZERO)
+    def total(budget: Budget) -> Decimal:
+        return sum((p.amount_planned for p in counting if p.budget is budget), ZERO)
 
     def remaining(position: PlanPosition) -> Decimal:
         """What is still to go out for this position.
@@ -81,7 +81,7 @@ def _summarize(
 
         Never negative — overspending a budget does not leave anything over.
         """
-        if position.block is Block.INCOME or position.paid_at is not None:
+        if position.budget is Budget.INCOME or position.paid_at is not None:
             return ZERO
         # A pass-through position stands and falls with its own income. Counting it
         # here would make the month look underfunded although no money of your own
@@ -106,11 +106,11 @@ def _summarize(
         "target_savings": targets[2],
         "buffer_percent": buffer_percent,
         "income": income,
-        "budget": budget,
+        "distributable": distributable,
         "spent": BudgetTotals(
-            needs=total(Block.NEEDS),
-            wants=total(Block.WANTS),
-            savings=total(Block.SAVINGS),
+            needs=total(Budget.NEEDS),
+            wants=total(Budget.WANTS),
+            savings=total(Budget.SAVINGS),
         ),
         "unpaid": unpaid,
         "household_ids": household_ids,
@@ -230,7 +230,7 @@ async def create_plan(
                 label=commitment.name,
                 amount_planned=commitment.amount,
                 category=commitment.category,
-                block=commitment.block,
+                budget=commitment.budget,
                 # The 31st does not exist in every month — this holds the clamped
                 # day, not the raw one.
                 due_day=commitment.effective_due_day(payload.year, payload.month),

@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from pydantic import Field
 
-from app.models.enums import Block, Category, PaymentMethod
+from app.models.enums import Budget, Category, PaymentMethod
 from app.schemas.base import Schema
 
 
@@ -13,7 +13,7 @@ class PositionBase(Schema):
     amount_planned: Decimal = Field(ge=0, max_digits=12, decimal_places=2)
     amount_actual: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     category: Category
-    block: Block
+    budget: Budget
     due_day: int = Field(ge=1, le=31)
     #: Copied from the commitment, overridable per month. Empty means the default.
     account_id: uuid.UUID | None = None
@@ -38,7 +38,7 @@ class PositionUpdate(Schema):
     amount_planned: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     amount_actual: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     category: Category | None = None
-    block: Block | None = None
+    budget: Budget | None = None
     due_day: int | None = Field(default=None, ge=1, le=31)
     account_id: uuid.UUID | None = None
     payment_method: PaymentMethod | None = None
@@ -114,8 +114,8 @@ class PlanSummary(PlanBase):
     income: Decimal
     #: Income minus buffer — the basis the quotas are computed on.
     #: **Not** the same as what is left to allocate; that is the remainder of it.
-    budget: Decimal
-    #: Allocated per block.
+    distributable: Decimal
+    #: Allocated per budget.
     spent: BudgetTotals
     #: Sum of the positions that are not ticked off yet.
     unpaid: Decimal

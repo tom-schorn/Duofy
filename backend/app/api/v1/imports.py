@@ -840,7 +840,7 @@ async def assign(
 
     A **counter account** is the other kind of answer altogether. Setting one
     says the money moved between the owner's own accounts, and then there is
-    nothing to categorise — so category, block and position are cleared with it.
+    nothing to categorise — so category, budget and position are cleared with it.
     Clearing the counter account leaves the row blank rather than restoring what
     was there before: the two readings are mutually exclusive, and guessing back
     into one of them would be a decision nobody made.
@@ -855,7 +855,7 @@ async def assign(
         if entry.counter_account_id is not None:
             entry.position_id = None
             entry.category = None
-            entry.block = None
+            entry.budget = None
 
     if "position_id" in changes:
         entry.position_id = changes["position_id"]
@@ -867,11 +867,11 @@ async def assign(
                 )
             require(position.plan_id is not None, "position_not_found")
             entry.category = position.category
-            entry.block = position.block
+            entry.budget = position.budget
 
     if "category" in changes and entry.position_id is None:
         entry.category = changes["category"]
-        entry.block = changes["category"].block if changes["category"] else None
+        entry.budget = changes["category"].budget if changes["category"] else None
 
     # A purpose and a transfer cannot both be true. Whichever arrived in this
     # call wins, so choosing a category on a row marked as a transfer takes the
@@ -966,7 +966,7 @@ async def book(
             amount=entry.amount,
             note=entry.counterparty_name or entry.purpose,
             category=entry.category,
-            block=entry.block,
+            budget=entry.budget,
             position_id=entry.position_id,
             external_ref=entry.external_ref,
             counterparty_name=entry.counterparty_name,

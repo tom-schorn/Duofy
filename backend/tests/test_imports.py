@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import current_active_user
 from app.main import app
 from app.models.account import Account
-from app.models.enums import AccessLevel, AccountType, Block, Category
+from app.models.enums import AccessLevel, AccountType, Budget, Category
 from app.models.imported_entry import ImportedEntry
 from app.models.transaction import Transaction
 from app.models.user import User
@@ -191,7 +191,7 @@ async def test_something_that_is_not_a_bank_file(
 
 
 async def test_booking_needs_a_category(client: AsyncClient, session: AsyncSession):
-    """Without a category there is no block, and without a block no quota."""
+    """Without a category there is no budget, and without a budget no quota."""
     user = await make_user(session, "Owner")
     await make_account(session, user, iban=FILE_IBAN)
     await session.commit()
@@ -220,8 +220,8 @@ async def test_assign_then_book(client: AsyncClient, session: AsyncSession):
         f"/api/v1/imports/{entry.id}", json={"category": "housing.rent"}
     )
     assert assigned.status_code == 200
-    # The block follows the category, it is never asked for.
-    assert assigned.json()["block"] == "needs"
+    # The budget follows the category, it is never asked for.
+    assert assigned.json()["budget"] == "needs"
 
     booked = await client.post(f"/api/v1/imports/{entry.id}/book")
     assert booked.status_code == 200
@@ -356,7 +356,7 @@ async def test_a_position_brings_its_own_category(
     Letting the two disagree would leave the booking with a category its
     position does not share.
     """
-    from app.models.enums import Block, Category
+    from app.models.enums import Budget, Category
     from app.models.plan import Plan, PlanPosition
 
     user = await make_user(session, "Owner")
@@ -370,7 +370,7 @@ async def test_a_position_brings_its_own_category(
         label="Miete",
         amount_planned=Decimal("890.00"),
         category=Category.HOUSING_RENT,
-        block=Block.NEEDS,
+        budget=Budget.NEEDS,
         due_day=15,
     )
     session.add(position)
@@ -385,7 +385,7 @@ async def test_a_position_brings_its_own_category(
     )
     assert response.status_code == 200
     assert response.json()["category"] == "housing.rent"
-    assert response.json()["block"] == "needs"
+    assert response.json()["budget"] == "needs"
 
     booked = await client.post(f"/api/v1/imports/{entry.id}/book")
     assert booked.status_code == 200
@@ -482,7 +482,7 @@ async def test_a_savings_position_books_a_transfer(
     account became an **expense**: the savings account never saw the money and
     the savings quota stayed empty while the money was demonstrably saved.
     """
-    from app.models.enums import AccountType, Block, Category
+    from app.models.enums import AccountType, Budget, Category
     from app.models.plan import Plan, PlanPosition
 
     user = await make_user(session, "Owner")
@@ -506,7 +506,7 @@ async def test_a_savings_position_books_a_transfer(
         label="Rücklage",
         amount_planned=Decimal("890.00"),
         category=Category.FINANCE_SAVINGS,
-        block=Block.SAVINGS,
+        budget=Budget.SAVINGS,
         due_day=15,
         counter_account_id=savings.id,
     )
@@ -614,7 +614,7 @@ async def test_a_card_payment_is_recognised_by_its_name(
             occurred_on=date(2026, 7, 20),
             amount=Decimal("31.00"),
             category=Category.HOUSEHOLD_GROCERIES,
-            block=Block.NEEDS,
+            budget=Budget.NEEDS,
             counterparty_name="REWE Markt GmbH",
         )
     )
@@ -663,7 +663,7 @@ async def test_a_budget_position_comes_with_the_suggestion(
         label="Lebensmittel",
         amount_planned=Decimal("520.00"),
         category=Category.HOUSEHOLD_GROCERIES,
-        block=Block.NEEDS,
+        budget=Budget.NEEDS,
         due_day=1,
         is_budget=True,
     )
@@ -675,7 +675,7 @@ async def test_a_budget_position_comes_with_the_suggestion(
             occurred_on=date(2026, 7, 20),
             amount=Decimal("31.00"),
             category=Category.HOUSEHOLD_GROCERIES,
-            block=Block.NEEDS,
+            budget=Budget.NEEDS,
             counterparty_iban="DE02300209000106531065",
             counterparty_name="Markt",
         )
@@ -717,7 +717,7 @@ async def test_an_assigned_row_without_a_matching_budget_gets_nothing(
             occurred_on=date(2026, 7, 20),
             amount=Decimal("31.00"),
             category=Category.HOUSEHOLD_GROCERIES,
-            block=Block.NEEDS,
+            budget=Budget.NEEDS,
             counterparty_iban="DE02300209000106531065",
             counterparty_name="Markt",
         )
@@ -734,7 +734,7 @@ async def test_an_assigned_row_without_a_matching_budget_gets_nothing(
         counterparty_name="Markt",
         counterparty_iban="DE02300209000106531065",
         category=Category.LEISURE_DINING,
-        block=Block.WANTS,
+        budget=Budget.WANTS,
     )
     session.add(entry)
     await session.commit()
@@ -758,10 +758,10 @@ async def test_a_payment_service_gets_no_suggestion(
     account = await make_account(session, user, iban=FILE_IBAN)
     paypal = "DE02100500000054540402"
 
-    for day, category, block in (
-        (5, Category.LEISURE_HOBBIES, Block.WANTS),
-        (12, Category.HOUSEHOLD_CLOTHING, Block.NEEDS),
-        (19, Category.LEISURE_ENTERTAINMENT, Block.WANTS),
+    for day, category, budget in (
+        (5, Category.LEISURE_HOBBIES, Budget.WANTS),
+        (12, Category.HOUSEHOLD_CLOTHING, Budget.NEEDS),
+        (19, Category.LEISURE_ENTERTAINMENT, Budget.WANTS),
     ):
         session.add(
             Transaction(
@@ -770,7 +770,7 @@ async def test_a_payment_service_gets_no_suggestion(
                 occurred_on=date(2026, 7, day),
                 amount=Decimal("20.00"),
                 category=category,
-                block=block,
+                budget=budget,
                 counterparty_iban=paypal,
                 counterparty_name="Zahlungsdienst",
             )
@@ -810,11 +810,11 @@ async def test_one_slip_does_not_poison_a_counterparty(
     account = await make_account(session, user, iban=FILE_IBAN)
     shop = "DE02300209000106531065"
 
-    for day, category, block in (
-        (2, Category.LEISURE_DINING, Block.WANTS),  # der Ausrutscher
-        (9, Category.HOUSEHOLD_GROCERIES, Block.NEEDS),
-        (16, Category.HOUSEHOLD_GROCERIES, Block.NEEDS),
-        (23, Category.HOUSEHOLD_GROCERIES, Block.NEEDS),
+    for day, category, budget in (
+        (2, Category.LEISURE_DINING, Budget.WANTS),  # der Ausrutscher
+        (9, Category.HOUSEHOLD_GROCERIES, Budget.NEEDS),
+        (16, Category.HOUSEHOLD_GROCERIES, Budget.NEEDS),
+        (23, Category.HOUSEHOLD_GROCERIES, Budget.NEEDS),
     ):
         session.add(
             Transaction(
@@ -823,7 +823,7 @@ async def test_one_slip_does_not_poison_a_counterparty(
                 occurred_on=date(2026, 7, day),
                 amount=Decimal("20.00"),
                 category=category,
-                block=block,
+                budget=budget,
                 counterparty_iban=shop,
                 counterparty_name="Markt",
             )
@@ -874,7 +874,7 @@ async def test_your_own_category_still_gets_its_budget_position(
         label="Lebensmittel",
         amount_planned=Decimal("520.00"),
         category=Category.HOUSEHOLD_GROCERIES,
-        block=Block.NEEDS,
+        budget=Budget.NEEDS,
         due_day=1,
         is_budget=True,
     )
@@ -934,7 +934,7 @@ async def test_booking_ticks_off_a_single_position(
         label="Miete",
         amount_planned=Decimal("890.00"),
         category=Category.HOUSING_RENT,
-        block=Block.NEEDS,
+        budget=Budget.NEEDS,
         due_day=15,
     )
     session.add(rent)
@@ -974,7 +974,7 @@ async def test_a_budget_position_fills_up_but_is_not_ticked(
         label="Lebensmittel",
         amount_planned=Decimal("520.00"),
         category=Category.HOUSEHOLD_GROCERIES,
-        block=Block.NEEDS,
+        budget=Budget.NEEDS,
         due_day=1,
         is_budget=True,
     )
@@ -1019,7 +1019,7 @@ async def test_a_part_payment_leaves_the_position_open(
         label="Miete",
         amount_planned=Decimal("890.00"),
         category=Category.HOUSING_RENT,
-        block=Block.NEEDS,
+        budget=Budget.NEEDS,
         due_day=15,
     )
     session.add(rent)
@@ -1084,7 +1084,7 @@ async def test_a_single_payment_is_suggested_when_it_is_the_only_one(
         label="Miete",
         amount_planned=Decimal("890.00"),
         category=Category.HOUSING_RENT,
-        block=Block.NEEDS,
+        budget=Budget.NEEDS,
         due_day=15,
     )
     session.add(rent)
@@ -1131,7 +1131,7 @@ async def test_the_amount_decides_between_two_positions_of_one_category(
                 label=label,
                 amount_planned=Decimal(amount),
                 category=Category.PERSONAL_INSURANCE,
-                block=Block.NEEDS,
+                budget=Budget.NEEDS,
                 due_day=13,
             )
         )

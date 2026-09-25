@@ -235,7 +235,7 @@ async def mark_paid(
                     amount=payload.amount or position.amount_planned,
                     note=position.label,
                     category=position.category,
-                    block=position.block,
+                    budget=position.budget,
                     position_id=position.id,
                     auto_booked=True,
                 )

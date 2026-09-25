@@ -17,7 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.commitment import Commitment
-from app.models.enums import Block, Category, CommitmentType, Rhythm
+from app.models.enums import Budget, Category, CommitmentType, Rhythm
 from app.models.plan import Plan, PlanPosition
 from app.models.user import User
 from tests.test_area_permissions import make_user
@@ -41,7 +41,7 @@ async def make_commitment(
         name=name,
         amount=Decimal(amount),
         category=Category.LEISURE_SUBSCRIPTIONS,
-        block=Block.WANTS,
+        budget=Budget.WANTS,
         rhythm=rhythm,
         first_due_date=first_due_date,
         due_day=due_day,

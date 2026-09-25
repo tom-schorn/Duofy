@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.db.types import enum_column
-from app.models.enums import CATEGORY_LENGTH, Block, Category
+from app.models.enums import CATEGORY_LENGTH, Budget, Category
 from app.models.mixins import TimestampMixin, UUIDMixin
 
 
@@ -37,7 +37,7 @@ class Transaction(Base, UUIDMixin, TimestampMixin):
 
     ## Direction
 
-    No sign on the amount. On a normal booking `block` says where it goes: `income`
+    No sign on the amount. On a normal booking `budget` says where it goes: `income`
     is inbound, everything else outbound. On a transfer the direction is already
     fixed by the two accounts.
     """
@@ -48,7 +48,7 @@ class Transaction(Base, UUIDMixin, TimestampMixin):
         # A normal booking always has a purpose. Only a transfer may go without —
         # there the answer is "where to", not "what for".
         CheckConstraint(
-            "counter_account_id IS NOT NULL OR (category IS NOT NULL AND block IS NOT NULL)",
+            "counter_account_id IS NOT NULL OR (category IS NOT NULL AND budget IS NOT NULL)",
             name="ck_transaction_purpose_unless_transfer",
         ),
         # Booking from an account to itself makes no sense and would touch the
@@ -79,7 +79,7 @@ class Transaction(Base, UUIDMixin, TimestampMixin):
     category: Mapped[Category | None] = mapped_column(
         enum_column(Category, length=CATEGORY_LENGTH), nullable=True
     )
-    block: Mapped[Block | None] = mapped_column(enum_column(Block), nullable=True)
+    budget: Mapped[Budget | None] = mapped_column(enum_column(Budget), nullable=True)
 
     #: SET NULL: deleting a position keeps the booking. The money moved either
     #: way, only the link to the plan is gone.

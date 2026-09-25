@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.db.types import enum_column
-from app.models.enums import CATEGORY_LENGTH, Block, Category
+from app.models.enums import CATEGORY_LENGTH, Budget, Category
 from app.models.mixins import TimestampMixin, UUIDMixin
 
 
@@ -38,7 +38,7 @@ class ImportedEntry(Base, UUIDMixin, TimestampMixin):
     reports is fact, and a row whose amount somebody corrected could no longer be
     checked against the account balance.
 
-    The lower half is the interpretation — position, category, block. It may be
+    The lower half is the interpretation — position, category, budget. It may be
     prefilled from what an earlier booking of the same counterparty was assigned
     to, and the user overrides it.
     """
@@ -120,7 +120,7 @@ class ImportedEntry(Base, UUIDMixin, TimestampMixin):
     category: Mapped[Category | None] = mapped_column(
         enum_column(Category, length=CATEGORY_LENGTH), nullable=True
     )
-    block: Mapped[Block | None] = mapped_column(enum_column(Block), nullable=True)
+    budget: Mapped[Budget | None] = mapped_column(enum_column(Budget), nullable=True)
 
     #: Thrown out without booking, and **kept** as a marker.
     #:

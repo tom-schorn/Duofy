@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import current_active_user
 from app.main import app
 from app.models.account import Account
-from app.models.enums import AccountType, Block, Category
+from app.models.enums import AccountType, Budget, Category
 from app.models.plan import Plan, PlanPosition
 from app.models.transaction import Transaction
 from app.models.user import User
@@ -45,7 +45,7 @@ async def test_positions_keep_their_order_when_one_changes(
                 label=f"Posten {number}",
                 amount_planned=Decimal("10.00") + number,
                 category=Category.HOUSEHOLD_GROCERIES,
-                block=Block.NEEDS,
+                budget=Budget.NEEDS,
                 due_day=15,
             )
         )
@@ -93,7 +93,7 @@ async def test_bookings_keep_their_order_when_one_changes(
                 occurred_on=date(2026, 8, 14),
                 amount=Decimal("10.00") + number,
                 category=Category.HOUSEHOLD_GROCERIES,
-                block=Block.NEEDS,
+                budget=Budget.NEEDS,
             )
         )
     await session.commit()
