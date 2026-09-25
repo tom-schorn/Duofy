@@ -10,7 +10,7 @@ from app.db.base import Base
 from app.db.types import enum_column
 from app.models.enums import (
     CATEGORY_LENGTH,
-    Block,
+    Budget,
     Category,
     CommitmentType,
     PaymentMethod,
@@ -57,10 +57,10 @@ class Commitment(UUIDMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(200))
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
 
-    #: The user's choice. BLOCK_SUGGESTION preselects it in the frontend; for
-    #: `debt` and `savings_goal`, resolve_block() overrides it.
+    #: The user's choice. BUDGET_SUGGESTION preselects it in the frontend; for
+    #: `debt` and `savings_goal`, resolve_budget() overrides it.
     category: Mapped[Category] = mapped_column(enum_column(Category, length=CATEGORY_LENGTH))
-    block: Mapped[Block] = mapped_column(enum_column(Block))
+    budget: Mapped[Budget] = mapped_column(enum_column(Budget))
 
     #: NULL means private. Set means generated positions appear in that household
     #: plan. Decided once, it applies to every future month.
@@ -92,6 +92,19 @@ class Commitment(UUIDMixin, TimestampMixin, Base):
     #: difference from ordinary saving is the decision — there one puts own money
     #: aside, here one forwards somebody else's.
     pass_through: Mapped[bool] = mapped_column(default=False)
+
+    #: The planned amount is a **limit**, not a single payment.
+    #:
+    #: Rent is 890 and is paid once: it gets a tick, and the tick is the truth.
+    #: Groceries are 600 and fill up over the month from single purchases: a tick
+    #: there would claim August is finished because one receipt arrived. So a
+    #: limit position carries no tick — what it shows is a fill level, and the
+    #: month ends it.
+    #:
+    #: It sits on the commitment rather than on the position because groceries are
+    #: planned every month. `create_plan` copies it onto each position, the way it
+    #: copies `category` and `payment_method`.
+    is_limit: Mapped[bool] = mapped_column(default=False)
 
     rhythm: Mapped[Rhythm] = mapped_column(enum_column(Rhythm))
 

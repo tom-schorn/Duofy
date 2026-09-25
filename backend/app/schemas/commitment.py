@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from pydantic import Field, model_validator
 
-from app.models.enums import Block, Category, CommitmentType, PaymentMethod, Rhythm
+from app.models.enums import Budget, Category, CommitmentType, PaymentMethod, Rhythm
 from app.schemas.base import Schema
 
 
@@ -12,7 +12,7 @@ class CommitmentBase(Schema):
     name: str = Field(min_length=1, max_length=200)
     amount: Decimal = Field(ge=0, max_digits=12, decimal_places=2)
     category: Category
-    block: Block
+    budget: Budget
     household_id: uuid.UUID | None = None
     rhythm: Rhythm
     first_due_date: date | None = None
@@ -22,6 +22,9 @@ class CommitmentBase(Schema):
     account_id: uuid.UUID | None = None
     #: Copied into the generated positions, overridable per month there.
     payment_method: PaymentMethod | None = None
+    #: The amount is a limit that fills up from bookings, not a single payment
+    #: that gets ticked off. Copied into the generated positions.
+    is_limit: bool = False
     #: Where the money is saved to. Set means ticking off books a transfer.
     counter_account_id: uuid.UUID | None = None
     #: A pass-through position — counts towards no quota. Also copied.
@@ -70,7 +73,7 @@ class CommitmentUpdate(Schema):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     amount: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     category: Category | None = None
-    block: Block | None = None
+    budget: Budget | None = None
     household_id: uuid.UUID | None = None
     rhythm: Rhythm | None = None
     first_due_date: date | None = None
@@ -78,6 +81,7 @@ class CommitmentUpdate(Schema):
     active: bool | None = None
     account_id: uuid.UUID | None = None
     payment_method: PaymentMethod | None = None
+    is_limit: bool | None = None
     counter_account_id: uuid.UUID | None = None
     pass_through: bool | None = None
     target_amount: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)

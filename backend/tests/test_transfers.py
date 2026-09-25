@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.main import app
 from app.models.account import Account
-from app.models.enums import AccountType, Block, Category
+from app.models.enums import AccountType, Budget, Category
 from app.models.imported_entry import ImportedEntry
 from app.models.plan import Plan, PlanPosition
 from app.models.transaction import Transaction
@@ -202,7 +202,7 @@ async def test_a_transfer_books_without_a_category(
     assert transaction.account_id == giro.id
     assert transaction.counter_account_id == savings.id
     assert transaction.category is None
-    assert transaction.block is None
+    assert transaction.budget is None
 
     app.dependency_overrides.clear()
 
@@ -533,7 +533,7 @@ async def make_position(
         label=label,
         amount_planned=Decimal(amount),
         category=category,
-        block=Block.NEEDS,
+        budget=Budget.NEEDS,
         due_day=1,
     )
     session.add(position)

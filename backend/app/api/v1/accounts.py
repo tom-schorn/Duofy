@@ -27,7 +27,7 @@ from app.core.permissions import (
 )
 from app.db.session import get_session
 from app.models.account import Account
-from app.models.enums import AccessLevel, Block
+from app.models.enums import AccessLevel, Budget
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.schemas.account import (
@@ -134,7 +134,7 @@ async def _balances(
     A booking carries no sign; the direction lives elsewhere:
 
     * **transfer** — leaves `account_id`, arrives at `counter_account_id`.
-    * **otherwise** — `block = income` is inbound, everything else outbound.
+    * **otherwise** — `budget = income` is inbound, everything else outbound.
 
     Two sums, because one account can appear in both columns: as the source of one
     transfer and the target of the next.
@@ -144,9 +144,9 @@ async def _balances(
             Transaction.account_id,
             func.sum(
                 case(
-                    # A transfer leaves the account, whatever the block says.
+                    # A transfer leaves the account, whatever the budget says.
                     (Transaction.counter_account_id.isnot(None), -Transaction.amount),
-                    (Transaction.block == Block.INCOME, Transaction.amount),
+                    (Transaction.budget == Budget.INCOME, Transaction.amount),
                     else_=-Transaction.amount,
                 )
             ),
@@ -239,7 +239,7 @@ def _delta(spendable: set[uuid.UUID] | None):
     if spendable is None:
         return case(
             (Transaction.counter_account_id.isnot(None), literal(0)),
-            (Transaction.block == Block.INCOME, Transaction.amount),
+            (Transaction.budget == Budget.INCOME, Transaction.amount),
             else_=-Transaction.amount,
         )
 
@@ -256,7 +256,7 @@ def _delta(spendable: set[uuid.UUID] | None):
         (is_transfer, literal(0)),
         # A normal booking only counts if it touches a spendable account.
         (source_spendable.is_(False), literal(0)),
-        (Transaction.block == Block.INCOME, Transaction.amount),
+        (Transaction.budget == Budget.INCOME, Transaction.amount),
         else_=-Transaction.amount,
     )
 
@@ -312,22 +312,22 @@ async def balance_history(
         )
     )
 
-    # Grouped by day **and block** so the chart can break the movement down. Pure
-    # transfers have no block; they land under `savings`, because a transfer leaving
+    # Grouped by day **and budget** so the chart can break the movement down. Pure
+    # transfers have no budget; they land under `savings`, because a transfer leaving
     # the spendable pot is money put aside.
     daily = await session.execute(
-        select(Transaction.occurred_on, Transaction.block, func.sum(delta))
+        select(Transaction.occurred_on, Transaction.budget, func.sum(delta))
         .where(
             Transaction.owner_id.in_(owner_ids),
             Transaction.occurred_on >= first,
             Transaction.occurred_on <= last,
         )
-        .group_by(Transaction.occurred_on, Transaction.block)
+        .group_by(Transaction.occurred_on, Transaction.budget)
         .order_by(Transaction.occurred_on)
     )
 
     nach_tag: dict[date, dict[str, Decimal]] = {}
-    for day, block, betrag in daily.all():
+    for day, budget, betrag in daily.all():
         eimer = nach_tag.setdefault(
             day, {"income": ZERO, "needs": ZERO, "wants": ZERO, "savings": ZERO}
         )
@@ -335,7 +335,7 @@ async def balance_history(
             # Anything entering the pot: income, or money pulled back in.
             eimer["income"] += betrag
         elif betrag < 0:
-            schluessel = block.value if block in (Block.NEEDS, Block.WANTS) else "savings"
+            schluessel = budget.value if budget in (Budget.NEEDS, Budget.WANTS) else "savings"
             eimer[schluessel] += -betrag
 
     # One point per day **with** movement. The chart fills the days in between as a

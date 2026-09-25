@@ -1,17 +1,17 @@
 """The categories in the backend against the ones in the frontend.
 
 `enums.py` is the source: every member carries its group, its label and its
-block, so a category without a block cannot be written down at all. The frontend
-holds the same list a second time — the German labels and `BLOCK_SUGGESTION` —
+budget, so a category without a budget cannot be written down at all. The frontend
+holds the same list a second time — the German labels and `BUDGET_SUGGESTION` —
 and that copy is maintained by hand.
 
 Since #98 the labels live in the translation catalog, `frontend/src/locales/
 de.json` under `enums.category`, nested along the dot of the value
-(`enums.category.personal.gifts`). `BLOCK_SUGGESTION` stays in `domain.ts`.
+(`enums.category.personal.gifts`). `BUDGET_SUGGESTION` stays in `domain.ts`.
 
 That makes it the last place where the two halves can drift apart, and drifting
 is silent: a category the frontend does not know renders as a raw value like
-`personal.gifts`, and a block that disagrees preselects the wrong one.
+`personal.gifts`, and a budget that disagrees preselects the wrong one.
 
 So the test reads the frontend files. Unusual for a backend test, and the point
 of it: nothing else notices.
@@ -60,7 +60,7 @@ def labels() -> dict[str, str]:
 
 @pytest.fixture(scope="module")
 def suggestions() -> dict[str, str]:
-    return table("BLOCK_SUGGESTION")
+    return table("BUDGET_SUGGESTION")
 
 
 def test_every_category_has_a_label(labels):
@@ -68,7 +68,7 @@ def test_every_category_has_a_label(labels):
     assert {category.value for category in Category} - set(labels) == set()
 
 
-def test_every_category_has_a_block_suggestion(suggestions):
+def test_every_category_has_a_budget_suggestion(suggestions):
     assert {category.value for category in Category} - set(suggestions) == set()
 
 
@@ -78,15 +78,15 @@ def test_the_frontend_invents_nothing(labels, suggestions):
     assert (set(labels) | set(suggestions)) - known == set()
 
 
-def test_the_blocks_agree(suggestions):
-    """Where they differ, the form preselects a block the backend disagrees with.
+def test_the_budgets_agree(suggestions):
+    """Where they differ, the form preselects a budget the backend disagrees with.
 
     Nothing breaks — the user can correct it — but the suggestion is wrong
     exactly where it is trusted most, on categories nobody thinks about.
     """
     differing = {
-        category.value: (category.block.value, suggestions[category.value])
+        category.value: (category.budget.value, suggestions[category.value])
         for category in Category
-        if suggestions.get(category.value) != category.block.value
+        if suggestions.get(category.value) != category.budget.value
     }
     assert differing == {}

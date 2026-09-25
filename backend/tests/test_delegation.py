@@ -27,7 +27,7 @@ from sqlalchemy.orm import selectinload
 from app.core.auth import current_active_user
 from app.main import app
 from app.models.commitment import Commitment
-from app.models.enums import AccessLevel, Block, Category, CommitmentType, Rhythm
+from app.models.enums import AccessLevel, Budget, Category, CommitmentType, Rhythm
 from app.models.plan import Plan
 from app.models.user import User
 from tests.test_area_permissions import add_member, make_household, make_user
@@ -45,7 +45,7 @@ async def make_commitment(session: AsyncSession, owner: User, name: str) -> Comm
         name=name,
         amount=Decimal("50.00"),
         category=Category.LEISURE_SUBSCRIPTIONS,
-        block=Block.WANTS,
+        budget=Budget.WANTS,
         rhythm=Rhythm.MONTHLY,
         first_due_date=date(2026, 1, 1),
         due_day=1,
@@ -179,7 +179,7 @@ def position_payload() -> dict:
         "label": "Added by the helper",
         "amountPlanned": "12.00",
         "category": "leisure.dining",
-        "block": "wants",
+        "budget": "wants",
         "dueDay": 15,
     }
 
@@ -358,7 +358,7 @@ async def test_create_a_commitment_for_another_member(
             "name": "Entered by the helper",
             "amount": "19.99",
             "category": "leisure.subscriptions",
-            "block": "wants",
+            "budget": "wants",
             "type": "contract",
             "rhythm": "monthly",
             "firstDueDate": "2026-01-01",
@@ -383,7 +383,7 @@ async def test_areas_do_not_leak_into_one_another(
             "name": "Should not appear",
             "amount": "1.00",
             "category": "leisure.hobbies",
-            "block": "wants",
+            "budget": "wants",
             "type": "contract",
             "rhythm": "monthly",
             "firstDueDate": "2026-01-01",

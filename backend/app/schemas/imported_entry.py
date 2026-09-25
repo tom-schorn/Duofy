@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from app.models.enums import Block, Category
+from app.models.enums import Budget, Category
 from app.schemas.base import Schema
 
 #: What kind of answer this suggestion is. Three, because they lead to three
@@ -83,7 +83,7 @@ class ImportedEntryRead(Schema):
 
     position_id: uuid.UUID | None
     category: Category | None
-    block: Block | None
+    budget: Budget | None
 
     #: Set means this entry is a transfer to another own account, not spending.
     counter_account_id: uuid.UUID | None
