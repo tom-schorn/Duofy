@@ -280,5 +280,44 @@
   },
   "dateField": {
     "placeholder": "Datum wählen"
+  },
+  "accountCards": {
+    "label": "Kontostände",
+    "total": "Alle Konten",
+    "count": "{{number}} Konten"
+  },
+  "bookMetrics": {
+    "income": "Eingegangen",
+    "incomeHint": "schon angekommen",
+    "spending": "Ausgegeben",
+    "spendingHint": "samt Weggespartem",
+    "available": "Verfügbar",
+    "balanceOf": "Stand von {{name}}",
+    "balanceOfAccounts": "Stand von {{number}} Konten",
+    "leftover": "Frei nach Abzug",
+    "due": "{{amount}} stehen noch aus"
+  },
+  "paidDialog": {
+    "description": "Das legt zugleich die Buchung im Haushaltsbuch an.",
+    "pending": "Bucht…",
+    "submit": "Abhaken",
+    "title": "{{label}} abhaken",
+    "differs": "Geplant waren {{planned}} — der Posten steht danach auf {{entered}}."
+  },
+  "common": {
+    "date": "Datum",
+    "amount": "Betrag",
+    "cancel": "Abbrechen"
+  },
+  "positionPicker": {
+    "none": "kein Posten",
+    "noPlan": "kein Plan",
+    "budget": "Budget"
+  },
+  "book": {
+    "title": "Buch",
+    "lead": "Was tatsächlich gelaufen ist — Kontostände und jede Buchung darauf.",
+    "noPlan": "Für diesen Monat gibt es keinen Plan. Buchen geht trotzdem — nur zuordnen lässt sich nichts, solange keine Posten da sind.",
+    "leadMember": "Das Buch von {{name}}."
   }
 }

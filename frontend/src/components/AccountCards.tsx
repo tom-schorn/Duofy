@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import {
   Card,
   CardContent,
@@ -31,6 +32,7 @@ type Props = {
 }
 
 export function AccountCards({ scope = OWN_SCOPE }: Props) {
+  const { t } = useTranslation()
   const accounts = useAccounts(scope)
   const usable = (accounts.data ?? []).filter((account) => account.active)
 
@@ -39,7 +41,7 @@ export function AccountCards({ scope = OWN_SCOPE }: Props) {
   return (
     <QueryState isPending={accounts.isPending} error={accounts.error} rows={1}>
       <section
-        aria-label="Kontostände"
+        aria-label={t('accountCards.label')}
         className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
       >
         {usable.map((account) => (
@@ -88,6 +90,7 @@ function AccountCard({ account }: { account: Account }) {
  * and there are 40 on it.
  */
 function TotalCard({ accounts }: { accounts: Account[] }) {
+  const { t } = useTranslation()
   const total = accounts.reduce(
     (sum, account) => sum + Number(account.balance),
     0
@@ -97,7 +100,7 @@ function TotalCard({ accounts }: { accounts: Account[] }) {
     <Card size="sm" className="bg-muted/30 gap-2 ring-dashed">
       <CardHeader>
         <CardDescription className="text-[11px] font-semibold tracking-widest uppercase">
-          Alle Konten
+          {t('accountCards.total')}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-0.5">
@@ -105,7 +108,7 @@ function TotalCard({ accounts }: { accounts: Account[] }) {
           {euro.format(total)}
         </span>
         <span className="text-muted-foreground text-xs">
-          {accounts.length} Konten
+          {t('accountCards.count', { number: accounts.length })}
         </span>
       </CardContent>
     </Card>

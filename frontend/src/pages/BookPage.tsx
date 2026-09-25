@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { AccountCards } from '@/components/AccountCards'
@@ -23,6 +24,7 @@ import { usePlan } from '@/lib/queries'
  * works as before.
  */
 export function BookPage() {
+  const { t } = useTranslation()
   const active = useActiveMember()
   const mayEdit = atLeast(active.levelFor('accounts'), 'edit')
 
@@ -48,11 +50,11 @@ export function BookPage() {
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-2">
-          <h1 className="font-heading text-3xl font-semibold">Buch</h1>
+          <h1 className="font-heading text-3xl font-semibold">{t('book.title')}</h1>
           <p className="text-muted-foreground">
             {active.member === null
-              ? 'Was tatsächlich gelaufen ist — Kontostände und jede Buchung darauf.'
-              : `Das Buch von ${active.member.firstName}.`}
+              ? t('book.lead')
+              : t('book.leadMember', { name: active.member.firstName })}
           </p>
         </div>
 
@@ -75,8 +77,7 @@ export function BookPage() {
 
       {plan.data === undefined && !plan.isPending && (
         <p className="text-muted-foreground border-border rounded-lg border border-dashed px-4 py-3 text-sm">
-          Für diesen Monat gibt es keinen Plan. Buchen geht trotzdem — nur
-          zuordnen lässt sich nichts, solange keine Posten da sind.
+          {t('book.noPlan')}
         </p>
       )}
 

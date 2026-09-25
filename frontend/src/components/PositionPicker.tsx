@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Check, ChevronDown, ChevronLeft } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -55,6 +56,7 @@ export function PositionPicker({
   className?: string
 }) {
   const [open, setOpen] = useState(false)
+  const { t } = useTranslation()
   const [chosenMonth, setChosenMonth] = useState<string | null>(null)
 
   // Reopening starts at the months again — the same reasoning as in
@@ -84,7 +86,7 @@ export function PositionPicker({
           )}
         >
           <span className="truncate">
-            {current === undefined ? 'kein Posten' : current.label}
+            {current === undefined ? t('positionPicker.none') : current.label}
           </span>
           <ChevronDown className="size-4 shrink-0 opacity-50" />
         </Button>
@@ -108,7 +110,7 @@ export function PositionPicker({
                     {/* Nothing planned reads as an empty month, not as an
                         error — most people plan one month at a time. */}
                     {entry.positions.length === 0
-                      ? 'kein Plan'
+                      ? t('positionPicker.noPlan')
                       : entry.positions.length}
                   </span>
                 </button>
@@ -124,7 +126,7 @@ export function PositionPicker({
                   }}
                   className="hover:bg-accent text-muted-foreground w-full px-3 py-2 text-left text-sm"
                 >
-                  kein Posten
+                  {t('positionPicker.none')}
                 </button>
               </li>
             )}
@@ -159,7 +161,7 @@ export function PositionPicker({
                     <span className="flex min-w-0 flex-col">
                       <span className="truncate">
                         {position.label}
-                        {position.isBudget && ' · Budget'}
+                        {position.isBudget && ` · ${t('positionPicker.budget')}`}
                       </span>
                       {/* Der Betrag steht dabei, weil zwei Posten derselben
                           Kategorie sich sonst nur im Namen unterscheiden —
