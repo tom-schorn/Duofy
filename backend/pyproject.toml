@@ -48,3 +48,13 @@ testpaths = ["tests"]
 # progress".
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
+# `anyio` (pulled in by httpx/starlette) ships its own pytest plugin, which claims
+# any test marked `@pytest.mark.anyio` and runs it in a loop of its own — a second
+# loop next to the session loop above. That is exactly what happened in #101:
+# `test_area_permissions.py` carried that marker, its five tests ran in anyio's
+# loop while the fixtures stayed in pytest-asyncio's, and the pooled asyncpg
+# connection that crossed the boundary broke for every test after it. Disabling
+# the plugin outright means the marker can never do this again, by mistake or by
+# habit carried over from another codebase — `asyncio_mode = "auto"` above already
+# runs every async test through pytest-asyncio without needing a marker at all.
+addopts = "-p no:anyio"
