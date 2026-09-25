@@ -327,7 +327,9 @@
     "delete": "Löschen",
     "save": "Speichern",
     "add": "Hinzufügen",
-    "create": "Anlegen"
+    "create": "Anlegen",
+    "dayOfMonth": "{{day}}. {{month}}",
+    "percent": "{{value}} %"
   },
   "positionPicker": {
     "none": "kein Posten",
@@ -426,5 +428,55 @@
     "remainingDebt": "Restschuld",
     "active": "Aktiv",
     "activeHint": "Inaktive erzeugen keine neuen Posten."
+  },
+  "monthBook": {
+    "deleteLabel": "Buchung {{note}} löschen",
+    "noAccountTitle": "Noch kein Konto",
+    "noAccountText": "Ohne Konto lässt sich nichts buchen — leg unter „Konten\" eins an, dann geht es hier weiter.",
+    "empty": "Für diesen Monat ist noch nichts erfasst.",
+    "note": "Notiz",
+    "notePlaceholder": "Supermarkt",
+    "position": "Posten",
+    "noPosition": "Keinem Posten",
+    "transferTo": "Umbuchung nach",
+    "noTransfer": "Keine Umbuchung",
+    "pending": "Sichert…",
+    "transfer": "Umbuchen",
+    "book": "Buchen",
+    "hint": "Datum ist heute. Eine Umbuchung mit Posten füllt zugleich das Budget — so wird aus „aufs Tagesgeld gelegt\" eine erfüllte Sparquote.",
+    "noNote": "Ohne Notiz",
+    "autoBooked": "vom Haken"
+  },
+  "bookFlow": {
+    "income": "Einnahmen",
+    "needs": "Bedarf",
+    "wants": "Wünsche",
+    "savings": "Weggelegt",
+    "balance": "Verfügbarer Saldo",
+    "summary": "verfügbar · {{income}} herein, {{spending}} hinaus"
+  },
+  "monthFlow": {
+    "balance": "Geplanter Saldo",
+    "shortfall": "Du brauchst am 1. mindestens <amount>{{amount}}</amount>",
+    "lowPoint": "Tiefpunkt am {{day}}. — davor fällt mehr an, als bis dahin hereinkommt.",
+    "empty": "Noch keine Posten — sobald welche da sind, zeigt der Verlauf, wann im Monat es eng wird.",
+    "selfCarrying": "Der Monat trägt sich durchgehend selbst.",
+    "selfCarryingHint": "Zu keinem Zeitpunkt steht mehr aus, als bis dahin hereingekommen ist.",
+    "day": "Tag",
+    "position": "Posten",
+    "saldo": "Saldo",
+    "footnote": "Geplante Fälligkeiten, nicht die echten Buchungstage — der Verlauf im Buch sieht deshalb anders aus. Der Saldo in der Tabelle läuft über die Zeilen mit; innerhalb eines Tages gibt es aber keine Reihenfolge, das Diagramm zeigt deshalb den Tagesabschluss."
+  },
+  "sankey": {
+    "needs": "Bedarf",
+    "wants": "Wünsche",
+    "savings": "Sparen",
+    "income": "Einnahmen",
+    "budget": "Budget",
+    "oneMore": "1 weiterer Posten",
+    "more": "{{number}} weitere Posten",
+    "unplanned": "Noch nicht verplant",
+    "summary": "Budget · davon {{amount}} noch nicht verplant",
+    "empty": "Für dieses Diagramm braucht der Monat Einnahmen und Posten. Sobald etwas geplant ist, steht hier, wohin es geht."
   }
 }
