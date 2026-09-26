@@ -1,0 +1,12 @@
+{
+  // Tests are typechecked here, not by the app config: the image build (`tsc -b` via tsconfig.json, which does not reference this file) runs
+  // with only frontend/ as Docker context, and some tests read the
+  // repo-root testdata/ that is not part of that context.
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
+    "resolveJsonModule": true
+  },
+  "include": ["src", "../testdata/*.json"],
+  "exclude": []
+}
