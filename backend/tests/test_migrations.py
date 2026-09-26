@@ -1,4 +1,4 @@
-"""The two migrations of #106, run forwards and backwards on a filled table.
+"""The migrations of #106 and #107, run forwards and backwards on a filled table.
 
 ## Why this test exists at all
 
@@ -30,10 +30,12 @@ import os
 import subprocess
 import sys
 from collections.abc import AsyncGenerator
+from datetime import date
 from pathlib import Path
 
 import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncConnection, create_async_engine
 
 from app.core.config import settings
@@ -46,6 +48,9 @@ RENAME = "a1d9f4c6b207"
 LIMIT_FLAG = "b4e2a7d15f38"
 BEFORE_RENAME = "f3b71d5a92c4"
 
+#: #107: `rhythm` (four words) became `interval_months` (a number of months).
+INTERVAL = "c7f3d92e5a18"
+
 #: A database of its own — the suite's own one must keep the schema `create_all`
 #: gave it, and these tests move a schema up and down.
 SCRATCH_DB = f"{settings.postgres_db}_migrations"
@@ -54,26 +59,42 @@ SCRATCH_DB = f"{settings.postgres_db}_migrations"
 TOUCHED = {"commitments", "plan_positions", "transactions", "imported_entries"}
 
 
-def alembic(*arguments: str) -> None:
-    """Run alembic against the scratch database, as a person would."""
+#: The chain up to the revision before #107, migrated once and copied per test —
+#: the chain is what takes the time, and Postgres copies a database in a moment.
+TEMPLATE_DB = f"{settings.postgres_db}_migrations_template"
+
+
+def run_alembic(arguments: tuple[str, ...], database: str) -> subprocess.CompletedProcess:
+    """Run alembic against a database, as a person would."""
     environment = os.environ | {
         "POSTGRES_HOST": settings.postgres_host,
         "POSTGRES_PORT": str(settings.postgres_port),
-        "POSTGRES_DB": SCRATCH_DB,
+        "POSTGRES_DB": database,
         "POSTGRES_USER": settings.postgres_user,
         "POSTGRES_PASSWORD": settings.postgres_password,
         "JWT_SECRET": settings.jwt_secret,
     }
-    finished = subprocess.run(
+    return subprocess.run(
         [sys.executable, "-m", "alembic", *arguments],
         cwd=BACKEND,
         env=environment,
         capture_output=True,
         text=True,
     )
+
+
+def alembic(*arguments: str, database: str = SCRATCH_DB) -> None:
+    finished = run_alembic(arguments, database)
     assert finished.returncode == 0, (
         f"alembic {' '.join(arguments)} failed:\n{finished.stdout}\n{finished.stderr}"
     )
+
+
+def alembic_fails(*arguments: str) -> str:
+    """Run alembic on the scratch database, expect it to stop, return what it said."""
+    finished = run_alembic(arguments, SCRATCH_DB)
+    assert finished.returncode != 0, f"alembic {' '.join(arguments)} was expected to fail"
+    return finished.stdout + finished.stderr
 
 
 def maintenance_url() -> str:
@@ -81,13 +102,25 @@ def maintenance_url() -> str:
     return settings.database_url.rsplit("/", 1)[0] + "/postgres"
 
 
-async def drop_scratch() -> None:
+async def drop_database(name: str) -> None:
     engine = create_async_engine(maintenance_url(), isolation_level="AUTOCOMMIT")
     async with engine.connect() as connection:
         # WITH (FORCE) so a connection left behind by a failed run does not block
         # the drop and take every following run down with it.
-        await connection.execute(text(f'DROP DATABASE IF EXISTS "{SCRATCH_DB}" WITH (FORCE)'))
+        await connection.execute(text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
     await engine.dispose()
+
+
+async def create_database(name: str, *, template: str | None = None) -> None:
+    engine = create_async_engine(maintenance_url(), isolation_level="AUTOCOMMIT")
+    async with engine.connect() as connection:
+        suffix = f' TEMPLATE "{template}"' if template else ""
+        await connection.execute(text(f'CREATE DATABASE "{name}"{suffix}'))
+    await engine.dispose()
+
+
+async def drop_scratch() -> None:
+    await drop_database(SCRATCH_DB)
 
 
 @pytest.fixture
@@ -302,3 +335,177 @@ async def test_the_downgrade_gives_the_budget_type_back(at_revision: AsyncConnec
     )
     assert positions.all() == [("Groceries", True), ("Rent", False)]
     assert await columns(at_revision, "is_limit") == set()
+
+
+@pytest.fixture(scope="module")
+async def template_before_interval() -> AsyncGenerator[None]:
+    """The chain up to the revision before #107, migrated once for this module."""
+    await drop_database(TEMPLATE_DB)
+    await create_database(TEMPLATE_DB)
+    alembic("upgrade", LIMIT_FLAG, database=TEMPLATE_DB)
+    yield
+    await drop_database(TEMPLATE_DB)
+
+
+@pytest.fixture
+async def before_interval(template_before_interval: None) -> AsyncGenerator[AsyncConnection]:
+    """A copy of that database, private to one test."""
+    await drop_database(SCRATCH_DB)
+    await create_database(SCRATCH_DB, template=TEMPLATE_DB)
+    scratch = create_async_engine(
+        settings.database_url.rsplit("/", 1)[0] + f"/{SCRATCH_DB}", isolation_level="AUTOCOMMIT"
+    )
+    async with scratch.connect() as connection:
+        yield connection
+    await scratch.dispose()
+    await drop_database(SCRATCH_DB)
+
+
+#: Synthetic commitments, one for each of the four words: (rhythm, name, first due date).
+ONE_OF_EACH = (
+    ("monthly", "Gym", None),
+    ("quarterly", "Insurance", "2026-01-15"),
+    ("biannual", "Tax", "2026-02-10"),
+    ("annual", "Licence", "2026-03-05"),
+)
+
+
+async def fill_commitments(connection: AsyncConnection) -> None:
+    """Commitments in the `rhythm` shape, the way the database holds them before #107."""
+    await connection.execute(
+        text(
+            "INSERT INTO users (id, email, hashed_password, is_active, is_superuser,"
+            " is_verified, first_name, last_name) VALUES"
+            " ('11111111-1111-1111-1111-111111111111', 'seed@example.invalid', 'x',"
+            " true, false, true, 'Seed', 'User')"
+        )
+    )
+    for number, (rhythm, name, first_due_date) in enumerate(ONE_OF_EACH, start=1):
+        day = int(first_due_date[-2:]) if first_due_date else 1
+        await connection.execute(
+            text(
+                "INSERT INTO commitments (id, owner_id, type, name, amount, category, budget,"
+                " rhythm, first_due_date, due_day, active, pass_through, is_limit) VALUES"
+                " (:id, '11111111-1111-1111-1111-111111111111', 'contract', :name, 10.00,"
+                " 'leisure.subscriptions', 'wants', :rhythm, :first_due_date, :day, true,"
+                " false, false)"
+            ),
+            {
+                "id": f"33333333-3333-3333-3333-{number:012d}",
+                "name": name,
+                "rhythm": rhythm,
+                "first_due_date": date.fromisoformat(first_due_date) if first_due_date else None,
+                "day": day,
+            },
+        )
+
+
+async def test_every_rhythm_word_becomes_its_number_of_months(before_interval: AsyncConnection):
+    await fill_commitments(before_interval)
+
+    alembic("upgrade", INTERVAL)
+
+    rows = await before_interval.execute(
+        text("SELECT name, interval_months FROM commitments ORDER BY name")
+    )
+    assert rows.all() == [("Gym", 1), ("Insurance", 3), ("Licence", 12), ("Tax", 6)]
+    assert await columns(before_interval, "rhythm") == set()
+
+    # NOT NULL, and no default left behind: a raw INSERT must say what it means.
+    shape = await before_interval.execute(
+        text(
+            "SELECT is_nullable, column_default FROM information_schema.columns"
+            " WHERE table_name = 'commitments' AND column_name = 'interval_months'"
+        )
+    )
+    assert shape.all() == [("NO", None)]
+
+
+async def test_the_database_holds_the_range_and_the_start_date_rule(
+    before_interval: AsyncConnection,
+):
+    """The two CHECKs after the upgrade: 1 to 120, and a start unless it is monthly."""
+    await fill_commitments(before_interval)
+    alembic("upgrade", INTERVAL)
+
+    definitions = await before_interval.execute(
+        text(
+            "SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint"
+            " WHERE conrelid = 'commitments'::regclass AND contype = 'c'"
+            " AND conname IN ('ck_commitment_first_due_date_required',"
+            " 'ck_commitment_interval_months_range')"
+        )
+    )
+    by_name = dict(definitions.all())
+    assert set(by_name) == {
+        "ck_commitment_first_due_date_required",
+        "ck_commitment_interval_months_range",
+    }
+    assert "interval_months = 1" in by_name["ck_commitment_first_due_date_required"]
+
+    update = "UPDATE commitments SET interval_months = :months WHERE name = 'Gym'"
+    for months in (0, 121):
+        with pytest.raises(DBAPIError):
+            await before_interval.execute(text(update), {"months": months})
+    await before_interval.execute(text(update), {"months": 1})
+    # An interval above 1 needs a start date; Gym has none.
+    with pytest.raises(DBAPIError):
+        await before_interval.execute(text(update), {"months": 5})
+
+
+async def test_the_downgrade_gives_every_rhythm_word_back(before_interval: AsyncConnection):
+    await fill_commitments(before_interval)
+    alembic("upgrade", INTERVAL)
+
+    alembic("downgrade", "-1")
+
+    rows = await before_interval.execute(
+        text("SELECT name, rhythm FROM commitments ORDER BY name")
+    )
+    assert rows.all() == [
+        ("Gym", "monthly"),
+        ("Insurance", "quarterly"),
+        ("Licence", "annual"),
+        ("Tax", "biannual"),
+    ]
+    assert await columns(before_interval, "interval_months") == set()
+    definition = await before_interval.scalar(
+        text(
+            "SELECT pg_get_constraintdef(oid) FROM pg_constraint"
+            " WHERE conname = 'ck_commitment_first_due_date_required'"
+        )
+    )
+    assert "rhythm" in definition
+
+
+async def test_the_downgrade_stops_at_an_interval_with_no_word_and_changes_nothing(
+    before_interval: AsyncConnection,
+):
+    """Every 5 months has no word, and rounding it would move its due months."""
+    await fill_commitments(before_interval)
+    alembic("upgrade", INTERVAL)
+    await before_interval.execute(
+        text(
+            "UPDATE commitments SET interval_months = 5, first_due_date = '2026-11-01',"
+            " due_day = 1, name = 'Every five months' WHERE name = 'Insurance'"
+        )
+    )
+    stuck_id = await before_interval.scalar(
+        text("SELECT id FROM commitments WHERE name = 'Every five months'")
+    )
+
+    said = alembic_fails("downgrade", "-1")
+
+    assert "Cannot downgrade" in said
+    assert str(stuck_id) in said, "the message has to name the commitment"
+    assert "Every five months" in said
+    assert "every 5 months" in said
+
+    # Nothing moved: still the new shape, still at the new revision, value intact.
+    assert await columns(before_interval, "interval_months") == {"commitments"}
+    assert await columns(before_interval, "rhythm") == set()
+    months = await before_interval.scalar(
+        text("SELECT interval_months FROM commitments WHERE name = 'Every five months'")
+    )
+    assert months == 5
+    assert INTERVAL in run_alembic(("current",), SCRATCH_DB).stdout
