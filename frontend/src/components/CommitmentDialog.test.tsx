@@ -61,3 +61,36 @@ describe('CommitmentDialog invalid interval', () => {
     expect(field).toHaveAttribute('aria-invalid', 'true')
   })
 })
+
+describe('CommitmentDialog amount', () => {
+  function renderWithSave(onSave: (c: { amount: string }) => void) {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <CommitmentDialog commitment={null} open onOpenChange={() => {}} onSave={onSave} />
+      </QueryClientProvider>
+    )
+  }
+
+  test('hands the typed amount to the draft as a decimal string', async () => {
+    const user = userEvent.setup()
+    const saved: { amount: string }[] = []
+    renderWithSave((c) => saved.push(c))
+    await user.type(screen.getAllByRole('textbox')[0], 'Miete')
+    await user.type(document.getElementById('amount') as HTMLElement, '1.234,5')
+    await user.click(screen.getByRole('button', { name: 'Anlegen' }))
+    expect(saved[0]?.amount).toBe('1234.50')
+  })
+
+  test('refuses a sign and says why', async () => {
+    const user = userEvent.setup()
+    const saved: unknown[] = []
+    renderWithSave((c) => saved.push(c))
+    await user.type(screen.getAllByRole('textbox')[0], 'Miete')
+    const field = document.getElementById('amount') as HTMLElement
+    await user.type(field, '-50')
+    await user.tab()
+    expect(screen.getByRole('alert')).toHaveTextContent(/Betrag wie 1\.234,56/)
+    await user.click(screen.getByRole('button', { name: 'Anlegen' }))
+    expect(saved).toHaveLength(0)
+  })
+})

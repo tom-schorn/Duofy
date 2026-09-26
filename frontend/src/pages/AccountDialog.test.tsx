@@ -61,6 +61,31 @@ describe('AccountDialog', () => {
   })
 })
 
+describe('AccountDialog opening balance', () => {
+  async function saveWith(typed: string) {
+    const user = userEvent.setup()
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(account), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(ui({ account, open: true }))
+    const field = screen.getByLabelText(i18n.t('accounts.openingBalance'))
+    await user.clear(field)
+    await user.type(field, typed)
+    await user.click(screen.getByRole('button', { name: 'Speichern' }))
+    return { fetchMock, field }
+  }
+
+  test.each([
+    ['-150,00', '-150.00'],
+    ['0', '0.00'],
+  ])('accepts %s and sends it as %s', async (typed, sent) => {
+    const { fetchMock } = await saveWith(typed)
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    const init = (fetchMock.mock.calls as unknown[][])[0][1] as RequestInit
+    const body = JSON.parse(String(init.body))
+    expect(body.opening_balance ?? body.openingBalance).toBe(sent)
+  })
+})
+
 describe('AccountDialog delete', () => {
   test('asks once, deletes on confirm and puts the focus on the given target', async () => {
     const user = userEvent.setup()

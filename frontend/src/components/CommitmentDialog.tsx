@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 
 import { DialogFrame } from '@/components/DialogFrame'
 import { Button } from '@/components/ui/button'
+import { AmountField } from '@/components/AmountField'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { DateField } from '@/components/DateField'
@@ -379,15 +380,10 @@ export function CommitmentDialog({
             <Label htmlFor="amount">
               {draft.type === 'debt' ? t('commitmentDialog.rate') : t('common.amount')}
             </Label>
-            <Input
+            <AmountField
               id="amount"
-              type="number"
-              step="0.01"
-              min="0"
-              inputMode="decimal"
               value={draft.amount}
-              onChange={(event) => set('amount', event.target.value)}
-              placeholder={t('common.amountPlaceholder')}
+              onChange={(value) => set('amount', value)}
               required
             />
           </div>
@@ -671,16 +667,10 @@ export function CommitmentDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">
               <Label htmlFor="target-amount">{t('commitmentDialog.targetAmount')}</Label>
-              <Input
+              <AmountField
                 id="target-amount"
-                type="number"
-                step="0.01"
-                min="0"
                 value={draft.targetAmount ?? ''}
-                onChange={(event) =>
-                  set('targetAmount', event.target.value || null)
-                }
-                placeholder={t('common.amountPlaceholder')}
+                onChange={(value) => set('targetAmount', value || null)}
               />
             </div>
             <div className="flex flex-col gap-2">

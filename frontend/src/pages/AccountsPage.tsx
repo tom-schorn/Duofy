@@ -24,6 +24,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DialogFrame } from '@/components/DialogFrame'
+import { AmountField } from '@/components/AmountField'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -356,17 +357,13 @@ export function AccountDialog({
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-2">
             <Label htmlFor="account-balance">{t('accounts.openingBalance')}</Label>
-            <Input
+            <AmountField
               id="account-balance"
-              type="number"
-              step="0.01"
-              inputMode="decimal"
               value={draft.openingBalance}
-              onChange={(event) =>
-                set('openingBalance', event.target.value)
-              }
+              onChange={(value) => set('openingBalance', value)}
               placeholder="0,00"
               required
+              allowNegative
             />
           </div>
           <div className="flex flex-col gap-2">
