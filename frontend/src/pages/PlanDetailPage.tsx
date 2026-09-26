@@ -511,6 +511,7 @@ function PlanBody({
           budget="income"
           target={null}
           positions={incomeRows}
+          hints={plan.hints}
           householdNames={householdNames}
           onEdit={(position) => {
             setEditing(position)
@@ -526,6 +527,7 @@ function PlanBody({
             budget={group.budget}
             target={group.target}
             positions={group.rows}
+            hints={plan.hints}
             householdNames={householdNames}
             onEdit={(position) => {
               setEditing(position)
@@ -808,6 +810,7 @@ function MemberPlanBody({
               budget="income"
               target={null}
               positions={incomeRows}
+              hints={plan.hints}
               householdNames={householdNames}
               onEdit={openEditor}
               onAdd={handleAdd}
@@ -822,6 +825,7 @@ function MemberPlanBody({
                 budget={group.budget}
                 target={group.target}
                 positions={group.rows}
+                hints={plan.hints}
                 householdNames={householdNames}
                 onEdit={openEditor}
                 onAdd={handleAdd}
@@ -1061,6 +1065,7 @@ function HouseholdPlanBody({
                   budget="income"
                   target={null}
                   positions={incomeRows}
+                  hints={plan.hints}
                   householdNames={householdNames}
                   onEdit={() => {}}
                   onAdd={() => {}}
@@ -1075,6 +1080,7 @@ function HouseholdPlanBody({
                     budget={group.budget}
                     target={group.target}
                     positions={group.rows}
+                    hints={plan.hints}
                     householdNames={householdNames}
                     onEdit={() => {}}
                     onAdd={() => {}}

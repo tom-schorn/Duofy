@@ -364,6 +364,10 @@
     "leadMember": "Das Buch von {{name}}.",
     "leadMemberView": "{{name}} hat die Konten nicht zum Bearbeiten freigegeben."
   },
+  "hints": {
+    "position_overdue_one": "Seit einem Tag überfällig",
+    "position_overdue_other": "Seit {{count}} Tagen überfällig"
+  },
   "budget": {
     "of": "von {{amount}}",
     "quotaLabel": "{{budget}}: {{percent}} % der Quote",

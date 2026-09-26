@@ -1,4 +1,4 @@
-import { CircleCheck, Plus, User, Users } from 'lucide-react'
+import { CircleCheck, Plus, TriangleAlert, User, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
@@ -15,6 +15,7 @@ import {
   euro,
   isPaid,
   type Budget,
+  type PlanHint,
   type PlanPosition,
 } from '@/lib/domain'
 
@@ -53,6 +54,8 @@ type Props = {
   /** Target from the quota — null for income, which has none. */
   target: number | null
   positions: PlanPosition[]
+  /** The hints of the plan; each row shows those that concern its position. */
+  hints?: PlanHint[]
   householdNames: Record<string, string>
   onEdit: (position: PlanPosition) => void
   onAdd: (budget: Budget) => void
@@ -73,6 +76,7 @@ export function BudgetSection({
   budget,
   target,
   positions,
+  hints = [],
   householdNames,
   onEdit,
   onAdd,
@@ -137,6 +141,7 @@ export function BudgetSection({
           <PositionRow
             key={position.id}
             position={position}
+            hints={hints.filter((hint) => hint.positionId === position.id)}
             householdNames={householdNames}
             onEdit={onEdit}
             onTogglePaid={onTogglePaid}
@@ -166,6 +171,7 @@ export function BudgetSection({
 
 function PositionRow({
   position,
+  hints,
   householdNames,
   onEdit,
   onTogglePaid,
@@ -173,6 +179,8 @@ function PositionRow({
   ownerName,
 }: {
   position: PlanPosition
+  /** Only the hints of this position. */
+  hints: PlanHint[]
   householdNames: Record<string, string>
   onEdit: (position: PlanPosition) => void
   onTogglePaid: (position: PlanPosition) => void
@@ -180,7 +188,9 @@ function PositionRow({
   ownerName: string | null
 }) {
   const planned = Number(position.amountPlanned)
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  // A code this version does not know is ignored, never shown raw.
+  const shownHints = hints.filter((hint) => i18n.exists(`hints.${hint.code}`, { count: 1 }))
   const actual =
     position.amountActual === null ? null : Number(position.amountActual)
   // Only flag real overruns — staying below the quota is not a problem.
@@ -330,6 +340,21 @@ function PositionRow({
           {position.passThrough ? ` · ${t('budget.passThrough')}` : ''}
           {position.counterAccountId ? ` · ${t('budget.transfer')}` : ''}
         </span>
+        {/* Not dismissible: it goes away by ticking the position off. */}
+        {shownHints.map((hint) => (
+          <span
+            key={hint.code}
+            className={`flex items-center gap-1 text-xs font-medium ${
+              hint.severity === 'warning' ? 'text-destructive' : 'text-muted-foreground'
+            }`}
+          >
+            <TriangleAlert className="size-3.5 shrink-0" aria-hidden />
+            {t(`hints.${hint.code}`, {
+              ...hint.params,
+              count: Number(hint.params.days_overdue ?? 1),
+            })}
+          </span>
+        ))}
     </ListRow>
   )
 }
