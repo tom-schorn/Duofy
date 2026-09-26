@@ -154,7 +154,12 @@ export function PositionDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      // Locked while the server has not answered — a later error would have
+      // nowhere to show.
+      onOpenChange={(next) => !pending && onOpenChange(next)}
+    >
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-md">
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <DialogHeader>
@@ -417,6 +422,7 @@ export function PositionDialog({
               <Button
                 type="button"
                 variant="outline"
+                disabled={pending}
                 onClick={() => onOpenChange(false)}
               >
                 {t('common.cancel')}
