@@ -48,8 +48,8 @@ def position(plan: Plan, due_day: int, **kwargs) -> PlanPosition:
         plan_id=plan.id,
         label="Rent",
         amount_planned=Decimal("890.00"),
-        category=Category.HOUSING_RENT,
-        budget=Budget.NEEDS,
+        category=kwargs.pop("category", Category.HOUSING_RENT),
+        budget=kwargs.pop("budget", Budget.NEEDS),
         due_day=due_day,
         **kwargs,
     )
