@@ -176,7 +176,7 @@
       },
       "leaving": {
         "title": "Austreten",
-        "body": "<p>Die Posten, die du eingebracht hast, bleiben im Haushalt stehen — was gemeinsam geplant war, war gemeinsam geplant, und ein Austritt schreibt vergangene Monate nicht um. In neue Pläne fließt nichts mehr.</p>"
+        "body": "<p>Deine Posten verlassen den Haushaltsplan in allen Monaten, auch in vergangenen: Der Haushaltsplan ist eine Sicht auf die Pläne der aktuellen Mitglieder, keine eigene Geschichte. Sie bleiben als private Posten in deinem eigenen Plan, nichts wird gelöscht.</p><pSpaced>Bei einem späteren Wiedereintritt kommen sie nicht von selbst zurück — du ordnest dann neu zu.</pSpaced>"
       }
     }
   }
