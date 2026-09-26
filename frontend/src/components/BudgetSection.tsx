@@ -1,4 +1,4 @@
-import { Plus, User, Users } from 'lucide-react'
+import { CircleCheck, Plus, User, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
@@ -200,6 +200,24 @@ function PositionRow({
            individual bookings. A tick would mean nothing here, so instead of a dead
            box there is nothing. */
         <span className="size-6" aria-hidden />
+      ) : readOnly ? (
+        /* Rule 3: no right, no control. The state stays visible as a plain symbol,
+           not as a greyed-out box that asks "why not?". */
+        paid ? (
+          <span className="flex size-6 items-center justify-center">
+            <CircleCheck
+              className="text-chart-4 size-5"
+              role="img"
+              aria-label={
+                position.budget === 'income'
+                  ? t('budget.statusReceived')
+                  : t('budget.statusPaid')
+              }
+            />
+          </span>
+        ) : (
+          <span className="size-6" aria-hidden />
+        )
       ) : (
         /* `Checkbox` from the theme rather than a hand-rolled button. "Done" is a
            state, not a tool toggle — the checkbox announces it by itself, and shows
@@ -216,7 +234,6 @@ function PositionRow({
         <span className="flex size-6 items-center justify-center">
           <Checkbox
             checked={paid}
-            disabled={readOnly}
             onCheckedChange={() => onTogglePaid(position)}
             aria-label={
               paid
