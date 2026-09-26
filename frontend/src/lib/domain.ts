@@ -315,17 +315,53 @@ export function isDueIn(
   return total >= start && (total - start) % intervalMonths === 0
 }
 
+/** A month in a year — what the due-date list works with. */
+export type YearMonth = { year: number; month: number }
+
 /**
- * The months of one calendar year a commitment falls due in. Empty for a monthly
- * commitment — "every month" needs no list.
+ * The next due dates from a month on (that month included), earliest first.
+ *
+ * Built on `isDueIn`, so it follows the same absolute-month rule as the backend:
+ * every 5 months from November 2026, seen from January 2027, gives April 2027,
+ * September 2027, February 2028. Empty for a monthly commitment — "every month"
+ * needs no list — and without a start date.
  */
-export function dueMonths(
+export function nextDueDates(
   intervalMonths: number,
   firstDueDate: string | null,
-  year: number
-): number[] {
-  if (intervalMonths === 1) return []
-  return MONTHS.filter((month) => isDueIn(intervalMonths, firstDueDate, year, month))
+  from: YearMonth,
+  count: number
+): YearMonth[] {
+  if (firstDueDate === null || !isValidInterval(intervalMonths) || intervalMonths === 1) {
+    return []
+  }
+  const start = Number(firstDueDate.slice(0, 4)) * 12 + Number(firstDueDate.slice(5, 7))
+  const begin = from.year * 12 + from.month
+  // Far enough to reach the start and then `count` steps beyond it.
+  const end = Math.max(begin, start) + count * intervalMonths
+  const dates: YearMonth[] = []
+  for (let total = begin; total <= end && dates.length < count; total++) {
+    const year = Math.floor((total - 1) / 12)
+    const month = total - year * 12
+    if (isDueIn(intervalMonths, firstDueDate, year, month)) dates.push({ year, month })
+  }
+  return dates
+}
+
+/** `Apr 2027` — the short month name from `Intl`, with the year. */
+export function dueDateLabel({ year, month }: YearMonth): string {
+  return `${monthLabel(month).slice(0, 3)} ${year}`
+}
+
+/**
+ * The text of the distance field as a value: a whole number from 1 to 120, or 0
+ * when the field is empty or holds anything else. 0 is what the range check
+ * rejects, so saving stays blocked until the field is right.
+ */
+export function parseIntervalText(text: string): number {
+  if (text.trim() === '') return 0
+  const parsed = Number(text)
+  return isValidInterval(parsed) ? parsed : 0
 }
 
 /**

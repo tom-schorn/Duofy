@@ -411,7 +411,7 @@
     },
     "limit": "Limit",
     "limitHint": "Sprit, Lebensmittel, Taschengeld — kein fester Betrag zum Abhaken, du legst nur die Höhe fest. Der Posten läuft über den Monat und füllt sich aus den Buchungen.",
-    "dueIn": "Fällt an am {{day}}. in {{months}}",
+    "dueIn": "Fällt am {{day}}. an — nächste: {{dates}}",
     "firstTime": "erstmals {{month}} {{year}}.",
     "dayShifts": "Den {{day}}. gibt es nicht in jedem Monat — dann rutscht es auf den letzten Tag. Im Februar {{year}} also auf den {{februaryDay}}.",
     "editTitle": "Vertrag bearbeiten",
@@ -517,6 +517,7 @@
     "empty": "Noch kein Vertrag angelegt.",
     "perMonth": "Ø / Monat",
     "inactive": "inaktiv",
+    "nextDue": "nächste: {{dates}}",
     "deleteText": "Bereits geplante Posten in laufenden Monaten bleiben stehen. Für künftige Monate entsteht nichts mehr."
   },
   "accounts": {

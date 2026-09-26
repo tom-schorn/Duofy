@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -35,7 +35,9 @@ import {
   paymentLabel,
   intervalLabel,
   isValidInterval,
-  dueMonths,
+  nextDueDates,
+  dueDateLabel,
+  parseIntervalText,
   effectiveDueDay,
   type Budget,
   type Category,
@@ -161,6 +163,7 @@ export function CommitmentDialog({
   // user's cursor.
   const [customInterval, setCustomInterval] = useState(false)
   const [intervalText, setIntervalText] = useState('1')
+  const intervalField = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (open) {
@@ -266,6 +269,9 @@ export function CommitmentDialog({
   function handleIntervalSelect(value: string) {
     if (value === CUSTOM) {
       setCustomInterval(true)
+      // The field only exists after this render; the select would otherwise keep
+      // the focus and leave the user to find the new field.
+      requestAnimationFrame(() => intervalField.current?.focus())
       return
     }
     setCustomInterval(false)
@@ -275,10 +281,10 @@ export function CommitmentDialog({
 
   function handleIntervalText(value: string) {
     setIntervalText(value)
-    const parsed = value.trim() === '' ? 0 : Number(value)
+    const parsed = parseIntervalText(value)
     // An empty or broken field keeps a value the range check rejects, so saving
     // stays blocked until it holds a whole number from 1 to 120.
-    if (isValidInterval(parsed)) handleInterval(parsed)
+    if (parsed !== 0) handleInterval(parsed)
     else setDraft((current) => ({ ...current, intervalMonths: 0 }))
   }
 
@@ -305,8 +311,14 @@ export function CommitmentDialog({
   const shiftYear = draft.firstDueDate
     ? Number(draft.firstDueDate.slice(0, 4))
     : new Date().getFullYear()
-  const months = intervalValid
-    ? dueMonths(draft.intervalMonths, draft.firstDueDate, shiftYear)
+  const now = new Date()
+  const upcoming = intervalValid
+    ? nextDueDates(
+        draft.intervalMonths,
+        draft.firstDueDate,
+        { year: now.getFullYear(), month: now.getMonth() + 1 },
+        3
+      )
     : []
   const februaryDay = effectiveDueDay(draft.dueDay, shiftYear, 2)
 
@@ -393,7 +405,12 @@ export function CommitmentDialog({
                 </Select>
                 {customInterval && (
                   <>
+                    <Label htmlFor="interval-custom">
+                      {t('commitmentDialog.customIntervalField')}
+                    </Label>
                     <Input
+                      id="interval-custom"
+                      ref={intervalField}
                       type="number"
                       min={INTERVAL_MIN}
                       max={INTERVAL_MAX}
@@ -401,18 +418,26 @@ export function CommitmentDialog({
                       inputMode="numeric"
                       value={intervalText}
                       onChange={(event) => handleIntervalText(event.target.value)}
-                      aria-label={t('commitmentDialog.customIntervalField')}
                       aria-invalid={!intervalValid}
+                      aria-describedby="interval-custom-hint"
                       required
                     />
-                    {!intervalValid && (
-                      <span className="text-destructive text-xs">
-                        {t('commitmentDialog.intervalRange', {
-                          min: INTERVAL_MIN,
-                          max: INTERVAL_MAX,
-                        })}
-                      </span>
-                    )}
+                    {/* Always in the DOM so the field can point at it; only the
+                        error turns into an announcement. */}
+                    <span
+                      id="interval-custom-hint"
+                      role={intervalValid ? undefined : 'alert'}
+                      className={
+                        intervalValid
+                          ? 'text-muted-foreground text-xs'
+                          : 'text-destructive text-xs'
+                      }
+                    >
+                      {t('commitmentDialog.intervalRange', {
+                        min: INTERVAL_MIN,
+                        max: INTERVAL_MAX,
+                      })}
+                    </span>
                   </>
                 )}
               </div>
@@ -532,13 +557,13 @@ export function CommitmentDialog({
               </div>
             )}
 
-            {(months.length > 0 || dueDayShifts) && (
+            {(upcoming.length > 0 || dueDayShifts) && (
               <p className="text-muted-foreground bg-muted flex flex-col gap-1 rounded-md px-3 py-2 text-xs">
-                {months.length > 0 && (
+                {upcoming.length > 0 && (
                   <span>
                     {t('commitmentDialog.dueIn', {
                       day: draft.dueDay,
-                      months: months.map((month) => monthLabel(month)).join(', '),
+                      dates: upcoming.map(dueDateLabel).join(', '),
                     })}
                     {draft.firstDueDate
                       ? ` — ${t('commitmentDialog.firstTime', {

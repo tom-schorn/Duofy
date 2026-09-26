@@ -34,10 +34,10 @@ import {
   budgetLabel,
   BUDGET_ORDER,
   categoryLabel,
-  monthLabel,
   intervalLabel,
   atLeast,
-  dueMonths,
+  nextDueDates,
+  dueDateLabel,
   euro,
   monthlyEquivalent,
   type Commitment,
@@ -56,19 +56,22 @@ import { i18n, locale } from '@/lib/i18n'
  */
 
 /**
- * Monthly needs no addition — the rest shows when it actually falls due. The months
- * are those of the current year: with an interval that does not divide 12 they
- * differ from year to year.
+ * Monthly needs no addition — the rest shows the next three due dates from today.
+ * A month list would only cover one year, and with an interval that does not divide
+ * 12 (or a start in the future) that list is short, shifting or empty.
  */
 function intervalText(commitment: Commitment) {
-  const months = dueMonths(
+  const now = new Date()
+  const dates = nextDueDates(
     commitment.intervalMonths,
     commitment.firstDueDate,
-    new Date().getFullYear()
+    { year: now.getFullYear(), month: now.getMonth() + 1 },
+    3
   )
-  if (months.length === 0) return intervalLabel(commitment.intervalMonths)
-  const short = months.map((month) => monthLabel(month).slice(0, 3))
-  return `${intervalLabel(commitment.intervalMonths)} · ${short.join(', ')}`
+  if (dates.length === 0) return intervalLabel(commitment.intervalMonths)
+  return `${intervalLabel(commitment.intervalMonths)} · ${i18n.t('commitments.nextDue', {
+    dates: dates.map(dueDateLabel).join(', '),
+  })}`
 }
 
 /** What follows from the type — a target or a remaining debt, nothing else. */

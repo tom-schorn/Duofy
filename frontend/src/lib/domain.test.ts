@@ -10,7 +10,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
   daysInMonth,
-  dueMonths,
+  nextDueDates,
+  parseIntervalText,
   intervalLabel,
   isValidInterval,
   monthlyEquivalent,
@@ -200,21 +201,60 @@ describe('isValidInterval', () => {
   })
 })
 
-describe('dueMonths', () => {
+describe('nextDueDates', () => {
+  const from = { year: 2027, month: 1 }
+
+  it('runs an interval that does not divide 12 across the years', () => {
+    expect(nextDueDates(5, '2026-11-01', from, 3)).toEqual([
+      { year: 2027, month: 4 },
+      { year: 2027, month: 9 },
+      { year: 2028, month: 2 },
+    ])
+  })
+
+  it('handles an interval longer than a year', () => {
+    expect(nextDueDates(18, '2026-03-01', from, 3)).toEqual([
+      { year: 2027, month: 9 },
+      { year: 2029, month: 3 },
+      { year: 2030, month: 9 },
+    ])
+  })
+
+  it('starts at the first due date when it lies in the future', () => {
+    expect(nextDueDates(3, '2027-06-15', from, 3)).toEqual([
+      { year: 2027, month: 6 },
+      { year: 2027, month: 9 },
+      { year: 2027, month: 12 },
+    ])
+  })
+
+  it('includes the current month when it falls due', () => {
+    expect(nextDueDates(3, '2026-10-01', from, 1)).toEqual([{ year: 2027, month: 1 }])
+  })
+
   it('is empty for a monthly commitment', () => {
-    expect(dueMonths(1, null, 2026)).toEqual([])
+    expect(nextDueDates(1, null, from, 3)).toEqual([])
+    expect(nextDueDates(1, '2026-11-01', from, 3)).toEqual([])
   })
 
-  it('runs a quarterly cadence across the turn of the year', () => {
-    expect(dueMonths(3, '2026-07-01', 2027)).toEqual([1, 4, 7, 10])
+  it('is empty without a start date or with an invalid interval', () => {
+    expect(nextDueDates(3, null, from, 3)).toEqual([])
+    expect(nextDueDates(0, '2026-11-01', from, 3)).toEqual([])
+  })
+})
+
+describe('parseIntervalText', () => {
+  it.each([
+    ['5', 5],
+    ['12', 12],
+    ['120', 120],
+    [' 7 ', 7],
+  ])('reads %j as %d', (text, expected) => {
+    expect(parseIntervalText(text)).toBe(expected)
   })
 
-  it('does not list months before the start', () => {
-    expect(dueMonths(3, '2026-07-01', 2026)).toEqual([7, 10])
-  })
-
-  it('keeps an interval that does not divide 12 running', () => {
-    expect(dueMonths(5, '2026-11-01', 2027)).toEqual([4, 9])
+  it.each(['', '   ', 'abc', '0', '121', '2.5', '-3'])('reads %j as 0', (text) => {
+    expect(parseIntervalText(text)).toBe(0)
   })
 })
 
