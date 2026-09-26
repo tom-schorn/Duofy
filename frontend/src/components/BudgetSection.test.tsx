@@ -61,7 +61,7 @@ describe('BudgetSection rows', () => {
 
   test('the section heading can take the focus after a delete', () => {
     renderSection()
-    const heading = screen.getByRole('heading', { name: /Fixkosten/ })
+    const heading = screen.getByRole('heading', { name: /Grundbedarf/ })
     heading.focus()
     expect(heading).toHaveFocus()
   })
