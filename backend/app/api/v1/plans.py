@@ -195,7 +195,7 @@ async def create_plan(
 ) -> PlanRead:
     """Create a month.
 
-    Positions are generated from every active commitment falling due in that month.
+    Positions are generated from every commitment falling due in that month.
     Deliberately **no** "copy last month" — the recurring part comes from the
     commitments, one-off items are entered by hand.
 
@@ -223,7 +223,7 @@ async def create_plan(
     plan = Plan(user_id=owner_id, year=payload.year, month=payload.month)
 
     commitments = await session.execute(
-        select(Commitment).where(Commitment.owner_id == owner_id, Commitment.active.is_(True))
+        select(Commitment).where(Commitment.owner_id == owner_id)
     )
     for commitment in commitments.scalars():
         if not commitment.is_due_in(payload.year, payload.month):

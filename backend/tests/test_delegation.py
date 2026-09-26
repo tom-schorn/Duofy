@@ -48,7 +48,6 @@ async def make_commitment(session: AsyncSession, owner: User, name: str) -> Comm
         budget=Budget.WANTS,
         interval_months=1,
         first_due_date=date(2026, 1, 1),
-        active=True,
     )
     session.add(commitment)
     await session.flush()

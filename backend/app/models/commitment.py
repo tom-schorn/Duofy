@@ -116,7 +116,13 @@ class Commitment(UUIDMixin, TimestampMixin, Base):
     #: it in months that are too short).
     first_due_date: Mapped[date] = mapped_column(Date)
 
-    active: Mapped[bool] = mapped_column(default=True)
+    #: The **last month** in which it falls due; empty means it runs indefinitely.
+    #:
+    #: Replaces the on/off switch `active`, which lost the *when*: switching a
+    #: contract off in December hid it in March too. Only year and month count, the
+    #: day is whatever the user picked and is never compared. Never before the month
+    #: of `first_due_date` (`ends_on_before_start`).
+    ends_on: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     #: Which account it is paid from. Empty means the default account.
     #:
@@ -145,19 +151,28 @@ class Commitment(UUIDMixin, TimestampMixin, Base):
     # only for type = debt
     remaining_debt: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
 
+    def runs_in_month_of(self, today: date) -> bool:
+        """Has it not ended before the month of `today`? (The list filter `active`.)"""
+        return self.ends_on is None or (self.ends_on.year, self.ends_on.month) >= (
+            today.year,
+            today.month,
+        )
+
     def is_due_in(self, year: int, month: int) -> bool:
         """Does this commitment fall due in the given month?
 
-        Two conditions, both have to hold:
+        Three conditions, both have to hold:
 
         1. **After the start.** Before `first_due_date` the commitment does not
            exist yet, otherwise positions would appear retroactively.
-        2. **On the cadence.** Months are counted absolutely from the start, so the
+        2. **Not after the end.** Months after `ends_on` are out, the month of
+           `ends_on` itself is still in.
+        3. **On the cadence.** Months are counted absolutely from the start, so the
            cadence continues across the turn of the year: every 3 months from July
            means Jan, Apr, Jul, Oct — and every 5 months from November means April
            and September, which a count within the year could never say.
         """
-        if not self.active:
+        if self.ends_on is not None and (year, month) > (self.ends_on.year, self.ends_on.month):
             return False
 
         start_total = self.first_due_date.year * 12 + self.first_due_date.month

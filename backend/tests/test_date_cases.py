@@ -51,7 +51,6 @@ def test_is_due_in_as_the_frontend_counts_it(case):
     commitment = Commitment(
         interval_months=case["interval_months"],
         first_due_date=date.fromisoformat(case["first_due_date"]),
-        active=True,
     )
     assert commitment.is_due_in(case["year"], case["month"]) is case["expected"]
 
@@ -70,9 +69,30 @@ def _old_is_due_in(interval: int, start: date, year: int, month: int) -> bool:
 def test_the_four_old_rhythms_fall_due_in_the_same_months_as_before(interval, start_month):
     """The migration must not move a single month of any existing commitment."""
     start = date(2026, start_month, 1)
-    commitment = Commitment(interval_months=interval, first_due_date=start, active=True)
+    commitment = Commitment(interval_months=interval, first_due_date=start)
     for offset in range(-6, 31):
         total = 2026 * 12 + start_month - 1 + offset
         year, month = divmod(total, 12)
         month += 1
         assert commitment.is_due_in(year, month) == _old_is_due_in(interval, start, year, month)
+
+
+def test_a_commitment_is_due_up_to_and_including_the_month_of_its_end():
+    """`ends_on` is the last month; only year and month count, not the day."""
+    commitment = Commitment(
+        interval_months=1, first_due_date=date(2026, 1, 15), ends_on=date(2026, 9, 1)
+    )
+    assert commitment.is_due_in(2026, 9) is True
+    assert commitment.is_due_in(2026, 10) is False
+    assert commitment.is_due_in(2027, 1) is False
+
+    end_of_month = Commitment(
+        interval_months=1, first_due_date=date(2026, 1, 15), ends_on=date(2026, 9, 30)
+    )
+    assert end_of_month.is_due_in(2026, 9) is True
+    assert end_of_month.is_due_in(2026, 10) is False
+
+
+def test_a_commitment_without_an_end_is_due_in_every_month_of_its_cadence():
+    commitment = Commitment(interval_months=1, first_due_date=date(2026, 1, 15), ends_on=None)
+    assert all(commitment.is_due_in(2040, month) for month in range(1, 13))
