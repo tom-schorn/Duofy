@@ -11,6 +11,7 @@ import { BookPage } from '@/pages/BookPage'
 import { CommitmentsPage } from '@/pages/CommitmentsPage'
 import { HouseholdPage } from '@/pages/HouseholdPage'
 import { ImportPage } from '@/pages/ImportPage'
+import { LegalPage } from '@/pages/LegalPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 
 export const router = createBrowserRouter([
@@ -18,6 +19,12 @@ export const router = createBrowserRouter([
 
   { path: '/login', element: <LoginPage /> },
   { path: '/register', element: <RegisterPage /> },
+
+  // Public on purpose: an imprint has to be reachable without signing in. The
+  // page exists only when the operator configured the text (see `LegalPage`).
+  { path: '/impressum', element: <LegalPage name="imprint" /> },
+  { path: '/datenschutz', element: <LegalPage name="privacy" /> },
+  { path: '/agb', element: <LegalPage name="terms" /> },
 
   {
     element: <RequireAuth />,
