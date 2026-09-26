@@ -57,3 +57,6 @@ wiki/
 
 # Arbeitsreste des Browser-Werkzeugs
 .playwright-mcp/
+
+# Local implementation plans
+/plans/
