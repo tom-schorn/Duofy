@@ -308,3 +308,15 @@ class PaymentMethod(StrEnum):
     STANDING_ORDER = "standing_order"
     DIRECT_DEBIT = "direct_debit"
     SPECIAL = "special"
+
+
+class TransactionKind(StrEnum):
+    """What a row in `transactions` is.
+
+    * `booking` — money that moved. Every row that existed before this enum.
+    * `carry_over` — the balance an account goes into a month with. It **states** a
+      balance, it does not move any, so it counts in no sum (#94).
+    """
+
+    BOOKING = "booking"
+    CARRY_OVER = "carry_over"

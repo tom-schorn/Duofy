@@ -2,12 +2,12 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, Date, ForeignKey, Numeric, String
+from sqlalchemy import CheckConstraint, Date, ForeignKey, Index, Numeric, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.db.types import enum_column
-from app.models.enums import CATEGORY_LENGTH, Budget, Category
+from app.models.enums import CATEGORY_LENGTH, Budget, Category, TransactionKind
 from app.models.mixins import TimestampMixin, UUIDMixin
 
 
@@ -37,7 +37,8 @@ class Transaction(Base, UUIDMixin, TimestampMixin):
 
     ## Direction
 
-    No sign on the amount. On a normal booking `budget` says where it goes: `income`
+    No sign on the amount, except on a carry-over (`kind`), which states a balance
+    and can be negative. On a normal booking `budget` says where it goes: `income`
     is inbound, everything else outbound. On a transfer the direction is already
     fixed by the two accounts.
     """
@@ -48,7 +49,8 @@ class Transaction(Base, UUIDMixin, TimestampMixin):
         # A normal booking always has a purpose. Only a transfer may go without —
         # there the answer is "where to", not "what for".
         CheckConstraint(
-            "counter_account_id IS NOT NULL OR (category IS NOT NULL AND budget IS NOT NULL)",
+            "kind = 'carry_over' OR counter_account_id IS NOT NULL"
+            " OR (category IS NOT NULL AND budget IS NOT NULL)",
             name="ck_transaction_purpose_unless_transfer",
         ),
         # Booking from an account to itself makes no sense and would touch the
@@ -56,6 +58,29 @@ class Transaction(Base, UUIDMixin, TimestampMixin):
         CheckConstraint(
             "counter_account_id IS NULL OR counter_account_id <> account_id",
             name="ck_transaction_transfer_needs_two_accounts",
+        ),
+        # Only a carry-over has a sign: a booking takes its direction from `budget`
+        # or from the two accounts, a carry-over has neither.
+        CheckConstraint(
+            "kind = 'carry_over' OR amount >= 0",
+            name="ck_transaction_amount_not_negative_unless_carry_over",
+        ),
+        CheckConstraint(
+            "kind <> 'carry_over' OR (category IS NULL AND budget IS NULL"
+            " AND position_id IS NULL AND counter_account_id IS NULL)",
+            name="ck_transaction_carry_over_is_bare",
+        ),
+        CheckConstraint(
+            "kind <> 'carry_over' OR EXTRACT(DAY FROM occurred_on) = 1",
+            name="ck_transaction_carry_over_on_first_of_month",
+        ),
+        # Two carry-overs on the same day would leave open which one counts.
+        Index(
+            "uq_transaction_one_carry_over_per_account_and_month",
+            "account_id",
+            "occurred_on",
+            unique=True,
+            postgresql_where=text("kind = 'carry_over'"),
         ),
     )
 
@@ -69,6 +94,14 @@ class Transaction(Base, UUIDMixin, TimestampMixin):
     #: Set means transfer. The account the money moves to.
     counter_account_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=True
+    )
+
+    #: `booking` for everything that moved money; `carry_over` states the balance an
+    #: account starts a month with. See `TransactionKind`.
+    kind: Mapped[TransactionKind] = mapped_column(
+        enum_column(TransactionKind),
+        default=TransactionKind.BOOKING,
+        server_default=TransactionKind.BOOKING.value,
     )
 
     occurred_on: Mapped[date] = mapped_column(Date, index=True)

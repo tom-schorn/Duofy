@@ -72,7 +72,8 @@ export function BookMetrics({
   const locked = new Set(
     open.filter((account) => !account.countsAsAvailable).map((a) => a.id)
   )
-  const rows = transactions.data ?? []
+  // A carry-over states a balance; it is in no sum.
+  const rows = (transactions.data ?? []).filter((row) => row.kind !== 'carry_over')
 
   const sum = (list: Transaction[]) =>
     list.reduce((total, row) => total + Number(row.amount), 0)

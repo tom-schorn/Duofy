@@ -23,6 +23,7 @@ import { PlanSankey } from '@/components/PlanSankey'
 import { CreatePlanDialog } from '@/components/CreatePlanDialog'
 import { longDate, parseMonth, today } from '@/lib/dates'
 import { NotFoundBody } from '@/pages/NotFoundPage'
+import { CarryOverCard } from '@/components/CarryOverCard'
 import { MonthFlow } from '@/components/MonthFlow'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PositionDialog } from '@/components/PositionDialog'
@@ -38,6 +39,7 @@ import { QueryState } from '@/components/QueryState'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
+  useAccounts,
   useDeletePosition,
   useHouseholdPlan,
   useHouseholds,
@@ -263,6 +265,17 @@ function PlanBody({
   // For the confirmation when un-ticking: which booking hangs off which position.
   const transactions = useTransactions(plan.year, plan.month)
 
+  // Where the curve starts: the carry-over of the default account, if it has one.
+  const accounts = useAccounts()
+  const defaultAccount = accounts.data?.find(
+    (account) => account.active && account.isDefault
+  )
+  const carryOver = transactions.data?.find(
+    (entry) =>
+      entry.kind === 'carry_over' && entry.accountId === defaultAccount?.id
+  )
+  const startBalance = carryOver ? Number(carryOver.amount) : undefined
+
   /** The position whose self-created booking is about to disappear. */
   const [confirming, setConfirming] = useState<PlanPosition | null>(null)
 
@@ -457,11 +470,20 @@ function PlanBody({
           <TabsTrigger value="flow">{t('plan.tabFlow')}</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="flow">
+        <TabsContent value="flow" className="flex flex-col gap-4">
+          {defaultAccount && (
+            <CarryOverCard
+              account={defaultAccount}
+              carryOver={carryOver}
+              year={plan.year}
+              month={plan.month}
+            />
+          )}
           <MonthFlow
             positions={plan.positions}
             year={plan.year}
             month={plan.month}
+            startBalance={startBalance}
           />
         </TabsContent>
 
@@ -488,6 +510,7 @@ function PlanBody({
               year={plan.year}
               month={plan.month}
               height="h-32"
+              startBalance={startBalance}
             />
             <PlanSankey
               positions={plan.positions}

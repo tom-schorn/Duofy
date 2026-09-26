@@ -307,6 +307,22 @@ export function useTransactions(
  * the position `amountActual`, and the actual figures in the budget view hang off
  * that.
  */
+/** The book balance of an account at the end of the month before (#94). */
+export function useCarryOverSuggestion(
+  accountId: string | undefined,
+  year: number,
+  month: number
+) {
+  return useQuery({
+    queryKey: [...keys.accounts, 'carry-over-suggestion', accountId, year, month],
+    enabled: accountId !== undefined,
+    queryFn: () =>
+      api.get<{ amount: string }>(
+        `/accounts/${accountId}/carry-over-suggestion?year=${year}&month=${month}`
+      ),
+  })
+}
+
 export function useSaveTransaction(
   year: number,
   month: number,

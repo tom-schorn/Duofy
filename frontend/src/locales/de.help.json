@@ -78,6 +78,10 @@
         "title": "Monatsplan",
         "body": "<p>Der Monatsplan enthält alle Ein- und Auszahlungen, die für einen Monat vorgesehen sind. Er beschreibt den Soll-Zustand; was tatsächlich gebucht wurde, steht im Buch.</p><p>Grundlage der Verteilung ist das Verplanbare: Einnahmen abzüglich Puffer, aufgeteilt auf die drei folgenden Bereiche.</p>"
       },
+      "carry-over": {
+        "title": "Übertrag",
+        "body": "<p>Der Übertrag legt fest, mit welchem Stand das Standardkonto in den Monat geht. Ist einer gesetzt, beginnt der Verlauf dort statt bei null.</p><pSpaced>Er ist freiwillig und ändert keinen Kontostand: Der Stand enthält schon jeden Vormonat, ein Übertrag stellt ihn nur fest. Vorgeschlagen wird der Buchstand zum Ende des Vormonats; weicht die Bank ab, trägst du den Stand vom Kontoauszug ein. Ein überzogenes Konto darf im Minus starten.</pSpaced>"
+      },
       "tick": {
         "title": "Posten abhaken",
         "body": "<p>Das Abhaken erzeugt eine Buchung. Datum und Betrag sind mit dem heutigen Datum und dem geplanten Betrag vorbelegt und lassen sich vor dem Bestätigen anpassen.</p><listSpaced><li>Der Posten entfällt aus „Anstehend“.</li><li>Bestehen zum Posten bereits Buchungen — etwa bei einem Limit, auf das über den Monat eingekauft wurde —, entsteht keine weitere. Der Haken bedeutet dann „Monat erledigt“; andernfalls würden die Beträge doppelt erfasst.</li><li>Bei Sparzielen mit hinterlegtem Zielkonto entsteht eine Umbuchung statt einer Ausgabe: das Geld verbleibt im Haushalt.</li><li>Bei Einnahmen bedeutet der Haken „eingegangen“ und wirkt sich auf „Anstehend“ nicht aus.</li></listSpaced><pSpaced>Ein abweichendes Buchungsdatum verschiebt den Posten nicht: Ein Augustposten mit Julidatum ergibt eine Julibuchung auf einem Augustposten.</pSpaced>"

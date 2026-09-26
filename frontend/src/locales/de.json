@@ -471,6 +471,9 @@
     "noAccountTitle": "Noch kein Konto",
     "noAccountText": "Ohne Konto lässt sich nichts buchen — leg unter „Konten\" eins an, dann geht es hier weiter.",
     "empty": "Für diesen Monat ist noch nichts erfasst.",
+    "carryOver": "Übertrag",
+    "carryOverName": "Übertrag in den Monat",
+    "carryOverHint": "im Plan unter Verlauf ändern",
     "note": "Notiz",
     "notePlaceholder": "Supermarkt",
     "position": "Posten",
@@ -494,7 +497,20 @@
     "balance": "Verfügbarer Saldo",
     "summary": "verfügbar · {{income}} herein, {{spending}} hinaus"
   },
+  "carryOver": {
+    "set": "{{account}} startet mit {{amount}} in den Monat",
+    "setHint": "Der Verlauf beginnt bei diesem Betrag. Den Kontostand ändert er nicht.",
+    "notSet": "Kein Übertrag für {{account}}",
+    "notSetHint": "Ohne Übertrag beginnt der Verlauf bei null und zeigt nur die Veränderung seit dem 1.",
+    "setButton": "Übertrag anlegen",
+    "change": "Übertrag ändern",
+    "title": "Übertrag für {{account}}",
+    "description": "Der Stand, mit dem das Konto am 1. in den Monat geht. Er ändert den Kontostand nicht, er legt nur den Startpunkt des Verlaufs fest.",
+    "amount": "Stand am 1.",
+    "suggested": "Vorschlag aus dem Buch: {{amount}}. Weicht die Bank ab, trag den Stand vom Kontoauszug ein."
+  },
   "monthFlow": {
+    "overdrawn": "Das Konto liegt zeitweise bis zu <amount>{{amount}}</amount> im Minus",
     "balance": "Geplanter Saldo",
     "shortfall": "Du brauchst am 1. mindestens <amount>{{amount}}</amount>",
     "lowPoint": "Tiefpunkt am {{day}}. — davor fällt mehr an, als bis dahin hereinkommt.",
