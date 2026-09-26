@@ -10,6 +10,10 @@ import { describe, expect, it } from 'vitest'
 
 import {
   daysInMonth,
+  dueMonths,
+  intervalLabel,
+  isValidInterval,
+  monthlyEquivalent,
   effectiveDueDay,
   isPaid,
   type PlanPosition,
@@ -169,5 +173,54 @@ describe('stillDue', () => {
     expect(
       stillDue(position({ isLimit: true, amountPlanned: '600.00', amountActual: '127.50' }))
     ).toBe(0)
+  })
+})
+
+describe('intervalLabel', () => {
+  it('says monatlich for 1', () => {
+    expect(intervalLabel(1)).toBe('monatlich')
+  })
+
+  it('says vierteljährlich for 3', () => {
+    expect(intervalLabel(3)).toBe('vierteljährlich')
+  })
+
+  it.each([2, 5, 6, 12, 120])('says alle N Monate for %i', (months) => {
+    expect(intervalLabel(months)).toBe(`alle ${months} Monate`)
+  })
+})
+
+describe('isValidInterval', () => {
+  it.each([1, 3, 120])('accepts %i', (months) => {
+    expect(isValidInterval(months)).toBe(true)
+  })
+
+  it.each([0, -1, 121, 2.5, Number.NaN])('rejects %s', (months) => {
+    expect(isValidInterval(months)).toBe(false)
+  })
+})
+
+describe('dueMonths', () => {
+  it('is empty for a monthly commitment', () => {
+    expect(dueMonths(1, null, 2026)).toEqual([])
+  })
+
+  it('runs a quarterly cadence across the turn of the year', () => {
+    expect(dueMonths(3, '2026-07-01', 2027)).toEqual([1, 4, 7, 10])
+  })
+
+  it('does not list months before the start', () => {
+    expect(dueMonths(3, '2026-07-01', 2026)).toEqual([7, 10])
+  })
+
+  it('keeps an interval that does not divide 12 running', () => {
+    expect(dueMonths(5, '2026-11-01', 2027)).toEqual([4, 9])
+  })
+})
+
+describe('monthlyEquivalent', () => {
+  it('divides by the number of months', () => {
+    expect(monthlyEquivalent('108.00', 12)).toBe(9)
+    expect(monthlyEquivalent('50.00', 1)).toBe(50)
   })
 })

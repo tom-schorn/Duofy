@@ -265,18 +265,23 @@ export const BUDGET_SUGGESTION: Record<Category, Budget> = {
   'finance.settlement': 'needs',
 }
 
-export type Rhythm = 'monthly' | 'quarterly' | 'biannual' | 'annual'
+/** Allowed distance between two due dates, in months. Mirrors the backend range check. */
+export const INTERVAL_MIN = 1
+export const INTERVAL_MAX = 120
 
-export function rhythmLabel(rhythm: Rhythm): string {
-  return i18n.t(`enums.rhythm.${rhythm}`)
+/** The distances the dialog offers directly; everything else is "anderer Abstand". */
+export const INTERVAL_PRESETS: number[] = [1, 3, 6, 12]
+
+/** Is this a whole number the backend accepts? */
+export function isValidInterval(value: number): boolean {
+  return Number.isInteger(value) && value >= INTERVAL_MIN && value <= INTERVAL_MAX
 }
 
-/** Distance in months — mirrors `Rhythm.interval`. */
-export const RHYTHM_INTERVAL: Record<Rhythm, number> = {
-  monthly: 1,
-  quarterly: 3,
-  biannual: 6,
-  annual: 12,
+/** `monatlich` for 1, `vierteljährlich` for 3, otherwise `alle N Monate`. */
+export function intervalLabel(intervalMonths: number): string {
+  if (intervalMonths === 1) return i18n.t('enums.interval.monthly')
+  if (intervalMonths === 3) return i18n.t('enums.interval.quarterly')
+  return i18n.t('enums.interval.every', { number: intervalMonths })
 }
 
 /** The months, 1 to 12. */
@@ -290,26 +295,37 @@ export function monthLabel(month: number): string {
 }
 
 /**
- * Which months does this fall due in? Mirrors `Commitment.is_due_in()`.
+ * Is a commitment due in this month? Mirrors `Commitment.is_due_in()`.
  *
- * Important: the rhythm continues across the turn of the year. Quarterly from July
- * means Jan, Apr, Jul, Oct — not only Jul and Oct. That is why every month is
- * tested individually instead of counting up from the start month.
- *
- * `%` returns a negative result for negative numbers in JavaScript, unlike Python
- * — adding `interval` before the second modulo compensates for that.
+ * Counts in absolute months from the start, so the cadence runs across the turn of
+ * the year (every 3 months from July 2026 hits January 2027) and an interval that
+ * does not divide 12 keeps its own cadence (every 5 months from November 2026 hits
+ * April 2027, then September 2027). Without a start date only a monthly commitment
+ * is due, in every month.
  */
-export function dueMonths(rhythm: Rhythm, firstMonth: number | null): number[] {
-  if (rhythm === 'monthly') return []
-  const start = firstMonth ?? 1
-  const interval = RHYTHM_INTERVAL[rhythm]
-  const months: number[] = []
-  for (let month = 1; month <= 12; month++) {
-    if ((((month - start) % interval) + interval) % interval === 0) {
-      months.push(month)
-    }
-  }
-  return months
+export function isDueIn(
+  intervalMonths: number,
+  firstDueDate: string | null,
+  year: number,
+  month: number
+): boolean {
+  if (firstDueDate === null) return intervalMonths === 1
+  const start = Number(firstDueDate.slice(0, 4)) * 12 + Number(firstDueDate.slice(5, 7))
+  const total = year * 12 + month
+  return total >= start && (total - start) % intervalMonths === 0
+}
+
+/**
+ * The months of one calendar year a commitment falls due in. Empty for a monthly
+ * commitment — "every month" needs no list.
+ */
+export function dueMonths(
+  intervalMonths: number,
+  firstDueDate: string | null,
+  year: number
+): number[] {
+  if (intervalMonths === 1) return []
+  return MONTHS.filter((month) => isDueIn(intervalMonths, firstDueDate, year, month))
 }
 
 /**
@@ -359,8 +375,8 @@ export const DUE_DAY_MAY_SHIFT = 29
  * is 9.03 a month, not 108.40. Without this conversion every budget total would be
  * wrong.
  */
-export function monthlyEquivalent(amount: string, rhythm: Rhythm): number {
-  return Number(amount) / RHYTHM_INTERVAL[rhythm]
+export function monthlyEquivalent(amount: string, intervalMonths: number): number {
+  return Number(amount) / intervalMonths
 }
 
 export type CommitmentType =
@@ -389,10 +405,11 @@ export type Commitment = {
   isLimit: boolean
   /** null means private. Set means generated positions go into that household. */
   householdId: string | null
-  rhythm: Rhythm
+  /** Months between two due dates, 1 to 120. */
+  intervalMonths: number
   /**
-   * When it first falls due — day, month and year. Mandatory for a non-monthly
-   * rhythm. The month sets the cadence, the year the start.
+   * When it first falls due — day, month and year. Mandatory for an interval other
+   * than 1. The month sets the cadence, the year the start.
    */
   firstDueDate: string | null
   dueDay: number
