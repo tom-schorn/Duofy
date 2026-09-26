@@ -225,7 +225,7 @@
   },
   "helpPanel": {
     "button": "Hilfe",
-    "show": "Erklärungen einblenden",
+    "pin": "Neben der Seite anheften",
     "hide": "Erklärungen ausblenden",
     "heading": "Erklärung",
     "footer": "Kurzfassung. Die ausführlichen Artikel entstehen im Wiki."

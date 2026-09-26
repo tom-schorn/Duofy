@@ -66,7 +66,6 @@ export function useIsWide(): boolean {
     if (!query) return
     const onChange = () => setWide(query.matches)
     query.addEventListener('change', onChange)
-    onChange()
     return () => query.removeEventListener('change', onChange)
   }, [])
 

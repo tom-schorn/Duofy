@@ -32,37 +32,39 @@ type Pinning = {
   onPin: (next: boolean) => void
 }
 
-/** The "?" in the header. Opens the sheet; with the column pinned it closes the column. */
+/** The id the column uses to hand the focus back to the header button. */
+const BUTTON_ID = 'help-button'
+
+/**
+ * The "?" in the header. One element in every state, so the focus never has to
+ * jump: it opens the sheet, or, with the column pinned and room for it, takes the
+ * column away again.
+ */
 export function HelpButton({ pinned, onPin, wide }: Pinning & { wide: boolean }) {
   const { t } = useTranslation()
   const key = useHelpKey()
   const [open, setOpen] = useState(false)
   if (key === null) return null
 
-  // Pinned and wide enough: the help is already beside the page, so the button
-  // takes it away again. Narrower, the pin is not visible, the sheet still works.
-  if (pinned && wide) {
-    return (
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label={t('helpPanel.button')}
-        aria-pressed
-        onClick={() => onPin(false)}
-        className="print:hidden"
-      >
-        <CircleHelp className="size-4" />
-      </Button>
-    )
-  }
+  // Pinned and wide enough: the help is already beside the page. Narrower, the pin
+  // is not visible and the sheet works as ever.
+  const unpins = pinned && wide
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button
+          id={BUTTON_ID}
           variant="ghost"
           size="icon"
           aria-label={t('helpPanel.button')}
+          aria-pressed={unpins ? true : undefined}
+          onClick={(event) => {
+            if (!unpins) return
+            // Not the trigger's job now: no sheet opens, the column goes.
+            event.preventDefault()
+            onPin(false)
+          }}
           className="print:hidden"
         >
           <CircleHelp className="size-4" />
@@ -82,11 +84,12 @@ export function HelpButton({ pinned, onPin, wide }: Pinning & { wide: boolean })
               variant="outline"
               onClick={() => {
                 onPin(true)
+                // Closing returns the focus to the trigger, the header button.
                 setOpen(false)
               }}
             >
               <PanelRightOpen className="size-4" />
-              {t('helpPanel.show')}
+              {t('helpPanel.pin')}
             </Button>
           )}
         </div>
@@ -114,7 +117,11 @@ export function HelpColumn({ pinned, onPin }: Pinning) {
           variant="ghost"
           size="icon"
           className="-mt-1"
-          onClick={() => onPin(false)}
+          onClick={() => {
+            onPin(false)
+            // The column goes away with this button: hand the focus to the header one.
+            document.getElementById(BUTTON_ID)?.focus()
+          }}
           aria-label={t('helpPanel.hide')}
         >
           <PanelRightClose className="size-4" />
