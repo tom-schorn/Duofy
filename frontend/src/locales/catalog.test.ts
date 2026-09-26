@@ -253,8 +253,8 @@ describe('languages', () => {
 describe('terms', () => {
   const texts = [...Object.values(flatten(de as Catalog)), ...Object.values(flatten(deHelp as Catalog))]
 
-  test.each(['Fixkosten', 'Noch offen', 'noch offen', 'Noch nicht verplant', 'noch nicht verplant'])(
-    'the old word "%s" does not come back (Grundbedarf, Frei, Anstehend)',
+  test.each(['Fixkosten', 'Noch offen', 'noch offen', 'Noch nicht verplant', 'noch nicht verplant', 'Frei nach Abzug', 'Verteilbar'])(
+    'the old word "%s" does not come back (Grundbedarf, Frei, Anstehend, Bleibt übrig, Verplanbar)',
     (word) => {
       // "actualPlaceholder" says "noch offen" for an empty amount field, not the number
       const hits = Object.entries(flatten(de as Catalog)).filter(

@@ -2,15 +2,15 @@
   "budgets": {
     "needs": {
       "title": "Grundbedarf",
-      "body": "<p>Ausgaben, die zur Aufrechterhaltung des Haushalts erforderlich sind: Miete, Energie, Lebensmittel, Versicherungen, Arbeitsweg.</p><p>Die Zuordnung triffst du, nicht die Kategorie. Kraftstoff für den Arbeitsweg gehört zum Grundbedarf, Kraftstoff für Ausflüge zu den Wünschen — dieselbe Kategorie, zwei Bewertungen.</p><guide>Richtwert: 50 % des Verteilbaren.</guide>"
+      "body": "<p>Ausgaben, die zur Aufrechterhaltung des Haushalts erforderlich sind: Miete, Energie, Lebensmittel, Versicherungen, Arbeitsweg.</p><p>Die Zuordnung triffst du, nicht die Kategorie. Kraftstoff für den Arbeitsweg gehört zum Grundbedarf, Kraftstoff für Ausflüge zu den Wünschen — dieselbe Kategorie, zwei Bewertungen.</p><guide>Richtwert: 50 % des Verplanbaren.</guide>"
     },
     "wants": {
       "title": "Wünsche",
-      "body": "<p>Ausgaben, die den Lebensstandard betreffen, ohne notwendig zu sein: Gastronomie, Hobbys, Abonnements, Reisen.</p><p>Investitionen zählen ebenfalls hierher. Ein eigener vierter Bereich würde den Richtwert 50/30/20 aufheben; sichtbar bleiben sie über die Kategorie.</p><guide>Richtwert: 30 % des Verteilbaren.</guide>"
+      "body": "<p>Ausgaben, die den Lebensstandard betreffen, ohne notwendig zu sein: Gastronomie, Hobbys, Abonnements, Reisen.</p><p>Investitionen zählen ebenfalls hierher. Ein eigener vierter Bereich würde den Richtwert 50/30/20 aufheben; sichtbar bleiben sie über die Kategorie.</p><guide>Richtwert: 30 % des Verplanbaren.</guide>"
     },
     "savings": {
       "title": "Sparen",
-      "body": "<p>Beträge, die dem Vermögen erhalten bleiben: Rücklagen, Sparziele und Tilgung. Eine Tilgungsrate verringert eine Verbindlichkeit und gilt deshalb nicht als Verbrauch.</p><p>Sparziele und Schulden ordnet Duofy diesem Bereich selbst zu, unabhängig von ihrer Kategorie. Es ist die einzige Zuordnung, die nicht zur Wahl steht.</p><guide>Richtwert: 20 % des Verteilbaren.</guide>"
+      "body": "<p>Beträge, die dem Vermögen erhalten bleiben: Rücklagen, Sparziele und Tilgung. Eine Tilgungsrate verringert eine Verbindlichkeit und gilt deshalb nicht als Verbrauch.</p><p>Sparziele und Schulden ordnet Duofy diesem Bereich selbst zu, unabhängig von ihrer Kategorie. Es ist die einzige Zuordnung, die nicht zur Wahl steht.</p><guide>Richtwert: 20 % des Verplanbaren.</guide>"
     }
   },
   "import": {
@@ -59,7 +59,7 @@
     "entries": {
       "overview": {
         "title": "Die Monatsübersicht",
-        "body": "<p>Jeder Monat, den du angelegt hast, mit seinen Kennzahlen: Verteilbar, was noch ansteht, wie die drei Bereiche gegen ihre Richtwerte stehen.</p><p>Monate entstehen nicht von selbst. Beim Anlegen erzeugt Duofy die Posten aus allen Verpflichtungen, die in diesem Monat fällig sind.</p>"
+        "body": "<p>Jeder Monat, den du angelegt hast, mit seinen Kennzahlen: Verplanbar, was noch ansteht, wie die drei Bereiche gegen ihre Richtwerte stehen.</p><p>Monate entstehen nicht von selbst. Beim Anlegen erzeugt Duofy die Posten aus allen Verpflichtungen, die in diesem Monat fällig sind.</p>"
       },
       "switch": {
         "title": "Eine andere Person ansehen",
@@ -76,7 +76,7 @@
     "entries": {
       "month": {
         "title": "Monatsplan",
-        "body": "<p>Der Monatsplan enthält alle Ein- und Auszahlungen, die für einen Monat vorgesehen sind. Er beschreibt den Soll-Zustand; was tatsächlich gebucht wurde, steht im Buch.</p><p>Grundlage der Verteilung ist das Verteilbare: Einnahmen abzüglich Puffer, aufgeteilt auf die drei folgenden Bereiche.</p>"
+        "body": "<p>Der Monatsplan enthält alle Ein- und Auszahlungen, die für einen Monat vorgesehen sind. Er beschreibt den Soll-Zustand; was tatsächlich gebucht wurde, steht im Buch.</p><p>Grundlage der Verteilung ist das Verplanbare: Einnahmen abzüglich Puffer, aufgeteilt auf die drei folgenden Bereiche.</p>"
       },
       "tick": {
         "title": "Posten abhaken",
