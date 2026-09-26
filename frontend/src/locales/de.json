@@ -604,7 +604,7 @@
     "invite": "Einladen",
     "leaveTitle": "„{{name}}\" verlassen?",
     "leaveFrom": "Austreten aus {{name}}",
-    "leaveText": "Danach siehst du die gemeinsamen Pläne dieses Haushalts nicht mehr, und die anderen sehen deine Posten dort nicht mehr — auch nicht in vergangenen Monaten. Deine eigenen Pläne, Konten und Verträge bleiben bei dir.",
+    "leaveText": "Danach siehst du die gemeinsamen Pläne dieses Haushalts nicht mehr, und die anderen sehen deine Posten dort nicht mehr — in keinem Monat, auch nicht in vergangenen. Deine Posten bleiben in deinen eigenen Plänen als private Posten; bei einem späteren Wiedereintritt kommen sie nicht von selbst zurück. Deine eigenen Pläne, Konten und Verträge bleiben bei dir.",
     "leave": "Austreten",
     "inviteDescription": "Wer beitritt, sieht ab dann alle Posten, die in diesen Haushalt eingebracht wurden — und darf sie ändern.",
     "inviteHint": "Private Posten bleiben privat. Nur was ausdrücklich dem Haushalt zugeordnet ist, wird geteilt.",
