@@ -559,6 +559,7 @@ function PlanBody({
           }
         }}
         pending={togglePaid.isPending}
+        planMonth={{ year: plan.year, month: plan.month }}
         hasBookings={
           booking ? positionHasBookings(booking.id, transactions.data) : false
         }
