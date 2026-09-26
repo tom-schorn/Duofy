@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DialogFrame } from '@/components/DialogFrame'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -84,11 +83,6 @@ type Props = {
   pending?: boolean
   /** The server said no; shown above the buttons, the input stays. */
   error?: unknown
-  /**
-   * null means do not offer deletion. Needed when acting on somebody else plan:
-   * changing is recorded and reversible, deleting is neither.
-   */
-  onDelete: ((position: PlanPosition) => void) | null
 }
 
 export function PositionDialog({
@@ -98,7 +92,6 @@ export function PositionDialog({
   open,
   onOpenChange,
   onSave,
-  onDelete,
   pending = false,
   error = null,
 }: Props) {
@@ -162,23 +155,6 @@ export function PositionDialog({
       dirty={dirty}
       pending={pending}
       error={error}
-      start={
-        isEdit && onDelete !== null ? (
-          // TODO: confirm before deleting, the way the commitments page does.
-          // Moves into the ⋯ menu with #141.
-          <Button
-            type="button"
-            variant="ghost"
-            className="text-destructive hover:text-destructive"
-            onClick={() => {
-              onDelete!(draft)
-              onOpenChange(false)
-            }}
-          >
-            {t('common.delete')}
-          </Button>
-        ) : undefined
-      }
     >
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">

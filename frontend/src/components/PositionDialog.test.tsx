@@ -21,7 +21,6 @@ function Page() {
         open={open}
         onOpenChange={setOpen}
         onSave={() => setError(new ApiError('not_allowed', 403))}
-        onDelete={null}
         error={error}
       />
     </QueryClientProvider>
