@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LogOut, MoreHorizontal, Plus, UserPlus } from 'lucide-react'
+import { LogOut, Plus, UserPlus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -8,11 +8,16 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { DialogFrame } from '@/components/DialogFrame'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { FormError } from '@/components/FormError'
 import {
   Select,
   SelectContent,
@@ -72,12 +77,20 @@ export function HouseholdPage() {
   const me = useMe()
   const [invitingTo, setInvitingTo] = useState<Household | null>(null)
   const currentUserId = me.data?.id ?? ''
+  // After leaving, the card is gone; the focus goes to the page heading (rule 13).
+  const heading = useRef<HTMLHeadingElement>(null)
 
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-2">
-          <h1 className="font-heading text-3xl font-semibold">{t('household.title')}</h1>
+          <h1
+            ref={heading}
+            tabIndex={-1}
+            className="font-heading text-3xl font-semibold outline-none"
+          >
+            {t('household.title')}
+          </h1>
           <p className="text-muted-foreground max-w-2xl">
             {t('household.lead')}
           </p>
@@ -97,6 +110,7 @@ export function HouseholdPage() {
             <HouseholdHeader
               household={household}
               onInvite={() => setInvitingTo(household)}
+              onLeft={() => heading.current?.focus()}
             />
 
             <ul className="flex flex-col">
@@ -172,11 +186,15 @@ export function HouseholdPage() {
 function HouseholdHeader({
   household,
   onInvite,
+  onLeft,
 }: {
   household: Household
   onInvite: () => void
+  onLeft: () => void
 }) {
   const leave = useLeaveHousehold()
+  const [confirming, setConfirming] = useState(false)
+  const left = useRef(false)
   const { t } = useTranslation()
 
   return (
@@ -196,31 +214,52 @@ function HouseholdHeader({
           {t('household.invite')}
         </Button>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8"
-              aria-label={`${household.name} verwalten`}
-            >
-              <MoreHorizontal className="size-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {/* Die eingebrachten Posten bleiben im Haushalt stehen — vergangene
-                Monate werden nicht umgeschrieben. In neue Pläne fließt nichts
-                mehr, dafür fehlt die Mitgliedschaft. */}
-            <DropdownMenuItem
-              variant="destructive"
-              className="gap-2"
-              onSelect={() => leave.mutate(household.id)}
-            >
-              <LogOut className="size-4" />
-              {t('household.leave')}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Die eingebrachten Posten bleiben im Haushalt stehen — vergangene
+            Monate werden nicht umgeschrieben. In neue Pläne fließt nichts
+            mehr, dafür fehlt die Mitgliedschaft. */}
+        <Button variant="outline" size="sm" onClick={() => setConfirming(true)}>
+          <LogOut className="size-4" />
+          {t('household.leave')}
+        </Button>
+
+        <AlertDialog open={confirming} onOpenChange={setConfirming}>
+          <AlertDialogContent
+            onCloseAutoFocus={(event) => {
+              // The household card is gone; the heading takes the focus (rule 13).
+              if (left.current) {
+                event.preventDefault()
+                onLeft()
+              }
+            }}
+          >
+            <AlertDialogHeader>
+              <AlertDialogTitle className="font-heading">
+                {t('household.leaveTitle', { name: household.name })}
+              </AlertDialogTitle>
+              <AlertDialogDescription>{t('household.leaveText')}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              {/* Focus starts on the safe button (rule 13). */}
+              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={leave.isPending}
+                onClick={(event) => {
+                  // Stays open until the server has said yes.
+                  event.preventDefault()
+                  leave.mutate(household.id, {
+                    onSuccess: () => {
+                      left.current = true
+                      setConfirming(false)
+                    },
+                  })
+                }}
+              >
+                {t('household.leave')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+            {leave.isError && <FormError error={leave.error} />}
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   )
