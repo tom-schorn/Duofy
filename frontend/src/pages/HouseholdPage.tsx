@@ -6,14 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { DialogFrame } from '@/components/DialogFrame'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -245,68 +238,44 @@ function InviteDialog({
   const invite = useInvite(household?.id ?? '')
 
   return (
-    <Dialog open={household !== null} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <form
-          onSubmit={(event) => {
-            event.preventDefault()
-            invite.mutate(
-              { email },
-              {
-                onSuccess: () => {
-                  setEmail('')
-                  onOpenChange(false)
-                },
-              }
-            )
-          }}
-          className="flex flex-col gap-5"
-        >
-          <DialogHeader>
-            <DialogTitle className="font-heading text-xl">
-              {t('household.inviteTitle', { name: household?.name })}
-            </DialogTitle>
-            <DialogDescription>
-              {t('household.inviteDescription')}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="invite-email">{t('auth.email')}</Label>
-            <Input
-              id="invite-email"
-              type="email"
-              placeholder={t('household.invitePlaceholder')}
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-            <p className="text-muted-foreground text-xs">
-              {t('household.inviteHint')}
-            </p>
-          </div>
-
-          {invite.isError && (
-            <p className="border-destructive bg-destructive/10 text-destructive rounded-md border px-3 py-2 text-sm">
-              {errorText(invite.error)}
-            </p>
-          )}
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              {t('common.cancel')}
-            </Button>
-            <Button type="submit" disabled={invite.isPending}>
-              {invite.isPending ? t('household.sending') : t('household.sendInvite')}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <DialogFrame
+      open={household !== null}
+      onOpenChange={onOpenChange}
+      title={t('household.inviteTitle', { name: household?.name })}
+      description={t('household.inviteDescription')}
+      submitLabel={t('household.invite')}
+      pendingLabel={t('household.sending')}
+      onSubmit={(event) => {
+        event.preventDefault()
+        invite.mutate(
+          { email },
+          {
+            onSuccess: () => {
+              setEmail('')
+              onOpenChange(false)
+            },
+          }
+        )
+      }}
+      dirty={email !== ''}
+      pending={invite.isPending}
+      error={invite.isError ? invite.error : null}
+    >
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="invite-email">{t('auth.email')}</Label>
+        <Input
+          id="invite-email"
+          type="email"
+          placeholder={t('household.invitePlaceholder')}
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          required
+        />
+        <p className="text-muted-foreground text-xs">
+          {t('household.inviteHint')}
+        </p>
+      </div>
+    </DialogFrame>
   )
 }
 
@@ -391,65 +360,40 @@ function CreateHouseholdButton() {
         {t('household.create')}
       </Button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
-          <form
-            onSubmit={(event) => {
-              event.preventDefault()
-              create.mutate(
-                { name },
-                {
-                  onSuccess: () => {
-                    setName('')
-                    setOpen(false)
-                  },
-                }
-              )
-            }}
-            className="flex flex-col gap-5"
-          >
-            <DialogHeader>
-              <DialogTitle className="font-heading text-xl">
-                {t('household.create')}
-              </DialogTitle>
-              <DialogDescription>
-                {t('household.createDescription')}
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="household-name">{t('household.name')}</Label>
-              <Input
-                id="household-name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder={t('household.namePlaceholder')}
-                required
-                autoFocus
-              />
-            </div>
-
-            {create.isError && (
-              <p className="border-destructive bg-destructive/10 text-destructive rounded-md border px-3 py-2 text-sm">
-                {errorText(create.error)}
-              </p>
-            )}
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setOpen(false)}
-              >
-                {t('common.cancel')}
-              </Button>
-              <Button type="submit" disabled={create.isPending}>
-                {create.isPending ? t('plans.creating') : t('common.create')}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <DialogFrame
+        open={open}
+        onOpenChange={setOpen}
+        title={t('household.create')}
+        description={t('household.createDescription')}
+        submitLabel={t('common.create')}
+        pendingLabel={t('plans.creating')}
+        onSubmit={(event) => {
+          event.preventDefault()
+          create.mutate(
+            { name },
+            {
+              onSuccess: () => {
+                setName('')
+                setOpen(false)
+              },
+            }
+          )
+        }}
+        dirty={name !== ''}
+        pending={create.isPending}
+        error={create.isError ? create.error : null}
+      >
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="household-name">{t('household.name')}</Label>
+          <Input
+            id="household-name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder={t('household.namePlaceholder')}
+            required
+          />
+        </div>
+      </DialogFrame>
     </>
   )
 }
