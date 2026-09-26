@@ -454,7 +454,7 @@
     "endsOnHint": "Nur Monat und Jahr zählen. Danach entstehen keine neuen Posten mehr. Leer lassen, wenn es unbegrenzt weiterläuft."
   },
   "monthBook": {
-    "deleteLabel": "Buchung {{note}} löschen",
+    "title": "Buchungen",
     "noAccountTitle": "Noch kein Konto",
     "noAccountText": "Ohne Konto lässt sich nichts buchen — leg unter „Konten\" eins an, dann geht es hier weiter.",
     "empty": "Für diesen Monat ist noch nichts erfasst.",

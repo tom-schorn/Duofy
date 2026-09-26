@@ -5,6 +5,7 @@ import { AmountField } from '@/components/AmountField'
 import { CategoryPicker } from '@/components/CategoryPicker'
 import { DateField } from '@/components/DateField'
 import { DialogFrame } from '@/components/DialogFrame'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -39,6 +40,8 @@ export function EditBookingDialog({
   onSave,
   pending,
   error,
+  onDelete = null,
+  returnFocus,
 }: {
   transaction: Transaction
   accounts: Account[]
@@ -48,6 +51,13 @@ export function EditBookingDialog({
   onSave: (changes: Partial<Transaction> & { id: string }) => void
   pending: boolean
   error: unknown
+  /**
+   * Absent or null: this person may not delete (rule 3). A booking is small, so
+   * there is no question first (rule 7); the caller closes the dialog.
+   */
+  onDelete?: (() => void) | null
+  /** Where the focus goes on closing, when the opener is gone (after a delete). */
+  returnFocus?: () => HTMLElement | null
 }) {
   const { t } = useTranslation()
   const [amount, setAmount] = useState(transaction.amount)
@@ -111,6 +121,20 @@ export function EditBookingDialog({
       dirty={dirty}
       pending={pending}
       error={error}
+      returnFocus={returnFocus}
+      start={
+        onDelete !== null ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className="text-destructive hover:text-destructive"
+            disabled={pending}
+            onClick={onDelete}
+          >
+            {t('common.delete')}
+          </Button>
+        ) : undefined
+      }
     >
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-2">

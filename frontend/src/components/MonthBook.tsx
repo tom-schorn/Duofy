@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowRight, Trash2 } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -22,6 +22,7 @@ import {
 import { AmountField } from '@/components/AmountField'
 import { CategoryPicker } from '@/components/CategoryPicker'
 import { EditBookingDialog } from '@/components/EditBookingDialog'
+import { ListRow } from '@/components/ListRow'
 import { QueryState } from '@/components/QueryState'
 import { errorText } from '@/lib/api'
 import { today } from '@/lib/dates'
@@ -87,6 +88,9 @@ export function MonthBook({
   const saveEdit = useSaveTransaction(year, month, scope)
   const remove = useDeleteTransaction(year, month, scope)
   const [editing, setEditing] = useState<Transaction | null>(null)
+  // After a delete the row is gone; the focus goes to the (hidden) list heading.
+  const heading = useRef<HTMLHeadingElement>(null)
+  const deleted = useRef(false)
 
   const usable = accounts.filter((account) => account.active)
   const fallback = usable.find((account) => account.isDefault) ?? usable[0]
@@ -106,6 +110,10 @@ export function MonthBook({
 
   return (
     <section className="flex flex-col gap-5">
+      <h2 ref={heading} tabIndex={-1} className="sr-only">
+        {t('monthBook.title')}
+      </h2>
+
       {/* Die Buchung landet beim **Kontobesitzer**, nicht beim Eintippenden —
           das entscheidet das Backend aus dem gewählten Konto. Zur Auswahl
           stehen hier ohnehin nur dessen Konten. */}
@@ -142,11 +150,9 @@ export function MonthBook({
                     ? null
                     : () => {
                         saveEdit.reset()
+                        deleted.current = false
                         setEditing(transaction)
                       }
-                }
-                onDelete={
-                  readOnly ? null : () => remove.mutate(transaction.id)
                 }
               />
             ))}
@@ -167,6 +173,16 @@ export function MonthBook({
           }
           pending={saveEdit.isPending}
           error={saveEdit.error}
+          onDelete={
+            readOnly
+              ? null
+              : () => {
+                  deleted.current = true
+                  remove.mutate(editing.id)
+                  setEditing(null)
+                }
+          }
+          returnFocus={() => (deleted.current ? heading.current : null)}
         />
       )}
     </section>
@@ -331,15 +347,12 @@ function Row({
   accounts,
   positions,
   onEdit,
-  onDelete,
 }: {
   transaction: Transaction
   accounts: Account[]
   positions: PlanPosition[]
   /** null means read only: the row is not clickable. */
   onEdit: (() => void) | null
-  /** null means somebody else book, and then the button is absent entirely. */
-  onDelete: (() => void) | null
 }) {
   const account = accounts.find((item) => item.id === transaction.accountId)
   const counter = accounts.find(
@@ -350,88 +363,52 @@ function Row({
   const { t } = useTranslation()
 
   return (
-    <li className="border-border/60 flex items-center gap-3 border-b py-2.5 last:border-b-0">
-      {/* The whole row opens the booking (rule 1); the delete button beside it
-          is not part of that click. */}
-      <RowMain onEdit={onEdit}>
-      <span className="text-muted-foreground w-12 text-sm tabular-nums">
-        {t('common.dueDay', { day: new Date(transaction.occurredOn).getDate() })}
-      </span>
-
-      <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="flex flex-wrap items-center gap-2">
-          <span className="font-medium">
-            {transaction.note ?? position?.label ?? t('monthBook.noNote')}
-          </span>
-          {transaction.autoBooked && (
-            <Badge variant="outline" className="font-normal">
-              {t('monthBook.autoBooked')}
-            </Badge>
-          )}
+    <ListRow
+      onOpen={onEdit ?? undefined}
+      trailing={
+        <span className="font-mono font-medium">
+          {euro.format(Number(transaction.amount))}
         </span>
-        <span className="text-muted-foreground truncate text-xs">
-          {isTransfer ? (
-            <>
-              {account?.name} <ArrowRight className="inline size-3" />{' '}
-              {counter?.name} · {t('budget.transfer')}
-              {transaction.ownerName ? ` · ${transaction.ownerName}` : ''}
-            </>
-          ) : (
-            <>
-              {account?.name}
-              {transaction.category
-                ? ` · ${categoryLabel(transaction.category)}`
-                : ''}
-              {position ? ` · ${position.label}` : ''}
-              {/* Nur im gemeinsamen Buch gesetzt — dort ist der Name der
-                  Unterschied zwischen zwei sonst gleichen Zeilen. */}
-              {transaction.ownerName ? ` · ${transaction.ownerName}` : ''}
-            </>
-          )}
-        </span>
-      </span>
-
-      <span className="font-mono font-medium tabular-nums">
-        {euro.format(Number(transaction.amount))}
-      </span>
-      </RowMain>
-
-      {onDelete === null ? (
-        // A spacer so the columns line up across all rows.
-        <span className="size-9" />
-      ) : (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label={t('monthBook.deleteLabel', { note: transaction.note ?? '' })}
-          onClick={onDelete}
-          className="text-muted-foreground hover:text-destructive"
-        >
-          <Trash2 className="size-4" />
-        </Button>
-      )}
-    </li>
-  )
-}
-
-function RowMain({
-  onEdit,
-  children,
-}: {
-  onEdit: (() => void) | null
-  children: React.ReactNode
-}) {
-  const columns = 'grid min-w-0 flex-1 grid-cols-[auto_1fr_auto] items-center gap-3'
-  return onEdit === null ? (
-    <div className={columns}>{children}</div>
-  ) : (
-    <button
-      type="button"
-      onClick={onEdit}
-      className={`${columns} hover:bg-muted/50 focus-visible:ring-ring rounded-md text-left outline-none focus-visible:ring-2`}
+      }
     >
-      {children}
-    </button>
+      <span className="grid w-full grid-cols-[auto_1fr] items-center gap-3">
+        <span className="text-muted-foreground w-12 text-sm tabular-nums">
+          {t('common.dueDay', { day: new Date(transaction.occurredOn).getDate() })}
+        </span>
+
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="font-medium">
+              {transaction.note ?? position?.label ?? t('monthBook.noNote')}
+            </span>
+            {transaction.autoBooked && (
+              <Badge variant="outline" className="font-normal">
+                {t('monthBook.autoBooked')}
+              </Badge>
+            )}
+          </span>
+          <span className="text-muted-foreground truncate text-xs">
+            {isTransfer ? (
+              <>
+                {account?.name} <ArrowRight className="inline size-3" />{' '}
+                {counter?.name} · {t('budget.transfer')}
+                {transaction.ownerName ? ` · ${transaction.ownerName}` : ''}
+              </>
+            ) : (
+              <>
+                {account?.name}
+                {transaction.category
+                  ? ` · ${categoryLabel(transaction.category)}`
+                  : ''}
+                {position ? ` · ${position.label}` : ''}
+                {/* Nur im gemeinsamen Buch gesetzt — dort ist der Name der
+                    Unterschied zwischen zwei sonst gleichen Zeilen. */}
+                {transaction.ownerName ? ` · ${transaction.ownerName}` : ''}
+              </>
+            )}
+          </span>
+        </span>
+      </span>
+    </ListRow>
   )
 }
