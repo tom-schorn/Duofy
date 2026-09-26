@@ -40,7 +40,7 @@ describe('CommitmentDialog interval', () => {
     renderDialog(() => {
       closed = true
     })
-    await user.click(screen.getByRole('button', { name: /Läuft weiter/ }))
+    await user.click(screen.getByRole('button', { name: /weiter/ }))
     await user.keyboard('{Escape}')
     expect(screen.queryByText(/verwerfen[?]/)).not.toBeInTheDocument()
     expect(closed).toBe(true)
