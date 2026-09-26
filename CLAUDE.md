@@ -52,7 +52,7 @@ Backend-Enums), `src/lib/help.tsx` (Hilfespalte).
 
 ```bash
 cd backend && uv run ruff check app/ tests/ && uv run pytest -q
-cd frontend && npx tsc --noEmit -p tsconfig.app.json && npm run lint && npm run build
+cd frontend && npx tsc --noEmit -p tsconfig.app.json && npx tsc --noEmit -p tsconfig.test.json && npm run lint && npm run build
 ```
 
 Genau das läuft in der CI. Backend-Tests brauchen ein echtes Postgres
