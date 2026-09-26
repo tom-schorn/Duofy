@@ -28,7 +28,6 @@
     "invitation_email_mismatch": "Die Einladung gilt für eine andere E-Mail-Adresse.",
     "interval_months_out_of_range": "Der Abstand muss zwischen 1 und 120 Monaten liegen.",
     "target_only_for_savings_goal": "Ein Zielbetrag gehört nur zu einem Sparziel.",
-    "remaining_debt_only_for_debt": "Eine Restschuld gehört nur zu einer Schuld.",
     "limit_only_for_contract": "Ein Limit gibt es nur bei einem Vertrag, der weiterläuft.",
     "ends_on_before_start": "Das Ende darf nicht vor dem Monat der ersten Fälligkeit liegen.",
     "invalid_status_filter": "Diesen Filter gibt es nicht. Wähle aktiv, beendet oder alle.",
@@ -434,7 +433,6 @@
     "targetAmount": "Zielbetrag",
     "targetDate": "Zieldatum",
     "noTargetDate": "Kein Zieldatum",
-    "remainingDebt": "Restschuld",
     "endsOn": "Läuft bis (letzter Monat)",
     "noEnd": "Läuft unbegrenzt",
     "clearEnd": "Kein Ende",
@@ -522,7 +520,6 @@
     "create": "Vertrag anlegen",
     "empty": "Noch kein Vertrag angelegt.",
     "perMonth": "Ø / Monat",
-    "remaining": "Rest {{amount}}",
     "endedSince": "beendet seit {{month}}",
     "filterLabel": "Anzeigen",
     "status": {

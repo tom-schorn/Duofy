@@ -334,3 +334,11 @@ async def test_a_stored_end_before_the_start_does_not_block_unrelated_changes(
 
     fixed = await client.patch(url, json={"endsOn": "2027-06-30"})
     assert fixed.status_code == 200
+
+async def test_a_debt_has_no_remaining_amount_any_more(client: AsyncClient, owner: User):
+    created = await client.post(
+        "/api/v1/commitments",
+        json=payload(type="debt", category="finance.debt", budget="savings"),
+    )
+    assert created.status_code == 201, created.text
+    assert "remainingDebt" not in created.json()

@@ -22,8 +22,8 @@ class Commitment(UUIDMixin, TimestampMixin, Base):
     """A recurring commitment — contract, budget, savings goal or debt.
 
     All four are the same pattern: an amount that falls due in certain months and
-    produces a position in the plan. They differ only in their type and in one or
-    two extra fields, which is why they share a table.
+    produces a position in the plan. They differ only in their type and in the
+    savings goal's target, which is why they share a table.
 
     Belongs to **exactly one person**. Even in a shared flat a contract runs on
     whoever signed it.
@@ -36,10 +36,6 @@ class Commitment(UUIDMixin, TimestampMixin, Base):
         CheckConstraint(
             "type = 'savings_goal' OR (target_amount IS NULL AND target_date IS NULL)",
             name="ck_commitment_target_only_for_savings_goal",
-        ),
-        CheckConstraint(
-            "type = 'debt' OR remaining_debt IS NULL",
-            name="ck_commitment_remaining_debt_only_for_debt",
         ),
         CheckConstraint(
             "interval_months BETWEEN 1 AND 120",
@@ -147,9 +143,6 @@ class Commitment(UUIDMixin, TimestampMixin, Base):
     # only for type = savings_goal
     target_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     target_date: Mapped[date | None] = mapped_column(Date, nullable=True)
-
-    # only for type = debt
-    remaining_debt: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
 
     def runs_in_month_of(self, today: date) -> bool:
         """Has it not ended before the month of `today`? (The list filter `active`.)"""
