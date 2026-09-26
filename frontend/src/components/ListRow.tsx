@@ -1,0 +1,60 @@
+import { cn } from '@/lib/utils'
+
+/**
+ * One row of a list (UI guideline rules 1–4): the whole row opens it.
+ *
+ * The technique is a stretched link: the button around the text carries an
+ * `after:` layer that covers the row, so name, subtitle, amount and the empty space
+ * all do the same. What has its own job — the tick box in `leading`, the ⋯ in
+ * `menu` — is lifted above that layer with `relative z-10`.
+ *
+ * Without `onOpen` the row is read-only: no button, no hover, no pointer.
+ */
+export function ListRow({
+  onOpen,
+  leading,
+  trailing,
+  menu,
+  className,
+  children,
+}: {
+  /** Absent for a row that cannot be opened (no right, or nothing to open). */
+  onOpen?: () => void
+  /** Own control at the left, such as the tick box. */
+  leading?: React.ReactNode
+  /** The amount; it is not a click area of its own, a click on it opens the row. */
+  trailing?: React.ReactNode
+  /** A `RowMenu`; lifted above the row's click layer. */
+  menu?: React.ReactNode
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <li
+      className={cn(
+        'border-border/60 relative flex items-center gap-3 border-b py-2.5 last:border-b-0',
+        onOpen && 'hover:bg-muted/50 focus-within:bg-muted/50 cursor-pointer',
+        className
+      )}
+    >
+      {leading && <span className="relative z-10 flex shrink-0 items-center">{leading}</span>}
+
+      {onOpen ? (
+        <button
+          type="button"
+          onClick={onOpen}
+          className="focus-visible:ring-ring flex min-w-0 flex-1 cursor-pointer flex-col items-start gap-0.5 rounded-sm text-left outline-none after:absolute after:inset-0 focus-visible:ring-2"
+        >
+          {children}
+        </button>
+      ) : (
+        <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
+          {children}
+        </div>
+      )}
+
+      {trailing && <span className="flex shrink-0 flex-col items-end gap-1 tabular-nums">{trailing}</span>}
+      {menu && <span className="relative z-10 shrink-0">{menu}</span>}
+    </li>
+  )
+}
