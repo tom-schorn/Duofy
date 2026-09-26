@@ -1,16 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { DialogFrame } from '@/components/DialogFrame'
 import { DateField } from '@/components/DateField'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { today } from '@/lib/dates'
@@ -77,87 +69,70 @@ export function PaidDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && !pending && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <form onSubmit={submit} className="flex flex-col gap-5">
-          <DialogHeader>
-            <DialogTitle>
-              {t('paidDialog.title', { label: position.label })}
-            </DialogTitle>
-            <DialogDescription>
-              {t('paidDialog.description')}
-            </DialogDescription>
-          </DialogHeader>
+    <DialogFrame
+      open
+      onOpenChange={(open) => !open && onClose()}
+      title={t('paidDialog.title', { label: position.label })}
+      description={t('paidDialog.description')}
+      submitLabel={t('paidDialog.submit')}
+      pendingLabel={t('paidDialog.pending')}
+      onSubmit={submit}
+      dirty={occurredOn !== today() || amount !== position.amountPlanned}
+      pending={pending}
+      error={error}
+    >
+      <div
+        role="group"
+        aria-describedby={hasBookings ? 'paid-bookings-note' : undefined}
+        className="flex gap-3"
+      >
+        <div className="flex flex-1 flex-col gap-1.5">
+          <Label htmlFor="paid-date">{t('common.date')}</Label>
+          <DateField
+            id="paid-date"
+            value={occurredOn}
+            onChange={setOccurredOn}
+            disabled={hasBookings}
+          />
+        </div>
 
-          <div
-            role="group"
+        <div className="flex w-36 flex-col gap-1.5">
+          <Label htmlFor="paid-amount">{t('common.amount')}</Label>
+          <Input
+            id="paid-amount"
+            type="number"
+            step="0.01"
+            min="0.01"
+            inputMode="decimal"
+            value={amount}
+            onChange={(event) => setAmount(event.target.value)}
+            required
             aria-describedby={hasBookings ? 'paid-bookings-note' : undefined}
-            className="flex gap-3"
-          >
-            <div className="flex flex-1 flex-col gap-1.5">
-              <Label htmlFor="paid-date">{t('common.date')}</Label>
-              <DateField
-                id="paid-date"
-                value={occurredOn}
-                onChange={setOccurredOn}
-                disabled={hasBookings}
-              />
-            </div>
+            disabled={hasBookings}
+          />
+        </div>
+      </div>
 
-            <div className="flex w-36 flex-col gap-1.5">
-              <Label htmlFor="paid-amount">{t('common.amount')}</Label>
-              <Input
-                id="paid-amount"
-                type="number"
-                step="0.01"
-                min="0.01"
-                inputMode="decimal"
-                value={amount}
-                onChange={(event) => setAmount(event.target.value)}
-                required
-                aria-describedby={hasBookings ? 'paid-bookings-note' : undefined}
-                disabled={hasBookings}
-              />
-            </div>
-          </div>
+      {hasBookings && (
+        <p
+          id="paid-bookings-note"
+          className="text-muted-foreground text-sm"
+          role="status"
+        >
+          {t('paidDialog.hasBookings')}
+        </p>
+      )}
 
-          {hasBookings && (
-            <p
-              id="paid-bookings-note"
-              className="text-muted-foreground text-sm"
-              role="status"
-            >
-              {t('paidDialog.hasBookings')}
-            </p>
-          )}
-
-          {error && (
-            <p className="text-destructive text-sm" role="alert">
-              {error}
-            </p>
-          )}
-
-          {/* Nur wenn abweichend: sonst wäre es eine Zeile, die immer dasselbe
-              sagt wie das Feld daneben. */}
-          {differs && (
-            <p className="text-muted-foreground text-sm" role="status">
-              {t('paidDialog.differs', {
-                planned: euro.format(planned),
-                entered: euro.format(entered),
-              })}
-            </p>
-          )}
-
-          <DialogFooter>
-            <Button type="button" variant="ghost" disabled={pending} onClick={onClose}>
-              {t('common.cancel')}
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? t('paidDialog.pending') : t('paidDialog.submit')}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      {/* Nur wenn abweichend: sonst wäre es eine Zeile, die immer dasselbe
+          sagt wie das Feld daneben. */}
+      {differs && (
+        <p className="text-muted-foreground text-sm" role="status">
+          {t('paidDialog.differs', {
+            planned: euro.format(planned),
+            entered: euro.format(entered),
+          })}
+        </p>
+      )}
+    </DialogFrame>
   )
 }

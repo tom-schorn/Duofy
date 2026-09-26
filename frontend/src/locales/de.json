@@ -335,7 +335,6 @@
     "delete": "Löschen",
     "save": "Speichern",
     "saving": "Speichert…",
-    "add": "Hinzufügen",
     "create": "Anlegen",
     "dayOfMonth": "{{day}}. {{month}}",
     "percent": "{{value}} %",

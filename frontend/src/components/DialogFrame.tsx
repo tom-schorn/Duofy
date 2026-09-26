@@ -22,6 +22,8 @@ type Props = {
   width?: 'narrow' | 'normal'
   /** Repeats the verb of the trigger: „Anlegen“ or „Speichern“. */
   submitLabel: string
+  /** Replaces „Speichert…“ while pending, when the verb is another one. */
+  pendingLabel?: string
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void
   /** The user changed something: outside clicks stop closing, Esc asks first. */
   dirty?: boolean
@@ -50,6 +52,7 @@ export function DialogFrame({
   description,
   width = 'normal',
   submitLabel,
+  pendingLabel,
   onSubmit,
   dirty = false,
   pending = false,
@@ -145,7 +148,7 @@ export function DialogFrame({
                   {t('common.cancel')}
                 </Button>
                 <Button type="submit" disabled={pending}>
-                  {pending ? t('common.saving') : submitLabel}
+                  {pending ? (pendingLabel ?? t('common.saving')) : submitLabel}
                 </Button>
               </div>
             </DialogFooter>
