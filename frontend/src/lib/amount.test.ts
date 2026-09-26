@@ -73,3 +73,30 @@ describe('formatAmount', () => {
     expect(formatAmount('abc')).toBe('')
   })
 })
+
+describe('parseAmount with allowNegative', () => {
+  it.each([
+    ['-150,00', '-150.00'],
+    ['−150,00', '-150.00'],
+    ['-1.234,5', '-1234.50'],
+    ['0', '0.00'],
+    ['-0,00', '0.00'],
+    ['150', '150.00'],
+  ])('reads %s as %s', (text, value) => {
+    expect(parseAmount(text, { allowNegative: true })).toEqual({ ok: true, value })
+  })
+
+  it('refuses a second sign and a sign in the middle', () => {
+    expect(parseAmount('--5', { allowNegative: true })).toEqual({ ok: false, reason: 'invalid' })
+    expect(parseAmount('5-', { allowNegative: true })).toEqual({ ok: false, reason: 'invalid' })
+  })
+
+  it('refuses a sign everywhere else', () => {
+    expect(parseAmount('-150,00')).toEqual({ ok: false, reason: 'invalid' })
+    expect(parseAmount('-150,00', { allowZero: true })).toEqual({ ok: false, reason: 'invalid' })
+  })
+
+  it('shows a negative API value with its sign', () => {
+    expect(formatAmount('-150.00')).toBe('-150,00')
+  })
+})

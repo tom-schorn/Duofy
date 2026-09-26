@@ -23,6 +23,7 @@ export function AmountField({
   onChange,
   required = false,
   allowZero = false,
+  allowNegative = false,
   disabled,
   placeholder,
   className,
@@ -34,6 +35,8 @@ export function AmountField({
   required?: boolean
   /** A planned amount may be 0,00 €; bookings and ticking may not. */
   allowZero?: boolean
+  /** Only an account's opening balance: a typed minus ("-150,00"), and zero. */
+  allowNegative?: boolean
   disabled?: boolean
   placeholder?: string
   className?: string
@@ -57,7 +60,7 @@ export function AmountField({
 
   /** What is wrong with the text as it stands; an empty optional field is fine. */
   function problem(current: string): AmountError | null {
-    const parsed = parseAmount(current, { allowZero })
+    const parsed = parseAmount(current, { allowZero, allowNegative })
     if (parsed.ok) return null
     if (parsed.reason === 'empty') return required ? 'empty' : null
     return parsed.reason
@@ -70,7 +73,7 @@ export function AmountField({
 
   function handleChange(next: string) {
     setText(next)
-    const parsed = parseAmount(next, { allowZero })
+    const parsed = parseAmount(next, { allowZero, allowNegative })
     const api = parsed.ok ? parsed.value : ''
     emitted.current = api
     onChange(api)
@@ -80,7 +83,7 @@ export function AmountField({
   }
 
   function handleBlur() {
-    const parsed = parseAmount(text, { allowZero })
+    const parsed = parseAmount(text, { allowZero, allowNegative })
     if (parsed.ok) setText(formatAmount(parsed.value))
     setError(problem(text))
   }
