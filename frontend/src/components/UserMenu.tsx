@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
-import { ChevronsUpDown, LogOut } from 'lucide-react'
+import { ChevronsUpDown, LogOut, Percent } from 'lucide-react'
 
 import {
   DropdownMenu,
@@ -18,7 +19,8 @@ import {
 import { useQueryClient } from '@tanstack/react-query'
 
 import { api, clearToken } from '@/lib/api'
-import { useMe } from '@/lib/queries'
+import { QuotaDialog } from '@/components/QuotaDialog'
+import { useMe, useSetDefaultQuota } from '@/lib/queries'
 
 export function UserMenu() {
   const { t } = useTranslation()
@@ -26,6 +28,8 @@ export function UserMenu() {
   const navigate = useNavigate()
   const client = useQueryClient()
   const me = useMe()
+  const setQuota = useSetDefaultQuota()
+  const [quotaOpen, setQuotaOpen] = useState(false)
 
   const firstName = me.data?.firstName ?? ''
   const lastName = me.data?.lastName ?? ''
@@ -81,6 +85,11 @@ export function UserMenu() {
               {t('userMenu.account')}
             </DropdownMenuLabel>
 
+            <DropdownMenuItem onSelect={() => setQuotaOpen(true)} className="gap-2">
+              <Percent className="size-4 shrink-0" />
+              {t('userMenu.quota')}
+            </DropdownMenuItem>
+
             <DropdownMenuItem onSelect={handleLogout} className="gap-2">
               <LogOut className="size-4 shrink-0" />
               {t('userMenu.logout')}
@@ -88,6 +97,21 @@ export function UserMenu() {
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
+
+      {me.data && (
+        <QuotaDialog
+          open={quotaOpen}
+          onOpenChange={setQuotaOpen}
+          title={t('quota.userTitle')}
+          description={t('quota.userDescription')}
+          initial={me.data}
+          pending={setQuota.isPending}
+          error={setQuota.isError ? setQuota.error : null}
+          onSave={(values) =>
+            setQuota.mutate(values, { onSuccess: () => setQuotaOpen(false) })
+          }
+        />
+      )}
     </SidebarMenu>
   )
 }

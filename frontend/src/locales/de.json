@@ -30,6 +30,8 @@
     "invitation_expired": "Diese Einladung ist abgelaufen.",
     "invitation_email_mismatch": "Die Einladung gilt für eine andere E-Mail-Adresse.",
     "interval_months_out_of_range": "Der Abstand muss zwischen 1 und 120 Monaten liegen.",
+    "quotas_must_sum_to_100": "Grundbedarf, Wünsche und Sparen müssen zusammen 100 % ergeben.",
+    "quotas_incomplete": "Die drei Quoten müssen zusammen gesendet werden.",
     "target_only_for_savings_goal": "Ein Zielbetrag gehört nur zu einem Sparziel.",
     "limit_only_for_contract": "Ein Limit gibt es nur bei einem Vertrag, der weiterläuft.",
     "ends_on_before_start": "Das Ende darf nicht vor dem Monat der ersten Fälligkeit liegen.",
@@ -204,6 +206,7 @@
   "toast": {
     "householdCreated": "Haushalt angelegt",
     "householdUpdated": "Haushalt geändert",
+    "quotaSaved": "Richtwerte gespeichert",
     "householdLeft": "Haushalt verlassen",
     "grantUpdated": "Freigabe geändert",
     "invitationSent": "Einladung verschickt",
@@ -287,8 +290,23 @@
     "label": "Person, deren Zahlen angezeigt werden",
     "me": "Ich"
   },
+  "quota": {
+    "userTitle": "Meine Richtwerte",
+    "userDescription": "Mit diesen Werten startet jeder Monat, den du ab jetzt anlegst. Bestehende Monate bleiben, wie sie sind.",
+    "householdTitle": "Richtwerte des Haushalts",
+    "householdDescription": "Das gemeinsame Ziel des Haushalts. Es gilt sofort für jeden Monat des Haushaltsplans, auch für vergangene. Jedes Mitglied darf es ändern.",
+    "needs": "Grundbedarf in %",
+    "wants": "Wünsche in %",
+    "savings": "Sparen in %",
+    "buffer": "Puffer in %",
+    "sum": "Zusammen: {{sum}} %",
+    "mustSum": "Grundbedarf, Wünsche und Sparen ergeben zusammen 100 %.",
+    "change": "Richtwerte ändern",
+    "current": "Richtwerte: {{needs}} / {{wants}} / {{savings}}, Puffer {{buffer}} %"
+  },
   "userMenu": {
     "account": "Konto",
+    "quota": "Meine Richtwerte",
     "logout": "Abmelden"
   },
   "notFound": {

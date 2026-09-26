@@ -9,7 +9,7 @@ import {
 import { i18n } from '@/lib/i18n'
 import { api } from '@/lib/api'
 import { reportMutationError, showsErrorInline } from '@/lib/mutation-error'
-import { OWN_SCOPE, euro, scopeKey, scopeQuery } from '@/lib/domain'
+import { OWN_SCOPE, euro, scopeKey, scopeQuery, type QuotaValues } from '@/lib/domain'
 import { announce, deleteWithUndo } from '@/lib/undo-delete'
 import type {
   AccessLevel,
@@ -90,6 +90,16 @@ export function useMe() {
   })
 }
 
+/** Set your personal default quotas. Only months created afterwards start from it. */
+export function useSetDefaultQuota() {
+  return useInvalidating<Me, QuotaValues>(
+    (values) => api.patch('/users/me', values),
+    [keys.me],
+    'toast.quotaSaved',
+    INLINE_ERROR
+  )
+}
+
 // --- Households -----------------------------------------------------------
 
 export function useHouseholds() {
@@ -111,7 +121,8 @@ export function useCreateHousehold() {
 export function useUpdateHousehold() {
   return useInvalidating<Household, { id: string } & Partial<Household>>(
     ({ id, ...changes }) => api.patch(`/households/${id}`, changes),
-    [keys.households],
+    // The household plan reads the quotas live, so it is reloaded too.
+    [keys.households, keys.plans],
     'toast.householdUpdated',
     INLINE_ERROR
   )
