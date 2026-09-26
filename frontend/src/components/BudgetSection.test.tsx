@@ -77,4 +77,42 @@ describe('BudgetSection rows', () => {
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
     expect(screen.queryByRole('img')).not.toBeInTheDocument()
   })
+
+  test('an overdue hint shows its text at the position it belongs to', () => {
+    renderSection({
+      hints: [
+        {
+          code: 'position_overdue',
+          severity: 'warning',
+          positionId: 'p1',
+          params: { due_date: '2026-09-01', days_overdue: 3 },
+        },
+      ],
+    })
+    expect(screen.getByText(/^Seit 3 Tagen/)).toBeInTheDocument()
+  })
+
+  test('a hint for another position is not shown here', () => {
+    renderSection({
+      hints: [
+        { code: 'position_overdue', severity: 'warning', positionId: 'other', params: { days_overdue: 1 } },
+      ],
+    })
+    expect(screen.queryByText(/^Seit /)).not.toBeInTheDocument()
+  })
+
+  test('an unknown hint code is ignored, never shown raw', () => {
+    renderSection({
+      hints: [{ code: 'from_the_future', severity: 'info', positionId: 'p1', params: {} }],
+    })
+    expect(screen.queryByText(/from_the_future|hints\./)).not.toBeInTheDocument()
+  })
+
+  test('a hint cannot be dismissed', () => {
+    renderSection({
+      hints: [{ code: 'position_overdue', severity: 'warning', positionId: 'p1', params: { days_overdue: 1 } }],
+    })
+    expect(screen.getByText(/^Seit einem Tag/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /schließen|ausblenden|verwerfen/i })).not.toBeInTheDocument()
+  })
 })
