@@ -1,3 +1,7 @@
+import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
@@ -6,10 +10,20 @@ from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.logging import UnexpectedErrorMiddleware, configure_logging
 from app.db.session import engine
+from app.services.admin import promote_admin
 
 configure_logging(settings.log_level)
 
-app = FastAPI(title="Duofy API", version="0.1.0")
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    await promote_admin()
+    yield
+
+
+app = FastAPI(title="Duofy API", version="0.1.0", lifespan=lifespan)
 
 # Added before CORS on purpose: the middleware added last is the outermost, so the
 # 500 answer of this one still passes through CORS and carries its headers.

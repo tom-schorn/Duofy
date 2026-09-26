@@ -21,8 +21,9 @@ storage is deleted after seven days without interaction.
 
 from typing import Annotated
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi_users.exceptions import InvalidPasswordException, UserAlreadyExists
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import (
@@ -36,9 +37,9 @@ from app.core.auth import (
 from app.core.config import settings
 from app.db.session import get_session
 from app.models.user import User
-from app.schemas.auth import AccessToken
-from app.schemas.user import UserCreate, UserRead, UserUpdate
-from app.services import refresh_tokens
+from app.schemas.auth import AccessToken, RegistrationInfo
+from app.schemas.user import RegisterRequest, UserCreate, UserRead, UserUpdate
+from app.services import refresh_tokens, registration
 
 router = APIRouter()
 
@@ -92,6 +93,55 @@ async def _issue(
     refresh = await refresh_tokens.issue(session, user.id)
     _set_cookie(response, refresh)
     return AccessToken(access_token=access)
+
+
+@router.get("/auth/registration", response_model=RegistrationInfo, tags=["auth"])
+async def registration_info() -> RegistrationInfo:
+    """Who may register here, so the sign-up page can show the right thing.
+
+    Public on purpose: the page needs it before anybody is signed in, and the mode
+    is no secret — a closed door says "closed" to everyone who knocks.
+    """
+    return RegistrationInfo(mode=settings.registration_mode)
+
+
+@router.post(
+    "/auth/register",
+    response_model=UserRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=["auth"],
+)
+async def register(
+    body: RegisterRequest,
+    request: Request,
+    user_manager: UserManager = Depends(get_user_manager),
+    session: AsyncSession = Depends(get_session),
+) -> User:
+    """Create an account, if `REGISTRATION_MODE` lets this person in.
+
+    Replaces fastapi-users' register route, which knows no modes. The answers to a
+    taken address and a weak password keep its codes, so the frontend needs no new
+    mapping for them.
+    """
+    invitation = await registration.admit(session, body.email, body.invitation_token)
+    user_manager.user_db.invitation = invitation
+    try:
+        return await user_manager.create(
+            UserCreate(**body.model_dump(exclude={"invitation_token"})),
+            safe=True,
+            request=request,
+        )
+    except UserAlreadyExists as error:
+        await session.rollback()  # let go of the invitation lock
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, detail={"code": "REGISTER_USER_ALREADY_EXISTS"}
+        ) from error
+    except InvalidPasswordException as error:
+        await session.rollback()
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail={"code": "REGISTER_INVALID_PASSWORD", "reason": error.reason},
+        ) from error
 
 
 @router.post("/auth/login", response_model=AccessToken, tags=["auth"])
@@ -199,17 +249,22 @@ router.include_router(
     tags=["auth"],
 )
 router.include_router(
-    fastapi_users.get_register_router(UserRead, UserCreate),
-    prefix="/auth",
-    tags=["auth"],
-)
-router.include_router(
     fastapi_users.get_reset_password_router(),
     prefix="/auth",
     tags=["auth"],
 )
-router.include_router(
-    fastapi_users.get_users_router(UserRead, UserUpdate),
-    prefix="/users",
-    tags=["users"],
-)
+
+
+def _own_profile_only() -> APIRouter:
+    """fastapi-users' users router, minus the routes that address someone else.
+
+    Once `is_superuser` means something, `GET/PATCH/DELETE /users/{id}` would let an
+    admin read, rewrite (including the password) and delete any account. The admin
+    runs the instance and owns nobody's data (#168), so only `/users/me` stays.
+    """
+    users = fastapi_users.get_users_router(UserRead, UserUpdate)
+    users.routes[:] = [route for route in users.routes if "{id}" not in getattr(route, "path", "")]
+    return users
+
+
+router.include_router(_own_profile_only(), prefix="/users", tags=["users"])
