@@ -119,11 +119,19 @@ async def update_household(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> HouseholdRead:
-    """Rename and change quotas — owner only."""
-    household = await _load(session, household_id)
-    require(await is_household_owner(session, user.id, household_id), "not_household_owner")
+    """Rename (owner only) and change quotas and buffer (any member).
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    The household belongs to nobody, so the shared target is not the owner's to
+    set alone; the name stays with the owner.
+    """
+    household = await _load(session, household_id)
+    changes = payload.model_dump(exclude_unset=True)
+    if "name" in changes:
+        require(await is_household_owner(session, user.id, household_id), "not_household_owner")
+    else:
+        require(await is_member(session, user.id, household_id), "not_household_member")
+
+    for field, value in changes.items():
         setattr(household, field, value)
 
     await session.commit()

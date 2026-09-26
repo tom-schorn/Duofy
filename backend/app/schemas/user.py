@@ -1,8 +1,11 @@
 import uuid
+from decimal import Decimal
 
 from fastapi_users import schemas
-from pydantic import ConfigDict
+from pydantic import ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
+
+from app.schemas.quota import check_quotas
 
 #: The same rule as in `app.schemas.base.Schema` — camelCase on the wire. The
 #: fastapi-users schemas do not inherit from our base, hence the repetition.
@@ -16,6 +19,10 @@ class UserRead(schemas.BaseUser[uuid.UUID]):
 
     first_name: str
     last_name: str
+    target_needs: Decimal
+    target_wants: Decimal
+    target_savings: Decimal
+    buffer_percent: Decimal
 
 
 class UserCreate(schemas.BaseUserCreate):
@@ -30,3 +37,12 @@ class UserUpdate(schemas.BaseUserUpdate):
 
     first_name: str | None = None
     last_name: str | None = None
+    target_needs: Decimal | None = Field(default=None, ge=0, le=100)
+    target_wants: Decimal | None = Field(default=None, ge=0, le=100)
+    target_savings: Decimal | None = Field(default=None, ge=0, le=100)
+    buffer_percent: Decimal | None = Field(default=None, ge=0, le=100)
+
+    @model_validator(mode="after")
+    def _quotas_add_up(self) -> "UserUpdate":
+        check_quotas(self.target_needs, self.target_wants, self.target_savings)
+        return self
