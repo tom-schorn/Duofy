@@ -25,4 +25,35 @@ describe('PaidDialog', () => {
     expect(screen.getByLabelText('Betrag')).toBeDisabled()
     expect(screen.getByRole('dialog')).toContainElement(document.activeElement as HTMLElement)
   })
+
+  test('says so in one line when the date is outside the plan month, and still books', async () => {
+    const user = userEvent.setup()
+    const onConfirm = vi.fn()
+    render(
+      <PaidDialog
+        position={position}
+        onClose={() => {}}
+        onConfirm={onConfirm}
+        pending={false}
+        planMonth={{ year: 2000, month: 1 }}
+      />
+    )
+    expect(screen.getByRole('status')).toHaveTextContent('Das Datum liegt nicht in Januar 2000.')
+    await user.click(screen.getByRole('button', { name: 'Abhaken' }))
+    expect(onConfirm).toHaveBeenCalled()
+  })
+
+  test('shows no hint while the date is in the plan month', () => {
+    const now = new Date()
+    render(
+      <PaidDialog
+        position={position}
+        onClose={() => {}}
+        onConfirm={() => {}}
+        pending={false}
+        planMonth={{ year: now.getFullYear(), month: now.getMonth() + 1 }}
+      />
+    )
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
 })
