@@ -1,4 +1,4 @@
-"""The migrations of #106, #107 and #108, run forwards and backwards on a filled table.
+"""The migrations of #106 to #109, run forwards and backwards on a filled table.
 
 ## Why this test exists at all
 
@@ -54,6 +54,9 @@ INTERVAL = "c7f3d92e5a18"
 #: #108: `due_day` left `commitments`, the day lives in `first_due_date` only.
 DUE_DAY = "d8a4e1b6c093"
 
+#: #109: `active` (a switch) became `ends_on` (the last month it falls due).
+ENDS_ON = "e5b2c7a94d16"
+
 #: A database of its own — the suite's own one must keep the schema `create_all`
 #: gave it, and these tests move a schema up and down.
 SCRATCH_DB = f"{settings.postgres_db}_migrations"
@@ -66,6 +69,7 @@ TOUCHED = {"commitments", "plan_positions", "transactions", "imported_entries"}
 #: the chain is what takes the time, and Postgres copies a database in a moment.
 TEMPLATE_DB = f"{settings.postgres_db}_migrations_template"
 TEMPLATE_DUE_DAY_DB = f"{settings.postgres_db}_migrations_template_due_day"
+TEMPLATE_ENDS_ON_DB = f"{settings.postgres_db}_migrations_template_ends_on"
 
 
 def run_alembic(arguments: tuple[str, ...], database: str) -> subprocess.CompletedProcess:
@@ -782,3 +786,96 @@ async def test_the_downgrade_restores_the_due_day_from_the_date(
         )
     )
     assert nullable == "YES"
+
+
+@pytest.fixture(scope="module")
+async def template_before_ends_on() -> AsyncGenerator[None]:
+    """The chain up to the revision before #109, migrated once for this module."""
+    await drop_database(TEMPLATE_ENDS_ON_DB)
+    await create_database(TEMPLATE_ENDS_ON_DB)
+    alembic("upgrade", DUE_DAY, database=TEMPLATE_ENDS_ON_DB)
+    yield
+    await drop_database(TEMPLATE_ENDS_ON_DB)
+
+
+@pytest.fixture
+async def before_ends_on(template_before_ends_on: None) -> AsyncGenerator[AsyncConnection]:
+    """A copy of that database, private to one test."""
+    await drop_database(SCRATCH_DB)
+    await create_database(SCRATCH_DB, template=TEMPLATE_ENDS_ON_DB)
+    scratch = create_async_engine(
+        settings.database_url.rsplit("/", 1)[0] + f"/{SCRATCH_DB}", isolation_level="AUTOCOMMIT"
+    )
+    async with scratch.connect() as connection:
+        yield connection
+    await scratch.dispose()
+    await drop_database(SCRATCH_DB)
+
+
+async def add_switched_commitment(
+    connection: AsyncConnection, number: int, name: str, *, active: bool
+) -> None:
+    """A commitment in the shape before #109 — the old `active` switch is seeded on purpose."""
+    await connection.execute(
+        text(
+            "INSERT INTO commitments (id, owner_id, type, name, amount, category, budget,"
+            " interval_months, first_due_date, active, pass_through, is_limit) VALUES"
+            " (:id, :owner, 'contract', :name, 10.00, 'leisure.subscriptions', 'wants',"
+            " 1, '2026-01-15', :active, false, false)"
+        ),
+        {
+            "id": f"33333333-3333-3333-3333-{number:012d}",
+            "owner": OWNER,
+            "name": name,
+            "active": active,
+        },
+    )
+
+
+async def test_a_switched_off_commitment_ends_on_the_day_of_the_migration(
+    before_ends_on: AsyncConnection,
+):
+    await seed_owner(before_ends_on)
+    await add_switched_commitment(before_ends_on, 1, "Running", active=True)
+    await add_switched_commitment(before_ends_on, 2, "Cancelled", active=False)
+
+    alembic("upgrade", ENDS_ON)
+
+    rows = await before_ends_on.execute(
+        text("SELECT name, ends_on = CURRENT_DATE, ends_on IS NULL FROM commitments ORDER BY name")
+    )
+    assert rows.all() == [("Cancelled", True, False), ("Running", None, True)]
+    assert await columns(before_ends_on, "active") == {"accounts"}
+    assert await columns(before_ends_on, "ends_on") == {"commitments"}
+
+
+async def test_the_downgrade_brings_the_switch_back_and_loses_the_dates(
+    before_ends_on: AsyncConnection,
+):
+    await seed_owner(before_ends_on)
+    await add_switched_commitment(before_ends_on, 1, "Running", active=True)
+    await add_switched_commitment(before_ends_on, 2, "Cancelled", active=False)
+    alembic("upgrade", ENDS_ON)
+    # One end long past, one still ahead: both become a plain switch, the date is gone.
+    await before_ends_on.execute(
+        text(
+            "UPDATE commitments SET ends_on = CURRENT_DATE - INTERVAL '400 days'"
+            " WHERE name = 'Cancelled'"
+        )
+    )
+    await before_ends_on.execute(
+        text(
+            "INSERT INTO commitments (id, owner_id, type, name, amount, category, budget,"
+            " interval_months, first_due_date, ends_on, pass_through, is_limit) VALUES"
+            " ('33333333-3333-3333-3333-000000000003', :owner, 'contract', 'Ends later',"
+            " 10.00, 'leisure.subscriptions', 'wants', 1, '2026-01-15',"
+            " CURRENT_DATE + INTERVAL '200 days', false, false)"
+        ),
+        {"owner": OWNER},
+    )
+
+    alembic("downgrade", "-1")
+
+    rows = await before_ends_on.execute(text("SELECT name, active FROM commitments ORDER BY name"))
+    assert rows.all() == [("Cancelled", False), ("Ends later", True), ("Running", True)]
+    assert await columns(before_ends_on, "ends_on") == set()

@@ -11,6 +11,10 @@ MIN_INTERVAL_MONTHS = 1
 MAX_INTERVAL_MONTHS = 120
 
 
+def month_of(day: date) -> tuple[int, int]:
+    return (day.year, day.month)
+
+
 def check_interval(months: int) -> None:
     """The same range the database enforces, but as an error code."""
     if not MIN_INTERVAL_MONTHS <= months <= MAX_INTERVAL_MONTHS:
@@ -27,7 +31,8 @@ class CommitmentBase(Schema):
     interval_months: int
     #: The start of the cadence and, through its day, the due day.
     first_due_date: date
-    active: bool = True
+    #: The last month it falls due. Empty means it runs indefinitely.
+    ends_on: date | None = None
     #: Which account it is paid from. Empty means the default account.
     account_id: uuid.UUID | None = None
     #: Copied into the generated positions, overridable per month there.
@@ -60,6 +65,9 @@ class CommitmentCreate(CommitmentBase):
         """
         check_interval(self.interval_months)
 
+        if self.ends_on is not None and month_of(self.ends_on) < month_of(self.first_due_date):
+            raise ValueError("ends_on_before_start")
+
         if self.type is not CommitmentType.SAVINGS_GOAL and (
             self.target_amount is not None or self.target_date is not None
         ):
@@ -81,7 +89,7 @@ class CommitmentUpdate(Schema):
     household_id: uuid.UUID | None = None
     interval_months: int | None = None
     first_due_date: date | None = None
-    active: bool | None = None
+    ends_on: date | None = None
     account_id: uuid.UUID | None = None
     payment_method: PaymentMethod | None = None
     is_limit: bool | None = None

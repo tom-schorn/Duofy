@@ -337,7 +337,7 @@ function AccountDialog({
 
             <div className="border-border flex items-center justify-between gap-4 rounded-lg border p-3">
               <span className="flex flex-col">
-                <span className="text-sm font-medium">{t('commitmentDialog.active')}</span>
+                <span className="text-sm font-medium">{t('accounts.active')}</span>
                 <span className="text-muted-foreground text-xs">
                   {t('accounts.activeHint')}
                 </span>

@@ -12,9 +12,10 @@ attached that position to the household.
 """
 
 import uuid
+from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
@@ -35,10 +36,22 @@ NOT_NULLABLE = (
     "budget",
     "interval_months",
     "first_due_date",
-    "active",
     "is_limit",
     "pass_through",
 )
+
+STATUS_FILTERS = ("active", "ended", "all")
+
+
+def _check_ends_on(first_due_date: date, ends_on: date | None) -> None:
+    """An end before the start month can never be due — see the schema's twin check."""
+    if ends_on is not None and (ends_on.year, ends_on.month) < (
+        first_due_date.year,
+        first_due_date.month,
+    ):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, detail={"code": "ends_on_before_start"}
+        )
 
 
 def _check_limit(type_: CommitmentType, is_limit: bool) -> None:
@@ -85,10 +98,17 @@ async def _load(
 @router.get("", response_model=list[CommitmentRead])
 async def list_commitments(
     owner: uuid.UUID | None = None,
+    status_filter: str = Query("all", alias="status"),
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> list[Commitment]:
-    """Commitments, active and retired alike.
+    """Commitments, running and ended alike — or only one of the two.
+
+    `status=active` keeps those without an end and those whose last month is this
+    one or later, `status=ended` the rest, `status=all` (the default, so existing
+    callers see what they always saw) everything. Measured against today every
+    time, never stored: a contract that ends in September turns from active to
+    ended on 1 October without anybody touching it.
 
     Without `owner` your own. With `owner` those of that person, which needs at
     least `view` on `Area.COMMITMENTS` — and that level comes from them, not from
@@ -103,10 +123,20 @@ async def list_commitments(
         level = await granted_level(session, owner_id, user.id, Area.COMMITMENTS)
         require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
 
+    if status_filter not in STATUS_FILTERS:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, detail={"code": "invalid_status_filter"}
+        )
+
+    query = select(Commitment).where(Commitment.owner_id == owner_id)
+    running = or_(Commitment.ends_on.is_(None), Commitment.ends_on >= date.today().replace(day=1))
+    if status_filter == "active":
+        query = query.where(running)
+    elif status_filter == "ended":
+        query = query.where(~running)
+
     result = await session.execute(
-        select(Commitment)
-        .where(Commitment.owner_id == owner_id)
-        .order_by(Commitment.budget, Commitment.amount.desc())
+        query.order_by(Commitment.budget, Commitment.amount.desc())
     )
     return list(result.scalars())
 
@@ -166,6 +196,14 @@ async def update_commitment(
                 status.HTTP_422_UNPROCESSABLE_CONTENT, detail={"code": "null_not_allowed"}
             )
     _check_limit(commitment.type, changes.get("is_limit", commitment.is_limit))
+    # Against what is stored, so moving either date alone cannot break the pair.
+    # Only when one of the two is touched: the migration can leave a row with an end
+    # before its start (never due anyway), and renaming it must still work.
+    if "ends_on" in changes or "first_due_date" in changes:
+        _check_ends_on(
+            changes.get("first_due_date", commitment.first_due_date),
+            changes["ends_on"] if "ends_on" in changes else commitment.ends_on,
+        )
 
     if "household_id" in changes:
         require(

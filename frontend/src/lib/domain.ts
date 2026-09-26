@@ -449,7 +449,11 @@ export type Commitment = {
    * else.
    */
   firstDueDate: string
-  active: boolean
+  /**
+   * The last month in which it falls due, or null for "runs indefinitely". Only year
+   * and month count; the day is whatever was picked and is ignored.
+   */
+  endsOn: string | null
   /** only for savings_goal */
   targetAmount: string | null
   targetDate: string | null
@@ -473,6 +477,23 @@ export type Commitment = {
    * quota.
    */
   passThrough: boolean
+}
+
+/** Which commitments the list asks for — computed by the backend against today. */
+export type CommitmentStatus = 'active' | 'ended' | 'all'
+
+export const COMMITMENT_STATUSES: CommitmentStatus[] = ['active', 'ended', 'all']
+
+/** Has a commitment with this end month stopped? Mirrors the backend's `ended` filter. */
+export function hasEnded(endsOn: string | null, today: Date = new Date()): boolean {
+  if (endsOn === null) return false
+  const ends = Number(endsOn.slice(0, 4)) * 12 + Number(endsOn.slice(5, 7))
+  return ends < today.getFullYear() * 12 + today.getMonth() + 1
+}
+
+/** `März 2026` for `2026-03-15` — the day does not matter. */
+export function endMonthLabel(endsOn: string): string {
+  return `${monthLabel(Number(endsOn.slice(5, 7)))} ${endsOn.slice(0, 4)}`
 }
 
 /** The due day of a commitment — the day of its first due date (`2026-03-31` → 31). */

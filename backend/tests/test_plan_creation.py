@@ -31,7 +31,7 @@ async def make_commitment(
     *,
     interval_months: int = 1,
     first_due_date: date = date(2026, 1, 1),
-    active: bool = True,
+    ends_on: date | None = None,
     amount: str = "50.00",
     is_limit: bool = False,
 ) -> Commitment:
@@ -44,7 +44,7 @@ async def make_commitment(
         budget=Budget.WANTS,
         interval_months=interval_months,
         first_due_date=first_due_date,
-        active=active,
+        ends_on=ends_on,
         is_limit=is_limit,
     )
     session.add(commitment)
@@ -109,10 +109,10 @@ async def test_a_commitment_not_due_this_month_is_left_out(
     assert positions == []
 
 
-async def test_an_inactive_commitment_is_left_out(
+async def test_a_commitment_that_ended_before_the_month_is_left_out(
     client: AsyncClient, session: AsyncSession, owner: User
 ):
-    await make_commitment(session, owner, "Cancelled gym", active=False)
+    await make_commitment(session, owner, "Cancelled gym", ends_on=date(2026, 8, 31))
     await session.commit()
 
     response = await client.post("/api/v1/plans", json={"year": 2026, "month": 9})
@@ -253,3 +253,25 @@ async def test_a_limit_commitment_makes_a_limit_position(
         "Groceries": True,
         "Rent": False,
     }
+
+
+async def test_a_commitment_is_planned_in_the_month_of_its_end_and_not_after(
+    client: AsyncClient, session: AsyncSession, owner: User
+):
+    await make_commitment(session, owner, "Ends in September", ends_on=date(2026, 9, 30))
+    await session.commit()
+
+    for month, expected in ((9, ["Ends in September"]), (10, [])):
+        response = await client.post("/api/v1/plans", json={"year": 2026, "month": month})
+        assert response.status_code == 201
+        plan = (
+            await session.execute(
+                select(Plan).where(Plan.user_id == owner.id, Plan.month == month)
+            )
+        ).scalar_one()
+        labels = (
+            (await session.execute(select(PlanPosition).where(PlanPosition.plan_id == plan.id)))
+            .scalars()
+            .all()
+        )
+        assert [position.label for position in labels] == expected
