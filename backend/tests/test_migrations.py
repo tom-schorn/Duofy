@@ -65,6 +65,9 @@ ENDS_ON = "e5b2c7a94d16"
 #: #110: `remaining_debt` left `commitments`.
 REMAINING_DEBT = "f7c1a3d58e29"
 
+#: #94: `transactions` got `kind`, so a carry-over can sit next to the bookings.
+CARRY_OVER = "a94c0e7d3b16"
+
 #: A database of its own — the suite's own one must keep the schema `create_all`
 #: gave it, and these tests move a schema up and down.
 SCRATCH_DB = f"{settings.postgres_db}_migrations"
@@ -969,3 +972,59 @@ async def test_the_downgrade_brings_the_column_back_empty_with_its_check(
         await before_remaining_debt.execute(
             text("UPDATE commitments SET remaining_debt = 5 WHERE name = 'Gym'")
         )
+
+
+async def add_bookings(connection: AsyncConnection) -> None:
+    """One account with one booking, in the shape before #94 (no `kind`)."""
+    await seed_owner(connection)
+    await connection.execute(
+        text(
+            "INSERT INTO accounts (id, owner_id, name, type, opening_balance, opening_date,"
+            " is_default, counts_as_available, active) VALUES"
+            " ('22222222-2222-2222-2222-222222222222', :owner, 'Giro', 'checking', 0.00,"
+            " '2026-01-01', true, true, true)"
+        ),
+        {"owner": OWNER},
+    )
+    await connection.execute(
+        text(
+            "INSERT INTO transactions (id, owner_id, account_id, occurred_on, amount,"
+            " category, budget, auto_booked) VALUES"
+            " ('66666666-6666-6666-6666-666666666666', :owner,"
+            " '22222222-2222-2222-2222-222222222222', '2026-09-03', 42.50,"
+            " 'household.groceries', 'needs', false)"
+        ),
+        {"owner": OWNER},
+    )
+
+
+async def test_every_existing_row_becomes_a_booking(before_remaining_debt: AsyncConnection):
+    alembic("upgrade", REMAINING_DEBT)
+    await add_bookings(before_remaining_debt)
+
+    alembic("upgrade", CARRY_OVER)
+
+    rows = await before_remaining_debt.execute(text("SELECT kind, amount FROM transactions"))
+    assert rows.all() == [("booking", 42.5)]
+
+
+async def test_the_downgrade_removes_the_carry_overs_and_keeps_the_bookings(
+    before_remaining_debt: AsyncConnection,
+):
+    alembic("upgrade", REMAINING_DEBT)
+    await add_bookings(before_remaining_debt)
+    alembic("upgrade", CARRY_OVER)
+    await before_remaining_debt.execute(
+        text(
+            "INSERT INTO transactions (id, owner_id, account_id, kind, occurred_on, amount)"
+            " VALUES ('66666666-6666-6666-6666-666666666667', :owner,"
+            " '22222222-2222-2222-2222-222222222222', 'carry_over', '2026-10-01', -12.00)"
+        ),
+        {"owner": OWNER},
+    )
+
+    alembic("downgrade", "-1")
+
+    rows = await before_remaining_debt.execute(text("SELECT amount FROM transactions"))
+    assert rows.all() == [(42.5,)]
+    assert await columns(before_remaining_debt, "kind") == set()
