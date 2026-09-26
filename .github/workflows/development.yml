@@ -6,9 +6,11 @@ on:
   push:
     branches: [main]
 
+# Pushes queue instead of cancelling each other: cancelling would also stop the check
+# of the older push, and every state on `main` should stay checked.
 concurrency:
   group: dev-images
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   # Check first, publish second. Without this dependency a broken merge would put a
