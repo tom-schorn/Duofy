@@ -44,11 +44,9 @@ def test_effective_due_day_as_the_frontend_clamps_it(case):
     assert commitment.effective_due_day(case["year"], case["month"]) == case["expected"]
 
 
-#: Every commitment has a start date since #108; the case for "no start" is obsolete.
-DUE_IN_CASES = [case for case in CASES["is_due_in"] if case["first_due_date"]]
-
-
-@pytest.mark.parametrize("case", DUE_IN_CASES, ids=[case["case"] for case in DUE_IN_CASES])
+@pytest.mark.parametrize(
+    "case", CASES["is_due_in"], ids=[case["case"] for case in CASES["is_due_in"]]
+)
 def test_is_due_in_as_the_frontend_counts_it(case):
     commitment = Commitment(
         interval_months=case["interval_months"],

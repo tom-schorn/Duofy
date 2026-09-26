@@ -603,6 +603,12 @@ async def add_position(connection: AsyncConnection, commitment_id: str, year: in
     )
 
 
+async def this_month(connection: AsyncConnection) -> date:
+    """The first of the current month as the database sees it, which is what the migration uses."""
+    today = await connection.scalar(text("SELECT CURRENT_DATE"))
+    return today.replace(day=1)
+
+
 async def first_dates(connection: AsyncConnection) -> dict[str, date]:
     rows = await connection.execute(text("SELECT name, first_due_date FROM commitments"))
     return dict(rows.all())
@@ -631,8 +637,8 @@ async def test_a_monthly_commitment_without_a_date_or_a_position_starts_this_mon
 
     alembic("upgrade", DUE_DAY)
 
-    today = date.today()
-    assert (await first_dates(before_due_day))["Gym"] == date(today.year, today.month, 15)
+    month = await this_month(before_due_day)
+    assert (await first_dates(before_due_day))["Gym"] == month.replace(day=15)
 
 
 @pytest.mark.parametrize(
@@ -663,6 +669,42 @@ async def test_a_31st_starting_in_a_30_day_month_moves_to_the_next_long_one(
     alembic("upgrade", DUE_DAY)
 
     assert (await first_dates(before_due_day))["Rent"] == date(2026, 5, 31)
+
+
+async def test_a_december_position_starts_in_december_and_a_31st_moves_into_january(
+    before_due_day: AsyncConnection,
+):
+    """The year-end guard: month 12 must not become month 0 or 13."""
+    await seed_owner(before_due_day)
+    gym = await add_commitment(before_due_day, 1, "Gym", 20)
+    await add_position(before_due_day, gym, 2026, 12)
+    rent = await add_commitment(before_due_day, 2, "Rent", 31)
+    await add_position(before_due_day, rent, 2026, 11)
+
+    alembic("upgrade", DUE_DAY)
+
+    dates = await first_dates(before_due_day)
+    assert dates["Gym"] == date(2026, 12, 20)
+    assert dates["Rent"] == date(2026, 12, 31), "November has no 31st, December does"
+
+
+async def test_a_date_with_another_day_than_the_due_day_follows_the_due_day(
+    before_due_day: AsyncConnection,
+):
+    """The payday must not change silently: the old `due_day` wins over the date's day."""
+    await seed_owner(before_due_day)
+    await add_commitment(before_due_day, 1, "Insurance", 20, "2026-01-15", interval_months=3)
+    # The 31st does not exist in February: the date moves to March.
+    await add_commitment(before_due_day, 2, "Tax", 31, "2026-02-10", interval_months=6)
+    # November has no 31st either, so this one moves to December.
+    await add_commitment(before_due_day, 3, "Licence", 31, "2026-11-05", interval_months=12)
+
+    alembic("upgrade", DUE_DAY)
+
+    dates = await first_dates(before_due_day)
+    assert dates["Insurance"] == date(2026, 1, 20)
+    assert dates["Tax"] == date(2026, 3, 31)
+    assert dates["Licence"] == date(2026, 12, 31)
 
 
 async def test_a_date_that_is_already_there_is_left_alone(before_due_day: AsyncConnection):
@@ -717,9 +759,9 @@ async def test_the_downgrade_restores_the_due_day_from_the_date(
     rows = await before_due_day.execute(
         text("SELECT name, due_day, first_due_date FROM commitments ORDER BY name")
     )
-    today = date.today()
+    month = await this_month(before_due_day)
     assert rows.all() == [
-        ("Gym", 15, date(today.year, today.month, 15)),
+        ("Gym", 15, month.replace(day=15)),
         ("Insurance", 15, date(2026, 1, 15)),
         ("Rent", 31, date(2026, 3, 31)),
     ]

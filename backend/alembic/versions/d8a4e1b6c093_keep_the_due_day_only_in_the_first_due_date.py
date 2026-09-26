@@ -9,7 +9,12 @@ one, `first_due_date`, with a validator holding them together (#108). Now the
 date is the only source and `due_day` goes. `commitments.first_due_date` becomes
 NOT NULL, so **a monthly commitment needs a start date too**.
 
-Existing dates are kept as they are. Rows without one (until now only monthly
+Existing dates are kept as they are, with one exception: where the day of
+`first_due_date` disagrees with `due_day`, the **old `due_day` wins**, because that
+is what `effective_due_day` read until now and the payday must not change
+silently. The date moves to that day in the same month, or, if the month does not
+have it, to the next month that does (the rule below). Nothing is logged or
+raised for it. Rows without a date (until now only monthly
 ones) get a start, decided with Tom on 26.09.:
 
 * **Which month.** The earliest plan month in which the commitment already has a
@@ -64,6 +69,8 @@ UPDATE commitments AS c SET first_due_date = (
 FROM (
     SELECT c2.id,
            COALESCE(
+               EXTRACT(YEAR FROM c2.first_due_date)::int * 12
+               + EXTRACT(MONTH FROM c2.first_due_date)::int - 1,
                (SELECT MIN(p.year * 12 + p.month - 1)
                 FROM plan_positions AS pp JOIN plans AS p ON p.id = pp.plan_id
                 WHERE pp.commitment_id = c2.id),
@@ -72,6 +79,7 @@ FROM (
            ) AS m
     FROM commitments AS c2
     WHERE c2.first_due_date IS NULL
+       OR EXTRACT(DAY FROM c2.first_due_date) <> c2.due_day
 ) AS s
 WHERE c.id = s.id
 """
