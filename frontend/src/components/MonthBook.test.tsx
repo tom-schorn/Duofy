@@ -91,3 +91,37 @@ describe('MonthBook rows', () => {
     expect(screen.queryByRole('button', { name: i18n.t('common.delete') })).not.toBeInTheDocument()
   })
 })
+
+describe('MonthBook carry-over row', () => {
+  const carryOver = {
+    ...booking,
+    id: 't2',
+    kind: 'carry_over',
+    amount: '120.00',
+    note: null,
+    category: null,
+    budget: null,
+  }
+
+  beforeEach(() => {
+    fetchMock = vi.fn(
+      async (url: string) =>
+        new Response(JSON.stringify(String(url).includes('/accounts') ? [account] : [carryOver]), {
+          status: 200,
+        })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  test('it is marked, says where to change it and does not open the edit dialog', async () => {
+    const user = userEvent.setup()
+    renderBook(false)
+
+    expect(await screen.findByText(i18n.t('monthBook.carryOverName'))).toBeInTheDocument()
+    expect(screen.getByText(new RegExp(i18n.t('monthBook.carryOverHint')))).toBeInTheDocument()
+
+    await user.click(screen.getByText(i18n.t('monthBook.carryOverName')))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+})
