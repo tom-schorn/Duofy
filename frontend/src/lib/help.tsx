@@ -17,9 +17,8 @@ import { i18n } from '@/lib/i18n'
  * …) that `Trans` maps onto the elements below. No Markdown: the markers are
  * few, and the own code highlighting has to survive.
  *
- * TODO: move the texts into the wiki and load an excerpt from there. Written twice
- * — once here, once in an article — they will contradict each other within weeks.
- * Needs a public wiki page first, see the note in the project docs.
+ * The texts stay in the app, in the catalog, translatable like every other text
+ * (#98). The wiki does not repeat them; it only points here.
  */
 
 export type HelpEntry = {
@@ -38,6 +37,7 @@ export type HelpKey =
   | 'commitments'
   | 'accounts'
   | 'household'
+  | 'admin'
 
 /** What each marker in the help catalog turns into. */
 const MARKERS = {
@@ -56,6 +56,9 @@ const MARKERS = {
 /** The three budgets, explained once and shown on the plan page. */
 const PLAN_BUDGETS = ['budgets.needs', 'budgets.wants', 'budgets.savings']
 
+/** One entry for every page that has a person switcher. */
+const OTHER_PERSON = 'shared.entries.other-person'
+
 /** Catalog paths of the entries, in the order the column lists them. */
 const ENTRIES: Record<HelpKey, string[]> = {
   import: [
@@ -70,16 +73,28 @@ const ENTRIES: Record<HelpKey, string[]> = {
     'nothing-changed',
   ].map((id) => `import.entries.${id}`),
   plans: ['overview', 'switch', 'ritual'].map((id) => `plans.entries.${id}`),
-  plan: ['plan.entries.month', ...PLAN_BUDGETS, 'plan.entries.tick'],
-  book: ['book', 'assignment', 'transfer', 'shared-book'].map(
-    (id) => `book.entries.${id}`
-  ),
-  commitments: ['commitment', 'types', 'interval', 'privacy'].map(
-    (id) => `commitments.entries.${id}`
-  ),
-  accounts: ['account', 'no-depot', 'available', 'iban'].map(
-    (id) => `accounts.entries.${id}`
-  ),
+  plan: [
+    'plan.entries.month',
+    ...PLAN_BUDGETS,
+    'plan.entries.tick',
+    'plan.entries.limit',
+    OTHER_PERSON,
+  ],
+  book: [
+    ...['book', 'assignment', 'transfer', 'shared-book'].map((id) => `book.entries.${id}`),
+    OTHER_PERSON,
+  ],
+  commitments: [
+    ...['commitment', 'one-debit', 'from-next-month', 'types', 'interval', 'privacy'].map(
+      (id) => `commitments.entries.${id}`
+    ),
+    OTHER_PERSON,
+  ],
+  accounts: [
+    ...['account', 'no-depot', 'available', 'iban'].map((id) => `accounts.entries.${id}`),
+    OTHER_PERSON,
+  ],
+  admin: ['invitations', 'no-insight'].map((id) => `admin.entries.${id}`),
   household: [
     'household',
     'grants',

@@ -80,7 +80,11 @@
       },
       "tick": {
         "title": "Posten abhaken",
-        "body": "<p>Das Abhaken erzeugt eine Buchung. Datum und Betrag sind mit dem heutigen Datum und dem geplanten Betrag vorbelegt und lassen sich vor dem Bestätigen anpassen.</p><listSpaced><li>Der Posten entfällt aus „Anstehend“.</li><li>Bestehen zum Posten bereits Buchungen — etwa bei einem Limit, auf das über den Monat eingekauft wurde —, entsteht keine weitere. Der Haken bedeutet dann „Monat erledigt“; andernfalls würden die Beträge doppelt erfasst.</li><li>Bei Sparzielen mit hinterlegtem Zielkonto entsteht eine Umbuchung statt einer Ausgabe: das Geld verbleibt im Haushalt.</li><li>Bei Einnahmen bedeutet der Haken „eingegangen“ und wirkt sich auf „Anstehend“ nicht aus.</li></listSpaced><pSpaced>Ein abweichendes Buchungsdatum verschiebt den Posten nicht: Ein Augustposten mit Julidatum ergibt eine Julibuchung auf einem Augustposten.</pSpaced>"
+        "body": "<p>Das Abhaken erzeugt eine Buchung. Datum und Betrag sind mit dem heutigen Datum und dem geplanten Betrag vorbelegt und lassen sich vor dem Bestätigen anpassen.</p><listSpaced><li>Der Posten entfällt aus „Anstehend“.</li><li>Bestehen zum Posten bereits Buchungen — etwa Teilzahlungen auf einen einmaligen Posten —, entsteht keine weitere; Datum und Betrag im Dialog werden dann nicht verwendet. Der Haken bedeutet „erledigt“; andernfalls würden die Beträge doppelt erfasst.</li><li>Bei Sparzielen mit hinterlegtem Zielkonto entsteht eine Umbuchung statt einer Ausgabe: das Geld verbleibt im Haushalt.</li><li>Bei Einnahmen bedeutet der Haken „eingegangen“ und wirkt sich auf „Anstehend“ nicht aus.</li></listSpaced><pSpaced>Ein abweichendes Buchungsdatum verschiebt den Posten nicht: Ein Augustposten mit Julidatum ergibt eine Julibuchung auf einem Augustposten.</pSpaced>"
+      },
+      "limit": {
+        "title": "Verpflichtung und Limit",
+        "body": "<p>Es gibt zwei Arten von Posten. Bei einer <strong>Verpflichtung</strong> — Miete, Versicherung — reicht ein Haken: der Betrag steht fest, mit dem Haken entsteht die Buchung.</p><p>Bei einem <strong>Limit</strong> — Lebensmittel, Sprit, Taschengeld — gibt es keinen Haken. Du legst nur die Höhe fest; gefüllt wird der Posten aus den Buchungen, die du über den Monat einträgst. Ein Limit gilt deshalb als <em>laufend</em>, nicht als offen, und steht nicht unter „Anstehend“. Ohne Buchungen bleibt es leer.</p>"
       }
     }
   },
@@ -112,6 +116,14 @@
         "title": "Was hier hineingehört",
         "body": "<p>Alles Wiederkehrende: Verträge, Sparziele, Schulden und Einnahmen. Einmal angelegt, erzeugen sie ihre Posten in jedem Monat selbst, in dem sie fällig sind.</p><p>Gruppiert wird nach Bereich, nicht nach Typ. Ein Vertrag kann in jedem Bereich liegen — die Miete im Grundbedarf, das Streaming-Abo in den Wünschen.</p>"
       },
+      "one-debit": {
+        "title": "Eine Abbuchung, ein Vertrag",
+        "body": "<p>Jeder Dauerauftrag und jede Lastschrift ist ein eigener Vertrag. Miete und Stellplatz mit zwei Daueraufträgen sind zwei Verträge; gehen beide mit einem gemeinsamen Dauerauftrag ab, ist es einer.</p><p>Duofy erzwingt das nicht — wie Geld abgeht, entscheidet deine Bank. Lege die Verträge so an, wie sie auf dem Kontoauszug stehen, dann passen Plan und Buch zusammen.</p>"
+      },
+      "from-next-month": {
+        "title": "Ab wann ein neuer Vertrag gilt",
+        "body": "<p>Ein neuer Vertrag erscheint in jedem Monat, der danach erzeugt wird; schon erzeugte Monate bleiben, wie sie sind — auch der laufende. Brauchst du ihn in einem schon erzeugten Monat, lege dort einen Posten von Hand an.</p>"
+      },
       "types": {
         "title": "Die vier Typen",
         "body": "<list><li><strong>Läuft weiter</strong> — Vertrag ohne festes Ende: Miete, Handy, Versicherung.</li><li><strong>Hat ein Ziel</strong> — Sparziel mit Zielbetrag, zählt zu Sparen.</li><li><strong>Wird abbezahlt</strong> — Kredit oder Rückstand, läuft auf null und zählt ebenfalls zu Sparen.</li><li><strong>Kommt rein</strong> — Gehalt, Transferleistungen, Zinsen.</li></list><p>Dazu das Kennzeichen <strong>Limit</strong>, an jedem laufenden Vertrag: kein fester Betrag zum Abhaken, du legst nur die Höhe fest — Lebensmittel, Sprit, Taschengeld. Der Posten läuft über den Monat und füllt sich aus den Buchungen.</p>"
@@ -122,7 +134,7 @@
       },
       "privacy": {
         "title": "Wer deine Verträge sieht",
-        "body": "<p>Niemand, solange du nichts freigibst. Andere sehen den Posten, den ein Vertrag im gemeinsamen Plan erzeugt — den Vertrag selbst mit Anbieter, Betrag und Abstand nur, wenn du im Haushalt <code>Verträge</code> freigibst.</p>"
+        "body": "<p>Niemand, solange du nichts freigibst. Andere sehen den Posten, den ein Vertrag im gemeinsamen Plan erzeugt — den Vertrag selbst mit Betrag und Abstand nur, wenn du im Haushalt <code>Verträge</code> freigibst.</p>"
       }
     }
   },
@@ -177,6 +189,27 @@
       "leaving": {
         "title": "Austreten",
         "body": "<p>Die Posten, die du eingebracht hast, bleiben im Haushalt stehen — was gemeinsam geplant war, war gemeinsam geplant, und ein Austritt schreibt vergangene Monate nicht um. In neue Pläne fließt nichts mehr.</p>"
+      }
+    }
+  },
+  "shared": {
+    "entries": {
+      "other-person": {
+        "title": "Du siehst gerade eine andere Person",
+        "body": "<p>Steht oben unter dem Logo der Name einer anderen Person, zeigt diese Seite <em>ihre</em> Daten, nicht deine. Das geht nur, weil sie dir Einblick gegeben hat — getrennt für Planung, Verträge sowie Konten und Buch.</p><p>Was du darfst, hängt an ihrer Stufe: sieht sie nur „Nur gemeinsame Posten“, „Ganzer Monat sichtbar“, „Verträge sichtbar“ oder „Buch und Konten sichtbar“, bleibt alles ohne Knöpfe. Bei „Darf ändern und anlegen“ darfst du anlegen und ändern und, je nach Seite, abhaken, bei „Darf auch löschen“ auch endgültig entfernen. Sie kann die Freigabe jederzeit zurücknehmen. Zurück zu deinen eigenen Daten kommst du über denselben Umschalter.</p>"
+      }
+    }
+  },
+  "admin": {
+    "title": "Instanz verwalten",
+    "entries": {
+      "invitations": {
+        "title": "Einladungen auf die Instanz",
+        "body": "<p>Wer sich registrieren darf, legt der Betreiber in der env-Datei fest (<code>REGISTRATION_MODE</code>). Steht sie auf „invite“, kommt nur hinein, wer von dir einen Einladungslink bekommt.</p><p>Der Link gilt einmal und sieben Tage lang. Trägst du eine E-Mail-Adresse ein, gilt er nur für sie. Du gibst ihn selbst weiter — Duofy verschickt keine Mails. Widerrufst du ihn, ist er sofort ungültig.</p><p>Das ist etwas anderes als die Einladung in einen Haushalt: sie lädt in einen Haushalt ein, diese hier auf die Instanz.</p>"
+      },
+      "no-insight": {
+        "title": "Was ein Admin nicht sieht",
+        "body": "<p>Ein Admin verwaltet die Instanz, mehr nicht. Pläne, Bücher und Konten anderer bleiben ihnen — Einblick gibt es nur über die Freigaben im Haushalt, die jede Person für sich selbst vergibt.</p>"
       }
     }
   }
