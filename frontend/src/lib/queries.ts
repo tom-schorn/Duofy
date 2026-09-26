@@ -136,7 +136,8 @@ export function useSetMyAccess(householdId: string) {
   return useInvalidating<Member, Partial<Record<AreaField, AccessLevel>>>(
     (grants) => api.patch(`/households/${householdId}/members/me`, grants),
     [keys.households, keys.plans, keys.accounts, keys.commitments],
-    'toast.grantUpdated'
+    'toast.grantUpdated',
+    INLINE_ERROR
   )
 }
 
