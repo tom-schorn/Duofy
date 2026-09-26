@@ -11,6 +11,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.commitment import Commitment
 from app.models.enums import Budget, Category, Role
 from app.models.household import HouseholdMember
 from app.models.plan import Plan, PlanPosition
@@ -135,3 +136,32 @@ async def test_the_only_owner_cannot_leave_and_keeps_the_positions(
     assert response.status_code == 409
     assert response.json()["detail"]["code"] == "last_owner_cannot_leave"
     assert await household_of(session, position_id) == household_id
+
+
+async def test_a_month_created_after_leaving_has_no_position_in_the_old_household(
+    client: AsyncClient, session: AsyncSession, pair  # noqa: F811
+) -> None:
+    _, helper, household = pair
+    household_id = household.id
+    commitment = await session.scalar(
+        select(Commitment).where(Commitment.owner_id == helper.id)
+    )
+    commitment.household_id = household_id
+    commitment_id = commitment.id
+    await session.commit()
+    sign_in(helper)
+
+    await client.delete(f"/api/v1/households/{household_id}/members/me")
+    created = await client.post("/api/v1/plans", json={"year": 2026, "month": 12})
+
+    assert created.status_code == 201
+    session.expire_all()
+    assert await session.scalar(
+        select(Commitment.household_id).where(Commitment.id == commitment_id)
+    ) is None
+    positions = (
+        await session.scalars(select(PlanPosition.household_id).where(
+            PlanPosition.commitment_id == commitment_id
+        ))
+    ).all()
+    assert positions and all(value is None for value in positions)
