@@ -65,4 +65,16 @@ describe('BudgetSection rows', () => {
     heading.focus()
     expect(heading).toHaveFocus()
   })
+
+  test('a read-only paid row shows its state as a plain symbol, not as a greyed-out box', () => {
+    renderSection({ readOnly: true, positions: [{ ...position, paidAt: '2026-10-01' } as PlanPosition] })
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'bezahlt' })).toBeInTheDocument()
+  })
+
+  test('a read-only open row shows no state control at all', () => {
+    renderSection({ readOnly: true })
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+  })
 })
