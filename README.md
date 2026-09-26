@@ -1,84 +1,157 @@
 # Duofy
 
-**A finance app that plans instead of tracking.**
+**Eine Finanz-App, die plant statt trackt.**
 
 [![CI](https://github.com/tom-schorn/Duofy/actions/workflows/ci.yml/badge.svg)](https://github.com/tom-schorn/Duofy/actions/workflows/ci.yml)
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 
-Most household ledgers ask *where did the money go?* Duofy asks first: *where
-should it go?* You sit down once a month, hand the money out to items, and tick
-them off afterwards. Tracking falls out as a by-product.
+## Was ist Duofy
 
-Built for households where several people plan together but each has their own
-account — couples, families, shared flats. Everyone keeps their own monthly plan;
-whatever is carried together also shows up in a household view. It works for one
-person alone just as well, and the household can join later without anything being
-rebuilt.
+Duofy ist ein quelloffenes Haushaltsbuch für Haushalte in Deutschland. Die meisten
+Haushaltsbücher fragen: *wo ist das Geld hin?* Duofy fragt vorher: *wo soll es
+hin?* Aus deinen Verträgen entsteht der Plan für den Folgemonat. Du verteilst das
+Geld auf Posten und hakst sie ab, sobald sie bezahlt sind — das Abhaken erzeugt die
+Buchung. Nachverfolgen fällt als Nebenprodukt an, es ist nicht der Zweck.
 
-> **Early days.** Duofy is below 1.0. Things change, and an update may need manual
-> steps. The [roadmap](https://github.com/tom-schorn/Duofy/wiki/Roadmap) says what
-> already works and what does not.
+Gebaut ist Duofy für **Paare und Familien**, also Erwachsene mit eigenem Einkommen.
+Jede Person hat ihren eigenen Plan; der Haushaltsplan ist eine gemeinsame Sicht
+darüber, keine eigene Tabelle. Der Haushalt besitzt nichts — kein Konto, keinen
+Plan. Wer allein plant, kann Duofy genauso nutzen.
 
-## Run it
+> **Erste Version.** Bis zum Erscheinen von 1.0 ändert sich noch etwas, und ein
+> Update kann Handarbeit brauchen. Was schon läuft und was kommt, steht in der
+> [Roadmap](https://github.com/tom-schorn/Duofy/wiki/Roadmap).
+
+## Warum Duofy
+
+**Richtlinien statt Konfiguration.** Duofy gibt eine Orientierung vor: 50 % vom
+Verplanbaren für den Grundbedarf, 30 % für Wünsche, 20 % fürs Sparen. Das ist
+eine Richtlinie und kein Zwang; man kann sie persönlich anpassen, aber niemand
+muss sich erst durch Dutzende Budget-Schemata arbeiten, um anzufangen.
+
+**Klare Definitionen statt Einstellungen.** Duofy ist auch für Menschen gedacht,
+die klare Struktur brauchen. Im Zweifel gilt deshalb eine feste Regel statt einer
+Option, und jedes Ding hat ein Wort: Frei ist, was noch keinem Posten zugeteilt
+ist; Anstehend ist, was verplant, aber noch nicht abgehakt ist.
+
+**Was eine Tabellenkalkulation nicht kann.** Duofy zeigt, auf welchem Konto wann im
+Monat Geld fehlt — die Miete am 1. und das Gehalt am 28. gehen in der Summe auf,
+im Verlauf nicht. Buchungen bleiben an den Plan gekoppelt, auch wenn sie ein
+anderes Datum haben. Und der Haushaltsplan kann nicht auseinanderlaufen, weil jeder
+Posten nur einmal existiert.
+
+## Was Duofy kann
+
+- **Monatsplan aus Verträgen:** Vertrag, Einnahme, Sparziel und Schuld werden beim
+  Anlegen des Monats zu Posten; Verpflichtungen mit Häkchen, Limits ohne
+- **50/30/20 als Richtlinie:** Grundbedarf, Wünsche, Sparen gegen die Quote, mit
+  persönlicher Standardquote und einer Haushaltsquote
+- **Sparziele:** ein erreichtes Ziel wird nicht mehr eingeplant
+- **Haushaltsbuch:** Konten, Buchungen, Umbuchungen zwischen eigenen Konten,
+  durchlaufende Posten
+- **Verlauf mit Engpass-Hinweis** und optionalem **Monatsübertrag** als Startstand
+- **Hinweise im Plan**, zum Beispiel für überfällige Posten
+- **Haushalt mit Freigaben:** jede Person gibt pro Bereich (Planung, Verträge,
+  Konten) frei, was die anderen sehen und ändern dürfen; ein Paar-Preset macht das
+  in einem Schritt
+- **Import** von Kontoauszügen als CSV und CAMT, mit Vorschlägen für die Zuordnung
+- **Rückgängig** statt Rückfragen, Druckversion, Dark- und Light-Theme
+
+## Voraussetzungen
+
+- **Docker** mit **Compose v2** (der Befehl `docker compose`, nicht
+  `docker-compose`)
+- etwa **256 MB Arbeitsspeicher** — im Leerlauf sind es rund 100 MB, die drei
+  Container sind zusammen auf 256 MB begrenzt
+- ein **freier Port**, Vorgabe 8080
+- nur wenn Duofy von außen erreichbar sein soll: eine **eigene Domain** und ein
+  Reverse Proxy für HTTPS (Caddy, nginx proxy manager, Traefik oder ein
+  Cloudflare-Tunnel; Duofy liefert keinen mit)
+
+## Starten
 
 ```bash
+mkdir duofy && cd duofy
 curl -O https://raw.githubusercontent.com/tom-schorn/Duofy/main/docker-compose.yml
 curl -O https://raw.githubusercontent.com/tom-schorn/Duofy/main/.env.example
 cp .env.example .env
 ```
 
-Two values are mandatory — a database password, and `JWT_SECRET` from
-`openssl rand -hex 32`. Everything else has a default that suits most people.
+Zwei Werte in der `.env` sind Pflicht: ein Datenbankpasswort (`POSTGRES_PASSWORD`)
+und `JWT_SECRET`, erzeugt mit `openssl rand -hex 32`. Für den Rest gibt es
+Vorgaben, die den meisten genügen. Die, die du kennen solltest:
+
+| Wert | Bedeutung |
+|---|---|
+| `REGISTRATION_MODE` | wer sich registrieren darf: `invite` (Vorgabe, nur mit Einladung eines Admins), `open` oder `closed` |
+| `ADMIN_EMAIL` | die Adresse des ersten Admins; wer sie zuerst registriert, ist Admin |
+| `IMPRINT_FILE`, `PRIVACY_FILE`, `TERMS_FILE` | Textdateien für Impressum, Datenschutzerklärung und AGB deiner Instanz; ohne Datei gibt es weder Seite noch Link |
+| `DUOFY_PORT` | Port, unter dem Duofy erreichbar ist, Vorgabe 8080 |
+| `COOKIE_SECURE` | `false` nur, wenn Duofy über einfaches http läuft |
 
 ```bash
 docker compose up -d
 ```
 
-Duofy answers on `http://localhost:8080`. Register there; the first account is an
-account like any other, there is no administrator role. Three containers, together
-under 256 MB.
+Duofy antwortet auf `http://localhost:8080`. **Registriere dich gleich nach dem
+ersten Start mit der Adresse aus `ADMIN_EMAIL`**, damit du Admin bist, bevor jemand
+anderes es wird. Es sind drei Container, zusammen unter 256 MB.
 
-The [installation page](https://github.com/tom-schorn/Duofy/wiki/Installation) has
-the rest — reverse proxy, backups, updating.
+Die [Installationsseite](https://github.com/tom-schorn/Duofy/wiki/Installation)
+erklärt den Rest: Reverse Proxy, Rechtstexte, Sichern und Aktualisieren.
 
-## Documentation
+## Sprachen
 
-Everything lives in the [wiki](https://github.com/tom-schorn/Duofy/wiki):
+Die Oberfläche ist vorerst nur auf Deutsch. Sie ist aber für weitere Sprachen
+gebaut: wer eine ergänzen möchte, kopiert die Katalogdatei und schickt einen Pull
+Request, ohne Code anzufassen. Die Anleitung steht im Wiki unter
+[Neue Sprache beitragen](https://github.com/tom-schorn/Duofy/wiki/Neue-Sprache-beitragen).
+
+## Dokumentation
+
+Alles Weitere steht im [Wiki](https://github.com/tom-schorn/Duofy/wiki):
 
 | | |
 |---|---|
-| [Installation](https://github.com/tom-schorn/Duofy/wiki/Installation) | getting Duofy running |
-| [First steps](https://github.com/tom-schorn/Duofy/wiki/First-Steps) | from an empty account to your first monthly plan |
-| [Concept](https://github.com/tom-schorn/Duofy/wiki/Concept) | why Duofy is built the way it is |
-| [Roadmap](https://github.com/tom-schorn/Duofy/wiki/Roadmap) | what works, and what comes next |
-| [Contributing](https://github.com/tom-schorn/Duofy/wiki/Contributing) | rules, branches, pull requests |
-| [Coding guidelines](https://github.com/tom-schorn/Duofy/wiki/Coding-Guidelines) | what code looks like here |
+| [Installation](https://github.com/tom-schorn/Duofy/wiki/Installation) | Duofy zum Laufen bringen |
+| [Erste Schritte](https://github.com/tom-schorn/Duofy/wiki/First-Steps) | vom leeren Konto zum ersten Monatsplan |
+| [Konzept](https://github.com/tom-schorn/Duofy/wiki/Concept) | warum Duofy so gebaut ist |
+| [Roadmap](https://github.com/tom-schorn/Duofy/wiki/Roadmap) | was läuft und was kommt |
+| [Mitmachen](https://github.com/tom-schorn/Duofy/wiki/Contributing) | Regeln, Branches, Pull Requests |
+| [Programmierrichtlinien](https://github.com/tom-schorn/Duofy/wiki/Coding-Guidelines) | wie hier Code aussieht |
+| [Neue Sprache beitragen](https://github.com/tom-schorn/Duofy/wiki/Neue-Sprache-beitragen) | die Oberfläche in einer weiteren Sprache |
 
-Every page exists in German as well — the link sits at the top of each one.
+## Wohin mit was
 
-## Where to say something
-
-| You have | It goes to |
+| Du hast | Es gehört in |
 |---|---|
-| a bug | an [issue](https://github.com/tom-schorn/Duofy/issues/new/choose) |
-| an idea, or a case Duofy cannot handle | [Discussions › Ideas](https://github.com/tom-schorn/Duofy/discussions/new?category=ideas) |
-| a question | [Discussions › Q&A](https://github.com/tom-schorn/Duofy/discussions/new?category=q-a) |
-| a security vulnerability | a [private report](https://github.com/tom-schorn/Duofy/security/advisories/new), never a public issue |
+| einen Fehler | ein [Issue](https://github.com/tom-schorn/Duofy/issues/new/choose) |
+| eine Idee oder einen Fall, den Duofy nicht kann | [Discussions › Ideas](https://github.com/tom-schorn/Duofy/discussions/new?category=ideas) |
+| eine Frage | [Discussions › Q&A](https://github.com/tom-schorn/Duofy/discussions/new?category=q-a) |
+| eine Sicherheitslücke | ein [privater Bericht](https://github.com/tom-schorn/Duofy/security/advisories/new), nie ein öffentliches Issue |
 
-The split is deliberate: the issue list is the roadmap, so only agreed work sits in
-it. An idea starts as a discussion, and once we agree on it, an issue follows.
+Die Trennung ist Absicht: die Issue-Liste ist die Roadmap, deshalb steht dort nur
+Vereinbartes. Eine Idee beginnt als Diskussion, und wenn wir uns einig sind, folgt
+ein Issue.
 
-**Cases Duofy cannot handle are the most valuable thing you can send.** It grew out
-of one household and carries its point of view — a payment that fits no field, an
-income that will not go in, a way of splitting costs it does not know. Say what
-does not work for you; the solution comes later.
+**Fälle, die Duofy nicht abbilden kann, sind das Wertvollste, was du schicken
+kannst.** Duofy ist aus einem Haushalt entstanden und trägt dessen Blickwinkel — eine
+Zahlung, die in kein Feld passt, eine Einnahme, die sich nicht eintragen lässt, eine
+Aufteilung, die Duofy nicht kennt. Sag, was bei dir nicht geht; die Lösung kommt
+später.
 
-One rule everywhere, because this is a finance app: **no real amounts, names or
-account numbers.** Made-up figures describe a problem just as well, and whatever
-lands in a public issue stays there.
+Eine Regel gilt überall, denn dies ist eine Finanz-App: **keine echten Beträge,
+Namen oder Kontonummern.** Ausgedachte Zahlen beschreiben ein Problem genauso gut,
+und was in einem öffentlichen Issue landet, bleibt dort.
 
-## Licence
+## KI-Unterstützung
 
-[GNU AGPL-3.0](LICENSE). Use it, run it, change it, pass it on. Whoever offers a
-modified version as a network service publishes their source as well — that is the
-only condition.
+Duofy wird mit KI-Unterstützung entwickelt und macht daraus kein Geheimnis. Die
+Datei [CLAUDE.md](CLAUDE.md) gibt KI-Sitzungen den Kontext des Projekts; jedes Stück
+Arbeit wird unabhängig geprüft, bevor es gemerged wird.
+
+## Lizenz
+
+[GNU AGPL-3.0](LICENSE). Nutzen, betreiben, ändern, weitergeben ist erlaubt. Wer
+eine geänderte Fassung als Netzdienst anbietet, veröffentlicht auch deren
+Quellcode — das ist die einzige Bedingung.
