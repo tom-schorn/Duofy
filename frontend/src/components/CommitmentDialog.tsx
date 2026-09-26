@@ -201,6 +201,9 @@ export function CommitmentDialog({
    * otherwise the form sends values the database rejects.
    */
   function handleType(type: CommitmentType) {
+    // Clicking the type that is already chosen changes nothing — and must not make
+    // the dialog dirty.
+    if (type === draft.type) return
     const option = TYPE_OPTIONS.find((item) => item.value === type)!
     setDraft((current) => {
       // Only follow along with the category if it still holds the old suggestion —
@@ -367,12 +370,12 @@ export function CommitmentDialog({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label>{t('commitmentDialog.interval')}</Label>
+            <Label htmlFor="interval">{t('commitmentDialog.interval')}</Label>
             <Select
               value={customInterval ? CUSTOM : String(draft.intervalMonths)}
               onValueChange={handleIntervalSelect}
             >
-              <SelectTrigger>
+              <SelectTrigger id="interval">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
