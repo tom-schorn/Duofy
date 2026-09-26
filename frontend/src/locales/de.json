@@ -347,6 +347,8 @@
   },
   "book": {
     "title": "Buch",
+    "previousMonth": "Vorheriger Monat",
+    "nextMonth": "Nächster Monat",
     "lead": "Was tatsächlich gelaufen ist — Kontostände und jede Buchung darauf.",
     "noPlan": "Für diesen Monat gibt es keinen Plan. Buchen geht trotzdem — nur zuordnen lässt sich nichts, solange keine Posten da sind.",
     "leadMember": "Das Buch von {{name}}."
