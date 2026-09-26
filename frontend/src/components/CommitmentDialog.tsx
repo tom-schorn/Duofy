@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { DateField } from '@/components/DateField'
-import { today } from '@/lib/dates'
+import { firstOfNextMonth } from '@/lib/dates'
 import { Switch } from '@/components/ui/switch'
 import {
   Select,
@@ -126,8 +126,9 @@ function emptyDraft(): Commitment {
     isLimit: false,
     householdId: null,
     intervalMonths: 1,
-    // Every commitment has one; today is a better start than an empty mandatory field.
-    firstDueDate: today(),
+    // Every commitment has one; the 1st of next month is a better start than an
+    // empty mandatory field, and keeps the pay day at 1 for whoever skips it.
+    firstDueDate: firstOfNextMonth(),
     active: true,
     passThrough: false,
     counterAccountId: null,
@@ -517,7 +518,11 @@ export function CommitmentDialog({
                 describedBy="first-due-hint"
               />
               <p id="first-due-hint" className="text-muted-foreground text-xs">
-                {t('commitmentDialog.firstDueHint')}
+                {t(
+                  draft.intervalMonths === 1
+                    ? 'commitmentDialog.firstDueHintMonthly'
+                    : 'commitmentDialog.firstDueHint'
+                )}
               </p>
             </div>
 
