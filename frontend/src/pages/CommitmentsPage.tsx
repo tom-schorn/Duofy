@@ -1,17 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Plus } from 'lucide-react'
 
 import { CommitmentDialog } from '@/components/CommitmentDialog'
 import { QueryState } from '@/components/QueryState'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { ListRow } from '@/components/ListRow'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -126,6 +121,9 @@ export function CommitmentsPage() {
     if (dialogOpen) resetSave()
   }, [dialogOpen, resetSave])
   const [pendingDelete, setPendingDelete] = useState<Commitment | null>(null)
+  // After a delete the row is gone; the focus goes to the page heading (rule 13).
+  const heading = useRef<HTMLHeadingElement>(null)
+  const deleted = useRef(false)
 
   const householdNames = Object.fromEntries(
     (households.data ?? []).map((household) => [household.id, household.name])
@@ -152,11 +150,13 @@ export function CommitmentsPage() {
   }).filter((group) => group.rows.length > 0)
 
   function handleAdd() {
+    deleted.current = false
     setEditing(null)
     setDialogOpen(true)
   }
 
   function handleEdit(commitment: Commitment) {
+    deleted.current = false
     setEditing(commitment)
     setDialogOpen(true)
   }
@@ -165,15 +165,23 @@ export function CommitmentsPage() {
     if (!pendingDelete) return
     // Positions already generated stay — the model sets `commitment_id` to NULL
     // (ON DELETE SET NULL).
+    deleted.current = true
     remove.mutate(pendingDelete.id)
     setPendingDelete(null)
+    setDialogOpen(false)
   }
 
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-2">
-          <h1 className="font-heading text-3xl font-semibold">{t('commitments.title')}</h1>
+          <h1
+            ref={heading}
+            tabIndex={-1}
+            className="font-heading text-3xl font-semibold outline-none"
+          >
+            {t('commitments.title')}
+          </h1>
           <p className="text-muted-foreground">
             {active.member === null
               ? t('commitments.lead')
@@ -234,72 +242,37 @@ export function CommitmentsPage() {
                 {group.rows.map((commitment) => {
                   const detail = typeDetail(commitment)
                   return (
-                    <li
+                    <ListRow
                       key={commitment.id}
-                      className={`border-border/60 grid grid-cols-[1fr_auto_auto] items-center gap-4 border-b py-2.5 last:border-b-0 ${
-                        hasEnded(commitment.endsOn) ? 'opacity-55' : ''
-                      }`}
+                      onOpen={mayEdit ? () => handleEdit(commitment) : undefined}
+                      className={hasEnded(commitment.endsOn) ? 'opacity-55' : undefined}
+                      trailing={
+                        <span className="font-medium">
+                          {euro.format(Number(commitment.amount))}
+                        </span>
+                      }
                     >
-                      <div className="flex min-w-0 flex-col">
-                        <span className="flex items-center gap-2 font-medium">
-                          {commitment.name}
-                          {commitment.endsOn !== null && hasEnded(commitment.endsOn) && (
-                            <Badge variant="outline" className="font-normal">
-                              {t('commitments.endedSince', {
-                                month: endMonthLabel(commitment.endsOn),
-                              })}
-                            </Badge>
-                          )}
-                        </span>
-                        <span className="text-muted-foreground truncate text-xs">
-                          {categoryLabel(commitment.category)} ·{' '}
-                          {intervalText(commitment)} ·{' '}
-                          {t('common.dueDay', { day: dueDayOf(commitment.firstDueDate) })}
-                          {commitment.householdId
-                            ? ` · ${householdNames[commitment.householdId] ?? t('plans.household')}`
-                            : ` · ${t('commitments.private')}`}
-                          {commitment.isLimit ? ` · ${t('budget.limit')}` : ''}
-                          {detail ? ` · ${detail}` : ''}
-                        </span>
-                      </div>
-
-                      <span className="text-right font-medium tabular-nums">
-                        {euro.format(Number(commitment.amount))}
+                      <span className="flex items-center gap-2 font-medium">
+                        {commitment.name}
+                        {commitment.endsOn !== null && hasEnded(commitment.endsOn) && (
+                          <Badge variant="outline" className="font-normal">
+                            {t('commitments.endedSince', {
+                              month: endMonthLabel(commitment.endsOn),
+                            })}
+                          </Badge>
+                        )}
                       </span>
-
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-8"
-                            disabled={!mayEdit}
-                            aria-label={t('commitments.menuLabel', { name: commitment.name })}
-                          >
-                            <MoreHorizontal className="size-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onSelect={() => handleEdit(commitment)}
-                            className="gap-2"
-                          >
-                            <Pencil className="size-4" />
-                            {t('common.edit')}
-                          </DropdownMenuItem>
-                          {mayDelete && commitment.deletable && (
-                            <DropdownMenuItem
-                              onSelect={() => setPendingDelete(commitment)}
-                              variant="destructive"
-                              className="gap-2"
-                            >
-                              <Trash2 className="size-4" />
-                              {t('common.delete')}
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </li>
+                      <span className="text-muted-foreground truncate text-xs">
+                        {categoryLabel(commitment.category)} ·{' '}
+                        {intervalText(commitment)} ·{' '}
+                        {t('common.dueDay', { day: dueDayOf(commitment.firstDueDate) })}
+                        {commitment.householdId
+                          ? ` · ${householdNames[commitment.householdId] ?? t('plans.household')}`
+                          : ` · ${t('commitments.private')}`}
+                        {commitment.isLimit ? ` · ${t('budget.limit')}` : ''}
+                        {detail ? ` · ${detail}` : ''}
+                      </span>
+                    </ListRow>
                   )
                 })}
               </ul>
@@ -318,6 +291,10 @@ export function CommitmentsPage() {
         onSave={(saved) =>
           save.mutate(saved, { onSuccess: () => setDialogOpen(false) })
         }
+        onDelete={
+          mayDelete && editing?.deletable ? (commitment) => setPendingDelete(commitment) : null
+        }
+        returnFocus={() => (deleted.current ? heading.current : null)}
       />
 
       <AlertDialog

@@ -347,7 +347,6 @@
     "create": "Anlegen",
     "dayOfMonth": "{{day}}. {{month}}",
     "percent": "{{value}} %",
-    "edit": "Bearbeiten",
     "and": "und"
   },
   "positionPicker": {
@@ -531,7 +530,6 @@
     "leadMemberEdit": "Die Verträge von {{name}}. Du darfst sie ändern.",
     "leadMemberView": "Die Verträge von {{name}}. Nur zum Ansehen.",
     "private": "privat",
-    "menuLabel": "{{name}} bearbeiten oder löschen",
     "deleteTitle": "„{{name}}\" löschen?",
     "title": "Verträge",
     "lead": "Alles Wiederkehrende — Miete, Abos, Sparpläne, Kredite. Einmal angelegt, erzeugt es seine Posten selbst.",
