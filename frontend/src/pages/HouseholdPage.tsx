@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LogOut, MoreHorizontal, Pencil, Plus, UserPlus } from 'lucide-react'
+import { LogOut, MoreHorizontal, Plus, UserPlus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -103,7 +103,6 @@ export function HouseholdPage() {
           >
             <HouseholdHeader
               household={household}
-              currentUserId={currentUserId}
               onInvite={() => setInvitingTo(household)}
             />
 
@@ -179,17 +178,13 @@ export function HouseholdPage() {
 
 function HouseholdHeader({
   household,
-  currentUserId,
   onInvite,
 }: {
   household: Household
-  currentUserId: string
   onInvite: () => void
 }) {
   const leave = useLeaveHousehold()
   const { t } = useTranslation()
-  const me = household.members.find((member) => member.userId === currentUserId)
-  const isOwner = me?.role === 'owner'
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -220,14 +215,6 @@ function HouseholdHeader({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            {/* Umbenennen darf nur, wem der Haushalt gehört. */}
-            {isOwner && (
-              // TODO: a dialog for renaming.
-              <DropdownMenuItem className="gap-2">
-                <Pencil className="size-4" />
-                {t('household.rename')}
-              </DropdownMenuItem>
-            )}
             {/* Die eingebrachten Posten bleiben im Haushalt stehen — vergangene
                 Monate werden nicht umgeschrieben. In neue Pläne fließt nichts
                 mehr, dafür fehlt die Mitgliedschaft. */}
