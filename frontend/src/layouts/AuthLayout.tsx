@@ -56,14 +56,14 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         </p>
       </aside>
 
-      <main className="relative flex items-center justify-center px-6 py-12">
+      <main className="relative flex flex-col items-center justify-center gap-8 px-6 py-12">
         {/* Auch vor der Anmeldung umschaltbar — sonst sitzt man bis zum
             Login im falschen Modus. */}
         <div className="absolute top-4 right-4">
           <ThemeToggle />
         </div>
         <div className="w-full max-w-sm">{children}</div>
-        <LegalLinks className="absolute bottom-4 left-6" />
+        <LegalLinks />
       </main>
     </div>
   )

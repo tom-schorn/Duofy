@@ -6,6 +6,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import { LegalLinks } from '@/components/LegalLinks'
 import { i18n } from '@/lib/i18n'
 import { LegalPage } from '@/pages/LegalPage'
+import { NotFoundPage } from '@/pages/NotFoundPage'
 
 function stub(documents: string[]) {
   vi.stubGlobal(
@@ -60,6 +61,19 @@ describe('legal texts of the instance', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: i18n.t('legal.imprint') })
     ).toBeInTheDocument()
+  })
+
+  test('the not-found page carries the legal footer too', async () => {
+    stub(['imprint'])
+    renderAt(<NotFoundPage />)
+    expect(await screen.findByRole('link', { name: i18n.t('legal.imprint') })).toBeInTheDocument()
+  })
+
+  test('a failing server is shown as an error, not as a missing page', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 500 })))
+    renderAt(<LegalPage name="imprint" />)
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    expect(screen.queryByText(i18n.t('notFound.title'))).toBeNull()
   })
 
   test('the page does not exist without a configured text', async () => {
