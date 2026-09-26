@@ -25,6 +25,14 @@ export function today(): string {
 }
 
 /**
+ * The first day of the month after `from`, as an ISO day, from **local** parts.
+ * December rolls over into January of the next year.
+ */
+export function firstOfNextMonth(from: Date = new Date()): string {
+  return toIsoDay(new Date(from.getFullYear(), from.getMonth() + 1, 1))
+}
+
+/**
  * An ISO day to a `Date`, at **local** midnight.
  *
  * `new Date('2026-08-03')` parses the string as UTC, which east of UTC gives the

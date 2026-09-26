@@ -38,6 +38,7 @@ import {
   atLeast,
   nextDueDates,
   dueDateLabel,
+  dueDayOf,
   euro,
   monthlyEquivalent,
   type Commitment,
@@ -220,7 +221,7 @@ export function CommitmentsPage() {
                         <span className="text-muted-foreground truncate text-xs">
                           {categoryLabel(commitment.category)} ·{' '}
                           {intervalText(commitment)} ·{' '}
-                          {t('common.dueDay', { day: commitment.dueDay })}
+                          {t('common.dueDay', { day: dueDayOf(commitment.firstDueDate) })}
                           {commitment.householdId
                             ? ` · ${householdNames[commitment.householdId] ?? t('plans.household')}`
                             : ` · ${t('commitments.private')}`}

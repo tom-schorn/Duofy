@@ -31,6 +31,8 @@ type Props = {
   /** Shown in the button while nothing is selected. */
   placeholder?: string
   disabled?: boolean
+  /** Id of the element that explains the field, for screen readers. */
+  describedBy?: string
 }
 
 export function DateField({
@@ -39,6 +41,7 @@ export function DateField({
   onChange,
   placeholder,
   disabled,
+  describedBy,
 }: Props) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
@@ -52,6 +55,7 @@ export function DateField({
           type="button"
           variant="outline"
           disabled={disabled}
+          aria-describedby={describedBy}
           className="w-full justify-start font-normal tabular-nums"
         >
           <CalendarDays className="size-4 opacity-70" />
