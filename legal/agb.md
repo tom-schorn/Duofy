@@ -47,7 +47,8 @@ liegt auf der Vorausplanung, nicht auf der Nachverfolgung von Ausgaben.
 Empfehlung für den Einzelfall.
 
 (4) Der Anbieter darf den Leistungsumfang weiterentwickeln. Einschränkungen
-wesentlicher Funktionen kündigt er mit 30 Tagen Vorlauf per E-Mail an.
+wesentlicher Funktionen kündigt er mit 30 Tagen Vorlauf an. **[TOM: Weg der
+Mitteilung festlegen — Duofy versendet selbst keine E-Mails]**
 
 ---
 
@@ -101,8 +102,8 @@ Verträge, die der Nutzer danach ausdrücklich abschließt. Bestehende Funktione
 werden dadurch nicht nachträglich kostenpflichtig.
 
 (3) Da kein Entgelt und keine Gegenleistung in Form von Daten vereinbart ist,
-besteht kein Widerrufsrecht nach §§ 355, 356 BGB. Der Nutzer kann sein Konto
-stattdessen jederzeit löschen (§ 10).
+besteht kein Widerrufsrecht nach §§ 355, 356 BGB. Der Nutzer kann stattdessen
+jederzeit kündigen (§ 10).
 
 ---
 
@@ -142,8 +143,9 @@ sichtbar; der Anbieter prüft sie nicht.
 (3) Änderungen an gemeinsamen Posten werden protokolliert und sind für die
 Mitglieder des Haushalts nachvollziehbar.
 
-(4) Beim Verlassen eines Haushalts bleiben gemeinsame Posten dort bestehen, damit
-die Planung der übrigen Mitglieder nicht zerfällt.
+(4) Beim Verlassen eines Haushalts sehen die übrigen Mitglieder die Posten der
+austretenden Person nicht mehr, auch nicht in vergangenen Monaten. Gelöscht wird
+dabei nichts; die eigenen Pläne, Konten und Verträge bleiben bei der Person.
 
 ---
 
@@ -173,9 +175,10 @@ Verfügbarkeit und keine Wartungsfenster außerhalb bestimmter Zeiten.
 (1) Der Vertrag läuft auf unbestimmte Zeit und kann von beiden Seiten jederzeit
 ohne Frist gekündigt werden.
 
-(2) Der Nutzer kündigt durch Löschen seines Kontos oder durch Mitteilung an den
-Anbieter. Seine Daten werden gelöscht; freigegebene Posten in fremden Haushalten
-bleiben nach § 7 Abs. 4 bestehen.
+(2) Der Nutzer kündigt durch Mitteilung an den Anbieter, der sein Konto dann
+löscht. **[TOM: Wortlaut prüfen — die Anwendung bietet noch keine Funktion zum
+Löschen des eigenen Kontos]** Seine Daten werden gelöscht; nach § 7 Abs. 4 sehen
+Haushaltsmitglieder seine Posten schon mit dem Austritt nicht mehr.
 
 (3) Der Anbieter kann ein Konto bei schwerwiegenden oder wiederholten Verstößen
 gegen § 8 sperren oder kündigen. Er weist vorher hin, soweit das zumutbar ist.
@@ -203,7 +206,8 @@ ordnungsgemäßer Sicherung durch den Nutzer zur Wiederherstellung entstanden w�
 
 ## § 12 Änderungen dieser Bedingungen
 
-(1) Änderungen teilt der Anbieter mindestens 30 Tage vorher per E-Mail mit.
+(1) Änderungen teilt der Anbieter mindestens 30 Tage vorher mit. **[TOM: Weg der
+Mitteilung festlegen — Duofy versendet selbst keine E-Mails]**
 
 (2) Widerspricht der Nutzer nicht bis zum Wirksamwerden, gelten die Änderungen
 als angenommen. Auf dieses Recht weist die Mitteilung hin. Widerspricht er, kann
@@ -216,7 +220,7 @@ jede Seite nach § 10 kündigen.
 (1) Es gilt deutsches Recht. Bei Verbrauchern bleiben zwingende
 Verbraucherschutzvorschriften ihres Aufenthaltsstaats unberührt.
 
-(2) Gerichtsstand gegenüber Unternehmern ist [ORT].
+(2) Gerichtsstand gegenüber Unternehmern ist [ORT]. **[TOM: Zulässigkeit prüfen]**
 
 (3) Der Anbieter ist nicht verpflichtet und nicht bereit, an
 Verbraucherschlichtungsverfahren teilzunehmen. Die EU-Plattform zur
