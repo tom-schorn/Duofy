@@ -70,6 +70,11 @@ type Props = {
   month: number
   /** Height of the plot area. Flatter for printing — see `PlanSankey`. */
   height?: string
+  /**
+   * Where the curve starts: the carry-over of the default account (#94), zero
+   * without one. With a carry-over the curve is a balance, without it a change.
+   */
+  startBalance?: number
 }
 
 type DayStep = {
@@ -85,7 +90,8 @@ type DayStep = {
 function buildSteps(
   positions: PlanPosition[],
   year: number,
-  month: number
+  month: number,
+  startBalance = 0
 ): DayStep[] {
   const byDay = new Map<number, { change: number; labels: string[] }>()
 
@@ -100,7 +106,7 @@ function buildSteps(
     byDay.set(day, entry)
   }
 
-  let balance = 0
+  let balance = startBalance
   return [...byDay.keys()]
     .sort((a, b) => a - b)
     .map((day) => {
@@ -126,7 +132,8 @@ type FlowRow = {
 function buildRows(
   positions: PlanPosition[],
   year: number,
-  month: number
+  month: number,
+  startBalance = 0
 ): FlowRow[] {
   const sorted = positions
     .map((position) => ({
@@ -139,7 +146,7 @@ function buildRows(
     }))
     .sort((a, b) => a.day - b.day || b.amount - a.amount)
 
-  let balance = 0
+  let balance = startBalance
   return sorted.map((row) => {
     balance += row.amount
     return { ...row, balance }
@@ -152,10 +159,10 @@ function buildRows(
  * `change` then stays zero and the balance is carried forward. Without those days
  * the axis would not line up with the calendar.
  */
-function buildDays(steps: DayStep[], lastDay: number) {
+function buildDays(steps: DayStep[], lastDay: number, startBalance = 0) {
   const byDay = new Map(steps.map((s) => [s.day, s]))
   const out: { day: number; saldo: number; change: number }[] = []
-  let saldo = 0
+  let saldo = startBalance
 
   for (let day = 1; day <= lastDay; day += 1) {
     const hit = byDay.get(day)
@@ -171,13 +178,14 @@ export function MonthFlow({
   year,
   month,
   height = 'h-60',
+  startBalance,
 }: Props) {
   const { t } = useTranslation()
   const config = {
     saldo: { label: t('monthFlow.balance'), color: 'var(--foreground)' },
   } satisfies ChartConfig
-  const steps = buildSteps(positions, year, month)
-  const rows = buildRows(positions, year, month)
+  const steps = buildSteps(positions, year, month, startBalance ?? 0)
+  const rows = buildRows(positions, year, month, startBalance ?? 0)
 
   if (steps.length === 0) {
     return (
@@ -190,7 +198,7 @@ export function MonthFlow({
   }
 
   const lastDay = daysInMonth(year, month)
-  const days = buildDays(steps, lastDay)
+  const days = buildDays(steps, lastDay, startBalance ?? 0)
   const balances = steps.map((s) => s.balance)
   const low = Math.min(0, ...balances)
   const lowStep = steps.find((s) => s.balance === low)
@@ -199,7 +207,20 @@ export function MonthFlow({
   return (
     <Card className="gap-5 px-5 py-5">
       <header className="flex flex-col gap-1">
-        {shortfall > 0 ? (
+        {shortfall > 0 && startBalance !== undefined ? (
+          <>
+            <p className="text-2xl font-semibold">
+              <Trans
+                i18nKey="monthFlow.overdrawn"
+                values={{ amount: euro.format(shortfall) }}
+                components={{ amount: <span className="font-mono tabular-nums" /> }}
+              />
+            </p>
+            <p className="text-muted-foreground text-sm">
+              {t('monthFlow.lowPoint', { day: lowStep?.day })}
+            </p>
+          </>
+        ) : shortfall > 0 ? (
           <>
             <p className="text-2xl font-semibold">
               <Trans
