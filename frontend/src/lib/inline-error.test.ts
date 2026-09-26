@@ -19,6 +19,7 @@ const INLINE_HOOKS = [
   'useSaveCommitment',
   'useSavePosition',
   'useSaveTransaction',
+  'useSetDefaultQuota',
   'useSetMyAccess',
   'useTogglePaid',
   'useUpdateHousehold',

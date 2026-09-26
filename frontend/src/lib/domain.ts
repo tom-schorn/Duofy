@@ -722,11 +722,24 @@ export type PlanPosition = {
   paidAt: string | null
 }
 
+/** The three quotas add up to 100; the buffer is taken off the income first. */
+export type QuotaValues = {
+  targetNeeds: string
+  targetWants: string
+  targetSavings: string
+  bufferPercent: string
+}
+
 export type Me = {
   id: string
   email: string
   firstName: string
   lastName: string
+  /** Personal default: copied into every month created from now on (#84). */
+  targetNeeds: string
+  targetWants: string
+  targetSavings: string
+  bufferPercent: string
 }
 
 /**

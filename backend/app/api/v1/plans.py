@@ -221,7 +221,17 @@ async def create_plan(
     if existing.scalar_one_or_none() is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, detail={"code": "plan_already_exists"})
 
-    plan = Plan(user_id=owner_id, year=payload.year, month=payload.month)
+    # The personal default of the owner, copied — a snapshot like the positions.
+    owner_row = await session.get(User, owner_id)
+    plan = Plan(
+        user_id=owner_id,
+        year=payload.year,
+        month=payload.month,
+        target_needs=owner_row.target_needs,
+        target_wants=owner_row.target_wants,
+        target_savings=owner_row.target_savings,
+        buffer_percent=owner_row.buffer_percent,
+    )
 
     commitments = await session.execute(
         select(Commitment).where(Commitment.owner_id == owner_id)

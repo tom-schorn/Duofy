@@ -4,10 +4,11 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from app.models.enums import Budget, Category, PaymentMethod
 from app.schemas.base import Schema
+from app.schemas.quota import check_quotas
 
 
 class HintSeverity(StrEnum):
@@ -109,10 +110,19 @@ class PlanCreate(Schema):
 
 
 class PlanUpdate(Schema):
-    target_needs: Decimal | None = Field(default=None, ge=0, le=100)
-    target_wants: Decimal | None = Field(default=None, ge=0, le=100)
-    target_savings: Decimal | None = Field(default=None, ge=0, le=100)
-    buffer_percent: Decimal | None = Field(default=None, ge=0, le=100)
+    target_needs: Decimal | None = Field(default=None, ge=0, le=100, max_digits=5, decimal_places=2)
+    target_wants: Decimal | None = Field(default=None, ge=0, le=100, max_digits=5, decimal_places=2)
+    target_savings: Decimal | None = Field(
+        default=None, ge=0, le=100, max_digits=5, decimal_places=2
+    )
+    buffer_percent: Decimal | None = Field(
+        default=None, ge=0, le=100, max_digits=5, decimal_places=2
+    )
+
+    @model_validator(mode="after")
+    def _quotas_add_up(self) -> "PlanUpdate":
+        check_quotas(self.target_needs, self.target_wants, self.target_savings)
+        return self
 
 
 class BudgetTotals(Schema):
