@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LogOut, MoreHorizontal, Plus, UserPlus } from 'lucide-react'
 
@@ -237,6 +237,16 @@ function InviteDialog({
   const { t } = useTranslation()
   const invite = useInvite(household?.id ?? '')
 
+  // Every opening starts empty: closing without saving must really discard.
+  const resetInvite = invite.reset
+  const isOpen = household !== null
+  useEffect(() => {
+    if (isOpen) {
+      setEmail('')
+      resetInvite()
+    }
+  }, [isOpen, resetInvite])
+
   return (
     <DialogFrame
       open={household !== null}
@@ -347,11 +357,20 @@ function PendingInvitations() {
   )
 }
 
-function CreateHouseholdButton() {
+export function CreateHouseholdButton() {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const { t } = useTranslation()
   const create = useCreateHousehold()
+
+  // Every opening starts empty: closing without saving must really discard.
+  const resetCreate = create.reset
+  useEffect(() => {
+    if (open) {
+      setName('')
+      resetCreate()
+    }
+  }, [open, resetCreate])
 
   return (
     <>
@@ -366,7 +385,6 @@ function CreateHouseholdButton() {
         title={t('household.create')}
         description={t('household.createDescription')}
         submitLabel={t('common.create')}
-        pendingLabel={t('plans.creating')}
         onSubmit={(event) => {
           event.preventDefault()
           create.mutate(

@@ -41,8 +41,13 @@ export function CreatePlanDialog({
   // An old error must not greet the next attempt.
   const resetCreate = create.reset
   useEffect(() => {
-    if (open) resetCreate()
-  }, [open, resetCreate])
+    if (open) {
+      resetCreate()
+      // Back to the preselection: picking a month is not data worth keeping.
+      setYear(initialYear ?? new Date().getFullYear())
+      setMonth(initialMonth ?? new Date().getMonth() + 1)
+    }
+  }, [open, resetCreate, initialYear, initialMonth])
 
   // This year and the next few — planning retroactively rarely makes sense.
   const years = [...new Set([today.getFullYear(), today.getFullYear() + 1, year])].sort()
@@ -70,7 +75,6 @@ export function CreatePlanDialog({
           { onSuccess: () => onOpenChange(false) }
         )
       }}
-      dirty={year !== (initialYear ?? today.getFullYear()) || month !== (initialMonth ?? today.getMonth() + 1)}
       pending={create.isPending}
       error={create.isError ? create.error : null}
     >
