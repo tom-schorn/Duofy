@@ -5,12 +5,12 @@ import {
   useQueryClient,
   type UseMutationOptions,
 } from '@tanstack/react-query'
-import { toast } from 'sonner'
 
 import { i18n } from '@/lib/i18n'
 import { api } from '@/lib/api'
 import { reportMutationError, showsErrorInline } from '@/lib/mutation-error'
-import { OWN_SCOPE, scopeKey, scopeQuery } from '@/lib/domain'
+import { OWN_SCOPE, euro, scopeKey, scopeQuery } from '@/lib/domain'
+import { announce, deleteWithUndo } from '@/lib/undo-delete'
 import type {
   AccessLevel,
   Account,
@@ -312,22 +312,31 @@ export function useSaveTransaction(
   )
 }
 
+/**
+ * Delete a booking with „Rückgängig“: it leaves the book at once, the request goes
+ * out when the undo window closes.
+ */
 export function useDeleteTransaction(
   year: number,
   month: number,
   scope: BookScope = OWN_SCOPE
 ) {
-  return useInvalidating<void, string>(
-    (id) => api.delete(`/transactions/${id}`),
-    [
-      keys.transactions(year, month, scope),
-      keys.plan(year, month),
-      keys.plans,
-      // Prefix: covers the accounts **and** their history.
-      keys.accounts,
-    ],
-    'toast.transactionDeleted'
-  )
+  const client = useQueryClient()
+  return (transaction: { id: string; note: string | null; amount: string }) =>
+    deleteWithUndo({
+      client,
+      id: transaction.id,
+      name: transaction.note ?? euro.format(Number(transaction.amount)),
+      hideIn: [keys.transactions(year, month, scope)],
+      invalidate: [
+        keys.transactions(year, month, scope),
+        keys.plan(year, month),
+        keys.plans,
+        // Prefix: covers the accounts **and** their history.
+        keys.accounts,
+      ],
+      request: (keepalive) => api.delete(`/transactions/${transaction.id}`, { keepalive }),
+    })
 }
 
 // --- Commitments ------------------------------------------------------------
@@ -594,12 +603,21 @@ export function useSavePosition() {
   }, [keys.plans], 'toast.positionSaved', INLINE_ERROR)
 }
 
+/**
+ * Delete a position with „Rückgängig“: it leaves the plan at once, the request goes
+ * out when the undo window closes.
+ */
 export function useDeletePosition() {
-  return useInvalidating<void, string>(
-    (id) => api.delete(`/positions/${id}`),
-    [keys.plans],
-    'toast.positionDeleted'
-  )
+  const client = useQueryClient()
+  return (position: { id: string; label: string }) =>
+    deleteWithUndo({
+      client,
+      id: position.id,
+      name: position.label,
+      hideIn: [keys.plans],
+      invalidate: [keys.plans],
+      request: (keepalive) => api.delete(`/positions/${position.id}`, { keepalive }),
+    })
 }
 
 /**
@@ -673,7 +691,7 @@ function useInvalidating<TData, TInput>(
       for (const key of invalidate) {
         client.invalidateQueries({ queryKey: key })
       }
-      if (successKey) toast.success(i18n.t(successKey))
+      if (successKey) announce('success', i18n.t(successKey))
       options?.onSuccess?.(...args)
     },
   })

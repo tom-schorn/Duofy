@@ -213,14 +213,13 @@
     "accountSaved": "Konto gespeichert",
     "accountDeleted": "Konto gelöscht",
     "transactionSaved": "Buchung gespeichert",
-    "transactionDeleted": "Buchung gelöscht",
     "commitmentSaved": "Vertrag gespeichert",
     "commitmentDeleted": "Vertrag gelöscht",
     "planCreated": "Monat angelegt",
     "booked": "Gebucht",
     "discarded": "Verworfen",
     "positionSaved": "Posten gespeichert",
-    "positionDeleted": "Posten gelöscht",
+    "deleted": "„{{name}}\" gelöscht",
     "positionUpdated": "Posten aktualisiert"
   },
   "helpPanel": {
@@ -682,6 +681,7 @@
       "toggle": "Seitenleiste ein- oder ausblenden"
     },
     "notifications": "Benachrichtigungen",
-    "closeNotification": "Meldung schließen"
+    "closeNotification": "Meldung schließen",
+    "undo": "Rückgängig"
   }
 }

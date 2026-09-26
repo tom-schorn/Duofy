@@ -31,7 +31,7 @@ createRoot(document.getElementById('root')!).render(
           <RouterProvider router={router} />
           {/* Rückmeldung nach dem Speichern. Vorher passierte alles still —
               man wusste nur am Ergebnis, ob es geklappt hat. */}
-          <Toaster position="bottom-right" />
+          <Toaster />
         </TooltipProvider>
       </QueryClientProvider>
     </ThemeProvider>

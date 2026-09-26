@@ -202,7 +202,9 @@ export const api = {
   patch: <T>(path: string, body: unknown) =>
     request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
 
-  delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  /** `keepalive` lets the request outlive the page (a delete held back by undo). */
+  delete: <T>(path: string, { keepalive = false }: { keepalive?: boolean } = {}) =>
+    request<T>(path, { method: 'DELETE', keepalive }),
 
   /**
    * Send a file. `form: true` on purpose — the Content-Type has to stay unset so
