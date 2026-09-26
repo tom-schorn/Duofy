@@ -81,6 +81,16 @@ describe('CommitmentDialog amount', () => {
     expect(saved[0]?.amount).toBe('1234.50')
   })
 
+  test('saves a planned amount of 0,00', async () => {
+    const user = userEvent.setup()
+    const saved: { amount: string }[] = []
+    renderWithSave((c) => saved.push(c))
+    await user.type(screen.getAllByRole('textbox')[0], 'Miete')
+    await user.type(document.getElementById('amount') as HTMLElement, '0,00')
+    await user.click(screen.getByRole('button', { name: 'Anlegen' }))
+    expect(saved[0]?.amount).toBe('0.00')
+  })
+
   test('refuses a sign and says why', async () => {
     const user = userEvent.setup()
     const saved: unknown[] = []
