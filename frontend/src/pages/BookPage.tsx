@@ -54,7 +54,9 @@ export function BookPage() {
           <p className="text-muted-foreground">
             {active.member === null
               ? t('book.lead')
-              : t('book.leadMember', { name: active.member.firstName })}
+              : `${t('book.leadMember', { name: active.member.firstName })}${
+                  mayEdit ? '' : ` ${t('book.leadMemberView', { name: active.member.firstName })}`
+                }`}
           </p>
         </div>
 

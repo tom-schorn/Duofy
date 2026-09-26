@@ -760,7 +760,7 @@ function MemberPlanBody({
         <p className="text-muted-foreground">
           {t('plan.memberLead', { name: ownerName })}{' '}
           {!mayEdit
-            ? t('plan.viewOnly')
+            ? t('plan.viewOnly', { name: ownerName })
             : mayDelete
               ? t('plan.mayDelete')
               : t('plan.mayEdit')}

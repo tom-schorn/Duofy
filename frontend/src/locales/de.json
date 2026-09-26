@@ -361,7 +361,8 @@
     "nextMonth": "Nächster Monat",
     "lead": "Was tatsächlich gelaufen ist — Kontostände und jede Buchung darauf.",
     "noPlan": "Für diesen Monat gibt es keinen Plan. Buchen geht trotzdem — nur zuordnen lässt sich nichts, solange keine Posten da sind.",
-    "leadMember": "Das Buch von {{name}}."
+    "leadMember": "Das Buch von {{name}}.",
+    "leadMemberView": "{{name}} hat die Konten nicht zum Bearbeiten freigegeben."
   },
   "budget": {
     "of": "von {{amount}}",
@@ -509,6 +510,7 @@
   },
   "plans": {
     "leadMember": "Die Monatspläne von {{name}}. Klick einen an, um hineinzuschauen.",
+    "leadMemberView": "{{name}} hat den Plan nicht zum Bearbeiten freigegeben.",
     "emptyMemberEdit": "{{name}} hat noch keinen Monat angelegt. Du darfst einen anlegen — die Posten entstehen aus {{name}}s Verträgen.",
     "emptyMember": "{{name}} hat noch keinen Monat angelegt.",
     "createFor": "Monat für {{name}} anlegen",
@@ -530,7 +532,7 @@
     "targetUntil": "Ziel {{target}} bis {{date}}",
     "target": "Ziel {{target}}",
     "leadMemberEdit": "Die Verträge von {{name}}. Du darfst sie ändern.",
-    "leadMemberView": "Die Verträge von {{name}}. Nur zum Ansehen.",
+    "leadMemberView": "Die Verträge von {{name}}. {{name}} hat die Verträge nicht zum Bearbeiten freigegeben.",
     "private": "privat",
     "deleteTitle": "„{{name}}\" löschen?",
     "title": "Verträge",
@@ -551,7 +553,7 @@
   },
   "accounts": {
     "leadMemberEdit": "Die Konten von {{name}}. Du darfst sie ändern.",
-    "leadMemberView": "Die Konten von {{name}}. Nur zum Ansehen.",
+    "leadMemberView": "Die Konten von {{name}}. {{name}} hat die Konten nicht zum Bearbeiten freigegeben.",
     "openingFrom": "Anfangsbestand vom {{date}}",
     "deleteTitle": "„{{name}}\" löschen?",
     "deleteText": "Das Konto hat noch keine Buchungen. Es wird endgültig gelöscht.",
@@ -663,7 +665,7 @@
     "untickTitle": "Haken wegnehmen und die Buchung entfernen?",
     "untick": "Haken wegnehmen",
     "standIn": "Vertretung",
-    "viewOnly": "Nur zum Ansehen.",
+    "viewOnly": "{{name}} hat den Plan nicht zum Bearbeiten freigegeben.",
     "mayDelete": "Du darfst abhaken, ändern, dazuschreiben und löschen; jede Änderung wird protokolliert.",
     "mayEdit": "Du darfst abhaken, ändern und Posten dazuschreiben; jede Änderung wird protokolliert. Löschen bleibt beim Besitzer.",
     "householdLead": "Alle Posten, die ihr gemeinsam tragt. Zusammengesetzt aus den Plänen aller Mitglieder — geändert wird im eigenen Plan.",
