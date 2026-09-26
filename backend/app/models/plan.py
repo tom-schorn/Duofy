@@ -171,7 +171,13 @@ class PlanPositionChange(UUIDMixin, TimestampMixin, Base):
     position_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("plan_positions.id", ondelete="CASCADE")
     )
-    changed_by_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    #: `NULL` once the author's account is gone. The entry stays as part of the
+    #: history of a position that belongs to somebody else (#66); the interface
+    #: shows it as a deleted account. Entries on the author's own positions go
+    #: with those positions through the cascade above.
+    changed_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
 
     field: Mapped[str] = mapped_column(String(50))
     old_value: Mapped[str | None] = mapped_column(String(200), nullable=True)
