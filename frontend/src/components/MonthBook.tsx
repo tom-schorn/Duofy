@@ -81,6 +81,9 @@ export function MonthBook({
   const transactions = useTransactions(year, month, scope)
   const accounts = useAccounts(scope).data ?? []
   const save = useSaveTransaction(year, month, scope)
+  // Its own instance: the quick entry must never show the edit's error, nor the
+  // edit dialog the quick entry's.
+  const saveEdit = useSaveTransaction(year, month, scope)
   const remove = useDeleteTransaction(year, month, scope)
   const [editing, setEditing] = useState<Transaction | null>(null)
 
@@ -133,7 +136,14 @@ export function MonthBook({
                 transaction={transaction}
                 accounts={accounts}
                 positions={positions}
-                onEdit={readOnly ? null : () => setEditing(transaction)}
+                onEdit={
+                  readOnly
+                    ? null
+                    : () => {
+                        saveEdit.reset()
+                        setEditing(transaction)
+                      }
+                }
                 onDelete={
                   readOnly ? null : () => remove.mutate(transaction.id)
                 }
@@ -152,10 +162,10 @@ export function MonthBook({
           open
           onOpenChange={(open) => !open && setEditing(null)}
           onSave={(draft) =>
-            save.mutate(draft, { onSuccess: () => setEditing(null) })
+            saveEdit.mutate(draft, { onSuccess: () => setEditing(null) })
           }
-          pending={save.isPending}
-          error={save.error}
+          pending={saveEdit.isPending}
+          error={saveEdit.error}
         />
       )}
     </section>
@@ -352,10 +362,7 @@ function Row({
     <li className="border-border/60 flex items-center gap-3 border-b py-2.5 last:border-b-0">
       {/* The whole row opens the booking (rule 1); the delete button beside it
           is not part of that click. */}
-      <RowMain
-        onEdit={onEdit}
-        label={t('monthBook.editLabel', { note: transaction.note ?? '' })}
-      >
+      <RowMain onEdit={onEdit}>
       <span className="text-muted-foreground w-12 text-sm tabular-nums">
         {t('common.dueDay', { day: new Date(transaction.occurredOn).getDate() })}
       </span>
@@ -419,11 +426,9 @@ function Row({
 
 function RowMain({
   onEdit,
-  label,
   children,
 }: {
   onEdit: (() => void) | null
-  label: string
   children: React.ReactNode
 }) {
   const columns = 'grid min-w-0 flex-1 grid-cols-[auto_1fr_auto] items-center gap-3'
@@ -432,7 +437,6 @@ function RowMain({
   ) : (
     <button
       type="button"
-      aria-label={label}
       onClick={onEdit}
       className={`${columns} hover:bg-muted/50 focus-visible:ring-ring rounded-md text-left outline-none focus-visible:ring-2`}
     >

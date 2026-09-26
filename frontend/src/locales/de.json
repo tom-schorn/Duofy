@@ -462,7 +462,6 @@
     "noNote": "Ohne Notiz",
     "autoBooked": "vom Haken",
     "editTitle": "Buchung bearbeiten",
-    "editLabel": "Buchung {{note}} bearbeiten",
     "editHint": "Eine Buchung vom Haken bleibt an ihrem Posten."
   },
   "bookFlow": {
