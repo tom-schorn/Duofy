@@ -30,6 +30,8 @@
     "due_day_must_match_first_due_date": "Fälligkeitstag und erste Fälligkeit widersprechen sich.",
     "target_only_for_savings_goal": "Ein Zielbetrag gehört nur zu einem Sparziel.",
     "remaining_debt_only_for_debt": "Eine Restschuld gehört nur zu einer Schuld.",
+    "limit_only_for_contract": "Ein Limit gibt es nur bei einem Vertrag, der weiterläuft.",
+    "null_not_allowed": "Dieses Feld darf nicht leer sein.",
     "transaction_not_found": "Diese Buchung gibt es nicht mehr.",
     "transfer_needs_two_accounts": "Eine Umbuchung braucht zwei verschiedene Konten.",
     "transfer_needs_one_owner": "Eine Umbuchung geht nur zwischen Konten derselben Person.",

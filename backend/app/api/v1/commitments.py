@@ -21,9 +21,39 @@ from app.core.auth import current_active_user
 from app.core.permissions import Area, can_assign_to_household, granted_level, require
 from app.db.session import get_session
 from app.models.commitment import Commitment
-from app.models.enums import AccessLevel, resolve_budget
+from app.models.enums import AccessLevel, CommitmentType, resolve_budget
 from app.models.user import User
 from app.schemas.commitment import CommitmentCreate, CommitmentRead, CommitmentUpdate
+
+#: Fields of `CommitmentUpdate` that map to a NOT NULL column. Every one of them is
+#: optional in the schema, which makes an explicit `null` legal for Pydantic and a
+#: 500 for the database — so the endpoint turns it into a 422 first.
+NOT_NULLABLE = (
+    "name",
+    "amount",
+    "category",
+    "budget",
+    "rhythm",
+    "due_day",
+    "active",
+    "is_limit",
+    "pass_through",
+)
+
+
+def _check_limit(type_: CommitmentType, is_limit: bool) -> None:
+    """A limit is a property of a contract and of nothing else.
+
+    A debt or a savings goal has a fixed amount and income has no limit at all.
+    Left unchecked, `create_plan` would copy the flag onto the month's position and
+    take its tick box away for good. Rejected rather than quietly reset: the caller
+    asked for something that cannot be, and should hear it.
+    """
+    if is_limit and type_ is not CommitmentType.CONTRACT:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, detail={"code": "limit_only_for_contract"}
+        )
+
 
 router = APIRouter()
 
@@ -103,6 +133,9 @@ async def create_commitment(
         "not_household_member",
     )
 
+    # A limit only means something on a contract — see `_check_limit`.
+    _check_limit(payload.type, payload.is_limit)
+
     data = payload.model_dump()
     # For savings goals and debts the budget is settled — the user choice is
     # overridden so that repayment cannot pass as a want.
@@ -124,6 +157,15 @@ async def update_commitment(
 ) -> Commitment:
     commitment = await _load(session, commitment_id, user)
     changes = payload.model_dump(exclude_unset=True)
+
+    # Checked before anything is assigned, so a rejected update leaves the
+    # commitment exactly as it was.
+    for field in NOT_NULLABLE:
+        if field in changes and changes[field] is None:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, detail={"code": "null_not_allowed"}
+            )
+    _check_limit(commitment.type, changes.get("is_limit", commitment.is_limit))
 
     if "household_id" in changes:
         require(
