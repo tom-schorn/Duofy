@@ -177,6 +177,7 @@ export function PositionDialog({
               value={draft.amountPlanned}
               onChange={(value) => set('amountPlanned', value)}
               required
+              allowZero
             />
           </div>
 
@@ -360,6 +361,7 @@ export function PositionDialog({
               id="actual"
               value={draft.amountActual ?? ''}
               onChange={(value) => set('amountActual', value || null)}
+              allowZero
               placeholder={t('positionDialog.actualPlaceholder')}
             />
             <p className="text-muted-foreground text-xs">

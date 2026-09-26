@@ -22,6 +22,7 @@ export function AmountField({
   value,
   onChange,
   required = false,
+  allowZero = false,
   disabled,
   placeholder,
   className,
@@ -31,6 +32,8 @@ export function AmountField({
   value: string
   onChange: (value: string) => void
   required?: boolean
+  /** A planned amount may be 0,00 €; bookings and ticking may not. */
+  allowZero?: boolean
   disabled?: boolean
   placeholder?: string
   className?: string
@@ -54,7 +57,7 @@ export function AmountField({
 
   /** What is wrong with the text as it stands; an empty optional field is fine. */
   function problem(current: string): AmountError | null {
-    const parsed = parseAmount(current)
+    const parsed = parseAmount(current, { allowZero })
     if (parsed.ok) return null
     if (parsed.reason === 'empty') return required ? 'empty' : null
     return parsed.reason
@@ -67,7 +70,7 @@ export function AmountField({
 
   function handleChange(next: string) {
     setText(next)
-    const parsed = parseAmount(next)
+    const parsed = parseAmount(next, { allowZero })
     const api = parsed.ok ? parsed.value : ''
     emitted.current = api
     onChange(api)
@@ -77,7 +80,7 @@ export function AmountField({
   }
 
   function handleBlur() {
-    const parsed = parseAmount(text)
+    const parsed = parseAmount(text, { allowZero })
     if (parsed.ok) setText(formatAmount(parsed.value))
     setError(problem(text))
   }
@@ -98,6 +101,12 @@ export function AmountField({
           onInvalid={(event) => {
             event.preventDefault()
             setError(problem(text) ?? 'empty')
+            // preventDefault also stops the browser from focusing the first invalid
+            // control, so do it when this is that one.
+            const form = event.currentTarget.form
+            if (!form || form.querySelector(':invalid') === event.currentTarget) {
+              event.currentTarget.focus()
+            }
           }}
           required={required}
           disabled={disabled}
