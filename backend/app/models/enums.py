@@ -69,18 +69,6 @@ class CommitmentType(StrEnum):
     INCOME = "income"
 
 
-class Rhythm(StrEnum):
-    MONTHLY = "monthly"
-    QUARTERLY = "quarterly"
-    BIANNUAL = "biannual"
-    ANNUAL = "annual"
-
-    @property
-    def interval(self) -> int:
-        """Distance in months — used when generating a plan."""
-        return {"monthly": 1, "quarterly": 3, "biannual": 6, "annual": 12}[self.value]
-
-
 class Budget(StrEnum):
     """One of the three 50/30/20 budgets. A guideline, not a rule.
 

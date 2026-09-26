@@ -13,6 +13,7 @@ Part of #13.
 
 import json
 from calendar import monthrange
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -40,3 +41,36 @@ def test_days_in_month_as_the_frontend_counts_them(case):
 def test_effective_due_day_as_the_frontend_clamps_it(case):
     commitment = Commitment(due_day=case["due_day"])
     assert commitment.effective_due_day(case["year"], case["month"]) == case["expected"]
+
+
+@pytest.mark.parametrize(
+    "case", CASES["is_due_in"], ids=[case["case"] for case in CASES["is_due_in"]]
+)
+def test_is_due_in_as_the_frontend_counts_it(case):
+    start = date.fromisoformat(case["first_due_date"]) if case["first_due_date"] else None
+    commitment = Commitment(
+        interval_months=case["interval_months"], first_due_date=start, active=True
+    )
+    assert commitment.is_due_in(case["year"], case["month"]) is case["expected"]
+
+
+def _old_is_due_in(interval: int, start: date, year: int, month: int) -> bool:
+    """The rule from before #107, kept as a witness: months counted within the year."""
+    if (year, month) < (start.year, start.month):
+        return False
+    if interval == 1:
+        return True
+    return (month - start.month) % interval == 0
+
+
+@pytest.mark.parametrize("interval", [1, 3, 6, 12])
+@pytest.mark.parametrize("start_month", range(1, 13))
+def test_the_four_old_rhythms_fall_due_in_the_same_months_as_before(interval, start_month):
+    """The migration must not move a single month of any existing commitment."""
+    start = date(2026, start_month, 1)
+    commitment = Commitment(interval_months=interval, first_due_date=start, active=True)
+    for offset in range(-6, 31):
+        total = 2026 * 12 + start_month - 1 + offset
+        year, month = divmod(total, 12)
+        month += 1
+        assert commitment.is_due_in(year, month) == _old_is_due_in(interval, start, year, month)
