@@ -939,7 +939,7 @@ export type PlanSummary = Plan & {
   income: string
   /**
    * Income minus buffer — the basis the quotas refer to, shown in the UI as
-   * "Verteilbar". **Not** the same as what is left to allocate; that is the
+   * "Verplanbar". **Not** the same as what is left to allocate; that is the
    * remainder of it.
    */
   distributable: string

@@ -310,7 +310,7 @@
     "available": "Verfügbar",
     "balanceOf": "Stand von {{name}}",
     "balanceOfAccounts": "Stand von {{number}} Konten",
-    "leftover": "Frei nach Abzug",
+    "leftover": "Bleibt übrig",
     "due": "{{amount}} stehen noch aus"
   },
   "paidDialog": {
@@ -423,7 +423,7 @@
       "income": {
         "label": "Kommt rein",
         "hint": "Gehalt, Kindergeld, Zinsen — Geld, das hereinkommt.",
-        "budgetHint": "Einnahmen sind kein Verbrauch — aus ihnen entsteht erst das Verteilbare, auf das sich die Quoten beziehen.",
+        "budgetHint": "Einnahmen sind kein Verbrauch — aus ihnen entsteht erst das Verplanbare, auf das sich die Quoten beziehen.",
         "namePlaceholder": "Gehalt"
       }
     },
@@ -498,12 +498,12 @@
     "wants": "Wünsche",
     "savings": "Sparen",
     "income": "Einnahmen",
-    "distributable": "Verteilbar",
+    "distributable": "Verplanbar",
     "oneMore": "1 weiterer Posten",
     "more": "{{number}} weitere Posten",
     "unplanned": "Frei",
-    "summary": "Verteilbar · davon {{amount}} frei",
-    "summaryAllPlanned": "Verteilbar · Alles verplant",
+    "summary": "Verplanbar · davon {{amount}} frei",
+    "summaryAllPlanned": "Verplanbar · Alles verplant",
     "empty": "Für dieses Diagramm braucht der Monat Einnahmen und Posten. Sobald etwas geplant ist, steht hier, wohin es geht."
   },
   "plans": {
