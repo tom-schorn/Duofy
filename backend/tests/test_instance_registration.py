@@ -256,3 +256,42 @@ async def test_the_sign_up_page_can_ask_for_the_mode(
     response = await client.get("/api/v1/auth/registration")
 
     assert response.json() == {"mode": "closed"}
+
+
+async def test_nobody_can_take_over_the_admin_address_by_changing_their_email(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "admin_email", ADMIN)
+    assert (await register(client, "plain@example.org")).status_code == 201
+    plain = await sign_in(client, "plain@example.org")
+
+    for wanted in (ADMIN, f"  {ADMIN.upper()}"):
+        response = await client.patch("/api/v1/users/me", json={"email": wanted}, headers=plain)
+        assert response.status_code == 400, wanted
+        assert response.json()["detail"] == {"code": "email_reserved"}
+
+    # The address is still free for the person it is reserved for.
+    assert (await register(client, ADMIN)).status_code == 201
+    admin = await sign_in(client, ADMIN)
+    same = await client.patch("/api/v1/users/me", json={"firstName": "Boss"}, headers=admin)
+    assert same.status_code == 200
+
+
+async def test_privileged_fields_in_profile_and_registration_are_ignored(
+    client: AsyncClient,
+) -> None:
+    registered = await client.post(
+        "/api/v1/auth/register",
+        json={**payload("odd@example.org"), "is_active": False, "is_verified": True},
+    )
+    assert registered.status_code == 201
+    assert registered.json()["isActive"] is True
+    assert registered.json()["isVerified"] is False
+
+    headers = await sign_in(client, "odd@example.org")
+    patched = await client.patch(
+        "/api/v1/users/me", json={"isSuperuser": True, "isVerified": True}, headers=headers
+    )
+    assert patched.status_code == 200
+    assert patched.json()["isSuperuser"] is False
+    assert patched.json()["isVerified"] is False
