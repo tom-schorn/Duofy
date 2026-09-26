@@ -18,6 +18,7 @@ export function helpKeyFor(pathname: string, tab: string | null): HelpKey | null
   if (pathname === '/contracts') return 'commitments'
   if (pathname === '/accounts') return 'accounts'
   if (pathname === '/household') return 'household'
+  if (pathname === '/admin') return 'admin'
   return null
 }
 
