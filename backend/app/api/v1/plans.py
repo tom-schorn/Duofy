@@ -42,6 +42,7 @@ from app.schemas.plan import (
     PositionRead,
 )
 from app.services.hints import plan_hints
+from app.services.savings_goal import amount_to_plan
 
 router = APIRouter()
 
@@ -229,12 +230,17 @@ async def create_plan(
     for commitment in commitments.scalars():
         if not commitment.is_due_in(payload.year, payload.month):
             continue
+        # A savings goal that has reached its target plans nothing; one that is
+        # less than a rate short plans only the rest (#87).
+        amount = await amount_to_plan(session, commitment)
+        if amount is None:
+            continue
         plan.positions.append(
             PlanPosition(
                 commitment_id=commitment.id,
                 household_id=commitment.household_id,
                 label=commitment.name,
-                amount_planned=commitment.amount,
+                amount_planned=amount,
                 category=commitment.category,
                 budget=commitment.budget,
                 # The 31st does not exist in every month — this holds the clamped
