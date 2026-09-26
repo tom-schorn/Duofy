@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router'
-import { ChevronsUpDown, LogOut } from 'lucide-react'
+import { Link, useNavigate } from 'react-router'
+import { ChevronsUpDown, LogOut, ShieldCheck } from 'lucide-react'
 
 import {
   DropdownMenu,
@@ -80,6 +80,15 @@ export function UserMenu() {
             <DropdownMenuLabel className="text-muted-foreground text-xs">
               {t('userMenu.account')}
             </DropdownMenuLabel>
+
+            {me.data?.isSuperuser && (
+              <DropdownMenuItem asChild className="gap-2">
+                <Link to="/admin">
+                  <ShieldCheck className="size-4 shrink-0" />
+                  {t('userMenu.admin')}
+                </Link>
+              </DropdownMenuItem>
+            )}
 
             <DropdownMenuItem onSelect={handleLogout} className="gap-2">
               <LogOut className="size-4 shrink-0" />

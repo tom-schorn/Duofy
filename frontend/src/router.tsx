@@ -9,6 +9,7 @@ import { PlanDetailPage } from '@/pages/PlanDetailPage'
 import { AccountsPage } from '@/pages/AccountsPage'
 import { BookPage } from '@/pages/BookPage'
 import { CommitmentsPage } from '@/pages/CommitmentsPage'
+import { AdminPage } from '@/pages/AdminPage'
 import { HouseholdPage } from '@/pages/HouseholdPage'
 import { ImportPage } from '@/pages/ImportPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
@@ -44,6 +45,9 @@ export const router = createBrowserRouter([
           { path: '/import', element: <ImportPage /> },
 
           { path: '/household', element: <HouseholdPage /> },
+
+          // The system level; the page sends everybody but admins away.
+          { path: '/admin', element: <AdminPage /> },
         ],
       },
     ],
