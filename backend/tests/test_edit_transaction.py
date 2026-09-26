@@ -188,3 +188,87 @@ async def test_a_plain_booking_changes_its_purpose(
     )
     assert response.status_code == 200
     assert response.json()["budget"] == "needs"
+
+
+async def plan_position(session: AsyncSession, owner, month: int, label: str):
+    from app.models.plan import Plan, PlanPosition
+
+    plan = Plan(user_id=owner.id, year=2026, month=month)
+    session.add(plan)
+    await session.flush()
+    position = PlanPosition(
+        plan_id=plan.id,
+        label=label,
+        amount_planned=Decimal("50.00"),
+        category=Category.LEISURE_SUBSCRIPTIONS,
+        budget=Budget.WANTS,
+        due_day=15,
+    )
+    session.add(position)
+    await session.flush()
+    return position
+
+
+async def test_moving_a_booking_between_positions_and_months_keeps_both_actuals_right(
+    client: AsyncClient, session: AsyncSession, pair  # noqa: F811
+):
+    owner, _, _ = pair
+    account = await make_account(session, owner, "Giro")
+    september = await plan_position(session, owner, 9, "September")
+    october = await plan_position(session, owner, 10, "October")
+    await session.commit()
+    sign_in(owner)
+
+    created = await client.post(
+        "/api/v1/transactions",
+        json={
+            "accountId": str(account.id),
+            "occurredOn": "2026-09-05",
+            "amount": "40.00",
+            "category": "leisure.subscriptions",
+            "budget": "wants",
+            "positionId": str(september.id),
+        },
+    )
+    booking_id = created.json()["id"]
+    await session.refresh(september)
+    assert september.amount_actual == Decimal("40.00")
+
+    moved = await client.patch(
+        f"/api/v1/transactions/{booking_id}", json={"positionId": str(october.id)}
+    )
+    assert moved.status_code == 200
+    await session.refresh(september)
+    await session.refresh(october)
+    assert september.amount_actual is None
+    assert october.amount_actual == Decimal("40.00")
+
+
+async def test_a_booking_cannot_be_pointed_at_somebody_elses_account_counter_account_or_position(
+    client: AsyncClient, session: AsyncSession, pair  # noqa: F811
+):
+    owner, helper, _ = pair
+    own_account = await make_account(session, owner, "Giro")
+    booking = Transaction(
+        owner_id=owner.id,
+        account_id=own_account.id,
+        occurred_on=date(2026, 9, 1),
+        amount=Decimal("10.00"),
+        category=Category.LEISURE_SUBSCRIPTIONS,
+        budget=Budget.WANTS,
+    )
+    session.add(booking)
+    foreign_account = await make_account(session, helper, "Helper giro")
+    foreign_counter = await make_account(session, helper, "Helper savings")
+    foreign_position = await plan_position(session, helper, 9, "Helper position")
+    await session.commit()
+    sign_in(owner)
+
+    for body in (
+        {"accountId": str(foreign_account.id)},
+        {"counterAccountId": str(foreign_counter.id)},
+        {"positionId": str(foreign_position.id)},
+    ):
+        response = await client.patch(f"/api/v1/transactions/{booking.id}", json=body)
+        assert response.status_code == 403, body
+        assert response.json()["detail"]["code"] == "no_edit_granted"
