@@ -25,6 +25,8 @@ type Props = {
   /** Replaces „Speichert…“ while pending, when the verb is another one. */
   pendingLabel?: string
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void
+  /** The form cannot be sent yet (a field is invalid). */
+  submitDisabled?: boolean
   /** The user changed something: outside clicks stop closing, Esc asks first. */
   dirty?: boolean
   /** The server has not answered: nothing closes, both buttons are locked. */
@@ -54,6 +56,7 @@ export function DialogFrame({
   submitLabel,
   pendingLabel,
   onSubmit,
+  submitDisabled = false,
   dirty = false,
   pending = false,
   error = null,
@@ -161,7 +164,7 @@ export function DialogFrame({
                 <Button type="button" variant="outline" disabled={pending} onClick={close}>
                   {t('common.cancel')}
                 </Button>
-                <Button type="submit" disabled={pending}>
+                <Button type="submit" disabled={pending || submitDisabled}>
                   {pending ? (pendingLabel ?? t('common.saving')) : submitLabel}
                 </Button>
               </div>

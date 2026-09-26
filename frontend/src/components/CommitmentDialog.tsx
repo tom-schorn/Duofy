@@ -1,15 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { FormError } from '@/components/FormError'
+import { DialogFrame } from '@/components/DialogFrame'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -184,6 +176,7 @@ export function CommitmentDialog({
   }, [open, commitment])
 
   const isEdit = commitment !== null
+  const dirty = JSON.stringify(draft) !== JSON.stringify(commitment ?? emptyDraft())
   const typeOption = TYPE_OPTIONS.find((option) => option.value === draft.type)!
   const intervalValid = isValidInterval(draft.intervalMonths)
   // Only savings goals and debts are fixed — resolve_budget() in the backend
@@ -310,440 +303,414 @@ export function CommitmentDialog({
   const februaryDay = effectiveDueDay(dueDay, shiftYear, 2)
 
   return (
-    <Dialog
+    // The frame caps the height: with "debt" and on low screens the form is
+    // taller than the window, and title and buttons would be cut off.
+    <DialogFrame
       open={open}
-      // Locked while the server has not answered — a later error would have
-      // nowhere to show.
-      onOpenChange={(next) => !pending && onOpenChange(next)}
+      onOpenChange={onOpenChange}
+      className="sm:max-w-lg"
+      title={isEdit ? t('commitmentDialog.editTitle') : t('commitmentDialog.addTitle')}
+      description={t('commitmentDialog.description')}
+      submitLabel={isEdit ? t('common.save') : t('common.create')}
+      onSubmit={handleSubmit}
+      submitDisabled={!intervalValid}
+      dirty={dirty}
+      pending={pending}
+      error={error}
     >
-      {/* Bei „Wird abbezahlt" und auf niedrigen Bildschirmen wird das Formular
-          höher als das Fenster — ohne max-h wären Titel und Knöpfe abgeschnitten. */}
-      <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
-        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-          <DialogHeader>
-            <DialogTitle className="font-heading text-xl">
-              {isEdit ? t('commitmentDialog.editTitle') : t('commitmentDialog.addTitle')}
-            </DialogTitle>
-            <DialogDescription>
-              {t('commitmentDialog.description')}
-            </DialogDescription>
-          </DialogHeader>
+      <div className="flex flex-col gap-2">
+        <div className="border-border grid grid-cols-3 gap-1 rounded-md border p-1">
+          {TYPE_OPTIONS.map((option) => (
+            <Button
+              key={option.value}
+              type="button"
+              variant={draft.type === option.value ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => handleType(option.value)}
+              aria-pressed={draft.type === option.value}
+            >
+              {t(option.label)}
+            </Button>
+          ))}
+        </div>
+        <p className="text-muted-foreground text-xs">{t(typeOption.hint)}</p>
+      </div>
+
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="name">{t('positionDialog.label')}</Label>
+          <Input
+            id="name"
+            value={draft.name}
+            onChange={(event) => set('name', event.target.value)}
+            placeholder={t(typeOption.namePlaceholder)}
+            required
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="amount">
+              {draft.type === 'debt' ? t('commitmentDialog.rate') : t('common.amount')}
+            </Label>
+            <Input
+              id="amount"
+              type="number"
+              step="0.01"
+              min="0"
+              inputMode="decimal"
+              value={draft.amount}
+              onChange={(event) => set('amount', event.target.value)}
+              placeholder={t('common.amountPlaceholder')}
+              required
+            />
+          </div>
 
           <div className="flex flex-col gap-2">
-            <div className="border-border grid grid-cols-3 gap-1 rounded-md border p-1">
-              {TYPE_OPTIONS.map((option) => (
-                <Button
-                  key={option.value}
-                  type="button"
-                  variant={draft.type === option.value ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => handleType(option.value)}
-                  aria-pressed={draft.type === option.value}
-                >
-                  {t(option.label)}
-                </Button>
-              ))}
-            </div>
-            <p className="text-muted-foreground text-xs">{t(typeOption.hint)}</p>
-          </div>
-
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="name">{t('positionDialog.label')}</Label>
-              <Input
-                id="name"
-                value={draft.name}
-                onChange={(event) => set('name', event.target.value)}
-                placeholder={t(typeOption.namePlaceholder)}
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="amount">
-                  {draft.type === 'debt' ? t('commitmentDialog.rate') : t('common.amount')}
+            <Label>{t('commitmentDialog.interval')}</Label>
+            <Select
+              value={customInterval ? CUSTOM : String(draft.intervalMonths)}
+              onValueChange={handleIntervalSelect}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {INTERVAL_PRESETS.map((months) => (
+                  <SelectItem key={months} value={String(months)}>
+                    {intervalLabel(months)}
+                  </SelectItem>
+                ))}
+                <SelectItem value={CUSTOM}>{t('commitmentDialog.customInterval')}</SelectItem>
+              </SelectContent>
+            </Select>
+            {customInterval && (
+              <>
+                <Label htmlFor="interval-custom">
+                  {t('commitmentDialog.customIntervalField')}
                 </Label>
                 <Input
-                  id="amount"
+                  id="interval-custom"
+                  ref={intervalField}
                   type="number"
-                  step="0.01"
-                  min="0"
-                  inputMode="decimal"
-                  value={draft.amount}
-                  onChange={(event) => set('amount', event.target.value)}
-                  placeholder={t('common.amountPlaceholder')}
+                  min={INTERVAL_MIN}
+                  max={INTERVAL_MAX}
+                  step="1"
+                  inputMode="numeric"
+                  value={intervalText}
+                  onChange={(event) => handleIntervalText(event.target.value)}
+                  aria-invalid={!intervalValid}
+                  aria-describedby="interval-custom-hint"
                   required
                 />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <Label>{t('commitmentDialog.interval')}</Label>
-                <Select
-                  value={customInterval ? CUSTOM : String(draft.intervalMonths)}
-                  onValueChange={handleIntervalSelect}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {INTERVAL_PRESETS.map((months) => (
-                      <SelectItem key={months} value={String(months)}>
-                        {intervalLabel(months)}
-                      </SelectItem>
-                    ))}
-                    <SelectItem value={CUSTOM}>{t('commitmentDialog.customInterval')}</SelectItem>
-                  </SelectContent>
-                </Select>
-                {customInterval && (
-                  <>
-                    <Label htmlFor="interval-custom">
-                      {t('commitmentDialog.customIntervalField')}
-                    </Label>
-                    <Input
-                      id="interval-custom"
-                      ref={intervalField}
-                      type="number"
-                      min={INTERVAL_MIN}
-                      max={INTERVAL_MAX}
-                      step="1"
-                      inputMode="numeric"
-                      value={intervalText}
-                      onChange={(event) => handleIntervalText(event.target.value)}
-                      aria-invalid={!intervalValid}
-                      aria-describedby="interval-custom-hint"
-                      required
-                    />
-                    {/* Always in the DOM so the field can point at it; only the
-                        error turns into an announcement. */}
-                    <span
-                      id="interval-custom-hint"
-                      role={intervalValid ? undefined : 'alert'}
-                      className={
-                        intervalValid
-                          ? 'text-muted-foreground text-xs'
-                          : 'text-destructive text-xs'
-                      }
-                    >
-                      {t('commitmentDialog.intervalRange', {
-                        min: INTERVAL_MIN,
-                        max: INTERVAL_MAX,
-                      })}
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Beide gehören an den Vertrag, nicht an den Monat — sie werden
-                beim Erzeugen in jeden Posten kopiert und bleiben dort
-                überschreibbar. */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-2">
-                <Label>{t('common.account')}</Label>
-                <Select
-                  value={draft.accountId ?? 'default'}
-                  onValueChange={(value) =>
-                    set('accountId', value === 'default' ? null : value)
+                {/* Always in the DOM so the field can point at it; only the
+                    error turns into an announcement. */}
+                <span
+                  id="interval-custom-hint"
+                  role={intervalValid ? undefined : 'alert'}
+                  className={
+                    intervalValid
+                      ? 'text-muted-foreground text-xs'
+                      : 'text-destructive text-xs'
                   }
                 >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {/* „Standardkonto" statt fester Vorauswahl: der Vertrag
-                        bleibt richtig, wenn du das Standardkonto wechselst.
-                        Gesetzt wird es nur, wo es abweicht — das Claude-Abo
-                        läuft über die Kreditkarte, nicht übers Giro. */}
-                    <SelectItem value="default">{t('common.defaultAccount')}</SelectItem>
-                    {accounts
-                      .filter((account) => account.active)
-                      .map((account) => (
-                        <SelectItem key={account.id} value={account.id}>
-                          {account.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label>{t('common.counterAccount')}</Label>
-                <Select
-                  value={draft.counterAccountId ?? 'none'}
-                  onValueChange={(value) =>
-                    set('counterAccountId', value === 'none' ? null : value)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">{t('common.goesOut')}</SelectItem>
-                    {accounts
-                      .filter((account) => account.id !== draft.accountId)
-                      .map((account) => (
-                        <SelectItem key={account.id} value={account.id}>
-                          {account.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-                <span className="text-muted-foreground text-xs">
-                  {t('common.counterAccountHint')}
+                  {t('commitmentDialog.intervalRange', {
+                    min: INTERVAL_MIN,
+                    max: INTERVAL_MAX,
+                  })}
                 </span>
-              </div>
+              </>
+            )}
+          </div>
+        </div>
 
-
-            <div className="flex flex-col gap-2">
-              <Label>{t('common.paymentMethod')}</Label>
-              <Select
-                value={draft.paymentMethod ?? 'none'}
-                onValueChange={(value) =>
-                  set(
-                    'paymentMethod',
-                    value === 'none' ? null : (value as PaymentMethod)
-                  )
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">{t('commitmentDialog.noPaymentMethod')}</SelectItem>
-                  {PAYMENTS.map((method) => (
-                    <SelectItem key={method} value={method}>
-                      {paymentLabel(method)}
+        {/* Beide gehören an den Vertrag, nicht an den Monat — sie werden
+            beim Erzeugen in jeden Posten kopiert und bleiben dort
+            überschreibbar. */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-2">
+            <Label>{t('common.account')}</Label>
+            <Select
+              value={draft.accountId ?? 'default'}
+              onValueChange={(value) =>
+                set('accountId', value === 'default' ? null : value)
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {/* „Standardkonto" statt fester Vorauswahl: der Vertrag
+                    bleibt richtig, wenn du das Standardkonto wechselst.
+                    Gesetzt wird es nur, wo es abweicht — das Claude-Abo
+                    läuft über die Kreditkarte, nicht übers Giro. */}
+                <SelectItem value="default">{t('common.defaultAccount')}</SelectItem>
+                {accounts
+                  .filter((account) => account.active)
+                  .map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name}
                     </SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="first-due">{t('commitmentDialog.firstDue')}</Label>
-              <DateField
-                id="first-due"
-                value={draft.firstDueDate}
-                onChange={handleFirstDueDate}
-                describedBy="first-due-hint"
-              />
-              <p id="first-due-hint" className="text-muted-foreground text-xs">
-                {t(
-                  draft.intervalMonths === 1
-                    ? 'commitmentDialog.firstDueHintMonthly'
-                    : 'commitmentDialog.firstDueHint'
-                )}
-              </p>
-            </div>
-
-            {(upcoming.length > 0 || dueDayShifts) && (
-              <p className="text-muted-foreground bg-muted flex flex-col gap-1 rounded-md px-3 py-2 text-xs">
-                {upcoming.length > 0 && (
-                  <span>
-                    {t('commitmentDialog.dueIn', {
-                      day: dueDay,
-                      dates: upcoming.map(dueDateLabel).join(', '),
-                    })}
-                    {` — ${t('commitmentDialog.firstTime', {
-                      month: monthLabel(Number(draft.firstDueDate.slice(5, 7))),
-                      year: draft.firstDueDate.slice(0, 4),
-                    })}`}
-                  </span>
-                )}
-                {dueDayShifts && (
-                  <span>
-                    {t('commitmentDialog.dayShifts', {
-                      day: dueDay,
-                      year: shiftYear,
-                      februaryDay,
-                    })}
-                  </span>
-                )}
-              </p>
-            )}
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-2">
-                <Label>{t('common.category')}</Label>
-                <CategoryPicker
-                  value={draft.category}
-                  onChange={handleCategory}
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <Label>{t('common.budget')}</Label>
-                {budgetIsFixed ? (
-                  <span className="flex h-9 items-center gap-2 text-sm font-medium">
-                    <span className={cn('size-2.5 rounded-sm', BUDGET_DOT[draft.budget])} />
-                    {budgetLabel(draft.budget)}
-                  </span>
-                ) : (
-                  <Select
-                    value={draft.budget}
-                    onValueChange={(value) => set('budget', value as Budget)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {BUDGET_ORDER.map((budget) => (
-                        <SelectItem key={budget} value={budget}>
-                          {budgetLabel(budget)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-            </div>
-
-            {typeOption.budgetHint && (
-              <p className="text-muted-foreground bg-muted rounded-md px-3 py-2 text-xs">
-                {t(typeOption.budgetHint)}
-              </p>
-            )}
-
-            {/* Only for a contract ("Läuft weiter"): a savings goal, a debt and
-                income have a fixed amount or none at all, so the limit checkbox
-                only decides something where the amount is chosen freely and
-                recurs. Replaces the former type of its own ("Setze ich selbst"):
-                existing contracts of that type were migrated here with the flag
-                set. The backend rejects a limit on any other type. */}
-            {draft.type === 'contract' && (
-              <div className="border-border flex items-center justify-between rounded-md border p-3">
-                <div className="flex flex-col pr-4">
-                  <Label htmlFor="commitment-limit">{t('commitmentDialog.limit')}</Label>
-                  <span className="text-muted-foreground text-xs">
-                    {t('commitmentDialog.limitHint')}
-                  </span>
-                </div>
-                <Switch
-                  id="commitment-limit"
-                  checked={draft.isLimit}
-                  onCheckedChange={(checked) => set('isLimit', checked)}
-                />
-              </div>
-            )}
-
-            <div className="flex flex-col gap-2">
-              <Label>{t('common.assignment')}</Label>
-              <Select
-                value={draft.householdId ?? 'private'}
-                onValueChange={(value) =>
-                  set('householdId', value === 'private' ? null : value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="private">{t('common.privateOnly')}</SelectItem>
-                  {households.map((household) => (
-                    <SelectItem key={household.id} value={household.id}>
-                      {household.name}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label>{t('common.counterAccount')}</Label>
+            <Select
+              value={draft.counterAccountId ?? 'none'}
+              onValueChange={(value) =>
+                set('counterAccountId', value === 'none' ? null : value)
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">{t('common.goesOut')}</SelectItem>
+                {accounts
+                  .filter((account) => account.id !== draft.accountId)
+                  .map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name}
                     </SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-              <p className="text-muted-foreground text-xs">
-                {t('commitmentDialog.assignmentHint')}
-              </p>
-            </div>
-
-            {draft.type === 'savings_goal' && (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="target-amount">{t('commitmentDialog.targetAmount')}</Label>
-                  <Input
-                    id="target-amount"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={draft.targetAmount ?? ''}
-                    onChange={(event) =>
-                      set('targetAmount', event.target.value || null)
-                    }
-                    placeholder={t('common.amountPlaceholder')}
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="target-date">{t('commitmentDialog.targetDate')}</Label>
-                  <DateField
-                    id="target-date"
-                    value={draft.targetDate ?? ''}
-                    onChange={(iso) => set('targetDate', iso || null)}
-                    placeholder={t('commitmentDialog.noTargetDate')}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Nimmt den Posten aus Budget und Quoten. Nötig für Geld, das
-                nur durchgereicht wird — sonst sähen 1.139 € weitergeleitet
-                aus wie 1.139 € gespart. */}
-            <div className="border-border flex items-center justify-between rounded-md border p-3">
-              <div className="flex flex-col pr-4">
-                <Label htmlFor="commitment-pass-through">{t('common.passThrough')}</Label>
-                <span className="text-muted-foreground text-xs">
-                  {t('common.passThroughHint')}
-                </span>
-              </div>
-              <Switch
-                id="commitment-pass-through"
-                checked={draft.passThrough}
-                onCheckedChange={(checked) => set('passThrough', checked)}
-              />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="ends-on">{t('commitmentDialog.endsOn')}</Label>
-              <div className="flex gap-2">
-                <DateField
-                  id="ends-on"
-                  value={draft.endsOn ?? ''}
-                  onChange={(iso) => set('endsOn', iso || null)}
-                  placeholder={t('commitmentDialog.noEnd')}
-                  describedBy="ends-on-hint"
-                />
-                {draft.endsOn !== null && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => set('endsOn', null)}
-                  >
-                    {t('commitmentDialog.clearEnd')}
-                  </Button>
-                )}
-              </div>
-              <p id="ends-on-hint" className="text-muted-foreground text-xs">
-                {t('commitmentDialog.endsOnHint')}
-              </p>
-            </div>
+              </SelectContent>
+            </Select>
+            <span className="text-muted-foreground text-xs">
+              {t('common.counterAccountHint')}
+            </span>
           </div>
 
-          <FormError error={error} />
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={pending}
-              onClick={() => onOpenChange(false)}
-            >
-              {t('common.cancel')}
-            </Button>
-            <Button type="submit" disabled={!intervalValid || pending}>
-              {pending
-                ? t('common.saving')
-                : isEdit
-                  ? t('common.save')
-                  : t('common.create')}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        <div className="flex flex-col gap-2">
+          <Label>{t('common.paymentMethod')}</Label>
+          <Select
+            value={draft.paymentMethod ?? 'none'}
+            onValueChange={(value) =>
+              set(
+                'paymentMethod',
+                value === 'none' ? null : (value as PaymentMethod)
+              )
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">{t('commitmentDialog.noPaymentMethod')}</SelectItem>
+              {PAYMENTS.map((method) => (
+                <SelectItem key={method} value={method}>
+                  {paymentLabel(method)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="first-due">{t('commitmentDialog.firstDue')}</Label>
+          <DateField
+            id="first-due"
+            value={draft.firstDueDate}
+            onChange={handleFirstDueDate}
+            describedBy="first-due-hint"
+          />
+          <p id="first-due-hint" className="text-muted-foreground text-xs">
+            {t(
+              draft.intervalMonths === 1
+                ? 'commitmentDialog.firstDueHintMonthly'
+                : 'commitmentDialog.firstDueHint'
+            )}
+          </p>
+        </div>
+
+        {(upcoming.length > 0 || dueDayShifts) && (
+          <p className="text-muted-foreground bg-muted flex flex-col gap-1 rounded-md px-3 py-2 text-xs">
+            {upcoming.length > 0 && (
+              <span>
+                {t('commitmentDialog.dueIn', {
+                  day: dueDay,
+                  dates: upcoming.map(dueDateLabel).join(', '),
+                })}
+                {` — ${t('commitmentDialog.firstTime', {
+                  month: monthLabel(Number(draft.firstDueDate.slice(5, 7))),
+                  year: draft.firstDueDate.slice(0, 4),
+                })}`}
+              </span>
+            )}
+            {dueDayShifts && (
+              <span>
+                {t('commitmentDialog.dayShifts', {
+                  day: dueDay,
+                  year: shiftYear,
+                  februaryDay,
+                })}
+              </span>
+            )}
+          </p>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-2">
+            <Label>{t('common.category')}</Label>
+            <CategoryPicker
+              value={draft.category}
+              onChange={handleCategory}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label>{t('common.budget')}</Label>
+            {budgetIsFixed ? (
+              <span className="flex h-9 items-center gap-2 text-sm font-medium">
+                <span className={cn('size-2.5 rounded-sm', BUDGET_DOT[draft.budget])} />
+                {budgetLabel(draft.budget)}
+              </span>
+            ) : (
+              <Select
+                value={draft.budget}
+                onValueChange={(value) => set('budget', value as Budget)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {BUDGET_ORDER.map((budget) => (
+                    <SelectItem key={budget} value={budget}>
+                      {budgetLabel(budget)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        </div>
+
+        {typeOption.budgetHint && (
+          <p className="text-muted-foreground bg-muted rounded-md px-3 py-2 text-xs">
+            {t(typeOption.budgetHint)}
+          </p>
+        )}
+
+        {/* Only for a contract ("Läuft weiter"): a savings goal, a debt and
+            income have a fixed amount or none at all, so the limit checkbox
+            only decides something where the amount is chosen freely and
+            recurs. Replaces the former type of its own ("Setze ich selbst"):
+            existing contracts of that type were migrated here with the flag
+            set. The backend rejects a limit on any other type. */}
+        {draft.type === 'contract' && (
+          <div className="border-border flex items-center justify-between rounded-md border p-3">
+            <div className="flex flex-col pr-4">
+              <Label htmlFor="commitment-limit">{t('commitmentDialog.limit')}</Label>
+              <span className="text-muted-foreground text-xs">
+                {t('commitmentDialog.limitHint')}
+              </span>
+            </div>
+            <Switch
+              id="commitment-limit"
+              checked={draft.isLimit}
+              onCheckedChange={(checked) => set('isLimit', checked)}
+            />
+          </div>
+        )}
+
+        <div className="flex flex-col gap-2">
+          <Label>{t('common.assignment')}</Label>
+          <Select
+            value={draft.householdId ?? 'private'}
+            onValueChange={(value) =>
+              set('householdId', value === 'private' ? null : value)
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="private">{t('common.privateOnly')}</SelectItem>
+              {households.map((household) => (
+                <SelectItem key={household.id} value={household.id}>
+                  {household.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-muted-foreground text-xs">
+            {t('commitmentDialog.assignmentHint')}
+          </p>
+        </div>
+
+        {draft.type === 'savings_goal' && (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="target-amount">{t('commitmentDialog.targetAmount')}</Label>
+              <Input
+                id="target-amount"
+                type="number"
+                step="0.01"
+                min="0"
+                value={draft.targetAmount ?? ''}
+                onChange={(event) =>
+                  set('targetAmount', event.target.value || null)
+                }
+                placeholder={t('common.amountPlaceholder')}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="target-date">{t('commitmentDialog.targetDate')}</Label>
+              <DateField
+                id="target-date"
+                value={draft.targetDate ?? ''}
+                onChange={(iso) => set('targetDate', iso || null)}
+                placeholder={t('commitmentDialog.noTargetDate')}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Nimmt den Posten aus Budget und Quoten. Nötig für Geld, das
+            nur durchgereicht wird — sonst sähen 1.139 € weitergeleitet
+            aus wie 1.139 € gespart. */}
+        <div className="border-border flex items-center justify-between rounded-md border p-3">
+          <div className="flex flex-col pr-4">
+            <Label htmlFor="commitment-pass-through">{t('common.passThrough')}</Label>
+            <span className="text-muted-foreground text-xs">
+              {t('common.passThroughHint')}
+            </span>
+          </div>
+          <Switch
+            id="commitment-pass-through"
+            checked={draft.passThrough}
+            onCheckedChange={(checked) => set('passThrough', checked)}
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="ends-on">{t('commitmentDialog.endsOn')}</Label>
+          <div className="flex gap-2">
+            <DateField
+              id="ends-on"
+              value={draft.endsOn ?? ''}
+              onChange={(iso) => set('endsOn', iso || null)}
+              placeholder={t('commitmentDialog.noEnd')}
+              describedBy="ends-on-hint"
+            />
+            {draft.endsOn !== null && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => set('endsOn', null)}
+              >
+                {t('commitmentDialog.clearEnd')}
+              </Button>
+            )}
+          </div>
+          <p id="ends-on-hint" className="text-muted-foreground text-xs">
+            {t('commitmentDialog.endsOnHint')}
+          </p>
+        </div>
+      </div>
+    </DialogFrame>
   )
 }
