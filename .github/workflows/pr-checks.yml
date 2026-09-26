@@ -43,13 +43,16 @@ jobs:
   # in the repository instead of hidden in a setting.
   dco:
     runs-on: ubuntu-latest
-    # Two exceptions:
+    # Three exceptions:
     #  - release-please opens its own pull requests and signs nothing
+    #  - Dependabot commits carry no Signed-off-by either; human commits stay
+    #    strictly checked
     #  - the routes between `develop` and `main`, in both directions, carry only
     #    commits already checked on the way into `develop`, or the version files
     #    release-please wrote itself
     if: >-
       github.actor != 'github-actions[bot]'
+      && github.actor != 'dependabot[bot]'
       && github.event.pull_request.base.ref != 'main'
       && github.event.pull_request.head.ref != 'main'
     steps:
