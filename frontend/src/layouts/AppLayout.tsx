@@ -68,17 +68,16 @@ export function AppLayout() {
                     {/* Die gewählte Person reist mit. Ohne das fiele man beim
                         ersten Klick auf „Verträge" wieder auf sich selbst
                         zurück, ohne dass es jemand ansagt. */}
-                    <NavLink to={{ pathname: item.to, search: navSearch }} end>
-                      {({ isActive }) => (
-                        <SidebarMenuButton
-                          isActive={isActive}
-                          tooltip={t(item.label)}
-                        >
-                          <item.icon className="size-4" />
-                          <span>{t(item.label)}</span>
-                        </SidebarMenuButton>
-                      )}
-                    </NavLink>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === item.to}
+                      tooltip={t(item.label)}
+                    >
+                      <NavLink to={{ pathname: item.to, search: navSearch }} end>
+                        <item.icon className="size-4" />
+                        <span>{t(item.label)}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
 
                     {/* Die gemeinsamen Pläne hängen unter „Haushalt", statt
                         hinter einem Umschalter zu verschwinden. Ein Menüpunkt
@@ -89,15 +88,16 @@ export function AppLayout() {
                       <SidebarMenuSub>
                         {households.map((household) => (
                           <SidebarMenuSubItem key={household.id}>
-                            <NavLink
-                              to={`/plan/${now.getFullYear()}/${now.getMonth() + 1}?household=${household.id}`}
+                            <SidebarMenuSubButton
+                              asChild
+                              isActive={active === household.id}
                             >
-                              <SidebarMenuSubButton
-                                isActive={active === household.id}
+                              <NavLink
+                                to={`/plan/${now.getFullYear()}/${now.getMonth() + 1}?household=${household.id}`}
                               >
                                 <span>{household.name}</span>
-                              </SidebarMenuSubButton>
-                            </NavLink>
+                              </NavLink>
+                            </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
                         ))}
                       </SidebarMenuSub>
