@@ -180,7 +180,7 @@ export function AccountsPage() {
   )
 }
 
-function AccountDialog({
+export function AccountDialog({
   account,
   mayDelete,
   open,
@@ -197,6 +197,16 @@ function AccountDialog({
   const remove = useDeleteAccount()
   const [draft, setDraft] = useState<Account>(account ?? emptyAccount(false))
   const [confirming, setConfirming] = useState(false)
+
+  // An old error must not greet the next attempt.
+  const resetSave = save.reset
+  const resetRemove = remove.reset
+  useEffect(() => {
+    if (open) {
+      resetSave()
+      resetRemove()
+    }
+  }, [open, resetSave, resetRemove])
 
   useEffect(() => {
     if (open && account) setDraft(account)
@@ -218,6 +228,8 @@ function AccountDialog({
       submitLabel={isEdit ? t('common.save') : t('common.create')}
       onSubmit={(event) => {
         event.preventDefault()
+        // Only the latest action may show its error.
+        remove.reset()
         save.mutate(
           { ...draft, id: draft.id || undefined },
           { onSuccess: () => onOpenChange(false) }
@@ -250,11 +262,12 @@ function AccountDialog({
               <AlertDialogFooter>
                 <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={() =>
+                  onClick={() => {
+                    save.reset()
                     remove.mutate(draft.id, {
                       onSuccess: () => onOpenChange(false),
                     })
-                  }
+                  }}
                 >
                   {t('common.delete')}
                 </AlertDialogAction>
