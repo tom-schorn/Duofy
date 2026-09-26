@@ -385,6 +385,7 @@ export function CommitmentDialog({
               value={draft.amount}
               onChange={(value) => set('amount', value)}
               required
+              allowZero
             />
           </div>
 
@@ -671,6 +672,7 @@ export function CommitmentDialog({
                 id="target-amount"
                 value={draft.targetAmount ?? ''}
                 onChange={(value) => set('targetAmount', value || null)}
+                allowZero
               />
             </div>
             <div className="flex flex-col gap-2">

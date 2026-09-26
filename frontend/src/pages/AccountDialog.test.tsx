@@ -82,7 +82,7 @@ describe('AccountDialog opening balance', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
     const init = (fetchMock.mock.calls as unknown[][])[0][1] as RequestInit
     const body = JSON.parse(String(init.body))
-    expect(body.opening_balance ?? body.openingBalance).toBe(sent)
+    expect(body.openingBalance).toBe(sent)
   })
 })
 
