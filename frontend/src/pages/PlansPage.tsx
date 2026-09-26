@@ -60,7 +60,9 @@ export function PlansPage() {
           <p className="text-muted-foreground">
             {active.member === null
               ? t('plans.lead')
-              : t('plans.leadMember', { name: active.member.firstName })}
+              : `${t('plans.leadMember', { name: active.member.firstName })}${
+                  mayEdit ? '' : ` ${t('plans.leadMemberView', { name: active.member.firstName })}`
+                }`}
           </p>
         </div>
         {mayEdit && (
