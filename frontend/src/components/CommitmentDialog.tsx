@@ -143,6 +143,13 @@ type Props = {
   pending?: boolean
   /** The server said no; shown above the buttons, the input stays. */
   error?: unknown
+  /**
+   * Absent or null: no delete button (rule 3) - no right, or the commitment is
+   * already in a plan and only ends. The caller asks once before it deletes.
+   */
+  onDelete?: ((commitment: Commitment) => void) | null
+  /** Where the focus goes on closing, when the opener is gone (after a delete). */
+  returnFocus?: () => HTMLElement | null
 }
 
 export function CommitmentDialog({
@@ -152,6 +159,8 @@ export function CommitmentDialog({
   onSave,
   pending = false,
   error = null,
+  onDelete = null,
+  returnFocus,
 }: Props) {
   const { t } = useTranslation()
   const households = useHouseholds().data ?? []
@@ -320,6 +329,20 @@ export function CommitmentDialog({
       dirty={dirty}
       pending={pending}
       error={error}
+      returnFocus={returnFocus}
+      start={
+        isEdit && onDelete !== null ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className="text-destructive hover:text-destructive"
+            disabled={pending}
+            onClick={() => onDelete(commitment)}
+          >
+            {t('common.delete')}
+          </Button>
+        ) : undefined
+      }
     >
       <div className="flex flex-col gap-2">
         <div className="border-border grid grid-cols-3 gap-1 rounded-md border p-1">
