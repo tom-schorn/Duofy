@@ -727,6 +727,20 @@ export type Me = {
   email: string
   firstName: string
   lastName: string
+  /** The instance admin (#168). Runs the instance; sees nobody's plans or books. */
+  isSuperuser: boolean
+}
+
+/** Who may register on this instance; set by the operator in the env file. */
+export type RegistrationMode = 'open' | 'invite' | 'closed'
+
+/** An open instance invitation, as the admin sees it. */
+export type InstanceInvitation = {
+  id: string
+  token: string
+  email: string | null
+  createdAt: string
+  expiresAt: string
 }
 
 /**

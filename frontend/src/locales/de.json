@@ -24,6 +24,11 @@
     "household_not_found": "Der Haushalt existiert nicht mehr.",
     "last_owner_cannot_leave": "Du bist der letzte Besitzer — übergib den Haushalt, bevor du austrittst.",
     "already_a_member": "Diese Person ist schon im Haushalt.",
+    "registration_closed": "Auf dieser Duofy-Instanz kann man sich gerade nicht registrieren.",
+    "invitation_required": "Zum Registrieren brauchst du einen Einladungslink.",
+    "invitation_invalid": "Dieser Einladungslink gilt nicht (mehr). Bitte um einen neuen.",
+    "email_reserved": "Diese E-Mail-Adresse ist für die Verwaltung der Instanz reserviert.",
+    "admin_required": "Das darf nur, wer die Instanz verwaltet.",
     "invitation_already_open": "An diese Adresse läuft schon eine Einladung.",
     "invitation_not_found": "Diese Einladung gibt es nicht.",
     "invitation_not_open": "Diese Einladung wurde schon bearbeitet.",
@@ -208,6 +213,9 @@
     "grantUpdated": "Freigabe geändert",
     "invitationSent": "Einladung verschickt",
     "invitationRevoked": "Einladung zurückgezogen",
+    "instanceInvitationCreated": "Einladungslink angelegt",
+    "instanceInvitationRevoked": "Einladung widerrufen",
+    "linkCopied": "Link kopiert",
     "householdJoined": "Haushalt beigetreten",
     "invitationDeclined": "Einladung abgelehnt",
     "accountSaved": "Konto gespeichert",
@@ -265,6 +273,10 @@
       "lastName": "Nachname",
       "passwordRule": "Mindestens 8 Zeichen.",
       "pending": "Wird angelegt…",
+      "invitationLabel": "Einladungslink",
+      "invitationHint": "Den Link hat dir die Person gegeben, die diese Duofy-Instanz verwaltet. Du kannst ihn hier einfügen.",
+      "closedTitle": "Registrierung geschlossen",
+      "closedLead": "Auf dieser Duofy-Instanz können sich gerade keine neuen Nutzer registrieren. Wende dich an die Person, die sie betreibt.",
       "hasAccount": "Schon ein Konto?",
       "login": "Anmelden"
     }
@@ -289,7 +301,26 @@
   },
   "userMenu": {
     "account": "Konto",
-    "logout": "Abmelden"
+    "logout": "Abmelden",
+    "admin": "Instanz verwalten"
+  },
+  "admin": {
+    "title": "Instanz verwalten",
+    "lead": "Hier entscheidest du, wer sich auf dieser Duofy-Instanz registrieren darf. Pläne, Bücher und Konten anderer siehst du dadurch nicht.",
+    "modeOpen": "Die Registrierung ist offen: jede und jeder kann ein Konto anlegen. Einladungen brauchst du nur, wenn du das in der env-Datei auf „invite“ stellst.",
+    "modeInvite": "Die Registrierung geht nur mit Einladung.",
+    "modeClosed": "Die Registrierung ist geschlossen. Einladungen gelten erst, wenn du REGISTRATION_MODE auf „invite“ stellst.",
+    "createTitle": "Neue Einladung",
+    "emailLabel": "E-Mail-Adresse (optional)",
+    "emailHint": "Mit Adresse gilt der Link nur für diese Person. Er ist sieben Tage gültig und lässt sich einmal benutzen.",
+    "create": "Einladung anlegen",
+    "creating": "Wird angelegt…",
+    "openTitle": "Offene Einladungen",
+    "empty": "Keine offenen Einladungen.",
+    "anyone": "Für jede Adresse",
+    "validUntil": "gültig bis {{date}}",
+    "copy": "Link kopieren",
+    "revoke": "Widerrufen"
   },
   "notFound": {
     "title": "Diese Seite gibt es nicht",
