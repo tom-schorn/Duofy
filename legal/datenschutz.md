@@ -28,14 +28,15 @@ Art. 37 DSGVO liegen nicht vor.
 |---|---|---|---|
 | E-Mail, Vor- und Nachname | Konto, Anmeldung | Art. 6(1)(b) — Vertrag | bis Kontolöschung |
 | Passwort-Hash | Anmeldung | Art. 6(1)(b) | bis Kontolöschung |
-| Finanzplanungsdaten (Verpflichtungen, Beträge, Restschulden, Sparziele) | Kernfunktion | Art. 6(1)(b) | bis Kontolöschung |
+| Sitzungen (Hash des Anmelde-Tokens, Ablaufzeit, letzte Nutzung) | angemeldet bleiben | Art. 6(1)(b) | bis Abmeldung oder 30 Tage ohne Nutzung |
+| Finanzplanungsdaten (Verträge, Beträge, Schulden und Sparziele als Vertragstypen) | Kernfunktion | Art. 6(1)(b) | bis Kontolöschung |
 | Monatspläne und Posten (geplante und tatsächliche Beträge, Zahlungsart, Zahldatum) | Kernfunktion | Art. 6(1)(b) | bis Kontolöschung |
 | Änderungsprotokoll (wer hat welchen Posten wann geändert) | Nachvollziehbarkeit im Haushalt | Art. 6(1)(f) — berechtigtes Interesse | bis Kontolöschung |
 | Haushaltszugehörigkeit und Rolle | gemeinsame Planung | Art. 6(1)(b) | bis Verlassen des Haushalts |
-| E-Mail-Adresse eingeladener Personen | Einladung in einen Haushalt | Art. 6(1)(f) | bis Annahme, Ablehnung oder Ablauf |
-| Importierte Buchungen (Datum, Betrag, Verwendungszweck) | Abgleich mit dem Plan | Art. 6(1)(b) — Vertrag | bis Kontolöschung |
+| E-Mail-Adresse eingeladener Personen | Einladung in einen Haushalt | Art. 6(1)(f) | Die Einladung läuft nach 14 Tagen ab; die Zeile bleibt mit ihrem Status bis Kontolöschung der einladenden Person stehen **[TOM: Löschfrist festlegen]** |
+| Importierte Buchungen (Datum, Betrag, Verwendungszweck) und die IBAN des eigenen Kontos, dem die Datei zugeordnet wird | Abgleich mit dem Plan | Art. 6(1)(b) — Vertrag | bis Kontolöschung |
 | **Name und IBAN der Gegenseite einer Buchung** | Zuordnung und Wiedererkennung | Art. 6(1)(f) — berechtigtes Interesse | bis Kontolöschung |
-| IP-Adresse, Zeitstempel, User-Agent | Betrieb, Angriffsabwehr | Art. 6(1)(f) | siehe Abschnitt 6 |
+| IP-Adresse, Zeitstempel, User-Agent | Betrieb, Angriffsabwehr | Art. 6(1)(f) | bei Cloudflare siehe Abschnitt 6; im Backend-Protokoll nur, was Uvicorn in die Zugriffszeile schreibt (Methode, maskierter Pfad, Status, Adresse des Gegenübers), ohne feste Frist **[TOM: Aufbewahrung der Logs festlegen]** |
 
 **Besondere Kategorien nach Art. 9 DSGVO werden nicht gezielt verarbeitet.**
 Finanzdaten sind rechtlich keine besondere Kategorie, in der Praxis aber hoch
@@ -69,9 +70,12 @@ ist der EU AI Act für diesen Dienst derzeit nicht relevant.
 
 ## 4. Gemeinsame Haushalte — Datenweitergabe zwischen Nutzern
 
-Tritt ein Nutzer einem Haushalt bei, werden die als **haushaltsbezogen**
-markierten Verpflichtungen und Posten für die anderen Mitglieder sichtbar.
-Als privat markierte Einträge bleiben privat.
+Tritt ein Nutzer einem Haushalt bei, sehen die anderen Mitglieder zunächst nur
+die als gemeinsam markierten Posten. Für Plan, Verträge und Konten gibt jede
+Person selbst je eine Stufe frei; niemand stellt Rechte für andere ein. Wer
+nichts freigibt, bleibt für die anderen auf die gemeinsamen Posten beschränkt.
+Tritt ein Mitglied aus, sehen die anderen dessen Posten in keinem Monat mehr;
+gelöscht wird dabei nichts.
 
 Im Änderungsprotokoll ist erkennbar, **welches Mitglied welchen Posten geändert
 hat**. Das ist gewollt — es macht gemeinsame Planung nachvollziehbar — bedeutet
@@ -89,7 +93,7 @@ Ermöglichung der gemeinsamen Nutzung.
 ## 5. Import von Bankdateien — Daten anderer Personen
 
 Nutzer können eine Umsatzdatei ihrer Bank hochladen (Format CAMT nach
-ISO 20022). Daraus liest Duofy die Buchungen und legt sie zur Zuordnung ab.
+ISO 20022 oder CSV). Daraus liest Duofy die Buchungen und legt sie zur Zuordnung ab.
 
 **Was dabei über Dritte gespeichert wird:** Name und IBAN der Gegenseite jeder
 Buchung, soweit die Bank sie in der Datei nennt, sowie der Verwendungszweck.
@@ -110,9 +114,11 @@ entfällt deshalb nach **Art. 14(5)(b) DSGVO**; diese Erklärung tritt an ihre
 Stelle.
 
 **Die hochgeladene Datei wird nicht aufbewahrt.** Sie wird gelesen und
-verworfen. Gespeichert wird nur, was für die Zuordnung gebraucht wird — der
-Kontostand, der Kontoinhabername und die Bankkennungen aus der Datei fließen
-nicht in die Datenbank.
+verworfen. Gespeichert wird nur, was für die Zuordnung gebraucht wird: die Umsätze samt
+Bankkennung je Umsatz und die IBAN des eigenen Kontos, das der Datei zugeordnet
+wird. Kontostände und der Kontoinhabername aus der Datei fließen nicht in die
+Datenbank. Verworfene Umsätze bleiben markiert gespeichert, damit ein erneuter
+Import sie nicht zurückbringt.
 
 **Kein Zugriff auf das Bankkonto.** Duofy verbindet sich nicht mit einer Bank und
 nimmt keine Zugangsdaten entgegen. Verarbeitet wird ausschließlich eine Datei,
@@ -122,7 +128,8 @@ die der Nutzer selbst bei seiner Bank herunterlädt.
 Kontos sichtbar, für Haushaltsmitglieder nur dann, wenn dieser ihnen Zugriff auf
 den Bereich „Konten" eingeräumt hat.
 
-**Löschung:** Mit dem Konto werden auch die importierten Buchungen gelöscht.
+**Löschung:** Mit dem Konto werden auch die importierten Buchungen gelöscht
+(siehe Abschnitt 10).
 
 ---
 
@@ -141,7 +148,7 @@ verfügbarem Betrieb
 EU-Standardvertragsklauseln (Art. 46 DSGVO) und ist zusätzlich unter dem
 EU-U.S. Data Privacy Framework zertifiziert
 **Auftragsverarbeitung:** Cloudflare Data Processing Addendum (Art. 28 DSGVO),
-gilt automatisch für bestehende Verträge — **[PRÜFEN: abgeschlossen?]**
+gilt automatisch für bestehende Verträge — **[TOM: Abschluss prüfen]**
 **Datenschutz des Anbieters:** https://www.cloudflare.com/trust-hub/gdpr/
 **Consent-Flag im Code:** entfällt — technisch notwendig, keine Einwilligung
 erforderlich
@@ -179,12 +186,18 @@ genannten Speicherungen sind für den Betrieb unbedingt erforderlich.
 
 | Name | Art | Zweck | Dauer |
 |---|---|---|---|
-| `duofy-token` (o. ä.) | localStorage | Anmelde-Token, hält die Sitzung | bis Abmeldung |
-| Theme-Einstellung | localStorage | hell/dunkel merken | dauerhaft, lokal |
+| `duofy_refresh` | Cookie, `HttpOnly`, `Secure`, `SameSite=Lax`, nur für den Pfad `/api/v1/auth` | hält die Sitzung | 30 Tage ohne Nutzung, bei jeder Erneuerung verlängert; Abmelden löscht sie |
+| `duofy-theme` | localStorage | hell/dunkel merken | dauerhaft, lokal |
+| Zustand der angehefteten Hilfespalte | localStorage | Hilfespalte merken | dauerhaft, lokal |
 | `sidebar_state` | Cookie | Zustand der Seitenleiste | 7 Tage |
 
-Diese Daten verlassen das Gerät nicht, mit Ausnahme des Anmelde-Tokens, der bei
-jeder Anfrage an das Backend gesendet wird.
+Das Zugriffstoken (15 Minuten gültig) liegt nur im Arbeitsspeicher der geöffneten
+Seite und wird nirgends gespeichert. Die Einstellungen im localStorage verlassen
+das Gerät nicht. `sidebar_state` wird als Cookie bei Anfragen an dieselbe Adresse
+mitgesendet; das Refresh-Cookie geht nur an den Anmelde-Pfad des Backends.
+
+**[TOM: prüfen, ob Cloudflare an der öffentlichen Instanz eigene Cookies oder
+Analyse aktiviert]**
 
 ---
 
@@ -197,11 +210,22 @@ Du hast das Recht auf Auskunft (Art. 15), Berichtigung (Art. 16), Löschung
 
 Anfragen an: [KONTAKT_EMAIL]
 
-**Hinweis zur Löschung im Haushalt:** Wird ein Konto gelöscht, werden dessen
-Verpflichtungen und Pläne gelöscht. Einträge im Änderungsprotokoll, die andere
-Mitglieder betreffen, werden anonymisiert, damit die Nachvollziehbarkeit der
-Pläne der anderen erhalten bleibt. **[PLATZHALTER: Umsetzung noch offen —
-aktuell löscht die Datenbank per CASCADE mit]**
+**Löschung des Kontos:** Wird ein Konto gelöscht, werden dessen Verträge, Pläne,
+Konten, Buchungen, importierte Umsätze, Sitzungen, Mitgliedschaften und
+ausgesprochene Einladungen gelöscht. **Bisher gibt es in der Anwendung keine
+Funktion, mit der man sein Konto selbst löscht;** die Löschung läuft über eine
+Anfrage an [KONTAKT_EMAIL]. **[TOM: Wortlaut und Frist für die Löschanfrage
+festlegen, oder Löschfunktion zusagen]**
+
+**Hinweis zum Änderungsprotokoll im Haushalt:** Geplant ist, dass Einträge, die
+eine gelöschte Person an Posten anderer Mitglieder hinterlassen hat, erhalten
+bleiben und ohne Namen als „ehemaliges Mitglied“ erscheinen. **[TOM: Umsetzung
+noch offen — bis dahin löscht die Datenbank diese Einträge mit dem Konto (per
+CASCADE); der Absatz darf erst ohne diesen Vorbehalt stehen, wenn der Code
+nachgezogen ist (#66)]**
+
+**Auskunft und Übertragbarkeit:** Die Anwendung bietet keinen Export der eigenen
+Daten an. **[TOM: Umgang mit Anfragen nach Art. 15 und 20 festlegen]**
 
 ---
 
@@ -232,11 +256,16 @@ https://www.bfdi.bund.de
 - Passwörter werden mit **argon2** gehasht, nie im Klartext gespeichert
 - Die Datenbank ist von außen nicht erreichbar, das Backend ausschließlich über
   einen Cloudflare Tunnel ohne offene Ports
-- **[OFFEN: kein Rate-Limiting an der Anmeldung — siehe Security-Prüfung]**
+- Es gibt in dieser Version **kein Rate-Limit an der Anmeldung**; es ist für V2
+  geplant (#170)
+- Sitzungen lassen sich einzeln oder auf allen Geräten beenden; ein
+  wiederverwendetes altes Sitzungstoken beendet alle Sitzungen der Person
 
 ---
 
 ## 14. Änderungen
 
-Bei wesentlichen Änderungen werden registrierte Nutzer informiert.
+Bei wesentlichen Änderungen werden registrierte Nutzer informiert. Duofy
+versendet selbst keine E-Mails; **[TOM: Weg der Benachrichtigung festlegen — z. B.
+Hinweis in der Anwendung]**.
 Stand: 2026-08-19
