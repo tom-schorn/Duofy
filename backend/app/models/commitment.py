@@ -14,7 +14,6 @@ from app.models.enums import (
     Category,
     CommitmentType,
     PaymentMethod,
-    Rhythm,
 )
 from app.models.mixins import TimestampMixin, UUIDMixin
 
@@ -44,10 +43,14 @@ class Commitment(UUIDMixin, TimestampMixin, Base):
             name="ck_commitment_remaining_debt_only_for_debt",
         ),
         # Without a first due date the generator would know neither the months nor
-        # the starting year for anything but a monthly rhythm.
+        # the starting year for anything but a monthly recurrence.
         CheckConstraint(
-            "rhythm = 'monthly' OR first_due_date IS NOT NULL",
+            "interval_months = 1 OR first_due_date IS NOT NULL",
             name="ck_commitment_first_due_date_required",
+        ),
+        CheckConstraint(
+            "interval_months BETWEEN 1 AND 120",
+            name="ck_commitment_interval_months_range",
         ),
     )
 
@@ -106,16 +109,19 @@ class Commitment(UUIDMixin, TimestampMixin, Base):
     #: copies `category` and `payment_method`.
     is_limit: Mapped[bool] = mapped_column(default=False)
 
-    rhythm: Mapped[Rhythm] = mapped_column(enum_column(Rhythm))
+    #: Every how many months it falls due, 1 to 120. Monthly is 1, quarterly 3,
+    #: half-yearly 6, yearly 12 — and anything in between, because real contracts
+    #: run every 2, 4 or 18 months. Counted from `first_due_date`.
+    interval_months: Mapped[int]
 
     #: When it falls due for the first time — day, month **and year**.
     #:
-    #: Only for a non-monthly rhythm, and mandatory there (see the CHECK above).
+    #: Only for a non-monthly recurrence, and mandatory there (see the CHECK above).
     #: The month defines the cadence, the year defines the start:
-    #: 2026-02-15 plus quarterly means Feb, May, Aug, Nov, starting in 2026.
+    #: 2026-02-15 every 3 months means Feb, May, Aug, Nov, starting in 2026.
     first_due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
-    #: Day of the month, 1–31. For a non-monthly rhythm the same day as in
+    #: Day of the month, 1–31. For a non-monthly recurrence the same day as in
     #: `first_due_date` — `effective_due_day()` clamps it per month.
     due_day: Mapped[int]
 
@@ -160,25 +166,23 @@ class Commitment(UUIDMixin, TimestampMixin, Base):
 
         1. **After the start.** Before `first_due_date` the commitment does not
            exist yet, otherwise positions would appear retroactively.
-        2. **On the cadence.** The rhythm continues across the turn of the year:
-           quarterly from July means Jan, Apr, Jul, Oct — not only Jul and Oct.
+        2. **On the cadence.** Months are counted absolutely from the start, so the
+           cadence continues across the turn of the year: every 3 months from July
+           means Jan, Apr, Jul, Oct — and every 5 months from November means April
+           and September, which a count within the year could never say.
         """
         if not self.active:
             return False
 
-        if self.first_due_date is not None:
-            started = (year, month) >= (
-                self.first_due_date.year,
-                self.first_due_date.month,
-            )
-            if not started:
-                return False
+        if self.first_due_date is None:
+            # Only a monthly commitment may have no start (the CHECK on
+            # `first_due_date`), so anything else here cannot occur — and is not due
+            # rather than guessed at.
+            return self.interval_months == 1
 
-        if self.rhythm is Rhythm.MONTHLY:
-            return True
-
-        start = self.first_month or 1
-        return (month - start) % self.rhythm.interval == 0
+        start_total = self.first_due_date.year * 12 + self.first_due_date.month
+        distance = year * 12 + month - start_total
+        return distance >= 0 and distance % self.interval_months == 0
 
     def effective_due_day(self, year: int, month: int) -> int:
         """The day it actually falls due in the given month.

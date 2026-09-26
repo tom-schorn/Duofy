@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest'
 
 import dateCases from '../../../testdata/date_cases.json'
-import { daysInMonth, effectiveDueDay } from './domain'
+import { daysInMonth, effectiveDueDay, isDueIn } from './domain'
 
 type DateCases = {
   days_in_month: { case: string; year: number; month: number; expected: number }[]
@@ -19,6 +19,14 @@ type DateCases = {
     year: number
     month: number
     expected: number
+  }[]
+  is_due_in: {
+    case: string
+    interval_months: number
+    first_due_date: string | null
+    year: number
+    month: number
+    expected: boolean
   }[]
 }
 
@@ -37,4 +45,13 @@ describe('effective due day, as the backend clamps it', () => {
   it.each(cases.effective_due_day)('$case', ({ due_day, year, month, expected }) => {
     expect(effectiveDueDay(due_day, year, month)).toBe(expected)
   })
+})
+
+describe('is due in, as the backend counts absolute months', () => {
+  it.each(cases.is_due_in)(
+    '$case',
+    ({ interval_months, first_due_date, year, month, expected }) => {
+      expect(isDueIn(interval_months, first_due_date, year, month)).toBe(expected)
+    }
+  )
 })

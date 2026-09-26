@@ -27,7 +27,7 @@ from sqlalchemy.orm import selectinload
 from app.core.auth import current_active_user
 from app.main import app
 from app.models.commitment import Commitment
-from app.models.enums import AccessLevel, Budget, Category, CommitmentType, Rhythm
+from app.models.enums import AccessLevel, Budget, Category, CommitmentType
 from app.models.plan import Plan
 from app.models.user import User
 from tests.test_area_permissions import add_member, make_household, make_user
@@ -46,7 +46,7 @@ async def make_commitment(session: AsyncSession, owner: User, name: str) -> Comm
         amount=Decimal("50.00"),
         category=Category.LEISURE_SUBSCRIPTIONS,
         budget=Budget.WANTS,
-        rhythm=Rhythm.MONTHLY,
+        interval_months=1,
         first_due_date=date(2026, 1, 1),
         due_day=1,
         active=True,
@@ -360,7 +360,7 @@ async def test_create_a_commitment_for_another_member(
             "category": "leisure.subscriptions",
             "budget": "wants",
             "type": "contract",
-            "rhythm": "monthly",
+            "intervalMonths": 1,
             "firstDueDate": "2026-01-01",
             "dueDay": 1,
         },
@@ -385,7 +385,7 @@ async def test_areas_do_not_leak_into_one_another(
             "category": "leisure.hobbies",
             "budget": "wants",
             "type": "contract",
-            "rhythm": "monthly",
+            "intervalMonths": 1,
             "firstDueDate": "2026-01-01",
             "dueDay": 1,
         },

@@ -9,7 +9,7 @@ def enum_column(enum_class: type[StrEnum], length: int = 20) -> SAEnum:
     Without this, SQLAlchemy writes `MONTHLY` although the enum carries `monthly`
     as its value. That backfires in three places:
 
-    * **CHECK constraints** compare against the value (`rhythm = \'monthly\'`) and
+    * **CHECK constraints** compare against the value (`type = \'debt\'`) and
       either fail or — worse — silently never match.
     * **Raw SQL** and any reporting would have to know about the difference.
     * The **API** sends and receives values. Two spellings for the same thing in

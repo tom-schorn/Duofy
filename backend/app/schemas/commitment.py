@@ -2,10 +2,19 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
-from app.models.enums import Budget, Category, CommitmentType, PaymentMethod, Rhythm
+from app.models.enums import Budget, Category, CommitmentType, PaymentMethod
 from app.schemas.base import Schema
+
+MIN_INTERVAL_MONTHS = 1
+MAX_INTERVAL_MONTHS = 120
+
+
+def check_interval(months: int) -> None:
+    """The same range the database enforces, but as an error code."""
+    if not MIN_INTERVAL_MONTHS <= months <= MAX_INTERVAL_MONTHS:
+        raise ValueError("interval_months_out_of_range")
 
 
 class CommitmentBase(Schema):
@@ -14,7 +23,8 @@ class CommitmentBase(Schema):
     category: Category
     budget: Budget
     household_id: uuid.UUID | None = None
-    rhythm: Rhythm
+    #: Every how many months it falls due, 1 to 120. Checked in the validators.
+    interval_months: int
     first_due_date: date | None = None
     due_day: int = Field(ge=1, le=31)
     active: bool = True
@@ -48,7 +58,9 @@ class CommitmentCreate(CommitmentBase):
         A CHECK constraint yields a database error. Here the result is an error
         **code** the frontend can translate instead.
         """
-        if self.rhythm is not Rhythm.MONTHLY and self.first_due_date is None:
+        check_interval(self.interval_months)
+
+        if self.interval_months != 1 and self.first_due_date is None:
             raise ValueError("first_due_date_required")
 
         if self.type is not CommitmentType.SAVINGS_GOAL and (
@@ -59,7 +71,7 @@ class CommitmentCreate(CommitmentBase):
         if self.type is not CommitmentType.DEBT and self.remaining_debt is not None:
             raise ValueError("remaining_debt_only_for_debt")
 
-        # For a non-monthly rhythm the due day has to match the start date,
+        # For a non-monthly recurrence the due day has to match the start date,
         # otherwise two fields contradict each other about the same thing.
         if self.first_due_date is not None and self.due_day != self.first_due_date.day:
             raise ValueError("due_day_must_match_first_due_date")
@@ -75,7 +87,7 @@ class CommitmentUpdate(Schema):
     category: Category | None = None
     budget: Budget | None = None
     household_id: uuid.UUID | None = None
-    rhythm: Rhythm | None = None
+    interval_months: int | None = None
     first_due_date: date | None = None
     due_day: int | None = Field(default=None, ge=1, le=31)
     active: bool | None = None
@@ -87,6 +99,14 @@ class CommitmentUpdate(Schema):
     target_amount: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     target_date: date | None = None
     remaining_debt: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+
+    @field_validator("interval_months")
+    @classmethod
+    def check_interval_months(cls, value: int | None) -> int | None:
+        # An explicit null is left to the endpoint, which rejects it as `null_not_allowed`.
+        if value is not None:
+            check_interval(value)
+        return value
 
 
 class CommitmentRead(CommitmentBase):

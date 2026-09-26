@@ -33,7 +33,7 @@ NOT_NULLABLE = (
     "amount",
     "category",
     "budget",
-    "rhythm",
+    "interval_months",
     "due_day",
     "active",
     "is_limit",
@@ -180,7 +180,7 @@ async def update_commitment(
     commitment.budget = resolve_budget(commitment.budget, commitment.type)
 
     # Catch what the database checks anyway, but with a readable error code.
-    if commitment.rhythm.value != "monthly" and commitment.first_due_date is None:
+    if commitment.interval_months != 1 and commitment.first_due_date is None:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT, detail={"code": "first_due_date_required"}
         )

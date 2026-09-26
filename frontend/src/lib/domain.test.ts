@@ -10,6 +10,11 @@ import { describe, expect, it } from 'vitest'
 
 import {
   daysInMonth,
+  nextDueDates,
+  parseIntervalText,
+  intervalLabel,
+  isValidInterval,
+  monthlyEquivalent,
   effectiveDueDay,
   isPaid,
   type PlanPosition,
@@ -169,5 +174,93 @@ describe('stillDue', () => {
     expect(
       stillDue(position({ isLimit: true, amountPlanned: '600.00', amountActual: '127.50' }))
     ).toBe(0)
+  })
+})
+
+describe('intervalLabel', () => {
+  it('says monatlich for 1', () => {
+    expect(intervalLabel(1)).toBe('monatlich')
+  })
+
+  it('says vierteljährlich for 3', () => {
+    expect(intervalLabel(3)).toBe('vierteljährlich')
+  })
+
+  it.each([2, 5, 6, 12, 120])('says alle N Monate for %i', (months) => {
+    expect(intervalLabel(months)).toBe(`alle ${months} Monate`)
+  })
+})
+
+describe('isValidInterval', () => {
+  it.each([1, 3, 120])('accepts %i', (months) => {
+    expect(isValidInterval(months)).toBe(true)
+  })
+
+  it.each([0, -1, 121, 2.5, Number.NaN])('rejects %s', (months) => {
+    expect(isValidInterval(months)).toBe(false)
+  })
+})
+
+describe('nextDueDates', () => {
+  const from = { year: 2027, month: 1 }
+
+  it('runs an interval that does not divide 12 across the years', () => {
+    expect(nextDueDates(5, '2026-11-01', from, 3)).toEqual([
+      { year: 2027, month: 4 },
+      { year: 2027, month: 9 },
+      { year: 2028, month: 2 },
+    ])
+  })
+
+  it('handles an interval longer than a year', () => {
+    expect(nextDueDates(18, '2026-03-01', from, 3)).toEqual([
+      { year: 2027, month: 9 },
+      { year: 2029, month: 3 },
+      { year: 2030, month: 9 },
+    ])
+  })
+
+  it('starts at the first due date when it lies in the future', () => {
+    expect(nextDueDates(3, '2027-06-15', from, 3)).toEqual([
+      { year: 2027, month: 6 },
+      { year: 2027, month: 9 },
+      { year: 2027, month: 12 },
+    ])
+  })
+
+  it('includes the current month when it falls due', () => {
+    expect(nextDueDates(3, '2026-10-01', from, 1)).toEqual([{ year: 2027, month: 1 }])
+  })
+
+  it('is empty for a monthly commitment', () => {
+    expect(nextDueDates(1, null, from, 3)).toEqual([])
+    expect(nextDueDates(1, '2026-11-01', from, 3)).toEqual([])
+  })
+
+  it('is empty without a start date or with an invalid interval', () => {
+    expect(nextDueDates(3, null, from, 3)).toEqual([])
+    expect(nextDueDates(0, '2026-11-01', from, 3)).toEqual([])
+  })
+})
+
+describe('parseIntervalText', () => {
+  it.each([
+    ['5', 5],
+    ['12', 12],
+    ['120', 120],
+    [' 7 ', 7],
+  ])('reads %j as %d', (text, expected) => {
+    expect(parseIntervalText(text)).toBe(expected)
+  })
+
+  it.each(['', '   ', 'abc', '0', '121', '2.5', '-3'])('reads %j as 0', (text) => {
+    expect(parseIntervalText(text)).toBe(0)
+  })
+})
+
+describe('monthlyEquivalent', () => {
+  it('divides by the number of months', () => {
+    expect(monthlyEquivalent('108.00', 12)).toBe(9)
+    expect(monthlyEquivalent('50.00', 1)).toBe(50)
   })
 })

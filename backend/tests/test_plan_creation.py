@@ -17,7 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.commitment import Commitment
-from app.models.enums import Budget, Category, CommitmentType, Rhythm
+from app.models.enums import Budget, Category, CommitmentType
 from app.models.plan import Plan, PlanPosition
 from app.models.user import User
 from tests.test_area_permissions import make_user
@@ -29,7 +29,7 @@ async def make_commitment(
     owner: User,
     name: str,
     *,
-    rhythm: Rhythm = Rhythm.MONTHLY,
+    interval_months: int = 1,
     first_due_date: date = date(2026, 1, 1),
     due_day: int = 1,
     active: bool = True,
@@ -43,7 +43,7 @@ async def make_commitment(
         amount=Decimal(amount),
         category=Category.LEISURE_SUBSCRIPTIONS,
         budget=Budget.WANTS,
-        rhythm=rhythm,
+        interval_months=interval_months,
         first_due_date=first_due_date,
         due_day=due_day,
         active=active,
@@ -90,7 +90,7 @@ async def test_a_commitment_not_due_this_month_is_left_out(
     client: AsyncClient, session: AsyncSession, owner: User
 ):
     """Quarterly from January is due in Jan/Apr/Jul/Oct — not in September."""
-    await make_commitment(session, owner, "Insurance", rhythm=Rhythm.QUARTERLY)
+    await make_commitment(session, owner, "Insurance", interval_months=3)
     await session.commit()
 
     response = await client.post("/api/v1/plans", json={"year": 2026, "month": 9})

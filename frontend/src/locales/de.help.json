@@ -116,13 +116,13 @@
         "title": "Die vier Typen",
         "body": "<list><li><strong>Läuft weiter</strong> — Vertrag ohne festes Ende: Miete, Handy, Versicherung.</li><li><strong>Hat ein Ziel</strong> — Sparziel mit Zielbetrag, zählt zu Sparen.</li><li><strong>Wird abbezahlt</strong> — Kredit oder Rückstand, läuft auf null und zählt ebenfalls zu Sparen.</li><li><strong>Kommt rein</strong> — Gehalt, Transferleistungen, Zinsen.</li></list><p>Dazu das Kennzeichen <strong>Limit</strong>, an jedem laufenden Vertrag: kein fester Betrag zum Abhaken, du legst nur die Höhe fest — Lebensmittel, Sprit, Taschengeld. Der Posten läuft über den Monat und füllt sich aus den Buchungen.</p>"
       },
-      "rhythm": {
-        "title": "Rhythmus und Fälligkeit",
-        "body": "<p>„Feb, Mai, Aug, Nov“ ist gerechnet, nicht eingetippt: vierteljährlich ab Februar. Du gibst den Rhythmus und den ersten Termin an, die Monate ergeben sich daraus. Deshalb steht ein Jahresbeitrag nur in dem Monat im Plan, in dem er wirklich abgebucht wird.</p>"
+      "interval": {
+        "title": "Abstand und Fälligkeit",
+        "body": "<p>Du gibst an, alle wie viele Monate etwas fällig wird — von 1 bis 120 — und den ersten Termin. Die Monate ergeben sich daraus, gerechnet und nicht eingetippt: alle 3 Monate ab Februar sind Feb, Mai, Aug, Nov.</p><p>Bei 1 heißt es „monatlich“, bei 3 „vierteljährlich“, sonst „alle N Monate“. Ein Abstand, der nicht in ein Jahr passt, läuft einfach weiter: alle 5 Monate ab November 2026 sind April 2027, dann September 2027. Deshalb steht ein Jahresbeitrag nur in dem Monat im Plan, in dem er wirklich abgebucht wird.</p>"
       },
       "privacy": {
         "title": "Wer deine Verträge sieht",
-        "body": "<p>Niemand, solange du nichts freigibst. Andere sehen den Posten, den ein Vertrag im gemeinsamen Plan erzeugt — den Vertrag selbst mit Anbieter, Betrag und Rhythmus nur, wenn du im Haushalt <code>Verträge</code> freigibst.</p>"
+        "body": "<p>Niemand, solange du nichts freigibst. Andere sehen den Posten, den ein Vertrag im gemeinsamen Plan erzeugt — den Vertrag selbst mit Anbieter, Betrag und Abstand nur, wenn du im Haushalt <code>Verträge</code> freigibst.</p>"
       }
     }
   },
