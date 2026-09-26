@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { AmountField } from '@/components/AmountField'
 import { DialogFrame } from '@/components/DialogFrame'
 import { DateField } from '@/components/DateField'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { today } from '@/lib/dates'
 import { euro, type PlanPosition } from '@/lib/domain'
@@ -61,7 +61,7 @@ export function PaidDialog({
 
   const planned = Number(position.amountPlanned)
   const entered = Number(amount)
-  const differs = !hasBookings && Number.isFinite(entered) && entered !== planned
+  const differs = !hasBookings && amount !== '' && Number.isFinite(entered) && entered !== planned
 
   function submit(event: React.FormEvent) {
     event.preventDefault()
@@ -98,14 +98,10 @@ export function PaidDialog({
 
         <div className="flex w-36 flex-col gap-1.5">
           <Label htmlFor="paid-amount">{t('common.amount')}</Label>
-          <Input
+          <AmountField
             id="paid-amount"
-            type="number"
-            step="0.01"
-            min="0.01"
-            inputMode="decimal"
             value={amount}
-            onChange={(event) => setAmount(event.target.value)}
+            onChange={setAmount}
             required
             aria-describedby={hasBookings ? 'paid-bookings-note' : undefined}
             disabled={hasBookings}
