@@ -86,12 +86,19 @@ services:
       # days by default; see .env.example.
       REFRESH_LIFETIME_SECONDS: ${REFRESH_LIFETIME_SECONDS:-2592000}
       # Rechtstexte der Instanz, optional; siehe .env.example. Die Dateien
-      # müssen im Container liegen, etwa über ein Volume nach /config.
+      # liegen im Ordner ./config neben dieser Datei und erscheinen im Container
+      # unter /config (siehe volumes unten).
       IMPRINT_FILE: ${IMPRINT_FILE:-}
       PRIVACY_FILE: ${PRIVACY_FILE:-}
       TERMS_FILE: ${TERMS_FILE:-}
       # Kein CORS nötig: der Browser spricht nur mit dem Frontend-Container,
       # der die Anfragen intern weiterreicht. Es gibt keine zweite Herkunft.
+
+    volumes:
+      # Nur lesen. Ohne Ordner ./config oder ohne Dateien darin gibt es keine
+      # Rechtstexte, und Duofy läuft trotzdem. Leg dort zum Beispiel impressum.txt
+      # ab und setz IMPRINT_FILE=/config/impressum.txt in der .env.
+      - ./config:/config:ro
 
     depends_on:
       db:

@@ -13,6 +13,9 @@ venv/
 .mypy_cache/
 .ruff_cache/
 
+# Operator's own legal texts (real name and address) — never in git
+/config/
+
 # Node
 node_modules/
 dist/
