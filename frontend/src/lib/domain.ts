@@ -444,11 +444,11 @@ export type Commitment = {
   /** Months between two due dates, 1 to 120. */
   intervalMonths: number
   /**
-   * When it first falls due — day, month and year. Mandatory for an interval other
-   * than 1. The month sets the cadence, the year the start.
+   * When it first falls due — day, month and year, for every commitment. The month
+   * sets the cadence, the year the start, the day the due day: it is stored nowhere
+   * else.
    */
-  firstDueDate: string | null
-  dueDay: number
+  firstDueDate: string
   active: boolean
   /** only for savings_goal */
   targetAmount: string | null
@@ -475,13 +475,9 @@ export type Commitment = {
   passThrough: boolean
 }
 
-/** The month the cadence starts in — taken from the start date. */
-export function firstMonthOf(commitment: {
-  firstDueDate: string | null
-}): number | null {
-  return commitment.firstDueDate
-    ? Number(commitment.firstDueDate.slice(5, 7))
-    : null
+/** The due day of a commitment — the day of its first due date (`2026-03-31` → 31). */
+export function dueDayOf(firstDueDate: string): number {
+  return Number(firstDueDate.slice(8, 10))
 }
 
 /**

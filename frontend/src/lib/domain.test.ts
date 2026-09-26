@@ -9,7 +9,9 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  DUE_DAY_MAY_SHIFT,
   daysInMonth,
+  dueDayOf,
   nextDueDates,
   parseIntervalText,
   intervalLabel,
@@ -262,5 +264,18 @@ describe('monthlyEquivalent', () => {
   it('divides by the number of months', () => {
     expect(monthlyEquivalent('108.00', 12)).toBe(9)
     expect(monthlyEquivalent('50.00', 1)).toBe(50)
+  })
+})
+
+describe('dueDayOf', () => {
+  it('reads the due day from the first due date', () => {
+    expect(dueDayOf('2026-03-31')).toBe(31)
+    expect(dueDayOf('2026-11-05')).toBe(5)
+  })
+
+  it('feeds the short-month hint: a 31st shifts, a 15th does not', () => {
+    expect(dueDayOf('2026-03-31') >= DUE_DAY_MAY_SHIFT).toBe(true)
+    expect(effectiveDueDay(dueDayOf('2026-03-31'), 2026, 2)).toBe(28)
+    expect(dueDayOf('2026-03-15') >= DUE_DAY_MAY_SHIFT).toBe(false)
   })
 })

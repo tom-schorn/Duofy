@@ -1,4 +1,4 @@
-"""The migrations of #106 and #107, run forwards and backwards on a filled table.
+"""The migrations of #106, #107 and #108, run forwards and backwards on a filled table.
 
 ## Why this test exists at all
 
@@ -51,6 +51,9 @@ BEFORE_RENAME = "f3b71d5a92c4"
 #: #107: `rhythm` (four words) became `interval_months` (a number of months).
 INTERVAL = "c7f3d92e5a18"
 
+#: #108: `due_day` left `commitments`, the day lives in `first_due_date` only.
+DUE_DAY = "d8a4e1b6c093"
+
 #: A database of its own — the suite's own one must keep the schema `create_all`
 #: gave it, and these tests move a schema up and down.
 SCRATCH_DB = f"{settings.postgres_db}_migrations"
@@ -62,6 +65,7 @@ TOUCHED = {"commitments", "plan_positions", "transactions", "imported_entries"}
 #: The chain up to the revision before #107, migrated once and copied per test —
 #: the chain is what takes the time, and Postgres copies a database in a moment.
 TEMPLATE_DB = f"{settings.postgres_db}_migrations_template"
+TEMPLATE_DUE_DAY_DB = f"{settings.postgres_db}_migrations_template_due_day"
 
 
 def run_alembic(arguments: tuple[str, ...], database: str) -> subprocess.CompletedProcess:
@@ -509,3 +513,272 @@ async def test_the_downgrade_stops_at_an_interval_with_no_word_and_changes_nothi
     )
     assert months == 5
     assert INTERVAL in run_alembic(("current",), SCRATCH_DB).stdout
+
+
+@pytest.fixture(scope="module")
+async def template_before_due_day() -> AsyncGenerator[None]:
+    """The chain up to the revision before #108, migrated once for this module."""
+    await drop_database(TEMPLATE_DUE_DAY_DB)
+    await create_database(TEMPLATE_DUE_DAY_DB)
+    alembic("upgrade", INTERVAL, database=TEMPLATE_DUE_DAY_DB)
+    yield
+    await drop_database(TEMPLATE_DUE_DAY_DB)
+
+
+@pytest.fixture
+async def before_due_day(template_before_due_day: None) -> AsyncGenerator[AsyncConnection]:
+    """A copy of that database, private to one test."""
+    await drop_database(SCRATCH_DB)
+    await create_database(SCRATCH_DB, template=TEMPLATE_DUE_DAY_DB)
+    scratch = create_async_engine(
+        settings.database_url.rsplit("/", 1)[0] + f"/{SCRATCH_DB}", isolation_level="AUTOCOMMIT"
+    )
+    async with scratch.connect() as connection:
+        yield connection
+    await scratch.dispose()
+    await drop_database(SCRATCH_DB)
+
+
+OWNER = "11111111-1111-1111-1111-111111111111"
+
+
+async def seed_owner(connection: AsyncConnection) -> None:
+    await connection.execute(
+        text(
+            "INSERT INTO users (id, email, hashed_password, is_active, is_superuser,"
+            " is_verified, first_name, last_name) VALUES"
+            f" ('{OWNER}', 'seed@example.invalid', 'x', true, false, true, 'Seed', 'User')"
+        )
+    )
+
+
+async def add_commitment(
+    connection: AsyncConnection,
+    number: int,
+    name: str,
+    due_day: int,
+    first_due_date: str | None = None,
+    interval_months: int = 1,
+) -> str:
+    """One commitment in the shape before #108: a due day, and maybe a start date."""
+    commitment_id = f"33333333-3333-3333-3333-{number:012d}"
+    await connection.execute(
+        text(
+            "INSERT INTO commitments (id, owner_id, type, name, amount, category, budget,"
+            " interval_months, first_due_date, due_day, active, pass_through, is_limit) VALUES"
+            " (:id, :owner, 'contract', :name, 10.00, 'leisure.subscriptions', 'wants',"
+            " :interval, :first, :day, true, false, false)"
+        ),
+        {
+            "id": commitment_id,
+            "owner": OWNER,
+            "name": name,
+            "interval": interval_months,
+            "first": date.fromisoformat(first_due_date) if first_due_date else None,
+            "day": due_day,
+        },
+    )
+    return commitment_id
+
+
+async def add_position(connection: AsyncConnection, commitment_id: str, year: int, month: int):
+    """A plan month with one position that came from the commitment."""
+    plan_id = f"44444444-4444-4444-{year:04d}-{month:012d}"
+    await connection.execute(
+        text(
+            "INSERT INTO plans (id, user_id, year, month, target_needs, target_wants,"
+            " target_savings, buffer_percent) VALUES (:id, :owner, :year, :month, 50, 30, 20, 10)"
+            " ON CONFLICT (id) DO NOTHING"
+        ),
+        {"id": plan_id, "owner": OWNER, "year": year, "month": month},
+    )
+    await connection.execute(
+        text(
+            "INSERT INTO plan_positions (id, plan_id, commitment_id, label, amount_planned,"
+            " category, budget, due_day, manually_changed, is_limit, pass_through) VALUES"
+            " (gen_random_uuid(), :plan, :commitment, 'Position', 10.00,"
+            " 'leisure.subscriptions', 'wants', 1, false, false, false)"
+        ),
+        {"plan": plan_id, "commitment": commitment_id},
+    )
+
+
+async def this_month(connection: AsyncConnection) -> date:
+    """The first of the current month as the database sees it, which is what the migration uses."""
+    today = await connection.scalar(text("SELECT CURRENT_DATE"))
+    return today.replace(day=1)
+
+
+async def first_dates(connection: AsyncConnection) -> dict[str, date]:
+    rows = await connection.execute(text("SELECT name, first_due_date FROM commitments"))
+    return dict(rows.all())
+
+
+async def test_a_monthly_commitment_without_a_date_starts_where_its_first_position_is(
+    before_due_day: AsyncConnection,
+):
+    """The earliest plan month it has a position in, on its old due day."""
+    await seed_owner(before_due_day)
+    gym = await add_commitment(before_due_day, 1, "Gym", 20)
+    await add_position(before_due_day, gym, 2026, 9)
+    await add_position(before_due_day, gym, 2026, 7)
+
+    alembic("upgrade", DUE_DAY)
+
+    assert (await first_dates(before_due_day))["Gym"] == date(2026, 7, 20)
+
+
+async def test_a_monthly_commitment_without_a_date_or_a_position_starts_this_month(
+    before_due_day: AsyncConnection,
+):
+    """The current month at migration time — even if its day has already passed."""
+    await seed_owner(before_due_day)
+    await add_commitment(before_due_day, 1, "Gym", 15)
+
+    alembic("upgrade", DUE_DAY)
+
+    month = await this_month(before_due_day)
+    assert (await first_dates(before_due_day))["Gym"] == month.replace(day=15)
+
+
+@pytest.mark.parametrize(
+    ("day", "expected"),
+    [(31, date(2026, 3, 31)), (30, date(2026, 3, 30)), (29, date(2026, 3, 29))],
+    ids=["the 31st", "the 30th", "the 29th"],
+)
+async def test_a_day_february_does_not_have_moves_the_start_to_march(
+    before_due_day: AsyncConnection, day: int, expected: date
+):
+    """The day stays what it is; the start moves — clamping would change it for ever."""
+    await seed_owner(before_due_day)
+    rent = await add_commitment(before_due_day, 1, "Rent", day)
+    await add_position(before_due_day, rent, 2026, 2)
+
+    alembic("upgrade", DUE_DAY)
+
+    assert (await first_dates(before_due_day))["Rent"] == expected
+
+
+async def test_a_31st_starting_in_a_30_day_month_moves_to_the_next_long_one(
+    before_due_day: AsyncConnection,
+):
+    await seed_owner(before_due_day)
+    rent = await add_commitment(before_due_day, 1, "Rent", 31)
+    await add_position(before_due_day, rent, 2026, 4)
+
+    alembic("upgrade", DUE_DAY)
+
+    assert (await first_dates(before_due_day))["Rent"] == date(2026, 5, 31)
+
+
+async def test_a_december_position_starts_in_december_and_a_31st_moves_into_january(
+    before_due_day: AsyncConnection,
+):
+    """The year-end guard: month 12 must not become month 0 or 13."""
+    await seed_owner(before_due_day)
+    gym = await add_commitment(before_due_day, 1, "Gym", 20)
+    await add_position(before_due_day, gym, 2026, 12)
+    rent = await add_commitment(before_due_day, 2, "Rent", 31)
+    await add_position(before_due_day, rent, 2026, 11)
+
+    alembic("upgrade", DUE_DAY)
+
+    dates = await first_dates(before_due_day)
+    assert dates["Gym"] == date(2026, 12, 20)
+    assert dates["Rent"] == date(2026, 12, 31), "November has no 31st, December does"
+
+
+async def test_a_date_with_another_day_than_the_due_day_follows_the_due_day(
+    before_due_day: AsyncConnection,
+):
+    """The payday must not change silently: the old `due_day` wins over the date's day."""
+    await seed_owner(before_due_day)
+    await add_commitment(before_due_day, 1, "Insurance", 20, "2026-01-15", interval_months=3)
+    # The 31st does not exist in February: the date moves to March.
+    await add_commitment(before_due_day, 2, "Tax", 31, "2026-02-10", interval_months=6)
+    # November has no 31st either, so this one moves to December.
+    await add_commitment(before_due_day, 3, "Licence", 31, "2026-11-05", interval_months=12)
+
+    alembic("upgrade", DUE_DAY)
+
+    dates = await first_dates(before_due_day)
+    assert dates["Insurance"] == date(2026, 1, 20)
+    assert dates["Tax"] == date(2026, 3, 31)
+    assert dates["Licence"] == date(2026, 12, 31)
+
+
+async def test_a_date_that_is_already_there_is_left_alone(before_due_day: AsyncConnection):
+    await seed_owner(before_due_day)
+    await add_commitment(before_due_day, 1, "Insurance", 15, "2026-01-15", interval_months=3)
+
+    alembic("upgrade", DUE_DAY)
+
+    assert (await first_dates(before_due_day))["Insurance"] == date(2026, 1, 15)
+
+
+async def test_the_due_day_is_gone_and_the_start_date_is_required(
+    before_due_day: AsyncConnection,
+):
+    await seed_owner(before_due_day)
+    await add_commitment(before_due_day, 1, "Gym", 15)
+
+    alembic("upgrade", DUE_DAY)
+
+    assert await columns(before_due_day, "due_day") == {"plan_positions"}, (
+        "positions keep their own due day"
+    )
+    nullable = await before_due_day.scalar(
+        text(
+            "SELECT is_nullable FROM information_schema.columns"
+            " WHERE table_name = 'commitments' AND column_name = 'first_due_date'"
+        )
+    )
+    assert nullable == "NO"
+    left = await before_due_day.execute(
+        text(
+            "SELECT conname FROM pg_constraint WHERE conrelid = 'commitments'::regclass"
+            " AND conname IN ('ck_commitment_due_day', 'ck_commitment_first_due_date_required')"
+        )
+    )
+    assert left.all() == []
+
+
+async def test_the_downgrade_restores_the_due_day_from_the_date(
+    before_due_day: AsyncConnection,
+):
+    """Filled table, both kinds of row; the backfilled dates stay."""
+    await seed_owner(before_due_day)
+    await add_commitment(before_due_day, 1, "Insurance", 15, "2026-01-15", interval_months=3)
+    rent = await add_commitment(before_due_day, 2, "Rent", 31)
+    await add_position(before_due_day, rent, 2026, 2)
+    await add_commitment(before_due_day, 3, "Gym", 15)
+    alembic("upgrade", DUE_DAY)
+
+    alembic("downgrade", "-1")
+
+    rows = await before_due_day.execute(
+        text("SELECT name, due_day, first_due_date FROM commitments ORDER BY name")
+    )
+    month = await this_month(before_due_day)
+    assert rows.all() == [
+        ("Gym", 15, month.replace(day=15)),
+        ("Insurance", 15, date(2026, 1, 15)),
+        ("Rent", 31, date(2026, 3, 31)),
+    ]
+    restored = await before_due_day.execute(
+        text(
+            "SELECT conname FROM pg_constraint WHERE conrelid = 'commitments'::regclass"
+            " AND conname IN ('ck_commitment_due_day', 'ck_commitment_first_due_date_required')"
+        )
+    )
+    assert {name for (name,) in restored.all()} == {
+        "ck_commitment_due_day",
+        "ck_commitment_first_due_date_required",
+    }
+    nullable = await before_due_day.scalar(
+        text(
+            "SELECT is_nullable FROM information_schema.columns"
+            " WHERE table_name = 'commitments' AND column_name = 'first_due_date'"
+        )
+    )
+    assert nullable == "YES"

@@ -34,7 +34,7 @@ NOT_NULLABLE = (
     "category",
     "budget",
     "interval_months",
-    "due_day",
+    "first_due_date",
     "active",
     "is_limit",
     "pass_through",
@@ -178,12 +178,6 @@ async def update_commitment(
 
     # Re-derive after every change — the type can override the budget.
     commitment.budget = resolve_budget(commitment.budget, commitment.type)
-
-    # Catch what the database checks anyway, but with a readable error code.
-    if commitment.interval_months != 1 and commitment.first_due_date is None:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_CONTENT, detail={"code": "first_due_date_required"}
-        )
 
     await session.commit()
     await session.refresh(commitment)

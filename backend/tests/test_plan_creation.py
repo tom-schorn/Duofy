@@ -31,7 +31,6 @@ async def make_commitment(
     *,
     interval_months: int = 1,
     first_due_date: date = date(2026, 1, 1),
-    due_day: int = 1,
     active: bool = True,
     amount: str = "50.00",
     is_limit: bool = False,
@@ -45,7 +44,6 @@ async def make_commitment(
         budget=Budget.WANTS,
         interval_months=interval_months,
         first_due_date=first_due_date,
-        due_day=due_day,
         active=active,
         is_limit=is_limit,
     )
@@ -191,7 +189,7 @@ async def test_the_due_day_is_clamped_to_the_month_when_copied(
     client: AsyncClient, session: AsyncSession, owner: User
 ):
     """A due day of 31 becomes the position's actual last day of September: 30."""
-    await make_commitment(session, owner, "Rent", due_day=31)
+    await make_commitment(session, owner, "Rent", first_due_date=date(2026, 1, 31))
     await session.commit()
 
     response = await client.post("/api/v1/plans", json={"year": 2026, "month": 9})

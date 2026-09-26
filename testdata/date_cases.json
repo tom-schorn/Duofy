@@ -33,7 +33,6 @@
     { "case": "every month is due in the month after", "interval_months": 1, "first_due_date": "2026-03-15", "year": 2026, "month": 4, "expected": true },
     { "case": "every month is due across the year", "interval_months": 1, "first_due_date": "2026-03-15", "year": 2027, "month": 1, "expected": true },
     { "case": "every month is not due before its start", "interval_months": 1, "first_due_date": "2026-03-15", "year": 2026, "month": 2, "expected": false },
-    { "case": "every month without a start is always due", "interval_months": 1, "first_due_date": null, "year": 2026, "month": 6, "expected": true },
     { "case": "every 12 months from february is due in february a year on", "interval_months": 12, "first_due_date": "2026-02-10", "year": 2027, "month": 2, "expected": true },
     { "case": "every 12 months from february is not due in january", "interval_months": 12, "first_due_date": "2026-02-10", "year": 2027, "month": 1, "expected": false },
     { "case": "every 12 months from february is not due in august", "interval_months": 12, "first_due_date": "2026-02-10", "year": 2026, "month": 8, "expected": false },

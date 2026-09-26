@@ -33,7 +33,7 @@ def payload(**changes) -> dict:
         "category": "household.groceries",
         "budget": "needs",
         "intervalMonths": 1,
-        "dueDay": 1,
+        "firstDueDate": "2026-01-01",
     }
     return body | changes
 
@@ -111,7 +111,7 @@ async def test_a_limit_on_a_contract_is_accepted(
     assert response.json()["isLimit"] is True
 
 
-@pytest.mark.parametrize("field", ["isLimit", "name", "amount", "dueDay", "active", "budget"])
+@pytest.mark.parametrize("field", ["isLimit", "name", "amount", "firstDueDate", "active", "budget"])
 async def test_an_explicit_null_on_a_required_field_is_a_422_not_a_500(
     client: AsyncClient, owner: User, field: str
 ):
@@ -181,28 +181,27 @@ async def test_updating_to_an_interval_outside_the_range_is_rejected(
     assert "interval_months_out_of_range" in response.text
 
 
-async def test_a_longer_interval_without_a_start_date_is_rejected_on_create(
+async def test_a_commitment_without_a_first_due_date_is_rejected_even_when_monthly(
     client: AsyncClient, owner: User
 ):
+    """The date is the only source of the due day, so every commitment needs one."""
+    body = payload()
+    del body["firstDueDate"]
 
-    response = await client.post("/api/v1/commitments", json=payload(intervalMonths=3))
+    response = await client.post("/api/v1/commitments", json=body)
 
     assert response.status_code == 422
-    assert "first_due_date_required" in response.text
+    assert "firstDueDate" in response.text
 
 
-async def test_updating_to_a_longer_interval_without_a_start_date_is_rejected(
+async def test_the_due_day_is_read_from_the_first_due_date_and_not_sent_back(
     client: AsyncClient, owner: User
 ):
-    """The payload alone cannot say it — the stored commitment has no start either."""
-    created = await client.post("/api/v1/commitments", json=payload())
+    created = await client.post("/api/v1/commitments", json=payload(firstDueDate="2026-03-17"))
 
-    response = await client.patch(
-        f"/api/v1/commitments/{created.json()['id']}", json={"intervalMonths": 3}
-    )
-
-    assert response.status_code == 422
-    assert response.json()["detail"]["code"] == "first_due_date_required"
+    assert created.status_code == 201, created.text
+    assert created.json()["firstDueDate"] == "2026-03-17"
+    assert "dueDay" not in created.json()
 
 
 async def test_an_explicit_null_interval_is_not_allowed(

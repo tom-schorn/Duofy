@@ -39,7 +39,8 @@ def test_days_in_month_as_the_frontend_counts_them(case):
     ids=[case["case"] for case in CASES["effective_due_day"]],
 )
 def test_effective_due_day_as_the_frontend_clamps_it(case):
-    commitment = Commitment(due_day=case["due_day"])
+    # January has 31 days, so every day of the cases exists in the start date.
+    commitment = Commitment(first_due_date=date(2027, 1, case["due_day"]))
     assert commitment.effective_due_day(case["year"], case["month"]) == case["expected"]
 
 
@@ -47,9 +48,10 @@ def test_effective_due_day_as_the_frontend_clamps_it(case):
     "case", CASES["is_due_in"], ids=[case["case"] for case in CASES["is_due_in"]]
 )
 def test_is_due_in_as_the_frontend_counts_it(case):
-    start = date.fromisoformat(case["first_due_date"]) if case["first_due_date"] else None
     commitment = Commitment(
-        interval_months=case["interval_months"], first_due_date=start, active=True
+        interval_months=case["interval_months"],
+        first_due_date=date.fromisoformat(case["first_due_date"]),
+        active=True,
     )
     assert commitment.is_due_in(case["year"], case["month"]) is case["expected"]
 
