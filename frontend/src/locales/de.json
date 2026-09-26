@@ -221,6 +221,8 @@
     "positionSaved": "Posten gespeichert",
     "deleted": "„{{name}}\" gelöscht",
     "positionUpdated": "Posten aktualisiert",
+    "unticked": "{{label}}: Haken weggenommen",
+    "tickedKept": "{{label}} abgehakt. Die vorhandenen Buchungen bleiben unverändert.",
     "ticked": "{{label}} abgehakt: {{amount}} gebucht",
     "tickedIncome": "{{label}} abgehakt: {{amount}} erhalten"
   },
@@ -319,7 +321,7 @@
     "submit": "Abhaken",
     "title": "{{label}} abhaken",
     "hasBookings": "Dieser Posten hat schon Buchungen. Abhaken legt keine neue an, deshalb werden Datum und Betrag nicht verwendet.",
-    "outsideMonth": "Das Datum liegt nicht in {{month}}. Die Buchung zählt trotzdem für diesen Plan."
+    "outsideMonth": "Das Datum liegt nicht im {{month}}. Die Buchung zählt trotzdem für diesen Plan."
   },
   "common": {
     "date": "Datum",

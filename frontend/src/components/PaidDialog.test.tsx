@@ -38,7 +38,7 @@ describe('PaidDialog', () => {
         planMonth={{ year: 2000, month: 1 }}
       />
     )
-    expect(screen.getByRole('status')).toHaveTextContent('Das Datum liegt nicht in Januar 2000.')
+    expect(screen.getByRole('status')).toHaveTextContent('Das Datum liegt nicht im Januar 2000. Die Buchung zählt trotzdem für diesen Plan.')
     await user.click(screen.getByRole('button', { name: 'Abhaken' }))
     expect(onConfirm).toHaveBeenCalled()
   })
