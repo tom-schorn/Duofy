@@ -90,6 +90,7 @@ jobs:
 
       # Types first: if they fail, the other two say nothing useful.
       - run: npx tsc --noEmit -p tsconfig.app.json
+      - run: npx tsc --noEmit -p tsconfig.test.json
 
       - run: npm run lint
 
