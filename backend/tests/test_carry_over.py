@@ -13,9 +13,10 @@ from httpx import AsyncClient
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.enums import Budget, Category, TransactionKind
+from app.models.enums import AccessLevel, Budget, Category, TransactionKind
 from app.models.transaction import Transaction
 from tests.test_area_permissions import make_user
+from tests.test_delegation import grant_area, pair  # noqa: F401  (pair is a fixture)
 from tests.test_imports import sign_in
 from tests.test_mark_paid import make_account
 
@@ -222,3 +223,117 @@ async def test_the_suggestion_is_the_book_balance_at_the_end_of_the_month_before
 
     assert response.status_code == 200
     assert Decimal(response.json()["amount"]) == Decimal("950.00")
+
+
+# --- Deleting, races and rights -------------------------------------------
+
+
+async def test_an_account_with_only_a_carry_over_is_still_deletable(client, setup):
+    _, account = setup
+    await carry(client, account, "2026-10-01", "100.00")
+
+    listed = (await client.get("/api/v1/accounts")).json()
+    assert next(row for row in listed if row["id"] == str(account.id))["deletable"] is True
+
+    assert (await client.delete(f"/api/v1/accounts/{account.id}")).status_code == 204
+
+
+async def test_an_account_with_a_booking_and_a_carry_over_is_not_deletable(client, setup):
+    _, account = setup
+    await book(client, account, "2026-09-10", "40.00")
+    await carry(client, account, "2026-10-01", "100.00")
+
+    response = await client.delete(f"/api/v1/accounts/{account.id}")
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "account_has_transactions"
+
+
+async def test_moving_a_carry_over_to_a_stranger_account_is_refused_before_taken_is_said(
+    client: AsyncClient, session: AsyncSession, setup
+):
+    _, account = setup
+    stranger = await make_user(session, "Stranger")
+    theirs = await make_account(session, stranger, "Theirs", is_default=True)
+    theirs_id = theirs.id
+    session.add(
+        Transaction(
+            owner_id=stranger.id,
+            account_id=theirs_id,
+            kind=TransactionKind.CARRY_OVER,
+            occurred_on=date(2026, 10, 1),
+            amount=Decimal("1.00"),
+        )
+    )
+    await session.commit()
+    created = (await carry(client, account, "2026-10-01", "100.00")).json()
+
+    response = await client.patch(
+        f"/api/v1/transactions/{created['id']}", json={"accountId": str(theirs_id)}
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] != "carry_over_exists"
+
+
+async def test_a_member_with_edit_may_set_a_carry_over_on_another_account(
+    client: AsyncClient, session: AsyncSession, pair  # noqa: F811
+):
+    owner, helper, household = pair
+    account = await make_account(session, owner, "Giro", is_default=True)
+    account_id = account.id
+    await grant_area(session, household, owner, "accounts", AccessLevel.EDIT)
+    sign_in(helper)
+
+    response = await client.post(
+        "/api/v1/transactions",
+        json={
+            "kind": "carry_over",
+            "accountId": str(account_id),
+            "occurredOn": "2026-10-01",
+            "amount": "10.00",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["ownerId"] == str(owner.id)
+
+
+async def test_a_member_with_view_may_not_set_a_carry_over_but_may_read_the_suggestion(
+    client: AsyncClient, session: AsyncSession, pair  # noqa: F811
+):
+    owner, helper, household = pair
+    account = await make_account(session, owner, "Giro", is_default=True)
+    account_id = account.id
+    await grant_area(session, household, owner, "accounts", AccessLevel.VIEW)
+    sign_in(helper)
+
+    refused = await client.post(
+        "/api/v1/transactions",
+        json={
+            "kind": "carry_over",
+            "accountId": str(account_id),
+            "occurredOn": "2026-10-01",
+            "amount": "10.00",
+        },
+    )
+    suggestion = await client.get(
+        f"/api/v1/accounts/{account_id}/carry-over-suggestion?year=2026&month=10"
+    )
+
+    assert refused.status_code == 403
+    assert suggestion.status_code == 200
+
+
+async def test_the_suggestion_needs_view(client: AsyncClient, session: AsyncSession, pair):  # noqa: F811
+    owner, helper, _ = pair
+    account = await make_account(session, owner, "Giro", is_default=True)
+    account_id = account.id
+    await session.commit()
+    sign_in(helper)
+
+    response = await client.get(
+        f"/api/v1/accounts/{account_id}/carry-over-suggestion?year=2026&month=10"
+    )
+
+    assert response.status_code == 403
