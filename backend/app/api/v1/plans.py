@@ -8,10 +8,12 @@ live under `/positions`, otherwise `positions` would collide with the year.
 """
 
 import uuid
+from calendar import monthrange
+from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -25,11 +27,14 @@ from app.core.permissions import (
     require,
 )
 from app.db.session import get_session
+from app.models.account import Account
 from app.models.commitment import Commitment
 from app.models.enums import AccessLevel, Budget
 from app.models.household import Household, HouseholdMember
 from app.models.plan import Plan, PlanPosition
+from app.models.transaction import Transaction
 from app.models.user import User
+from app.schemas.flow import FlowRead
 from app.schemas.plan import (
     BudgetTotals,
     HouseholdPlanRead,
@@ -41,6 +46,7 @@ from app.schemas.plan import (
     PositionCreate,
     PositionRead,
 )
+from app.services.flow import Source, build_flow
 from app.services.hints import plan_hints
 
 router = APIRouter()
@@ -399,6 +405,133 @@ async def get_household_plan(
             positions=positions,
         )
     )
+
+
+# --- Verlauf --------------------------------------------------------------
+
+
+async def _sources(
+    session: AsyncSession,
+    rows: list[tuple[uuid.UUID, list[PlanPosition]]],
+    year: int,
+    month: int,
+    *,
+    with_manual: bool,
+) -> list[Source]:
+    """One source per person: default account, positions and the bookings the
+    flow needs. Manual bookings (no position) are read only for the own plan."""
+    owner_ids = [owner_id for owner_id, _ in rows]
+    accounts = {
+        account.owner_id: account
+        for account in (
+            await session.execute(
+                select(Account).where(Account.owner_id.in_(owner_ids), Account.is_default)
+            )
+        ).scalars()
+    }
+    position_ids = [p.id for _, positions in rows for p in positions]
+    first, last = date(year, month, 1), date(year, month, monthrange(year, month)[1])
+
+    conditions = [Transaction.position_id.in_(position_ids)]
+    if with_manual and accounts:
+        default_ids = [account.id for account in accounts.values()]
+        conditions.append(
+            (Transaction.position_id.is_(None))
+            & Transaction.owner_id.in_(owner_ids)
+            & Transaction.occurred_on.between(first, last)
+            & (
+                Transaction.account_id.in_(default_ids)
+                | Transaction.counter_account_id.in_(default_ids)
+            )
+        )
+    transactions = (
+        (await session.execute(select(Transaction).where(or_(*conditions)))).scalars().all()
+    )
+
+    sources = []
+    for owner_id, positions in rows:
+        account = accounts.get(owner_id)
+        ids = {p.id for p in positions}
+        sources.append(
+            Source(
+                account_id=account.id if account else None,
+                account_name=account.name if account else None,
+                positions=positions,
+                transactions=[
+                    tx
+                    for tx in transactions
+                    if tx.position_id in ids or (tx.position_id is None and tx.owner_id == owner_id)
+                ],
+            )
+        )
+    return sources
+
+
+@router.get("/{year}/{month}/flow", response_model=FlowRead)
+async def get_flow(
+    year: int,
+    month: int,
+    owner: uuid.UUID | None = None,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_active_user),
+) -> FlowRead:
+    """The flow of one month on the default account of the plan owner.
+
+    Same access as `get_plan`. Limits follow the setting of **the viewer**, not the
+    owner: it is a question of the view, so whoever looks decides.
+    """
+    owner_id = owner or user.id
+    if owner_id != user.id:
+        level = await granted_level(session, owner_id, user.id, Area.PLAN)
+        require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
+
+    result = await session.execute(
+        select(Plan)
+        .where(Plan.user_id == owner_id, Plan.year == year, Plan.month == month)
+        .options(selectinload(Plan.positions))
+    )
+    plan = result.scalar_one_or_none()
+    if plan is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "plan_not_found"})
+
+    sources = await _sources(
+        session, [(owner_id, list(plan.positions))], year, month, with_manual=True
+    )
+    return build_flow(sources, year, month, user.flow_limits_by, merged=False)
+
+
+@router.get("/household/{household_id}/{year}/{month}/flow", response_model=FlowRead)
+async def get_household_flow(
+    household_id: uuid.UUID,
+    year: int,
+    month: int,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_active_user),
+) -> FlowRead:
+    """One curve over the household positions of every member, like the household
+    plan itself: a lens, nothing stored. It answers whether it works out together,
+    not where money is missing."""
+    require(await is_member(session, user.id, household_id), "not_household_member")
+
+    result = await session.execute(
+        select(PlanPosition, Plan.user_id)
+        .join(Plan, Plan.id == PlanPosition.plan_id)
+        .join(HouseholdMember, HouseholdMember.user_id == Plan.user_id)
+        .where(
+            PlanPosition.household_id == household_id,
+            HouseholdMember.household_id == household_id,
+            Plan.year == year,
+            Plan.month == month,
+        )
+    )
+    by_owner: dict[uuid.UUID, list[PlanPosition]] = {}
+    for position, owner_id in result.unique().all():
+        by_owner.setdefault(owner_id, []).append(position)
+
+    sources = await _sources(
+        session, list(by_owner.items()), year, month, with_manual=False
+    )
+    return build_flow(sources, year, month, user.flow_limits_by, merged=True)
 
 
 # --- Hilfen ---------------------------------------------------------------
