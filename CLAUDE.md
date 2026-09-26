@@ -34,7 +34,7 @@ keine eigene Tabelle. Der Haushalt besitzt nichts — kein Konto, keinen Plan.
 
 ## Repo
 
-Monorepo, Arbeitsbranch `develop`, Default `main`.
+Monorepo, Hauptzweig `main` (Trunk), keine langen Zweige.
 
 ```
 backend/   FastAPI · SQLAlchemy 2 (async) · Alembic · Postgres · uv
@@ -65,9 +65,14 @@ Genau das läuft in der CI. Backend-Tests brauchen ein echtes Postgres
   Automatisierungen · Entscheidungen und warum · Akzeptanzkriterien · Offene
   Fragen · Nicht im Umfang
 - **Branch:** `typ/issue-nummer-kurzbeschreibung` (`feat`, `fix`, `docs`,
-  `refactor`, `test`, `chore`)
-- **PR-Titel** nach Conventional Commits — daraus entstehen Version und Changelog.
-  Squash nach `develop`, Merge-Commit nach `main`
+  `refactor`, `test`, `chore`), immer von `main` abgezweigt und höchstens ein
+  Stück lang
+- **Rebase-Merge nach `main`**, kein Squash: die Einzelcommits bleiben. Deshalb ist
+  **jeder Commit** nach Conventional Commits geschrieben (die CI prüft jeden
+  Betreff, ebenso den PR-Titel) und macht genau eine Sache. Daraus entstehen
+  Version und Changelog
+- **Release** über release-please auf `main`: sein Release-PR erzeugt Tag und
+  Images (`:latest` und Versionstag); jeder Push auf `main` baut `:dev`
 - **Jeder Commit signiert** (`git commit -s`, DCO). Commits über die API brauchen
   die Zeile `Signed-off-by:` in der Nachricht, sonst bleibt der PR rot
 - **Version** steht nur in `version.txt`
@@ -168,8 +173,8 @@ nach Abhängigkeiten:
 5. #91, #84
 6. Release: #15, #64, #65, #66, zuletzt #58 (Hilfespalte) und #96 (README, Wiki)
 
-Querschnitt, erledigt: #117 Logging, #118 Dependabot, #119 ADR-Ordner. Offen:
-#116 Trunk statt develop (Zeitpunkt klären).
+Querschnitt, erledigt: #116 Trunk statt develop (Dateien; Einstellungen auf GitHub folgen), #117 Logging,
+#118 Dependabot, #119 ADR-Ordner.
 
 V2: Verträge und Forderungen (#89), Gemeinschaftskonten (#92), Sparziele mit
 eigenem Stand (#86). V3: Anträge (#90).
