@@ -13,9 +13,18 @@ const FIELDS = [
   ['bufferPercent', 'quota.buffer'],
 ] as const
 
-/** Percent as typed, comma or point; NaN while it is not a number. */
+/** Digits with at most two decimals, comma or point: no "1e2", no "0x10". */
+const PERCENT = /^\d+([.,]\d{1,2})?$/
+
+/** Percent as typed; NaN while it is not one. */
 function percent(text: string): number {
-  return text.trim() === '' ? NaN : Number(text.replace(',', '.'))
+  const trimmed = text.trim()
+  return PERCENT.test(trimmed) ? Number(trimmed.replace(',', '.')) : NaN
+}
+
+/** Rounded to two decimals, so 33.33 + 33.33 + 33.34 compares as exactly 100. */
+function cents(value: number): number {
+  return Math.round(value * 100) / 100
 }
 
 /** `50.00` from the API becomes `50` in the field. */
@@ -68,8 +77,8 @@ export function QuotaDialog({
 
   const numbers = FIELDS.map(([key]) => percent(text[key]))
   const valid = numbers.every((n) => n >= 0 && n <= 100)
-  const sum = numbers[0] + numbers[1] + numbers[2]
-  const adds = valid && Math.abs(sum - 100) < 0.005
+  const sum = cents(numbers[0] + numbers[1] + numbers[2])
+  const adds = valid && sum === 100
 
   return (
     <DialogFrame

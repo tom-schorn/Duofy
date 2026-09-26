@@ -69,4 +69,29 @@ describe('quota dialog', () => {
       bufferPercent: '5.5',
     })
   })
+
+  test('adds 33,33 + 33,33 + 33,34 to exactly 100 without floating point noise', async () => {
+    const user = userEvent.setup()
+    open()
+    for (const [label, value] of [
+      ['Grundbedarf in %', '33,33'],
+      [i18n.t('quota.wants'), '33,33'],
+      [i18n.t('quota.savings'), '33,34'],
+    ]) {
+      const field = screen.getByLabelText(label)
+      await user.clear(field)
+      await user.type(field, value)
+    }
+    expect(screen.getByText('Zusammen: 100 %')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Speichern' })).toBeEnabled()
+  })
+
+  test.each(['1e2', '0x10', '50,555'])('does not accept %s as a percent', async (text) => {
+    const user = userEvent.setup()
+    open()
+    const needs = screen.getByLabelText('Grundbedarf in %')
+    await user.clear(needs)
+    await user.type(needs, text)
+    expect(screen.getByRole('button', { name: 'Speichern' })).toBeDisabled()
+  })
 })
