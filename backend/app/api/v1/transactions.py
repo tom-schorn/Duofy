@@ -39,6 +39,9 @@ router = APIRouter()
 
 ZERO = Decimal("0.00")
 
+#: Cannot be cleared on a change.
+NOT_NULLABLE = ("account_id", "occurred_on", "amount")
+
 
 async def _may_book_for(
     session: AsyncSession,
@@ -252,6 +255,39 @@ async def update_transaction(
 ) -> Transaction:
     transaction = await _load(session, transaction_id, user)
     changes = payload.model_dump(exclude_unset=True)
+
+    # An explicit null on these would reach the database as a server error.
+    for field in NOT_NULLABLE:
+        if field in changes and changes[field] is None:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, detail={"code": "null_not_allowed"}
+            )
+    # A booking made by ticking a position off belongs to that position: taking it
+    # away would leave the position ticked with nothing behind it.
+    if (
+        transaction.auto_booked
+        and "position_id" in changes
+        and changes["position_id"] != transaction.position_id
+    ):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, detail={"code": "auto_booking_keeps_position"}
+        )
+    # The same shape rules as on create, against what the booking will be after the
+    # change — a single field can break the pair it belongs to.
+    merged = {
+        field: changes[field] if field in changes else getattr(transaction, field)
+        for field in ("account_id", "counter_account_id", "category", "budget")
+    }
+    if merged["counter_account_id"] is None:
+        if merged["category"] is None or merged["budget"] is None:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, detail={"code": "purpose_required"}
+            )
+    elif merged["counter_account_id"] == merged["account_id"]:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={"code": "transfer_needs_two_accounts"},
+        )
 
     for field in ("account_id", "counter_account_id"):
         if changes.get(field) is not None:
