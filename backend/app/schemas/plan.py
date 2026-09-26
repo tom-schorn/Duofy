@@ -89,10 +89,14 @@ class PlanCreate(Schema):
 
 
 class PlanUpdate(Schema):
-    target_needs: Decimal | None = Field(default=None, ge=0, le=100)
-    target_wants: Decimal | None = Field(default=None, ge=0, le=100)
-    target_savings: Decimal | None = Field(default=None, ge=0, le=100)
-    buffer_percent: Decimal | None = Field(default=None, ge=0, le=100)
+    target_needs: Decimal | None = Field(default=None, ge=0, le=100, max_digits=5, decimal_places=2)
+    target_wants: Decimal | None = Field(default=None, ge=0, le=100, max_digits=5, decimal_places=2)
+    target_savings: Decimal | None = Field(
+        default=None, ge=0, le=100, max_digits=5, decimal_places=2
+    )
+    buffer_percent: Decimal | None = Field(
+        default=None, ge=0, le=100, max_digits=5, decimal_places=2
+    )
 
     @model_validator(mode="after")
     def _quotas_add_up(self) -> "PlanUpdate":
@@ -153,4 +157,3 @@ class HouseholdPlanRead(PlanSummary):
     household_id: uuid.UUID
     household_name: str
     positions: list[HouseholdPositionRead]
-
