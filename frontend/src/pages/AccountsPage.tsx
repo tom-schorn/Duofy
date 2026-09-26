@@ -22,14 +22,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { DialogFrame } from '@/components/DialogFrame'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -40,7 +33,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { errorText } from '@/lib/api'
 import {
   atLeast,
   accountTypeLabel,
@@ -218,199 +210,185 @@ function AccountDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault()
-            save.mutate(
-              { ...draft, id: draft.id || undefined },
-              { onSuccess: () => onOpenChange(false) }
-            )
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle>
-              {isEdit ? t('accounts.edit') : t('accounts.create')}
-            </DialogTitle>
-            <DialogDescription>
-              {t('accounts.dialogDescription')}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex flex-col gap-4 py-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="account-name">{t('positionDialog.label')}</Label>
-              <Input
-                id="account-name"
-                value={draft.name}
-                onChange={(event) => set('name', event.target.value)}
-                placeholder={t('accounts.namePlaceholder')}
-                required
-              />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label>{t('accounts.type')}</Label>
-              <Select
-                value={draft.type}
-                onValueChange={(value) => set('type', value as AccountType)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TYPES.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {accountTypeLabel(type)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="account-balance">{t('accounts.openingBalance')}</Label>
-                <Input
-                  id="account-balance"
-                  type="number"
-                  step="0.01"
-                  inputMode="decimal"
-                  value={draft.openingBalance}
-                  onChange={(event) =>
-                    set('openingBalance', event.target.value)
-                  }
-                  placeholder="0,00"
-                  required
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                {/* Ohne Stichtag wäre der Stand zu einem Zeitpunkt nicht
-                    berechenbar — man wüsste nicht, welche Buchungen schon
-                    im Anfangsbestand stecken. */}
-                <Label htmlFor="account-date">{t('accounts.openingDate')}</Label>
-                <DateField
-                  id="account-date"
-                  value={draft.openingDate}
-                  onChange={(iso) => set('openingDate', iso)}
-                />
-              </div>
-            </div>
-
-            {/* Die IBAN ist der Schlüssel zur Umbuchungserkennung: steht sie als
-                Gegenpartei auf einer importierten Zeile, ist das keine Ausgabe,
-                sondern eine Bewegung zwischen zwei eigenen Konten. Ein Import
-                trägt sie von allein ein — von Hand ist sie für das Konto da,
-                das nie eine Datei liefert. Meist das Sparkonto, und das ist
-                genau das, wohin am häufigsten umgebucht wird. */}
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="account-iban">{t('accounts.iban')}</Label>
-              <Input
-                id="account-iban"
-                value={draft.externalRef ?? ''}
-                onChange={(event) =>
-                  set('externalRef', event.target.value || null)
-                }
-                placeholder={t('accounts.ibanPlaceholder')}
-                autoComplete="off"
-                spellCheck={false}
-              />
-              <p className="text-muted-foreground text-xs">
-                {t('accounts.ibanHint')}
-              </p>
-            </div>
-
-            <div className="border-border flex items-center justify-between gap-4 rounded-lg border p-3">
-              <span className="flex flex-col">
-                <span className="text-sm font-medium">{t('common.defaultAccount')}</span>
-                <span className="text-muted-foreground text-xs">
-                  {t('accounts.defaultHint')}
-                </span>
-              </span>
-              <Switch
-                checked={draft.isDefault}
-                onCheckedChange={(value) => set('isDefault', value)}
-              />
-            </div>
-
-            {/* Der Schalter, der das Buch beeinflusst: liegt Zweckgebundenes
-                auf dem Konto, ist eine Umbuchung dorthin eine Ausgabe. */}
-            <div className="border-border flex items-center justify-between gap-4 rounded-lg border p-3">
-              <span className="flex flex-col">
-                <span className="text-sm font-medium">{t('accounts.countsAsAvailable')}</span>
-                <span className="text-muted-foreground text-xs">
-                  {t('accounts.countsAsAvailableHint')}
-                </span>
-              </span>
-              <Switch
-                checked={draft.countsAsAvailable}
-                onCheckedChange={(value) => set('countsAsAvailable', value)}
-              />
-            </div>
-
-            <div className="border-border flex items-center justify-between gap-4 rounded-lg border p-3">
-              <span className="flex flex-col">
-                <span className="text-sm font-medium">{t('accounts.active')}</span>
-                <span className="text-muted-foreground text-xs">
-                  {t('accounts.activeHint')}
-                </span>
-              </span>
-              <Switch
-                checked={draft.active}
-                onCheckedChange={(value) => set('active', value)}
-              />
-            </div>
-
-            {(save.isError || remove.isError) && (
-              <p role="alert" className="text-destructive text-sm">
-                {errorText(save.error ?? remove.error)}
-              </p>
-            )}
-          </div>
-
-          <DialogFooter className="gap-2 sm:justify-between">
-            {isEdit && mayDelete && draft.deletable ? (
-              <Button
-                type="button"
-                variant="ghost"
-                className="text-destructive"
-                onClick={() => setConfirming(true)}
-              >
-                <Trash2 className="size-4" />
-                {t('common.delete')}
-              </Button>
-            ) : (
-              <span />
-            )}
-            <Button type="submit" disabled={save.isPending}>
-              {save.isPending ? t('accounts.saving') : t('accounts.save')}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-      <AlertDialog open={confirming} onOpenChange={setConfirming}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="font-heading">
-              {t('accounts.deleteTitle', { name: draft.name })}
-            </AlertDialogTitle>
-            <AlertDialogDescription>{t('accounts.deleteText')}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() =>
-                remove.mutate(draft.id, {
-                  onSuccess: () => onOpenChange(false),
-                })
-              }
+    <DialogFrame
+      open={open}
+      onOpenChange={onOpenChange}
+      title={isEdit ? t('accounts.edit') : t('accounts.create')}
+      description={t('accounts.dialogDescription')}
+      submitLabel={isEdit ? t('common.save') : t('common.create')}
+      onSubmit={(event) => {
+        event.preventDefault()
+        save.mutate(
+          { ...draft, id: draft.id || undefined },
+          { onSuccess: () => onOpenChange(false) }
+        )
+      }}
+      dirty={JSON.stringify(draft) !== JSON.stringify(account ?? emptyAccount(false))}
+      pending={save.isPending}
+      error={save.isError || remove.isError ? (save.error ?? remove.error) : null}
+      start={
+        isEdit && mayDelete && draft.deletable ? (
+          // Moves into the ⋯ menu with #141.
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-destructive"
+              onClick={() => setConfirming(true)}
             >
+              <Trash2 className="size-4" />
               {t('common.delete')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </Dialog>
+            </Button>
+          <AlertDialog open={confirming} onOpenChange={setConfirming}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="font-heading">
+                  {t('accounts.deleteTitle', { name: draft.name })}
+                </AlertDialogTitle>
+                <AlertDialogDescription>{t('accounts.deleteText')}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() =>
+                    remove.mutate(draft.id, {
+                      onSuccess: () => onOpenChange(false),
+                    })
+                  }
+                >
+                  {t('common.delete')}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          </>
+        ) : undefined
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="account-name">{t('positionDialog.label')}</Label>
+          <Input
+            id="account-name"
+            value={draft.name}
+            onChange={(event) => set('name', event.target.value)}
+            placeholder={t('accounts.namePlaceholder')}
+            required
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label>{t('accounts.type')}</Label>
+          <Select
+            value={draft.type}
+            onValueChange={(value) => set('type', value as AccountType)}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {TYPES.map((type) => (
+                <SelectItem key={type} value={type}>
+                  {accountTypeLabel(type)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="account-balance">{t('accounts.openingBalance')}</Label>
+            <Input
+              id="account-balance"
+              type="number"
+              step="0.01"
+              inputMode="decimal"
+              value={draft.openingBalance}
+              onChange={(event) =>
+                set('openingBalance', event.target.value)
+              }
+              placeholder="0,00"
+              required
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            {/* Ohne Stichtag wäre der Stand zu einem Zeitpunkt nicht
+                berechenbar — man wüsste nicht, welche Buchungen schon
+                im Anfangsbestand stecken. */}
+            <Label htmlFor="account-date">{t('accounts.openingDate')}</Label>
+            <DateField
+              id="account-date"
+              value={draft.openingDate}
+              onChange={(iso) => set('openingDate', iso)}
+            />
+          </div>
+        </div>
+
+        {/* Die IBAN ist der Schlüssel zur Umbuchungserkennung: steht sie als
+            Gegenpartei auf einer importierten Zeile, ist das keine Ausgabe,
+            sondern eine Bewegung zwischen zwei eigenen Konten. Ein Import
+            trägt sie von allein ein — von Hand ist sie für das Konto da,
+            das nie eine Datei liefert. Meist das Sparkonto, und das ist
+            genau das, wohin am häufigsten umgebucht wird. */}
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="account-iban">{t('accounts.iban')}</Label>
+          <Input
+            id="account-iban"
+            value={draft.externalRef ?? ''}
+            onChange={(event) =>
+              set('externalRef', event.target.value || null)
+            }
+            placeholder={t('accounts.ibanPlaceholder')}
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <p className="text-muted-foreground text-xs">
+            {t('accounts.ibanHint')}
+          </p>
+        </div>
+
+        <div className="border-border flex items-center justify-between gap-4 rounded-lg border p-3">
+          <span className="flex flex-col">
+            <span className="text-sm font-medium">{t('common.defaultAccount')}</span>
+            <span className="text-muted-foreground text-xs">
+              {t('accounts.defaultHint')}
+            </span>
+          </span>
+          <Switch
+            checked={draft.isDefault}
+            onCheckedChange={(value) => set('isDefault', value)}
+          />
+        </div>
+
+        {/* Der Schalter, der das Buch beeinflusst: liegt Zweckgebundenes
+            auf dem Konto, ist eine Umbuchung dorthin eine Ausgabe. */}
+        <div className="border-border flex items-center justify-between gap-4 rounded-lg border p-3">
+          <span className="flex flex-col">
+            <span className="text-sm font-medium">{t('accounts.countsAsAvailable')}</span>
+            <span className="text-muted-foreground text-xs">
+              {t('accounts.countsAsAvailableHint')}
+            </span>
+          </span>
+          <Switch
+            checked={draft.countsAsAvailable}
+            onCheckedChange={(value) => set('countsAsAvailable', value)}
+          />
+        </div>
+
+        <div className="border-border flex items-center justify-between gap-4 rounded-lg border p-3">
+          <span className="flex flex-col">
+            <span className="text-sm font-medium">{t('accounts.active')}</span>
+            <span className="text-muted-foreground text-xs">
+              {t('accounts.activeHint')}
+            </span>
+          </span>
+          <Switch
+            checked={draft.active}
+            onCheckedChange={(value) => set('active', value)}
+          />
+        </div>
+        </div>
+    </DialogFrame>
   )
 }

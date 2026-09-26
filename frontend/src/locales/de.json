@@ -560,9 +560,7 @@
     "countsAsAvailable": "Zählt als verfügbar",
     "countsAsAvailableHint": "Aus beim Tagesgeld oder Depot: was dorthin wandert, gilt im Buch als ausgegeben. An bei Giro und PayPal — dort bleibt das Geld greifbar.",
     "active": "Aktiv",
-    "activeHint": "Aufgelöste Konten bleiben stehen, damit alte Buchungen ihren Bezug behalten.",
-    "saving": "Wird gesichert…",
-    "save": "Sichern"
+    "activeHint": "Aufgelöste Konten bleiben stehen, damit alte Buchungen ihren Bezug behalten."
   },
   "household": {
     "roles": {
