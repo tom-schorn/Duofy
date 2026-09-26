@@ -13,8 +13,9 @@ Closes #
 
 ### About the title
 
-On merge, the **title of this pull request** becomes the commit message, and the
-version number and changelog are derived from it. So it has to follow the pattern:
+Pull requests are rebase-merged: **every commit** of your branch lands on `main`
+as it is, and the version number and changelog are derived from those commit
+subjects. So the title and each commit subject have to follow the pattern:
 
 | Title | Next version |
 |---|---|
@@ -28,7 +29,7 @@ what the leading zero means. The `!` still belongs on the title, and a line
 `BREAKING CHANGE: …` in the body: it ends up in the changelog and tells
 self-hosters what they have to do when updating.
 
-The commits **inside** your branch may be called anything.
+Both are checked. Keep each commit to one thing, because they are not squashed.
 
 ### Before submitting
 

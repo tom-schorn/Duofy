@@ -1,12 +1,10 @@
 # Weekly update proposals, one grouped pull request per area. Nothing is merged
 # automatically: every update runs through the same checks as any other pull request.
 # Versions stay pinned; Dependabot only changes the pins.
-# target-branch is develop for now and changes to main with the trunk switch (#116).
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /frontend
-    target-branch: develop
     schedule:
       interval: weekly
     versioning-strategy: increase
@@ -18,7 +16,6 @@ updates:
 
   - package-ecosystem: uv
     directory: /backend
-    target-branch: develop
     schedule:
       interval: weekly
     commit-message:
@@ -29,7 +26,6 @@ updates:
 
   - package-ecosystem: github-actions
     directory: /
-    target-branch: develop
     schedule:
       interval: weekly
     commit-message:
@@ -42,7 +38,6 @@ updates:
     directories:
       - /backend
       - /frontend
-    target-branch: develop
     schedule:
       interval: weekly
     commit-message:
