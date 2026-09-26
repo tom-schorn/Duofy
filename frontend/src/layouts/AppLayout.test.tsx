@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeAll, describe, expect, test } from 'vitest'
 
 import { TooltipProvider } from '@/components/ui/tooltip'
+import de from '@/locales/de.json'
 import { AppLayout } from '@/layouts/AppLayout'
 
 function renderAt(path: string) {
@@ -36,13 +37,13 @@ describe('AppLayout', () => {
 
   test('each sidebar entry is one link, with no button inside it', () => {
     renderAt('/book')
-    const link = screen.getByRole('link', { name: 'Verträge' })
+    const link = screen.getByRole('link', { name: de.nav.commitments })
     expect(link.querySelector('button')).toBeNull()
     expect(link.closest('button')).toBeNull()
   })
 
   test('the header shows the title of the page, not a placeholder', () => {
     renderAt('/contracts')
-    expect(screen.getByText('Verträge', { selector: 'header span' })).toBeInTheDocument()
+    expect(screen.getByText(de.nav.commitments, { selector: 'header span' })).toBeInTheDocument()
   })
 })
