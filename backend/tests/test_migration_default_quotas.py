@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from tests.test_migrations import (
     REMAINING_DEBT,
     alembic,
+    at_revision,  # noqa: F401  (a fixture, used by name below)
     columns,
     seed_owner,
 )
