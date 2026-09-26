@@ -179,10 +179,11 @@ async def leave_household(
 ) -> None:
     """Austreten.
 
-    Die eingebrachten Posten **bleiben im Haushalt stehen**. Das ist Absicht: was
-    gemeinsam geplant war, war gemeinsam geplant, und ein Austritt schreibt keine
-    vergangenen Monate um. In neue Pläne fließt nichts mehr, weil die Mitgliedschaft
-    fehlt.
+    Wer austritt, sieht die gemeinsamen Pläne des Haushalts nicht mehr, und die
+    anderen sehen seine Posten dort in keinem Monat mehr, auch nicht in vergangenen:
+    die gemeinsame Sicht wird aus den Plänen der *aktuellen* Mitglieder
+    zusammengesetzt. Gelöscht wird nichts. Die eigenen Pläne, Konten und Verträge
+    bleiben bei der Person.
 
     `ON DELETE SET NULL` an `plan_positions.household_id` greift hier nicht — es
     hängt am Haushalt, nicht an der Mitgliedschaft. Diese Zeile löscht nur die
