@@ -13,13 +13,13 @@ Code und Leitfaden sich widersprechen, gilt der Leitfaden, und der Code wird ang
 
 Die Beispiele nennen nur erfundene Demo-Daten (siehe „Keine echten Daten“ in `CLAUDE.md`).
 
-Mindestgrößen der Bedienelemente in Zeilen: das Menü ⋯ 32 px, das Kästchen zum Abhaken 24 px.
+Mindestgröße der Bedienelemente in Zeilen: das Kästchen zum Abhaken 24 px.
 
 ## Zeile
 
 **1. Ein Klick auf eine Zeile öffnet sie zum Bearbeiten, überall in der Zeile.**
-Name, Untertitel, Betrag und Leerraum tun dasselbe; nur die eigenen Bedienelemente der Zeile (das
-Kästchen zum Abhaken, das Menü ⋯) tun etwas anderes.
+Name, Untertitel, Betrag und Leerraum tun dasselbe; nur das eigene Bedienelement der Zeile (das
+Kästchen zum Abhaken) tut etwas anderes.
 *Warum:* Dieselbe Geste soll überall dasselbe bewirken. Große Flächen sind leicht zu treffen.
 *So:* Klick auf „Miete“ oder auf den Betrag daneben öffnet „Posten bearbeiten“. *Nicht so:* Nur der
 Name ist klickbar, der Betrag tut nichts, und bei Verträgen geht Bearbeiten nur über ein Menü.
@@ -32,7 +32,7 @@ haben weder Hover noch Ring oder Schatten, die wie eine Schaltfläche wirken.
 *So:* Eine Kennzahl ist flach. *Nicht so:* Eine Kennzahl mit Ring und Schatten, die nichts tut.
 
 **3. Fehlt das Recht, fehlt die Bedienung.**
-Im Lesemodus gibt es kein Hover, kein abgegrautes ⋯ und keinen abgeschalteten Knopf. Der Zustand
+Im Lesemodus gibt es kein Hover und keinen abgeschalteten Knopf. Der Zustand
 (etwa ein gesetzter Haken) bleibt sichtbar, ein Satz oben sagt „Nur zum Ansehen“.
 *Warum:* Ein abgegrauter Knopf fragt „warum nicht?“ und beantwortet es nicht.
 *So:* Fremder Plan: Zeilen ohne Hover, oben der Satz. *Nicht so:* Ein grauer Knopf, der nichts erklärt.
@@ -43,36 +43,36 @@ Klickfläche; ein Klick darauf öffnet wie die übrige Zeile.
 *Warum:* Wer sich vertippt hat, soll nicht löschen und neu anlegen müssen.
 *So:* Klick auf eine Buchung öffnet sie zum Bearbeiten. *Nicht so:* Buchung falsch, also löschen.
 
-## Menü und Löschen
+## Löschen
 
-**5. Das Menü ⋯ enthält nur, was nicht Bearbeiten ist.**
-Beenden, Deaktivieren, Duplizieren, Löschen, Austreten. Hat eine Zeile keine solche Aktion, hat sie kein
-⋯.
-*Warum:* Bearbeiten geht schon mit einem Klick auf die Zeile; ein Menü mit einem einzigen Eintrag ist
-Umweg und Lärm.
-*So:* Buchungszeile ohne ⋯ oder mit „Löschen“ darin. *Nicht so:* ⋯ mit dem einen Eintrag „Bearbeiten“.
+**5. Listen haben kein Menü ⋯.**
+Ein Klick auf die Zeile öffnet den Bearbeiten-Dialog; alles, was man mit der Zeile sonst tun kann,
+steht dort. Es gibt in keiner Liste ein ⋯.
+*Warum:* Ein Menü versteckt Aktionen hinter einem zweiten Klick, und zwei Wege zum Bearbeiten
+(Zeile, Menü) sind einer zu viel.
+*So:* Klick auf „Miete“, im Dialog „Löschen“. *Nicht so:* ⋯ rechts an jeder Zeile.
 
-**6. Menüs sind geordnet, ehrlich und groß genug.**
-Häufiges vor Seltenem, Zerstörendes zuletzt, rot und durch eine Linie abgesetzt. Jeder Eintrag ist ein
-Verb im Infinitiv mit Symbol. Nie ein Eintrag ohne Funktion. Der Knopf ⋯ trägt Namen und Objekt
-(„Miete: weitere Aktionen“), ist mindestens 32 px groß und sitzt am rechten Zeilenrand.
-*Warum:* Wer ein Menü öffnet, soll ohne Lesen wissen, wo Gefährliches steht; tote Einträge zerstören
-das Vertrauen in die übrigen.
-*So:* „Beenden“, Linie, „Löschen“ (rot). *Nicht so:* „Einstellungen“ im Menü, obwohl es nichts öffnet.
+**6. Löschen sitzt im Dialog, links in der Fußzeile, rot, und nur wenn es erlaubt ist.**
+Fehlt das Recht oder ist der Eintrag schon benutzt, fehlt der Knopf (Regel 3). Danach geht der Fokus
+an eine feste Stelle: die Überschrift des Abschnitts, sonst die Seitenüberschrift (Regel 13).
+*Warum:* Wer bearbeitet, sieht dort den ganzen Eintrag und weiß, was er löscht.
+*So:* Dialog „Posten bearbeiten“: links „Löschen“ (rot), rechts „Abbrechen“ und „Speichern“.
+*Nicht so:* Ein grauer „Löschen“-Knopf, obwohl der Vertrag in einem Plan steht.
 
-**7. Löschen sitzt im ⋯-Menü und ist umkehrbar oder erklärt.**
+**7. Kleines löscht sofort und ist umkehrbar; Folgenreiches fragt einmal.**
 - Kleines (Buchung, Posten, Import-Zeile) wird sofort gelöscht; die Meldung bietet zehn Sekunden
   „Rückgängig“ an. Der Client verzögert dazu den Aufruf, das Backend bleibt unverändert.
-- Verträge und Konten sind nur bis zur ersten Nutzung löschbar (Vertrag in keinem Plan, Konto ohne
-  Buchungen). Danach wird ein Vertrag beendet und ein Konto deaktiviert („Aktiv“ aus, Feld `active`),
-  nicht gelöscht. Das ist eine feste Regel, keine Einstellung.
-- Was sich sonst nicht zurückholen lässt (etwa einen Haushalt verlassen), fragt einmal nach, und der
-  Satz sagt, was verloren geht und was bleibt.
+- Vertrag: nur löschbar, solange er in keinem Plan steht; fragt einmal nach, in einem Satz, der sagt,
+  was verloren geht und was bleibt. Danach endet er von selbst mit seinem Laufzeitende und ist
+  inaktiv.
+- Konto: bis zur ersten Buchung löschbar (fragt einmal nach), danach nur „Aktiv“ aus im Kontodialog.
+  Es wird deaktiviert, nicht gelöscht. Das ist eine feste Regel, keine Einstellung.
+- Was sich sonst nicht zurückholen lässt (etwa einen Haushalt verlassen), fragt einmal nach.
 
 *Warum:* „Rückgängig“ ist besser als „Bist du sicher?“, weil man Rückfragen wegklickt. Wer etwas
-Benutztes löscht, reißt Daten mit; deshalb gibt es dort nur Beenden beziehungsweise Deaktivieren.
+Benutztes löscht, reißt Daten mit; deshalb gibt es dort nur Enden beziehungsweise Deaktivieren.
 *So:* Posten löschen, Meldung „Miete gelöscht“ mit „Rückgängig“. *Nicht so:* Papierkorb in der Zeile
-ohne Rückgängig, oder ein Löschen-Knopf im Dialogfuß.
+ohne Rückgängig.
 
 ## Aktionen
 
@@ -115,14 +115,14 @@ verwerfen?“. Bestätigungsdialoge schließen nie durch Klick daneben.
 
 **13. Der Fokus geht mit.**
 Beim Öffnen ins erste Feld (im Bestätigungsdialog auf den sicheren Knopf „Abbrechen“), beim Schließen
-zurück zu dem Element, von dem man kam.
+zurück zu dem Element, von dem man kam; ist es weg (gelöscht), auf eine feste Stelle.
 *Warum:* Tastaturnutzer und Screenreader verlieren sonst den Faden.
-*So:* Dialog zu, Fokus wieder auf dem ⋯ der Zeile. *Nicht so:* Fokus landet irgendwo auf der Seite.
+*So:* Dialog zu, Fokus wieder auf der Zeile. *Nicht so:* Fokus landet irgendwo auf der Seite.
 
 **14. Die Fußzeile ist immer gleich, und der Dialog bleibt offen, bis der Server „ja“ gesagt hat.**
-Rechts „Abbrechen“ (Randknopf) und daneben der Hauptknopf; links nichts. Der Knopf zeigt „Speichert…“
-und ist gesperrt. Ein Fehler steht im Dialog, die Eingabe bleibt. Zwei Breiten (schmal für Fragen,
-normal für Formulare), ein Titelstil.
+Rechts „Abbrechen“ (Randknopf) und daneben der Hauptknopf; links nur „Löschen“ (rot), und nur wenn es
+erlaubt ist. Der Knopf zeigt „Speichert…“ und ist gesperrt. Ein Fehler steht im Dialog, die Eingabe
+bleibt. Zwei Breiten (schmal für Fragen, normal für Formulare), ein Titelstil.
 *Warum:* Ein Dialog, der bei einem Fehler schließt, wirft die Eingabe weg und lässt offen, ob etwas
 ankam.
 *So:* Server sagt nein, Dialog bleibt, Fehlerbox über den Knöpfen. *Nicht so:* Dialog schließt, Fehler
@@ -220,7 +220,7 @@ Die Begriffe stehen in der Tabelle „Begriffe“ in `CLAUDE.md`. In der Oberfl�
 - **Anstehend** ist, was verplant, aber noch nicht abgehakt oder bezahlt ist.
 - **Grundbedarf** heißt das Budget `needs`, überall (nicht Fixkosten, nicht Bedarf).
 - **Anlegen** für Neues, **Speichern** beim Bearbeiten; „Hinzufügen“ und „Sichern“ gibt es nicht.
-- **Beenden** für Verträge, **Deaktivieren** („Aktiv“ aus) für Konten, sobald sie genutzt wurden.
+- **Deaktivieren** („Aktiv“ aus) für Konten, sobald sie genutzt wurden; Verträge enden mit dem Laufzeitende.
 
 *So:* „Frei: 120,00 €“. *Nicht so:* „Offen“ für zwei verschiedene Dinge.
 
@@ -229,10 +229,9 @@ Die Begriffe stehen in der Tabelle „Begriffe“ in `CLAUDE.md`. In der Oberfl�
 Damit die Regeln im Code stehen und nicht nur im Text, braucht es gemeinsame Komponenten. Sie sind das
 **Ziel**; die meisten gibt es noch nicht.
 
-- **Listenzeile** (Regeln 1–4): eine Zeile, bei der der Name die ganze Fläche aufspannt; Kästchen und ⋯
-  liegen darüber. Kennt Hover, Fokusring und Lesemodus.
-- **Zeilenmenü** (5–7): das ⋯ mit Namen, Größe, Reihenfolge und rotem Zerstörenden am Ende.
-- **Rückgängig-Helfer** (7, 15): verzögertes Löschen im Client mit der einen Meldung und dem Knopf
+- **Listenzeile** (Regeln 1–4): eine Zeile, bei der der Name die ganze Fläche aufspannt; das Kästchen
+  liegt darüber. Kennt Hover, Fokusring und Lesemodus.
+- **Rückgängig-Helfer** (7, 15, #142): verzögertes Löschen im Client mit der einen Meldung und dem Knopf
   „Rückgängig“.
 - **Dialograhmen** (11–14): Titel, Fuß, Fokus, Wächter für ungespeicherte Änderungen, Sperre bis zur
   Serverantwort.
@@ -243,11 +242,12 @@ Damit die Regeln im Code stehen und nicht nur im Text, braucht es gemeinsame Kom
 
 ## Prüfliste für Reviews
 
-- [ ] Öffnet ein Klick auf die Zeile das Bearbeiten, und sind Kästchen und ⋯ eigene Ziele?
+- [ ] Öffnet ein Klick auf die Zeile das Bearbeiten, und ist das Kästchen ein eigenes Ziel?
 - [ ] Sieht Klickbares klickbar aus (Hand, Hover, Fokusring, Tab, Enter), Nicht-Klickbares nicht?
 - [ ] Fehlt bei fehlendem Recht die Bedienung, statt abgegraut zu sein?
-- [ ] Enthält das ⋯ nur Aktionen außer Bearbeiten, ohne toten Eintrag, Zerstörendes zuletzt und rot?
-- [ ] Löscht Kleines sofort mit „Rückgängig“, und sind Verträge und Konten nur bis zur ersten Nutzung löschbar?
+- [ ] Gibt es in keiner Liste ein ⋯?
+- [ ] Sitzt „Löschen“ links in der Fußzeile des Dialogs, rot, nur wenn erlaubt, und landet der Fokus danach an einer festen Stelle?
+- [ ] Löscht Kleines sofort mit „Rückgängig“, fragt Folgenreiches einmal, ist ein Vertrag nur löschbar, solange er in keinem Plan steht, und ein Konto bis zur ersten Buchung, danach nur „Aktiv“ aus?
 - [ ] Gibt es höchstens einen Hauptknopf, oben rechts, und heißt Neues „… anlegen“?
 - [ ] Ist das Überlagerungsmuster (Dialog, Seitenblatt, Popover, Bestätigung) passend gewählt?
 - [ ] Schließen ✕, Esc, Klick daneben und „Abbrechen“ gleich, und geht nach Änderungen nichts ungefragt verloren?
