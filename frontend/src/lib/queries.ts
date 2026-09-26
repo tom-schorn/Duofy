@@ -121,7 +121,9 @@ export function useLeaveHousehold() {
   return useInvalidating<void, string>(
     (householdId) => api.delete(`/households/${householdId}/members/me`),
     [keys.households],
-    'toast.householdLeft'
+    'toast.householdLeft',
+    // The confirmation dialog shows the error (a last owner cannot leave).
+    INLINE_ERROR
   )
 }
 
