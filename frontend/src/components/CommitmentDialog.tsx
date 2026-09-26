@@ -34,6 +34,7 @@ import {
   monthLabel,
   paymentLabel,
   intervalLabel,
+  dueDayOf,
   isValidInterval,
   nextDueDates,
   dueDateLabel,
@@ -125,8 +126,8 @@ function emptyDraft(): Commitment {
     isLimit: false,
     householdId: null,
     intervalMonths: 1,
-    firstDueDate: null,
-    dueDay: 1,
+    // Every commitment has one; today is a better start than an empty mandatory field.
+    firstDueDate: today(),
     active: true,
     passThrough: false,
     counterAccountId: null,
@@ -176,7 +177,6 @@ export function CommitmentDialog({
 
   const isEdit = commitment !== null
   const typeOption = TYPE_OPTIONS.find((option) => option.value === draft.type)!
-  const isRecurringIrregular = draft.intervalMonths !== 1
   const intervalValid = isValidInterval(draft.intervalMonths)
   // Only savings goals and debts are fixed — resolve_budget() in the backend
   // overrides them anyway. A contract chooses freely: whether fuel is a need or a
@@ -249,21 +249,7 @@ export function CommitmentDialog({
   }
 
   function handleInterval(intervalMonths: number) {
-    setDraft((current) => {
-      if (intervalMonths === 1) {
-        // A first due date exists for an interval other than 1 only.
-        return { ...current, intervalMonths, firstDueDate: null }
-      }
-      // When switching to quarterly and friends, suggest today — better than an
-      // empty mandatory field.
-      const seed = current.firstDueDate ?? today()
-      return {
-        ...current,
-        intervalMonths,
-        firstDueDate: seed,
-        dueDay: Number(seed.slice(8, 10)),
-      }
-    })
+    setDraft((current) => ({ ...current, intervalMonths }))
   }
 
   function handleIntervalSelect(value: string) {
@@ -288,15 +274,10 @@ export function CommitmentDialog({
     else setDraft((current) => ({ ...current, intervalMonths: 0 }))
   }
 
-  /** Month and day fall out of the first due date. */
+  /** Day, month and year all fall out of the first due date — it is the one source. */
   function handleFirstDueDate(value: string) {
-    setDraft((current) => ({
-      ...current,
-      firstDueDate: value || null,
-      // Day and month come from here — two fields about the same thing would
-      // otherwise contradict each other, and the backend rejects that.
-      dueDay: value ? Number(value.slice(8, 10)) : current.dueDay,
-    }))
+    // The field can be cleared; keep the last valid date so the draft stays complete.
+    if (value) setDraft((current) => ({ ...current, firstDueDate: value }))
   }
 
   function handleSubmit(event: React.FormEvent) {
@@ -307,10 +288,9 @@ export function CommitmentDialog({
   }
 
   // From the 29th on the day can shift — February is the hard case.
-  const dueDayShifts = draft.dueDay >= DUE_DAY_MAY_SHIFT
-  const shiftYear = draft.firstDueDate
-    ? Number(draft.firstDueDate.slice(0, 4))
-    : new Date().getFullYear()
+  const dueDay = dueDayOf(draft.firstDueDate)
+  const dueDayShifts = dueDay >= DUE_DAY_MAY_SHIFT
+  const shiftYear = Number(draft.firstDueDate.slice(0, 4))
   const now = new Date()
   const upcoming = intervalValid
     ? nextDueDates(
@@ -320,7 +300,7 @@ export function CommitmentDialog({
         3
       )
     : []
-  const februaryDay = effectiveDueDay(draft.dueDay, shiftYear, 2)
+  const februaryDay = effectiveDueDay(dueDay, shiftYear, 2)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -528,55 +508,37 @@ export function CommitmentDialog({
               </div>
             </div>
 
-            {isRecurringIrregular ? (
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="first-due">{t('commitmentDialog.firstDue')}</Label>
-                <DateField
-                  id="first-due"
-                  value={draft.firstDueDate ?? ''}
-                  onChange={handleFirstDueDate}
-                />
-                <p className="text-muted-foreground text-xs">
-                  {t('commitmentDialog.firstDueHint')}
-                </p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="due-day">{t('common.dueOn')}</Label>
-                <Input
-                  id="due-day"
-                  type="number"
-                  min="1"
-                  max="31"
-                  value={draft.dueDay}
-                  onChange={(event) =>
-                    set('dueDay', Number(event.target.value))
-                  }
-                  required
-                />
-              </div>
-            )}
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="first-due">{t('commitmentDialog.firstDue')}</Label>
+              <DateField
+                id="first-due"
+                value={draft.firstDueDate}
+                onChange={handleFirstDueDate}
+                describedBy="first-due-hint"
+              />
+              <p id="first-due-hint" className="text-muted-foreground text-xs">
+                {t('commitmentDialog.firstDueHint')}
+              </p>
+            </div>
 
             {(upcoming.length > 0 || dueDayShifts) && (
               <p className="text-muted-foreground bg-muted flex flex-col gap-1 rounded-md px-3 py-2 text-xs">
                 {upcoming.length > 0 && (
                   <span>
                     {t('commitmentDialog.dueIn', {
-                      day: draft.dueDay,
+                      day: dueDay,
                       dates: upcoming.map(dueDateLabel).join(', '),
                     })}
-                    {draft.firstDueDate
-                      ? ` — ${t('commitmentDialog.firstTime', {
-                          month: monthLabel(Number(draft.firstDueDate.slice(5, 7))),
-                          year: draft.firstDueDate.slice(0, 4),
-                        })}`
-                      : '.'}
+                    {` — ${t('commitmentDialog.firstTime', {
+                      month: monthLabel(Number(draft.firstDueDate.slice(5, 7))),
+                      year: draft.firstDueDate.slice(0, 4),
+                    })}`}
                   </span>
                 )}
                 {dueDayShifts && (
                   <span>
                     {t('commitmentDialog.dayShifts', {
-                      day: draft.dueDay,
+                      day: dueDay,
                       year: shiftYear,
                       februaryDay,
                     })}
