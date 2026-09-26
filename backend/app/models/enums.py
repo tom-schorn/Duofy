@@ -320,3 +320,15 @@ class TransactionKind(StrEnum):
 
     BOOKING = "booking"
     CARRY_OVER = "carry_over"
+
+
+class FlowLimitsBy(StrEnum):
+    """What the flow chart counts for a limit position — set per person.
+
+    `PLAN` draws the full planned amount on the due day and ignores bookings;
+    `BOOKINGS` draws only what is booked, on the real dates. Never an estimate of
+    the rest: spreading a limit over the remaining days would invent figures.
+    """
+
+    PLAN = "plan"
+    BOOKINGS = "bookings"
