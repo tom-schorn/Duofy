@@ -703,7 +703,7 @@ export type PlanPosition = {
    *
    * **Not ticked off**: such positions fill up over the month from individual
    * bookings. Instead of a tick box the row shows a fill level, and counts towards
-   * no "noch offen".
+   * no "Anstehend".
    */
   isLimit: boolean
   /**
@@ -986,7 +986,7 @@ export function unallocated(plan: PlanSummary): number {
  *
  * Ticked off means done, and income never leaves. A limit position never carries
  * a tick either — it has no due amount of its own, only a fill level, so it never
- * counts towards "Noch offen". Otherwise what counts is the planned amount minus
+ * counts towards "Anstehend". Otherwise what counts is the planned amount minus
  * what the book already records: a 600 limit with 127.50 of purchases booked still
  * expects 472.50, not 600.
  *

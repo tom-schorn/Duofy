@@ -247,7 +247,9 @@ export function PlanSankey({
             {euro.format(summe)}
           </span>
           <span className="text-muted-foreground text-sm">
-            {t('sankey.summary', { amount: euro.format(offen) })}
+            {offen > 0
+              ? t('sankey.summary', { amount: euro.format(offen) })
+              : t('sankey.summaryAllPlanned')}
           </span>
         </div>
 
