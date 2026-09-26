@@ -605,6 +605,11 @@
     "name": "Name",
     "namePlaceholder": "Unser Haushalt",
     "youShare": "Du teilst:",
+    "presetTitle": "Was teilst du in „{{name}}“?",
+    "presetDescription": "Bisher sehen die anderen nur deinen Plan. Du kannst das jetzt in einem Schritt weiter öffnen oder so lassen.",
+    "presetCouple": "Paar: Die anderen dürfen alles von mir sehen und bearbeiten.",
+    "presetHint": "Das gilt nur für dich. Danach kannst du jeden Bereich unten einzeln ändern.",
+    "presetApply": "Paar übernehmen",
     "invitePlaceholder": "partner@beispiel.de"
   },
   "import": {

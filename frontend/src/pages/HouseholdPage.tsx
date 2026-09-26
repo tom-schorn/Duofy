@@ -76,6 +76,8 @@ export function HouseholdPage() {
   const households = useHouseholds()
   const me = useMe()
   const [invitingTo, setInvitingTo] = useState<Household | null>(null)
+  // The household a preset is currently offered for: right after joining or creating.
+  const [presetFor, setPresetFor] = useState<Household | null>(null)
   const currentUserId = me.data?.id ?? ''
   // After leaving, the card is gone; the focus goes to the page heading (rule 13).
   const heading = useRef<HTMLHeadingElement>(null)
@@ -95,10 +97,10 @@ export function HouseholdPage() {
             {t('household.lead')}
           </p>
         </div>
-        <CreateHouseholdButton />
+        <CreateHouseholdButton onCreated={setPresetFor} />
       </header>
 
-      <PendingInvitations />
+      <PendingInvitations onJoined={setPresetFor} />
 
       <QueryState isPending={households.isPending} error={households.error}>
       <ul className="flex flex-col gap-4">
@@ -180,6 +182,11 @@ export function HouseholdPage() {
         ))}
       </ul>
       </QueryState>
+
+      <SharingPresetDialog
+        household={presetFor}
+        onOpenChange={(open) => !open && setPresetFor(null)}
+      />
 
       <InviteDialog
         household={invitingTo}
@@ -354,7 +361,7 @@ function InviteDialog({
  * There is no email and no link anybody has to forward: whoever signs in with the
  * invited address finds the invitation here. Shows nothing while none is pending.
  */
-function PendingInvitations() {
+function PendingInvitations({ onJoined }: { onJoined: (household: Household) => void }) {
   const invitations = useMyInvitations()
   const { t } = useTranslation()
   const accept = useAcceptInvitation()
@@ -395,7 +402,7 @@ function PendingInvitations() {
             </Button>
             <Button
               size="sm"
-              onClick={() => accept.mutate(invitation.token)}
+              onClick={() => accept.mutate(invitation.token, { onSuccess: onJoined })}
               disabled={accept.isPending || decline.isPending}
             >
               {t('household.join')}
@@ -415,7 +422,11 @@ function PendingInvitations() {
   )
 }
 
-export function CreateHouseholdButton() {
+export function CreateHouseholdButton({
+  onCreated,
+}: {
+  onCreated?: (household: Household) => void
+}) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const { t } = useTranslation()
@@ -448,9 +459,10 @@ export function CreateHouseholdButton() {
           create.mutate(
             { name },
             {
-              onSuccess: () => {
+              onSuccess: (household) => {
                 setName('')
                 setOpen(false)
+                onCreated?.(household)
               },
             }
           )
@@ -471,6 +483,46 @@ export function CreateHouseholdButton() {
         </div>
       </DialogFrame>
     </>
+  )
+}
+
+/**
+ * The couple preset, offered once after joining or creating a household.
+ *
+ * It is a suggestion to the person themselves and sets only their own levels —
+ * nobody grants for someone else. Declining keeps the default (`plan` everywhere);
+ * every area stays changeable below afterwards.
+ */
+function SharingPresetDialog({
+  household,
+  onOpenChange,
+}: {
+  household: Household | null
+  onOpenChange: (open: boolean) => void
+}) {
+  const { t } = useTranslation()
+  const save = useSetMyAccess(household?.id ?? '')
+
+  return (
+    <DialogFrame
+      open={household !== null}
+      onOpenChange={onOpenChange}
+      title={t('household.presetTitle', { name: household?.name })}
+      description={t('household.presetDescription')}
+      submitLabel={t('household.presetApply')}
+      onSubmit={(event) => {
+        event.preventDefault()
+        save.mutate(
+          { grantsPlan: 'edit', grantsCommitments: 'edit', grantsAccounts: 'edit' },
+          { onSuccess: () => onOpenChange(false) }
+        )
+      }}
+      pending={save.isPending}
+      error={save.isError ? save.error : null}
+    >
+      <p className="text-sm font-medium">{t('household.presetCouple')}</p>
+      <p className="text-muted-foreground text-xs">{t('household.presetHint')}</p>
+    </DialogFrame>
   )
 }
 
