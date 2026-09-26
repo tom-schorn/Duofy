@@ -9,21 +9,21 @@ import de from '@/locales/de.json'
 const PINNED_KEY = 'duofy.help.pinned'
 
 /** The two halves as the layout wires them: the button in the header, the column beside the page. */
-function Wired() {
+function Wired({ wide = true }: { wide?: boolean }) {
   const help = useHelpPinned()
 
   return (
     <>
-      <HelpButton pinned={help.pinned} onPin={help.setPinned} wide />
+      <HelpButton pinned={help.pinned} onPin={help.setPinned} wide={wide} />
       <HelpColumn pinned={help.pinned} onPin={help.setPinned} />
     </>
   )
 }
 
-function renderAt(path = '/book') {
+function renderAt(path = '/book', wide = true) {
   return render(
     <MemoryRouter initialEntries={[path]}>
-      <Wired />
+      <Wired wide={wide} />
     </MemoryRouter>
   )
 }
@@ -50,7 +50,7 @@ describe('the help button', () => {
   test('keeping it open is remembered and shows the column instead of the sheet', async () => {
     renderAt()
     fireEvent.click(screen.getByRole('button', { name: de.helpPanel.button }))
-    fireEvent.click(await screen.findByRole('button', { name: de.helpPanel.show }))
+    fireEvent.click(await screen.findByRole('button', { name: de.helpPanel.pin }))
 
     expect(localStorage.getItem(PINNED_KEY)).toBe('true')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -72,16 +72,50 @@ describe('the help button', () => {
     expect(screen.queryByRole('button', { name: de.helpPanel.button })).not.toBeInTheDocument()
   })
 
-  test('works when the browser refuses storage', () => {
+  test('pinning moves the focus to the same header button, unpinning keeps it there', async () => {
+    renderAt()
+    const button = screen.getByRole('button', { name: de.helpPanel.button })
+    fireEvent.click(button)
+    fireEvent.click(await screen.findByRole('button', { name: de.helpPanel.pin }))
+    await vi.waitFor(() => expect(screen.getByRole('button', { name: de.helpPanel.button })).toBe(button))
+    await vi.waitFor(() => expect(button).toHaveFocus())
+
+    // The header button takes the column away again, and stays the same element.
+    fireEvent.click(button)
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: de.helpPanel.button })).toBe(button)
+    expect(button).toHaveFocus()
+  })
+
+  test('the column own button hands the focus to the header button', () => {
+    localStorage.setItem(PINNED_KEY, 'true')
+    renderAt()
+    fireEvent.click(screen.getByRole('button', { name: de.helpPanel.hide }))
+    expect(screen.getByRole('button', { name: de.helpPanel.button })).toHaveFocus()
+  })
+
+  test('narrow: a pinned choice still opens the sheet, and offers no pin', async () => {
+    localStorage.setItem(PINNED_KEY, 'true')
+    renderAt('/book', false)
+    fireEvent.click(screen.getByRole('button', { name: de.helpPanel.button }))
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: de.helpPanel.pin })).not.toBeInTheDocument()
+  })
+
+  test('works when the browser refuses storage: the pin holds for the session and is logged', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     vi.stubGlobal('localStorage', {
-      getItem: () => {
-        throw new Error('blocked')
-      },
+      getItem: () => null,
       setItem: () => {
         throw new Error('blocked')
       },
     })
     renderAt()
-    expect(screen.getByRole('button', { name: de.helpPanel.button })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: de.helpPanel.button }))
+    fireEvent.click(await screen.findByRole('button', { name: de.helpPanel.pin }))
+
+    expect(screen.getByRole('complementary')).toBeInTheDocument()
+    expect(warn).toHaveBeenCalled()
+    warn.mockRestore()
   })
 })
