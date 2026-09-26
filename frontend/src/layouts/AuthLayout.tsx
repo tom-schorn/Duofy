@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { LegalLinks } from '@/components/LegalLinks'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { budgetLabel, type Budget } from '@/lib/domain'
 
@@ -62,6 +63,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           <ThemeToggle />
         </div>
         <div className="w-full max-w-sm">{children}</div>
+        <LegalLinks className="absolute bottom-4 left-6" />
       </main>
     </div>
   )

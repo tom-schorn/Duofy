@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { HelpButton, HelpColumn } from '@/components/HelpPanel'
 import { MemberSwitcher } from '@/components/MemberSwitcher'
 import { useHelpPinned, useIsWide } from '@/lib/help-state'
+import { LegalLinks } from '@/components/LegalLinks'
 import { NAV, titleKeyFor } from '@/lib/nav'
 import { useHouseholds } from '@/lib/queries'
 
@@ -144,6 +145,7 @@ export function AppLayout() {
         <div className="flex flex-1 items-start">
           <div className="min-w-0 flex-1 p-6">
             <Outlet />
+            <LegalLinks className="mt-10" />
           </div>
           <HelpColumn pinned={help.pinned} onPin={help.setPinned} />
         </div>

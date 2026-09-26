@@ -43,6 +43,7 @@ import type {
 
 export const keys = {
   me: ['me'] as const,
+  legal: ['legal'] as const,
   households: ['households'] as const,
   invitations: (householdId: string) =>
     ['households', householdId, 'invitations'] as const,
@@ -77,6 +78,25 @@ export const keys = {
     ['plans', year, month, ownerId ?? 'me'] as const,
   householdPlan: (householdId: string, year: number, month: number) =>
     ['plans', 'household', householdId, year, month] as const,
+}
+
+// --- Legal texts of the instance ---------------------------------------------
+
+/** The documents this instance has configured; public, so also before sign-in. */
+export function useLegalDocuments() {
+  return useQuery({
+    queryKey: keys.legal,
+    queryFn: () => api.get<{ documents: string[] }>('/legal'),
+    staleTime: 10 * 60 * 1000,
+  })
+}
+
+export function useLegalText(name: string) {
+  return useQuery({
+    queryKey: [...keys.legal, name] as const,
+    queryFn: () => api.get<{ text: string }>(`/legal/${name}`),
+    retry: false,
+  })
 }
 
 // --- User -----------------------------------------------------------------
