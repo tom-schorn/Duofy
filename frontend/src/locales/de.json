@@ -1,5 +1,6 @@
 {
   "errors": {
+    "retry": "Erneut versuchen",
     "LOGIN_BAD_CREDENTIALS": "E-Mail oder Passwort stimmt nicht.",
     "LOGIN_USER_NOT_VERIFIED": "Bitte bestätige zuerst deine E-Mail-Adresse.",
     "REGISTER_USER_ALREADY_EXISTS": "Diese E-Mail ist schon vergeben.",
@@ -333,6 +334,7 @@
     "privateOnly": "Nur mein Plan",
     "delete": "Löschen",
     "save": "Speichern",
+    "saving": "Speichert…",
     "add": "Hinzufügen",
     "create": "Anlegen",
     "dayOfMonth": "{{day}}. {{month}}",

@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 
 import { i18n } from '@/lib/i18n'
 import { api } from '@/lib/api'
+import { reportMutationError } from '@/lib/mutation-error'
 import { OWN_SCOPE, scopeKey, scopeQuery } from '@/lib/domain'
 import type {
   AccessLevel,
@@ -102,7 +103,8 @@ export function useCreateHousehold() {
   return useInvalidating<Household, { name: string }>(
     (input) => api.post('/households', input),
     [keys.households],
-    'toast.householdCreated'
+    'toast.householdCreated',
+    INLINE_ERROR
   )
 }
 
@@ -110,7 +112,8 @@ export function useUpdateHousehold() {
   return useInvalidating<Household, { id: string } & Partial<Household>>(
     ({ id, ...changes }) => api.patch(`/households/${id}`, changes),
     [keys.households],
-    'toast.householdUpdated'
+    'toast.householdUpdated',
+    INLINE_ERROR
   )
 }
 
@@ -149,7 +152,8 @@ export function useInvite(householdId: string) {
   return useInvalidating<Invitation, { email: string }>(
     (input) => api.post(`/households/${householdId}/invitations`, input),
     [keys.invitations(householdId)],
-    'toast.invitationSent'
+    'toast.invitationSent',
+    INLINE_ERROR
   )
 }
 
@@ -176,7 +180,8 @@ export function useAcceptInvitation() {
   return useInvalidating<Household, string>(
     (token) => api.post(`/households/invitations/${token}/accept`),
     [keys.myInvitations, keys.households, keys.plans],
-    'toast.householdJoined'
+    'toast.householdJoined',
+    INLINE_ERROR
   )
 }
 
@@ -184,7 +189,8 @@ export function useDeclineInvitation() {
   return useInvalidating<void, string>(
     (token) => api.post(`/households/invitations/${token}/decline`),
     [keys.myInvitations],
-    'toast.invitationDeclined'
+    'toast.invitationDeclined',
+    INLINE_ERROR
   )
 }
 
@@ -241,7 +247,8 @@ export function useSaveAccount() {
     ({ id, ownerId: _o, ...body }) =>
       id ? api.patch(`/accounts/${id}`, body) : api.post('/accounts', body),
     [keys.accounts],
-    'toast.accountSaved'
+    'toast.accountSaved',
+    INLINE_ERROR
   )
 }
 
@@ -249,7 +256,8 @@ export function useDeleteAccount() {
   return useInvalidating<void, string>(
     (id) => api.delete(`/accounts/${id}`),
     [keys.accounts],
-    'toast.accountDeleted'
+    'toast.accountDeleted',
+    INLINE_ERROR
   )
 }
 
@@ -296,7 +304,8 @@ export function useSaveTransaction(
       // Prefix: covers the accounts **and** their history.
       keys.accounts,
     ],
-    'toast.transactionSaved'
+    'toast.transactionSaved',
+    INLINE_ERROR
   )
 }
 
@@ -352,7 +361,8 @@ export function useSaveCommitment() {
     // stay. Reload both anyway, because a newly created month depends on it
     // immediately.
     [keys.commitments, keys.plans],
-    'toast.commitmentSaved'
+    'toast.commitmentSaved',
+    INLINE_ERROR
   )
 }
 
@@ -437,7 +447,7 @@ export function useCreatePlan() {
   >(({ ownerId, ...body }) => {
     const path = ownerId ? `/plans?owner=${ownerId}` : '/plans'
     return api.post(path, body)
-  }, [keys.plans], 'toast.planCreated')
+  }, [keys.plans], 'toast.planCreated', INLINE_ERROR)
 }
 
 // --- Import -----------------------------------------------------------------
@@ -473,7 +483,7 @@ export function useUploadStatement() {
     if (accountId) query.set('account', accountId)
     const suffix = query.size > 0 ? `?${query}` : ''
     return api.upload<ImportSummary>(`/imports${suffix}`, file)
-  }, [keys.imports, keys.accounts, keys.allTransactions])
+  }, [keys.imports, keys.accounts, keys.allTransactions], undefined, INLINE_ERROR)
 }
 
 /**
@@ -578,7 +588,7 @@ export function useSavePosition() {
     return id
       ? api.patch(`/positions/${id}`, body)
       : api.post(`/plans/${planId}/positions`, body)
-  }, [keys.plans], 'toast.positionSaved')
+  }, [keys.plans], 'toast.positionSaved', INLINE_ERROR)
 }
 
 export function useDeletePosition() {
@@ -613,6 +623,9 @@ export function useTogglePaid() {
   )
 }
 
+/** For callers that show the error in their own form — the shared net skips them. */
+const INLINE_ERROR = { meta: { inlineError: true } }
+
 /**
  * A mutation that cleans up after itself.
  *
@@ -629,16 +642,23 @@ function useInvalidating<TData, TInput>(
    * half do not.
    *
    * Errors stay out of it: those belong in the form, next to the field they
-   * concern. A toast that flies away is the wrong place for something that needs
-   * correcting.
+   * concern. What has no place of its own is caught below by the shared net.
    */
   successKey?: string,
   options?: UseMutationOptions<TData, Error, TInput>
 ) {
   const client = useQueryClient()
-  return useMutation<TData, Error, TInput>({
+  const mutation = useMutation<TData, Error, TInput>({
     mutationFn,
     ...options,
+    onError: (error, variables, ...rest) => {
+      // The shared net: a change that failed must never vanish silently. Callers
+      // that show the error in their form say so with INLINE_ERROR.
+      if (!options?.meta?.inlineError) {
+        reportMutationError(error, () => mutation.mutate(variables))
+      }
+      options?.onError?.(error, variables, ...rest)
+    },
     onSuccess: (...args) => {
       for (const key of invalidate) {
         client.invalidateQueries({ queryKey: key })
@@ -647,4 +667,5 @@ function useInvalidating<TData, TInput>(
       options?.onSuccess?.(...args)
     },
   })
+  return mutation
 }
