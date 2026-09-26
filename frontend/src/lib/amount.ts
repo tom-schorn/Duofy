@@ -24,11 +24,21 @@ const MAX_INTEGER_DIGITS = 10
  * clearly groups thousands (`1.234`: one to three digits, not starting with 0,
  * then exactly three). So `0.005` is refused as three decimals, never read as 5.
  * `,50` reads as 0.50. Zero is refused (`tooSmall`) unless `allowZero`.
- * `12e3`, letters and signs are refused; the sign comes from the kind of booking.
+ * `12e3` and letters are refused. Signs are refused too, the sign comes from the kind
+ * of booking; only `allowNegative` (an overdrawn account's opening balance) accepts a
+ * leading minus and, with it, zero.
  */
-export function parseAmount(text: string, { allowZero = false } = {}): ParsedAmount {
+export function parseAmount(
+  text: string,
+  { allowZero = false, allowNegative = false } = {},
+): ParsedAmount {
   // Spaces of any kind (also no-break and thin ones) only group digits: "1 234,56".
-  const typed = text.replace('€', '').replace(/\s/g, '')
+  let typed = text.replace('€', '').replace(/\s/g, '')
+  let negative = false
+  if (allowNegative && /^[-−]/.test(typed)) {
+    negative = true
+    typed = typed.slice(1)
+  }
   if (typed === '') return { ok: false, reason: 'empty' }
   if (!/^[0-9.,]+$/.test(typed)) return { ok: false, reason: 'invalid' }
 
@@ -66,8 +76,9 @@ export function parseAmount(text: string, { allowZero = false } = {}): ParsedAmo
   if (integer.length > MAX_INTEGER_DIGITS) return { ok: false, reason: 'tooLarge' }
 
   const value = `${integer}.${decimals.padEnd(2, '0')}`
-  if (value === '0.00' && !allowZero) return { ok: false, reason: 'tooSmall' }
-  return { ok: true, value }
+  if (value === '0.00' && !allowZero && !allowNegative) return { ok: false, reason: 'tooSmall' }
+  // "-0,00" is just zero.
+  return { ok: true, value: negative && value !== '0.00' ? `-${value}` : value }
 }
 
 /** `1.234` or `12.345.678`: groups of three after a first group that does not start with 0. */
@@ -77,7 +88,7 @@ function isGrouped(text: string): boolean {
 
 /** An API amount as shown in the field: `1234.5` becomes `1.234,50`. Empty stays empty. */
 export function formatAmount(value: string): string {
-  const parsed = parseAmount(value.replace('.', ','), { allowZero: true })
+  const parsed = parseAmount(value.replace('.', ','), { allowZero: true, allowNegative: true })
   if (!parsed.ok) return ''
   return formatNumber(Number(parsed.value), { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
