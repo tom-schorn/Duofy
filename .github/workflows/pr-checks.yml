@@ -12,9 +12,10 @@ permissions:
   pull-requests: read
 
 jobs:
-  # On squash the title becomes the commit message on `develop`, and release-please
-  # derives version and changelog from it. A sloppy title therefore produces a wrong
-  # version, not merely an ugly line.
+  # Pull requests are rebase-merged into `main`, so the title itself does not land in
+  # the history; the commits do (see `commits` below). The title is still checked:
+  # it is what people read in the list of pull requests, and it follows the same
+  # convention as the commits.
   titel:
     runs-on: ubuntu-latest
     steps:
@@ -38,23 +39,59 @@ jobs:
             The part after the colon is too short. "fix: bug" says nothing — write
             down what changes.
 
+  # release-please derives version and changelog from every commit on `main`, and a
+  # rebase merge keeps them one by one. A sloppy subject therefore produces a wrong
+  # version, not merely an ugly line. Same rule as the title check: type, optional
+  # scope, optional `!`, colon, at least six characters.
+  commits:
+    runs-on: ubuntu-latest
+    # release-please's own pull request is written by the bot and follows its own format.
+    if: ${{ !startsWith(github.event.pull_request.head.ref, 'release-please--') }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The full history, otherwise the commits of the branch are missing.
+          fetch-depth: 0
+
+      - name: Check commit subjects
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          pattern='^(feat|fix|docs|refactor|test|chore)(\([^)]+\))?!?: .{6,}$'
+          bad=0
+          # Merge commits are left out: they carry no change of their own.
+          while read -r sha; do
+            [ -z "$sha" ] && continue
+            subject="$(git log -1 --format='%s' "$sha")"
+            if ! [[ "$subject" =~ $pattern ]]; then
+              echo "::error::Not a Conventional Commit subject: $(git log -1 --format='%h %s' "$sha")"
+              bad=1
+            fi
+          done <<< "$(git rev-list --no-merges "$BASE".."$HEAD")"
+
+          if [ "$bad" -eq 1 ]; then
+            echo ""
+            echo "Expected: type(scope)!: what changes — type is one of feat, fix, docs, refactor, test, chore."
+            echo "Reword:   git rebase -i $BASE  (mark the commit as reword)"
+            exit 1
+          fi
+          echo "Every commit subject follows the convention."
+
   # Proof of origin: every commit carries a Signed-off-by line, which `git commit -s`
   # adds. Deliberately here rather than through a GitHub App, so the check is visible
   # in the repository instead of hidden in a setting.
   dco:
     runs-on: ubuntu-latest
-    # Three exceptions:
-    #  - release-please opens its own pull requests and signs nothing
+    # Two exceptions, every other pull request into `main` is checked:
+    #  - release-please opens its own pull requests and signs nothing; recognised by
+    #    the branch name, which a human could also pick, but such a pull request still
+    #    needs the review and the required checks before it can be merged
     #  - Dependabot commits carry no Signed-off-by either; human commits stay
     #    strictly checked
-    #  - the routes between `develop` and `main`, in both directions, carry only
-    #    commits already checked on the way into `develop`, or the version files
-    #    release-please wrote itself
     if: >-
-      github.actor != 'github-actions[bot]'
+      !startsWith(github.event.pull_request.head.ref, 'release-please--')
       && github.actor != 'dependabot[bot]'
-      && github.event.pull_request.base.ref != 'main'
-      && github.event.pull_request.head.ref != 'main'
     steps:
       - uses: actions/checkout@v7
         with:
