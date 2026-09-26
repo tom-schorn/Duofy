@@ -669,7 +669,6 @@
   },
   "ui": {
     "close": "Schließen",
-    "rowMenu": "{{name}}: weitere Aktionen",
     "dialog": {
       "discardQuestion": "Änderungen verwerfen?",
       "keepEditing": "Weiter bearbeiten",
