@@ -4,6 +4,8 @@ from fastapi_users import schemas
 from pydantic import ConfigDict
 from pydantic.alias_generators import to_camel
 
+from app.models.enums import FlowLimitsBy
+
 #: The same rule as in `app.schemas.base.Schema` — camelCase on the wire. The
 #: fastapi-users schemas do not inherit from our base, hence the repetition.
 #: Without it, `/users/me` would speak snake_case and the rest of the API
@@ -16,6 +18,7 @@ class UserRead(schemas.BaseUser[uuid.UUID]):
 
     first_name: str
     last_name: str
+    flow_limits_by: FlowLimitsBy
 
 
 class UserCreate(schemas.BaseUserCreate):
@@ -30,3 +33,4 @@ class UserUpdate(schemas.BaseUserUpdate):
 
     first_name: str | None = None
     last_name: str | None = None
+    flow_limits_by: FlowLimitsBy | None = None
