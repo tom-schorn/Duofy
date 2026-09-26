@@ -46,7 +46,9 @@ jobs:
   commits:
     runs-on: ubuntu-latest
     # release-please's own pull request is written by the bot and follows its own format.
-    if: ${{ !startsWith(github.event.pull_request.head.ref, 'release-please--') }}
+    if: >-
+      !(startsWith(github.event.pull_request.head.ref, 'release-please--')
+      && github.event.pull_request.head.repo.full_name == github.repository)
     steps:
       - uses: actions/checkout@v7
         with:
@@ -85,12 +87,14 @@ jobs:
     runs-on: ubuntu-latest
     # Two exceptions, every other pull request into `main` is checked:
     #  - release-please opens its own pull requests and signs nothing; recognised by
-    #    the branch name, which a human could also pick, but such a pull request still
-    #    needs the review and the required checks before it can be merged
+    #    the branch name and that it comes from this repository, not a fork. A writer
+    #    could still name a branch like that; branch protection and review are the
+    #    real guard, this only saves the bot a failing check
     #  - Dependabot commits carry no Signed-off-by either; human commits stay
     #    strictly checked
     if: >-
-      !startsWith(github.event.pull_request.head.ref, 'release-please--')
+      !(startsWith(github.event.pull_request.head.ref, 'release-please--')
+      && github.event.pull_request.head.repo.full_name == github.repository)
       && github.actor != 'dependabot[bot]'
     steps:
       - uses: actions/checkout@v7
