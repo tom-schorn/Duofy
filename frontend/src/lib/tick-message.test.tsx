@@ -46,4 +46,24 @@ describe('ticking off', () => {
     await waitFor(() => expect(success).toHaveBeenCalled())
     expect(success.mock.calls[0][0]).toMatch(/^Miete abgehakt: 950,00.*erhalten$/)
   })
+
+  test('says nothing was booked when the position already has bookings', async () => {
+    stubPosition('needs')
+    const success = vi.spyOn(toast, 'success').mockImplementation(() => 1)
+    const { result } = renderHook(() => useTogglePaid(), { wrapper })
+    result.current.mutate({ id: 'p', paid: true, amount: '950.00', hasBookings: true })
+    await waitFor(() => expect(success).toHaveBeenCalled())
+    expect(success.mock.calls[0][0]).toBe(
+      'Miete abgehakt. Die vorhandenen Buchungen bleiben unverändert.'
+    )
+  })
+
+  test('names the position when the tick is taken away', async () => {
+    stubPosition('needs')
+    const success = vi.spyOn(toast, 'success').mockImplementation(() => 1)
+    const { result } = renderHook(() => useTogglePaid(), { wrapper })
+    result.current.mutate({ id: 'p', paid: false })
+    await waitFor(() => expect(success).toHaveBeenCalled())
+    expect(success.mock.calls[0][0]).toBe('Miete: Haken weggenommen')
+  })
 })

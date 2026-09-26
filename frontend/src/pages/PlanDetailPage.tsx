@@ -553,7 +553,14 @@ function PlanBody({
         onConfirm={({ occurredOn, amount }) => {
           if (booking) {
             togglePaid.mutate(
-              { id: booking.id, paid: true, occurredOn, amount, inlineError: true },
+              {
+                id: booking.id,
+                paid: true,
+                occurredOn,
+                amount,
+                inlineError: true,
+                hasBookings: positionHasBookings(booking.id, transactions.data),
+              },
               { onSuccess: () => setBooking(null) }
             )
           }

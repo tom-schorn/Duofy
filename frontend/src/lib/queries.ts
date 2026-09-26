@@ -640,6 +640,8 @@ export function useTogglePaid() {
       amount?: string
       /** The caller shows the error in its own dialog — the net stays quiet. */
       inlineError?: boolean
+      /** The position already has bookings: ticking then books nothing. */
+      hasBookings?: boolean
     }
   >(
     ({ id, paid, occurredOn, amount }) =>
@@ -650,8 +652,13 @@ export function useTogglePaid() {
     undefined,
     {
       // Says what happened: which position, and how much was booked.
-      onSuccess: (position, { paid, amount }) => {
-        if (!paid) return toast.success(i18n.t('toast.positionUpdated'))
+      onSuccess: (position, { paid, amount, hasBookings }) => {
+        if (!paid) {
+          return toast.success(i18n.t('toast.unticked', { label: position.label }))
+        }
+        if (hasBookings) {
+          return toast.success(i18n.t('toast.tickedKept', { label: position.label }))
+        }
         toast.success(
           i18n.t(position.budget === 'income' ? 'toast.tickedIncome' : 'toast.ticked', {
             label: position.label,
