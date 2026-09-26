@@ -78,6 +78,14 @@ class Settings(BaseSettings):
     #: sites.
     cookie_name: str = "duofy_refresh"
 
+    #: Legal texts of **this instance**, as files the operator mounts into the
+    #: container. Each one is optional: without a file there is no page and no
+    #: link (see `app.api.v1.legal`). They belong to the operator, not to the
+    #: project, so no address or name ever lives in the repository.
+    imprint_file: str | None = None
+    privacy_file: str | None = None
+    terms_file: str | None = None
+
     @property
     def database_url(self) -> str:
         return (
