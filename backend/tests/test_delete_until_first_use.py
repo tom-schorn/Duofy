@@ -85,7 +85,7 @@ async def test_a_commitment_in_a_month_is_refused_with_its_code(
     assert [row["deletable"] for row in listed.json() if row["name"] == "Used"] == [False]
 
     response = await client.delete(f"/api/v1/commitments/{commitment.id}")
-    assert response.status_code == 403
+    assert response.status_code == 409
     assert response.json()["detail"]["code"] == "commitment_in_use"
 
 
@@ -129,7 +129,7 @@ async def test_an_account_with_a_booking_is_refused_with_its_code(
     assert [row["deletable"] for row in listed.json()] == [False]
 
     response = await client.delete(f"/api/v1/accounts/{account.id}")
-    assert response.status_code == 403
+    assert response.status_code == 409
     assert response.json()["detail"]["code"] == "account_has_transactions"
 
 
@@ -143,7 +143,7 @@ async def test_the_counter_side_of_a_transfer_counts_as_a_booking(
     sign_in(owner)
 
     response = await client.delete(f"/api/v1/accounts/{target.id}")
-    assert response.status_code == 403
+    assert response.status_code == 409
     assert response.json()["detail"]["code"] == "account_has_transactions"
 
 
@@ -158,3 +158,56 @@ async def test_someone_elses_unused_account_needs_the_delete_right(
     response = await client.delete(f"/api/v1/accounts/{account.id}")
     assert response.status_code == 403
     assert response.json()["detail"]["code"] == "no_delete_granted"
+
+
+async def test_a_member_with_the_delete_right_deletes_an_unused_commitment(
+    client: AsyncClient, session: AsyncSession, pair  # noqa: F811
+):
+    owner, helper, household = pair
+    commitment = await make_commitment(session, owner, "Typo")
+    await grant_area(session, household, owner, "commitments", AccessLevel.DELETE)
+    sign_in(helper)
+
+    response = await client.delete(f"/api/v1/commitments/{commitment.id}")
+    assert response.status_code == 204
+
+
+async def test_a_member_with_the_delete_right_is_still_refused_when_a_commitment_is_used(
+    client: AsyncClient, session: AsyncSession, pair  # noqa: F811
+):
+    owner, helper, household = pair
+    commitment = await make_commitment(session, owner, "Used")
+    await session.commit()
+    await use_commitment(session, owner, commitment)
+    await grant_area(session, household, owner, "commitments", AccessLevel.DELETE)
+    sign_in(helper)
+
+    response = await client.delete(f"/api/v1/commitments/{commitment.id}")
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "commitment_in_use"
+
+
+async def test_a_member_with_the_delete_right_deletes_an_unused_account(
+    client: AsyncClient, session: AsyncSession, pair  # noqa: F811
+):
+    owner, helper, household = pair
+    account = await make_account(session, owner, "Typo")
+    await grant_area(session, household, owner, "accounts", AccessLevel.DELETE)
+    sign_in(helper)
+
+    response = await client.delete(f"/api/v1/accounts/{account.id}")
+    assert response.status_code == 204
+
+
+async def test_a_member_with_the_delete_right_is_still_refused_when_an_account_is_used(
+    client: AsyncClient, session: AsyncSession, pair  # noqa: F811
+):
+    owner, helper, household = pair
+    account = await make_account(session, owner, "Used")
+    await book(session, owner, account)
+    await grant_area(session, household, owner, "accounts", AccessLevel.DELETE)
+    sign_in(helper)
+
+    response = await client.delete(f"/api/v1/accounts/{account.id}")
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "account_has_transactions"
