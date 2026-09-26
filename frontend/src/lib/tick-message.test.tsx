@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { toast } from 'sonner'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
+import { i18n } from '@/lib/i18n'
 import { useTogglePaid } from '@/lib/queries'
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -53,9 +54,7 @@ describe('ticking off', () => {
     const { result } = renderHook(() => useTogglePaid(), { wrapper })
     result.current.mutate({ id: 'p', paid: true, amount: '950.00', hasBookings: true })
     await waitFor(() => expect(success).toHaveBeenCalled())
-    expect(success.mock.calls[0][0]).toBe(
-      'Miete abgehakt. Die vorhandenen Buchungen bleiben unverändert.'
-    )
+    expect(success.mock.calls[0][0]).toBe(i18n.t('toast.tickedKept', { label: 'Miete' }))
   })
 
   test('names the position when the tick is taken away', async () => {

@@ -4,6 +4,7 @@ import { describe, expect, test, vi } from 'vitest'
 
 import { PaidDialog } from '@/components/PaidDialog'
 import type { PlanPosition } from '@/lib/domain'
+import { i18n } from '@/lib/i18n'
 
 const position = { id: 'x', label: 'Miete', amountPlanned: '500.00' } as PlanPosition
 
@@ -38,7 +39,9 @@ describe('PaidDialog', () => {
         planMonth={{ year: 2000, month: 1 }}
       />
     )
-    expect(screen.getByRole('status')).toHaveTextContent('Das Datum liegt nicht im Januar 2000. Die Buchung zählt trotzdem für diesen Plan.')
+    expect(screen.getByRole('status')).toHaveTextContent(
+      i18n.t('paidDialog.outsideMonth', { month: 'Januar 2000' })
+    )
     await user.click(screen.getByRole('button', { name: 'Abhaken' }))
     expect(onConfirm).toHaveBeenCalled()
   })

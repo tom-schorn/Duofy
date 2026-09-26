@@ -220,7 +220,6 @@
     "discarded": "Verworfen",
     "positionSaved": "Posten gespeichert",
     "deleted": "„{{name}}\" gelöscht",
-    "positionUpdated": "Posten aktualisiert",
     "unticked": "{{label}}: Haken weggenommen",
     "tickedKept": "{{label}} abgehakt. Die vorhandenen Buchungen bleiben unverändert.",
     "ticked": "{{label}} abgehakt: {{amount}} gebucht",
