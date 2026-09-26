@@ -274,7 +274,6 @@ function PlanBody({
     (entry) =>
       entry.kind === 'carry_over' && entry.accountId === defaultAccount?.id
   )
-  const startBalance = carryOver ? Number(carryOver.amount) : undefined
 
   /** The position whose self-created booking is about to disappear. */
   const [confirming, setConfirming] = useState<PlanPosition | null>(null)
@@ -480,10 +479,8 @@ function PlanBody({
             />
           )}
           <MonthFlow
-            positions={plan.positions}
             year={plan.year}
             month={plan.month}
-            startBalance={startBalance}
           />
         </TabsContent>
 
@@ -506,11 +503,10 @@ function PlanBody({
             className="pointer-events-none absolute -left-[9999px] top-0 w-[672px] print:static print:left-auto print:flex print:flex-col print:gap-4"
           >
             <MonthFlow
-              positions={plan.positions}
               year={plan.year}
               month={plan.month}
               height="h-32"
-              startBalance={startBalance}
+              print
             />
             <PlanSankey
               positions={plan.positions}
@@ -821,9 +817,9 @@ function MemberPlanBody({
 
         <TabsContent value="flow">
           <MonthFlow
-            positions={plan.positions}
             year={plan.year}
             month={plan.month}
+            ownerId={ownerId}
           />
         </TabsContent>
 
@@ -1042,10 +1038,9 @@ function HouseholdPlanBody({
 
             <TabsContent value="flow">
               <MonthFlow
-                positions={plan.positions}
                 year={plan.year}
                 month={plan.month}
-                height="h-32"
+                householdId={plan.householdId}
               />
             </TabsContent>
 
@@ -1065,10 +1060,11 @@ function HouseholdPlanBody({
                 className="pointer-events-none absolute -left-[9999px] top-0 w-[672px] print:static print:left-auto print:flex print:flex-col print:gap-4"
               >
                 <MonthFlow
-                  positions={plan.positions}
                   year={plan.year}
                   month={plan.month}
+                  householdId={plan.householdId}
                   height="h-32"
+                  print
                 />
                 <PlanSankey
                   positions={plan.positions}
