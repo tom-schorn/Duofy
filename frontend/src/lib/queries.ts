@@ -654,12 +654,13 @@ export function useTogglePaid() {
       // Says what happened: which position, and how much was booked.
       onSuccess: (position, { paid, amount, hasBookings }) => {
         if (!paid) {
-          return toast.success(i18n.t('toast.unticked', { label: position.label }))
+          return announce('success', i18n.t('toast.unticked', { label: position.label }))
         }
         if (hasBookings) {
-          return toast.success(i18n.t('toast.tickedKept', { label: position.label }))
+          return announce('success', i18n.t('toast.tickedKept', { label: position.label }))
         }
-        toast.success(
+        announce(
+          'success',
           i18n.t(position.budget === 'income' ? 'toast.tickedIncome' : 'toast.ticked', {
             label: position.label,
             amount: euro.format(Number(amount ?? position.amountPlanned)),
