@@ -14,7 +14,7 @@ from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, case, func, literal, or_, select, update
+from sqlalchemy import and_, case, func, literal, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -174,15 +174,18 @@ async def _used(session: AsyncSession, account_ids: list[uuid.UUID]) -> set[uuid
     """The accounts among `account_ids` some booking touches, on either side."""
     if not account_ids:
         return set()
+    # One UNION of two distinct id lists: at most one row per account, however many
+    # bookings there are.
     rows = await session.execute(
-        select(Transaction.account_id, Transaction.counter_account_id).where(
-            or_(
-                Transaction.account_id.in_(account_ids),
-                Transaction.counter_account_id.in_(account_ids),
+        select(Transaction.account_id)
+        .where(Transaction.account_id.in_(account_ids))
+        .union(
+            select(Transaction.counter_account_id).where(
+                Transaction.counter_account_id.in_(account_ids)
             )
         )
     )
-    return {id_ for pair in rows.all() for id_ in pair if id_ is not None}
+    return set(rows.scalars())
 
 
 async def _with_balance(
