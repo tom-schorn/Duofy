@@ -367,6 +367,8 @@
     "of": "von {{amount}}",
     "quotaLabel": "{{budget}}: {{percent}} % der Quote",
     "addPosition": "Posten in {{budget}}",
+    "statusPaid": "bezahlt",
+    "statusReceived": "erhalten",
     "reopen": "{{label}} wieder öffnen",
     "markReceived": "{{label}} als erhalten markieren",
     "tick": "{{label}} abhaken",
