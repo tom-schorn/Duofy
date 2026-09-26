@@ -35,11 +35,10 @@ import {
   BUDGET_ORDER,
   categoryLabel,
   monthLabel,
-  rhythmLabel,
+  intervalLabel,
   atLeast,
   dueMonths,
   euro,
-  firstMonthOf,
   monthlyEquivalent,
   type Commitment,
 } from '@/lib/domain'
@@ -56,12 +55,20 @@ import { i18n, locale } from '@/lib/i18n'
  * The same grouping as in the plan — one structure, two pages.
  */
 
-/** Monthly needs no addition — the rest shows when it actually falls due. */
-function rhythmText(commitment: Commitment) {
-  const months = dueMonths(commitment.rhythm, firstMonthOf(commitment))
-  if (months.length === 0) return rhythmLabel(commitment.rhythm)
+/**
+ * Monthly needs no addition — the rest shows when it actually falls due. The months
+ * are those of the current year: with an interval that does not divide 12 they
+ * differ from year to year.
+ */
+function intervalText(commitment: Commitment) {
+  const months = dueMonths(
+    commitment.intervalMonths,
+    commitment.firstDueDate,
+    new Date().getFullYear()
+  )
+  if (months.length === 0) return intervalLabel(commitment.intervalMonths)
   const short = months.map((month) => monthLabel(month).slice(0, 3))
-  return `${rhythmLabel(commitment.rhythm)} · ${short.join(', ')}`
+  return `${intervalLabel(commitment.intervalMonths)} · ${short.join(', ')}`
 }
 
 /** What follows from the type — a target or a remaining debt, nothing else. */
@@ -113,15 +120,15 @@ export function CommitmentsPage() {
       .filter((commitment) => commitment.budget === budget)
       .sort(
         (a, b) =>
-          monthlyEquivalent(b.amount, b.rhythm) -
-          monthlyEquivalent(a.amount, a.rhythm)
+          monthlyEquivalent(b.amount, b.intervalMonths) -
+          monthlyEquivalent(a.amount, a.intervalMonths)
       )
     // Inactive ones do not count — they generate no positions.
     const total = rows
       .filter((commitment) => commitment.active)
       .reduce(
         (sum, commitment) =>
-          sum + monthlyEquivalent(commitment.amount, commitment.rhythm),
+          sum + monthlyEquivalent(commitment.amount, commitment.intervalMonths),
         0
       )
     return { budget, rows, total }
@@ -209,7 +216,7 @@ export function CommitmentsPage() {
                         </span>
                         <span className="text-muted-foreground truncate text-xs">
                           {categoryLabel(commitment.category)} ·{' '}
-                          {rhythmText(commitment)} ·{' '}
+                          {intervalText(commitment)} ·{' '}
                           {t('common.dueDay', { day: commitment.dueDay })}
                           {commitment.householdId
                             ? ` · ${householdNames[commitment.householdId] ?? t('plans.household')}`
