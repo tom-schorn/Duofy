@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 const error = vi.fn()
-vi.mock('sonner', () => ({ toast: { error: (...args: unknown[]) => error(...args) } }))
+vi.mock('sonner', () => ({
+  toast: { error: (...args: unknown[]) => error(...args), dismiss: vi.fn() },
+}))
 
 import { ApiError } from '@/lib/api'
 import { reportMutationError, showsErrorInline } from '@/lib/mutation-error'
