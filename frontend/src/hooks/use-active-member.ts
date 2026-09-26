@@ -1,6 +1,13 @@
 import { useSearchParams } from 'react-router'
 
-import { AREA_FIELD, type AccessLevel, type Area, type Member } from '@/lib/domain'
+import {
+  ACCESS_ORDER,
+  AREA_FIELD,
+  type AccessLevel,
+  type Area,
+  type Household,
+  type Member,
+} from '@/lib/domain'
 import { useHouseholds } from '@/lib/queries'
 
 /**
@@ -11,10 +18,27 @@ import { useHouseholds } from '@/lib/queries'
  * frontend can answer from what it has.
  *
  * `levelFor` answers `edit` when nobody is selected: your own data has no
- * restriction, exactly as `granted_level()` decides it in the backend. The check
- * that counts still happens there; this one only keeps the UI from offering
+ * restriction, exactly as `granted_level()` decides it in the backend. If both
+ * share several households, the highest level wins, again as in the backend. The
+ * check that counts still happens there; this one only keeps the UI from offering
  * buttons that would end in a 403.
  */
+/** The highest level `userId` grants in one area over all households. */
+export function highestLevel(
+  households: Household[],
+  userId: string,
+  area: Area
+): AccessLevel {
+  const levels = households
+    .flatMap((household) => household.members)
+    .filter((candidate) => candidate.userId === userId)
+    .map((candidate) => candidate[AREA_FIELD[area]])
+  return levels.reduce<AccessLevel>(
+    (best, level) => (ACCESS_ORDER.indexOf(level) > ACCESS_ORDER.indexOf(best) ? level : best),
+    'plan'
+  )
+}
+
 export function useActiveMember(): {
   id: string | null
   member: Member | null
@@ -34,6 +58,6 @@ export function useActiveMember(): {
   return {
     id,
     member,
-    levelFor: (area) => (member === null ? 'edit' : member[AREA_FIELD[area]]),
+    levelFor: (area) => (id === null ? 'edit' : highestLevel(households, id, area)),
   }
 }
