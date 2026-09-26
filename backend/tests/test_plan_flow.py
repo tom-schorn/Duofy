@@ -13,13 +13,13 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.account import Account
-from app.models.enums import AccountType, Budget, Category, FlowLimitsBy
+from app.models.enums import AccessLevel, AccountType, Budget, Category, FlowLimitsBy
 from app.models.plan import Plan, PlanPosition
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.schemas.user import UserUpdate
 from tests.test_area_permissions import add_member, make_household, make_user
-from tests.test_delegation import sign_in
+from tests.test_delegation import grant_area, sign_in
 
 
 async def make_account(
@@ -317,3 +317,136 @@ def test_the_curve_can_start_at_a_carry_over_instead_of_zero():
     assert body.start == Decimal("-40.00")
     assert {d.balance for d in body.days} == {Decimal("-40.00")}
     assert body.hints[0].params["amount"] == "40.00"
+
+
+async def test_a_booking_dated_after_the_month_sits_on_the_last_day(
+    client: AsyncClient, session: AsyncSession, owner: User, main_account: Account
+):
+    plan = await make_plan(session, owner)
+    rent = position(plan, "Rent", "800.00", 1, paid_at=datetime(2026, 10, 2, tzinfo=UTC))
+    session.add(rent)
+    await session.flush()
+    session.add(booking(owner, main_account, "800.00", date(2026, 10, 2), position_id=rent.id))
+    await session.commit()
+
+    body = await flow(client)
+
+    assert steps(body) == [(30, "-800.00")]
+    assert body["entries"][0]["date"] == "2026-10-02"
+
+
+async def test_a_manual_transfer_counts_by_its_direction(
+    client: AsyncClient, session: AsyncSession, owner: User, main_account: Account
+):
+    other = await make_account(session, owner, "Tagesgeld")
+    await make_plan(session, owner)
+    session.add_all(
+        [
+            booking(owner, main_account, "50.00", date(2026, 9, 4), counter_account_id=other.id),
+            booking(owner, other, "20.00", date(2026, 9, 8), counter_account_id=main_account.id),
+        ]
+    )
+    await session.commit()
+
+    assert steps(await flow(client)) == [(4, "-50.00"), (8, "20.00")]
+
+
+async def test_a_booking_on_another_account_stays_out(
+    client: AsyncClient, session: AsyncSession, owner: User, main_account: Account
+):
+    other = await make_account(session, owner, "Tagesgeld")
+    await make_plan(session, owner)
+    session.add(booking(owner, other, "50.00", date(2026, 9, 4), note="Elsewhere"))
+    await session.commit()
+
+    assert steps(await flow(client)) == []
+
+
+async def test_a_ticked_position_without_any_booking_counts_nothing(
+    client: AsyncClient, session: AsyncSession, owner: User, main_account: Account
+):
+    plan = await make_plan(session, owner)
+    session.add(position(plan, "Rent", "800.00", 1, paid_at=datetime(2026, 9, 2, tzinfo=UTC)))
+    await session.commit()
+
+    assert steps(await flow(client)) == []
+
+
+# --- Access to somebody else's flow ---------------------------------------
+
+
+async def foreign_flow_setup(session: AsyncSession, *, plan_level, accounts_level):
+    """Ada owns the plan and hands out `plan_level` / `accounts_level`; Bob looks."""
+    ada = await make_user(session, "Ada")
+    bob = await make_user(session, "Bob")
+    household = await make_household(session, "Shared")
+    await add_member(session, household, ada)
+    await add_member(session, household, bob)
+    account = await make_account(session, ada, "Ada Giro", default=True)
+    plan = await make_plan(session, ada)
+    rent = position(plan, "Rent", "800.00", 1)
+    session.add(rent)
+    await session.flush()
+    session.add(booking(ada, account, "12.00", date(2026, 9, 9), note="Bakery"))
+    await session.commit()
+    await grant_area(session, household, ada, "plan", plan_level)
+    await grant_area(session, household, ada, "accounts", accounts_level)
+    await session.refresh(bob)
+    sign_in(bob)
+    return ada
+
+
+async def test_a_foreign_plan_without_the_accounts_grant_shows_no_manual_bookings(
+    client: AsyncClient, session: AsyncSession
+):
+    ada = await foreign_flow_setup(
+        session, plan_level=AccessLevel.VIEW, accounts_level=AccessLevel.PLAN
+    )
+
+    body = await flow(client, f"/api/v1/plans/2026/9/flow?owner={ada.id}")
+
+    assert steps(body) == [(1, "-800.00")]
+    [hint] = body["hints"]
+    assert hint["params"]["account_name"] is None
+    assert hint["params"]["account_id"] is None
+
+
+async def test_a_foreign_plan_with_the_accounts_grant_shows_them_and_names_the_account(
+    client: AsyncClient, session: AsyncSession
+):
+    ada = await foreign_flow_setup(
+        session, plan_level=AccessLevel.VIEW, accounts_level=AccessLevel.VIEW
+    )
+
+    body = await flow(client, f"/api/v1/plans/2026/9/flow?owner={ada.id}")
+
+    assert steps(body) == [(1, "-800.00"), (9, "-12.00")]
+    assert body["hints"][0]["params"]["account_name"] == "Ada Giro"
+
+
+async def test_a_foreign_flow_without_any_plan_grant_is_refused(
+    client: AsyncClient, session: AsyncSession
+):
+    ada = await foreign_flow_setup(
+        session, plan_level=AccessLevel.PLAN, accounts_level=AccessLevel.VIEW
+    )
+
+    response = await client.get(f"/api/v1/plans/2026/9/flow?owner={ada.id}")
+
+    assert response.status_code == 403
+    assert "no_insight_granted" in response.text
+
+
+async def test_the_household_flow_is_refused_to_a_non_member(
+    client: AsyncClient, session: AsyncSession
+):
+    household = await make_household(session, "Not mine")
+    outsider = await make_user(session, "Outsider")
+    await session.commit()
+    await session.refresh(outsider)
+    sign_in(outsider)
+
+    response = await client.get(f"/api/v1/plans/household/{household.id}/2026/9/flow")
+
+    assert response.status_code == 403
+    assert "not_household_member" in response.text
