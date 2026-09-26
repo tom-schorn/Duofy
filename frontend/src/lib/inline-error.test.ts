@@ -14,6 +14,7 @@ const INLINE_HOOKS = [
   'useDeclineInvitation',
   'useDeleteAccount',
   'useInvite',
+  'useLeaveHousehold',
   'useSaveAccount',
   'useSaveCommitment',
   'useSavePosition',
