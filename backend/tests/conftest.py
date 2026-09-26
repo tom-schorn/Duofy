@@ -65,8 +65,8 @@ def pytest_configure() -> None:
 async def engine() -> AsyncGenerator:
     """One engine for the whole run, with the schema built once.
 
-    `echo=False` regardless of `settings.debug`: a failing test should show its
-    assertion, not four hundred lines of SQL above it.
+    `echo=False`: a failing test should show its assertion, not four hundred lines
+    of SQL above it.
     """
     engine = create_async_engine(settings.database_url, echo=False)
 

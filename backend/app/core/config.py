@@ -11,7 +11,10 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env.local", extra="ignore")
 
     environment: str = "development"
-    debug: bool = True
+
+    #: DEBUG, INFO, WARNING or ERROR. Anything else falls back to INFO with a
+    #: warning in the log (see `app.core.logging`), so a typo never stops the start.
+    log_level: str = "INFO"
 
     # Frontend and backend live on separate domains — keep CORS explicit.
     cors_origins: list[str] = ["http://localhost:5173"]
