@@ -49,4 +49,15 @@ describe('ListRow', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
     expect(screen.getByText('Miete')).toBeInTheDocument()
   })
+
+  test('the row button is described by the amount, so a screen reader hears it', () => {
+    render(
+      <ul>
+        <ListRow onOpen={() => {}} trailing={<span>500,00 €</span>}>
+          <span>Miete</span>
+        </ListRow>
+      </ul>
+    )
+    expect(screen.getByRole('button', { name: 'Miete' })).toHaveAccessibleDescription('500,00 €')
+  })
 })
