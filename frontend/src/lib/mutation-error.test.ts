@@ -14,6 +14,7 @@ describe('reportMutationError', () => {
     const [text, options] = error.mock.calls[0]
     expect(text).toBe('Dazu fehlt dir die Berechtigung.')
     expect(options.duration).toBe(Infinity)
+    expect(options.cancel.label).toBe('Meldung schließen')
   })
 
   test('offers to try again and runs the action again on click', () => {
