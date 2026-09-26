@@ -114,3 +114,9 @@ class BalanceHistory(Schema):
     opening_balance: Decimal
     closing_balance: Decimal
     points: list[BalancePoint]
+
+
+class CarryOverSuggestion(Schema):
+    """What an account holds at the start of a month according to the book."""
+
+    amount: Decimal
