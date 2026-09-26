@@ -53,6 +53,22 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     reset_password_token_secret = settings.jwt_secret
     verification_token_secret = settings.jwt_secret
 
+    async def update(self, user_update, user, safe=False, request=None):
+        """Nobody may take over `ADMIN_EMAIL` by renaming themselves to it.
+
+        Registering with that address is what makes somebody the first admin; if an
+        existing user could change their address to it, they could sit on the
+        reservation. Only the person who already has it may keep it.
+        """
+        new_email = user_update.email
+        if (
+            new_email is not None
+            and settings.is_admin_email(new_email)
+            and not settings.is_admin_email(user.email)
+        ):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail={"code": "email_reserved"})
+        return await super().update(user_update, user, safe=safe, request=request)
+
 
 async def get_user_manager(
     user_db: RegistrationUserDatabase = Depends(get_user_db),
