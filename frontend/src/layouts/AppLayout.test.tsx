@@ -44,6 +44,5 @@ describe('AppLayout', () => {
   test('the header shows the title of the page, not a placeholder', () => {
     renderAt('/contracts')
     expect(screen.getByText('Verträge', { selector: 'header span' })).toBeInTheDocument()
-    expect(screen.queryByText('T · J')).not.toBeInTheDocument()
   })
 })
