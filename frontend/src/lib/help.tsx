@@ -74,7 +74,7 @@ const ENTRIES: Record<HelpKey, string[]> = {
   book: ['book', 'assignment', 'transfer', 'shared-book'].map(
     (id) => `book.entries.${id}`
   ),
-  commitments: ['commitment', 'types', 'rhythm', 'privacy'].map(
+  commitments: ['commitment', 'types', 'interval', 'privacy'].map(
     (id) => `commitments.entries.${id}`
   ),
   accounts: ['account', 'no-depot', 'available', 'iban'].map(
