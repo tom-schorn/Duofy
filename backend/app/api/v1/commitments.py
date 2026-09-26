@@ -197,10 +197,13 @@ async def update_commitment(
             )
     _check_limit(commitment.type, changes.get("is_limit", commitment.is_limit))
     # Against what is stored, so moving either date alone cannot break the pair.
-    _check_ends_on(
-        changes.get("first_due_date", commitment.first_due_date),
-        changes["ends_on"] if "ends_on" in changes else commitment.ends_on,
-    )
+    # Only when one of the two is touched: the migration can leave a row with an end
+    # before its start (never due anyway), and renaming it must still work.
+    if "ends_on" in changes or "first_due_date" in changes:
+        _check_ends_on(
+            changes.get("first_due_date", commitment.first_due_date),
+            changes["ends_on"] if "ends_on" in changes else commitment.ends_on,
+        )
 
     if "household_id" in changes:
         require(

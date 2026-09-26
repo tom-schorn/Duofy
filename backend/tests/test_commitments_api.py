@@ -9,11 +9,14 @@ Part of #106.
 """
 
 from datetime import date, timedelta
+from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.commitment import Commitment
+from app.models.enums import Budget, Category, CommitmentType
 from app.models.user import User
 from tests.test_area_permissions import make_user
 from tests.test_delegation import sign_in
@@ -299,3 +302,35 @@ async def test_an_unknown_status_is_a_422(client: AsyncClient, owner: User):
     response = await client.get("/api/v1/commitments?status=paused")
     assert response.status_code == 422
     assert response.json()["detail"] == {"code": "invalid_status_filter"}
+
+
+async def test_a_stored_end_before_the_start_does_not_block_unrelated_changes(
+    client: AsyncClient, session: AsyncSession, owner: User
+):
+    """The migration can leave such a row (a switched-off contract starting later)."""
+    stale = Commitment(
+        owner_id=owner.id,
+        type=CommitmentType.CONTRACT,
+        name="Old name",
+        amount=Decimal("10.00"),
+        category=Category.LEISURE_SUBSCRIPTIONS,
+        budget=Budget.WANTS,
+        interval_months=1,
+        first_due_date=date(2027, 3, 1),
+        ends_on=date(2026, 9, 26),
+    )
+    session.add(stale)
+    await session.commit()
+    url = f"/api/v1/commitments/{stale.id}"
+
+    renamed = await client.patch(url, json={"name": "New name"})
+    assert renamed.status_code == 200, renamed.text
+
+    still_invalid = await client.patch(url, json={"endsOn": "2026-10-31"})
+    assert still_invalid.status_code == 422
+    assert still_invalid.json()["detail"] == {"code": "ends_on_before_start"}
+    also_invalid = await client.patch(url, json={"firstDueDate": "2027-04-01"})
+    assert also_invalid.status_code == 422
+
+    fixed = await client.patch(url, json={"endsOn": "2027-06-30"})
+    assert fixed.status_code == 200
