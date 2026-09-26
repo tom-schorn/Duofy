@@ -14,6 +14,8 @@
     "no_insight_granted": "Diese Person teilt diesen Bereich nicht mit dir.",
     "no_edit_granted": "Du darfst hier zusehen, aber nichts ändern.",
     "no_delete_granted": "Löschen bleibt beim Besitzer.",
+    "commitment_in_use": "Der Vertrag steht schon in einem Monat. Setze stattdessen ein Ende.",
+    "account_has_transactions": "Auf diesem Konto gibt es schon Buchungen. Stelle es stattdessen auf inaktiv.",
     "plan_not_found": "Für diesen Monat gibt es noch keinen Plan.",
     "plan_already_exists": "Für diesen Monat gibt es schon einen Plan.",
     "commitment_not_found": "Der Vertrag existiert nicht mehr.",
@@ -529,12 +531,15 @@
     },
     "emptyEnded": "Kein Vertrag ist beendet.",
     "nextDue": "nächste: {{dates}}",
-    "deleteText": "Bereits geplante Posten in laufenden Monaten bleiben stehen. Für künftige Monate entsteht nichts mehr."
+    "deleteText": "Der Vertrag steht noch in keinem Monat. Er wird endgültig gelöscht.",
+    "deleteBlocked": "Löschen nicht mehr möglich — er steht schon in einem Monat. Setze ein Ende."
   },
   "accounts": {
     "leadMemberEdit": "Die Konten von {{name}}. Du darfst sie ändern.",
     "leadMemberView": "Die Konten von {{name}}. Nur zum Ansehen.",
     "openingFrom": "Anfangsbestand vom {{date}}",
+    "deleteText": "„{{name}}\" hat noch keine Buchungen und wird endgültig gelöscht.",
+    "deleteBlocked": "Es gibt schon Buchungen auf diesem Konto — löschen geht nicht mehr, du kannst es auf inaktiv stellen.",
     "title": "Konten",
     "lead": "Wo dein Geld liegt. Konten sind privat — für die gemeinsame Planung zählt, was auf den Posten steht.",
     "create": "Konto anlegen",
