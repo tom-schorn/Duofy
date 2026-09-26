@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, Star, Trash2 } from 'lucide-react'
 
@@ -8,6 +8,7 @@ import {
   EmptyHeader,
 } from '@/components/ui/empty'
 import { DateField } from '@/components/DateField'
+import { ListRow } from '@/components/ListRow'
 import { today, shortDate } from '@/lib/dates'
 import { QueryState } from '@/components/QueryState'
 import {
@@ -89,10 +90,14 @@ export function AccountsPage() {
   const mayDelete = active.member === null || atLeast(active.levelFor('accounts'), 'delete')
   const [editing, setEditing] = useState<Account | null>(null)
   const [open, setOpen] = useState(false)
+  // After a delete the row is gone; the focus goes to the page heading (rule 13).
+  const heading = useRef<HTMLHeadingElement>(null)
+  const deleted = useRef(false)
 
   const list = accounts.data ?? []
 
   function add() {
+    deleted.current = false
     setEditing(emptyAccount(list.length === 0))
     setOpen(true)
   }
@@ -101,7 +106,13 @@ export function AccountsPage() {
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-2">
-          <h1 className="font-heading text-3xl font-semibold">{t('accounts.title')}</h1>
+          <h1
+            ref={heading}
+            tabIndex={-1}
+            className="font-heading text-3xl font-semibold outline-none"
+          >
+            {t('accounts.title')}
+          </h1>
           <p className="text-muted-foreground max-w-2xl">
             {active.member === null
               ? t('accounts.lead')
@@ -126,45 +137,18 @@ export function AccountsPage() {
           </EmptyHeader>
         </Empty>
         ) : (
-          <ul className="flex flex-col gap-3">
+          <ul className="flex flex-col">
             {list.map((account) => (
-              <li key={account.id}>
-                <button
-                  type="button"
-                  disabled={!mayEdit}
-                  onClick={() => {
-                    setEditing(account)
-                    setOpen(true)
-                  }}
-                  className={`bg-card ring-foreground/10 hover:ring-ring flex w-full flex-wrap items-center justify-between gap-4 rounded-xl p-4 text-left ring-1 transition-[box-shadow] ${
-                    account.active ? '' : 'opacity-60'
-                  }`}
-                >
-                  <span className="flex min-w-0 flex-col gap-1">
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium">{account.name}</span>
-                      {account.isDefault && (
-                        <Badge variant="secondary" className="gap-1 font-normal">
-                          <Star className="size-3" />
-                          {t('accounts.default')}
-                        </Badge>
-                      )}
-                      {!account.active && (
-                        <Badge variant="outline" className="font-normal">
-                          {t('accounts.closed')}
-                        </Badge>
-                      )}
-                    </span>
-                    <span className="text-muted-foreground text-xs">
-                      {accountTypeLabel(account.type)} ·{' '}
-                      {t('accounts.openingFrom', { date: shortDate(account.openingDate) })}
-                    </span>
-                  </span>
-                  <span className="font-mono font-medium tabular-nums">
-                    {euro.format(Number(account.openingBalance))}
-                  </span>
-                </button>
-              </li>
+              <AccountRow
+                key={account.id}
+                account={account}
+                mayEdit={mayEdit}
+                onOpen={() => {
+                  deleted.current = false
+                  setEditing(account)
+                  setOpen(true)
+                }}
+              />
             ))}
           </ul>
         )}
@@ -175,8 +159,59 @@ export function AccountsPage() {
         mayDelete={mayDelete}
         open={open}
         onOpenChange={setOpen}
+        onDeleted={() => {
+          deleted.current = true
+        }}
+        returnFocus={() => (deleted.current ? heading.current : null)}
       />
     </div>
+  )
+}
+
+/**
+ * One account: the whole row opens it (UI guideline rules 1-5). Deleting an unused
+ * account and deactivating a used one both sit in the edit dialog: the „Aktiv“
+ * switch is the deactivation. Without the right to edit the row is read-only.
+ */
+export function AccountRow({
+  account,
+  mayEdit,
+  onOpen,
+}: {
+  account: Account
+  mayEdit: boolean
+  onOpen: () => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <ListRow
+      onOpen={mayEdit ? onOpen : undefined}
+      className={account.active ? undefined : 'opacity-60'}
+      trailing={
+        <span className="font-mono font-medium">
+          {euro.format(Number(account.openingBalance))}
+        </span>
+      }
+    >
+      <span className="flex flex-wrap items-center gap-2">
+        <span className="font-medium">{account.name}</span>
+        {account.isDefault && (
+          <Badge variant="secondary" className="gap-1 font-normal">
+            <Star className="size-3" />
+            {t('accounts.default')}
+          </Badge>
+        )}
+        {!account.active && (
+          <Badge variant="outline" className="font-normal">
+            {t('accounts.closed')}
+          </Badge>
+        )}
+      </span>
+      <span className="text-muted-foreground text-xs">
+        {accountTypeLabel(account.type)} ·{' '}
+        {t('accounts.openingFrom', { date: shortDate(account.openingDate) })}
+      </span>
+    </ListRow>
   )
 }
 
@@ -185,12 +220,18 @@ export function AccountDialog({
   mayDelete,
   open,
   onOpenChange,
+  onDeleted,
+  returnFocus,
 }: {
   account: Account | null
   /** Only decides whether the button is offered. The endpoint checks it again. */
   mayDelete: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** The account was deleted; the row is gone, so the focus needs another place. */
+  onDeleted?: () => void
+  /** Where the focus goes on closing instead of back to the row. */
+  returnFocus?: () => HTMLElement | null
 }) {
   const save = useSaveAccount()
   const { t } = useTranslation()
@@ -237,10 +278,10 @@ export function AccountDialog({
       }}
       dirty={JSON.stringify(draft) !== JSON.stringify(account ?? emptyAccount(false))}
       pending={save.isPending}
+      returnFocus={returnFocus}
       error={save.isError || remove.isError ? (save.error ?? remove.error) : null}
       start={
         isEdit && mayDelete && draft.deletable ? (
-          // Moves into the ⋯ menu with #141.
           <>
             <Button
               type="button"
@@ -265,7 +306,10 @@ export function AccountDialog({
                   onClick={() => {
                     save.reset()
                     remove.mutate(draft.id, {
-                      onSuccess: () => onOpenChange(false),
+                      onSuccess: () => {
+                        onDeleted?.()
+                        onOpenChange(false)
+                      },
                     })
                   }}
                 >
