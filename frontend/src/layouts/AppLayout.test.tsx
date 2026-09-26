@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
-import { beforeAll, describe, expect, test } from 'vitest'
+import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest'
 
 import { TooltipProvider } from '@/components/ui/tooltip'
 import de from '@/locales/de.json'
@@ -12,13 +12,13 @@ function renderAt(path: string) {
   return render(
     <QueryClientProvider client={client}>
       <TooltipProvider>
-      <MemoryRouter initialEntries={[path]}>
-        <Routes>
-          <Route element={<AppLayout />}>
-            <Route path="*" element={<p>Seite</p>} />
-          </Route>
-        </Routes>
-      </MemoryRouter>
+        <MemoryRouter initialEntries={[path]}>
+          <Routes>
+            <Route element={<AppLayout />}>
+              <Route path="*" element={<p>Seite</p>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
       </TooltipProvider>
     </QueryClientProvider>
   )
@@ -26,14 +26,20 @@ function renderAt(path: string) {
 
 describe('AppLayout', () => {
   // jsdom has no matchMedia; the sidebar asks it whether the screen is narrow.
+  // Everything the shell loads is an empty list.
   beforeAll(() => {
-    window.matchMedia = ((query: string) => ({
+    vi.stubGlobal('matchMedia', (query: string) => ({
       matches: false,
       media: query,
       addEventListener: () => {},
       removeEventListener: () => {},
-    })) as unknown as typeof window.matchMedia
+    }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('[]', { status: 200 }))
+    )
   })
+  afterAll(() => vi.unstubAllGlobals())
 
   test('each sidebar entry is one link, with no button inside it', () => {
     renderAt('/book')
@@ -44,6 +50,8 @@ describe('AppLayout', () => {
 
   test('the header shows the title of the page, not a placeholder', () => {
     renderAt('/contracts')
-    expect(screen.getByText(de.nav.commitments, { selector: 'header span' })).toBeInTheDocument()
+    expect(
+      screen.getByText(de.nav.commitments, { selector: 'header span' })
+    ).toBeInTheDocument()
   })
 })
