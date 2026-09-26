@@ -1,9 +1,11 @@
-import { Plus, User, Users } from 'lucide-react'
+import { Plus, Trash2, User, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { ListRow } from '@/components/ListRow'
+import { RowMenu } from '@/components/RowMenu'
 import { Progress } from '@/components/ui/progress'
 import {
   BUDGET_DOT,
@@ -65,6 +67,13 @@ type Props = {
   canAdd?: boolean
   /** Returns the first name of the person behind the position, otherwise null. */
   ownerName?: (position: PlanPosition) => string | null
+  /**
+   * Deleting sits in the row menu. Absent or null: this person may not delete, so
+   * the row has no menu (rule 3: no right, no control).
+   */
+  onDelete?: ((position: PlanPosition) => void) | null
+  /** A save or delete is running; the menu is locked meanwhile. */
+  pending?: boolean
 }
 
 export function BudgetSection({
@@ -78,6 +87,8 @@ export function BudgetSection({
   readOnly = false,
   canAdd = true,
   ownerName,
+  onDelete = null,
+  pending = false,
 }: Props) {
   const { t } = useTranslation()
   // Pass-through positions appear in the list but not in the total: they are not
@@ -135,6 +146,8 @@ export function BudgetSection({
             onTogglePaid={onTogglePaid}
             readOnly={readOnly}
             ownerName={ownerName?.(position) ?? null}
+            onDelete={readOnly ? null : onDelete}
+            pending={pending}
           />
         ))}
       </ul>
@@ -164,6 +177,8 @@ function PositionRow({
   onTogglePaid,
   readOnly,
   ownerName,
+  onDelete,
+  pending,
 }: {
   position: PlanPosition
   householdNames: Record<string, string>
@@ -171,6 +186,8 @@ function PositionRow({
   onTogglePaid: (position: PlanPosition) => void
   readOnly: boolean
   ownerName: string | null
+  onDelete: ((position: PlanPosition) => void) | null
+  pending: boolean
 }) {
   const planned = Number(position.amountPlanned)
   const { t } = useTranslation()
@@ -180,8 +197,8 @@ function PositionRow({
   const overspent = actual !== null && actual > planned
   const paid = isPaid(position)
 
-  return (
-    <li className="border-border/60 grid grid-cols-[auto_1fr_auto] items-center gap-3 border-b py-2.5 last:border-b-0">
+  const leading = (
+    <>
       {/* Ticking off is the everyday work after planning — hence a control of its
           own rather than something hidden in a form.
 
@@ -222,48 +239,11 @@ function PositionRow({
           />
         </span>
       )}
+    </>
+  )
 
-      <button
-        type="button"
-        onClick={() => onEdit(position)}
-        disabled={readOnly}
-        className={`flex min-w-0 flex-col items-start gap-0.5 text-left ${paid ? 'opacity-60' : ''} ${readOnly ? 'cursor-default' : ''}`}
-      >
-        <span className="flex flex-wrap items-center gap-2">
-          <span className="font-medium">{position.label}</span>
-          {/* In der gemeinsamen Sicht steht hier die Person, nicht der
-              Haushalt — der ist dort in jeder Zeile derselbe und sagt nichts.
-              Im eigenen Plan umgekehrt: dort ist die Person klar, und der
-              Badge zeigt, dass der Posten zusätzlich in einen Haushaltsplan
-              läuft. */}
-          {ownerName ? (
-            <Badge variant="secondary" className="gap-1 font-normal">
-              <User className="size-3" />
-              {ownerName}
-            </Badge>
-          ) : (
-            position.householdId && (
-              <Badge variant="secondary" className="gap-1 font-normal">
-                <Users className="size-3" />
-                {householdNames[position.householdId]}
-              </Badge>
-            )
-          )}
-        </span>
-        <span className="text-muted-foreground truncate text-xs">
-          {categoryLabel(position.category)} ·{' '}
-          {t('common.dueDay', { day: position.dueDay })}
-          {position.paymentMethod
-            ? ` · ${paymentLabel(position.paymentMethod)}`
-            : ''}
-          {position.commitmentId ? ` · ${t('budget.fromCommitment')}` : ''}
-          {position.isLimit ? ` · ${t('budget.limit')}` : ''}
-          {position.passThrough ? ` · ${t('budget.passThrough')}` : ''}
-          {position.counterAccountId ? ` · ${t('budget.transfer')}` : ''}
-        </span>
-      </button>
-
-      <span className="flex flex-col items-end gap-1 tabular-nums">
+  const amount = (
+    <>
         {position.isLimit ? (
           <>
             <span className="text-sm">
@@ -301,7 +281,67 @@ function PositionRow({
             )}
           </>
         )}
-      </span>
-    </li>
+    </>
+  )
+
+  return (
+    <ListRow
+      onOpen={readOnly ? undefined : () => onEdit(position)}
+      leading={leading}
+      trailing={amount}
+      menu={
+        <RowMenu
+          name={position.label}
+          disabled={pending}
+          items={
+            onDelete
+              ? [
+                  {
+                    key: 'delete',
+                    label: t('common.delete'),
+                    icon: Trash2,
+                    destructive: true,
+                    onSelect: () => onDelete(position),
+                  },
+                ]
+              : []
+          }
+        />
+      }
+      className={paid ? '[&>button]:opacity-60' : undefined}
+    >
+      <span className="flex flex-wrap items-center gap-2">
+          <span className="font-medium">{position.label}</span>
+          {/* In der gemeinsamen Sicht steht hier die Person, nicht der
+              Haushalt — der ist dort in jeder Zeile derselbe und sagt nichts.
+              Im eigenen Plan umgekehrt: dort ist die Person klar, und der
+              Badge zeigt, dass der Posten zusätzlich in einen Haushaltsplan
+              läuft. */}
+          {ownerName ? (
+            <Badge variant="secondary" className="gap-1 font-normal">
+              <User className="size-3" />
+              {ownerName}
+            </Badge>
+          ) : (
+            position.householdId && (
+              <Badge variant="secondary" className="gap-1 font-normal">
+                <Users className="size-3" />
+                {householdNames[position.householdId]}
+              </Badge>
+            )
+          )}
+        </span>
+        <span className="text-muted-foreground truncate text-xs">
+          {categoryLabel(position.category)} ·{' '}
+          {t('common.dueDay', { day: position.dueDay })}
+          {position.paymentMethod
+            ? ` · ${paymentLabel(position.paymentMethod)}`
+            : ''}
+          {position.commitmentId ? ` · ${t('budget.fromCommitment')}` : ''}
+          {position.isLimit ? ` · ${t('budget.limit')}` : ''}
+          {position.passThrough ? ` · ${t('budget.passThrough')}` : ''}
+          {position.counterAccountId ? ` · ${t('budget.transfer')}` : ''}
+        </span>
+    </ListRow>
   )
 }

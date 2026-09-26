@@ -518,6 +518,8 @@ function PlanBody({
           }}
           onAdd={handleAdd}
           onTogglePaid={togglePaidWithGuard}
+          onDelete={(position) => deletePosition.mutate(position.id)}
+          pending={savePosition.isPending || deletePosition.isPending}
         />
 
         {groups.map((group) => (
@@ -533,6 +535,8 @@ function PlanBody({
             }}
             onAdd={handleAdd}
             onTogglePaid={togglePaidWithGuard}
+            onDelete={(position) => deletePosition.mutate(position.id)}
+            pending={savePosition.isPending || deletePosition.isPending}
           />
         ))}
       </div>
@@ -622,7 +626,6 @@ function PlanBody({
             { onSuccess: () => setDialogOpen(false) }
           )
         }
-        onDelete={(position) => deletePosition.mutate(position.id)}
       />
     </>
   )
@@ -804,6 +807,8 @@ function MemberPlanBody({
               onEdit={openEditor}
               onAdd={handleAdd}
               onTogglePaid={toggle}
+              onDelete={mayDelete ? (position) => deletePosition.mutate(position.id) : null}
+              pending={savePosition.isPending || deletePosition.isPending}
               readOnly={!mayEdit}
               canAdd={mayEdit}
             />
@@ -818,6 +823,8 @@ function MemberPlanBody({
                 onEdit={openEditor}
                 onAdd={handleAdd}
                 onTogglePaid={toggle}
+                onDelete={mayDelete ? (position) => deletePosition.mutate(position.id) : null}
+                pending={savePosition.isPending || deletePosition.isPending}
                 readOnly={!mayEdit}
                 canAdd={mayEdit}
               />
@@ -842,14 +849,6 @@ function MemberPlanBody({
             { ...position, planId: plan.id },
             { onSuccess: () => setDialogOpen(false) }
           )
-        }
-        onDelete={
-          mayDelete && editing
-            ? () => {
-                deletePosition.mutate(editing.id)
-                setDialogOpen(false)
-              }
-            : null
         }
       />
     </>
