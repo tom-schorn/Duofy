@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel
 
 
@@ -18,3 +20,9 @@ class AccessToken(BaseModel):
 
     access_token: str
     token_type: str = "bearer"
+
+
+class RegistrationInfo(BaseModel):
+    """Whether, and how, somebody can register on this instance."""
+
+    mode: Literal["open", "invite", "closed"]
