@@ -656,6 +656,11 @@
   },
   "ui": {
     "close": "Schließen",
+    "dialog": {
+      "discardQuestion": "Änderungen verwerfen?",
+      "keepEditing": "Weiter bearbeiten",
+      "discard": "Verwerfen"
+    },
     "sidebar": {
       "title": "Seitenleiste",
       "description": "Zeigt die Seitenleiste auf dem Handy.",
