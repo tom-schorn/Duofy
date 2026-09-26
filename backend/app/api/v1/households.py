@@ -8,7 +8,7 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -17,6 +17,7 @@ from app.core.permissions import is_household_owner, is_member, require
 from app.db.session import get_session
 from app.models.enums import InvitationStatus, Role
 from app.models.household import Household, HouseholdInvitation, HouseholdMember
+from app.models.plan import Plan, PlanPosition
 from app.models.user import User
 from app.schemas.household import (
     AccessUpdate,
@@ -186,8 +187,10 @@ async def leave_household(
     bleiben bei der Person.
 
     `ON DELETE SET NULL` an `plan_positions.household_id` greift hier nicht — es
-    hängt am Haushalt, nicht an der Mitgliedschaft. Diese Zeile löscht nur die
-    Mitgliedschaft.
+    hängt am Haushalt, nicht an der Mitgliedschaft. Deshalb löst diese Route die
+    Posten der Person selbst aus dem Haushalt (#54): in allen Monaten, in
+    derselben Transaktion wie die Mitgliedschaft. Sie bleiben als private Posten
+    im eigenen Plan und kommen bei einem Wiedereintritt nicht von selbst zurück.
     """
     result = await session.execute(
         select(HouseholdMember).where(
@@ -212,6 +215,14 @@ async def leave_household(
                 status.HTTP_409_CONFLICT, detail={"code": "last_owner_cannot_leave"}
             )
 
+    await session.execute(
+        update(PlanPosition)
+        .where(
+            PlanPosition.household_id == household_id,
+            PlanPosition.plan_id.in_(select(Plan.id).where(Plan.user_id == user.id)),
+        )
+        .values(household_id=None)
+    )
     await session.delete(member)
     await session.commit()
 
