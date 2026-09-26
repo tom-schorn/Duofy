@@ -105,4 +105,6 @@ class CommitmentRead(CommitmentBase):
     id: uuid.UUID
     type: CommitmentType
     owner_id: uuid.UUID
+    #: No month position refers to it yet, so it may still be deleted. Computed.
+    deletable: bool = False
 

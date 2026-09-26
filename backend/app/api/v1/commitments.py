@@ -23,6 +23,7 @@ from app.core.permissions import Area, can_assign_to_household, granted_level, r
 from app.db.session import get_session
 from app.models.commitment import Commitment
 from app.models.enums import AccessLevel, CommitmentType, resolve_budget
+from app.models.plan import PlanPosition
 from app.models.user import User
 from app.schemas.commitment import CommitmentCreate, CommitmentRead, CommitmentUpdate
 
@@ -87,12 +88,35 @@ async def _load(
     commitment = await session.get(Commitment, commitment_id)
     if commitment is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "commitment_not_found"})
+    # Your own is always yours to delete — whether it is still allowed is the
+    # separate question of `_require_unused`. Others' need the granted level.
+    if commitment.owner_id == user.id:
+        return commitment
     level = await granted_level(session, commitment.owner_id, user.id, Area.COMMITMENTS)
     require(
         level.rank >= needs.rank,
         "no_delete_granted" if needs is AccessLevel.DELETE else "no_edit_granted",
     )
     return commitment
+
+
+async def _mark_deletable(session: AsyncSession, commitments: list[Commitment]) -> None:
+    """Set `deletable` on each: true while no month position refers to it.
+
+    Not a column: it is derived, so it cannot drift from the positions. One query
+    for the whole list.
+    """
+    ids = [commitment.id for commitment in commitments]
+    used: set[uuid.UUID] = set()
+    if ids:
+        rows = await session.execute(
+            select(PlanPosition.commitment_id)
+            .where(PlanPosition.commitment_id.in_(ids))
+            .distinct()
+        )
+        used = set(rows.scalars())
+    for commitment in commitments:
+        commitment.deletable = commitment.id not in used
 
 
 @router.get("", response_model=list[CommitmentRead])
@@ -138,7 +162,9 @@ async def list_commitments(
     result = await session.execute(
         query.order_by(Commitment.budget, Commitment.amount.desc())
     )
-    return list(result.scalars())
+    commitments = list(result.scalars())
+    await _mark_deletable(session, commitments)
+    return commitments
 
 
 @router.post("", response_model=CommitmentRead, status_code=status.HTTP_201_CREATED)
@@ -175,6 +201,7 @@ async def create_commitment(
     session.add(commitment)
     await session.commit()
     await session.refresh(commitment)
+    await _mark_deletable(session, [commitment])
     return commitment
 
 
@@ -219,6 +246,7 @@ async def update_commitment(
 
     await session.commit()
     await session.refresh(commitment)
+    await _mark_deletable(session, [commitment])
     return commitment
 
 
@@ -228,11 +256,13 @@ async def delete_commitment(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> None:
-    """Delete a commitment.
+    """Delete a commitment nobody has used yet — a typo, not history.
 
-    Positions already generated stay — `commitment_id` is ON DELETE SET NULL.
-    Nothing new is generated for future months.
+    Once a month position refers to it only ending it is left (`ends_on`), so the
+    months already planned keep their origin.
     """
     commitment = await _load(session, commitment_id, user, needs=AccessLevel.DELETE)
+    await _mark_deletable(session, [commitment])
+    require(commitment.deletable, "commitment_in_use")
     await session.delete(commitment)
     await session.commit()

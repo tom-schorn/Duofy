@@ -75,6 +75,9 @@ class AccountRead(AccountBase):
     #: stored figure would drift apart eventually, and the bookings are the truth
     #: anyway.
     balance: Decimal = Decimal("0.00")
+    #: No booking touches it yet (on either side of a transfer), so it may still
+    #: be deleted. Computed.
+    deletable: bool = False
 
 
 class BalanceMoves(Schema):

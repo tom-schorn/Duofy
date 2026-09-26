@@ -14,7 +14,7 @@ from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, case, func, literal, select, update
+from sqlalchemy import and_, case, func, literal, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
@@ -169,6 +169,21 @@ async def _balances(
     return moved
 
 
+async def _used(session: AsyncSession, account_ids: list[uuid.UUID]) -> set[uuid.UUID]:
+    """The accounts among `account_ids` some booking touches, on either side."""
+    if not account_ids:
+        return set()
+    rows = await session.execute(
+        select(Transaction.account_id, Transaction.counter_account_id).where(
+            or_(
+                Transaction.account_id.in_(account_ids),
+                Transaction.counter_account_id.in_(account_ids),
+            )
+        )
+    )
+    return {id_ for pair in rows.all() for id_ in pair if id_ is not None}
+
+
 async def _with_balance(
     session: AsyncSession, account: Account, owner_id: uuid.UUID
 ) -> AccountRead:
@@ -181,7 +196,10 @@ async def _with_balance(
     """
     moved = await _balances(session, [owner_id])
     return AccountRead.model_validate(account).model_copy(
-        update={"balance": account.opening_balance + moved.get(account.id, ZERO)}
+        update={
+            "balance": account.opening_balance + moved.get(account.id, ZERO),
+            "deletable": account.id not in await _used(session, [account.id]),
+        }
     )
 
 
@@ -206,7 +224,9 @@ async def list_accounts(
         .where(Account.owner_id.in_(owner_ids))
         .order_by(Account.active.desc(), User.first_name, Account.name)
     )
+    rows = result.all()
     moved = await _balances(session, owner_ids)
+    used = await _used(session, [account.id for account, _ in rows])
 
     return [
         AccountRead.model_validate(account).model_copy(
@@ -215,9 +235,10 @@ async def list_accounts(
                 # Only in the household view: there the accounts of several people
                 # sit side by side and the name is what tells them apart.
                 "owner_name": name if geteilt else None,
+                "deletable": account.id not in used,
             }
         )
-        for account, name in result.all()
+        for account, name in rows
     ]
 
 
@@ -416,11 +437,12 @@ async def delete_account(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> None:
-    """Deleting is for mistakes.
+    """Deleting is for mistakes: an account nothing was booked on yet.
 
-    An account no longer in use is set to `active = false` — that way its bookings
-    keep their reference.
+    One that has bookings is set to `active = false` instead — that way its
+    bookings keep their reference.
     """
     account = await _load(session, account_id, user, needs=AccessLevel.DELETE)
+    require(account.id not in await _used(session, [account.id]), "account_has_transactions")
     await session.delete(account)
     await session.commit()
