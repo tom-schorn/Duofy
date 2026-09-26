@@ -1,10 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { MonthBook } from '@/components/MonthBook'
 import { i18n } from '@/lib/i18n'
+import { flushPendingDelete } from '@/lib/undo-delete'
 
 const booking = {
   id: 't1',
@@ -66,17 +67,21 @@ describe('MonthBook rows', () => {
     expect(screen.queryByRole('button', { name: /löschen|weitere Aktionen/ })).not.toBeInTheDocument()
   })
 
-  test('Delete sits in the edit dialog, deletes at once and puts the focus on the list heading', async () => {
+  test('Delete sits in the edit dialog, hides the row at once, sends nothing before the undo window ends and puts the focus on the list heading', async () => {
     const user = userEvent.setup()
     renderBook(false)
     await user.click(await screen.findByRole('button', { name: /Streaming/ }))
     const dialog = screen.getByRole('dialog')
     expect(deleted()).toBe(false)
     await user.click(within(dialog).getByRole('button', { name: i18n.t('common.delete') }))
-    await waitFor(() => expect(deleted()).toBe(true))
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: i18n.t('monthBook.title') })).toHaveFocus()
     )
+    expect(screen.queryByRole('button', { name: /Streaming/ })).not.toBeInTheDocument()
+    expect(deleted()).toBe(false)
+    // The window closing sends the request.
+    act(() => flushPendingDelete())
+    await waitFor(() => expect(deleted()).toBe(true))
   })
 
   test('a read-only row is not a button and its book cannot delete', async () => {
