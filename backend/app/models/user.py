@@ -3,6 +3,8 @@ from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.types import enum_column
+from app.models.enums import FlowLimitsBy
 
 
 class User(SQLAlchemyBaseUserTableUUID, Base):
@@ -22,3 +24,12 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
 
     first_name: Mapped[str] = mapped_column(String(100))
     last_name: Mapped[str] = mapped_column(String(100))
+
+    #: What the flow chart counts for limits, read from the **viewer** — also in the
+    #: household plan and in other people's plans. Stored on the server, not in the
+    #: browser: whoever tracks groceries does so every month and on every device.
+    flow_limits_by: Mapped[FlowLimitsBy] = mapped_column(
+        enum_column(FlowLimitsBy),
+        default=FlowLimitsBy.PLAN,
+        server_default=FlowLimitsBy.PLAN.value,
+    )
