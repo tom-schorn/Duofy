@@ -417,9 +417,12 @@ async def _sources(
     month: int,
     *,
     with_manual: bool,
+    show_account: bool = True,
 ) -> list[Source]:
     """One source per person: default account, positions and the bookings the
-    flow needs. Manual bookings (no position) are read only for the own plan."""
+    flow needs. Manual bookings (no position) are read only for the own plan.
+    `show_account` is False when the viewer has no insight into the accounts: the
+    account is then not named."""
     owner_ids = [owner_id for owner_id, _ in rows]
     accounts = {
         account.owner_id: account
@@ -454,8 +457,8 @@ async def _sources(
         ids = {p.id for p in positions}
         sources.append(
             Source(
-                account_id=account.id if account else None,
-                account_name=account.name if account else None,
+                account_id=account.id if account and show_account else None,
+                account_name=account.name if account and show_account else None,
                 positions=positions,
                 transactions=[
                     tx
@@ -481,9 +484,14 @@ async def get_flow(
     owner: it is a question of the view, so whoever looks decides.
     """
     owner_id = owner or user.id
+    # Manual bookings and the account name belong to the accounts area, not to the
+    # plan: for somebody else's plan they need their own grant.
+    sees_accounts = True
     if owner_id != user.id:
         level = await granted_level(session, owner_id, user.id, Area.PLAN)
         require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
+        accounts_level = await granted_level(session, owner_id, user.id, Area.ACCOUNTS)
+        sees_accounts = accounts_level.rank >= AccessLevel.VIEW.rank
 
     result = await session.execute(
         select(Plan)
@@ -495,7 +503,12 @@ async def get_flow(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "plan_not_found"})
 
     sources = await _sources(
-        session, [(owner_id, list(plan.positions))], year, month, with_manual=True
+        session,
+        [(owner_id, list(plan.positions))],
+        year,
+        month,
+        with_manual=sees_accounts,
+        show_account=sees_accounts,
     )
     return build_flow(sources, year, month, user.flow_limits_by, merged=False)
 

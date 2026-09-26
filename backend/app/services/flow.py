@@ -8,6 +8,9 @@ Limit positions follow the viewer's `flow_limits_by`, never an estimate.
 The curve is for **one account**, the default account of the plan owner. The
 household view merges the curves of its members. Pure functions over loaded rows,
 so the rules can be read (and tested) without a request around them.
+
+A ticked-off position without any booking counts nothing: its plan is replaced by
+what was booked, and nothing was booked.
 """
 
 import uuid
