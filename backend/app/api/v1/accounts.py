@@ -28,7 +28,7 @@ from app.core.permissions import (
 )
 from app.db.session import get_session
 from app.models.account import Account
-from app.models.enums import AccessLevel, Budget
+from app.models.enums import AccessLevel, Budget, TransactionKind
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.schemas.account import (
@@ -38,6 +38,7 @@ from app.schemas.account import (
     BalanceHistory,
     BalanceMoves,
     BalancePoint,
+    CarryOverSuggestion,
 )
 
 router = APIRouter()
@@ -152,13 +153,18 @@ async def _balances(
                 )
             ),
         )
-        .where(Transaction.owner_id.in_(owner_ids))
+        .where(
+            Transaction.owner_id.in_(owner_ids),
+            # A carry-over states a balance, it does not move one.
+            Transaction.kind == TransactionKind.BOOKING,
+        )
         .group_by(Transaction.account_id)
     )
     incoming = await session.execute(
         select(Transaction.counter_account_id, func.sum(Transaction.amount))
         .where(
             Transaction.owner_id.in_(owner_ids),
+            Transaction.kind == TransactionKind.BOOKING,
             Transaction.counter_account_id.isnot(None),
         )
         .group_by(Transaction.counter_account_id)
@@ -333,7 +339,9 @@ async def balance_history(
     delta = _delta(spendable)
     before = await session.scalar(
         select(func.coalesce(func.sum(delta), ZERO)).where(
-            Transaction.owner_id.in_(owner_ids), Transaction.occurred_on < first
+            Transaction.owner_id.in_(owner_ids),
+            Transaction.kind == TransactionKind.BOOKING,
+            Transaction.occurred_on < first,
         )
     )
 
@@ -344,6 +352,7 @@ async def balance_history(
         select(Transaction.occurred_on, Transaction.budget, func.sum(delta))
         .where(
             Transaction.owner_id.in_(owner_ids),
+            Transaction.kind == TransactionKind.BOOKING,
             Transaction.occurred_on >= first,
             Transaction.occurred_on <= last,
         )
@@ -385,6 +394,53 @@ async def balance_history(
         closing_balance=running,
         points=points,
     )
+
+
+@router.get("/{account_id}/carry-over-suggestion", response_model=CarryOverSuggestion)
+async def carry_over_suggestion(
+    account_id: uuid.UUID,
+    year: int = Query(ge=2000, le=2100),
+    month: int = Query(ge=1, le=12),
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_active_user),
+) -> CarryOverSuggestion:
+    """The book balance of an account at the end of the month before.
+
+    `opening_balance` plus every booking dated before the 1st. Offered, never set on
+    its own: somebody who does not track will find it differs from the bank, and
+    types in the statement balance instead.
+    """
+    account = await session.get(Account, account_id)
+    if account is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "account_not_found"})
+    if account.owner_id != user.id:
+        level = await granted_level(session, account.owner_id, user.id, Area.ACCOUNTS)
+        require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
+
+    first = date(year, month, 1)
+    before = and_(
+        Transaction.kind == TransactionKind.BOOKING, Transaction.occurred_on < first
+    )
+    outgoing = await session.scalar(
+        select(
+            func.coalesce(
+                func.sum(
+                    case(
+                        (Transaction.counter_account_id.isnot(None), -Transaction.amount),
+                        (Transaction.budget == Budget.INCOME, Transaction.amount),
+                        else_=-Transaction.amount,
+                    )
+                ),
+                ZERO,
+            )
+        ).where(before, Transaction.account_id == account_id)
+    )
+    incoming = await session.scalar(
+        select(func.coalesce(func.sum(Transaction.amount), ZERO)).where(
+            before, Transaction.counter_account_id == account_id
+        )
+    )
+    return CarryOverSuggestion(amount=account.opening_balance + outgoing + incoming)
 
 
 @router.post("", response_model=AccountRead, status_code=status.HTTP_201_CREATED)

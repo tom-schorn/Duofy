@@ -9,6 +9,7 @@ plan shows a fill level like `127.50 of 600` — not which shops the money went 
 """
 
 import uuid
+from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -25,7 +26,7 @@ from app.core.permissions import (
 )
 from app.db.session import get_session
 from app.models.account import Account
-from app.models.enums import AccessLevel
+from app.models.enums import AccessLevel, TransactionKind
 from app.models.plan import Plan, PlanPosition
 from app.models.transaction import Transaction
 from app.models.user import User
@@ -67,6 +68,26 @@ async def _may_book_for(
         level.rank >= needs.rank,
         "no_delete_granted" if needs is AccessLevel.DELETE else "no_edit_granted",
     )
+
+
+async def _require_free_month(
+    session: AsyncSession,
+    account_id: uuid.UUID,
+    occurred_on: date,
+    *,
+    ignore: uuid.UUID | None = None,
+) -> None:
+    """One carry-over per account and month — the database says so too (unique
+    index), this gives the frontend a code instead of a server error."""
+    query = select(Transaction.id).where(
+        Transaction.kind == TransactionKind.CARRY_OVER,
+        Transaction.account_id == account_id,
+        Transaction.occurred_on == occurred_on,
+    )
+    if ignore is not None:
+        query = query.where(Transaction.id != ignore)
+    if await session.scalar(query) is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail={"code": "carry_over_exists"})
 
 
 async def _account_owner(
@@ -133,6 +154,30 @@ async def _load(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "transaction_not_found"})
     await _may_book_for(session, transaction.owner_id, user, needs=needs)
     return transaction
+
+
+async def _check_carry_over_change(
+    session: AsyncSession, transaction: Transaction, changes: dict
+) -> None:
+    """A carry-over may change its amount, its month or its account — nothing else."""
+    if any(changes.get(field) is not None for field in (
+        "counter_account_id", "category", "budget", "position_id"
+    )):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, detail={"code": "carry_over_is_bare"}
+        )
+    day = changes.get("occurred_on", transaction.occurred_on)
+    if day.day != 1:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={"code": "carry_over_needs_first_of_month"},
+        )
+    await _require_free_month(
+        session,
+        changes.get("account_id", transaction.account_id),
+        day,
+        ignore=transaction.id,
+    )
 
 
 @router.get("", response_model=list[TransactionRead])
@@ -236,6 +281,9 @@ async def create_transaction(
         position_owner = await _position_owner(session, payload.position_id, user)
         require(position_owner == booking_owner, "position_needs_same_owner")
 
+    if payload.kind is TransactionKind.CARRY_OVER:
+        await _require_free_month(session, payload.account_id, payload.occurred_on)
+
     transaction = Transaction(owner_id=booking_owner, **payload.model_dump())
     session.add(transaction)
     await session.flush()
@@ -272,13 +320,21 @@ async def update_transaction(
         raise HTTPException(
             status.HTTP_409_CONFLICT, detail={"code": "auto_booking_keeps_position"}
         )
+    if transaction.kind is TransactionKind.CARRY_OVER:
+        await _check_carry_over_change(session, transaction, changes)
+    elif changes.get("amount") is not None and changes["amount"] <= 0:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, detail={"code": "amount_must_be_positive"}
+        )
     # The same shape rules as on create, against what the booking will be after the
     # change — a single field can break the pair it belongs to.
     merged = {
         field: changes[field] if field in changes else getattr(transaction, field)
         for field in ("account_id", "counter_account_id", "category", "budget")
     }
-    if merged["counter_account_id"] is None:
+    if transaction.kind is TransactionKind.CARRY_OVER:
+        pass
+    elif merged["counter_account_id"] is None:
         if merged["category"] is None or merged["budget"] is None:
             raise HTTPException(
                 status.HTTP_422_UNPROCESSABLE_CONTENT, detail={"code": "purpose_required"}
