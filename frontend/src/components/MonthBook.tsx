@@ -146,7 +146,8 @@ export function MonthBook({
                 accounts={accounts}
                 positions={positions}
                 onEdit={
-                  readOnly
+                  // A carry-over is changed in the flow tab, where it is used.
+                  readOnly || transaction.kind === 'carry_over'
                     ? null
                     : () => {
                         saveEdit.reset()
@@ -360,6 +361,7 @@ function Row({
   )
   const position = positions.find((item) => item.id === transaction.positionId)
   const isTransfer = transaction.counterAccountId !== null
+  const isCarryOver = transaction.kind === 'carry_over'
   const { t } = useTranslation()
 
   return (
@@ -379,8 +381,15 @@ function Row({
         <span className="flex min-w-0 flex-col gap-0.5">
           <span className="flex flex-wrap items-center gap-2">
             <span className="font-medium">
-              {transaction.note ?? position?.label ?? t('monthBook.noNote')}
+              {isCarryOver
+                ? t('monthBook.carryOverName')
+                : (transaction.note ?? position?.label ?? t('monthBook.noNote'))}
             </span>
+            {isCarryOver && (
+              <Badge variant="outline" className="font-normal">
+                {t('monthBook.carryOver')}
+              </Badge>
+            )}
             {transaction.autoBooked && (
               <Badge variant="outline" className="font-normal">
                 {t('monthBook.autoBooked')}
