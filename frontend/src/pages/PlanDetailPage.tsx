@@ -22,7 +22,7 @@ import { PlanPrintout } from '@/components/PlanPrintout'
 import { PlanSankey } from '@/components/PlanSankey'
 import { CreatePlanDialog } from '@/components/CreatePlanDialog'
 import { longDate, parseMonth, today } from '@/lib/dates'
-import { NotFoundPage } from '@/pages/NotFoundPage'
+import { NotFoundBody } from '@/pages/NotFoundPage'
 import { MonthFlow } from '@/components/MonthFlow'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PositionDialog } from '@/components/PositionDialog'
@@ -81,10 +81,16 @@ const TABS = new Set(['plan', 'flow'])
 export function PlanDetailPage() {
   const { year, month } = useParams()
   const parsed = parseMonth(year, month)
+  // The key resets the page when the address moves to another month — otherwise
+  // the create dialog would keep offering the month it was first opened for.
   return parsed === null ? (
-    <NotFoundPage />
+    <NotFoundBody />
   ) : (
-    <PlanMonthPage year={parsed.year} month={parsed.month} />
+    <PlanMonthPage
+      key={`${parsed.year}-${parsed.month}`}
+      year={parsed.year}
+      month={parsed.month}
+    />
   )
 }
 
