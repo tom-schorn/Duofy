@@ -397,7 +397,11 @@ function Row({
             )}
           </span>
           <span className="text-muted-foreground truncate text-xs">
-            {isTransfer ? (
+            {isCarryOver ? (
+              <>
+                {account?.name} · {t('monthBook.carryOverHint')}
+              </>
+            ) : isTransfer ? (
               <>
                 {account?.name} <ArrowRight className="inline size-3" />{' '}
                 {counter?.name} · {t('budget.transfer')}

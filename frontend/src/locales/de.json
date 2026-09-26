@@ -459,6 +459,7 @@
     "empty": "Für diesen Monat ist noch nichts erfasst.",
     "carryOver": "Übertrag",
     "carryOverName": "Übertrag in den Monat",
+    "carryOverHint": "im Plan unter Verlauf ändern",
     "note": "Notiz",
     "notePlaceholder": "Supermarkt",
     "position": "Posten",
