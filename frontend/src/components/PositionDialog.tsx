@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { FormError } from '@/components/FormError'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -87,6 +88,10 @@ type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSave: (position: PlanPosition) => void
+  /** The server has not answered yet; the dialog stays open and locked. */
+  pending?: boolean
+  /** The server said no; shown above the buttons, the input stays. */
+  error?: unknown
   /**
    * null means do not offer deletion. Needed when acting on somebody else plan:
    * changing is recorded and reversible, deleting is neither.
@@ -102,6 +107,8 @@ export function PositionDialog({
   onOpenChange,
   onSave,
   onDelete,
+  pending = false,
+  error = null,
 }: Props) {
   const { t } = useTranslation()
   const households = useHouseholds().data ?? []
@@ -142,8 +149,8 @@ export function PositionDialog({
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     // The backend records changes to other people positions itself.
+    // Stays open until the server agrees — the caller closes it on success.
     onSave(draft)
-    onOpenChange(false)
   }
 
   return (
@@ -387,6 +394,8 @@ export function PositionDialog({
             )}
           </div>
 
+          <FormError error={error} />
+
           <DialogFooter className="sm:justify-between">
             {isEdit && onDelete !== null ? (
               // TODO: confirm before deleting, the way the commitments page does.
@@ -412,8 +421,12 @@ export function PositionDialog({
               >
                 {t('common.cancel')}
               </Button>
-              <Button type="submit">
-                {isEdit ? t('common.save') : t('common.add')}
+              <Button type="submit" disabled={pending}>
+                {pending
+                  ? t('common.saving')
+                  : isEdit
+                    ? t('common.save')
+                    : t('common.add')}
               </Button>
             </div>
           </DialogFooter>
