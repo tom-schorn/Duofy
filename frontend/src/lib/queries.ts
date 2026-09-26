@@ -647,7 +647,19 @@ export function useTogglePaid() {
         ? api.post(`/positions/${id}/paid`, { occurredOn, amount })
         : api.delete(`/positions/${id}/paid`),
     [keys.plans, keys.allTransactions, keys.accounts],
-    'toast.positionUpdated'
+    undefined,
+    {
+      // Says what happened: which position, and how much was booked.
+      onSuccess: (position, { paid, amount }) => {
+        if (!paid) return toast.success(i18n.t('toast.positionUpdated'))
+        toast.success(
+          i18n.t(position.budget === 'income' ? 'toast.tickedIncome' : 'toast.ticked', {
+            label: position.label,
+            amount: euro.format(Number(amount ?? position.amountPlanned)),
+          })
+        )
+      },
+    }
   )
 }
 
