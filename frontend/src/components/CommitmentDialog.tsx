@@ -539,12 +539,12 @@ export function CommitmentDialog({
               </p>
             )}
 
-            {/* Nur bei „Läuft weiter": ein Sparziel, eine Schuld und Einnahmen
-                haben ohnehin einen festen Betrag oder gar keinen — das Häkchen
-                „Limit" entscheidet nur dort etwas, wo der Betrag frei gewählt
-                wird und wiederkehrend ist. Ersetzt den früheren eigenen Typ
-                „Setze ich selbst": Bestandsverträge dieses Typs wandern bei der
-                Migration hierher, mit gesetztem Kennzeichen. */}
+            {/* Only for a contract ("Läuft weiter"): a savings goal, a debt and
+                income have a fixed amount or none at all, so the limit checkbox
+                only decides something where the amount is chosen freely and
+                recurs. Replaces the former type of its own ("Setze ich selbst"):
+                existing contracts of that type were migrated here with the flag
+                set. The backend rejects a limit on any other type. */}
             {draft.type === 'contract' && (
               <div className="border-border flex items-center justify-between rounded-md border p-3">
                 <div className="flex flex-col pr-4">
