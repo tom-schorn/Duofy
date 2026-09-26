@@ -1014,3 +1014,6 @@ export const QUOTA_KEY: Record<
   wants: 'targetWants',
   savings: 'targetSavings',
 }
+
+/** The heading of a budget section; the focus lands there after a position was deleted. */
+export const budgetHeadingId = (budget: Budget) => `budget-heading-${budget}`

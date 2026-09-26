@@ -33,11 +33,13 @@ type Props = {
   pending?: boolean
   /** The server said no; shown above the buttons, the input stays. */
   error?: unknown
-  /**
-   * Temporary: a button that still sits left of the footer (delete). It moves into
-   * the ⋯ menu with #141 and this slot goes with it.
-   */
+  /** Delete (rule 6): red, left in the footer, only when the person may delete. */
   start?: React.ReactNode
+  /**
+   * Where the focus goes on closing instead of back to the opener — after a delete
+   * the opener is gone. Returns null to fall back to the opener.
+   */
+  returnFocus?: () => HTMLElement | null
   className?: string
   children: React.ReactNode
 }
@@ -61,6 +63,7 @@ export function DialogFrame({
   pending = false,
   error = null,
   start,
+  returnFocus,
   className,
   children,
 }: Props) {
@@ -106,7 +109,11 @@ export function DialogFrame({
           }
         }}
         onCloseAutoFocus={(event) => {
-          if (opener.current?.isConnected) {
+          const target = returnFocus?.()
+          if (target) {
+            event.preventDefault()
+            target.focus()
+          } else if (opener.current?.isConnected) {
             event.preventDefault()
             opener.current.focus()
           }

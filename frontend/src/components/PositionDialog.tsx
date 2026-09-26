@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DialogFrame } from '@/components/DialogFrame'
 import { AmountField } from '@/components/AmountField'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -17,6 +18,7 @@ import { CategoryPicker } from '@/components/CategoryPicker'
 import { cn } from '@/lib/utils'
 import {
   BUDGET_DOT,
+  budgetHeadingId,
   budgetLabel,
   BUDGET_SUGGESTION,
   BUDGET_ORDER,
@@ -84,6 +86,12 @@ type Props = {
   pending?: boolean
   /** The server said no; shown above the buttons, the input stays. */
   error?: unknown
+  /**
+   * Absent or null: this person may not delete, so there is no button (rule 3).
+   * Needed when acting on somebody else's plan: changing is recorded and
+   * reversible, deleting is neither.
+   */
+  onDelete?: ((position: PlanPosition) => void) | null
 }
 
 export function PositionDialog({
@@ -95,6 +103,7 @@ export function PositionDialog({
   onSave,
   pending = false,
   error = null,
+  onDelete = null,
 }: Props) {
   const { t } = useTranslation()
   const households = useHouseholds().data ?? []
@@ -103,8 +112,14 @@ export function PositionDialog({
     position ?? emptyDraft(budget)
   )
 
+  // A deleted position leaves no row to return the focus to.
+  const deleted = useRef(false)
+
   useEffect(() => {
-    if (open) setDraft(position ?? emptyDraft(budget))
+    if (open) {
+      setDraft(position ?? emptyDraft(budget))
+      deleted.current = false
+    }
   }, [open, position, budget])
 
   const isEdit = position !== null
@@ -156,6 +171,29 @@ export function PositionDialog({
       dirty={dirty}
       pending={pending}
       error={error}
+      returnFocus={() =>
+        // The section the row was in, not the one the draft was moved to.
+        deleted.current && position
+          ? document.getElementById(budgetHeadingId(position.budget))
+          : null
+      }
+      start={
+        isEdit && onDelete !== null ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className="text-destructive hover:text-destructive"
+            disabled={pending}
+            onClick={() => {
+              deleted.current = true
+              onDelete(draft)
+              onOpenChange(false)
+            }}
+          >
+            {t('common.delete')}
+          </Button>
+        ) : undefined
+      }
     >
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
