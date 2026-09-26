@@ -1,13 +1,12 @@
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
-import { ChevronsUpDown, LogOut, Settings } from 'lucide-react'
+import { ChevronsUpDown, LogOut } from 'lucide-react'
 
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -81,14 +80,6 @@ export function UserMenu() {
             <DropdownMenuLabel className="text-muted-foreground text-xs">
               {t('userMenu.account')}
             </DropdownMenuLabel>
-
-            {/* TODO: Route /einstellungen bauen — Name, E-Mail, Passwort ändern. */}
-            <DropdownMenuItem className="gap-2">
-              <Settings className="size-4 shrink-0" />
-              {t('userMenu.settings')}
-            </DropdownMenuItem>
-
-            <DropdownMenuSeparator />
 
             <DropdownMenuItem onSelect={handleLogout} className="gap-2">
               <LogOut className="size-4 shrink-0" />
