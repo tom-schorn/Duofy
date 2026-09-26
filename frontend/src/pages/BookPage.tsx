@@ -59,13 +59,23 @@ export function BookPage() {
         </div>
 
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" onClick={() => shift(-1)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={t('book.previousMonth')}
+            onClick={() => shift(-1)}
+          >
             <ChevronLeft className="size-4" />
           </Button>
           <span className="min-w-40 text-center font-medium tabular-nums">
             {monthLabel(month)} {year}
           </span>
-          <Button variant="ghost" size="icon" onClick={() => shift(1)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={t('book.nextMonth')}
+            onClick={() => shift(1)}
+          >
             <ChevronRight className="size-4" />
           </Button>
         </div>
