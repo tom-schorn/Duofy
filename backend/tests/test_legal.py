@@ -56,3 +56,13 @@ async def test_a_missing_or_empty_file_counts_as_not_configured(
 
 async def test_an_unknown_document_name_is_404(anon) -> None:
     assert (await anon.get("/api/v1/legal/passwd")).status_code == 404
+
+
+async def test_a_file_over_the_size_limit_counts_as_not_configured(
+    anon, tmp_path: Path, monkeypatch
+) -> None:
+    big = tmp_path / "big.txt"
+    big.write_text("x" * (200 * 1024 + 1), encoding="utf-8")
+    monkeypatch.setattr(settings, "imprint_file", str(big))
+
+    assert (await anon.get("/api/v1/legal")).json() == {"documents": []}

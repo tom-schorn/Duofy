@@ -21,6 +21,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+#: A legal text is a page of prose. Anything bigger is a wrong file, not a text.
+_MAX_BYTES = 200 * 1024
+
 #: Document name in the URL → the setting holding its file path.
 _SETTINGS = {
     "imprint": "imprint_file",
@@ -43,7 +46,11 @@ def _read(name: str) -> str | None:
     if not path:
         return None
     try:
-        text = Path(path).read_text(encoding="utf-8")
+        file = Path(path)
+        if file.stat().st_size > _MAX_BYTES:
+            logger.error("legal document %s is configured but larger than the limit", name)
+            return None
+        text = file.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as error:
         # Class only, not the message: it would carry the path.
         logger.error(
