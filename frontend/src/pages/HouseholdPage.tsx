@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LogOut, Plus, UserPlus } from 'lucide-react'
+import { LogOut, Percent, Plus, UserPlus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { DialogFrame } from '@/components/DialogFrame'
+import { QuotaDialog } from '@/components/QuotaDialog'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +35,7 @@ import {
   useHouseholds,
   useInvite,
   useLeaveHousehold,
+  useUpdateHousehold,
   useMe,
   useMyInvitations,
   useSetMyAccess,
@@ -61,8 +63,8 @@ import { shortDate } from '@/lib/dates'
  *
  * A user can belong to several households at once, so the page lists all of them.
  *
- * TODO: make quotas and buffer editable per household. The columns exist by now
- * (`target_needs` and friends on `Household`), the interface for them does not.
+ * Every member may change the household's quotas and buffer (#84): the household
+ * belongs to nobody, so no role decides for the others.
  */
 
 /** Catalog keys of the roles. */
@@ -209,6 +211,8 @@ function HouseholdHeader({
   isLastOwner: boolean
 }) {
   const leave = useLeaveHousehold()
+  const update = useUpdateHousehold()
+  const [quotaOpen, setQuotaOpen] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const left = useRef(false)
   const { t } = useTranslation()
@@ -222,9 +226,38 @@ function HouseholdHeader({
         <span className="text-muted-foreground text-sm">
           {t('household.memberCount', { number: household.members.length })}
         </span>
+        <span className="text-muted-foreground text-sm">
+          {t('quota.current', {
+            needs: Number(household.targetNeeds),
+            wants: Number(household.targetWants),
+            savings: Number(household.targetSavings),
+            buffer: Number(household.bufferPercent),
+          })}
+        </span>
       </div>
 
       <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" onClick={() => setQuotaOpen(true)}>
+          <Percent className="size-4" />
+          {t('quota.change')}
+        </Button>
+
+        <QuotaDialog
+          open={quotaOpen}
+          onOpenChange={setQuotaOpen}
+          title={t('quota.householdTitle')}
+          description={t('quota.householdDescription')}
+          initial={household}
+          pending={update.isPending}
+          error={update.isError ? update.error : null}
+          onSave={(values) =>
+            update.mutate(
+              { id: household.id, ...values },
+              { onSuccess: () => setQuotaOpen(false) }
+            )
+          }
+        />
+
         <Button variant="outline" size="sm" onClick={onInvite}>
           <UserPlus className="size-4" />
           {t('household.invite')}
