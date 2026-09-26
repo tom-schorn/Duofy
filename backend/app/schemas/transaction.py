@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from pydantic import Field, model_validator
 
-from app.models.enums import Budget, Category
+from app.models.enums import Budget, Category, TransactionKind
 from app.schemas.base import Schema
 
 
@@ -13,10 +13,14 @@ class TransactionBase(Schema):
     #: Set means a transfer to another own account.
     counter_account_id: uuid.UUID | None = None
 
+    #: A booking, or the balance an account starts a month with (#94).
+    kind: TransactionKind = TransactionKind.BOOKING
+
     occurred_on: date
-    #: Always positive. The direction comes from `budget`, or from the two accounts
-    #: on a transfer.
-    amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
+    #: Positive on a booking — the direction comes from `budget`, or from the two
+    #: accounts on a transfer. Only a carry-over carries a sign. Checked in
+    #: `check_shape`, because the bound depends on `kind`.
+    amount: Decimal = Field(max_digits=12, decimal_places=2)
     note: str | None = Field(default=None, max_length=200)
 
     #: Omittable on a pure transfer only.
@@ -33,6 +37,21 @@ class TransactionCreate(TransactionBase):
     def check_shape(self) -> "TransactionCreate":
         """The same rules as the CHECK constraints, only earlier and with an error
         **code** the frontend can translate."""
+        if self.kind is TransactionKind.CARRY_OVER:
+            if (
+                self.category is not None
+                or self.budget is not None
+                or self.position_id is not None
+                or self.counter_account_id is not None
+            ):
+                raise ValueError("carry_over_is_bare")
+            if self.occurred_on.day != 1:
+                raise ValueError("carry_over_needs_first_of_month")
+            return self
+
+        if self.amount <= 0:
+            raise ValueError("amount_must_be_positive")
+
         transfer = self.counter_account_id is not None
 
         if not transfer and (self.category is None or self.budget is None):
@@ -51,7 +70,9 @@ class TransactionUpdate(Schema):
     account_id: uuid.UUID | None = None
     counter_account_id: uuid.UUID | None = None
     occurred_on: date | None = None
-    amount: Decimal | None = Field(default=None, gt=0, max_digits=12, decimal_places=2)
+    #: The bound (positive, except on a carry-over) is checked against the stored
+    #: `kind` in the endpoint — `kind` itself cannot be changed.
+    amount: Decimal | None = Field(default=None, max_digits=12, decimal_places=2)
     note: str | None = Field(default=None, max_length=200)
     category: Category | None = None
     budget: Budget | None = None
