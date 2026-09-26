@@ -25,8 +25,10 @@ import type {
   ImportSummary,
   ImportedEntry,
   Invitation,
+  FlowLimitsBy,
   Me,
   Member,
+  PlanFlow,
   MyInvitation,
   PlanDetail,
   PlanPosition,
@@ -77,6 +79,10 @@ export const keys = {
     ['plans', year, month, ownerId ?? 'me'] as const,
   householdPlan: (householdId: string, year: number, month: number) =>
     ['plans', 'household', householdId, year, month] as const,
+  /** Under `plans`, so everything that changes a plan reloads the flow too. */
+  flow: (year: number, month: number, scope: string) =>
+    ['plans', 'flow', scope, year, month] as const,
+  allFlows: ['plans', 'flow'] as const,
 }
 
 // --- User -----------------------------------------------------------------
@@ -443,6 +449,37 @@ export function useHouseholdPlan(
     enabled: householdId !== null,
     retry: false,
   })
+}
+
+/**
+ * The flow of a month, computed by the backend: your own, that of a member, or the
+ * household's. The viewer's setting for limits is applied on the server.
+ */
+export function useFlow(
+  year: number,
+  month: number,
+  scope: { householdId?: string | null; ownerId?: string | null }
+) {
+  const { householdId = null, ownerId = null } = scope
+  const path =
+    householdId !== null
+      ? `/plans/household/${householdId}/${year}/${month}/flow`
+      : ownerId !== null
+        ? `/plans/${year}/${month}/flow?owner=${ownerId}`
+        : `/plans/${year}/${month}/flow`
+  return useQuery({
+    queryKey: keys.flow(year, month, householdId ?? ownerId ?? 'me'),
+    queryFn: () => api.get<PlanFlow>(path),
+    retry: false,
+  })
+}
+
+/** Saves what the flow chart counts for limits; the flow reloads with the new value. */
+export function useSetFlowLimitsBy() {
+  return useInvalidating<Me, FlowLimitsBy>(
+    (flowLimitsBy) => api.patch<Me>('/users/me', { flowLimitsBy }),
+    [keys.me, keys.allFlows]
+  )
 }
 
 /**

@@ -488,16 +488,29 @@
     "summary": "verfügbar · {{income}} herein, {{spending}} hinaus"
   },
   "monthFlow": {
-    "balance": "Geplanter Saldo",
+    "change": "Veränderung seit Monatsanfang",
+    "balance": "Kontostand",
     "shortfall": "Du brauchst am 1. mindestens <amount>{{amount}}</amount>",
+    "shortfallShared": "Zusammen fehlen bis zu <amount>{{amount}}</amount>",
     "lowPoint": "Tiefpunkt am {{day}}. — davor fällt mehr an, als bis dahin hereinkommt.",
     "empty": "Noch keine Posten — sobald welche da sind, zeigt der Verlauf, wann im Monat es eng wird.",
     "selfCarrying": "Der Monat trägt sich durchgehend selbst.",
+    "selfCarryingShared": "Zusammen trägt sich der Monat durchgehend selbst.",
     "selfCarryingHint": "Zu keinem Zeitpunkt steht mehr aus, als bis dahin hereingekommen ist.",
     "day": "Tag",
     "position": "Posten",
-    "saldo": "Saldo",
-    "footnote": "Geplante Fälligkeiten, nicht die echten Buchungstage — der Verlauf im Buch sieht deshalb anders aus. Der Saldo in der Tabelle läuft über die Zeilen mit; innerhalb eines Tages gibt es aber keine Reihenfolge, das Diagramm zeigt deshalb den Tagesabschluss."
+    "kind": "Art",
+    "planned": "Geplant",
+    "booked": "Gebucht",
+    "manualBooking": "Buchung ohne Posten",
+    "today": "heute",
+    "limitsBy": "Limits zählen nach",
+    "limitsByPlan": "Plan",
+    "limitsByBookings": "Buchungen",
+    "limitsByPlanHint": "Der volle Planbetrag am Fälligkeitstag, Buchungen zählen dafür nicht.",
+    "limitsByBookingsHint": "Nur was gebucht ist, an seinem Buchungstag. Für den Rest wird nichts geschätzt.",
+    "footnote": "Standardkonto der Person, geplant bis gebucht wird: ein abgehakter Posten zählt mit seiner Buchung, der Rest mit dem Plan am Fälligkeitstag. Die Kurve startet bei null und zeigt die Veränderung, keinen Kontostand.",
+    "footnoteBalance": "Standardkonto der Person, geplant bis gebucht wird: ein abgehakter Posten zählt mit seiner Buchung, der Rest mit dem Plan am Fälligkeitstag. Die Kurve startet beim Monatsübertrag."
   },
   "sankey": {
     "needs": "Grundbedarf",

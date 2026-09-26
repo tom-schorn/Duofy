@@ -727,6 +727,8 @@ export type Me = {
   email: string
   firstName: string
   lastName: string
+  /** What the flow chart counts for limits — saved per person on the server. */
+  flowLimitsBy: FlowLimitsBy
 }
 
 /**
@@ -959,7 +961,37 @@ export type PlanHint = {
   /** null for a hint about the whole month. */
   positionId: string | null
   /** The values the text needs, never the text. */
-  params: Record<string, string | number>
+  params: Record<string, string | number | null>
+}
+
+/** Mirror of `FlowLimitsBy`. */
+export type FlowLimitsBy = 'plan' | 'bookings'
+
+/** Mirror of `FlowEntry` — one movement on the flow curve, amount signed. */
+export type FlowEntry = {
+  /** The real date; can lie outside the month for a booking. */
+  date: string
+  /** The day of the month the curve moves on. */
+  day: number
+  amount: string
+  kind: 'plan' | 'booking'
+  /** Empty on a manual booking without a note. */
+  label: string
+  positionId: string | null
+  /** The curve after this entry. */
+  balance: string
+}
+
+/** Mirror of `FlowRead` — computed by the backend, the frontend only draws it. */
+export type PlanFlow = {
+  year: number
+  month: number
+  flowLimitsBy: FlowLimitsBy
+  /** Zero, or the carry-over of the default account. */
+  start: string
+  entries: FlowEntry[]
+  days: { day: number; balance: string }[]
+  hints: PlanHint[]
 }
 
 /** A plan together with its positions. */
