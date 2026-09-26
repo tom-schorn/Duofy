@@ -10,6 +10,16 @@ import {
 import { DateField } from '@/components/DateField'
 import { today, shortDate } from '@/lib/dates'
 import { QueryState } from '@/components/QueryState'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -60,6 +70,7 @@ const TYPES = ACCOUNT_TYPES
 function emptyAccount(isFirst: boolean): Account {
   return {
     id: '',
+    deletable: false,
     name: '',
     type: 'checking',
     openingBalance: '',
@@ -359,32 +370,7 @@ function AccountDialog({
           </div>
 
           <DialogFooter className="gap-2 sm:justify-between">
-            {isEdit && mayDelete && draft.deletable === false ? (
-              <p className="text-muted-foreground max-w-xs text-sm">
-                {t('accounts.deleteBlocked')}
-              </p>
-            ) : isEdit && mayDelete && confirming ? (
-              <div className="flex flex-col gap-2">
-                <p className="text-sm">{t('accounts.deleteText', { name: draft.name })}</p>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    onClick={() =>
-                      remove.mutate(draft.id, {
-                        onSuccess: () => onOpenChange(false),
-                      })
-                    }
-                  >
-                    <Trash2 className="size-4" />
-                    {t('common.delete')}
-                  </Button>
-                  <Button type="button" variant="ghost" onClick={() => setConfirming(false)}>
-                    {t('common.cancel')}
-                  </Button>
-                </div>
-              </div>
-            ) : isEdit && mayDelete ? (
+            {isEdit && mayDelete && draft.deletable ? (
               <Button
                 type="button"
                 variant="ghost"
@@ -403,6 +389,28 @@ function AccountDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+      <AlertDialog open={confirming} onOpenChange={setConfirming}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-heading">
+              {t('accounts.deleteTitle', { name: draft.name })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>{t('accounts.deleteText')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                remove.mutate(draft.id, {
+                  onSuccess: () => onOpenChange(false),
+                })
+              }
+            >
+              {t('common.delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   )
 }

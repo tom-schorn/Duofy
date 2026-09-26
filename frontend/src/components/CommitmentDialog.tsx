@@ -118,6 +118,7 @@ const CUSTOM = 'custom'
 function emptyDraft(): Commitment {
   return {
     id: '',
+    deletable: false,
     type: 'contract',
     name: '',
     amount: '',

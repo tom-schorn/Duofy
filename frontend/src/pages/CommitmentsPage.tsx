@@ -282,13 +282,7 @@ export function CommitmentsPage() {
                             <Pencil className="size-4" />
                             {t('common.edit')}
                           </DropdownMenuItem>
-                          {mayDelete && commitment.deletable === false && (
-                            <DropdownMenuItem disabled className="gap-2">
-                              <Trash2 className="size-4" />
-                              {t('commitments.deleteBlocked')}
-                            </DropdownMenuItem>
-                          )}
-                          {mayDelete && commitment.deletable !== false && (
+                          {mayDelete && commitment.deletable && (
                             <DropdownMenuItem
                               onSelect={() => setPendingDelete(commitment)}
                               variant="destructive"
