@@ -1,3 +1,5 @@
+import type { TFunction } from 'i18next'
+import { useId } from 'react'
 import {
   Area,
   AreaChart,
@@ -25,6 +27,7 @@ import {
 import {
   Table,
   TableBody,
+  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
@@ -33,6 +36,8 @@ import {
 import { euro, monthLabel, type FlowEntry, type FlowLimitsBy, type PlanFlow } from '@/lib/domain'
 import { today } from '@/lib/dates'
 import { formatNumber } from '@/lib/format'
+import { locale } from '@/lib/i18n'
+import { announce } from '@/lib/undo-delete'
 import { useFlow, useSetFlowLimitsBy } from '@/lib/queries'
 
 /**
@@ -61,9 +66,19 @@ type Props = Scope & {
   height?: string
   /** Print copies show the curve only, no switch. */
   print?: boolean
+  /** First name of the person whose plan this is; empty for your own. */
+  ownerName?: string | null
 }
 
-export function MonthFlow({ year, month, householdId, ownerId, height, print }: Props) {
+export function MonthFlow({
+  year,
+  month,
+  householdId,
+  ownerId,
+  height,
+  print,
+  ownerName,
+}: Props) {
   const query = useFlow(year, month, { householdId, ownerId })
   return (
     <QueryState isPending={query.isPending} error={query.error} rows={2}>
@@ -71,6 +86,7 @@ export function MonthFlow({ year, month, householdId, ownerId, height, print }: 
         <FlowView
           flow={query.data}
           shared={householdId != null}
+          ownerName={ownerName}
           height={height}
           showSwitch={!print}
         />
@@ -85,8 +101,22 @@ function LimitsSwitch({ value }: { value: FlowLimitsBy }) {
   return (
     <div className="flex flex-col gap-1.5 print:hidden">
       <Label htmlFor="flow-limits-by">{t('monthFlow.limitsBy')}</Label>
-      <Select value={value} onValueChange={(next) => save.mutate(next as FlowLimitsBy)}>
-        <SelectTrigger id="flow-limits-by" className="w-56" disabled={save.isPending}>
+      {/* Not disabled while saving: that would drop the focus. A second choice
+          during the save is simply ignored. */}
+      <Select
+        value={value}
+        onValueChange={(next) => {
+          if (save.isPending) return
+          save.mutate(next as FlowLimitsBy, {
+            onSuccess: () =>
+              announce(
+                'success',
+                t(next === 'bookings' ? 'monthFlow.limitsNowBookings' : 'monthFlow.limitsNowPlan')
+              ),
+          })
+        }}
+      >
+        <SelectTrigger id="flow-limits-by" className="w-56" aria-busy={save.isPending}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -106,13 +136,17 @@ export function FlowView({
   shared = false,
   height = 'h-60',
   showSwitch = true,
+  ownerName = null,
 }: {
   flow: PlanFlow
   shared?: boolean
   height?: string
   showSwitch?: boolean
+  ownerName?: string | null
 }) {
   const { t } = useTranslation()
+  const headingId = useId()
+  const whose = shared ? 'Shared' : ownerName ? 'Other' : ''
   const config = {
     change: { label: t('monthFlow.change'), color: 'var(--foreground)' },
   } satisfies ChartConfig
@@ -135,22 +169,28 @@ export function FlowView({
   const heading =
     shortfall ? (
       <>
-        <p className="text-2xl font-semibold">
+        <h2 id={headingId} className="text-2xl font-semibold">
           <Trans
-            i18nKey={shared ? 'monthFlow.shortfallShared' : 'monthFlow.shortfall'}
-            values={{ amount: euro.format(Number(shortfall.params.amount)) }}
+            i18nKey={
+              shared
+                ? 'monthFlow.shortfallShared'
+                : ownerName
+                  ? 'monthFlow.shortfallOther'
+                  : 'monthFlow.shortfall'
+            }
+            values={{ amount: euro.format(Number(shortfall.params.amount)), name: ownerName }}
             components={{ amount: <span className="font-mono tabular-nums" /> }}
           />
-        </p>
+        </h2>
         <p className="text-muted-foreground text-sm">
           {t('monthFlow.lowPoint', { day: shortfall.params.day })}
         </p>
       </>
     ) : (
       <>
-        <p className="text-2xl font-semibold">
-          {t(shared ? 'monthFlow.selfCarryingShared' : 'monthFlow.selfCarrying')}
-        </p>
+        <h2 id={headingId} className="text-2xl font-semibold">
+          {t(`monthFlow.selfCarrying${whose}`, { name: ownerName })}
+        </h2>
         <p className="text-muted-foreground text-sm">{t('monthFlow.selfCarryingHint')}</p>
       </>
     )
@@ -169,7 +209,12 @@ export function FlowView({
           </EmptyHeader>
         </Empty>
       ) : (
-        <ChartContainer config={config} className={`${height} w-full`}>
+        <ChartContainer
+          config={config}
+          role="img"
+          aria-label={t('monthFlow.chartLabel')}
+          className={`${height} w-full`}
+        >
           <AreaChart data={days} margin={{ left: 4, right: 4, top: 8 }}>
             <defs>
               <linearGradient id="flow-fill" x1="0" y1="0" x2="0" y2="1">
@@ -222,7 +267,15 @@ export function FlowView({
                     </div>
                     {entries.map((entry, index) => (
                       <div key={index} className="flex justify-between gap-3">
-                        <span>{entryLabel(entry, t)}</span>
+                        <span>
+                          {entryLabel(entry, t)}
+                          {outside(entry, flow) && (
+                            <span className="text-muted-foreground">
+                              {' · '}
+                              {outsideText(entry, flow, t)}
+                            </span>
+                          )}
+                        </span>
                         <span className="font-mono tabular-nums">{signed(entry.amount)}</span>
                       </div>
                     ))}
@@ -264,6 +317,7 @@ export function FlowView({
         // Off on paper: `PlanPrintout` carries the positions on page 2.
         <div className="w-full overflow-x-auto print:hidden">
           <Table>
+            <TableCaption className="sr-only">{t('monthFlow.tableCaption')}</TableCaption>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-14">{t('monthFlow.day')}</TableHead>
@@ -279,7 +333,9 @@ export function FlowView({
               {flow.entries.map((entry, index) => (
                 <TableRow key={`${entry.date}-${entry.positionId}-${index}`}>
                   <TableCell className="text-muted-foreground tabular-nums">
-                    {t('common.dueDay', { day: entry.day })}
+                    {outside(entry, flow)
+                      ? outsideText(entry, flow, t)
+                      : t('common.dueDay', { day: entry.day })}
                   </TableCell>
                   <TableCell>{entryLabel(entry, t)}</TableCell>
                   <TableCell>
@@ -303,7 +359,13 @@ export function FlowView({
       )}
 
       <p className="text-muted-foreground max-w-[70ch] text-xs print:hidden">
-        {t(hasCarryOver ? 'monthFlow.footnoteBalance' : 'monthFlow.footnote')}
+        {shared
+          ? t('monthFlow.footnoteShared')
+          : ownerName
+            ? t(hasCarryOver ? 'monthFlow.footnoteBalanceOther' : 'monthFlow.footnoteOther', {
+                name: ownerName,
+              })
+            : t(hasCarryOver ? 'monthFlow.footnoteBalance' : 'monthFlow.footnote')}
       </p>
     </Card>
   )
@@ -316,4 +378,26 @@ function entryLabel(entry: FlowEntry, t: (key: string) => string): string {
 function signed(amount: string): string {
   const value = Number(amount)
   return `${value > 0 ? '+' : '−'}${euro.format(Math.abs(value))}`
+}
+
+/** A booking can lie outside the month; the curve then puts it on an edge day. */
+function outside(entry: FlowEntry, flow: PlanFlow): 'prev' | 'next' | null {
+  const month = `${flow.year}-${String(flow.month).padStart(2, '0')}`
+  const own = entry.date.slice(0, 7)
+  return own === month ? null : own < month ? 'prev' : 'next'
+}
+
+/** The real date, e.g. "30.08. (Vormonat)". */
+function outsideText(
+  entry: FlowEntry,
+  flow: PlanFlow,
+  t: TFunction
+): string {
+  const date = new Date(entry.date).toLocaleDateString(locale(), {
+    day: '2-digit',
+    month: '2-digit',
+  })
+  return t(outside(entry, flow) === 'prev' ? 'monthFlow.outsidePrev' : 'monthFlow.outsideNext', {
+    date,
+  })
 }

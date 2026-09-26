@@ -800,6 +800,7 @@ function MemberPlanBody({
             year={plan.year}
             month={plan.month}
             ownerId={ownerId}
+            ownerName={ownerName}
           />
         </TabsContent>
 
