@@ -622,7 +622,7 @@ function PlanBody({
             { onSuccess: () => setDialogOpen(false) }
           )
         }
-        onDelete={(position) => deletePosition.mutate(position.id)}
+        onDelete={(position) => deletePosition(position)}
       />
     </>
   )
@@ -843,7 +843,7 @@ function MemberPlanBody({
             { onSuccess: () => setDialogOpen(false) }
           )
         }
-        onDelete={mayDelete ? (position) => deletePosition.mutate(position.id) : null}
+        onDelete={mayDelete ? (position) => deletePosition(position) : null}
       />
     </>
   )

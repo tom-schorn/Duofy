@@ -178,7 +178,7 @@ export function MonthBook({
               ? null
               : () => {
                   deleted.current = true
-                  remove.mutate(editing.id)
+                  remove(editing)
                   setEditing(null)
                 }
           }

@@ -11,6 +11,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
+      position="bottom-center"
+      visibleToasts={1}
       containerAriaLabel={t("ui.notifications")}
       icons={{
         success: (
