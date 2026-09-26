@@ -78,6 +78,20 @@ class Settings(BaseSettings):
     #: sites.
     cookie_name: str = "duofy_refresh"
 
+    # --- Who may register -----------------------------------------------------
+
+    #: `open` — anybody. `invite` — only with an invitation from an admin. `closed`
+    #: — nobody, except `admin_email`. `invite` is the default so that a freshly
+    #: set-up instance is not open to the world by accident.
+    registration_mode: Literal["open", "invite", "closed"] = "invite"
+
+    #: The first admin. The person with this address becomes admin at start, and may
+    #: register in every mode so that an instance is never left without one.
+    admin_email: str | None = None
+
+    def is_admin_email(self, email: str) -> bool:
+        return bool(self.admin_email) and email.strip().lower() == self.admin_email.strip().lower()
+
     @property
     def database_url(self) -> str:
         return (

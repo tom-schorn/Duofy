@@ -30,3 +30,9 @@ class UserUpdate(schemas.BaseUserUpdate):
 
     first_name: str | None = None
     last_name: str | None = None
+
+
+class RegisterRequest(UserCreate):
+    """What the register endpoint takes: the usual fields plus an invitation token."""
+
+    invitation_token: str | None = None

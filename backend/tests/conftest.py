@@ -127,3 +127,14 @@ def _cookies_without_https() -> None:
     with what is being tested.
     """
     settings.cookie_secure = False
+
+
+@pytest.fixture(autouse=True)
+def _registration_open(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Most tests just need a user, so registration is open unless a test says otherwise.
+
+    The real default is `invite` (see `Settings`); the registration tests set the
+    mode themselves.
+    """
+    monkeypatch.setattr(settings, "registration_mode", "open")
+    monkeypatch.setattr(settings, "admin_email", None)
