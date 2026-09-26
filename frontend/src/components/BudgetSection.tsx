@@ -1,14 +1,14 @@
-import { Plus, Trash2, User, Users } from 'lucide-react'
+import { Plus, User, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ListRow } from '@/components/ListRow'
-import { RowMenu } from '@/components/RowMenu'
 import { Progress } from '@/components/ui/progress'
 import {
   BUDGET_DOT,
+  budgetHeadingId,
   budgetLabel,
   categoryLabel,
   paymentLabel,
@@ -67,13 +67,6 @@ type Props = {
   canAdd?: boolean
   /** Returns the first name of the person behind the position, otherwise null. */
   ownerName?: (position: PlanPosition) => string | null
-  /**
-   * Deleting sits in the row menu. Absent or null: this person may not delete, so
-   * the row has no menu (rule 3: no right, no control).
-   */
-  onDelete?: ((position: PlanPosition) => void) | null
-  /** A save or delete is running; the menu is locked meanwhile. */
-  pending?: boolean
 }
 
 export function BudgetSection({
@@ -87,8 +80,6 @@ export function BudgetSection({
   readOnly = false,
   canAdd = true,
   ownerName,
-  onDelete = null,
-  pending = false,
 }: Props) {
   const { t } = useTranslation()
   // Pass-through positions appear in the list but not in the total: they are not
@@ -105,7 +96,12 @@ export function BudgetSection({
     <section className="flex flex-col gap-3">
       <header className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between gap-4">
-          <h2 className="flex items-center gap-2 text-sm font-semibold tracking-wide uppercase">
+          {/* tabIndex -1: the focus lands here after a position was deleted. */}
+          <h2
+            id={budgetHeadingId(budget)}
+            tabIndex={-1}
+            className="flex items-center gap-2 text-sm font-semibold tracking-wide uppercase outline-none"
+          >
             <span className={`size-2.5 rounded-sm ${BUDGET_DOT[budget]}`} />
             {budgetLabel(budget)}
           </h2>
@@ -146,8 +142,6 @@ export function BudgetSection({
             onTogglePaid={onTogglePaid}
             readOnly={readOnly}
             ownerName={ownerName?.(position) ?? null}
-            onDelete={readOnly ? null : onDelete}
-            pending={pending}
           />
         ))}
       </ul>
@@ -177,8 +171,6 @@ function PositionRow({
   onTogglePaid,
   readOnly,
   ownerName,
-  onDelete,
-  pending,
 }: {
   position: PlanPosition
   householdNames: Record<string, string>
@@ -186,8 +178,6 @@ function PositionRow({
   onTogglePaid: (position: PlanPosition) => void
   readOnly: boolean
   ownerName: string | null
-  onDelete: ((position: PlanPosition) => void) | null
-  pending: boolean
 }) {
   const planned = Number(position.amountPlanned)
   const { t } = useTranslation()
@@ -289,25 +279,6 @@ function PositionRow({
       onOpen={readOnly ? undefined : () => onEdit(position)}
       leading={leading}
       trailing={amount}
-      menu={
-        <RowMenu
-          name={position.label}
-          disabled={pending}
-          items={
-            onDelete
-              ? [
-                  {
-                    key: 'delete',
-                    label: t('common.delete'),
-                    icon: Trash2,
-                    destructive: true,
-                    onSelect: () => onDelete(position),
-                  },
-                ]
-              : []
-          }
-        />
-      }
       className={paid ? '[&>button]:opacity-60' : undefined}
     >
       <span className="flex flex-wrap items-center gap-2">
