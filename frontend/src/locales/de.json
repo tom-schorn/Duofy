@@ -224,6 +224,7 @@
     "positionUpdated": "Posten aktualisiert"
   },
   "helpPanel": {
+    "button": "Hilfe",
     "show": "Erklärungen einblenden",
     "hide": "Erklärungen ausblenden",
     "heading": "Erklärung",

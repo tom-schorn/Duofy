@@ -1,8 +1,9 @@
 import { NavLink, Outlet, useLocation, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 
-import { HelpPanel } from '@/components/HelpPanel'
+import { HelpButton, HelpColumn } from '@/components/HelpPanel'
 import { MemberSwitcher } from '@/components/MemberSwitcher'
+import { useHelpPinned, useIsWide } from '@/lib/help-state'
 import { NAV, titleKeyFor } from '@/lib/nav'
 import { useHouseholds } from '@/lib/queries'
 
@@ -40,6 +41,8 @@ export function AppLayout() {
   const { t } = useTranslation()
   const { pathname } = useLocation()
   const titleKey = titleKeyFor(pathname)
+  const help = useHelpPinned()
+  const wide = useIsWide()
   const households = useHouseholds().data ?? []
   // The sub-entry points at the current month — there is no "current" household
   // plan otherwise, it is composed from positions.
@@ -132,16 +135,17 @@ export function AppLayout() {
           </span>
           <span className="ml-auto" />
           <ThemeToggle />
+          <HelpButton pinned={help.pinned} onPin={help.setPinned} wide={wide} />
         </header>
 
-        {/* Die Erklärspalte steht neben dem Inhalt, nicht darüber: sie erklärt
-            die Seite, die man gerade liest. Unter 1280 px blendet sie sich aus —
-            zwei Spalten nebeneinander wären dort beide zu schmal. */}
+        {/* Die Erklärspalte steht neben dem Inhalt, nicht darüber, und nur, wenn
+            sie angeheftet ist und der Platz ab 1280 px reicht. Sonst öffnet der
+            Knopf „?“ in der Kopfzeile sie als Seitenblatt. */}
         <div className="flex flex-1 items-start">
           <div className="min-w-0 flex-1 p-6">
             <Outlet />
           </div>
-          <HelpPanel />
+          <HelpColumn pinned={help.pinned} onPin={help.setPinned} />
         </div>
       </SidebarInset>
     </SidebarProvider>
