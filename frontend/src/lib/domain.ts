@@ -457,8 +457,6 @@ export type Commitment = {
   /** only for savings_goal */
   targetAmount: string | null
   targetDate: string | null
-  /** only for debt */
-  remainingDebt: string | null
   /** Copied into the generated positions, overridable per month there. */
   paymentMethod: PaymentMethod | null
   /** Which account it is paid from. null means the default account. */

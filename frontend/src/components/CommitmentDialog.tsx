@@ -58,7 +58,7 @@ import { useAccounts, useHouseholds } from '@/lib/queries'
  * The type comes first, in everyday words, and drives the extra fields:
  *   contract      → none, plus the optional `isLimit` flag
  *   savings_goal  → target amount, target date
- *   debt          → remaining debt
+ *   debt          → none
  *
  * The CHECK constraints in the database enforce exactly this mapping.
  *
@@ -134,7 +134,6 @@ function emptyDraft(): Commitment {
     counterAccountId: null,
     targetAmount: null,
     targetDate: null,
-    remainingDebt: null,
     paymentMethod: null,
     accountId: null,
   }
@@ -231,7 +230,6 @@ export function CommitmentDialog({
         isLimit: type === 'contract' ? current.isLimit : false,
         targetAmount: type === 'savings_goal' ? current.targetAmount : null,
         targetDate: type === 'savings_goal' ? current.targetDate : null,
-        remainingDebt: type === 'debt' ? current.remainingDebt : null,
       }
     })
   }
@@ -666,25 +664,6 @@ export function CommitmentDialog({
                     placeholder={t('commitmentDialog.noTargetDate')}
                   />
                 </div>
-              </div>
-            )}
-
-            {draft.type === 'debt' && (
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="remaining-debt">{t('commitmentDialog.remainingDebt')}</Label>
-                <Input
-                  id="remaining-debt"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={draft.remainingDebt ?? ''}
-                  onChange={(event) =>
-                    set('remainingDebt', event.target.value || null)
-                  }
-                  placeholder={t('common.amountPlaceholder')}
-                />
-                {/* TODO: Restschuld nach jeder Tilgung fortschreiben — daraus
-                    ergibt sich das Datum, an dem die Schuld durch ist. */}
               </div>
             )}
 

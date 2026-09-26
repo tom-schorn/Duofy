@@ -86,7 +86,7 @@ function intervalText(commitment: Commitment) {
   })}`
 }
 
-/** What follows from the type — a target or a remaining debt, nothing else. */
+/** What follows from the type — a target, nothing else. */
 function typeDetail(commitment: Commitment) {
   if (commitment.type === 'savings_goal' && commitment.targetAmount) {
     const date = commitment.targetDate
@@ -99,11 +99,6 @@ function typeDetail(commitment: Commitment) {
     return date
       ? i18n.t('commitments.targetUntil', { target, date })
       : i18n.t('commitments.target', { target })
-  }
-  if (commitment.type === 'debt' && commitment.remainingDebt) {
-    return i18n.t('commitments.remaining', {
-      amount: euro.format(Number(commitment.remainingDebt)),
-    })
   }
   return null
 }
