@@ -47,6 +47,7 @@
     "account_not_found": "Dieses Konto gibt es nicht.",
     "imported_entry_not_found": "Diese Zeile liegt nicht mehr in der Parkposition.",
     "category_missing": "Ohne Kategorie lässt sich nicht buchen.",
+    "internal_error": "Im Backend ist ein Fehler aufgetreten. Versuch es gleich noch einmal; wenn es bleibt, steht die Ursache im Log.",
     "unknown": "Da ist etwas schiefgegangen.",
     "unreachable": "Das Backend ist gerade nicht erreichbar."
   },

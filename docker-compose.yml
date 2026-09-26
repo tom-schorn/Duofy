@@ -72,6 +72,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       ENVIRONMENT: production
+      # DEBUG, INFO, WARNING oder ERROR; siehe .env.example.
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
       # No COOKIE_DOMAIN here on purpose. The frontend proxies /api, so browser,
       # interface and API all share one origin and a host-only cookie is exactly
       # right — narrower than anything we could set by hand.

@@ -4,9 +4,16 @@ from sqlalchemy import text
 
 from app.api.v1.router import api_router
 from app.core.config import settings
+from app.core.logging import UnexpectedErrorMiddleware, configure_logging
 from app.db.session import engine
 
+configure_logging(settings.log_level)
+
 app = FastAPI(title="Duofy API", version="0.1.0")
+
+# Added before CORS on purpose: the middleware added last is the outermost, so the
+# 500 answer of this one still passes through CORS and carries its headers.
+app.add_middleware(UnexpectedErrorMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
