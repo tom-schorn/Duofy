@@ -105,11 +105,8 @@ class PlanPosition(UUIDMixin, TimestampMixin, Base):
     #: not rewrite plans that already exist.
     budget: Mapped[Budget] = mapped_column(enum_column(Budget))
 
-    #: Day of the month the position falls due.
-    #
-    # TODO: when generating from a commitment, clamp its `due_day` to the last day
-    # of **this** month — a contract with `due_day = 31` falls due on the 28th or
-    # 29th in February, not never. This field would then hold the clamped day.
+    #: Day of the month the position falls due. From a commitment it is the day of
+    #: its `first_due_date`, clamped to the end of this month.
     due_day: Mapped[int]
     #: Copied from the commitment, overridable per month. Empty means the default
     #: account.

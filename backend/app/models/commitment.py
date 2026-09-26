@@ -31,7 +31,6 @@ class Commitment(UUIDMixin, TimestampMixin, Base):
 
     __tablename__ = "commitments"
     __table_args__ = (
-        CheckConstraint("due_day BETWEEN 1 AND 31", name="ck_commitment_due_day"),
         # Extra fields only on the matching type, enforced in the database so the
         # rule also holds for imports and direct SQL.
         CheckConstraint(
@@ -41,12 +40,6 @@ class Commitment(UUIDMixin, TimestampMixin, Base):
         CheckConstraint(
             "type = 'debt' OR remaining_debt IS NULL",
             name="ck_commitment_remaining_debt_only_for_debt",
-        ),
-        # Without a first due date the generator would know neither the months nor
-        # the starting year for anything but a monthly recurrence.
-        CheckConstraint(
-            "interval_months = 1 OR first_due_date IS NOT NULL",
-            name="ck_commitment_first_due_date_required",
         ),
         CheckConstraint(
             "interval_months BETWEEN 1 AND 120",
@@ -114,16 +107,14 @@ class Commitment(UUIDMixin, TimestampMixin, Base):
     #: run every 2, 4 or 18 months. Counted from `first_due_date`.
     interval_months: Mapped[int]
 
-    #: When it falls due for the first time — day, month **and year**.
+    #: When it falls due for the first time — day, month **and year**, for every
+    #: commitment, monthly ones included.
     #:
-    #: Only for a non-monthly recurrence, and mandatory there (see the CHECK above).
-    #: The month defines the cadence, the year defines the start:
-    #: 2026-02-15 every 3 months means Feb, May, Aug, Nov, starting in 2026.
-    first_due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
-
-    #: Day of the month, 1–31. For a non-monthly recurrence the same day as in
-    #: `first_due_date` — `effective_due_day()` clamps it per month.
-    due_day: Mapped[int]
+    #: The one source for both questions: the month defines the cadence, the year
+    #: the start, the day the due day. 2026-02-15 every 3 months means Feb, May,
+    #: Aug, Nov, starting in 2026, always on the 15th (`effective_due_day()` clamps
+    #: it in months that are too short).
+    first_due_date: Mapped[date] = mapped_column(Date)
 
     active: Mapped[bool] = mapped_column(default=True)
 
@@ -154,11 +145,6 @@ class Commitment(UUIDMixin, TimestampMixin, Base):
     # only for type = debt
     remaining_debt: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
 
-    @property
-    def first_month(self) -> int | None:
-        """The month the cadence counts from — taken from `first_due_date`."""
-        return self.first_due_date.month if self.first_due_date else None
-
     def is_due_in(self, year: int, month: int) -> bool:
         """Does this commitment fall due in the given month?
 
@@ -174,12 +160,6 @@ class Commitment(UUIDMixin, TimestampMixin, Base):
         if not self.active:
             return False
 
-        if self.first_due_date is None:
-            # Only a monthly commitment may have no start (the CHECK on
-            # `first_due_date`), so anything else here cannot occur — and is not due
-            # rather than guessed at.
-            return self.interval_months == 1
-
         start_total = self.first_due_date.year * 12 + self.first_due_date.month
         distance = year * 12 + month - start_total
         return distance >= 0 and distance % self.interval_months == 0
@@ -187,8 +167,8 @@ class Commitment(UUIDMixin, TimestampMixin, Base):
     def effective_due_day(self, year: int, month: int) -> int:
         """The day it actually falls due in the given month.
 
-        A `due_day` of 31 exists in seven months only. Rather than dropping the
+        A due day of 31 exists in seven months only. Rather than dropping the
         position or sliding it into the next month, it moves to the last day of
         this one — the 28th or 29th in February.
         """
-        return min(self.due_day, monthrange(year, month)[1])
+        return min(self.first_due_date.day, monthrange(year, month)[1])

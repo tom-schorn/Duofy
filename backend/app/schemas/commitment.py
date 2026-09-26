@@ -25,8 +25,8 @@ class CommitmentBase(Schema):
     household_id: uuid.UUID | None = None
     #: Every how many months it falls due, 1 to 120. Checked in the validators.
     interval_months: int
-    first_due_date: date | None = None
-    due_day: int = Field(ge=1, le=31)
+    #: The start of the cadence and, through its day, the due day.
+    first_due_date: date
     active: bool = True
     #: Which account it is paid from. Empty means the default account.
     account_id: uuid.UUID | None = None
@@ -60,9 +60,6 @@ class CommitmentCreate(CommitmentBase):
         """
         check_interval(self.interval_months)
 
-        if self.interval_months != 1 and self.first_due_date is None:
-            raise ValueError("first_due_date_required")
-
         if self.type is not CommitmentType.SAVINGS_GOAL and (
             self.target_amount is not None or self.target_date is not None
         ):
@@ -70,11 +67,6 @@ class CommitmentCreate(CommitmentBase):
 
         if self.type is not CommitmentType.DEBT and self.remaining_debt is not None:
             raise ValueError("remaining_debt_only_for_debt")
-
-        # For a non-monthly recurrence the due day has to match the start date,
-        # otherwise two fields contradict each other about the same thing.
-        if self.first_due_date is not None and self.due_day != self.first_due_date.day:
-            raise ValueError("due_day_must_match_first_due_date")
 
         return self
 
@@ -89,7 +81,6 @@ class CommitmentUpdate(Schema):
     household_id: uuid.UUID | None = None
     interval_months: int | None = None
     first_due_date: date | None = None
-    due_day: int | None = Field(default=None, ge=1, le=31)
     active: bool | None = None
     account_id: uuid.UUID | None = None
     payment_method: PaymentMethod | None = None
