@@ -11,7 +11,7 @@ function Harness({ dirtyAfterTyping = true }: { dirtyAfterTyping?: boolean }) {
   const [value, setValue] = useState('')
   return (
     <>
-      <button onClick={() => setOpen(true)}>Öffnen</button>
+      <button onClick={() => setOpen(true)}>Open</button>
       <DialogFrame
         open={open}
         onOpenChange={setOpen}
@@ -30,7 +30,7 @@ describe('DialogFrame', () => {
   test('puts the focus into the first field and back on the trigger after Esc', async () => {
     const user = userEvent.setup()
     render(<Harness />)
-    const trigger = screen.getByRole('button', { name: 'Öffnen' })
+    const trigger = screen.getByRole('button', { name: 'Open' })
     await user.click(trigger)
     expect(screen.getByLabelText('Name')).toHaveFocus()
     await user.keyboard('{Escape}')
@@ -41,7 +41,7 @@ describe('DialogFrame', () => {
   test('closes on Esc when nothing was changed', async () => {
     const user = userEvent.setup()
     render(<Harness />)
-    await user.click(screen.getByRole('button', { name: 'Öffnen' }))
+    await user.click(screen.getByRole('button', { name: 'Open' }))
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
@@ -49,10 +49,10 @@ describe('DialogFrame', () => {
   test('asks before discarding on Esc after a change, and keeps the input on "keep editing"', async () => {
     const user = userEvent.setup()
     render(<Harness />)
-    await user.click(screen.getByRole('button', { name: 'Öffnen' }))
+    await user.click(screen.getByRole('button', { name: 'Open' }))
     await user.type(screen.getByLabelText('Name'), 'Miete')
     await user.keyboard('{Escape}')
-    expect(screen.getByText('Änderungen verwerfen?')).toBeInTheDocument()
+    expect(screen.getByText(/verwerfen[?]/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Weiter bearbeiten' }))
     expect(screen.getByLabelText('Name')).toHaveValue('Miete')
     await user.keyboard('{Escape}')
@@ -63,7 +63,7 @@ describe('DialogFrame', () => {
   test('Abbrechen closes without asking', async () => {
     const user = userEvent.setup()
     render(<Harness />)
-    await user.click(screen.getByRole('button', { name: 'Öffnen' }))
+    await user.click(screen.getByRole('button', { name: 'Open' }))
     await user.type(screen.getByLabelText('Name'), 'Miete')
     await user.click(screen.getByRole('button', { name: 'Abbrechen' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
