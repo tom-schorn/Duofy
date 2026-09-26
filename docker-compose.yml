@@ -82,6 +82,10 @@ services:
       # http on your own network, set it to false, otherwise the browser discards
       # the session cookie and nobody stays signed in.
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      # Wer sich registrieren darf: open, invite oder closed; siehe .env.example.
+      REGISTRATION_MODE: ${REGISTRATION_MODE:-invite}
+      # Die Adresse des ersten Admins; leer lassen ist erlaubt.
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       # How long somebody stays signed in, counted from their last visit. Thirty
       # days by default; see .env.example.
       REFRESH_LIFETIME_SECONDS: ${REFRESH_LIFETIME_SECONDS:-2592000}
