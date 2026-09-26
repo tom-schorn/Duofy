@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { FormError } from '@/components/FormError'
@@ -66,6 +66,12 @@ export function DialogFrame({
   // Who had the focus when the dialog opened; Radix only remembers a Trigger.
   const opener = useRef<HTMLElement | null>(null)
 
+  // A dialog that closes from outside (after a save) must not reopen with the
+  // question still standing.
+  useEffect(() => {
+    if (!open) setAsking(false)
+  }, [open])
+
   function close() {
     setAsking(false)
     onOpenChange(false)
@@ -89,7 +95,7 @@ export function DialogFrame({
           opener.current = document.activeElement as HTMLElement | null
           // The first field, not the ✕ or whatever Radix finds first.
           const field = (event.currentTarget as HTMLElement).querySelector<HTMLElement>(
-            'input:not([type=hidden]), textarea, select, [role=combobox]'
+            'input:not([type=hidden]):not(:disabled), textarea:not(:disabled), select:not(:disabled), [role=combobox]:not(:disabled)'
           )
           if (field) {
             event.preventDefault()
@@ -103,7 +109,15 @@ export function DialogFrame({
           }
         }}
         onEscapeKeyDown={(event) => {
-          if (dirty && !asking) {
+          if (pending) {
+            event.preventDefault()
+            return
+          }
+          if (asking) {
+            // Never discard by Esc alone: a second Esc means keep editing.
+            event.preventDefault()
+            setAsking(false)
+          } else if (dirty) {
             event.preventDefault()
             setAsking(true)
           }
