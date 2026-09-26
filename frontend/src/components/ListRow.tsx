@@ -1,3 +1,5 @@
+import { useId } from 'react'
+
 import { cn } from '@/lib/utils'
 
 /**
@@ -27,14 +29,18 @@ export function ListRow({
   className?: string
   children: React.ReactNode
 }) {
+  // The row button is named by its text; the amount is read after it.
+  const amountId = useId()
+
   return (
     <li
       className={cn(
         'border-border/60 relative flex items-center gap-3 border-b py-2.5 last:border-b-0',
         onOpen &&
           // Keyboard focus only: a mouse click must not leave the row tinted, and the
-          // ring sits around the whole row, not just the text column.
-          'hover:bg-muted/50 has-[[data-row-open]:focus-visible]:bg-muted/50 has-[[data-row-open]:focus-visible]:ring-ring cursor-pointer rounded-md has-[[data-row-open]:focus-visible]:ring-2',
+          // ring sits around the whole row, not just the text column. In forced-colors
+          // mode box shadows vanish, so `outline-hidden` keeps a visible outline there.
+          'hover:bg-muted/50 has-[[data-row-open]:focus-visible]:bg-muted/50 has-[[data-row-open]:focus-visible]:ring-ring cursor-pointer rounded-md has-[[data-row-open]:focus-visible]:ring-2 has-[[data-row-open]:focus-visible]:outline-hidden',
         className
       )}
     >
@@ -44,6 +50,7 @@ export function ListRow({
         <button
           type="button"
           data-row-open
+          aria-describedby={trailing ? amountId : undefined}
           onClick={onOpen}
           className="flex min-w-0 flex-1 cursor-pointer flex-col items-start gap-0.5 text-left outline-none after:absolute after:inset-0"
         >
@@ -55,7 +62,11 @@ export function ListRow({
         </div>
       )}
 
-      {trailing && <span className="flex shrink-0 flex-col items-end gap-1 tabular-nums">{trailing}</span>}
+      {trailing && (
+        <span id={amountId} className="flex shrink-0 flex-col items-end gap-1 tabular-nums">
+          {trailing}
+        </span>
+      )}
     </li>
   )
 }
