@@ -9,7 +9,7 @@ import { toast } from 'sonner'
 
 import { i18n } from '@/lib/i18n'
 import { api } from '@/lib/api'
-import { reportMutationError } from '@/lib/mutation-error'
+import { reportMutationError, showsErrorInline } from '@/lib/mutation-error'
 import { OWN_SCOPE, scopeKey, scopeQuery } from '@/lib/domain'
 import type {
   AccessLevel,
@@ -612,7 +612,14 @@ export function useDeletePosition() {
 export function useTogglePaid() {
   return useInvalidating<
     PlanPosition,
-    { id: string; paid: boolean; occurredOn?: string; amount?: string }
+    {
+      id: string
+      paid: boolean
+      occurredOn?: string
+      amount?: string
+      /** The caller shows the error in its own dialog — the net stays quiet. */
+      inlineError?: boolean
+    }
   >(
     ({ id, paid, occurredOn, amount }) =>
       paid
@@ -654,7 +661,7 @@ function useInvalidating<TData, TInput>(
     onError: (error, variables, ...rest) => {
       // The shared net: a change that failed must never vanish silently. Callers
       // that show the error in their form say so with INLINE_ERROR.
-      if (!options?.meta?.inlineError) {
+      if (!showsErrorInline(options?.meta, variables)) {
         reportMutationError(error, () => mutation.mutate(variables))
       }
       options?.onError?.(error, variables, ...rest)

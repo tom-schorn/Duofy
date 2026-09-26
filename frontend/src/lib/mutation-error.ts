@@ -15,3 +15,22 @@ export function reportMutationError(error: unknown, retry: () => void) {
     action: { label: i18n.t('errors.retry'), onClick: retry },
   })
 }
+
+/**
+ * Whether the caller shows this failure itself, so the net stays quiet.
+ *
+ * Either the hook is marked (`meta.inlineError`) or a single call is — for an
+ * action that has an inline error in one place (a dialog) and none in another
+ * (a tick in the list).
+ */
+export function showsErrorInline(
+  meta: Record<string, unknown> | undefined,
+  input: unknown
+): boolean {
+  if (meta?.inlineError === true) return true
+  return (
+    typeof input === 'object' &&
+    input !== null &&
+    (input as { inlineError?: unknown }).inlineError === true
+  )
+}
