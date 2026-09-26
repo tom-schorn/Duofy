@@ -19,6 +19,7 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from '@/components/ui/empty'
+import { AmountField } from '@/components/AmountField'
 import { CategoryPicker } from '@/components/CategoryPicker'
 import { EditBookingDialog } from '@/components/EditBookingDialog'
 import { QueryState } from '@/components/QueryState'
@@ -227,17 +228,7 @@ function QuickEntry({
           <Label htmlFor="book-amount" className="text-xs">
             {t('common.amount')}
           </Label>
-          <Input
-            id="book-amount"
-            type="number"
-            step="0.01"
-            min="0.01"
-            inputMode="decimal"
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-            placeholder="0,00"
-            required
-          />
+          <AmountField id="book-amount" value={amount} onChange={setAmount} required />
         </div>
 
         <div className="flex min-w-40 flex-1 flex-col gap-1.5">

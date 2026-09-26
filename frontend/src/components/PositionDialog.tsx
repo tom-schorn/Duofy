@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DialogFrame } from '@/components/DialogFrame'
+import { AmountField } from '@/components/AmountField'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -171,17 +172,10 @@ export function PositionDialog({
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-2">
             <Label htmlFor="planned">{t('common.amount')}</Label>
-            <Input
+            <AmountField
               id="planned"
-              type="number"
-              step="0.01"
-              min="0"
-              inputMode="decimal"
               value={draft.amountPlanned}
-              onChange={(event) =>
-                set('amountPlanned', event.target.value)
-              }
-              placeholder={t('common.amountPlaceholder')}
+              onChange={(value) => set('amountPlanned', value)}
               required
             />
           </div>
@@ -362,16 +356,10 @@ export function PositionDialog({
         {isEdit && (
           <div className="flex flex-col gap-2">
             <Label htmlFor="actual">{t('positionDialog.actual')}</Label>
-            <Input
+            <AmountField
               id="actual"
-              type="number"
-              step="0.01"
-              min="0"
-              inputMode="decimal"
               value={draft.amountActual ?? ''}
-              onChange={(event) =>
-                set('amountActual', event.target.value || null)
-              }
+              onChange={(value) => set('amountActual', value || null)}
               placeholder={t('positionDialog.actualPlaceholder')}
             />
             <p className="text-muted-foreground text-xs">

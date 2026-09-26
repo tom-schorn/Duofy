@@ -17,7 +17,7 @@ describe('PaidDialog', () => {
     await user.clear(amount)
     await user.type(amount, '450')
     await user.click(screen.getByRole('button', { name: 'Abhaken' }))
-    expect(onConfirm).toHaveBeenCalledWith(expect.objectContaining({ amount: '450' }))
+    expect(onConfirm).toHaveBeenCalledWith(expect.objectContaining({ amount: '450.00' }))
   })
 
   test('disables date and amount when the position already has bookings, focus stays inside', () => {

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { AmountField } from '@/components/AmountField'
 import { CategoryPicker } from '@/components/CategoryPicker'
 import { DateField } from '@/components/DateField'
 import { DialogFrame } from '@/components/DialogFrame'
@@ -114,16 +115,7 @@ export function EditBookingDialog({
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-2">
           <Label htmlFor="edit-amount">{t('common.amount')}</Label>
-          <Input
-            id="edit-amount"
-            type="number"
-            step="0.01"
-            min="0.01"
-            inputMode="decimal"
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-            required
-          />
+          <AmountField id="edit-amount" value={amount} onChange={setAmount} required />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="edit-date">{t('common.date')}</Label>
