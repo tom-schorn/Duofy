@@ -33,6 +33,8 @@
     "remaining_debt_only_for_debt": "Eine Restschuld gehört nur zu einer Schuld.",
     "limit_only_for_contract": "Ein Limit gibt es nur bei einem Vertrag, der weiterläuft.",
     "null_not_allowed": "Dieses Feld darf nicht leer sein.",
+    "position_no_account": "Dieser Posten hat kein Konto und es gibt kein Standardkonto. Trag beim Posten ein Konto ein oder lege unter „Konten“ ein Standardkonto fest, dann lässt sich abhaken.",
+    "position_source_equals_target": "Dieser Posten bucht von einem Konto auf dasselbe Konto. Ändere beim Posten das Konto oder das Zielkonto, dann lässt sich abhaken.",
     "transaction_not_found": "Diese Buchung gibt es nicht mehr.",
     "transfer_needs_two_accounts": "Eine Umbuchung braucht zwei verschiedene Konten.",
     "transfer_needs_one_owner": "Eine Umbuchung geht nur zwischen Konten derselben Person.",
@@ -304,6 +306,7 @@
     "pending": "Bucht…",
     "submit": "Abhaken",
     "title": "{{label}} abhaken",
+    "hasBookings": "Dieser Posten hat schon Buchungen. Abhaken legt keine neue an, deshalb werden Datum und Betrag nicht verwendet.",
     "differs": "Geplant waren {{planned}} — der Posten steht danach auf {{entered}}."
   },
   "common": {
@@ -613,7 +616,6 @@
   "plan": {
     "printHeader": "Duofy · Monatsplan {{month}} {{year}} · gedruckt am {{date}}",
     "positionsFrom": "{{number}} Posten aus {{household}}",
-    "noAccount": "<name>{{name}}</name> ist erledigt — es fehlt aber ein Standardkonto, auf das die Buchung gehen könnte.",
     "untickText": "Das nimmt die Buchung über <amount>{{amount}}</amount> aus dem Haushaltsbuch. Von Hand erfasste Buchungen an diesem Posten bleiben stehen.",
     "memberLead": "{{name}}s ganzer Monat, auch die privaten Posten — so freigegeben.",
     "printHeaderHousehold": "Duofy · Haushalt {{household}} · {{month}} {{year}} · gedruckt am {{date}}",
@@ -625,8 +627,6 @@
     "income": "Einnahmen",
     "notDistributed": "noch nicht verteilt",
     "notPaid": "noch nicht bezahlt",
-    "noAccountTitle": "Abgehakt, aber nichts gebucht",
-    "understood": "Verstanden",
     "tabPlan": "Plan",
     "tabFlow": "Verlauf",
     "untickTitle": "Buchung mit entfernen?",
