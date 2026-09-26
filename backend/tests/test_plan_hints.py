@@ -176,3 +176,21 @@ async def test_the_household_plan_carries_the_hints_of_the_positions_it_shows(
     response = await client.get(f"/api/v1/plans/household/{household.id}/2026/9")
     assert response.status_code == 200
     assert [h["positionId"] for h in response.json()["hints"]] == [str(shared.id)]
+
+
+async def test_income_and_pass_through_positions_are_overdue_too(
+    client: AsyncClient, session: AsyncSession, owner: User, monkeypatch: pytest.MonkeyPatch
+):
+    """The issue excludes limits only: money that has not arrived, or has not been
+    passed on, is as open as a bill."""
+    pin_today(monkeypatch, date(2026, 9, 5))
+    plan = await make_plan(session, owner)
+    salary = position(plan, 1, budget=Budget.INCOME, category=Category.INCOME_EARNED)
+    forwarded = position(plan, 2, pass_through=True)
+    session.add_all([salary, forwarded])
+    await session.commit()
+
+    assert {h["positionId"] for h in await read_hints(client)} == {
+        str(salary.id),
+        str(forwarded.id),
+    }
