@@ -5,8 +5,9 @@ import { cn } from '@/lib/utils'
  *
  * The technique is a stretched link: the button around the text carries an
  * `after:` layer that covers the row, so name, subtitle, amount and the empty space
- * all do the same. What has its own job — the tick box in `leading`, the ⋯ in
- * `menu` — is lifted above that layer with `relative z-10`.
+ * all do the same. What has its own job — the tick box in `leading` — is lifted above
+ * that layer with `relative z-10`. There is no menu ⋯ (rule 5): whatever else can be
+ * done with the row sits in its edit dialog.
  *
  * Without `onOpen` the row is read-only: no button, no hover, no pointer.
  */
@@ -14,7 +15,6 @@ export function ListRow({
   onOpen,
   leading,
   trailing,
-  menu,
   className,
   children,
 }: {
@@ -24,8 +24,6 @@ export function ListRow({
   leading?: React.ReactNode
   /** The amount; it is not a click area of its own, a click on it opens the row. */
   trailing?: React.ReactNode
-  /** A `RowMenu`; lifted above the row's click layer. */
-  menu?: React.ReactNode
   className?: string
   children: React.ReactNode
 }) {
@@ -58,7 +56,6 @@ export function ListRow({
       )}
 
       {trailing && <span className="flex shrink-0 flex-col items-end gap-1 tabular-nums">{trailing}</span>}
-      {menu && <span className="relative z-10 shrink-0">{menu}</span>}
     </li>
   )
 }
