@@ -61,3 +61,13 @@ export function longDate(iso: string): string {
 export function shortDate(value: string | Date): string {
   return new Date(value).toLocaleDateString(locale())
 }
+
+/** Year and month from an address like `/plan/2026/11`; null when either is not valid. */
+export function parseMonth(
+  year: string | undefined,
+  month: string | undefined
+): { year: number; month: number } | null {
+  if (!/^\d{4}$/.test(year ?? '') || !/^\d{1,2}$/.test(month ?? '')) return null
+  const m = Number(month)
+  return m >= 1 && m <= 12 ? { year: Number(year), month: m } : null
+}

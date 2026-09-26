@@ -20,11 +20,13 @@ import {
 import { Metric } from '@/components/Metric'
 import { PlanPrintout } from '@/components/PlanPrintout'
 import { PlanSankey } from '@/components/PlanSankey'
-import { longDate, today } from '@/lib/dates'
+import { CreatePlanDialog } from '@/components/CreatePlanDialog'
+import { longDate, parseMonth, today } from '@/lib/dates'
+import { NotFoundPage } from '@/pages/NotFoundPage'
 import { MonthFlow } from '@/components/MonthFlow'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PositionDialog } from '@/components/PositionDialog'
-import { errorText } from '@/lib/api'
+import { ApiError, errorText } from '@/lib/api'
 import { positionHasBookings } from '@/lib/paid'
 import {
   Empty,
@@ -72,9 +74,23 @@ import {
  */
 const TABS = new Set(['plan', 'flow'])
 
+/**
+ * An invalid month in the address (`/plan/2026/13`, `/plan/abc/x`) is the not-found
+ * page; a valid one without a plan offers to create exactly that month.
+ */
 export function PlanDetailPage() {
-  const { t } = useTranslation()
   const { year, month } = useParams()
+  const parsed = parseMonth(year, month)
+  return parsed === null ? (
+    <NotFoundPage />
+  ) : (
+    <PlanMonthPage year={parsed.year} month={parsed.month} />
+  )
+}
+
+function PlanMonthPage({ year, month }: { year: number; month: number }) {
+  const { t } = useTranslation()
+  const [creating, setCreating] = useState(false)
   // The household lives in the URL, not in a global switcher. That makes the
   // shared view a place one can link to and reload — and it is visible why the page
   // looks different.
@@ -88,19 +104,26 @@ export function PlanDetailPage() {
 
   // All three hooks are always present — React does not allow conditional hooks.
   // The unused ones are switched off through `enabled` and load nothing.
-  const ownPlan = usePlan(Number(year), Number(month), !shared && !foreign)
+  const ownPlan = usePlan(year, month, !shared && !foreign)
   // Name and level come from the member list the sidebar already loaded — the plan
   // itself says nothing about whose it is, and it does not have to.
   const active = useActiveMember()
   const householdPlan = useHouseholdPlan(
     householdId,
-    Number(year),
-    Number(month)
+    year,
+    month
   )
-  const memberPlan = usePlan(Number(year), Number(month), foreign, memberId)
+  const memberPlan = usePlan(year, month, foreign, memberId)
   const query = shared ? householdPlan : foreign ? memberPlan : ownPlan
 
   const households = useHouseholds()
+  // A month nobody has created yet: not a failure, an invitation. Only for a
+  // person's own plan — a household plan is composed, never created.
+  const missing =
+    !shared &&
+    query.error instanceof ApiError &&
+    query.error.code === 'plan_not_found'
+  const mayCreate = atLeast(active.levelFor('plan'), 'edit')
 
   const names = Object.fromEntries(
     (households.data ?? []).map((household) => [household.id, household.name])
@@ -127,6 +150,22 @@ export function PlanDetailPage() {
         {t('plan.allPlans')}
       </Link>
 
+      {missing ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>{t('plan.missingTitle', { month: `${monthLabel(month)} ${year}` })}</EmptyTitle>
+            <EmptyDescription>
+              {mayCreate ? t('plan.missingText') : t('plan.missingNoRight')}
+            </EmptyDescription>
+          </EmptyHeader>
+          {mayCreate && (
+            <Button onClick={() => setCreating(true)}>
+              <Plus className="size-4" />
+              {t('plans.create')}
+            </Button>
+          )}
+        </Empty>
+      ) : (
       <QueryState isPending={query.isPending} error={query.error} rows={4}>
         {shared
           ? householdPlan.data && (
@@ -159,6 +198,16 @@ export function PlanDetailPage() {
               <PlanBody plan={ownPlan.data} householdNames={names} />
             )}
       </QueryState>
+      )}
+
+      <CreatePlanDialog
+        open={creating}
+        onOpenChange={setCreating}
+        ownerId={active.id}
+        ownerName={active.member?.firstName ?? null}
+        year={year}
+        month={month}
+      />
     </div>
   )
 }
