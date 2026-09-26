@@ -249,3 +249,19 @@ describe('languages', () => {
     expect(Object.keys(RESOURCES)).toContain('de')
   })
 })
+
+describe('terms', () => {
+  const texts = [...Object.values(flatten(de as Catalog)), ...Object.values(flatten(deHelp as Catalog))]
+
+  test.each(['Fixkosten', 'Noch offen', 'noch offen', 'Noch nicht verplant', 'noch nicht verplant'])(
+    'the old word "%s" does not come back (Grundbedarf, Frei, Anstehend)',
+    (word) => {
+      // "actualPlaceholder" says "noch offen" for an empty amount field, not the number
+      const hits = Object.entries(flatten(de as Catalog)).filter(
+        ([key, text]) => text.includes(word) && key !== 'positionDialog.actualPlaceholder',
+      )
+      expect(hits.map(([key]) => key)).toEqual([])
+      expect(texts.filter((t) => t.includes(word) && word !== 'noch offen')).toEqual([])
+    },
+  )
+})

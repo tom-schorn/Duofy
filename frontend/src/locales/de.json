@@ -58,7 +58,7 @@
   "enums": {
     "budget": {
       "income": "Einnahmen",
-      "needs": "Fixkosten",
+      "needs": "Grundbedarf",
       "wants": "Wünsche",
       "savings": "Sparen"
     },
@@ -474,7 +474,7 @@
   },
   "bookFlow": {
     "income": "Einnahmen",
-    "needs": "Bedarf",
+    "needs": "Grundbedarf",
     "wants": "Wünsche",
     "savings": "Weggelegt",
     "balance": "Verfügbarer Saldo",
@@ -493,15 +493,16 @@
     "footnote": "Geplante Fälligkeiten, nicht die echten Buchungstage — der Verlauf im Buch sieht deshalb anders aus. Der Saldo in der Tabelle läuft über die Zeilen mit; innerhalb eines Tages gibt es aber keine Reihenfolge, das Diagramm zeigt deshalb den Tagesabschluss."
   },
   "sankey": {
-    "needs": "Bedarf",
+    "needs": "Grundbedarf",
     "wants": "Wünsche",
     "savings": "Sparen",
     "income": "Einnahmen",
     "distributable": "Verteilbar",
     "oneMore": "1 weiterer Posten",
     "more": "{{number}} weitere Posten",
-    "unplanned": "Noch nicht verplant",
-    "summary": "Verteilbar · davon {{amount}} noch nicht verplant",
+    "unplanned": "Frei",
+    "summary": "Verteilbar · davon {{amount}} frei",
+    "summaryAllPlanned": "Verteilbar · Alles verplant",
     "empty": "Für dieses Diagramm braucht der Monat Einnahmen und Posten. Sobald etwas geplant ist, steht hier, wohin es geht."
   },
   "plans": {
@@ -517,7 +518,7 @@
     "allPaid": "alles bezahlt",
     "household": "Haushalt",
     "allocatable": "Verplanbar",
-    "open": "Noch offen",
+    "open": "Anstehend",
     "createHint": "Die Posten aus deinen Verträgen entstehen dabei von selbst. Einzelposten schreibst du danach dazu.",
     "month": "Monat",
     "year": "Jahr",
