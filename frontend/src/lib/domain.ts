@@ -951,10 +951,23 @@ export type PlanSummary = Plan & {
   householdIds: string[]
 }
 
+/** Mirror of `Hint` — something the backend wants the plan to point out. */
+export type PlanHint = {
+  /** Stable identifier; the catalog key is `hints.<code>`. */
+  code: string
+  severity: 'info' | 'warning'
+  /** null for a hint about the whole month. */
+  positionId: string | null
+  /** The values the text needs, never the text. */
+  params: Record<string, string | number>
+}
+
 /** A plan together with its positions. */
 
 export type PlanDetail = PlanSummary & {
   id: string
+  /** Derived by the backend on every read; the frontend never computes one. */
+  hints: PlanHint[]
   positions: PlanPosition[]
 }
 
@@ -965,6 +978,7 @@ export type PlanDetail = PlanSummary & {
 export type HouseholdPlanDetail = PlanSummary & {
   householdId: string
   householdName: string
+  hints: PlanHint[]
   positions: HouseholdPosition[]
 }
 
