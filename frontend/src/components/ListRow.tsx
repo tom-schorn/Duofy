@@ -33,7 +33,10 @@ export function ListRow({
     <li
       className={cn(
         'border-border/60 relative flex items-center gap-3 border-b py-2.5 last:border-b-0',
-        onOpen && 'hover:bg-muted/50 focus-within:bg-muted/50 cursor-pointer',
+        onOpen &&
+          // Keyboard focus only: a mouse click must not leave the row tinted, and the
+          // ring sits around the whole row, not just the text column.
+          'hover:bg-muted/50 has-[[data-row-open]:focus-visible]:bg-muted/50 has-[[data-row-open]:focus-visible]:ring-ring cursor-pointer rounded-md has-[[data-row-open]:focus-visible]:ring-2',
         className
       )}
     >
@@ -42,8 +45,9 @@ export function ListRow({
       {onOpen ? (
         <button
           type="button"
+          data-row-open
           onClick={onOpen}
-          className="focus-visible:ring-ring flex min-w-0 flex-1 cursor-pointer flex-col items-start gap-0.5 rounded-sm text-left outline-none after:absolute after:inset-0 focus-visible:ring-2"
+          className="flex min-w-0 flex-1 cursor-pointer flex-col items-start gap-0.5 text-left outline-none after:absolute after:inset-0"
         >
           {children}
         </button>
