@@ -14,7 +14,7 @@ from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, case, func, literal, select, update
+from sqlalchemy import and_, case, delete, func, literal, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -177,14 +177,21 @@ async def _balances(
 
 
 async def _used(session: AsyncSession, account_ids: list[uuid.UUID]) -> set[uuid.UUID]:
-    """The accounts among `account_ids` some booking touches, on either side."""
+    """The accounts among `account_ids` some booking touches, on either side.
+
+    A carry-over is no use: it states a balance and moves nothing, so an account
+    with nothing else on it stays deletable (its carry-overs go with it).
+    """
     if not account_ids:
         return set()
     # One UNION of two distinct id lists: at most one row per account, however many
     # bookings there are.
     rows = await session.execute(
         select(Transaction.account_id)
-        .where(Transaction.account_id.in_(account_ids))
+        .where(
+            Transaction.account_id.in_(account_ids),
+            Transaction.kind == TransactionKind.BOOKING,
+        )
         .union(
             select(Transaction.counter_account_id).where(
                 Transaction.counter_account_id.in_(account_ids)
@@ -506,6 +513,14 @@ async def delete_account(
     in_use = HTTPException(status.HTTP_409_CONFLICT, detail={"code": "account_has_transactions"})
     if account.id in await _used(session, [account.id]):
         raise in_use
+    # Only carry-overs can be left here (see `_used`); the foreign key would refuse
+    # the account while they exist.
+    await session.execute(
+        delete(Transaction).where(
+            Transaction.account_id == account.id,
+            Transaction.kind == TransactionKind.CARRY_OVER,
+        )
+    )
     await session.delete(account)
     try:
         await session.commit()

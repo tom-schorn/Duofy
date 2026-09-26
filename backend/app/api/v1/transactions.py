@@ -14,6 +14,7 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, extract, func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
@@ -157,7 +158,7 @@ async def _load(
 
 
 async def _check_carry_over_change(
-    session: AsyncSession, transaction: Transaction, changes: dict
+    session: AsyncSession, transaction: Transaction, changes: dict, user: User
 ) -> None:
     """A carry-over may change its amount, its month or its account — nothing else."""
     if any(changes.get(field) is not None for field in (
@@ -172,6 +173,11 @@ async def _check_carry_over_change(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail={"code": "carry_over_needs_first_of_month"},
         )
+    if changes.get("account_id") is not None:
+        # Ownership first: otherwise "taken" (409) against "not yours" (403) would
+        # tell a stranger which months another person's account has a carry-over for.
+        new_owner = await _account_owner(session, changes["account_id"], user)
+        require(new_owner == transaction.owner_id, "not_account_owner")
     await _require_free_month(
         session,
         changes.get("account_id", transaction.account_id),
@@ -286,7 +292,17 @@ async def create_transaction(
 
     transaction = Transaction(owner_id=booking_owner, **payload.model_dump())
     session.add(transaction)
-    await session.flush()
+    try:
+        await session.flush()
+    except IntegrityError:
+        # Two carry-overs for one account and month created at the same time: the
+        # unique index decides, the check above only spares the usual case.
+        await session.rollback()
+        if payload.kind is not TransactionKind.CARRY_OVER:
+            raise
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, detail={"code": "carry_over_exists"}
+        ) from None
 
     await _recalc_position(session, transaction.position_id)
     await session.commit()
@@ -321,7 +337,7 @@ async def update_transaction(
             status.HTTP_409_CONFLICT, detail={"code": "auto_booking_keeps_position"}
         )
     if transaction.kind is TransactionKind.CARRY_OVER:
-        await _check_carry_over_change(session, transaction, changes)
+        await _check_carry_over_change(session, transaction, changes, user)
     elif changes.get("amount") is not None and changes["amount"] <= 0:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT, detail={"code": "amount_must_be_positive"}
