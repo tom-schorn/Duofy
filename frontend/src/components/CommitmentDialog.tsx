@@ -310,7 +310,12 @@ export function CommitmentDialog({
   const februaryDay = effectiveDueDay(dueDay, shiftYear, 2)
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      // Locked while the server has not answered — a later error would have
+      // nowhere to show.
+      onOpenChange={(next) => !pending && onOpenChange(next)}
+    >
       {/* Bei „Wird abbezahlt" und auf niedrigen Bildschirmen wird das Formular
           höher als das Fenster — ohne max-h wären Titel und Knöpfe abgeschnitten. */}
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
@@ -724,6 +729,7 @@ export function CommitmentDialog({
             <Button
               type="button"
               variant="outline"
+              disabled={pending}
               onClick={() => onOpenChange(false)}
             >
               {t('common.cancel')}

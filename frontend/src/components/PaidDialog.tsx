@@ -77,7 +77,7 @@ export function PaidDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog open onOpenChange={(open) => !open && !pending && onClose()}>
       <DialogContent className="sm:max-w-md">
         <form onSubmit={submit} className="flex flex-col gap-5">
           <DialogHeader>
@@ -149,7 +149,7 @@ export function PaidDialog({
           )}
 
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={onClose}>
+            <Button type="button" variant="ghost" disabled={pending} onClick={onClose}>
               {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={pending}>
