@@ -3,33 +3,16 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { ChevronRight, Plus, Users } from 'lucide-react'
 
+import { CreatePlanDialog } from '@/components/CreatePlanDialog'
 import { QueryState } from '@/components/QueryState'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { errorText } from '@/lib/api'
 import { useActiveMember } from '@/hooks/use-active-member'
-import { useCreatePlan, useHouseholds, usePlans } from '@/lib/queries'
+import { useHouseholds, usePlans } from '@/lib/queries'
 import {
   BUDGET_DOT,
   budgetLabel,
   BUDGETS,
-  MONTHS,
   monthLabel,
   QUOTA_KEY,
   atLeast,
@@ -229,115 +212,5 @@ function BudgetRow({ plan, budget }: { plan: PlanSummary; budget: Budget }) {
         </span>
       </span>
     </div>
-  )
-}
-
-function CreatePlanDialog({
-  ownerId,
-  ownerName,
-  open,
-  onOpenChange,
-}: {
-  ownerId: string | null
-  ownerName: string | null
-  open: boolean
-  onOpenChange: (open: boolean) => void
-}) {
-  const today = new Date()
-  const { t } = useTranslation()
-  const [year, setYear] = useState(today.getFullYear())
-  const [month, setMonth] = useState(today.getMonth() + 1)
-  const create = useCreatePlan()
-
-  // This year and the next few — planning retroactively rarely makes sense.
-  const years = [today.getFullYear(), today.getFullYear() + 1]
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <form
-          onSubmit={(event) => {
-            event.preventDefault()
-            create.mutate(
-              { year, month, ownerId },
-              { onSuccess: () => onOpenChange(false) }
-            )
-          }}
-          className="flex flex-col gap-5"
-        >
-          <DialogHeader>
-            <DialogTitle className="font-heading text-xl">
-              {ownerName === null
-                ? t('plans.create')
-                : t('plans.createFor', { name: ownerName })}
-            </DialogTitle>
-            <DialogDescription>
-              {ownerName === null
-                ? t('plans.createHint')
-                : t('plans.createForHint', { name: ownerName })}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-2">
-              <Label>{t('plans.month')}</Label>
-              <Select
-                value={String(month)}
-                onValueChange={(value) => setMonth(Number(value))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {MONTHS.map((month) => (
-                    <SelectItem key={month} value={String(month)}>
-                      {monthLabel(month)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label>{t('plans.year')}</Label>
-              <Select
-                value={String(year)}
-                onValueChange={(value) => setYear(Number(value))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {years.map((value) => (
-                    <SelectItem key={value} value={String(value)}>
-                      {value}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {create.isError && (
-            <p className="border-destructive bg-destructive/10 text-destructive rounded-md border px-3 py-2 text-sm">
-              {errorText(create.error)}
-            </p>
-          )}
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              {t('common.cancel')}
-            </Button>
-            <Button type="submit" disabled={create.isPending}>
-              {create.isPending ? t('plans.creating') : t('common.create')}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   )
 }
