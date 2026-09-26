@@ -624,14 +624,21 @@ export type BalanceHistory = {
  * `counterAccountId` decides the balances, `positionId` decides the budget. Moving
  * money to savings is both at once — a transfer that fulfils the savings quota.
  */
+/**
+ * `carry_over` states the balance an account goes into a month with (#94). It moves
+ * no money and counts in no sum. Mirror of the backend `TransactionKind`.
+ */
+export type TransactionKind = 'booking' | 'carry_over'
+
 export type Transaction = {
   id: string
+  kind: TransactionKind
   ownerId?: string
   accountId: string
   /** Set means a transfer to another own account. */
   counterAccountId: string | null
   occurredOn: string
-  /** Always positive — the direction comes from `budget`. */
+  /** Positive — the direction comes from `budget`. Only a carry-over has a sign. */
   amount: string
   note: string | null
   /** Empty on a pure transfer only. */
