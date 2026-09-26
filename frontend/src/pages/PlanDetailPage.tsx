@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { ArrowLeft, Eye, Pencil, Plus, Printer, Users } from 'lucide-react'
@@ -199,6 +199,11 @@ function PlanBody({
   const [editing, setEditing] = useState<PlanPosition | null>(null)
   const [addingTo, setAddingTo] = useState<Budget>('wants')
   const [dialogOpen, setDialogOpen] = useState(false)
+  // An error from the last try must not greet the next opening.
+  const resetSaveposition = savePosition.reset
+  useEffect(() => {
+    if (dialogOpen) resetSaveposition()
+  }, [dialogOpen, resetSaveposition])
 
   // For the confirmation when un-ticking: which booking hangs off which position.
   const transactions = useTransactions(plan.year, plan.month)
@@ -554,7 +559,14 @@ function PlanBody({
         planId={plan.id}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        onSave={(position) => savePosition.mutate({ ...position, planId: plan.id })}
+        pending={savePosition.isPending}
+        error={savePosition.error}
+        onSave={(position) =>
+          savePosition.mutate(
+            { ...position, planId: plan.id },
+            { onSuccess: () => setDialogOpen(false) }
+          )
+        }
         onDelete={(position) => deletePosition.mutate(position.id)}
       />
     </>
@@ -636,6 +648,11 @@ function MemberPlanBody({
   const [editing, setEditing] = useState<PlanPosition | null>(null)
   const [addingTo, setAddingTo] = useState<Budget>('wants')
   const [dialogOpen, setDialogOpen] = useState(false)
+  // An error from the last try must not greet the next opening.
+  const resetSaveposition = savePosition.reset
+  useEffect(() => {
+    if (dialogOpen) resetSaveposition()
+  }, [dialogOpen, resetSaveposition])
 
   function openEditor(position: PlanPosition) {
     setEditing(position)
@@ -763,6 +780,8 @@ function MemberPlanBody({
         planId={plan.id}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
+        pending={savePosition.isPending}
+        error={savePosition.error}
         onSave={(position) =>
           savePosition.mutate(
             { ...position, planId: plan.id },

@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { FormError } from '@/components/FormError'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -146,6 +147,10 @@ type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSave: (commitment: Commitment) => void
+  /** The server has not answered yet; the dialog stays open and locked. */
+  pending?: boolean
+  /** The server said no; shown above the buttons, the input stays. */
+  error?: unknown
 }
 
 export function CommitmentDialog({
@@ -153,6 +158,8 @@ export function CommitmentDialog({
   open,
   onOpenChange,
   onSave,
+  pending = false,
+  error = null,
 }: Props) {
   const { t } = useTranslation()
   const households = useHouseholds().data ?? []
@@ -283,8 +290,8 @@ export function CommitmentDialog({
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     if (!intervalValid) return
+    // Stays open until the server agrees — the caller closes it on success.
     onSave(draft)
-    onOpenChange(false)
   }
 
   // From the 29th on the day can shift — February is the hard case.
@@ -711,6 +718,8 @@ export function CommitmentDialog({
             </div>
           </div>
 
+          <FormError error={error} />
+
           <DialogFooter>
             <Button
               type="button"
@@ -719,7 +728,13 @@ export function CommitmentDialog({
             >
               {t('common.cancel')}
             </Button>
-            <Button type="submit" disabled={!intervalValid}>{isEdit ? t('common.save') : t('common.create')}</Button>
+            <Button type="submit" disabled={!intervalValid || pending}>
+              {pending
+                ? t('common.saving')
+                : isEdit
+                  ? t('common.save')
+                  : t('common.create')}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

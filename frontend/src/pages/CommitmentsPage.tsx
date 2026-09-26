@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
 
@@ -120,6 +120,11 @@ export function CommitmentsPage() {
 
   const [editing, setEditing] = useState<Commitment | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  // An error from the last try must not greet the next opening.
+  const resetSave = save.reset
+  useEffect(() => {
+    if (dialogOpen) resetSave()
+  }, [dialogOpen, resetSave])
   const [pendingDelete, setPendingDelete] = useState<Commitment | null>(null)
 
   const householdNames = Object.fromEntries(
@@ -308,7 +313,11 @@ export function CommitmentsPage() {
         commitment={editing}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        onSave={(saved) => save.mutate(saved)}
+        pending={save.isPending}
+        error={save.error}
+        onSave={(saved) =>
+          save.mutate(saved, { onSuccess: () => setDialogOpen(false) })
+        }
       />
 
       <AlertDialog
