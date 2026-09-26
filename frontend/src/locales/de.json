@@ -35,6 +35,8 @@
     "ends_on_before_start": "Das Ende darf nicht vor dem Monat der ersten Fälligkeit liegen.",
     "invalid_status_filter": "Diesen Filter gibt es nicht. Wähle aktiv, beendet oder alle.",
     "null_not_allowed": "Dieses Feld darf nicht leer sein.",
+    "purpose_required": "Eine Buchung ohne Umbuchung braucht eine Kategorie.",
+    "auto_booking_keeps_position": "Eine Buchung vom Haken bleibt an ihrem Posten.",
     "position_no_account": "Dieser Posten hat kein Konto und es gibt kein Standardkonto. Trag beim Posten ein Konto ein oder lege unter „Konten“ ein Standardkonto fest, dann lässt sich abhaken.",
     "position_source_equals_target": "Dieser Posten bucht von einem Konto auf dasselbe Konto. Ändere beim Posten das Konto oder das Zielkonto, dann lässt sich abhaken.",
     "transaction_not_found": "Diese Buchung gibt es nicht mehr.",
@@ -458,7 +460,10 @@
     "book": "Buchen",
     "hint": "Datum ist heute. Eine Umbuchung mit Posten füllt zugleich das Budget — so wird aus „aufs Tagesgeld gelegt\" eine erfüllte Sparquote.",
     "noNote": "Ohne Notiz",
-    "autoBooked": "vom Haken"
+    "autoBooked": "vom Haken",
+    "editTitle": "Buchung bearbeiten",
+    "editLabel": "Buchung {{note}} bearbeiten",
+    "editHint": "Eine Buchung vom Haken bleibt an ihrem Posten."
   },
   "bookFlow": {
     "income": "Einnahmen",

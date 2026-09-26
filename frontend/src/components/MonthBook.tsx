@@ -20,6 +20,7 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty'
 import { CategoryPicker } from '@/components/CategoryPicker'
+import { EditBookingDialog } from '@/components/EditBookingDialog'
 import { QueryState } from '@/components/QueryState'
 import { errorText } from '@/lib/api'
 import { today } from '@/lib/dates'
@@ -81,6 +82,7 @@ export function MonthBook({
   const accounts = useAccounts(scope).data ?? []
   const save = useSaveTransaction(year, month, scope)
   const remove = useDeleteTransaction(year, month, scope)
+  const [editing, setEditing] = useState<Transaction | null>(null)
 
   const usable = accounts.filter((account) => account.active)
   const fallback = usable.find((account) => account.isDefault) ?? usable[0]
@@ -131,6 +133,7 @@ export function MonthBook({
                 transaction={transaction}
                 accounts={accounts}
                 positions={positions}
+                onEdit={readOnly ? null : () => setEditing(transaction)}
                 onDelete={
                   readOnly ? null : () => remove.mutate(transaction.id)
                 }
@@ -139,6 +142,22 @@ export function MonthBook({
           </ul>
         )}
       </QueryState>
+
+      {editing !== null && (
+        <EditBookingDialog
+          key={editing.id}
+          transaction={editing}
+          accounts={accounts}
+          positions={positions}
+          open
+          onOpenChange={(open) => !open && setEditing(null)}
+          onSave={(draft) =>
+            save.mutate(draft, { onSuccess: () => setEditing(null) })
+          }
+          pending={save.isPending}
+          error={save.error}
+        />
+      )}
     </section>
   )
 }
@@ -310,11 +329,14 @@ function Row({
   transaction,
   accounts,
   positions,
+  onEdit,
   onDelete,
 }: {
   transaction: Transaction
   accounts: Account[]
   positions: PlanPosition[]
+  /** null means read only: the row is not clickable. */
+  onEdit: (() => void) | null
   /** null means somebody else book, and then the button is absent entirely. */
   onDelete: (() => void) | null
 }) {
@@ -327,7 +349,13 @@ function Row({
   const { t } = useTranslation()
 
   return (
-    <li className="border-border/60 grid grid-cols-[auto_1fr_auto_auto] items-center gap-3 border-b py-2.5 last:border-b-0">
+    <li className="border-border/60 flex items-center gap-3 border-b py-2.5 last:border-b-0">
+      {/* The whole row opens the booking (rule 1); the delete button beside it
+          is not part of that click. */}
+      <RowMain
+        onEdit={onEdit}
+        label={t('monthBook.editLabel', { note: transaction.note ?? '' })}
+      >
       <span className="text-muted-foreground w-12 text-sm tabular-nums">
         {t('common.dueDay', { day: new Date(transaction.occurredOn).getDate() })}
       </span>
@@ -368,6 +396,7 @@ function Row({
       <span className="font-mono font-medium tabular-nums">
         {euro.format(Number(transaction.amount))}
       </span>
+      </RowMain>
 
       {onDelete === null ? (
         // A spacer so the columns line up across all rows.
@@ -385,5 +414,29 @@ function Row({
         </Button>
       )}
     </li>
+  )
+}
+
+function RowMain({
+  onEdit,
+  label,
+  children,
+}: {
+  onEdit: (() => void) | null
+  label: string
+  children: React.ReactNode
+}) {
+  const columns = 'grid min-w-0 flex-1 grid-cols-[auto_1fr_auto] items-center gap-3'
+  return onEdit === null ? (
+    <div className={columns}>{children}</div>
+  ) : (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={onEdit}
+      className={`${columns} hover:bg-muted/50 focus-visible:ring-ring rounded-md text-left outline-none focus-visible:ring-2`}
+    >
+      {children}
+    </button>
   )
 }
