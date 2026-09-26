@@ -15,6 +15,7 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, case, func, literal, or_, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
@@ -443,6 +444,13 @@ async def delete_account(
     bookings keep their reference.
     """
     account = await _load(session, account_id, user, needs=AccessLevel.DELETE)
-    require(account.id not in await _used(session, [account.id]), "account_has_transactions")
+    in_use = HTTPException(status.HTTP_409_CONFLICT, detail={"code": "account_has_transactions"})
+    if account.id in await _used(session, [account.id]):
+        raise in_use
     await session.delete(account)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        # A booking arrived between the check and the commit; the FK said no.
+        await session.rollback()
+        raise in_use from None

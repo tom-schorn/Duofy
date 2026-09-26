@@ -262,7 +262,11 @@ async def delete_commitment(
     months already planned keep their origin.
     """
     commitment = await _load(session, commitment_id, user, needs=AccessLevel.DELETE)
+    # Lock the row: a position inserted meanwhile takes a share lock on it and has
+    # to wait, so it cannot slip in between the check and the delete.
+    await session.refresh(commitment, with_for_update=True)
     await _mark_deletable(session, [commitment])
-    require(commitment.deletable, "commitment_in_use")
+    if not commitment.deletable:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail={"code": "commitment_in_use"})
     await session.delete(commitment)
     await session.commit()
