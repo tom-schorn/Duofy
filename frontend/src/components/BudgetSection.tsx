@@ -277,8 +277,8 @@ function PositionRow({
                 {t('budget.of', { amount: euro.format(planned) })}
               </span>
             </span>
-            {/* Füllstand statt Haken: die Frage ist „wie viel ist weg", nicht
-                „ist es erledigt". */}
+            {/* A fill level instead of a tick: the question is how much is used
+                up, not whether it is done. */}
             <Progress
               value={Math.min(((actual ?? 0) / (planned || 1)) * 100, 100)}
               aria-label={t('budget.fillLabel', {

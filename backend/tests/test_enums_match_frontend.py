@@ -25,7 +25,7 @@ from pathlib import Path
 
 import pytest
 
-from app.models.enums import Category
+from app.models.enums import Category, CommitmentType
 
 FRONTEND = Path(__file__).parents[2] / "frontend" / "src"
 DOMAIN = FRONTEND / "lib" / "domain.ts"
@@ -90,3 +90,12 @@ def test_the_budgets_agree(suggestions):
         if suggestions.get(category.value) != category.budget.value
     }
     assert differing == {}
+
+
+def test_the_commitment_types_agree():
+    """A type only one side knows fails as a 422 or shows a raw value."""
+    source = DOMAIN.read_text(encoding="utf-8")
+    match = re.search(r"export type CommitmentType =(.*?)\n\n", source, re.S)
+    assert match, "CommitmentType not found in domain.ts"
+    frontend = set(re.findall(r"'([a-z_]+)'", match.group(1)))
+    assert frontend == {kind.value for kind in CommitmentType}
