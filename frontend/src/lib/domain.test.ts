@@ -6,12 +6,14 @@
  * backend's own rule) live in date-cases.test.ts, not here — this file is what
  * does not need to agree with Python.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, it as test } from 'vitest'
 
 import {
   DUE_DAY_MAY_SHIFT,
   daysInMonth,
   dueDayOf,
+  endMonthLabel,
+  hasEnded,
   nextDueDates,
   parseIntervalText,
   intervalLabel,
@@ -277,5 +279,18 @@ describe('dueDayOf', () => {
     expect(dueDayOf('2026-03-31') >= DUE_DAY_MAY_SHIFT).toBe(true)
     expect(effectiveDueDay(dueDayOf('2026-03-31'), 2026, 2)).toBe(28)
     expect(dueDayOf('2026-03-15') >= DUE_DAY_MAY_SHIFT).toBe(false)
+  })
+})
+
+describe('commitment end month', () => {
+  test('ends by month, the day does not matter', () => {
+    const today = new Date(2026, 2, 15)
+    expect(hasEnded(null, today)).toBe(false)
+    expect(hasEnded('2026-03-01', today)).toBe(false)
+    expect(hasEnded('2026-02-28', today)).toBe(true)
+  })
+
+  test('names the month and year', () => {
+    expect(endMonthLabel('2026-03-15')).toBe('März 2026')
   })
 })

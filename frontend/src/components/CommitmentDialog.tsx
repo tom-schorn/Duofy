@@ -129,7 +129,7 @@ function emptyDraft(): Commitment {
     // Every commitment has one; the 1st of next month is a better start than an
     // empty mandatory field, and keeps the pay day at 1 for whoever skips it.
     firstDueDate: firstOfNextMonth(),
-    active: true,
+    endsOn: null,
     passThrough: false,
     counterAccountId: null,
     targetAmount: null,
@@ -705,18 +705,29 @@ export function CommitmentDialog({
               />
             </div>
 
-            <div className="border-border flex items-center justify-between rounded-md border p-3">
-              <div className="flex flex-col">
-                <Label htmlFor="active">{t('commitmentDialog.active')}</Label>
-                <span className="text-muted-foreground text-xs">
-                  {t('commitmentDialog.activeHint')}
-                </span>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="ends-on">{t('commitmentDialog.endsOn')}</Label>
+              <div className="flex gap-2">
+                <DateField
+                  id="ends-on"
+                  value={draft.endsOn ?? ''}
+                  onChange={(iso) => set('endsOn', iso || null)}
+                  placeholder={t('commitmentDialog.noEnd')}
+                  describedBy="ends-on-hint"
+                />
+                {draft.endsOn !== null && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => set('endsOn', null)}
+                  >
+                    {t('commitmentDialog.clearEnd')}
+                  </Button>
+                )}
               </div>
-              <Switch
-                id="active"
-                checked={draft.active}
-                onCheckedChange={(checked) => set('active', checked)}
-              />
+              <p id="ends-on-hint" className="text-muted-foreground text-xs">
+                {t('commitmentDialog.endsOnHint')}
+              </p>
             </div>
           </div>
 

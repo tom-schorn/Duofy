@@ -30,6 +30,8 @@
     "target_only_for_savings_goal": "Ein Zielbetrag gehört nur zu einem Sparziel.",
     "remaining_debt_only_for_debt": "Eine Restschuld gehört nur zu einer Schuld.",
     "limit_only_for_contract": "Ein Limit gibt es nur bei einem Vertrag, der weiterläuft.",
+    "ends_on_before_start": "Das Ende darf nicht vor dem Monat der ersten Fälligkeit liegen.",
+    "invalid_status_filter": "Diesen Filter gibt es nicht. Wähle aktiv, beendet oder alle.",
     "null_not_allowed": "Dieses Feld darf nicht leer sein.",
     "position_no_account": "Dieser Posten hat kein Konto und es gibt kein Standardkonto. Trag beim Posten ein Konto ein oder lege unter „Konten“ ein Standardkonto fest, dann lässt sich abhaken.",
     "position_source_equals_target": "Dieser Posten bucht von einem Konto auf dasselbe Konto. Ändere beim Posten das Konto oder das Zielkonto, dann lässt sich abhaken.",
@@ -433,8 +435,10 @@
     "targetDate": "Zieldatum",
     "noTargetDate": "Kein Zieldatum",
     "remainingDebt": "Restschuld",
-    "active": "Aktiv",
-    "activeHint": "Inaktive erzeugen keine neuen Posten."
+    "endsOn": "Läuft bis (letzter Monat)",
+    "noEnd": "Läuft unbegrenzt",
+    "clearEnd": "Kein Ende",
+    "endsOnHint": "Nur Monat und Jahr zählen. Danach entstehen keine neuen Posten mehr. Leer lassen, wenn es unbegrenzt weiterläuft."
   },
   "monthBook": {
     "deleteLabel": "Buchung {{note}} löschen",
@@ -508,7 +512,6 @@
   "commitments": {
     "targetUntil": "Ziel {{target}} bis {{date}}",
     "target": "Ziel {{target}}",
-    "remaining": "Rest {{amount}}",
     "leadMemberEdit": "Die Verträge von {{name}}. Du darfst sie ändern.",
     "leadMemberView": "Die Verträge von {{name}}. Nur zum Ansehen.",
     "private": "privat",
@@ -519,7 +522,15 @@
     "create": "Vertrag anlegen",
     "empty": "Noch kein Vertrag angelegt.",
     "perMonth": "Ø / Monat",
-    "inactive": "inaktiv",
+    "remaining": "Rest {{amount}}",
+    "endedSince": "beendet seit {{month}}",
+    "filterLabel": "Anzeigen",
+    "status": {
+      "active": "Aktiv",
+      "ended": "Beendet",
+      "all": "Alle"
+    },
+    "emptyEnded": "Kein Vertrag ist beendet.",
     "nextDue": "nächste: {{dates}}",
     "deleteText": "Bereits geplante Posten in laufenden Monaten bleiben stehen. Für künftige Monate entsteht nichts mehr."
   },
@@ -545,6 +556,7 @@
     "defaultHint": "Wird beim schnellen Buchen vorausgewählt. Ein zweites löst das bisherige ab.",
     "countsAsAvailable": "Zählt als verfügbar",
     "countsAsAvailableHint": "Aus beim Tagesgeld oder Depot: was dorthin wandert, gilt im Buch als ausgegeben. An bei Giro und PayPal — dort bleibt das Geld greifbar.",
+    "active": "Aktiv",
     "activeHint": "Aufgelöste Konten bleiben stehen, damit alte Buchungen ihren Bezug behalten.",
     "saving": "Wird gesichert…",
     "save": "Sichern"
