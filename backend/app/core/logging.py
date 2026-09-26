@@ -42,6 +42,9 @@ def mask_path(path: str) -> str:
     A segment stays only if it is a plain word. UUIDs, numbers and anything longer
     than a route word (an invitation token sits in the path) are masked. The query
     string is not part of a path and never gets here.
+
+    Note: a free-text path segment of `_MAX_WORD_LENGTH` characters or fewer is not
+    masked. A new route with such a segment must be masked explicitly here.
     """
     path = path.split("?", 1)[0]
     return "/".join(
