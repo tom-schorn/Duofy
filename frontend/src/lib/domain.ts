@@ -426,6 +426,8 @@ export type CommitmentType =
 export type Commitment = {
   id: string
   ownerId?: string
+  /** No month refers to it yet, so it may still be deleted. Comes from the server. */
+  deletable?: boolean
   type: CommitmentType
   name: string
   /** Kept as a string so nothing gets rounded while typing. */
@@ -529,6 +531,8 @@ export function accountTypeLabel(type: AccountType): string {
 export type Account = {
   id: string
   ownerId?: string
+  /** Nothing is booked on it yet, so it may still be deleted. Comes from the server. */
+  deletable?: boolean
   name: string
   type: AccountType
   /** Kept as a string so nothing gets rounded while typing. */

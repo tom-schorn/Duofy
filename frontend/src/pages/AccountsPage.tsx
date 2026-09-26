@@ -82,7 +82,8 @@ export function AccountsPage() {
     active.id === null ? OWN_SCOPE : { kind: 'member', ownerId: active.id }
   )
   const mayEdit = atLeast(active.levelFor('accounts'), 'edit')
-  const mayDelete = atLeast(active.levelFor('accounts'), 'delete')
+  // Your own you may always delete — as long as it is unused; another's needs `delete`.
+  const mayDelete = active.member === null || atLeast(active.levelFor('accounts'), 'delete')
   const [editing, setEditing] = useState<Account | null>(null)
   const [open, setOpen] = useState(false)
 
@@ -192,9 +193,11 @@ function AccountDialog({
   const { t } = useTranslation()
   const remove = useDeleteAccount()
   const [draft, setDraft] = useState<Account>(account ?? emptyAccount(false))
+  const [confirming, setConfirming] = useState(false)
 
   useEffect(() => {
     if (open && account) setDraft(account)
+    if (!open) setConfirming(false)
   }, [open, account])
 
   const isEdit = Boolean(draft.id)
@@ -356,16 +359,37 @@ function AccountDialog({
           </div>
 
           <DialogFooter className="gap-2 sm:justify-between">
-            {isEdit && mayDelete ? (
+            {isEdit && mayDelete && draft.deletable === false ? (
+              <p className="text-muted-foreground max-w-xs text-sm">
+                {t('accounts.deleteBlocked')}
+              </p>
+            ) : isEdit && mayDelete && confirming ? (
+              <div className="flex flex-col gap-2">
+                <p className="text-sm">{t('accounts.deleteText', { name: draft.name })}</p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() =>
+                      remove.mutate(draft.id, {
+                        onSuccess: () => onOpenChange(false),
+                      })
+                    }
+                  >
+                    <Trash2 className="size-4" />
+                    {t('common.delete')}
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={() => setConfirming(false)}>
+                    {t('common.cancel')}
+                  </Button>
+                </div>
+              </div>
+            ) : isEdit && mayDelete ? (
               <Button
                 type="button"
                 variant="ghost"
                 className="text-destructive"
-                onClick={() =>
-                  remove.mutate(draft.id, {
-                    onSuccess: () => onOpenChange(false),
-                  })
-                }
+                onClick={() => setConfirming(true)}
               >
                 <Trash2 className="size-4" />
                 {t('common.delete')}

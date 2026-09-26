@@ -112,7 +112,8 @@ export function CommitmentsPage() {
   const [status, setStatus] = useState<CommitmentStatus>('active')
   const commitments = useCommitments(active.id, status)
   const mayEdit = atLeast(active.levelFor('commitments'), 'edit')
-  const mayDelete = atLeast(active.levelFor('commitments'), 'delete')
+  // Your own you may always delete — as long as it is unused; another's needs `delete`.
+  const mayDelete = active.member === null || atLeast(active.levelFor('commitments'), 'delete')
   const households = useHouseholds()
   const save = useSaveCommitment()
   const remove = useDeleteCommitment()
@@ -281,7 +282,13 @@ export function CommitmentsPage() {
                             <Pencil className="size-4" />
                             {t('common.edit')}
                           </DropdownMenuItem>
-                          {mayDelete && (
+                          {mayDelete && commitment.deletable === false && (
+                            <DropdownMenuItem disabled className="gap-2">
+                              <Trash2 className="size-4" />
+                              {t('commitments.deleteBlocked')}
+                            </DropdownMenuItem>
+                          )}
+                          {mayDelete && commitment.deletable !== false && (
                             <DropdownMenuItem
                               onSelect={() => setPendingDelete(commitment)}
                               variant="destructive"
