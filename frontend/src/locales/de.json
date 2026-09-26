@@ -536,7 +536,7 @@
     "targetUntil": "Ziel {{target}} bis {{date}}",
     "target": "Ziel {{target}}",
     "leadMemberEdit": "Die Verträge von {{name}}. Du darfst sie ändern.",
-    "leadMemberView": "Die Verträge von {{name}}. {{name}} hat die Verträge nicht zum Bearbeiten freigegeben.",
+    "leadMemberView": "{{name}} hat die Verträge nicht zum Bearbeiten freigegeben — du siehst sie nur.",
     "private": "privat",
     "deleteTitle": "„{{name}}\" löschen?",
     "title": "Verträge",
@@ -557,7 +557,7 @@
   },
   "accounts": {
     "leadMemberEdit": "Die Konten von {{name}}. Du darfst sie ändern.",
-    "leadMemberView": "Die Konten von {{name}}. {{name}} hat die Konten nicht zum Bearbeiten freigegeben.",
+    "leadMemberView": "{{name}} hat die Konten nicht zum Bearbeiten freigegeben — du siehst sie nur.",
     "openingFrom": "Anfangsbestand vom {{date}}",
     "deleteTitle": "„{{name}}\" löschen?",
     "deleteText": "Das Konto hat noch keine Buchungen. Es wird endgültig gelöscht.",

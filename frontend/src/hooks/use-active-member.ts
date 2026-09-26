@@ -10,19 +10,6 @@ import {
 } from '@/lib/domain'
 import { useHouseholds } from '@/lib/queries'
 
-/**
- * Who the app is currently showing, and what may be done with their data.
- *
- * The person comes from `?member=<uuid>`, the levels come from the member list
- * that `useHouseholds` already carries — no extra request for a question the
- * frontend can answer from what it has.
- *
- * `levelFor` answers `edit` when nobody is selected: your own data has no
- * restriction, exactly as `granted_level()` decides it in the backend. If both
- * share several households, the highest level wins, again as in the backend. The
- * check that counts still happens there; this one only keeps the UI from offering
- * buttons that would end in a 403.
- */
 /** The highest level `userId` grants in one area over all households. */
 export function highestLevel(
   households: Household[],
@@ -39,6 +26,19 @@ export function highestLevel(
   )
 }
 
+/**
+ * Who the app is currently showing, and what may be done with their data.
+ *
+ * The person comes from `?member=<uuid>`, the levels come from the member list
+ * that `useHouseholds` already carries — no extra request for a question the
+ * frontend can answer from what it has.
+ *
+ * `levelFor` answers `edit` when nobody is selected: your own data has no
+ * restriction, exactly as `granted_level()` decides it in the backend. If both
+ * share several households, the highest level wins, again as in the backend. The
+ * check that counts still happens there; this one only keeps the UI from offering
+ * buttons that would end in a 403.
+ */
 export function useActiveMember(): {
   id: string | null
   member: Member | null
