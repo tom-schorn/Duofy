@@ -33,7 +33,7 @@ haben weder Hover noch Ring oder Schatten, die wie eine Schaltfläche wirken.
 
 **3. Fehlt das Recht, fehlt die Bedienung.**
 Im Lesemodus gibt es kein Hover und keinen abgeschalteten Knopf. Der Zustand
-(etwa ein gesetzter Haken) bleibt sichtbar, ein Satz oben sagt „Nur zum Ansehen“.
+(etwa ein gesetzter Haken) bleibt sichtbar, ein Satz oben sagt, wessen Freigabe fehlt („{Name} hat den Plan nicht zum Bearbeiten freigegeben“).
 *Warum:* Ein abgegrauter Knopf fragt „warum nicht?“ und beantwortet es nicht.
 *So:* Fremder Plan: Zeilen ohne Hover, oben der Satz. *Nicht so:* Ein grauer Knopf, der nichts erklärt.
 
