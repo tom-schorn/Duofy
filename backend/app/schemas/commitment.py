@@ -49,9 +49,6 @@ class CommitmentBase(Schema):
     target_amount: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     target_date: date | None = None
 
-    # only for debt
-    remaining_debt: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
-
 
 class CommitmentCreate(CommitmentBase):
     type: CommitmentType
@@ -72,9 +69,6 @@ class CommitmentCreate(CommitmentBase):
             self.target_amount is not None or self.target_date is not None
         ):
             raise ValueError("target_only_for_savings_goal")
-
-        if self.type is not CommitmentType.DEBT and self.remaining_debt is not None:
-            raise ValueError("remaining_debt_only_for_debt")
 
         return self
 
@@ -97,7 +91,6 @@ class CommitmentUpdate(Schema):
     pass_through: bool | None = None
     target_amount: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     target_date: date | None = None
-    remaining_debt: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
 
     @field_validator("interval_months")
     @classmethod

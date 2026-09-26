@@ -1,4 +1,4 @@
-"""The migrations of #106 to #109, run forwards and backwards on a filled table.
+"""The migrations of #106 to #110, run forwards and backwards on a filled table.
 
 ## Why this test exists at all
 
@@ -24,6 +24,11 @@ tests already run in. A subprocess also gets the migrations exactly as a person
 would run them on the command line, which is what is being verified.
 
 Part of #106.
+
+Several tests below seed **old shapes on purpose** (`rhythm`, `due_day`, `active`,
+`remaining_debt` on commitments): a migration test has to write the columns the
+migration is about to remove. That is the only place those names may still appear
+in the tests (closing criterion of #83).
 """
 
 import os
@@ -57,6 +62,9 @@ DUE_DAY = "d8a4e1b6c093"
 #: #109: `active` (a switch) became `ends_on` (the last month it falls due).
 ENDS_ON = "e5b2c7a94d16"
 
+#: #110: `remaining_debt` left `commitments`.
+REMAINING_DEBT = "f7c1a3d58e29"
+
 #: A database of its own — the suite's own one must keep the schema `create_all`
 #: gave it, and these tests move a schema up and down.
 SCRATCH_DB = f"{settings.postgres_db}_migrations"
@@ -70,6 +78,7 @@ TOUCHED = {"commitments", "plan_positions", "transactions", "imported_entries"}
 TEMPLATE_DB = f"{settings.postgres_db}_migrations_template"
 TEMPLATE_DUE_DAY_DB = f"{settings.postgres_db}_migrations_template_due_day"
 TEMPLATE_ENDS_ON_DB = f"{settings.postgres_db}_migrations_template_ends_on"
+TEMPLATE_REMAINING_DEBT_DB = f"{settings.postgres_db}_migrations_template_remaining_debt"
 
 
 def run_alembic(arguments: tuple[str, ...], database: str) -> subprocess.CompletedProcess:
@@ -879,3 +888,84 @@ async def test_the_downgrade_brings_the_switch_back_and_loses_the_dates(
     rows = await before_ends_on.execute(text("SELECT name, active FROM commitments ORDER BY name"))
     assert rows.all() == [("Cancelled", False), ("Ends later", True), ("Running", True)]
     assert await columns(before_ends_on, "ends_on") == set()
+
+
+@pytest.fixture(scope="module")
+async def template_before_remaining_debt() -> AsyncGenerator[None]:
+    """The chain up to the revision before #110, migrated once for this module."""
+    await drop_database(TEMPLATE_REMAINING_DEBT_DB)
+    await create_database(TEMPLATE_REMAINING_DEBT_DB)
+    alembic("upgrade", ENDS_ON, database=TEMPLATE_REMAINING_DEBT_DB)
+    yield
+    await drop_database(TEMPLATE_REMAINING_DEBT_DB)
+
+
+@pytest.fixture
+async def before_remaining_debt(
+    template_before_remaining_debt: None,
+) -> AsyncGenerator[AsyncConnection]:
+    """A copy of that database, private to one test."""
+    await drop_database(SCRATCH_DB)
+    await create_database(SCRATCH_DB, template=TEMPLATE_REMAINING_DEBT_DB)
+    scratch = create_async_engine(
+        settings.database_url.rsplit("/", 1)[0] + f"/{SCRATCH_DB}", isolation_level="AUTOCOMMIT"
+    )
+    async with scratch.connect() as connection:
+        yield connection
+    await scratch.dispose()
+    await drop_database(SCRATCH_DB)
+
+
+async def add_debt_commitments(connection: AsyncConnection) -> None:
+    """A debt with a remaining amount and a contract (old `remaining_debt`, seeded on purpose)."""
+    await seed_owner(connection)
+    await connection.execute(
+        text(
+            "INSERT INTO commitments (id, owner_id, type, name, amount, category, budget,"
+            " interval_months, first_due_date, remaining_debt, pass_through, is_limit) VALUES"
+            " ('33333333-3333-3333-3333-000000000001', :owner, 'debt', 'Loan', 200.00,"
+            " 'finance.debt', 'savings', 1, '2026-01-15', 4200.00, false, false),"
+            " ('33333333-3333-3333-3333-000000000002', :owner, 'contract', 'Gym', 10.00,"
+            " 'leisure.subscriptions', 'wants', 1, '2026-01-15', NULL, false, false)"
+        ),
+        {"owner": OWNER},
+    )
+
+
+async def test_dropping_the_remaining_debt_keeps_the_commitments(
+    before_remaining_debt: AsyncConnection,
+):
+    await add_debt_commitments(before_remaining_debt)
+
+    alembic("upgrade", REMAINING_DEBT)
+
+    assert await columns(before_remaining_debt, "remaining_debt") == set()
+    rows = await before_remaining_debt.execute(
+        text("SELECT name, type, amount FROM commitments ORDER BY name")
+    )
+    assert rows.all() == [("Gym", "contract", 10), ("Loan", "debt", 200)]
+    constraint = await before_remaining_debt.scalar(
+        text(
+            "SELECT count(*) FROM pg_constraint"
+            " WHERE conname = 'ck_commitment_remaining_debt_only_for_debt'"
+        )
+    )
+    assert constraint == 0
+
+
+async def test_the_downgrade_brings_the_column_back_empty_with_its_check(
+    before_remaining_debt: AsyncConnection,
+):
+    await add_debt_commitments(before_remaining_debt)
+    alembic("upgrade", REMAINING_DEBT)
+
+    alembic("downgrade", "-1")
+
+    rows = await before_remaining_debt.execute(
+        text("SELECT name, remaining_debt FROM commitments ORDER BY name")
+    )
+    assert rows.all() == [("Gym", None), ("Loan", None)]
+    with pytest.raises(DBAPIError):
+        await before_remaining_debt.execute(
+            text("UPDATE commitments SET remaining_debt = 5 WHERE name = 'Gym'")
+        )

@@ -66,7 +66,7 @@ def _old_is_due_in(interval: int, start: date, year: int, month: int) -> bool:
 
 @pytest.mark.parametrize("interval", [1, 3, 6, 12])
 @pytest.mark.parametrize("start_month", range(1, 13))
-def test_the_four_old_rhythms_fall_due_in_the_same_months_as_before(interval, start_month):
+def test_the_four_old_recurrences_fall_due_in_the_same_months_as_before(interval, start_month):
     """The migration must not move a single month of any existing commitment."""
     start = date(2026, start_month, 1)
     commitment = Commitment(interval_months=interval, first_due_date=start)
