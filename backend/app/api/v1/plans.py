@@ -41,6 +41,7 @@ from app.schemas.plan import (
     PositionCreate,
     PositionRead,
 )
+from app.services.hints import plan_hints
 
 router = APIRouter()
 
@@ -377,6 +378,7 @@ async def get_household_plan(
     return HouseholdPlanRead(
         household_id=household_id,
         household_name=household.name,
+        hints=plan_hints(year, month, positions),
         positions=[
             HouseholdPositionRead(
                 **PositionRead.model_validate(position).model_dump(),
@@ -405,6 +407,7 @@ async def get_household_plan(
 def _plan_read(plan: Plan) -> PlanRead:
     return PlanRead(
         id=plan.id,
+        hints=plan_hints(plan.year, plan.month, plan.positions),
         positions=[PositionRead.model_validate(p) for p in plan.positions],
         **_summarize(
             year=plan.year,

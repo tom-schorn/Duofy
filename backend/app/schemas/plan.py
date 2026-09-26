@@ -1,11 +1,32 @@
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
+from enum import StrEnum
+from typing import Any
 
 from pydantic import Field
 
 from app.models.enums import Budget, Category, PaymentMethod
 from app.schemas.base import Schema
+
+
+class HintSeverity(StrEnum):
+    INFO = "info"
+    WARNING = "warning"
+
+
+class Hint(Schema):
+    """Something the plan wants to point out, derived on every read.
+
+    Codes and values, never a sentence: the frontend translates `code` through its
+    catalog (`hints.<code>`) and fills in `params`.
+    """
+
+    code: str
+    severity: HintSeverity
+    #: Empty when the hint concerns the whole month.
+    position_id: uuid.UUID | None = None
+    params: dict[str, Any] = Field(default_factory=dict)
 
 
 class PositionBase(Schema):
@@ -125,6 +146,8 @@ class PlanSummary(PlanBase):
 
 class PlanRead(PlanSummary):
     id: uuid.UUID
+    #: Derived on every read, never stored; ticking a position off removes its hint.
+    hints: list[Hint] = Field(default_factory=list)
     positions: list[PositionRead]
 
 
@@ -146,5 +169,6 @@ class HouseholdPlanRead(PlanSummary):
 
     household_id: uuid.UUID
     household_name: str
+    #: Derived on every read, never stored; ticking a position off removes its hint.
+    hints: list[Hint] = Field(default_factory=list)
     positions: list[HouseholdPositionRead]
-
