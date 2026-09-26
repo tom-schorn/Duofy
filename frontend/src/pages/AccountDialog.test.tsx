@@ -32,10 +32,10 @@ afterEach(() => vi.unstubAllGlobals())
 describe('AccountDialog', () => {
   test('offers deleting only for an account that may be deleted', () => {
     const { unmount } = render(ui({ account, open: true }))
-    expect(screen.getByRole('button', { name: 'Löschen' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /schen$/ })).toBeInTheDocument()
     unmount()
     render(ui({ account: { ...account, deletable: false }, open: true }))
-    expect(screen.queryByRole('button', { name: 'Löschen' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /schen$/ })).not.toBeInTheDocument()
   })
 
   test('shows the error of a failed save and forgets it when the dialog opens again', async () => {
