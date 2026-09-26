@@ -22,6 +22,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useActiveMember } from '@/hooks/use-active-member'
 import {
   useCommitments,
@@ -41,7 +48,11 @@ import {
   dueDayOf,
   euro,
   monthlyEquivalent,
+  COMMITMENT_STATUSES,
+  endMonthLabel,
+  hasEnded,
   type Commitment,
+  type CommitmentStatus,
 } from '@/lib/domain'
 import { i18n, locale } from '@/lib/i18n'
 
@@ -103,7 +114,8 @@ export function CommitmentsPage() {
   // private by default: whoever shares nothing appears in no switcher, and the
   // endpoint refuses the list anyway.
   const active = useActiveMember()
-  const commitments = useCommitments(active.id)
+  const [status, setStatus] = useState<CommitmentStatus>('active')
+  const commitments = useCommitments(active.id, status)
   const mayEdit = atLeast(active.levelFor('commitments'), 'edit')
   const mayDelete = atLeast(active.levelFor('commitments'), 'delete')
   const households = useHouseholds()
@@ -127,9 +139,9 @@ export function CommitmentsPage() {
           monthlyEquivalent(b.amount, b.intervalMonths) -
           monthlyEquivalent(a.amount, a.intervalMonths)
       )
-    // Inactive ones do not count — they generate no positions.
+    // Ended ones do not count — they generate no positions.
     const total = rows
-      .filter((commitment) => commitment.active)
+      .filter((commitment) => !hasEnded(commitment.endsOn))
       .reduce(
         (sum, commitment) =>
           sum + monthlyEquivalent(commitment.amount, commitment.intervalMonths),
@@ -177,10 +189,28 @@ export function CommitmentsPage() {
         )}
       </header>
 
+      <div className="flex items-center gap-2">
+        <span id="commitment-status-label" className="text-muted-foreground text-sm">
+          {t('commitments.filterLabel')}
+        </span>
+        <Select value={status} onValueChange={(value) => setStatus(value as CommitmentStatus)}>
+          <SelectTrigger className="w-40" aria-labelledby="commitment-status-label">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {COMMITMENT_STATUSES.map((option) => (
+              <SelectItem key={option} value={option}>
+                {t(`commitments.status.${option}`)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <QueryState isPending={commitments.isPending} error={commitments.error}>
       {groups.length === 0 ? (
         <p className="text-muted-foreground border-border rounded-lg border border-dashed p-10 text-center text-sm">
-          {t('commitments.empty')}
+          {status === 'ended' ? t('commitments.emptyEnded') : t('commitments.empty')}
         </p>
       ) : (
         <div className="flex flex-col gap-8">
@@ -206,15 +236,17 @@ export function CommitmentsPage() {
                     <li
                       key={commitment.id}
                       className={`border-border/60 grid grid-cols-[1fr_auto_auto] items-center gap-4 border-b py-2.5 last:border-b-0 ${
-                        commitment.active ? '' : 'opacity-55'
+                        hasEnded(commitment.endsOn) ? 'opacity-55' : ''
                       }`}
                     >
                       <div className="flex min-w-0 flex-col">
                         <span className="flex items-center gap-2 font-medium">
                           {commitment.name}
-                          {!commitment.active && (
+                          {commitment.endsOn !== null && hasEnded(commitment.endsOn) && (
                             <Badge variant="outline" className="font-normal">
-                              {t('commitments.inactive')}
+                              {t('commitments.endedSince', {
+                                month: endMonthLabel(commitment.endsOn),
+                              })}
                             </Badge>
                           )}
                         </span>

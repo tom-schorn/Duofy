@@ -18,6 +18,7 @@ import type {
   BalanceHistory,
   Category,
   Commitment,
+  CommitmentStatus,
   Household,
   HouseholdPlanDetail,
   ImportSummary,
@@ -325,11 +326,17 @@ export function useDeleteTransaction(
  * The owner is part of the key: otherwise their list would overwrite your own in
  * the cache the moment you switch to them.
  */
-export function useCommitments(ownerId: string | null = null) {
+export function useCommitments(
+  ownerId: string | null = null,
+  status: CommitmentStatus = 'all'
+) {
   return useQuery({
-    queryKey: keys.commitmentsOf(ownerId),
-    queryFn: () =>
-      api.get<Commitment[]>(ownerId === null ? '/commitments' : `/commitments?owner=${ownerId}`),
+    queryKey: [...keys.commitmentsOf(ownerId), status] as const,
+    queryFn: () => {
+      const params = new URLSearchParams({ status })
+      if (ownerId !== null) params.set('owner', ownerId)
+      return api.get<Commitment[]>(`/commitments?${params}`)
+    },
   })
 }
 
