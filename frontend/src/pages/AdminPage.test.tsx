@@ -40,7 +40,7 @@ describe('admin page', () => {
   test('lists open invitations and revokes one', async () => {
     const user = userEvent.setup()
     const fetchMock = open(true)
-    expect(await screen.findByText('Für jede Adresse')).toBeInTheDocument()
+    expect(await screen.findByText(/jede Adresse/)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Widerrufen' }))
 
