@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
+import { LegalLinks } from '@/components/LegalLinks'
 import { Button } from '@/components/ui/button'
 
 /**
@@ -27,6 +28,7 @@ export function NotFoundPage() {
         Duofy
       </p>
       <NotFoundBody />
+      <LegalLinks className="pb-8" />
     </main>
   )
 }
