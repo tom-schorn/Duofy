@@ -2,12 +2,16 @@
 code, and no private data in any log line."""
 
 import logging
+import sys
 
 import pytest
 from fastapi import APIRouter
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
 
-from app.core.logging import configure_logging
+from app.core import logging as duofy_logging
+from app.core.logging import configure_logging, mask_path
+from app.db.session import engine as app_engine
 from app.main import app
 
 SECRET = "hunter2-secret-value"
@@ -75,7 +79,7 @@ async def test_an_unexpected_error_is_logged_with_route_and_answers_with_a_code(
     assert "in boom" in output  # the stack is there
 
 
-async def test_sensitive_fields_do_not_reach_the_log(failing_client: AsyncClient, capsys):
+async def test_request_content_does_not_reach_the_log(failing_client: AsyncClient, capsys):
     configure_logging("DEBUG")
 
     await failing_client.post(
@@ -89,3 +93,77 @@ async def test_sensitive_fields_do_not_reach_the_log(failing_client: AsyncClient
     assert "unhandled_exception" in output
     for private in (SECRET, "12.34", "DE00SECRET", "x@example.org", "Bearer"):
         assert private not in output
+
+
+TOKEN = "dGhpcy1pcy1hLXNlY3JldC1pbnZpdGF0aW9uLXRva2Vu"  # 43 characters, like token_urlsafe(32)
+
+
+def test_an_invitation_token_in_a_path_is_masked():
+    assert mask_path(f"/api/v1/invitations/{TOKEN}/accept") == "/api/v1/invitations/{id}/accept"
+    assert mask_path("/api/v1/budgets/42/months") == "/api/v1/budgets/{id}/months"
+    assert mask_path("/api/v1/budgets?email=x@example.org") == "/api/v1/budgets"
+
+
+async def test_a_route_with_a_token_is_logged_masked(failing_client: AsyncClient, capsys):
+    configure_logging("INFO")
+
+    await failing_client.post(f"/__test/boom/{TOKEN}")
+
+    output = capsys.readouterr().out
+    assert "route=/__test/boom/{id}" in output
+    assert TOKEN not in output
+
+
+def test_the_uvicorn_access_line_is_masked_and_has_no_query_string(capsys):
+    configure_logging("INFO")
+    access = logging.getLogger("uvicorn.access")
+    handler = logging.StreamHandler(sys.stdout)
+    access.addHandler(handler)
+    try:
+        access.info(
+            '%s - "%s %s HTTP/%s" %d',
+            "127.0.0.1:1",
+            "POST",
+            f"/api/v1/invitations/{TOKEN}/accept?email=x@example.org",
+            "1.1",
+            200,
+        )
+    finally:
+        access.removeHandler(handler)
+
+    output = capsys.readouterr().out
+    assert "/api/v1/invitations/{id}/accept" in output
+    assert TOKEN not in output
+    assert "x@example.org" not in output
+
+
+@pytest.mark.parametrize("level", ["INFO", "DEBUG"])
+async def test_sql_parameters_do_not_reach_the_log_at_any_level(capsys, level):
+    configure_logging(level)
+    marker = "marker-value-9f3a"
+
+    # The engine the app itself uses, not the quiet one of the test fixtures.
+    async with app_engine.connect() as conn:
+        await conn.execute(text("SELECT CAST(:m AS text)"), {"m": marker})
+
+    assert marker not in capsys.readouterr().out
+
+
+async def test_a_failure_after_the_response_started_is_logged_and_not_re_raised(capsys):
+    configure_logging("INFO")
+    sent = []
+
+    async def app(scope, receive, send):
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        raise RuntimeError(f"late {SECRET}")
+
+    async def send(message):
+        sent.append(message)
+
+    wrapped = duofy_logging.UnexpectedErrorMiddleware(app)
+    await wrapped({"type": "http", "method": "GET", "path": "/x"}, None, send)
+
+    output = capsys.readouterr().out
+    assert "error=RuntimeError" in output
+    assert SECRET not in output
+    assert sent[-1] == {"type": "http.response.body", "body": b"", "more_body": False}
