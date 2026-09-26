@@ -6,7 +6,7 @@ import { DialogFrame } from '@/components/DialogFrame'
 import { DateField } from '@/components/DateField'
 import { Label } from '@/components/ui/label'
 import { today } from '@/lib/dates'
-import { euro, type PlanPosition } from '@/lib/domain'
+import { monthLabel, type PlanPosition } from '@/lib/domain'
 
 /**
  * What gets booked when a position is ticked off.
@@ -18,7 +18,7 @@ import { euro, type PlanPosition } from '@/lib/domain'
  *
  * The **month of the position does not change.** Ticking off an August position
  * with a July date gives a July booking on an August position — that is exactly
- * what is meant, and exactly how it then appears in the book.
+ * what is meant; the dialog only says so in one line.
  */
 
 type Props = {
@@ -32,6 +32,8 @@ type Props = {
    * and amount would be ignored — the fields are disabled and say so.
    */
   hasBookings?: boolean
+  /** The plan month, to say when the booking date falls outside it. */
+  planMonth?: { year: number; month: number }
   /** The sentence for a rejected tick; the dialog stays open and shows it. */
   error?: string | null
 }
@@ -42,6 +44,7 @@ export function PaidDialog({
   onConfirm,
   pending,
   hasBookings = false,
+  planMonth,
   error = null,
 }: Props) {
   const { t } = useTranslation()
@@ -59,9 +62,13 @@ export function PaidDialog({
 
   if (!position) return null
 
-  const planned = Number(position.amountPlanned)
-  const entered = Number(amount)
-  const differs = !hasBookings && amount !== '' && Number.isFinite(entered) && entered !== planned
+  // A payment on 25.06. may belong to the July plan; only say so, never block it.
+  const outsideMonth =
+    !hasBookings &&
+    planMonth !== undefined &&
+    occurredOn !== '' &&
+    occurredOn.slice(0, 7) !==
+      `${planMonth.year}-${String(planMonth.month).padStart(2, '0')}`
 
   function submit(event: React.FormEvent) {
     event.preventDefault()
@@ -73,7 +80,6 @@ export function PaidDialog({
       open
       onOpenChange={(open) => !open && onClose()}
       title={t('paidDialog.title', { label: position.label })}
-      description={t('paidDialog.description')}
       submitLabel={t('paidDialog.submit')}
       pendingLabel={t('paidDialog.pending')}
       onSubmit={submit}
@@ -119,13 +125,10 @@ export function PaidDialog({
         </p>
       )}
 
-      {/* Nur wenn abweichend: sonst wäre es eine Zeile, die immer dasselbe
-          sagt wie das Feld daneben. */}
-      {differs && (
+      {outsideMonth && planMonth && (
         <p className="text-muted-foreground text-sm" role="status">
-          {t('paidDialog.differs', {
-            planned: euro.format(planned),
-            entered: euro.format(entered),
+          {t('paidDialog.outsideMonth', {
+            month: `${monthLabel(planMonth.month)} ${planMonth.year}`,
           })}
         </p>
       )}
