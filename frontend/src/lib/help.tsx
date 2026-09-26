@@ -70,7 +70,12 @@ const ENTRIES: Record<HelpKey, string[]> = {
     'nothing-changed',
   ].map((id) => `import.entries.${id}`),
   plans: ['overview', 'switch', 'ritual'].map((id) => `plans.entries.${id}`),
-  plan: ['plan.entries.month', ...PLAN_BUDGETS, 'plan.entries.tick'],
+  plan: [
+    'plan.entries.month',
+    ...PLAN_BUDGETS,
+    'plan.entries.tick',
+    'plan.entries.carry-over',
+  ],
   book: ['book', 'assignment', 'transfer', 'shared-book'].map(
     (id) => `book.entries.${id}`
   ),
