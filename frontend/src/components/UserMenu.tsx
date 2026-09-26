@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router'
-import { ChevronsUpDown, LogOut, Percent } from 'lucide-react'
+import { Link, useNavigate } from 'react-router'
+import { ChevronsUpDown, LogOut, Percent, ShieldCheck } from 'lucide-react'
 
 import {
   DropdownMenu,
@@ -89,6 +89,14 @@ export function UserMenu() {
               <Percent className="size-4 shrink-0" />
               {t('userMenu.quota')}
             </DropdownMenuItem>
+            {me.data?.isSuperuser && (
+              <DropdownMenuItem asChild className="gap-2">
+                <Link to="/admin">
+                  <ShieldCheck className="size-4 shrink-0" />
+                  {t('userMenu.admin')}
+                </Link>
+              </DropdownMenuItem>
+            )}
 
             <DropdownMenuItem onSelect={handleLogout} className="gap-2">
               <LogOut className="size-4 shrink-0" />

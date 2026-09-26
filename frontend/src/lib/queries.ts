@@ -24,11 +24,13 @@ import type {
   HouseholdPlanDetail,
   ImportSummary,
   ImportedEntry,
+  InstanceInvitation,
   Invitation,
   FlowLimitsBy,
   Me,
   Member,
   PlanFlow,
+  RegistrationMode,
   MyInvitation,
   PlanDetail,
   PlanPosition,
@@ -50,6 +52,8 @@ export const keys = {
   invitations: (householdId: string) =>
     ['households', householdId, 'invitations'] as const,
   myInvitations: ['invitations', 'mine'] as const,
+  registration: ['registration'] as const,
+  instanceInvitations: ['admin', 'invitations'] as const,
   accounts: ['accounts'] as const,
   accountsIn: (scope: BookScope) => ['accounts', scopeKey(scope)] as const,
   commitments: ['commitments'] as const,
@@ -123,6 +127,41 @@ export function useSetDefaultQuota() {
     [keys.me],
     'toast.quotaSaved',
     INLINE_ERROR
+  )
+}
+
+// --- Instance (system level, #168) ------------------------------------------
+
+/** Who may register here. Public: the sign-up page asks before anyone is signed in. */
+export function useRegistrationMode() {
+  return useQuery({
+    queryKey: keys.registration,
+    queryFn: () => api.get<{ mode: RegistrationMode }>('/auth/registration'),
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useInstanceInvitations() {
+  return useQuery({
+    queryKey: keys.instanceInvitations,
+    queryFn: () => api.get<InstanceInvitation[]>('/admin/invitations'),
+  })
+}
+
+export function useCreateInstanceInvitation() {
+  return useInvalidating<InstanceInvitation, { email: string | null }>(
+    (input) => api.post('/admin/invitations', input),
+    [keys.instanceInvitations],
+    'toast.instanceInvitationCreated',
+    INLINE_ERROR
+  )
+}
+
+export function useRevokeInstanceInvitation() {
+  return useInvalidating<void, string>(
+    (id) => api.delete(`/admin/invitations/${id}`),
+    [keys.instanceInvitations],
+    'toast.instanceInvitationRevoked'
   )
 }
 
