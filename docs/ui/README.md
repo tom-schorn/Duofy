@@ -13,6 +13,8 @@ Code und Leitfaden sich widersprechen, gilt der Leitfaden, und der Code wird ang
 
 Die Beispiele nennen nur erfundene Demo-Daten (siehe „Keine echten Daten“ in `CLAUDE.md`).
 
+Mindestgrößen der Bedienelemente in Zeilen: das Menü ⋯ 32 px, das Kästchen zum Abhaken 24 px.
+
 ## Zeile
 
 **1. Ein Klick auf eine Zeile öffnet sie zum Bearbeiten, überall in der Zeile.**
@@ -36,15 +38,15 @@ Im Lesemodus gibt es kein Hover, kein abgegrautes ⋯ und keinen abgeschalteten 
 *So:* Fremder Plan: Zeilen ohne Hover, oben der Satz. *Nicht so:* Ein grauer Knopf, der nichts erklärt.
 
 **4. Was man anlegen kann, kann man bearbeiten.**
-Das gilt auch für die Buchung. Beträge stehen rechtsbündig und formatiert und sind nie ein eigener
-Knopf.
+Das gilt auch für die Buchung. Beträge stehen rechtsbündig und formatiert. Der Betrag ist keine eigene
+Klickfläche; ein Klick darauf öffnet wie die übrige Zeile.
 *Warum:* Wer sich vertippt hat, soll nicht löschen und neu anlegen müssen.
 *So:* Klick auf eine Buchung öffnet sie zum Bearbeiten. *Nicht so:* Buchung falsch, also löschen.
 
 ## Menü und Löschen
 
 **5. Das Menü ⋯ enthält nur, was nicht Bearbeiten ist.**
-Beenden, Archivieren, Duplizieren, Löschen, Austreten. Hat eine Zeile keine solche Aktion, hat sie kein
+Beenden, Deaktivieren, Duplizieren, Löschen, Austreten. Hat eine Zeile keine solche Aktion, hat sie kein
 ⋯.
 *Warum:* Bearbeiten geht schon mit einem Klick auf die Zeile; ein Menü mit einem einzigen Eintrag ist
 Umweg und Lärm.
@@ -62,13 +64,13 @@ das Vertrauen in die übrigen.
 - Kleines (Buchung, Posten, Import-Zeile) wird sofort gelöscht; die Meldung bietet zehn Sekunden
   „Rückgängig“ an. Der Client verzögert dazu den Aufruf, das Backend bleibt unverändert.
 - Verträge und Konten sind nur bis zur ersten Nutzung löschbar (Vertrag in keinem Plan, Konto ohne
-  Buchungen). Danach gibt es nur Beenden beziehungsweise Archivieren. Das ist eine feste Regel, keine
-  Einstellung.
+  Buchungen). Danach wird ein Vertrag beendet und ein Konto deaktiviert („Aktiv“ aus, Feld `active`),
+  nicht gelöscht. Das ist eine feste Regel, keine Einstellung.
 - Was sich sonst nicht zurückholen lässt (etwa einen Haushalt verlassen), fragt einmal nach, und der
   Satz sagt, was verloren geht und was bleibt.
 
 *Warum:* „Rückgängig“ ist besser als „Bist du sicher?“, weil man Rückfragen wegklickt. Wer etwas
-Benutztes löscht, reißt Daten mit; deshalb gibt es dort nur Beenden.
+Benutztes löscht, reißt Daten mit; deshalb gibt es dort nur Beenden beziehungsweise Deaktivieren.
 *So:* Posten löschen, Meldung „Miete gelöscht“ mit „Rückgängig“. *Nicht so:* Papierkorb in der Zeile
 ohne Rückgängig, oder ein Löschen-Knopf im Dialogfuß.
 
@@ -130,7 +132,8 @@ verschwindet.
 
 **15. Jede Änderung meldet sich mit einem Satz aus Objekt und Tat.**
 Mit Namen oder Betrag, wenn möglich. Gibt es eine Umkehr, steht „Rückgängig“ (zehn Sekunden) daran,
-sonst genügen fünf Sekunden. Es steht immer nur eine Meldung, an fester Stelle unten mittig.
+sonst genügen fünf Sekunden. Es steht immer nur eine Meldung, an fester Stelle unten mittig: Eine neue
+ersetzt die alte, und ein dadurch ersetztes „Rückgängig“ führt sein Löschen sofort aus.
 *Warum:* Eine App mit Geld muss zeigen, dass etwas ankam. Unten mittig überdeckt sie die Hilfe rechts
 nicht.
 *So:* „Buchung gelöscht. Rückgängig“. *Nicht so:* Zwei Meldungen übereinander ohne Knopf.
@@ -138,7 +141,8 @@ nicht.
 **16. Ein Fehler verschwindet nie lautlos.**
 Er steht dort, wo man ihn beheben kann: in einer Bauform (Box mit Rand und roter Fläche,
 `role="alert"`) im Dialog über den Knöpfen. Aktionen ohne Formular (Haken, Löschen, Austreten) melden
-den Fehler als Meldung, die stehen bleibt und „Erneut versuchen“ anbietet. Darunter fängt ein
+den Fehler als Meldung, die (anders als die Meldungen mit fünf oder zehn Sekunden) stehen bleibt, bis
+man sie schließt oder „Erneut versuchen“ wählt. Darunter fängt ein
 gemeinsamer Fehlerweg alles ab, was niemand einzeln behandelt.
 *Warum:* „Still gescheitert“ ist der schlimmste Zustand, weil man dem Bildschirm glaubt.
 *So:* „Konnte nicht gespeichert werden. Erneut versuchen“. *Nicht so:* Nichts passiert, kein Hinweis.
@@ -157,14 +161,14 @@ Monat (zweistellig, `/plan/2026/09`), Reiter (`?tab=`), Filter (`?status=`), Per
 Buchmonat (`/book?month=2026-09`). Dialoge und Seitenblätter haben keine. Eine ungültige Adresse zeigt
 die Nicht-gefunden-Seite; ein gültiger Monat ohne Plan zeigt „Monat anlegen“ mit genau diesem Monat
 vorbelegt.
+Ein Eintrag der Seitenleiste ist ein Element: der Link ist der Knopf, nicht ein Knopf im Link.
 *Warum:* Eine Adresse ist Gedächtnis: Lesezeichen, Zurück-Taste und Neuladen funktionieren.
 *So:* Buchmonat im Lesezeichen. *Nicht so:* Neuladen springt zurück auf heute.
 
 **19. Zurück ist sichtbar, Monate wechselt man überall gleich.**
 Der Rückweg heißt wie das Ziel („← Alle Pläne“). Monate wechselt man mit ‹ Monat Jahr › in der
 Kopfzeile, Pfeile mit Namen („Vorheriger Monat“, „Nächster Monat“), Stand in der Adresse. Reiterwechsel
-füllen den Verlauf nicht. Ein Menüpunkt ist ein Element (der Link ist der Knopf, nicht ein Knopf im
-Link).
+füllen den Verlauf nicht.
 *Warum:* Zurück muss immer gehen; „Monat wechseln“ darf nicht auf drei Arten gehen.
 *So:* Im Plan und im Buch dieselbe Baugruppe. *Nicht so:* Im Buch Pfeile ohne Monatsnamen, im Plan gar
 keine.
@@ -216,10 +220,8 @@ Die Begriffe stehen in der Tabelle „Begriffe“ in `CLAUDE.md`. In der Oberfl�
 - **Anstehend** ist, was verplant, aber noch nicht abgehakt oder bezahlt ist.
 - **Grundbedarf** heißt das Budget `needs`, überall (nicht Fixkosten, nicht Bedarf).
 - **Anlegen** für Neues, **Speichern** beim Bearbeiten; „Hinzufügen“ und „Sichern“ gibt es nicht.
-- **Beenden** für Verträge, **Archivieren** für Konten, sobald sie genutzt wurden.
+- **Beenden** für Verträge, **Deaktivieren** („Aktiv“ aus) für Konten, sobald sie genutzt wurden.
 
-*Warum:* Ein Wort, das seinen Namen wechselt, kostet Menschen mit Bedarf an Vorhersehbarkeit jedes Mal
-Aufmerksamkeit.
 *So:* „Frei: 120,00 €“. *Nicht so:* „Offen“ für zwei verschiedene Dinge.
 
 ## Bausteine
@@ -254,5 +256,7 @@ Damit die Regeln im Code stehen und nicht nur im Text, braucht es gemeinsame Kom
 - [ ] Meldet jede Änderung sich mit einer Meldung (eine, unten mittig), und verschwindet kein Fehler lautlos?
 - [ ] Haben Laden und Leere ihre Bauform, der Leerzustand mit Hauptknopf?
 - [ ] Hat alles Ansehbare eine Adresse, und funktionieren Zurück und Monatswechsel?
+- [ ] Zeigt die Kopfzeile den Seitentitel und das feste „?“ für die Hilfe, ohne Platzhalter?
+- [ ] Hat jedes Datum die Bauform seiner Aufgabe (Kalender, Monatswähler, Zahlfeld), ist es sinnvoll vorbelegt, und ist das Buchungsdatum vom Planmonat getrennt?
 - [ ] Werden Formulare beim Absenden in Duofys Worten geprüft, mit dem gemeinsamen Betragsfeld?
 - [ ] Stimmen die Wörter (Frei, Anstehend, Grundbedarf, anlegen) mit der Begriffstabelle überein?
