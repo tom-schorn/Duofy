@@ -4,7 +4,7 @@ const error = vi.fn()
 vi.mock('sonner', () => ({ toast: { error: (...args: unknown[]) => error(...args) } }))
 
 import { ApiError } from '@/lib/api'
-import { reportMutationError } from '@/lib/mutation-error'
+import { reportMutationError, showsErrorInline } from '@/lib/mutation-error'
 
 describe('reportMutationError', () => {
   beforeEach(() => error.mockClear())
@@ -28,5 +28,24 @@ describe('reportMutationError', () => {
   test('says something even for an error without a known code', () => {
     reportMutationError(new Error('boom'), () => {})
     expect(error.mock.calls[0][0]).not.toBe('')
+  })
+})
+
+describe('showsErrorInline', () => {
+  test('is false by default, so the net reports', () => {
+    expect(showsErrorInline(undefined, { id: 'a' })).toBe(false)
+    expect(showsErrorInline({}, undefined)).toBe(false)
+  })
+
+  test('is true when the hook is marked', () => {
+    expect(showsErrorInline({ inlineError: true }, { id: 'a' })).toBe(true)
+  })
+
+  test('is true when a single call says its form shows the error', () => {
+    expect(showsErrorInline(undefined, { id: 'a', inlineError: true })).toBe(true)
+  })
+
+  test('ignores a call flag that is not exactly true', () => {
+    expect(showsErrorInline(undefined, { inlineError: 'yes' })).toBe(false)
   })
 })
