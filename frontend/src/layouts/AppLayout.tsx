@@ -1,11 +1,10 @@
-import { NavLink, Outlet, useSearchParams } from 'react-router'
+import { NavLink, Outlet, useLocation, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 
 import { HelpPanel } from '@/components/HelpPanel'
 import { MemberSwitcher } from '@/components/MemberSwitcher'
+import { NAV, titleKeyFor } from '@/lib/nav'
 import { useHouseholds } from '@/lib/queries'
-
-import { BookOpen, CalendarRange, FileText, Upload, Users, Wallet } from 'lucide-react'
 
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { UserMenu } from '@/components/UserMenu'
@@ -37,25 +36,10 @@ import { Separator } from '@/components/ui/separator'
  * plans with.
  */
 
-/**
- * One page for every commitment — savings plans and loans are commitments too.
- *
- * This used to be three entries split by `Commitment.type`. That was the wrong
- * axis: a commitment can sit in **any** budget (rent → needs, streaming → wants,
- * a savings plan → savings). `type` only says whether the thing has an end — a
- * property, not a navigation point.
- */
-const NAV = [
-  { to: '/plan', label: 'nav.plan', icon: CalendarRange },
-  { to: '/contracts', label: 'nav.commitments', icon: FileText },
-  { to: '/book', label: 'nav.book', icon: BookOpen },
-  { to: '/accounts', label: 'nav.accounts', icon: Wallet },
-  { to: '/import', label: 'nav.import', icon: Upload },
-  { to: '/household', label: 'nav.household', icon: Users },
-]
-
 export function AppLayout() {
   const { t } = useTranslation()
+  const { pathname } = useLocation()
+  const titleKey = titleKeyFor(pathname)
   const households = useHouseholds().data ?? []
   // The sub-entry points at the current month — there is no "current" household
   // plan otherwise, it is composed from positions.
@@ -142,15 +126,11 @@ export function AppLayout() {
             className="mr-1 data-vertical:h-5 data-vertical:self-center"
           />
 
-          {/* Periode und Status stehen auf der Detailseite — hier wären sie
-              doppelt und auf der Übersicht schlicht falsch.
-
-              TODO: Brotkrumen einsetzen, die dem aktiven Bereich folgen
-              („Planung / Juli 2026"). */}
-
-          {/* TODO: Mitglieder des aktiven Haushalts anzeigen, mit Hinweis wer
-              den Monat schon bestätigt hat. */}
-          <span className="text-muted-foreground ml-auto text-sm">T · J</span>
+          {/* Der Seitentitel, aus dem Katalog — kein fester Platzhalter (Regel 20). */}
+          <span className="font-heading text-lg font-semibold">
+            {titleKey === null ? '' : t(titleKey)}
+          </span>
+          <span className="ml-auto" />
           <ThemeToggle />
         </header>
 
