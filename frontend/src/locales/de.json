@@ -230,6 +230,13 @@
     "heading": "Erklärung",
     "footer": "Kurzfassung. Die ausführlichen Artikel entstehen im Wiki."
   },
+  "amountField": {
+    "empty": "Bitte einen Betrag eingeben.",
+    "invalid": "Bitte einen Betrag wie 1.234,56 eingeben.",
+    "tooManyDecimals": "Ein Betrag hat höchstens zwei Nachkommastellen.",
+    "tooSmall": "Der Betrag muss mindestens 0,01 € sein.",
+    "tooLarge": "Dieser Betrag ist zu groß."
+  },
   "categoryPicker": {
     "placeholder": "Kategorie wählen …",
     "ungrouped": "Ohne Gruppe"
