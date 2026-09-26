@@ -1,36 +1,36 @@
-name: Bug report
-description: Something does not work the way it should
+name: Fehlerbericht
+description: Etwas funktioniert nicht so, wie es sollte
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        **Please leave your real figures out of this.** No amounts, no account
-        numbers, no names, no screenshots of your own plan. Duofy is a finance app,
-        and whatever lands in an issue is public and stays public. Made-up numbers
-        describe a bug just as well — `1234.56` breaks in exactly the same way your
-        rent does.
+        **Bitte lass deine echten Zahlen weg.** Keine Beträge, keine Kontonummern,
+        keine Namen, keine Screenshots vom eigenen Plan. Duofy ist eine Finanz-App,
+        und was in einem Issue landet, ist öffentlich und bleibt öffentlich.
+        Ausgedachte Zahlen beschreiben einen Fehler genauso gut — `1234.56` bricht
+        genau so wie deine Miete.
 
   - type: textarea
     id: what-happened
     attributes:
-      label: What happened
-      description: What you did, what you expected, what came out instead.
+      label: Was ist passiert
+      description: Was du getan hast, was du erwartet hast, was stattdessen herauskam.
       placeholder: |
-        I ticked off a position in the shared plan.
-        I expected the amount to disappear from "Noch offen".
-        Instead the figure stayed the same and only changed after a reload.
+        Ich habe im Haushaltsplan einen Posten abgehakt.
+        Ich habe erwartet, dass der Betrag aus „Noch offen" verschwindet.
+        Stattdessen blieb die Zahl gleich und änderte sich erst nach dem Neuladen.
     validations:
       required: true
 
   - type: dropdown
     id: how-run
     attributes:
-      label: How are you running Duofy
+      label: Wie betreibst du Duofy
       options:
-        - Docker Compose, self-hosted
-        - From source, for development
-        - Something else — described above
+        - Docker Compose, selbst gehostet
+        - Aus dem Quellcode, zur Entwicklung
+        - Anders — oben beschrieben
     validations:
       required: true
 
@@ -39,30 +39,31 @@ body:
     attributes:
       label: Version
       description: >-
-        The image tag you pulled, or the content of `version.txt`. `dev` and
-        `latest` are answers too — they just move, so please add the date.
-      placeholder: "0.2.0, or dev as of 2026-08-14"
+        Der Image-Tag, den du gezogen hast, oder der Inhalt von `version.txt`.
+        `dev` und `latest` sind auch Antworten — sie bewegen sich nur, bitte das
+        Datum dazuschreiben.
+      placeholder: "0.2.0, oder dev vom 2026-08-14"
     validations:
       required: true
 
   - type: textarea
     id: logs
     attributes:
-      label: Log output
+      label: Log-Ausgabe
       description: >-
-        `docker compose logs backend` for anything that goes wrong on the server
-        side, the browser console for anything on screen. Optional — but it usually
-        turns a guess into an answer.
+        `docker compose logs backend` für alles, was auf dem Server schiefgeht,
+        die Browser-Konsole für alles auf dem Bildschirm. Optional — macht aber
+        meistens aus einer Vermutung eine Antwort.
       render: text
 
   - type: checkboxes
     id: no-real-data
     attributes:
-      label: Before you submit
+      label: Vor dem Absenden
       options:
         - label: >-
-            There are no real amounts, names or account numbers in this report.
+            In diesem Bericht stehen keine echten Beträge, Namen oder Kontonummern.
           required: true
         - label: >-
-            I searched the open issues and this is not one of them.
+            Ich habe die offenen Issues durchsucht, und das hier ist keins davon.
           required: true

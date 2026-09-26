@@ -1,8 +1,11 @@
 import { NavLink, Outlet, useSearchParams } from 'react-router'
+import { useTranslation } from 'react-i18next'
 
-import { useHouseholds, useMe } from '@/lib/queries'
+import { HelpPanel } from '@/components/HelpPanel'
+import { MemberSwitcher } from '@/components/MemberSwitcher'
+import { useHouseholds } from '@/lib/queries'
 
-import { CalendarRange, FileText, Users, Wallet } from 'lucide-react'
+import { BookOpen, CalendarRange, FileText, Upload, Users, Wallet } from 'lucide-react'
 
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { UserMenu } from '@/components/UserMenu'
@@ -38,34 +41,38 @@ import { Separator } from '@/components/ui/separator'
  * One page for every commitment — savings plans and loans are commitments too.
  *
  * This used to be three entries split by `Commitment.type`. That was the wrong
- * axis: a commitment can sit in **any** block (rent → needs, streaming → wants,
+ * axis: a commitment can sit in **any** budget (rent → needs, streaming → wants,
  * a savings plan → savings). `type` only says whether the thing has an end — a
  * property, not a navigation point.
  */
 const NAV = [
-  { to: '/plan', label: 'Planung', icon: CalendarRange },
-  { to: '/contracts', label: 'Verträge', icon: FileText },
-  { to: '/accounts', label: 'Konten', icon: Wallet },
-  { to: '/household', label: 'Haushalt', icon: Users },
+  { to: '/plan', label: 'nav.plan', icon: CalendarRange },
+  { to: '/contracts', label: 'nav.commitments', icon: FileText },
+  { to: '/book', label: 'nav.book', icon: BookOpen },
+  { to: '/accounts', label: 'nav.accounts', icon: Wallet },
+  { to: '/import', label: 'nav.import', icon: Upload },
+  { to: '/household', label: 'nav.household', icon: Users },
 ]
 
 export function AppLayout() {
+  const { t } = useTranslation()
   const households = useHouseholds().data ?? []
-  const me = useMe().data
   // The sub-entry points at the current month — there is no "current" household
   // plan otherwise, it is composed from positions.
   const now = new Date()
   const [params] = useSearchParams()
   const active = params.get('household')
   const activeMember = params.get('member')
+  const navSearch = activeMember === null ? '' : `?member=${activeMember}`
 
   return (
     <SidebarProvider>
       <Sidebar collapsible="icon">
-        <SidebarHeader>
+        <SidebarHeader className="gap-2">
           <span className="font-heading px-2 pt-1 text-lg font-semibold group-data-[collapsible=icon]:hidden">
             Duofy
           </span>
+          <MemberSwitcher />
         </SidebarHeader>
 
         <SidebarContent>
@@ -74,14 +81,17 @@ export function AppLayout() {
               <SidebarMenu>
                 {NAV.map((item) => (
                   <SidebarMenuItem key={item.to}>
-                    <NavLink to={item.to} end>
+                    {/* Die gewählte Person reist mit. Ohne das fiele man beim
+                        ersten Klick auf „Verträge" wieder auf sich selbst
+                        zurück, ohne dass es jemand ansagt. */}
+                    <NavLink to={{ pathname: item.to, search: navSearch }} end>
                       {({ isActive }) => (
                         <SidebarMenuButton
                           isActive={isActive}
-                          tooltip={item.label}
+                          tooltip={t(item.label)}
                         >
                           <item.icon className="size-4" />
-                          <span>{item.label}</span>
+                          <span>{t(item.label)}</span>
                         </SidebarMenuButton>
                       )}
                     </NavLink>
@@ -106,31 +116,6 @@ export function AppLayout() {
                             </NavLink>
                           </SidebarMenuSubItem>
                         ))}
-
-                        {/* Personen, die Einblick gegeben haben. Kein
-                            Umschalter, sondern ein Ort — dieselbe Begründung
-                            wie beim gemeinsamen Plan. Wer nur die gemeinsamen
-                            Posten teilt, erscheint hier nicht. */}
-                        {households
-                          .flatMap((household) => household.members)
-                          .filter(
-                            (member) =>
-                              member.userId !== me?.id &&
-                              member.grantsAccess !== 'plan'
-                          )
-                          .map((member) => (
-                            <SidebarMenuSubItem key={member.userId}>
-                              <NavLink
-                                to={`/plan/${now.getFullYear()}/${now.getMonth() + 1}?member=${member.userId}`}
-                              >
-                                <SidebarMenuSubButton
-                                  isActive={activeMember === member.userId}
-                                >
-                                  <span>{member.firstName}</span>
-                                </SidebarMenuSubButton>
-                              </NavLink>
-                            </SidebarMenuSubItem>
-                          ))}
                       </SidebarMenuSub>
                     )}
                   </SidebarMenuItem>
@@ -169,8 +154,14 @@ export function AppLayout() {
           <ThemeToggle />
         </header>
 
-        <div className="flex-1 p-6">
-          <Outlet />
+        {/* Die Erklärspalte steht neben dem Inhalt, nicht darüber: sie erklärt
+            die Seite, die man gerade liest. Unter 1280 px blendet sie sich aus —
+            zwei Spalten nebeneinander wären dort beide zu schmal. */}
+        <div className="flex flex-1 items-start">
+          <div className="min-w-0 flex-1 p-6">
+            <Outlet />
+          </div>
+          <HelpPanel />
         </div>
       </SidebarInset>
     </SidebarProvider>

@@ -16,8 +16,10 @@ class MemberRead(Schema):
     last_name: str
     email: EmailStr
     role: Role
-    #: What this person allows the others to see about themselves.
-    grants_access: AccessLevel
+    #: What this person allows the others to see about themselves, per area.
+    grants_plan: AccessLevel
+    grants_commitments: AccessLevel
+    grants_accounts: AccessLevel
 
 
 class HouseholdRead(Schema):
@@ -86,6 +88,12 @@ class InvitationPreview(Schema):
 
 
 class AccessUpdate(Schema):
-    """Changes your own access level. Only your own."""
+    """Changes your own access levels. Only your own.
 
-    grants_access: AccessLevel
+    Every field optional, so the form can move one area without restating the
+    others — the same shape as `HouseholdUpdate`.
+    """
+
+    grants_plan: AccessLevel | None = None
+    grants_commitments: AccessLevel | None = None
+    grants_accounts: AccessLevel | None = None

@@ -1,5 +1,6 @@
 import { CalendarDays } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
@@ -30,15 +31,19 @@ type Props = {
   /** Shown in the button while nothing is selected. */
   placeholder?: string
   disabled?: boolean
+  /** Id of the element that explains the field, for screen readers. */
+  describedBy?: string
 }
 
 export function DateField({
   id,
   value,
   onChange,
-  placeholder = 'Datum wählen',
+  placeholder,
   disabled,
+  describedBy,
 }: Props) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const gewaehlt = value ? fromIsoDay(value) : undefined
 
@@ -50,13 +55,16 @@ export function DateField({
           type="button"
           variant="outline"
           disabled={disabled}
+          aria-describedby={describedBy}
           className="w-full justify-start font-normal tabular-nums"
         >
           <CalendarDays className="size-4 opacity-70" />
           {value ? (
             longDate(value)
           ) : (
-            <span className="text-muted-foreground">{placeholder}</span>
+            <span className="text-muted-foreground">
+              {placeholder ?? t('dateField.placeholder')}
+            </span>
           )}
         </Button>
       </PopoverTrigger>

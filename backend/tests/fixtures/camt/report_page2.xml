@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Erfundener camt.052-Bericht, Seite 2 von 2 — dieselbe `Rpt/Id` wie Seite 1.
+
+  Eine Bank liefert einen Bericht in mehreren Dateien aus, meist zusammen in
+  einem ZIP. Die Salden gelten für den ganzen Bericht, nicht für die Seite:
+  OPBD 1500,00 plus alle gebuchten Einträge beider Seiten ergibt CLBD 721,19.
+-->
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.052.001.08">
+  <BkToCstmrAcctRpt>
+    <GrpHdr>
+      <MsgId>TESTMSG-2026-08-19-0002</MsgId>
+      <CreDtTm>2026-08-19T04:39:22</CreDtTm>
+    </GrpHdr>
+    <Rpt>
+      <Id>TESTRPT-000001</Id>
+      <RptPgntn>
+        <PgNb>2</PgNb>
+        <LastPgInd>true</LastPgInd>
+      </RptPgntn>
+      <ElctrncSeqNb>1</ElctrncSeqNb>
+      <CreDtTm>2026-08-19T04:39:22</CreDtTm>
+      <Acct>
+        <Id>
+          <IBAN>DE02120300000000202051</IBAN>
+        </Id>
+        <Ccy>EUR</Ccy>
+        <Ownr>
+          <Nm>Testkonto Duofy</Nm>
+        </Ownr>
+        <Svcr>
+          <FinInstnId>
+            <BICFI>BYLADEM1001</BICFI>
+            <Nm>Testbank</Nm>
+            <Othr>
+              <Id>12030000</Id>
+              <Issr>DK</Issr>
+            </Othr>
+          </FinInstnId>
+        </Svcr>
+      </Acct>
+      <Bal>
+        <Tp>
+          <CdOrPrtry>
+            <Cd>OPBD</Cd>
+          </CdOrPrtry>
+        </Tp>
+        <Amt Ccy="EUR">1500.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Dt>
+          <Dt>2026-08-12</Dt>
+        </Dt>
+      </Bal>
+      <Bal>
+        <Tp>
+          <CdOrPrtry>
+            <Cd>CLBD</Cd>
+          </CdOrPrtry>
+        </Tp>
+        <Amt Ccy="EUR">721.19</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Dt>
+          <Dt>2026-08-19</Dt>
+        </Dt>
+      </Bal>
+
+      <!-- Gutschrift. Die Gegenpartei steht hier unter Dbtr, nicht Cdtr. -->
+      <Ntry>
+        <Amt Ccy="EUR">255.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts>
+          <Cd>BOOK</Cd>
+        </Sts>
+        <BookgDt>
+          <Dt>2026-08-13</Dt>
+        </BookgDt>
+        <ValDt>
+          <Dt>2026-08-13</Dt>
+        </ValDt>
+        <AcctSvcrRef>9100000000000000005</AcctSvcrRef>
+        <BkTxCd>
+          <Domn>
+            <Cd>PMNT</Cd>
+            <Fmly>
+              <Cd>RCDT</Cd>
+              <SubFmlyCd>ESCT</SubFmlyCd>
+            </Fmly>
+          </Domn>
+          <Prtry>
+            <Cd>NTRF+166+00801</Cd>
+            <Issr>DK</Issr>
+          </Prtry>
+        </BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Amt Ccy="EUR">255.00</Amt>
+            <Refs>
+              <AcctSvcrRef>9100000000000000005</AcctSvcrRef>
+              <EndToEndId>NOTPROVIDED</EndToEndId>
+            </Refs>
+            <RltdPties>
+              <Dbtr>
+                <Pty>
+                  <Nm>Familienkasse Musterstadt</Nm>
+                </Pty>
+              </Dbtr>
+              <DbtrAcct>
+                <Id>
+                  <IBAN>DE02100500000054540402</IBAN>
+                </Id>
+              </DbtrAcct>
+            </RltdPties>
+            <RmtInf>
+              <Ustrd>Kindergeld 08/2026</Ustrd>
+            </RmtInf>
+          </TxDtls>
+        </NtryDtls>
+        <AddtlNtryInf>Gutschrift Überweisung</AddtlNtryInf>
+      </Ntry>
+
+      <!-- Lastschrift mit Verwendungszweck über zwei Ustrd-Zeilen. -->
+      <Ntry>
+        <Amt Ccy="EUR">34.99</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>
+          <Cd>BOOK</Cd>
+        </Sts>
+        <BookgDt>
+          <Dt>2026-08-16</Dt>
+        </BookgDt>
+        <ValDt>
+          <Dt>2026-08-16</Dt>
+        </ValDt>
+        <AcctSvcrRef>9100000000000000006</AcctSvcrRef>
+        <BkTxCd>
+          <Domn>
+            <Cd>PMNT</Cd>
+            <Fmly>
+              <Cd>RDDT</Cd>
+              <SubFmlyCd>ESDD</SubFmlyCd>
+            </Fmly>
+          </Domn>
+          <Prtry>
+            <Cd>NDDT+105+07101</Cd>
+            <Issr>DK</Issr>
+          </Prtry>
+        </BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Amt Ccy="EUR">34.99</Amt>
+            <RltdPties>
+              <Cdtr>
+                <Pty>
+                  <Nm>Mobilfunk Testanbieter</Nm>
+                </Pty>
+              </Cdtr>
+              <CdtrAcct>
+                <Id>
+                  <IBAN>DE02300209000106531065</IBAN>
+                </Id>
+              </CdtrAcct>
+            </RltdPties>
+            <RmtInf>
+              <Ustrd>Rechnung 08/2026</Ustrd>
+              <Ustrd>Vertrag 4471902</Ustrd>
+            </RmtInf>
+          </TxDtls>
+        </NtryDtls>
+        <AddtlNtryInf>Basislastschrift Einzug</AddtlNtryInf>
+      </Ntry>
+    </Rpt>
+  </BkToCstmrAcctRpt>
+</Document>

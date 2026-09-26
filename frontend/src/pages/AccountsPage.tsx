@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, Star, Trash2 } from 'lucide-react'
 
 import {
@@ -7,7 +8,7 @@ import {
   EmptyHeader,
 } from '@/components/ui/empty'
 import { DateField } from '@/components/DateField'
-import { today } from '@/lib/dates'
+import { today, shortDate } from '@/lib/dates'
 import { QueryState } from '@/components/QueryState'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -31,11 +32,15 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { errorText } from '@/lib/api'
 import {
-  ACCOUNT_TYPE_LABEL,
+  atLeast,
+  accountTypeLabel,
   euro,
   type Account,
   type AccountType,
+  ACCOUNT_TYPES,
 } from '@/lib/domain'
+import { useActiveMember } from '@/hooks/use-active-member'
+import { OWN_SCOPE } from '@/lib/domain'
 import { useAccounts, useDeleteAccount, useSaveAccount } from '@/lib/queries'
 
 /**
@@ -50,7 +55,7 @@ import { useAccounts, useDeleteAccount, useSaveAccount } from '@/lib/queries'
  * transfer to it.
  */
 
-const TYPES = Object.keys(ACCOUNT_TYPE_LABEL) as AccountType[]
+const TYPES = ACCOUNT_TYPES
 
 function emptyAccount(isFirst: boolean): Account {
   return {
@@ -69,7 +74,15 @@ function emptyAccount(isFirst: boolean): Account {
 }
 
 export function AccountsPage() {
-  const accounts = useAccounts()
+  const { t } = useTranslation()
+  // `?member=` shows somebody else's accounts — see `MemberSwitcher`. Their level
+  // decides whether the page offers buttons; the endpoint checks it again anyway.
+  const active = useActiveMember()
+  const accounts = useAccounts(
+    active.id === null ? OWN_SCOPE : { kind: 'member', ownerId: active.id }
+  )
+  const mayEdit = atLeast(active.levelFor('accounts'), 'edit')
+  const mayDelete = atLeast(active.levelFor('accounts'), 'delete')
   const [editing, setEditing] = useState<Account | null>(null)
   const [open, setOpen] = useState(false)
 
@@ -84,24 +97,28 @@ export function AccountsPage() {
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-2">
-          <h1 className="font-heading text-3xl font-semibold">Konten</h1>
+          <h1 className="font-heading text-3xl font-semibold">{t('accounts.title')}</h1>
           <p className="text-muted-foreground max-w-2xl">
-            Wo dein Geld liegt. Konten sind privat — für die gemeinsame Planung
-            zählt, was auf den Posten steht.
+            {active.member === null
+              ? t('accounts.lead')
+              : mayEdit
+                ? t('accounts.leadMemberEdit', { name: active.member.firstName })
+                : t('accounts.leadMemberView', { name: active.member.firstName })}
           </p>
         </div>
-        <Button onClick={add}>
-          <Plus className="size-4" />
-          Konto anlegen
-        </Button>
+        {mayEdit && (
+          <Button onClick={add}>
+            <Plus className="size-4" />
+            {t('accounts.create')}
+          </Button>
+        )}
       </header>
 
       <QueryState isPending={accounts.isPending} error={accounts.error}>
         {list.length === 0 ? (
           <Empty className="border-border rounded-xl border border-dashed">
           <EmptyHeader>
-            <EmptyDescription>Noch kein Konto. Leg eins an — ohne Konto lässt sich später nichts
-            ins Haushaltsbuch buchen.</EmptyDescription>
+            <EmptyDescription>{t('accounts.empty')}</EmptyDescription>
           </EmptyHeader>
         </Empty>
         ) : (
@@ -110,6 +127,7 @@ export function AccountsPage() {
               <li key={account.id}>
                 <button
                   type="button"
+                  disabled={!mayEdit}
                   onClick={() => {
                     setEditing(account)
                     setOpen(true)
@@ -124,18 +142,18 @@ export function AccountsPage() {
                       {account.isDefault && (
                         <Badge variant="secondary" className="gap-1 font-normal">
                           <Star className="size-3" />
-                          Standard
+                          {t('accounts.default')}
                         </Badge>
                       )}
                       {!account.active && (
                         <Badge variant="outline" className="font-normal">
-                          aufgelöst
+                          {t('accounts.closed')}
                         </Badge>
                       )}
                     </span>
                     <span className="text-muted-foreground text-xs">
-                      {ACCOUNT_TYPE_LABEL[account.type]} · Anfangsbestand vom{' '}
-                      {new Date(account.openingDate).toLocaleDateString('de-DE')}
+                      {accountTypeLabel(account.type)} ·{' '}
+                      {t('accounts.openingFrom', { date: shortDate(account.openingDate) })}
                     </span>
                   </span>
                   <span className="font-mono font-medium tabular-nums">
@@ -148,21 +166,30 @@ export function AccountsPage() {
         )}
       </QueryState>
 
-      <AccountDialog account={editing} open={open} onOpenChange={setOpen} />
+      <AccountDialog
+        account={editing}
+        mayDelete={mayDelete}
+        open={open}
+        onOpenChange={setOpen}
+      />
     </div>
   )
 }
 
 function AccountDialog({
   account,
+  mayDelete,
   open,
   onOpenChange,
 }: {
   account: Account | null
+  /** Only decides whether the button is offered. The endpoint checks it again. */
+  mayDelete: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
   const save = useSaveAccount()
+  const { t } = useTranslation()
   const remove = useDeleteAccount()
   const [draft, setDraft] = useState<Account>(account ?? emptyAccount(false))
 
@@ -190,28 +217,27 @@ function AccountDialog({
         >
           <DialogHeader>
             <DialogTitle>
-              {isEdit ? 'Konto bearbeiten' : 'Konto anlegen'}
+              {isEdit ? t('accounts.edit') : t('accounts.create')}
             </DialogTitle>
             <DialogDescription>
-              Der Stand ergibt sich später aus Anfangsbestand plus Buchungen.
-              Ein Depot gehört nicht hierher — nur sein Verrechnungskonto.
+              {t('accounts.dialogDescription')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-4 py-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="account-name">Bezeichnung</Label>
+              <Label htmlFor="account-name">{t('positionDialog.label')}</Label>
               <Input
                 id="account-name"
                 value={draft.name}
                 onChange={(event) => set('name', event.target.value)}
-                placeholder="Girokonto"
+                placeholder={t('accounts.namePlaceholder')}
                 required
               />
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label>Art</Label>
+              <Label>{t('accounts.type')}</Label>
               <Select
                 value={draft.type}
                 onValueChange={(value) => set('type', value as AccountType)}
@@ -222,7 +248,7 @@ function AccountDialog({
                 <SelectContent>
                   {TYPES.map((type) => (
                     <SelectItem key={type} value={type}>
-                      {ACCOUNT_TYPE_LABEL[type]}
+                      {accountTypeLabel(type)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -231,7 +257,7 @@ function AccountDialog({
 
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="account-balance">Anfangsbestand</Label>
+                <Label htmlFor="account-balance">{t('accounts.openingBalance')}</Label>
                 <Input
                   id="account-balance"
                   type="number"
@@ -249,7 +275,7 @@ function AccountDialog({
                 {/* Ohne Stichtag wäre der Stand zu einem Zeitpunkt nicht
                     berechenbar — man wüsste nicht, welche Buchungen schon
                     im Anfangsbestand stecken. */}
-                <Label htmlFor="account-date">Stand vom</Label>
+                <Label htmlFor="account-date">{t('accounts.openingDate')}</Label>
                 <DateField
                   id="account-date"
                   value={draft.openingDate}
@@ -258,12 +284,34 @@ function AccountDialog({
               </div>
             </div>
 
+            {/* Die IBAN ist der Schlüssel zur Umbuchungserkennung: steht sie als
+                Gegenpartei auf einer importierten Zeile, ist das keine Ausgabe,
+                sondern eine Bewegung zwischen zwei eigenen Konten. Ein Import
+                trägt sie von allein ein — von Hand ist sie für das Konto da,
+                das nie eine Datei liefert. Meist das Sparkonto, und das ist
+                genau das, wohin am häufigsten umgebucht wird. */}
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="account-iban">{t('accounts.iban')}</Label>
+              <Input
+                id="account-iban"
+                value={draft.externalRef ?? ''}
+                onChange={(event) =>
+                  set('externalRef', event.target.value || null)
+                }
+                placeholder={t('accounts.ibanPlaceholder')}
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <p className="text-muted-foreground text-xs">
+                {t('accounts.ibanHint')}
+              </p>
+            </div>
+
             <div className="border-border flex items-center justify-between gap-4 rounded-lg border p-3">
               <span className="flex flex-col">
-                <span className="text-sm font-medium">Standardkonto</span>
+                <span className="text-sm font-medium">{t('common.defaultAccount')}</span>
                 <span className="text-muted-foreground text-xs">
-                  Wird beim schnellen Buchen vorausgewählt. Ein zweites löst
-                  das bisherige ab.
+                  {t('accounts.defaultHint')}
                 </span>
               </span>
               <Switch
@@ -276,11 +324,9 @@ function AccountDialog({
                 auf dem Konto, ist eine Umbuchung dorthin eine Ausgabe. */}
             <div className="border-border flex items-center justify-between gap-4 rounded-lg border p-3">
               <span className="flex flex-col">
-                <span className="text-sm font-medium">Zählt als verfügbar</span>
+                <span className="text-sm font-medium">{t('accounts.countsAsAvailable')}</span>
                 <span className="text-muted-foreground text-xs">
-                  Aus beim Tagesgeld oder Depot: was dorthin wandert, gilt im
-                  Buch als ausgegeben. An bei Giro und PayPal — dort bleibt das
-                  Geld greifbar.
+                  {t('accounts.countsAsAvailableHint')}
                 </span>
               </span>
               <Switch
@@ -291,10 +337,9 @@ function AccountDialog({
 
             <div className="border-border flex items-center justify-between gap-4 rounded-lg border p-3">
               <span className="flex flex-col">
-                <span className="text-sm font-medium">Aktiv</span>
+                <span className="text-sm font-medium">{t('accounts.active')}</span>
                 <span className="text-muted-foreground text-xs">
-                  Aufgelöste Konten bleiben stehen, damit alte Buchungen ihren
-                  Bezug behalten.
+                  {t('accounts.activeHint')}
                 </span>
               </span>
               <Switch
@@ -311,7 +356,7 @@ function AccountDialog({
           </div>
 
           <DialogFooter className="gap-2 sm:justify-between">
-            {isEdit ? (
+            {isEdit && mayDelete ? (
               <Button
                 type="button"
                 variant="ghost"
@@ -323,13 +368,13 @@ function AccountDialog({
                 }
               >
                 <Trash2 className="size-4" />
-                Löschen
+                {t('common.delete')}
               </Button>
             ) : (
               <span />
             )}
             <Button type="submit" disabled={save.isPending}>
-              {save.isPending ? 'Wird gesichert…' : 'Sichern'}
+              {save.isPending ? t('accounts.saving') : t('accounts.save')}
             </Button>
           </DialogFooter>
         </form>

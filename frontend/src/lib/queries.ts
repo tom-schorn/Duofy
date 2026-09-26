@@ -1,26 +1,31 @@
 import {
   useMutation,
+  useQueries,
   useQuery,
   useQueryClient,
   type UseMutationOptions,
 } from '@tanstack/react-query'
-
 import { toast } from 'sonner'
 
+import { i18n } from '@/lib/i18n'
 import { api } from '@/lib/api'
 import { OWN_SCOPE, scopeKey, scopeQuery } from '@/lib/domain'
 import type {
   AccessLevel,
   Account,
+  AreaField,
   BookScope,
   BalanceHistory,
+  Category,
   Commitment,
+  CommitmentStatus,
   Household,
   HouseholdPlanDetail,
+  ImportSummary,
+  ImportedEntry,
   Invitation,
   Me,
   Member,
-  MemberPlanDetail,
   MyInvitation,
   PlanDetail,
   PlanPosition,
@@ -44,6 +49,7 @@ export const keys = {
   accounts: ['accounts'] as const,
   accountsIn: (scope: BookScope) => ['accounts', scopeKey(scope)] as const,
   commitments: ['commitments'] as const,
+  commitmentsOf: (ownerId: string | null) => ['commitments', ownerId ?? 'me'] as const,
   /** Every month — for invalidating when it is unclear which one is affected. */
   allTransactions: ['transactions'] as const,
   balanceHistory: (
@@ -62,12 +68,14 @@ export const keys = {
     ] as const,
   transactions: (year: number, month: number, scope: BookScope = OWN_SCOPE) =>
     ['transactions', scopeKey(scope), year, month] as const,
+  imports: ['imports'] as const,
   plans: ['plans'] as const,
+  /** Prefix of every single-person plan — invalidating it hits yours and theirs. */
   plan: (year: number, month: number) => ['plans', year, month] as const,
+  planOf: (year: number, month: number, ownerId: string | null) =>
+    ['plans', year, month, ownerId ?? 'me'] as const,
   householdPlan: (householdId: string, year: number, month: number) =>
     ['plans', 'household', householdId, year, month] as const,
-  memberPlan: (ownerId: string, year: number, month: number) =>
-    ['plans', 'member', ownerId, year, month] as const,
 }
 
 // --- User -----------------------------------------------------------------
@@ -94,7 +102,7 @@ export function useCreateHousehold() {
   return useInvalidating<Household, { name: string }>(
     (input) => api.post('/households', input),
     [keys.households],
-    'Haushalt angelegt'
+    'toast.householdCreated'
   )
 }
 
@@ -102,7 +110,7 @@ export function useUpdateHousehold() {
   return useInvalidating<Household, { id: string } & Partial<Household>>(
     ({ id, ...changes }) => api.patch(`/households/${id}`, changes),
     [keys.households],
-    'Haushalt geändert'
+    'toast.householdUpdated'
   )
 }
 
@@ -110,22 +118,22 @@ export function useLeaveHousehold() {
   return useInvalidating<void, string>(
     (householdId) => api.delete(`/households/${householdId}/members/me`),
     [keys.households],
-    'Haushalt verlassen'
+    'toast.householdLeft'
   )
 }
 
 /**
- * Change your own access level in a household.
+ * Change your own access levels in a household.
  *
- * Your own only, hence no member in the call. Afterwards what the others see
- * changes, so plans and accounts have to be reloaded.
+ * Your own only, hence no member in the call. One area at a time: the endpoint
+ * leaves out what the call does not mention, so the other two keep their level.
+ * Afterwards what the others see changes, so everything shared is reloaded.
  */
 export function useSetMyAccess(householdId: string) {
-  return useInvalidating<Member, AccessLevel>(
-    (grantsAccess) =>
-      api.patch(`/households/${householdId}/members/me`, { grantsAccess }),
-    [keys.households, keys.plans, keys.accounts],
-    'Freigabe geändert'
+  return useInvalidating<Member, Partial<Record<AreaField, AccessLevel>>>(
+    (grants) => api.patch(`/households/${householdId}/members/me`, grants),
+    [keys.households, keys.plans, keys.accounts, keys.commitments],
+    'toast.grantUpdated'
   )
 }
 
@@ -141,7 +149,7 @@ export function useInvite(householdId: string) {
   return useInvalidating<Invitation, { email: string }>(
     (input) => api.post(`/households/${householdId}/invitations`, input),
     [keys.invitations(householdId)],
-    'Einladung verschickt'
+    'toast.invitationSent'
   )
 }
 
@@ -150,7 +158,7 @@ export function useRevokeInvitation(householdId: string) {
     (invitationId) =>
       api.delete(`/households/${householdId}/invitations/${invitationId}`),
     [keys.invitations(householdId)],
-    'Einladung zurückgezogen'
+    'toast.invitationRevoked'
   )
 }
 
@@ -168,7 +176,7 @@ export function useAcceptInvitation() {
   return useInvalidating<Household, string>(
     (token) => api.post(`/households/invitations/${token}/accept`),
     [keys.myInvitations, keys.households, keys.plans],
-    'Haushalt beigetreten'
+    'toast.householdJoined'
   )
 }
 
@@ -176,7 +184,7 @@ export function useDeclineInvitation() {
   return useInvalidating<void, string>(
     (token) => api.post(`/households/invitations/${token}/decline`),
     [keys.myInvitations],
-    'Einladung abgelehnt'
+    'toast.invitationDeclined'
   )
 }
 
@@ -233,7 +241,7 @@ export function useSaveAccount() {
     ({ id, ownerId: _o, ...body }) =>
       id ? api.patch(`/accounts/${id}`, body) : api.post('/accounts', body),
     [keys.accounts],
-    'Konto gespeichert'
+    'toast.accountSaved'
   )
 }
 
@@ -241,7 +249,7 @@ export function useDeleteAccount() {
   return useInvalidating<void, string>(
     (id) => api.delete(`/accounts/${id}`),
     [keys.accounts],
-    'Konto gelöscht'
+    'toast.accountDeleted'
   )
 }
 
@@ -288,7 +296,7 @@ export function useSaveTransaction(
       // Prefix: covers the accounts **and** their history.
       keys.accounts,
     ],
-    'Buchung gespeichert'
+    'toast.transactionSaved'
   )
 }
 
@@ -306,16 +314,29 @@ export function useDeleteTransaction(
       // Prefix: covers the accounts **and** their history.
       keys.accounts,
     ],
-    'Buchung gelöscht'
+    'toast.transactionDeleted'
   )
 }
 
 // --- Commitments ------------------------------------------------------------
 
-export function useCommitments() {
+/**
+ * Commitments — your own, or those of a member who granted insight.
+ *
+ * The owner is part of the key: otherwise their list would overwrite your own in
+ * the cache the moment you switch to them.
+ */
+export function useCommitments(
+  ownerId: string | null = null,
+  status: CommitmentStatus = 'all'
+) {
   return useQuery({
-    queryKey: keys.commitments,
-    queryFn: () => api.get<Commitment[]>('/commitments'),
+    queryKey: [...keys.commitmentsOf(ownerId), status] as const,
+    queryFn: () => {
+      const params = new URLSearchParams({ status })
+      if (ownerId !== null) params.set('owner', ownerId)
+      return api.get<Commitment[]>(`/commitments?${params}`)
+    },
   })
 }
 
@@ -331,7 +352,7 @@ export function useSaveCommitment() {
     // stay. Reload both anyway, because a newly created month depends on it
     // immediately.
     [keys.commitments, keys.plans],
-    'Vertrag gespeichert'
+    'toast.commitmentSaved'
   )
 }
 
@@ -339,26 +360,49 @@ export function useDeleteCommitment() {
   return useInvalidating<void, string>(
     (id) => api.delete(`/commitments/${id}`),
     [keys.commitments, keys.plans],
-    'Vertrag gelöscht'
+    'toast.commitmentDeleted'
   )
 }
 
 // --- Plans ------------------------------------------------------------------
 
-export function usePlans() {
+/**
+ * Every month, newest first — your own or those of a member who granted insight.
+ *
+ * The owner is part of the key, otherwise their months would overwrite yours in
+ * the cache the moment you switch.
+ */
+export function usePlans(ownerId: string | null = null) {
   return useQuery({
-    queryKey: keys.plans,
-    queryFn: () => api.get<PlanSummary[]>('/plans'),
+    queryKey: [...keys.plans, ownerId ?? 'me'] as const,
+    queryFn: () =>
+      api.get<PlanSummary[]>(ownerId === null ? '/plans' : `/plans?owner=${ownerId}`),
   })
 }
 
-export function usePlan(year: number, month: number, enabled = true) {
+/**
+ * One month, whole — your own or that of a member who granted insight.
+ *
+ * Not the shared plan: that one merges everyone and shows only positions with a
+ * household. Here one person stands alone, private positions included.
+ */
+export function usePlan(
+  year: number,
+  month: number,
+  enabled = true,
+  ownerId: string | null = null
+) {
   return useQuery({
-    queryKey: keys.plan(year, month),
-    queryFn: () => api.get<PlanDetail>(`/plans/${year}/${month}`),
+    queryKey: keys.planOf(year, month, ownerId),
+    queryFn: () =>
+      api.get<PlanDetail>(
+        ownerId === null
+          ? `/plans/${year}/${month}`
+          : `/plans/${year}/${month}?owner=${ownerId}`
+      ),
     // A missing plan is not an error worth retrying.
     retry: false,
-    // In household mode your own plan is not needed.
+    // In household mode no single person's plan is needed.
     enabled,
   })
 }
@@ -380,30 +424,147 @@ export function useHouseholdPlan(
 }
 
 /**
- * The whole plan of a member who granted insight.
+ * Create a month — your own, or that of a member who granted `edit`.
  *
- * Not the shared plan: that one merges everyone and shows positions with a
- * household only. Here one person stands alone, private positions included.
+ * The owner goes into the query string, never into the body: the endpoint reads
+ * the plan **and** the commitments it grows from off that one value, and a body
+ * field would have looked like data rather than like a target.
  */
-export function useMemberPlan(
-  ownerId: string | null,
-  year: number,
-  month: number
-) {
+export function useCreatePlan() {
+  return useInvalidating<
+    PlanDetail,
+    { year: number; month: number; ownerId?: string | null }
+  >(({ ownerId, ...body }) => {
+    const path = ownerId ? `/plans?owner=${ownerId}` : '/plans'
+    return api.post(path, body)
+  }, [keys.plans], 'toast.planCreated')
+}
+
+// --- Import -----------------------------------------------------------------
+
+/**
+ * The parking area of one person — your own, or that of a member who granted
+ * insight into the accounts area.
+ */
+export function useImportedEntries(ownerId: string | null = null) {
   return useQuery({
-    queryKey: keys.memberPlan(ownerId ?? '', year, month),
+    queryKey: [...keys.imports, ownerId ?? 'me'] as const,
     queryFn: () =>
-      api.get<MemberPlanDetail>(`/plans/member/${ownerId}/${year}/${month}`),
-    enabled: ownerId !== null,
-    retry: false,
+      api.get<ImportedEntry[]>(
+        ownerId === null ? '/imports' : `/imports?owner=${ownerId}`
+      ),
   })
 }
 
-export function useCreatePlan() {
-  return useInvalidating<PlanDetail, { year: number; month: number }>(
-    (input) => api.post('/plans', input),
-    [keys.plans],
-    'Monat angelegt'
+/**
+ * Upload a bank file.
+ *
+ * `accountId` is only sent on the second attempt, after the answer said the IBAN
+ * belongs to no account yet. It is written onto that account, so the question
+ * comes up once per account rather than once per upload.
+ */
+export function useUploadStatement() {
+  return useInvalidating<
+    ImportSummary,
+    { file: File; ownerId?: string | null; accountId?: string }
+  >(({ file, ownerId, accountId }) => {
+    const query = new URLSearchParams()
+    if (ownerId) query.set('owner', ownerId)
+    if (accountId) query.set('account', accountId)
+    const suffix = query.size > 0 ? `?${query}` : ''
+    return api.upload<ImportSummary>(`/imports${suffix}`, file)
+  }, [keys.imports, keys.accounts, keys.allTransactions])
+}
+
+/**
+ * The plans of several months at once, for the import screen.
+ *
+ * A pile of parked entries usually spans two or three months, and each needs the
+ * positions of **its own** month to be assignable. One query per month rather
+ * than a new endpoint: they are cached under the same keys the month view uses,
+ * so opening a month afterwards costs nothing.
+ */
+export function usePlansForMonths(
+  months: { year: number; month: number }[],
+  ownerId: string | null = null
+) {
+  return useQueries({
+    queries: months.map(({ year, month }) => ({
+      queryKey: keys.planOf(year, month, ownerId),
+      queryFn: () =>
+        api.get<PlanDetail>(
+          ownerId === null
+            ? `/plans/${year}/${month}`
+            : `/plans/${year}/${month}?owner=${ownerId}`
+        ),
+      // A month that was never created is a normal answer here, not a failure.
+      retry: false,
+    })),
+  })
+}
+
+/** Put a position, a category or an own account on a parked entry. */
+export function useAssignEntry() {
+  return useInvalidating<
+    ImportedEntry,
+    {
+      id: string
+      positionId?: string | null
+      category?: Category | null
+      counterAccountId?: string | null
+    }
+  >(({ id, ...body }) => api.patch(`/imports/${id}`, body), [keys.imports])
+}
+
+/**
+ * Take a suggestion and book it, in one go.
+ *
+ * Two requests rather than one endpoint: assigning and booking stay separate
+ * everywhere else, and a combined one would be a third way to do the same
+ * thing. The button is what joins them, not the API.
+ */
+export function useAcceptSuggestion() {
+  return useInvalidating<
+    ImportedEntry,
+    {
+      id: string
+      category?: Category | null
+      positionId?: string | null
+      counterAccountId?: string | null
+    }
+  >(
+    async ({ id, category, positionId, counterAccountId }) => {
+      // One of the three, in the order that settles the most: an own account
+      // makes it a transfer and clears the rest, a position brings its own
+      // category, a category stands alone.
+      const body = counterAccountId
+        ? { counterAccountId }
+        : positionId
+          ? { positionId }
+          : { category }
+      await api.patch<ImportedEntry>(`/imports/${id}`, body)
+      return api.post<ImportedEntry>(`/imports/${id}/book`)
+    },
+    [keys.imports, keys.accounts, keys.allTransactions, keys.plans],
+    'toast.booked'
+  )
+}
+
+/** Turn a parked entry into a booking. The parked row is gone afterwards. */
+export function useBookEntry() {
+  return useInvalidating<ImportedEntry, string>(
+    (id) => api.post(`/imports/${id}/book`),
+    [keys.imports, keys.accounts, keys.allTransactions, keys.plans],
+    'toast.booked'
+  )
+}
+
+/** Throw an entry out. The row stays, so a second import does not bring it back. */
+export function useDiscardEntry() {
+  return useInvalidating<ImportedEntry, string>(
+    (id) => api.delete(`/imports/${id}`),
+    [keys.imports],
+    'toast.discarded'
   )
 }
 
@@ -417,14 +578,14 @@ export function useSavePosition() {
     return id
       ? api.patch(`/positions/${id}`, body)
       : api.post(`/plans/${planId}/positions`, body)
-  }, [keys.plans], 'Posten gespeichert')
+  }, [keys.plans], 'toast.positionSaved')
 }
 
 export function useDeletePosition() {
   return useInvalidating<void, string>(
     (id) => api.delete(`/positions/${id}`),
     [keys.plans],
-    'Posten gelöscht'
+    'toast.positionDeleted'
   )
 }
 
@@ -448,7 +609,7 @@ export function useTogglePaid() {
         ? api.post(`/positions/${id}/paid`, { occurredOn, amount })
         : api.delete(`/positions/${id}/paid`),
     [keys.plans, keys.allTransactions, keys.accounts],
-    'Posten aktualisiert'
+    'toast.positionUpdated'
   )
 }
 
@@ -463,14 +624,15 @@ function useInvalidating<TData, TInput>(
   mutationFn: (input: TInput) => Promise<TData>,
   invalidate: readonly (readonly unknown[])[],
   /**
-   * What the toast says. In **one** place rather than at every caller — otherwise
-   * half the actions give feedback and the other half do not.
+   * The catalog key of what the toast says (`toast.*`). In **one** place rather
+   * than at every caller — otherwise half the actions give feedback and the other
+   * half do not.
    *
    * Errors stay out of it: those belong in the form, next to the field they
    * concern. A toast that flies away is the wrong place for something that needs
    * correcting.
    */
-  erfolg?: string,
+  successKey?: string,
   options?: UseMutationOptions<TData, Error, TInput>
 ) {
   const client = useQueryClient()
@@ -481,7 +643,7 @@ function useInvalidating<TData, TInput>(
       for (const key of invalidate) {
         client.invalidateQueries({ queryKey: key })
       }
-      if (erfolg) toast.success(erfolg)
+      if (successKey) toast.success(i18n.t(successKey))
       options?.onSuccess?.(...args)
     },
   })

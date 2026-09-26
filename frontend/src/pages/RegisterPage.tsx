@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useMutation } from '@tanstack/react-query'
@@ -10,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { api, errorText, setToken } from '@/lib/api'
 
 export function RegisterPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   const [form, setForm] = useState({
@@ -44,16 +46,16 @@ export function RegisterPage() {
     <AuthLayout>
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         <header className="flex flex-col gap-2">
-          <h1 className="font-heading text-3xl font-semibold">Konto anlegen</h1>
+          <h1 className="font-heading text-3xl font-semibold">{t('auth.register.title')}</h1>
           <p className="text-muted-foreground text-sm">
-            Dein Geld bleibt deins — der Haushalt kommt später dazu.
+            {t('auth.register.lead')}
           </p>
         </header>
 
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="first-name">Vorname</Label>
+              <Label htmlFor="first-name">{t('auth.register.firstName')}</Label>
               <Input
                 id="first-name"
                 autoComplete="given-name"
@@ -63,7 +65,7 @@ export function RegisterPage() {
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="last-name">Nachname</Label>
+              <Label htmlFor="last-name">{t('auth.register.lastName')}</Label>
               <Input
                 id="last-name"
                 autoComplete="family-name"
@@ -75,12 +77,12 @@ export function RegisterPage() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="email">E-Mail</Label>
+            <Label htmlFor="email">{t('auth.email')}</Label>
             <Input
               id="email"
               type="email"
               autoComplete="email"
-              placeholder="name@beispiel.de"
+              placeholder={t('auth.emailPlaceholder')}
               value={form.email}
               onChange={(event) => set('email', event.target.value)}
               required
@@ -88,7 +90,7 @@ export function RegisterPage() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="password">Passwort</Label>
+            <Label htmlFor="password">{t('auth.password')}</Label>
             <Input
               id="password"
               type="password"
@@ -99,7 +101,7 @@ export function RegisterPage() {
               required
             />
             <p className="text-muted-foreground text-xs">
-              Mindestens 8 Zeichen.
+              {t('auth.register.passwordRule')}
             </p>
           </div>
         </div>
@@ -111,16 +113,16 @@ export function RegisterPage() {
         )}
 
         <Button type="submit" className="w-full" disabled={register.isPending}>
-          {register.isPending ? 'Wird angelegt…' : 'Konto anlegen'}
+          {register.isPending ? t('auth.register.pending') : t('auth.register.title')}
         </Button>
 
         <p className="text-muted-foreground text-center text-sm">
-          Schon ein Konto?{' '}
+          {t('auth.register.hasAccount')}{' '}
           <Link
             to="/login"
             className="text-foreground font-medium underline underline-offset-4"
           >
-            Anmelden
+            {t('auth.register.login')}
           </Link>
         </p>
       </form>

@@ -1,22 +1,23 @@
 import { Plus, User, Users } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Progress } from '@/components/ui/progress'
 import {
-  BLOCK_DOT,
-  BLOCK_LABEL,
-  CATEGORY_LABEL,
-  PAYMENT_LABEL,
+  BUDGET_DOT,
+  budgetLabel,
+  categoryLabel,
+  paymentLabel,
   euro,
   isPaid,
-  type Block,
+  type Budget,
   type PlanPosition,
 } from '@/lib/domain'
 
 /**
- * One block with target against actual, and its positions.
+ * One budget with target against actual, and its positions.
  *
  * Deliberately **one** component for your own plan and the household: the rules are
  * the same, only the data source changes.
@@ -26,14 +27,14 @@ import {
  */
 
 /**
- * Bar colour per block — **written out**, never composed.
+ * Bar colour per budget — **written out**, never composed.
  *
- * Tailwind reads the classes out of the source text. A `[&_...]:${BLOCK_DOT[block]}`
+ * Tailwind reads the classes out of the source text. A `[&_...]:${BUDGET_DOT[budget]}`
  * never appears there as a finished class and would therefore not be generated: the
  * bar would stay grey. The `Progress` indicator is fixed to `bg-primary`, so it has
  * to be overridden.
  */
-const BAR: Record<Block, string> = {
+const BAR: Record<Budget, string> = {
   income: '[&_[data-slot=progress-indicator]]:bg-chart-3',
   needs: '[&_[data-slot=progress-indicator]]:bg-chart-1',
   wants: '[&_[data-slot=progress-indicator]]:bg-chart-2',
@@ -46,20 +47,20 @@ const BAR_OVER = '[&_[data-slot=progress-indicator]]:bg-destructive'
 const OVER_QUOTA = 100
 
 type Props = {
-  block: Block
+  budget: Budget
   /** Target from the quota — null for income, which has none. */
   target: number | null
   positions: PlanPosition[]
   householdNames: Record<string, string>
   onEdit: (position: PlanPosition) => void
-  onAdd: (block: Block) => void
+  onAdd: (budget: Budget) => void
   onTogglePaid: (position: PlanPosition) => void
   /** Shared view: other people positions are shown but not changed. */
   readOnly?: boolean
   /**
-   * Separate from `readOnly`, because the "may change" level allows exactly that
-   * and no more: **creating** a position in somebody else plan would not be acting
-   * on their behalf, it would be a new commitment in their name.
+   * Separate from `readOnly`, because the two are not the same question: a
+   * household plan is read-only for everyone and offers no adding either, while
+   * standing in for a member at level `edit` allows both.
    */
   canAdd?: boolean
   /** Returns the first name of the person behind the position, otherwise null. */
@@ -67,7 +68,7 @@ type Props = {
 }
 
 export function BudgetSection({
-  block,
+  budget,
   target,
   positions,
   householdNames,
@@ -78,6 +79,7 @@ export function BudgetSection({
   canAdd = true,
   ownerName,
 }: Props) {
+  const { t } = useTranslation()
   // Pass-through positions appear in the list but not in the total: they are not
   // part of the budget, so the quota must not see them.
   const total = positions.reduce(
@@ -93,8 +95,8 @@ export function BudgetSection({
       <header className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between gap-4">
           <h2 className="flex items-center gap-2 text-sm font-semibold tracking-wide uppercase">
-            <span className={`size-2.5 rounded-sm ${BLOCK_DOT[block]}`} />
-            {BLOCK_LABEL[block]}
+            <span className={`size-2.5 rounded-sm ${BUDGET_DOT[budget]}`} />
+            {budgetLabel(budget)}
           </h2>
           <span className="text-sm tabular-nums">
             <span className={isOver ? 'text-destructive font-semibold' : 'font-semibold'}>
@@ -103,19 +105,22 @@ export function BudgetSection({
             {target !== null && (
               <span className="text-muted-foreground">
                 {' '}
-                von {euro.format(target)}
+                {t('budget.of', { amount: euro.format(target) })}
               </span>
             )}
           </span>
         </div>
 
         {target !== null && (
-          // The `Progress` indicator is fixed to `bg-primary`, but here the block
+          // The `Progress` indicator is fixed to `bg-primary`, but here the budget
           // colour carries identity, so it is overridden.
           <Progress
             value={Math.min(percent, 100)}
-            aria-label={`${BLOCK_LABEL[block]}: ${Math.round(percent)} % der Quote`}
-            className={`h-1.5 ${isOver ? BAR_OVER : BAR[block]}`}
+            aria-label={t('budget.quotaLabel', {
+              budget: budgetLabel(budget),
+              percent: Math.round(percent),
+            })}
+            className={`h-1.5 ${isOver ? BAR_OVER : BAR[budget]}`}
           />
         )}
       </header>
@@ -141,11 +146,11 @@ export function BudgetSection({
         type="button"
         variant="ghost"
         size="sm"
-        onClick={() => onAdd(block)}
+        onClick={() => onAdd(budget)}
         className="text-muted-foreground hover:text-foreground w-fit"
       >
         <Plus className="size-4" />
-        Posten in {BLOCK_LABEL[block]}
+        {t('budget.addPosition', { budget: budgetLabel(budget) })}
       </Button>
       )}
     </section>
@@ -168,6 +173,7 @@ function PositionRow({
   ownerName: string | null
 }) {
   const planned = Number(position.amountPlanned)
+  const { t } = useTranslation()
   const actual =
     position.amountActual === null ? null : Number(position.amountActual)
   // Only flag real overruns — staying below the quota is not a problem.
@@ -182,8 +188,8 @@ function PositionRow({
           Income can be ticked off too; there it means "it arrived" rather than
           "paid". It does not affect what is still open: that figure excludes income
           anyway. */}
-      {position.isBudget ? (
-        /* Budget positions are not ticked off — they fill up over the month from
+      {position.isLimit ? (
+        /* Limit positions are not ticked off — they fill up over the month from
            individual bookings. A tick would mean nothing here, so instead of a dead
            box there is nothing. */
         <span className="size-6" aria-hidden />
@@ -207,10 +213,10 @@ function PositionRow({
             onCheckedChange={() => onTogglePaid(position)}
             aria-label={
               paid
-                ? `${position.label} wieder öffnen`
-                : position.block === 'income'
-                  ? `${position.label} als erhalten markieren`
-                  : `${position.label} abhaken`
+                ? t('budget.reopen', { label: position.label })
+                : position.budget === 'income'
+                  ? t('budget.markReceived', { label: position.label })
+                  : t('budget.tick', { label: position.label })
             }
             className="data-checked:border-chart-4 data-checked:bg-chart-4 data-checked:text-background"
           />
@@ -245,19 +251,20 @@ function PositionRow({
           )}
         </span>
         <span className="text-muted-foreground truncate text-xs">
-          {CATEGORY_LABEL[position.category]} · {position.dueDay}.
+          {categoryLabel(position.category)} ·{' '}
+          {t('common.dueDay', { day: position.dueDay })}
           {position.paymentMethod
-            ? ` · ${PAYMENT_LABEL[position.paymentMethod]}`
+            ? ` · ${paymentLabel(position.paymentMethod)}`
             : ''}
-          {position.commitmentId ? ' · aus Vertrag' : ''}
-          {position.isBudget ? ' · Budget' : ''}
-          {position.passThrough ? ' · durchlaufend' : ''}
-          {position.counterAccountId ? ' · Umbuchung' : ''}
+          {position.commitmentId ? ` · ${t('budget.fromCommitment')}` : ''}
+          {position.isLimit ? ` · ${t('budget.limit')}` : ''}
+          {position.passThrough ? ` · ${t('budget.passThrough')}` : ''}
+          {position.counterAccountId ? ` · ${t('budget.transfer')}` : ''}
         </span>
       </button>
 
       <span className="flex flex-col items-end gap-1 tabular-nums">
-        {position.isBudget ? (
+        {position.isLimit ? (
           <>
             <span className="text-sm">
               <span
@@ -267,14 +274,18 @@ function PositionRow({
               </span>
               <span className="text-muted-foreground">
                 {' '}
-                von {euro.format(planned)}
+                {t('budget.of', { amount: euro.format(planned) })}
               </span>
             </span>
-            {/* Füllstand statt Haken: die Frage ist „wie viel ist weg", nicht
-                „ist es erledigt". */}
+            {/* A fill level instead of a tick: the question is how much is used
+                up, not whether it is done. */}
             <Progress
               value={Math.min(((actual ?? 0) / (planned || 1)) * 100, 100)}
-              aria-label={`${position.label}: ${euro.format(actual ?? 0)} von ${euro.format(planned)}`}
+              aria-label={t('budget.fillLabel', {
+                label: position.label,
+                actual: euro.format(actual ?? 0),
+                planned: euro.format(planned),
+              })}
               className={`w-24 ${overspent ? BAR_OVER : BAR.needs}`}
             />
           </>
@@ -285,7 +296,7 @@ function PositionRow({
               <span
                 className={`text-xs ${overspent ? 'text-destructive' : 'text-muted-foreground'}`}
               >
-                ist {euro.format(actual)}
+                {t('budget.actual', { amount: euro.format(actual) })}
               </span>
             )}
           </>

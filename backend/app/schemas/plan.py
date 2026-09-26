@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from pydantic import Field
 
-from app.models.enums import Block, Category, PaymentMethod
+from app.models.enums import Budget, Category, PaymentMethod
 from app.schemas.base import Schema
 
 
@@ -13,14 +13,14 @@ class PositionBase(Schema):
     amount_planned: Decimal = Field(ge=0, max_digits=12, decimal_places=2)
     amount_actual: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     category: Category
-    block: Block
+    budget: Budget
     due_day: int = Field(ge=1, le=31)
     #: Copied from the commitment, overridable per month. Empty means the default.
     account_id: uuid.UUID | None = None
     payment_method: PaymentMethod | None = None
     household_id: uuid.UUID | None = None
-    #: Fills up from bookings instead of being ticked off.
-    is_budget: bool = False
+    #: A limit: fills up from bookings instead of being ticked off.
+    is_limit: bool = False
     #: Where the money is saved to. Set means ticking off books a transfer.
     counter_account_id: uuid.UUID | None = None
     #: Passes through only — counts towards no quota and no budget.
@@ -38,12 +38,12 @@ class PositionUpdate(Schema):
     amount_planned: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     amount_actual: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     category: Category | None = None
-    block: Block | None = None
+    budget: Budget | None = None
     due_day: int | None = Field(default=None, ge=1, le=31)
     account_id: uuid.UUID | None = None
     payment_method: PaymentMethod | None = None
     household_id: uuid.UUID | None = None
-    is_budget: bool | None = None
+    is_limit: bool | None = None
     counter_account_id: uuid.UUID | None = None
     pass_through: bool | None = None
 
@@ -114,8 +114,8 @@ class PlanSummary(PlanBase):
     income: Decimal
     #: Income minus buffer — the basis the quotas are computed on.
     #: **Not** the same as what is left to allocate; that is the remainder of it.
-    budget: Decimal
-    #: Allocated per block.
+    distributable: Decimal
+    #: Allocated per budget.
     spent: BudgetTotals
     #: Sum of the positions that are not ticked off yet.
     unpaid: Decimal
@@ -148,14 +148,3 @@ class HouseholdPlanRead(PlanSummary):
     household_name: str
     positions: list[HouseholdPositionRead]
 
-
-class MemberPlanRead(PlanRead):
-    """Another person’s plan — a view into it, not a plan of your own.
-
-    `may_edit` is a hint for the frontend only, so it does not offer buttons that
-    would end in a 403. The actual check lives on the writing endpoint, not here.
-    """
-
-    owner_id: uuid.UUID
-    owner_name: str
-    may_edit: bool

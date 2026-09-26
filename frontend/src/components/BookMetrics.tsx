@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Metric } from '@/components/Metric'
 import { QueryState } from '@/components/QueryState'
 import {
@@ -61,6 +62,7 @@ export function BookMetrics({
   positions,
   scope = OWN_SCOPE,
 }: Props) {
+  const { t } = useTranslation()
   const transactions = useTransactions(year, month, scope)
   const accounts = useAccounts(scope)
 
@@ -80,11 +82,11 @@ export function BookMetrics({
     row.counterAccountId !== null && locked.has(row.counterAccountId)
 
   const income = sum(
-    rows.filter((row) => !isTransfer(row) && row.block === 'income')
+    rows.filter((row) => !isTransfer(row) && row.budget === 'income')
   )
   const spending = sum(
     rows.filter(
-      (row) => putAside(row) || (!isTransfer(row) && row.block !== 'income')
+      (row) => putAside(row) || (!isTransfer(row) && row.budget !== 'income')
     )
   )
 
@@ -106,28 +108,32 @@ export function BookMetrics({
       rows={1}
     >
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Metric label="Eingegangen" value={income} hint="schon angekommen" />
         <Metric
-          label="Ausgegeben"
+          label={t('bookMetrics.income')}
+          value={income}
+          hint={t('bookMetrics.incomeHint')}
+        />
+        <Metric
+          label={t('bookMetrics.spending')}
           value={spending}
-          hint="samt Weggespartem"
+          hint={t('bookMetrics.spendingHint')}
         />
         {/* Die Kopfzahl des Buchs — das Gegenstück zu „Verplanbar" im Plan.
             Wird sie negativ, ist mehr rausgegangen als hereingekommen. */}
         <Metric
-          label="Verfügbar"
+          label={t('bookMetrics.available')}
           value={available}
           hint={
             free.length === 1
-              ? `Stand von ${free[0].name}`
-              : `Stand von ${free.length} Konten`
+              ? t('bookMetrics.balanceOf', { name: free[0].name })
+              : t('bookMetrics.balanceOfAccounts', { number: free.length })
           }
           tone={available < 0 ? 'over' : 'neutral'}
         />
         <Metric
-          label="Frei nach Abzug"
+          label={t('bookMetrics.leftover')}
           value={leftover}
-          hint={`${euro.format(due)} stehen noch aus`}
+          hint={t('bookMetrics.due', { amount: euro.format(due) })}
           strong
           tone={leftover < 0 ? 'over' : 'neutral'}
         />

@@ -1,0 +1,660 @@
+{
+  "errors": {
+    "LOGIN_BAD_CREDENTIALS": "E-Mail oder Passwort stimmt nicht.",
+    "LOGIN_USER_NOT_VERIFIED": "Bitte bestätige zuerst deine E-Mail-Adresse.",
+    "REGISTER_USER_ALREADY_EXISTS": "Diese E-Mail ist schon vergeben.",
+    "REGISTER_INVALID_PASSWORD": "Das Passwort erfüllt die Anforderungen nicht.",
+    "not_allowed": "Dazu fehlt dir die Berechtigung.",
+    "not_plan_owner": "Dieser Plan gehört jemand anderem.",
+    "not_commitment_owner": "Dieser Vertrag gehört jemand anderem.",
+    "not_household_owner": "Das darf nur der Besitzer des Haushalts.",
+    "not_household_member": "Du bist kein Mitglied dieses Haushalts.",
+    "not_a_member": "Du bist kein Mitglied dieses Haushalts.",
+    "not_account_owner": "Dieses Konto gehört jemand anderem.",
+    "no_insight_granted": "Diese Person teilt diesen Bereich nicht mit dir.",
+    "no_edit_granted": "Du darfst hier zusehen, aber nichts ändern.",
+    "no_delete_granted": "Löschen bleibt beim Besitzer.",
+    "plan_not_found": "Für diesen Monat gibt es noch keinen Plan.",
+    "plan_already_exists": "Für diesen Monat gibt es schon einen Plan.",
+    "commitment_not_found": "Der Vertrag existiert nicht mehr.",
+    "position_not_found": "Der Posten existiert nicht mehr.",
+    "household_not_found": "Der Haushalt existiert nicht mehr.",
+    "last_owner_cannot_leave": "Du bist der letzte Besitzer — übergib den Haushalt, bevor du austrittst.",
+    "already_a_member": "Diese Person ist schon im Haushalt.",
+    "invitation_already_open": "An diese Adresse läuft schon eine Einladung.",
+    "invitation_not_found": "Diese Einladung gibt es nicht.",
+    "invitation_not_open": "Diese Einladung wurde schon bearbeitet.",
+    "invitation_expired": "Diese Einladung ist abgelaufen.",
+    "invitation_email_mismatch": "Die Einladung gilt für eine andere E-Mail-Adresse.",
+    "interval_months_out_of_range": "Der Abstand muss zwischen 1 und 120 Monaten liegen.",
+    "target_only_for_savings_goal": "Ein Zielbetrag gehört nur zu einem Sparziel.",
+    "limit_only_for_contract": "Ein Limit gibt es nur bei einem Vertrag, der weiterläuft.",
+    "ends_on_before_start": "Das Ende darf nicht vor dem Monat der ersten Fälligkeit liegen.",
+    "invalid_status_filter": "Diesen Filter gibt es nicht. Wähle aktiv, beendet oder alle.",
+    "null_not_allowed": "Dieses Feld darf nicht leer sein.",
+    "position_no_account": "Dieser Posten hat kein Konto und es gibt kein Standardkonto. Trag beim Posten ein Konto ein oder lege unter „Konten“ ein Standardkonto fest, dann lässt sich abhaken.",
+    "position_source_equals_target": "Dieser Posten bucht von einem Konto auf dasselbe Konto. Ändere beim Posten das Konto oder das Zielkonto, dann lässt sich abhaken.",
+    "transaction_not_found": "Diese Buchung gibt es nicht mehr.",
+    "transfer_needs_two_accounts": "Eine Umbuchung braucht zwei verschiedene Konten.",
+    "transfer_needs_one_owner": "Eine Umbuchung geht nur zwischen Konten derselben Person.",
+    "position_needs_same_owner": "Der Posten gehört zu einem anderen Konto als die Buchung.",
+    "refresh_token_missing": "Deine Sitzung ist abgelaufen. Bitte melde dich neu an.",
+    "refresh_token_invalid": "Deine Sitzung ist abgelaufen. Bitte melde dich neu an.",
+    "not_a_bank_file": "Das sieht nicht nach einer CAMT-Datei aus. Im Online-Banking heißt der Export meist „Umsätze exportieren“ — dort CAMT wählen, nicht CSV oder PDF.",
+    "upload_too_large": "Die Datei ist zu groß. Mehr als 10 MB nimmt der Import nicht.",
+    "file_covers_several_accounts": "Die Datei enthält Umsätze mehrerer Konten. Bitte je Konto einzeln exportieren.",
+    "account_not_found": "Dieses Konto gibt es nicht.",
+    "imported_entry_not_found": "Diese Zeile liegt nicht mehr in der Parkposition.",
+    "category_missing": "Ohne Kategorie lässt sich nicht buchen.",
+    "internal_error": "Im Backend ist ein Fehler aufgetreten. Versuch es gleich noch einmal; wenn es bleibt, steht die Ursache im Log.",
+    "unknown": "Da ist etwas schiefgegangen.",
+    "unreachable": "Das Backend ist gerade nicht erreichbar."
+  },
+  "enums": {
+    "budget": {
+      "income": "Einnahmen",
+      "needs": "Fixkosten",
+      "wants": "Wünsche",
+      "savings": "Sparen"
+    },
+    "category": {
+      "household": {
+        "groceries": "Lebensmittel",
+        "clothing": "Kleidung",
+        "healthcare": "Gesundheit",
+        "personal_care": "Körperpflege",
+        "cleaning": "Reinigung",
+        "pets": "Haustiere"
+      },
+      "housing": {
+        "rent": "Miete",
+        "utilities": "Nebenkosten",
+        "repairs": "Renovierung & Reparatur",
+        "interior": "Einrichtung",
+        "outdoor": "Außenbereich",
+        "insurance": "Versicherung & Steuern"
+      },
+      "transport": {
+        "public": "Öffentlicher Verkehr",
+        "fuel": "Kraftstoff",
+        "repairs": "Reparaturen",
+        "fines": "Bußgelder & Gebühren",
+        "purchase": "Fahrzeugkauf",
+        "insurance": "Versicherung & Steuern"
+      },
+      "children": {
+        "care": "Betreuung",
+        "school": "Schulbedarf",
+        "allowance": "Taschengeld"
+      },
+      "leisure": {
+        "vacation": "Urlaub",
+        "hobbies": "Hobbys",
+        "entertainment": "Unterhaltung & Spiele",
+        "memberships": "Mitgliedschaften",
+        "dining": "Essen gehen",
+        "subscriptions": "Abos",
+        "indulgences": "Genussmittel"
+      },
+      "personal": {
+        "insurance": "Versicherung",
+        "communication": "Kommunikation",
+        "work": "Beruf",
+        "legal": "Rechtliches",
+        "gifts": "Geschenke & Feiern",
+        "donations": "Spenden",
+        "education": "Bildung",
+        "taxes": "Steuern"
+      },
+      "income": {
+        "earned": "Gehalt & Lohn",
+        "benefits": "Transferleistungen",
+        "interest": "Zinsen",
+        "other": "Sonstige Einnahmen"
+      },
+      "finance": {
+        "savings": "Rücklagen",
+        "debt": "Tilgung",
+        "investment": "Investition",
+        "fees": "Gebühren",
+        "settlement": "Ausgleich"
+      }
+    },
+    "categoryGroup": {
+      "household": "Haushalt",
+      "housing": "Wohnen",
+      "transport": "Mobilität",
+      "children": "Kinder",
+      "leisure": "Freizeit",
+      "personal": "Persönlich",
+      "income": "Einnahmen",
+      "finance": "Finanzen"
+    },
+    "interval": {
+      "monthly": "monatlich",
+      "quarterly": "vierteljährlich",
+      "every": "alle {{number}} Monate"
+    },
+    "accountType": {
+      "checking": "Girokonto",
+      "savings": "Tagesgeld",
+      "credit_card": "Kreditkarte",
+      "settlement": "Verrechnungskonto",
+      "payment_service": "Zahlungsdienst",
+      "cash": "Bargeld"
+    },
+    "paymentMethod": {
+      "withdrawal": "Abhebung",
+      "transfer": "Überweisung",
+      "standing_order": "Dauerauftrag",
+      "direct_debit": "Lastschrift",
+      "special": "Besonderheit"
+    },
+    "access": {
+      "plan": {
+        "plan": "Nur gemeinsame Posten",
+        "view": "Ganzer Monat sichtbar",
+        "edit": "Darf ändern und anlegen",
+        "delete": "Darf auch löschen"
+      },
+      "commitments": {
+        "plan": "Nichts",
+        "view": "Verträge sichtbar",
+        "edit": "Darf ändern und anlegen",
+        "delete": "Darf auch löschen"
+      },
+      "accounts": {
+        "plan": "Nichts",
+        "view": "Buch und Konten sichtbar",
+        "edit": "Darf ändern und anlegen",
+        "delete": "Darf auch löschen"
+      }
+    },
+    "accessHint": {
+      "plan": {
+        "plan": "Der Partner sieht, was ihr gemeinsam plant — sonst nichts.",
+        "view": "Der Partner sieht zusätzlich deine privaten Posten des Monats.",
+        "edit": "Der Partner darf Monate anlegen, Posten dazuschreiben, ändern und abhaken.",
+        "delete": "Der Partner darf Posten außerdem endgültig löschen. Änderungen stehen im Protokoll, Löschungen nicht."
+      },
+      "commitments": {
+        "plan": "Deine Verträge, Sparziele und Schulden bleiben für sich.",
+        "view": "Der Partner sieht, was bei dir fest läuft — Betrag, Abstand, Kategorie.",
+        "edit": "Der Partner darf Verträge für dich anlegen und ändern — der Weg, wenn dir jemand beim Einrichten hilft.",
+        "delete": "Der Partner darf Verträge außerdem löschen. Schon erzeugte Posten bleiben stehen, künftige entstehen nicht mehr."
+      },
+      "accounts": {
+        "plan": "Deine Konten und Buchungen bleiben für sich.",
+        "view": "Der Partner sieht deine Kontostände und jede Buchung darauf.",
+        "edit": "Der Partner darf Konten anlegen und ändern und auf ihnen buchen.",
+        "delete": "Der Partner darf Konten und Buchungen außerdem löschen. Eine gelöschte Buchung hinterlässt eine Lücke im Kontostand, die nichts erklärt."
+      }
+    },
+    "area": {
+      "plan": "Planung",
+      "commitments": "Verträge",
+      "accounts": "Konten und Buch"
+    }
+  },
+  "toast": {
+    "householdCreated": "Haushalt angelegt",
+    "householdUpdated": "Haushalt geändert",
+    "householdLeft": "Haushalt verlassen",
+    "grantUpdated": "Freigabe geändert",
+    "invitationSent": "Einladung verschickt",
+    "invitationRevoked": "Einladung zurückgezogen",
+    "householdJoined": "Haushalt beigetreten",
+    "invitationDeclined": "Einladung abgelehnt",
+    "accountSaved": "Konto gespeichert",
+    "accountDeleted": "Konto gelöscht",
+    "transactionSaved": "Buchung gespeichert",
+    "transactionDeleted": "Buchung gelöscht",
+    "commitmentSaved": "Vertrag gespeichert",
+    "commitmentDeleted": "Vertrag gelöscht",
+    "planCreated": "Monat angelegt",
+    "booked": "Gebucht",
+    "discarded": "Verworfen",
+    "positionSaved": "Posten gespeichert",
+    "positionDeleted": "Posten gelöscht",
+    "positionUpdated": "Posten aktualisiert"
+  },
+  "helpPanel": {
+    "show": "Erklärungen einblenden",
+    "hide": "Erklärungen ausblenden",
+    "heading": "Erklärung",
+    "footer": "Kurzfassung. Die ausführlichen Artikel entstehen im Wiki."
+  },
+  "categoryPicker": {
+    "placeholder": "Kategorie wählen …",
+    "ungrouped": "Ohne Gruppe"
+  },
+  "auth": {
+    "claim": "Duofy plant Geld, es zählt es nicht.",
+    "tagline": "Gemeinsam planen, getrennt besitzen.",
+    "login": {
+      "title": "Willkommen zurück",
+      "lead": "Plan den Monat, bevor er anfängt.",
+      "forgot": "Passwort vergessen?",
+      "pending": "Wird geprüft…",
+      "submit": "Anmelden",
+      "noAccount": "Noch kein Konto?",
+      "register": "Registrieren"
+    },
+    "email": "E-Mail",
+    "emailPlaceholder": "name@beispiel.de",
+    "password": "Passwort",
+    "register": {
+      "title": "Konto anlegen",
+      "lead": "Dein Geld bleibt deins — der Haushalt kommt später dazu.",
+      "firstName": "Vorname",
+      "lastName": "Nachname",
+      "passwordRule": "Mindestens 8 Zeichen.",
+      "pending": "Wird angelegt…",
+      "hasAccount": "Schon ein Konto?",
+      "login": "Anmelden"
+    }
+  },
+  "nav": {
+    "plan": "Planung",
+    "commitments": "Verträge",
+    "book": "Buch",
+    "accounts": "Konten",
+    "import": "Import",
+    "household": "Haushalt"
+  },
+  "theme": {
+    "light": "Hell",
+    "dark": "Dunkel",
+    "system": "System",
+    "label": "Darstellung"
+  },
+  "memberSwitcher": {
+    "label": "Person, deren Zahlen angezeigt werden",
+    "me": "Ich"
+  },
+  "userMenu": {
+    "account": "Konto",
+    "settings": "Einstellungen",
+    "logout": "Abmelden"
+  },
+  "notFound": {
+    "title": "Diese Seite gibt es nicht",
+    "text": "Vielleicht ein alter Link, vielleicht ein Tippfehler. Beides kein Weltuntergang.",
+    "back": "Zur Planung"
+  },
+  "dateField": {
+    "placeholder": "Datum wählen"
+  },
+  "accountCards": {
+    "label": "Kontostände",
+    "total": "Alle Konten",
+    "count": "{{number}} Konten"
+  },
+  "bookMetrics": {
+    "income": "Eingegangen",
+    "incomeHint": "schon angekommen",
+    "spending": "Ausgegeben",
+    "spendingHint": "samt Weggespartem",
+    "available": "Verfügbar",
+    "balanceOf": "Stand von {{name}}",
+    "balanceOfAccounts": "Stand von {{number}} Konten",
+    "leftover": "Frei nach Abzug",
+    "due": "{{amount}} stehen noch aus"
+  },
+  "paidDialog": {
+    "description": "Das legt zugleich die Buchung im Haushaltsbuch an.",
+    "pending": "Bucht…",
+    "submit": "Abhaken",
+    "title": "{{label}} abhaken",
+    "hasBookings": "Dieser Posten hat schon Buchungen. Abhaken legt keine neue an, deshalb werden Datum und Betrag nicht verwendet.",
+    "differs": "Geplant waren {{planned}} — der Posten steht danach auf {{entered}}."
+  },
+  "common": {
+    "date": "Datum",
+    "amount": "Betrag",
+    "cancel": "Abbrechen",
+    "dueDay": "{{day}}.",
+    "amountPlaceholder": "0,00",
+    "dueOn": "Fällig am",
+    "category": "Kategorie",
+    "budget": "Budget",
+    "account": "Konto",
+    "defaultAccount": "Standardkonto",
+    "counterAccount": "Zielkonto",
+    "goesOut": "Geht raus",
+    "counterAccountHint": "Nur beim Sparen auf ein eigenes Konto. Dann bucht der Haken eine Umbuchung, und der Gesamtstand bleibt richtig.",
+    "paymentMethod": "Zahlungsart",
+    "paymentOpen": "offen",
+    "passThrough": "Durchlaufend",
+    "passThroughHint": "Geld, das nur weitergereicht wird — BuT, eine Rückzahlung, die sofort weggelegt wird. Zählt in kein Budget und in keine Quote.",
+    "assignment": "Zuordnung",
+    "privateOnly": "Nur mein Plan",
+    "delete": "Löschen",
+    "save": "Speichern",
+    "add": "Hinzufügen",
+    "create": "Anlegen",
+    "dayOfMonth": "{{day}}. {{month}}",
+    "percent": "{{value}} %",
+    "edit": "Bearbeiten",
+    "and": "und"
+  },
+  "positionPicker": {
+    "none": "kein Posten",
+    "noPlan": "kein Plan",
+    "limit": "Limit"
+  },
+  "book": {
+    "title": "Buch",
+    "lead": "Was tatsächlich gelaufen ist — Kontostände und jede Buchung darauf.",
+    "noPlan": "Für diesen Monat gibt es keinen Plan. Buchen geht trotzdem — nur zuordnen lässt sich nichts, solange keine Posten da sind.",
+    "leadMember": "Das Buch von {{name}}."
+  },
+  "budget": {
+    "of": "von {{amount}}",
+    "quotaLabel": "{{budget}}: {{percent}} % der Quote",
+    "addPosition": "Posten in {{budget}}",
+    "reopen": "{{label}} wieder öffnen",
+    "markReceived": "{{label}} als erhalten markieren",
+    "tick": "{{label}} abhaken",
+    "fromCommitment": "aus Vertrag",
+    "limit": "Limit",
+    "passThrough": "durchlaufend",
+    "transfer": "Umbuchung",
+    "fillLabel": "{{label}}: {{actual}} von {{planned}}",
+    "actual": "ist {{amount}}"
+  },
+  "printout": {
+    "heading": "Posten — {{number}} Stück",
+    "target": "Soll {{percent}} %",
+    "actualShare": "Ist {{percent}} %",
+    "day": "Tag",
+    "label": "Bezeichnung",
+    "who": "Wer",
+    "sum": "Summe",
+    "actual": "Ist",
+    "actualTotal": "Ist zusammen",
+    "standingOrderOrDebit": "Dauerauftrag / Lastschrift"
+  },
+  "positionDialog": {
+    "editTitle": "Posten bearbeiten",
+    "addTitle": "Posten hinzufügen",
+    "fromCommitment": "Kommt aus einem Vertrag. Änderungen hier gelten nur für diesen Monat.",
+    "oneOff": "Gilt nur für diesen Monat. Wiederkehrendes gehört zu den Verträgen.",
+    "label": "Bezeichnung",
+    "labelPlaceholder": "Rollo fürs Wohnzimmer",
+    "actual": "Tatsächlich bezahlt",
+    "actualPlaceholder": "noch offen",
+    "actualHint": "Nur nötig, wenn der Betrag vom geplanten abweicht. Abgehakt wird in der Liste."
+  },
+  "commitmentDialog": {
+    "types": {
+      "contract": {
+        "label": "Läuft weiter",
+        "hint": "Miete, Handy, Versicherung, Streaming — ohne festes Ende.",
+        "namePlaceholder": "Miete"
+      },
+      "savings_goal": {
+        "label": "Hat ein Ziel",
+        "hint": "Auto, Urlaub, Zähne — es gibt einen Zielbetrag.",
+        "budgetHint": "Alles, was du zurücklegst, zählt hierher.",
+        "namePlaceholder": "Auto"
+      },
+      "debt": {
+        "label": "Wird abbezahlt",
+        "hint": "Kredit oder Rückstand — läuft auf null.",
+        "budgetHint": "Tilgen ist kein Verbrauch — das Geld ist nicht weg, deine Schuld wird kleiner. Unterm Strich derselbe Vorgang wie Sparen.",
+        "namePlaceholder": "Rundfunk-Altrückstand"
+      },
+      "income": {
+        "label": "Kommt rein",
+        "hint": "Gehalt, Kindergeld, Zinsen — Geld, das hereinkommt.",
+        "budgetHint": "Einnahmen sind kein Verbrauch — aus ihnen entsteht erst das Verteilbare, auf das sich die Quoten beziehen.",
+        "namePlaceholder": "Gehalt"
+      }
+    },
+    "limit": "Limit",
+    "limitHint": "Sprit, Lebensmittel, Taschengeld — kein fester Betrag zum Abhaken, du legst nur die Höhe fest. Der Posten läuft über den Monat und füllt sich aus den Buchungen.",
+    "dueIn": "Fällt am {{day}}. an — nächste: {{dates}}",
+    "firstTime": "erstmals {{month}} {{year}}.",
+    "dayShifts": "Den {{day}}. gibt es nicht in jedem Monat — dann rutscht es auf den letzten Tag. Im Februar {{year}} also auf den {{februaryDay}}.",
+    "editTitle": "Vertrag bearbeiten",
+    "addTitle": "Vertrag anlegen",
+    "description": "Einmal anlegen — die Posten für jeden Monat entstehen daraus von selbst.",
+    "rate": "Rate",
+    "interval": "Abstand",
+    "customInterval": "Anderer Abstand",
+    "customIntervalField": "Abstand in Monaten",
+    "intervalRange": "Ganze Monate von {{min}} bis {{max}}.",
+    "noPaymentMethod": "Keine Angabe",
+    "firstDue": "Erste Fälligkeit",
+    "firstDueHint": "Dieses Datum legt fest, ab wann Posten entstehen, in welchem Monat sie fällig sind und an welchem Tag gezahlt wird.",
+    "firstDueHintMonthly": "Der Tag ist der Zahltag. Ab diesem Monat entstehen Posten.",
+    "assignmentHint": "In welchem Plan die Posten landen. Einmal entschieden, gilt für alle künftigen Monate.",
+    "targetAmount": "Zielbetrag",
+    "targetDate": "Zieldatum",
+    "noTargetDate": "Kein Zieldatum",
+    "endsOn": "Läuft bis (letzter Monat)",
+    "noEnd": "Läuft unbegrenzt",
+    "clearEnd": "Kein Ende",
+    "endsOnHint": "Nur Monat und Jahr zählen. Danach entstehen keine neuen Posten mehr. Leer lassen, wenn es unbegrenzt weiterläuft."
+  },
+  "monthBook": {
+    "deleteLabel": "Buchung {{note}} löschen",
+    "noAccountTitle": "Noch kein Konto",
+    "noAccountText": "Ohne Konto lässt sich nichts buchen — leg unter „Konten\" eins an, dann geht es hier weiter.",
+    "empty": "Für diesen Monat ist noch nichts erfasst.",
+    "note": "Notiz",
+    "notePlaceholder": "Supermarkt",
+    "position": "Posten",
+    "noPosition": "Keinem Posten",
+    "transferTo": "Umbuchung nach",
+    "noTransfer": "Keine Umbuchung",
+    "pending": "Sichert…",
+    "transfer": "Umbuchen",
+    "book": "Buchen",
+    "hint": "Datum ist heute. Eine Umbuchung mit Posten füllt zugleich das Budget — so wird aus „aufs Tagesgeld gelegt\" eine erfüllte Sparquote.",
+    "noNote": "Ohne Notiz",
+    "autoBooked": "vom Haken"
+  },
+  "bookFlow": {
+    "income": "Einnahmen",
+    "needs": "Bedarf",
+    "wants": "Wünsche",
+    "savings": "Weggelegt",
+    "balance": "Verfügbarer Saldo",
+    "summary": "verfügbar · {{income}} herein, {{spending}} hinaus"
+  },
+  "monthFlow": {
+    "balance": "Geplanter Saldo",
+    "shortfall": "Du brauchst am 1. mindestens <amount>{{amount}}</amount>",
+    "lowPoint": "Tiefpunkt am {{day}}. — davor fällt mehr an, als bis dahin hereinkommt.",
+    "empty": "Noch keine Posten — sobald welche da sind, zeigt der Verlauf, wann im Monat es eng wird.",
+    "selfCarrying": "Der Monat trägt sich durchgehend selbst.",
+    "selfCarryingHint": "Zu keinem Zeitpunkt steht mehr aus, als bis dahin hereingekommen ist.",
+    "day": "Tag",
+    "position": "Posten",
+    "saldo": "Saldo",
+    "footnote": "Geplante Fälligkeiten, nicht die echten Buchungstage — der Verlauf im Buch sieht deshalb anders aus. Der Saldo in der Tabelle läuft über die Zeilen mit; innerhalb eines Tages gibt es aber keine Reihenfolge, das Diagramm zeigt deshalb den Tagesabschluss."
+  },
+  "sankey": {
+    "needs": "Bedarf",
+    "wants": "Wünsche",
+    "savings": "Sparen",
+    "income": "Einnahmen",
+    "distributable": "Verteilbar",
+    "oneMore": "1 weiterer Posten",
+    "more": "{{number}} weitere Posten",
+    "unplanned": "Noch nicht verplant",
+    "summary": "Verteilbar · davon {{amount}} noch nicht verplant",
+    "empty": "Für dieses Diagramm braucht der Monat Einnahmen und Posten. Sobald etwas geplant ist, steht hier, wohin es geht."
+  },
+  "plans": {
+    "leadMember": "Die Monatspläne von {{name}}. Klick einen an, um hineinzuschauen.",
+    "emptyMemberEdit": "{{name}} hat noch keinen Monat angelegt. Du darfst einen anlegen — die Posten entstehen aus {{name}}s Verträgen.",
+    "emptyMember": "{{name}} hat noch keinen Monat angelegt.",
+    "createFor": "Monat für {{name}} anlegen",
+    "createForHint": "Die Posten entstehen aus {{name}}s Verträgen, nicht aus deinen. Einzelposten schreibst du danach dazu.",
+    "title": "Planung",
+    "lead": "Deine Monatspläne. Klick einen an, um ihn zu verplanen.",
+    "create": "Monat anlegen",
+    "empty": "Noch kein Monat angelegt. Leg einen an — die Posten aus deinen Verträgen entstehen dabei von selbst.",
+    "allPaid": "alles bezahlt",
+    "household": "Haushalt",
+    "allocatable": "Verplanbar",
+    "open": "Noch offen",
+    "createHint": "Die Posten aus deinen Verträgen entstehen dabei von selbst. Einzelposten schreibst du danach dazu.",
+    "month": "Monat",
+    "year": "Jahr",
+    "creating": "Wird angelegt…"
+  },
+  "commitments": {
+    "targetUntil": "Ziel {{target}} bis {{date}}",
+    "target": "Ziel {{target}}",
+    "leadMemberEdit": "Die Verträge von {{name}}. Du darfst sie ändern.",
+    "leadMemberView": "Die Verträge von {{name}}. Nur zum Ansehen.",
+    "private": "privat",
+    "menuLabel": "{{name}} bearbeiten oder löschen",
+    "deleteTitle": "„{{name}}\" löschen?",
+    "title": "Verträge",
+    "lead": "Alles Wiederkehrende — Miete, Abos, Sparpläne, Kredite. Einmal angelegt, erzeugt es seine Posten selbst.",
+    "create": "Vertrag anlegen",
+    "empty": "Noch kein Vertrag angelegt.",
+    "perMonth": "Ø / Monat",
+    "endedSince": "beendet seit {{month}}",
+    "filterLabel": "Anzeigen",
+    "status": {
+      "active": "Aktiv",
+      "ended": "Beendet",
+      "all": "Alle"
+    },
+    "emptyEnded": "Kein Vertrag ist beendet.",
+    "nextDue": "nächste: {{dates}}",
+    "deleteText": "Bereits geplante Posten in laufenden Monaten bleiben stehen. Für künftige Monate entsteht nichts mehr."
+  },
+  "accounts": {
+    "leadMemberEdit": "Die Konten von {{name}}. Du darfst sie ändern.",
+    "leadMemberView": "Die Konten von {{name}}. Nur zum Ansehen.",
+    "openingFrom": "Anfangsbestand vom {{date}}",
+    "title": "Konten",
+    "lead": "Wo dein Geld liegt. Konten sind privat — für die gemeinsame Planung zählt, was auf den Posten steht.",
+    "create": "Konto anlegen",
+    "empty": "Noch kein Konto. Leg eins an — ohne Konto lässt sich später nichts ins Haushaltsbuch buchen.",
+    "default": "Standard",
+    "closed": "aufgelöst",
+    "edit": "Konto bearbeiten",
+    "dialogDescription": "Der Stand ergibt sich später aus Anfangsbestand plus Buchungen. Ein Depot gehört nicht hierher — nur sein Verrechnungskonto.",
+    "namePlaceholder": "Girokonto",
+    "type": "Art",
+    "openingBalance": "Anfangsbestand",
+    "openingDate": "Stand vom",
+    "iban": "IBAN",
+    "ibanPlaceholder": "DE00 0000 0000 0000 0000 00",
+    "ibanHint": "Freiwillig. Damit erkennt Duofy Umbuchungen auf dieses Konto und fragt nicht nach einer Kategorie.",
+    "defaultHint": "Wird beim schnellen Buchen vorausgewählt. Ein zweites löst das bisherige ab.",
+    "countsAsAvailable": "Zählt als verfügbar",
+    "countsAsAvailableHint": "Aus beim Tagesgeld oder Depot: was dorthin wandert, gilt im Buch als ausgegeben. An bei Giro und PayPal — dort bleibt das Geld greifbar.",
+    "active": "Aktiv",
+    "activeHint": "Aufgelöste Konten bleiben stehen, damit alte Buchungen ihren Bezug behalten.",
+    "saving": "Wird gesichert…",
+    "save": "Sichern"
+  },
+  "household": {
+    "roles": {
+      "owner": "Besitzer",
+      "member": "Mitglied"
+    },
+    "memberCount": "{{number}} Mitglieder",
+    "inviteTitle": "Zu „{{name}}\" einladen",
+    "invitedBy": "{{name}} lädt dich in „{{household}}\" ein",
+    "validUntil": "Gültig bis {{date}}",
+    "title": "Haushalt",
+    "lead": "Ein Haushalt sagt nur, wer zusammen plant. Er besitzt nichts — Konten und Verträge gehören immer einer Person.",
+    "you": "du",
+    "invite": "Einladen",
+    "rename": "Umbenennen",
+    "leave": "Austreten",
+    "inviteDescription": "Wer beitritt, sieht ab dann alle Posten, die in diesen Haushalt eingebracht wurden — und darf sie ändern.",
+    "inviteHint": "Private Posten bleiben privat. Nur was ausdrücklich dem Haushalt zugeordnet ist, wird geteilt.",
+    "sending": "Wird gesendet…",
+    "sendInvite": "Einladung senden",
+    "decline": "Ablehnen",
+    "join": "Beitreten",
+    "create": "Haushalt anlegen",
+    "createDescription": "Wer anlegt, wird Besitzer. Danach kannst du jemanden einladen.",
+    "name": "Name",
+    "namePlaceholder": "Unser Haushalt",
+    "youShare": "Du teilst:",
+    "invitePlaceholder": "partner@beispiel.de"
+  },
+  "import": {
+    "leadMember": "Die Parkposition von {{name}}.",
+    "parkedCount": "{{number}} geparkt",
+    "withoutCategory": "{{number}} ohne Kategorie",
+    "unknownIban": "Die Datei gehört zu <iban>{{iban}}</iban>. Zu welchem Konto?",
+    "read": "<number>{{number}}</number> gelesen",
+    "parked": "<number>{{number}}</number> geparkt",
+    "known": "{{number}} schon bekannt",
+    "table": {
+      "date": "Datum",
+      "counterparty": "Empfänger / Zahler",
+      "purpose": "Verwendungszweck",
+      "position": "Posten im Plan"
+    },
+    "alreadyBooked": "Schon gebucht — die andere Seite dieser Umbuchung steht im Buch ({{name}}).",
+    "maybeBooked": "Könnte die andere Seite einer Umbuchung sein, die schon im Buch steht ({{name}}). Dann wäre Buchen doppelt.",
+    "suggestedPosition": "Posten",
+    "lead": "Lade eine Umsatzdatei deiner Bank hoch — CAMT oder CSV. Die Buchungen warten hier, bis du sie zuordnest.",
+    "reading": "Wird gelesen …",
+    "upload": "Datei hochladen",
+    "empty": "Die Parkposition ist leer.",
+    "rememberAccount": "Duofy merkt sich die Antwort am Konto — beim nächsten Mal geht es von allein.",
+    "pickAccount": "Konto wählen …",
+    "balancesDiffer": "Die Salden gehen nicht auf — fehlt eine Seite der Datei?",
+    "from": "von",
+    "to": "nach",
+    "otherAccount": "anderem Konto",
+    "undo": "zurücknehmen",
+    "fromPosition": "Kommt aus dem Posten",
+    "pick": "wählen …",
+    "discard": "Verwerfen",
+    "suggestion": "Vorschlag:",
+    "transferGuess": "Umbuchung?",
+    "bookAsTransfer": "Als Umbuchung buchen",
+    "accept": "Übernehmen"
+  },
+  "plan": {
+    "printHeader": "Duofy · Monatsplan {{month}} {{year}} · gedruckt am {{date}}",
+    "positionsFrom": "{{number}} Posten aus {{household}}",
+    "untickText": "Das nimmt die Buchung über <amount>{{amount}}</amount> aus dem Haushaltsbuch. Von Hand erfasste Buchungen an diesem Posten bleiben stehen.",
+    "memberLead": "{{name}}s ganzer Monat, auch die privaten Posten — so freigegeben.",
+    "printHeaderHousehold": "Duofy · Haushalt {{household}} · {{month}} {{year}} · gedruckt am {{date}}",
+    "stillPrivateOne": "{{names}} teilt noch keine Zahlen — die Summen unten sind unvollständig. Umstellen lässt sich das nur von ihr oder ihm selbst, unter „Haushalt\".",
+    "stillPrivateMany": "{{names}} teilen noch keine Zahlen — die Summen unten sind unvollständig. Umstellen lässt sich das nur von ihnen selbst, unter „Haushalt\".",
+    "allPlans": "Alle Pläne",
+    "lead": "Verplane den Monat, bevor er anfängt. Die Quoten sind Richtwerte — es zählt, dass es aufgeht.",
+    "print": "Drucken",
+    "income": "Einnahmen",
+    "notDistributed": "noch nicht verteilt",
+    "notPaid": "noch nicht bezahlt",
+    "tabPlan": "Plan",
+    "tabFlow": "Verlauf",
+    "untickTitle": "Buchung mit entfernen?",
+    "untick": "Haken wegnehmen",
+    "standIn": "Vertretung",
+    "viewOnly": "Nur zum Ansehen.",
+    "mayDelete": "Du darfst abhaken, ändern, dazuschreiben und löschen; jede Änderung wird protokolliert.",
+    "mayEdit": "Du darfst abhaken, ändern und Posten dazuschreiben; jede Änderung wird protokolliert. Löschen bleibt beim Besitzer.",
+    "householdLead": "Alle Posten, die ihr gemeinsam tragt. Zusammengesetzt aus den Plänen aller Mitglieder — geändert wird im eigenen Plan.",
+    "nothingShared": "Noch nichts Gemeinsames",
+    "nothingSharedHint": "Setz im eigenen Plan bei einem Posten den Haushalt — dann taucht er hier auf."
+  },
+  "ui": {
+    "close": "Schließen",
+    "sidebar": {
+      "title": "Seitenleiste",
+      "description": "Zeigt die Seitenleiste auf dem Handy.",
+      "toggle": "Seitenleiste ein- oder ausblenden"
+    },
+    "notifications": "Benachrichtigungen"
+  }
+}

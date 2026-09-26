@@ -1,9 +1,9 @@
 import { useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { ArrowLeft, Eye, Pencil, Plus, Printer, Users } from 'lucide-react'
 
-import { AccountCards } from '@/components/AccountCards'
-import { BookFlow } from '@/components/BookFlow'
+import { useActiveMember } from '@/hooks/use-active-member'
 import { BookMetrics } from '@/components/BookMetrics'
 import { BudgetSection } from '@/components/BudgetSection'
 import { PaidDialog } from '@/components/PaidDialog'
@@ -17,7 +17,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { MonthBook } from '@/components/MonthBook'
 import { Metric } from '@/components/Metric'
 import { PlanPrintout } from '@/components/PlanPrintout'
 import { PlanSankey } from '@/components/PlanSankey'
@@ -25,12 +24,8 @@ import { longDate, today } from '@/lib/dates'
 import { MonthFlow } from '@/components/MonthFlow'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PositionDialog } from '@/components/PositionDialog'
-import {
-  Alert,
-  AlertAction,
-  AlertDescription,
-  AlertTitle,
-} from '@/components/ui/alert'
+import { errorText } from '@/lib/api'
+import { positionHasBookings } from '@/lib/paid'
 import {
   Empty,
   EmptyDescription,
@@ -42,9 +37,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
   useDeletePosition,
-  useAccounts,
   useHouseholdPlan,
-  useMemberPlan,
   useHouseholds,
   useTransactions,
   usePlan,
@@ -53,17 +46,17 @@ import {
 } from '@/lib/queries'
 import {
   BUDGETS,
-  MONTH_LABEL,
+  monthLabel,
   QUOTA_KEY,
   euro,
   isPaid,
   stillDue,
-  type Block,
+  type Budget,
+  atLeast,
   type HouseholdPlanDetail,
   type HouseholdPosition,
   type BookScope,
   type Member,
-  type MemberPlanDetail,
   type PlanDetail,
   type PlanPosition,
 } from '@/lib/domain'
@@ -72,12 +65,15 @@ import {
  * One monthly plan in detail — the heart of the app.
  *
  * The flow follows the ritual: expect the income, subtract the buffer, distribute
- * the rest across the three blocks, check whether it works out, confirm.
+ * the rest across the three budgets, check whether it works out, confirm.
  *
  * The quotas are **guidelines**, not rules. There is a target, the actual figure
  * stands next to it, and one decides whether that is acceptable.
  */
+const TABS = new Set(['plan', 'flow'])
+
 export function PlanDetailPage() {
+  const { t } = useTranslation()
   const { year, month } = useParams()
   // The household lives in the URL, not in a global switcher. That makes the
   // shared view a place one can link to and reload — and it is visible why the page
@@ -93,12 +89,15 @@ export function PlanDetailPage() {
   // All three hooks are always present — React does not allow conditional hooks.
   // The unused ones are switched off through `enabled` and load nothing.
   const ownPlan = usePlan(Number(year), Number(month), !shared && !foreign)
+  // Name and level come from the member list the sidebar already loaded — the plan
+  // itself says nothing about whose it is, and it does not have to.
+  const active = useActiveMember()
   const householdPlan = useHouseholdPlan(
     householdId,
     Number(year),
     Number(month)
   )
-  const memberPlan = useMemberPlan(memberId, Number(year), Number(month))
+  const memberPlan = usePlan(Number(year), Number(month), foreign, memberId)
   const query = shared ? householdPlan : foreign ? memberPlan : ownPlan
 
   const households = useHouseholds()
@@ -125,7 +124,7 @@ export function PlanDetailPage() {
         className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1.5 text-sm"
       >
         <ArrowLeft className="size-4" />
-        Alle Pläne
+        {t('plan.allPlans')}
       </Link>
 
       <QueryState isPending={query.isPending} error={query.error} rows={4}>
@@ -139,7 +138,7 @@ export function PlanDetailPage() {
                     (household) => household.id === householdId
                   )?.members ?? []
                 }
-                tab={params.get('tab') ?? 'plan'}
+                tab={TABS.has(params.get('tab') ?? '') ? params.get('tab')! : 'plan'}
                 onTab={setTab}
               />
             )
@@ -147,8 +146,12 @@ export function PlanDetailPage() {
             ? memberPlan.data && (
                 <MemberPlanBody
                   plan={memberPlan.data}
+                  ownerId={memberId ?? ''}
+                  ownerName={active.member?.firstName ?? ''}
+                  mayEdit={atLeast(active.levelFor('plan'), 'edit')}
+                  mayDelete={atLeast(active.levelFor('plan'), 'delete')}
                   householdNames={names}
-                  tab={params.get('tab') ?? 'plan'}
+                  tab={TABS.has(params.get('tab') ?? '') ? params.get('tab')! : 'plan'}
                   onTab={setTab}
                 />
               )
@@ -167,6 +170,7 @@ function PlanBody({
   plan: PlanDetail
   householdNames: Record<string, string>
 }) {
+  const { t } = useTranslation()
   const savePosition = useSavePosition()
   const deletePosition = useDeletePosition()
   const togglePaid = useTogglePaid()
@@ -180,7 +184,9 @@ function PlanBody({
   // The values are English while the labels are German: the interface will be
   // translated later and a URL should stay stable through that.
   const [params, setParams] = useSearchParams()
-  const tab = params.get('tab') ?? 'plan'
+  // `book` war einmal ein Reiter und ist jetzt eine eigene Seite. Alte Links
+  // und Lesezeichen zeigen sonst auf einen Reiter ohne Inhalt.
+  const tab = TABS.has(params.get('tab') ?? '') ? params.get('tab')! : 'plan'
   const setTab = (value: string) =>
     setParams(
       (current: URLSearchParams) => {
@@ -191,20 +197,14 @@ function PlanBody({
     )
 
   const [editing, setEditing] = useState<PlanPosition | null>(null)
-  const [addingTo, setAddingTo] = useState<Block>('wants')
+  const [addingTo, setAddingTo] = useState<Budget>('wants')
   const [dialogOpen, setDialogOpen] = useState(false)
 
   // For the confirmation when un-ticking: which booking hangs off which position.
   const transactions = useTransactions(plan.year, plan.month)
-  const accounts = useAccounts().data ?? []
-  const hasDefaultAccount = accounts.some(
-    (account) => account.active && account.isDefault
-  )
 
   /** The position whose self-created booking is about to disappear. */
   const [confirming, setConfirming] = useState<PlanPosition | null>(null)
-  /** Last ticked off without a booking being possible. */
-  const [noAccountFor, setNoAccountFor] = useState<string | null>(null)
 
   const autoBookedOf = (position: PlanPosition) =>
     transactions.data?.find(
@@ -230,50 +230,40 @@ function PlanBody({
       return
     }
 
-    if (!position.isBudget && !position.accountId && !hasDefaultAccount) {
-      setNoAccountFor(position.label)
-      togglePaid.mutate({ id: position.id, paid: true })
-      return
-    }
-
-    // If an actual amount is already there, bookings exist — then the tick adds
-    // nothing and there is nothing to ask. Otherwise ask for date and amount,
-    // because both go into the book exactly as entered.
-    if (position.amountActual !== null) {
-      togglePaid.mutate({ id: position.id, paid: true })
-      return
-    }
-
+    // Always ask, even for a position that already has bookings: the dialog says
+    // that date and amount are not used then, and shows a rejected tick in place.
     setBooking(position)
   }
 
-  const groups = BUDGETS.map((block) => {
-    const key = block as keyof typeof QUOTA_KEY
+  const groups = BUDGETS.map((budget) => {
+    const key = budget as keyof typeof QUOTA_KEY
     return {
-      block,
-      rows: plan.positions.filter((row) => row.block === block),
+      budget,
+      rows: plan.positions.filter((row) => row.budget === budget),
       quota: Number(plan[QUOTA_KEY[key]]),
-      target: Number(plan.budget) * (Number(plan[QUOTA_KEY[key]]) / 100),
+      target: Number(plan.distributable) * (Number(plan[QUOTA_KEY[key]]) / 100),
     }
   })
 
   // Income deliberately sits outside `groups`: it has no quota and must not flow
-  // into `allocated`, otherwise the remaining budget would be wrong.
-  const incomeRows = plan.positions.filter((row) => row.block === 'income')
+  // into `allocated`, otherwise the remainder would be wrong.
+  const incomeRows = plan.positions.filter((row) => row.budget === 'income')
 
-  // What is left to allocate is the free remainder of the budget, not the budget.
+  // What is left to allocate is the free remainder of the distributable amount,
+  // not the amount itself.
   const allocated = groups.reduce(
     (total, group) =>
       total +
       group.rows.reduce(
-        // Pass-through money was never budget — neither in `plan.budget` above nor
-        // here. Subtracting it only here would make the remainder too large.
+        // Pass-through money was never distributable — neither in
+        // `plan.distributable` above nor here. Subtracting it only here would make
+        // the remainder too large.
         (sum, row) => (row.passThrough ? sum : sum + Number(row.amountPlanned)),
         0
       ),
     0
   )
-  const free = Number(plan.budget) - allocated
+  const free = Number(plan.distributable) - allocated
 
   // What is still open is what has to be paid this month. Partial amounts already
   // recorded are subtracted, see `stillDue`.
@@ -290,9 +280,9 @@ function PlanBody({
     {}
   )
 
-  function handleAdd(block: Block) {
+  function handleAdd(budget: Budget) {
     setEditing(null)
-    setAddingTo(block)
+    setAddingTo(budget)
     setDialogOpen(true)
   }
 
@@ -301,8 +291,11 @@ function PlanBody({
       {/* Nur auf Papier: ohne Topbar fehlte sonst jeder Hinweis, was das Blatt
           ist und von wann es stammt. */}
       <p className="text-muted-foreground hidden text-xs print:block">
-        Duofy · Monatsplan {MONTH_LABEL[plan.month - 1]} {plan.year} · gedruckt
-        am {longDate(today())}
+        {t('plan.printHeader', {
+          month: monthLabel(plan.month),
+          year: plan.year,
+          date: longDate(today()),
+        })}
       </p>
 
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -312,18 +305,20 @@ function PlanBody({
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="font-heading text-3xl font-semibold">
-              {MONTH_LABEL[plan.month - 1]} {plan.year}
+              {monthLabel(plan.month)} {plan.year}
             </h1>
             {Object.entries(householdCounts).map(([id, count]) => (
               <Badge key={id} variant="secondary" className="gap-1 font-normal">
                 <Users className="size-3" />
-                {count} Posten aus {householdNames[id] ?? 'Haushalt'}
+                {t('plan.positionsFrom', {
+                  number: count,
+                  household: householdNames[id] ?? t('plans.household'),
+                })}
               </Badge>
             ))}
           </div>
           <p className="text-muted-foreground print:hidden">
-            Verplane den Monat, bevor er anfängt. Die Quoten sind Richtwerte —
-            es zählt, dass es aufgeht.
+            {t('plan.lead')}
           </p>
         </div>
         {/* Eigene Gruppe: der Kopf hat `justify-between` und genau zwei
@@ -346,11 +341,11 @@ function PlanBody({
             }}
           >
             <Printer className="size-4" />
-            Drucken
+            {t('plan.print')}
           </Button>
           <Button onClick={() => handleAdd('wants')}>
             <Plus className="size-4" />
-            Posten hinzufügen
+            {t('positionDialog.addTitle')}
           </Button>
         </div>
       </header>
@@ -367,39 +362,16 @@ function PlanBody({
         />
       ) : (
         <section className="grid gap-3 sm:grid-cols-3">
-          <Metric label="Einnahmen" value={Number(plan.income)} />
+          <Metric label={t('plan.income')} value={Number(plan.income)} />
           <Metric
-            label="Verplanbar"
+            label={t('plans.allocatable')}
             value={free}
-            hint="noch nicht verteilt"
+            hint={t('plan.notDistributed')}
             strong
             tone={free < 0 ? 'over' : 'neutral'}
           />
-          <Metric label="Noch offen" value={unpaid} hint="noch nicht bezahlt" />
+          <Metric label={t('plans.open')} value={unpaid} hint={t('plan.notPaid')} />
         </section>
-      )}
-
-      {noAccountFor && (
-        <Alert>
-          <AlertTitle>Abgehakt, aber nichts gebucht</AlertTitle>
-          <AlertDescription>
-            <span className="font-medium">{noAccountFor}</span> ist erledigt —
-            es fehlt aber ein Standardkonto, auf das die Buchung gehen könnte.{' '}
-            <Link to="/accounts" className="underline underline-offset-4">
-              Konto anlegen
-            </Link>
-          </AlertDescription>
-          <AlertAction>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setNoAccountFor(null)}
-            >
-              Verstanden
-            </Button>
-          </AlertAction>
-        </Alert>
       )}
 
       {/* Tabs statt Untereinander: der Verlauf beantwortet eine andere Frage
@@ -421,28 +393,12 @@ function PlanBody({
         className="gap-6"
       >
         <TabsList data-print="hide">
-          <TabsTrigger value="plan">Plan</TabsTrigger>
-          <TabsTrigger value="flow">Verlauf</TabsTrigger>
-          <TabsTrigger value="book">Buch</TabsTrigger>
+          <TabsTrigger value="plan">{t('plan.tabPlan')}</TabsTrigger>
+          <TabsTrigger value="flow">{t('plan.tabFlow')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="flow">
           <MonthFlow
-            positions={plan.positions}
-            year={plan.year}
-            month={plan.month}
-          />
-        </TabsContent>
-
-        <TabsContent value="book" className="flex flex-col gap-6">
-          {/* Die Kontostände gehören zum Buch, nicht zum Plan: sie sagen, was
-              wirklich da ist. Unter den Plan-Karten, damit man beides in
-              einem Blick hat. */}
-          <AccountCards />
-
-          <BookFlow year={plan.year} month={plan.month} />
-
-          <MonthBook
             positions={plan.positions}
             year={plan.year}
             month={plan.month}
@@ -475,14 +431,14 @@ function PlanBody({
             />
             <PlanSankey
               positions={plan.positions}
-              budget={plan.budget}
+              distributable={plan.distributable}
               height="h-56"
               threshold={0.05}
             />
           </div>
 
           <div className="print:hidden">
-            <PlanSankey positions={plan.positions} budget={plan.budget} />
+            <PlanSankey positions={plan.positions} distributable={plan.distributable} />
           </div>
 
       {/* Auf Papier ersetzt `PlanPrintout` diese Liste — dort trägt jede Zeile
@@ -492,7 +448,7 @@ function PlanBody({
         {/* Einnahmen zuerst — sie sind die Grundlage für alles darunter.
             target={null}, weil es für Einnahmen keine Quote gibt. */}
         <BudgetSection
-          block="income"
+          budget="income"
           target={null}
           positions={incomeRows}
           householdNames={householdNames}
@@ -506,8 +462,8 @@ function PlanBody({
 
         {groups.map((group) => (
           <BudgetSection
-            key={group.block}
-            block={group.block}
+            key={group.budget}
+            budget={group.budget}
             target={group.target}
             positions={group.rows}
             householdNames={householdNames}
@@ -525,20 +481,28 @@ function PlanBody({
 
       <PlanPrintout plan={plan} />
 
-
       {/* Enthaken entfernt die vom Haken erzeugte Buchung. Der Betrag steht
           in der Frage, damit man sieht, was verloren geht — falls er nach dem
           Abhaken von Hand korrigiert wurde. */}
       <PaidDialog
         position={booking}
-        onClose={() => setBooking(null)}
+        onClose={() => {
+          setBooking(null)
+          togglePaid.reset()
+        }}
         onConfirm={({ occurredOn, amount }) => {
           if (booking) {
-            togglePaid.mutate({ id: booking.id, paid: true, occurredOn, amount })
+            togglePaid.mutate(
+              { id: booking.id, paid: true, occurredOn, amount },
+              { onSuccess: () => setBooking(null) }
+            )
           }
-          setBooking(null)
         }}
         pending={togglePaid.isPending}
+        hasBookings={
+          booking ? positionHasBookings(booking.id, transactions.data) : false
+        }
+        error={togglePaid.isError ? errorText(togglePaid.error) : null}
       />
 
       <AlertDialog
@@ -547,24 +511,29 @@ function PlanBody({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Buchung mit entfernen?</AlertDialogTitle>
+            <AlertDialogTitle>{t('plan.untickTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
               {confirming && (
                 <>
-                  Das nimmt die Buchung über{' '}
-                  <span className="text-foreground font-mono font-medium">
-                    {euro.format(
-                      Number(autoBookedOf(confirming)?.amount ?? 0)
-                    )}
-                  </span>{' '}
-                  aus dem Haushaltsbuch. Von Hand erfasste Buchungen an diesem
-                  Posten bleiben stehen.
+                  <Trans
+                    i18nKey="plan.untickText"
+                    values={{
+                      amount: euro.format(
+                        Number(autoBookedOf(confirming)?.amount ?? 0)
+                      ),
+                    }}
+                    components={{
+                      amount: (
+                        <span className="text-foreground font-mono font-medium" />
+                      ),
+                    }}
+                  />
                 </>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (confirming) {
@@ -573,7 +542,7 @@ function PlanBody({
                 setConfirming(null)
               }}
             >
-              Haken wegnehmen
+              {t('plan.untick')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -581,7 +550,7 @@ function PlanBody({
 
       <PositionDialog
         position={editing}
-        block={editing?.block ?? addingTo}
+        budget={editing?.budget ?? addingTo}
         planId={plan.id}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
@@ -610,25 +579,36 @@ function PlanBody({
  */
 function MemberPlanBody({
   plan,
+  ownerId,
+  ownerName,
+  mayEdit,
+  mayDelete,
   householdNames,
   tab,
   onTab,
 }: {
-  plan: MemberPlanDetail
+  plan: PlanDetail
+  ownerId: string
+  ownerName: string
+  /** Only decides whether buttons are offered. The endpoint checks it again. */
+  mayEdit: boolean
+  /** A step above `mayEdit`: deleting is neither logged nor reversible. */
+  mayDelete: boolean
   householdNames: Record<string, string>
   tab: string
   onTab: (value: string) => void
 }) {
-  const groups = BUDGETS.map((block) => {
-    const key = block as keyof typeof QUOTA_KEY
+  const { t } = useTranslation()
+  const groups = BUDGETS.map((budget) => {
+    const key = budget as keyof typeof QUOTA_KEY
     return {
-      block,
-      rows: plan.positions.filter((row) => row.block === block),
-      target: Number(plan.budget) * (Number(plan[QUOTA_KEY[key]]) / 100),
+      budget,
+      rows: plan.positions.filter((row) => row.budget === budget),
+      target: Number(plan.distributable) * (Number(plan[QUOTA_KEY[key]]) / 100),
     }
   })
 
-  const incomeRows = plan.positions.filter((row) => row.block === 'income')
+  const incomeRows = plan.positions.filter((row) => row.budget === 'income')
 
   const allocated = groups.reduce(
     (total, group) =>
@@ -639,20 +619,32 @@ function MemberPlanBody({
       ),
     0
   )
-  const free = Number(plan.budget) - allocated
+  const free = Number(plan.distributable) - allocated
   const unpaid = plan.positions.reduce((sum, row) => sum + stillDue(row), 0)
 
-  // Acting on their behalf: tick off and change if the level allows it.
-  // **Creating** stays out, see `canAdd` in BudgetSection.
-  const scope: BookScope = { kind: 'member', ownerId: plan.ownerId }
+  // Acting on their behalf: at level `edit` everything the owner can do except
+  // deleting. Adding used to be excluded on the grounds that a new position is a
+  // decision, not a correction — but somebody who helps plan runs into a missing
+  // position immediately, and sending them away at that point makes the whole
+  // delegation useless. Deleting stays out: changing is logged and reversible,
+  // deleting is neither.
+  const scope: BookScope = { kind: 'member', ownerId }
 
   const togglePaid = useTogglePaid()
   const savePosition = useSavePosition()
+  const deletePosition = useDeletePosition()
   const [editing, setEditing] = useState<PlanPosition | null>(null)
+  const [addingTo, setAddingTo] = useState<Budget>('wants')
   const [dialogOpen, setDialogOpen] = useState(false)
 
   function openEditor(position: PlanPosition) {
     setEditing(position)
+    setDialogOpen(true)
+  }
+
+  function handleAdd(budget: Budget) {
+    setEditing(null)
+    setAddingTo(budget)
     setDialogOpen(true)
   }
 
@@ -666,25 +658,32 @@ function MemberPlanBody({
       <header className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="font-heading text-3xl font-semibold">
-            {MONTH_LABEL[plan.month - 1]} {plan.year}
+            {monthLabel(plan.month)} {plan.year}
           </h1>
           <Badge variant="secondary" className="gap-1 font-normal">
             <Eye className="size-3" />
-            {plan.ownerName}
+            {ownerName}
           </Badge>
-          {plan.mayEdit && (
+          {mayEdit && (
             <Badge variant="outline" className="gap-1 font-normal">
               <Pencil className="size-3" />
-              Vertretung
+              {t('plan.standIn')}
             </Badge>
+          )}
+          {mayEdit && (
+            <Button size="sm" className="ml-auto" onClick={() => handleAdd('wants')}>
+              <Plus className="size-4" />
+              {t('positionDialog.addTitle')}
+            </Button>
           )}
         </div>
         <p className="text-muted-foreground">
-          {plan.ownerName}s ganzer Monat, auch die privaten Posten — so
-          freigegeben.{' '}
-          {plan.mayEdit
-            ? 'Du darfst abhaken und ändern; jede Änderung wird protokolliert.'
-            : 'Nur zum Ansehen.'}
+          {t('plan.memberLead', { name: ownerName })}{' '}
+          {!mayEdit
+            ? t('plan.viewOnly')
+            : mayDelete
+              ? t('plan.mayDelete')
+              : t('plan.mayEdit')}
         </p>
       </header>
 
@@ -697,23 +696,22 @@ function MemberPlanBody({
         />
       ) : (
         <section className="grid gap-3 sm:grid-cols-3">
-          <Metric label="Einnahmen" value={Number(plan.income)} />
+          <Metric label={t('plan.income')} value={Number(plan.income)} />
           <Metric
-            label="Verplanbar"
+            label={t('plans.allocatable')}
             value={free}
-            hint="noch nicht verteilt"
+            hint={t('plan.notDistributed')}
             strong
             tone={free < 0 ? 'over' : 'neutral'}
           />
-          <Metric label="Noch offen" value={unpaid} hint="noch nicht bezahlt" />
+          <Metric label={t('plans.open')} value={unpaid} hint={t('plan.notPaid')} />
         </section>
       )}
 
       <Tabs value={tab} onValueChange={onTab} className="gap-6">
         <TabsList>
-          <TabsTrigger value="plan">Plan</TabsTrigger>
-          <TabsTrigger value="flow">Verlauf</TabsTrigger>
-          <TabsTrigger value="book">Buch</TabsTrigger>
+          <TabsTrigger value="plan">{t('plan.tabPlan')}</TabsTrigger>
+          <TabsTrigger value="flow">{t('plan.tabFlow')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="flow">
@@ -724,55 +722,44 @@ function MemberPlanBody({
           />
         </TabsContent>
 
-        <TabsContent value="book" className="flex flex-col gap-6">
-          <AccountCards scope={scope} />
-          <BookFlow year={plan.year} month={plan.month} scope={scope} />
-          <MonthBook
-            positions={plan.positions}
-            year={plan.year}
-            month={plan.month}
-            scope={scope}
-            readOnly={!plan.mayEdit}
-          />
-        </TabsContent>
-
         <TabsContent value="plan">
           <div className="flex flex-col gap-8">
             <BudgetSection
-              block="income"
+              budget="income"
               target={null}
               positions={incomeRows}
               householdNames={householdNames}
               onEdit={openEditor}
-              onAdd={() => {}}
+              onAdd={handleAdd}
               onTogglePaid={toggle}
-              readOnly={!plan.mayEdit}
-              canAdd={false}
+              readOnly={!mayEdit}
+              canAdd={mayEdit}
             />
 
             {groups.map((group) => (
               <BudgetSection
-                key={group.block}
-                block={group.block}
+                key={group.budget}
+                budget={group.budget}
                 target={group.target}
                 positions={group.rows}
                 householdNames={householdNames}
                 onEdit={openEditor}
-                onAdd={() => {}}
+                onAdd={handleAdd}
                 onTogglePaid={toggle}
-                readOnly={!plan.mayEdit}
-                canAdd={false}
+                readOnly={!mayEdit}
+                canAdd={mayEdit}
               />
             ))}
           </div>
         </TabsContent>
       </Tabs>
 
-      {/* Kein Löschen als Vertretung: ändern ist protokolliert und umkehrbar,
-          löschen ist beides nicht. Der Endpunkt lehnt es ohnehin ab. */}
+      {/* Löschen nur ab der Stufe `delete`: ändern steht im Protokoll und lässt
+          sich zurücknehmen, löschen tut beides nicht. Der Endpunkt prüft es
+          ohnehin noch einmal. */}
       <PositionDialog
         position={editing}
-        block={editing?.block ?? 'needs'}
+        budget={editing?.budget ?? addingTo}
         planId={plan.id}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
@@ -782,7 +769,14 @@ function MemberPlanBody({
             { onSuccess: () => setDialogOpen(false) }
           )
         }
-        onDelete={null}
+        onDelete={
+          mayDelete && editing
+            ? () => {
+                deletePosition.mutate(editing.id)
+                setDialogOpen(false)
+              }
+            : null
+        }
       />
     </>
   )
@@ -802,29 +796,31 @@ function HouseholdPlanBody({
   tab: string
   onTab: (value: string) => void
 }) {
-  const groups = BUDGETS.map((block) => {
-    const key = block as keyof typeof QUOTA_KEY
+  const { t } = useTranslation()
+  const groups = BUDGETS.map((budget) => {
+    const key = budget as keyof typeof QUOTA_KEY
     return {
-      block,
-      rows: plan.positions.filter((row) => row.block === block),
-      target: Number(plan.budget) * (Number(plan[QUOTA_KEY[key]]) / 100),
+      budget,
+      rows: plan.positions.filter((row) => row.budget === budget),
+      target: Number(plan.distributable) * (Number(plan[QUOTA_KEY[key]]) / 100),
     }
   })
 
-  const incomeRows = plan.positions.filter((row) => row.block === 'income')
+  const incomeRows = plan.positions.filter((row) => row.budget === 'income')
 
   const allocated = groups.reduce(
     (total, group) =>
       total +
       group.rows.reduce(
-        // Pass-through money was never budget — neither in `plan.budget` above nor
-        // here. Subtracting it only here would make the remainder too large.
+        // Pass-through money was never distributable — neither in
+        // `plan.distributable` above nor here. Subtracting it only here would make
+        // the remainder too large.
         (sum, row) => (row.passThrough ? sum : sum + Number(row.amountPlanned)),
         0
       ),
     0
   )
-  const free = Number(plan.budget) - allocated
+  const free = Number(plan.distributable) - allocated
 
   const unpaid = plan.positions.reduce((sum, row) => sum + stillDue(row), 0)
 
@@ -836,8 +832,10 @@ function HouseholdPlanBody({
 
   const scope: BookScope = { kind: 'household', householdId: plan.householdId }
   // Anybody sharing only the joint positions is missing from every book total.
+  // The book hangs on the accounts grant, not on the plan one — somebody can show
+  // their whole month and still keep their bookings to themselves.
   const stillPrivate = members
-    .filter((member) => member.grantsAccess === 'plan')
+    .filter((member) => member.grantsAccounts === 'plan')
     .map((member) => member.firstName)
 
   return (
@@ -845,14 +843,18 @@ function HouseholdPlanBody({
       {/* Nur auf Papier: ohne Topbar fehlte jeder Hinweis, wessen Haushalt das
           Blatt zeigt und von wann es stammt. */}
       <p className="text-muted-foreground hidden text-xs print:block">
-        Duofy · Haushalt {plan.householdName} · {MONTH_LABEL[plan.month - 1]}{' '}
-        {plan.year} · gedruckt am {longDate(today())}
+        {t('plan.printHeaderHousehold', {
+          household: plan.householdName,
+          month: monthLabel(plan.month),
+          year: plan.year,
+          date: longDate(today()),
+        })}
       </p>
 
       <header className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="font-heading text-3xl font-semibold">
-            {MONTH_LABEL[plan.month - 1]} {plan.year}
+            {monthLabel(plan.month)} {plan.year}
           </h1>
           <Badge variant="secondary" className="gap-1 font-normal">
             <Users className="size-3" />
@@ -860,8 +862,7 @@ function HouseholdPlanBody({
           </Badge>
         </div>
         <p className="text-muted-foreground print:hidden">
-          Alle Posten, die ihr gemeinsam tragt. Zusammengesetzt aus den Plänen
-          aller Mitglieder — geändert wird im eigenen Plan.
+          {t('plan.householdLead')}
         </p>
       </header>
 
@@ -874,17 +875,16 @@ function HouseholdPlanBody({
           }}
         >
           <Printer className="size-4" />
-          Drucken
+          {t('plan.print')}
         </Button>
       </div>
 
       {noPositions ? (
         <Empty className="border-border rounded-xl border border-dashed">
           <EmptyHeader>
-            <EmptyTitle>Noch nichts Gemeinsames</EmptyTitle>
+            <EmptyTitle>{t('plan.nothingShared')}</EmptyTitle>
             <EmptyDescription>
-              Setz im eigenen Plan bei einem Posten den Haushalt — dann taucht
-              er hier auf.
+              {t('plan.nothingSharedHint')}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -899,18 +899,18 @@ function HouseholdPlanBody({
             />
           ) : (
             <section className="grid gap-3 sm:grid-cols-3">
-              <Metric label="Einnahmen" value={Number(plan.income)} />
+              <Metric label={t('plan.income')} value={Number(plan.income)} />
               <Metric
-                label="Verplanbar"
+                label={t('plans.allocatable')}
                 value={free}
-                hint="noch nicht verteilt"
+                hint={t('plan.notDistributed')}
                 strong
                 tone={free < 0 ? 'over' : 'neutral'}
               />
               <Metric
-                label="Noch offen"
+                label={t('plans.open')}
                 value={unpaid}
-                hint="noch nicht bezahlt"
+                hint={t('plan.notPaid')}
               />
             </section>
           )}
@@ -923,19 +923,19 @@ function HouseholdPlanBody({
               role="status"
               className="border-border bg-muted/40 rounded-lg border p-3 text-sm"
             >
-              {stillPrivate.join(' und ')} teil
-              {stillPrivate.length === 1 ? 't' : 'en'} noch keine Zahlen — die
-              Summen unten sind unvollständig. Umstellen lässt sich das nur von{' '}
-              {stillPrivate.length === 1 ? 'ihr oder ihm' : 'ihnen'} selbst,
-              unter „Haushalt".
+              {t(
+                stillPrivate.length === 1
+                  ? 'plan.stillPrivateOne'
+                  : 'plan.stillPrivateMany',
+                { names: stillPrivate.join(` ${t('common.and')} `) }
+              )}
             </p>
           )}
 
           <Tabs value={tab} onValueChange={onTab} className="gap-6">
             <TabsList data-print="hide">
-              <TabsTrigger value="plan">Plan</TabsTrigger>
-              <TabsTrigger value="flow">Verlauf</TabsTrigger>
-              <TabsTrigger value="book">Buch</TabsTrigger>
+              <TabsTrigger value="plan">{t('plan.tabPlan')}</TabsTrigger>
+              <TabsTrigger value="flow">{t('plan.tabFlow')}</TabsTrigger>
             </TabsList>
 
             <TabsContent value="flow">
@@ -944,18 +944,6 @@ function HouseholdPlanBody({
                 year={plan.year}
                 month={plan.month}
                 height="h-32"
-              />
-            </TabsContent>
-
-            <TabsContent value="book" className="flex flex-col gap-6">
-              <AccountCards scope={scope} />
-              <BookFlow year={plan.year} month={plan.month} scope={scope} />
-              <MonthBook
-                positions={plan.positions}
-                year={plan.year}
-                month={plan.month}
-                scope={scope}
-                readOnly
               />
             </TabsContent>
 
@@ -982,20 +970,20 @@ function HouseholdPlanBody({
                 />
                 <PlanSankey
                   positions={plan.positions}
-                  budget={plan.budget}
+                  distributable={plan.distributable}
                   height="h-56"
                   threshold={0.05}
                 />
               </div>
 
               <div className="print:hidden">
-                <PlanSankey positions={plan.positions} budget={plan.budget} />
+                <PlanSankey positions={plan.positions} distributable={plan.distributable} />
               </div>
 
               {/* Auf Papier ersetzt `PlanPrintout` diese Liste. */}
               <div className="flex flex-col gap-8 print:hidden">
                 <BudgetSection
-                  block="income"
+                  budget="income"
                   target={null}
                   positions={incomeRows}
                   householdNames={householdNames}
@@ -1008,8 +996,8 @@ function HouseholdPlanBody({
 
                 {groups.map((group) => (
                   <BudgetSection
-                    key={group.block}
-                    block={group.block}
+                    key={group.budget}
+                    budget={group.budget}
                     target={group.target}
                     positions={group.rows}
                     householdNames={householdNames}

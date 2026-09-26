@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
 
 import { CommitmentDialog } from '@/components/CommitmentDialog'
@@ -22,64 +23,96 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { useActiveMember } from '@/hooks/use-active-member'
+import {
   useCommitments,
   useDeleteCommitment,
   useHouseholds,
   useSaveCommitment,
 } from '@/lib/queries'
 import {
-  BLOCK_DOT,
-  BLOCK_LABEL,
+  BUDGET_DOT,
+  budgetLabel,
   BUDGET_ORDER,
-  CATEGORY_LABEL,
-  MONTH_LABEL,
-  RHYTHM_LABEL,
-  dueMonths,
+  categoryLabel,
+  intervalLabel,
+  atLeast,
+  nextDueDates,
+  dueDateLabel,
+  dueDayOf,
   euro,
-  firstMonthOf,
   monthlyEquivalent,
+  COMMITMENT_STATUSES,
+  endMonthLabel,
+  hasEnded,
   type Commitment,
+  type CommitmentStatus,
 } from '@/lib/domain'
+import { i18n, locale } from '@/lib/i18n'
 
 /**
- * Every commitment on one page, grouped by block.
+ * Every commitment on one page, grouped by budget.
  *
  * Savings plans and loans are commitments too — in the model it is one table
  * (`Commitment`), and `type` only says whether the thing has an end. Grouping is by
- * **block**, because that is the axis that matters when planning: a commitment can
- * sit in any block.
+ * **budget**, because that is the axis that matters when planning: a commitment can
+ * sit in any budget.
  *
  * The same grouping as in the plan — one structure, two pages.
  */
 
-/** Monthly needs no addition — the rest shows when it actually falls due. */
-function rhythmText(commitment: Commitment) {
-  const months = dueMonths(commitment.rhythm, firstMonthOf(commitment))
-  if (months.length === 0) return RHYTHM_LABEL[commitment.rhythm]
-  const short = months.map((month) => MONTH_LABEL[month - 1].slice(0, 3))
-  return `${RHYTHM_LABEL[commitment.rhythm]} · ${short.join(', ')}`
+/**
+ * Monthly needs no addition — the rest shows the next three due dates from today.
+ * A month list would only cover one year, and with an interval that does not divide
+ * 12 (or a start in the future) that list is short, shifting or empty.
+ */
+function intervalText(commitment: Commitment) {
+  const now = new Date()
+  const dates = nextDueDates(
+    commitment.intervalMonths,
+    commitment.firstDueDate,
+    { year: now.getFullYear(), month: now.getMonth() + 1 },
+    3
+  )
+  if (dates.length === 0) return intervalLabel(commitment.intervalMonths)
+  return `${intervalLabel(commitment.intervalMonths)} · ${i18n.t('commitments.nextDue', {
+    dates: dates.map(dueDateLabel).join(', '),
+  })}`
 }
 
-/** What follows from the type — a target or a remaining debt, nothing else. */
+/** What follows from the type — a target, nothing else. */
 function typeDetail(commitment: Commitment) {
   if (commitment.type === 'savings_goal' && commitment.targetAmount) {
     const date = commitment.targetDate
-      ? new Date(commitment.targetDate).toLocaleDateString('de-DE', {
+      ? new Date(commitment.targetDate).toLocaleDateString(locale(), {
           month: '2-digit',
           year: 'numeric',
         })
       : null
     const target = euro.format(Number(commitment.targetAmount))
-    return date ? `Ziel ${target} bis ${date}` : `Ziel ${target}`
-  }
-  if (commitment.type === 'debt' && commitment.remainingDebt) {
-    return `Rest ${euro.format(Number(commitment.remainingDebt))}`
+    return date
+      ? i18n.t('commitments.targetUntil', { target, date })
+      : i18n.t('commitments.target', { target })
   }
   return null
 }
 
 export function CommitmentsPage() {
-  const commitments = useCommitments()
+  const { t } = useTranslation()
+  // `?member=` shows somebody else's commitments — see `MemberSwitcher`. They are
+  // private by default: whoever shares nothing appears in no switcher, and the
+  // endpoint refuses the list anyway.
+  const active = useActiveMember()
+  const [status, setStatus] = useState<CommitmentStatus>('active')
+  const commitments = useCommitments(active.id, status)
+  const mayEdit = atLeast(active.levelFor('commitments'), 'edit')
+  const mayDelete = atLeast(active.levelFor('commitments'), 'delete')
   const households = useHouseholds()
   const save = useSaveCommitment()
   const remove = useDeleteCommitment()
@@ -93,23 +126,23 @@ export function CommitmentsPage() {
   )
   const rowsAll = commitments.data ?? []
 
-  const groups = BUDGET_ORDER.map((block) => {
+  const groups = BUDGET_ORDER.map((budget) => {
     const rows = rowsAll
-      .filter((commitment) => commitment.block === block)
+      .filter((commitment) => commitment.budget === budget)
       .sort(
         (a, b) =>
-          monthlyEquivalent(b.amount, b.rhythm) -
-          monthlyEquivalent(a.amount, a.rhythm)
+          monthlyEquivalent(b.amount, b.intervalMonths) -
+          monthlyEquivalent(a.amount, a.intervalMonths)
       )
-    // Inactive ones do not count — they generate no positions.
+    // Ended ones do not count — they generate no positions.
     const total = rows
-      .filter((commitment) => commitment.active)
+      .filter((commitment) => !hasEnded(commitment.endsOn))
       .reduce(
         (sum, commitment) =>
-          sum + monthlyEquivalent(commitment.amount, commitment.rhythm),
+          sum + monthlyEquivalent(commitment.amount, commitment.intervalMonths),
         0
       )
-    return { block, rows, total }
+    return { budget, rows, total }
   }).filter((group) => group.rows.length > 0)
 
   function handleAdd() {
@@ -134,37 +167,60 @@ export function CommitmentsPage() {
     <div className="flex flex-col gap-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-2">
-          <h1 className="font-heading text-3xl font-semibold">Verträge</h1>
+          <h1 className="font-heading text-3xl font-semibold">{t('commitments.title')}</h1>
           <p className="text-muted-foreground">
-            Alles Wiederkehrende — Miete, Abos, Sparpläne, Kredite. Einmal
-            angelegt, erzeugt es seine Posten selbst.
+            {active.member === null
+              ? t('commitments.lead')
+              : mayEdit
+                ? t('commitments.leadMemberEdit', { name: active.member.firstName })
+                : t('commitments.leadMemberView', { name: active.member.firstName })}
           </p>
         </div>
-        <Button onClick={handleAdd}>
-          <Plus className="size-4" />
-          Vertrag anlegen
-        </Button>
+        {mayEdit && (
+          <Button onClick={handleAdd}>
+            <Plus className="size-4" />
+            {t('commitments.create')}
+          </Button>
+        )}
       </header>
+
+      <div className="flex items-center gap-2">
+        <span id="commitment-status-label" className="text-muted-foreground text-sm">
+          {t('commitments.filterLabel')}
+        </span>
+        <Select value={status} onValueChange={(value) => setStatus(value as CommitmentStatus)}>
+          <SelectTrigger className="w-40" aria-labelledby="commitment-status-label">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {COMMITMENT_STATUSES.map((option) => (
+              <SelectItem key={option} value={option}>
+                {t(`commitments.status.${option}`)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       <QueryState isPending={commitments.isPending} error={commitments.error}>
       {groups.length === 0 ? (
         <p className="text-muted-foreground border-border rounded-lg border border-dashed p-10 text-center text-sm">
-          Noch kein Vertrag angelegt.
+          {status === 'ended' ? t('commitments.emptyEnded') : t('commitments.empty')}
         </p>
       ) : (
         <div className="flex flex-col gap-8">
           {groups.map((group) => (
-            <section key={group.block} className="flex flex-col gap-3">
+            <section key={group.budget} className="flex flex-col gap-3">
               <div className="flex items-baseline justify-between gap-4 border-b pb-2">
                 <h2 className="flex items-center gap-2 text-sm font-semibold tracking-wide uppercase">
                   <span
-                    className={`size-2.5 rounded-sm ${BLOCK_DOT[group.block]}`}
+                    className={`size-2.5 rounded-sm ${BUDGET_DOT[group.budget]}`}
                   />
-                  {BLOCK_LABEL[group.block]}
+                  {budgetLabel(group.budget)}
                 </h2>
                 <span className="text-muted-foreground text-sm tabular-nums">
                   {euro.format(group.total)}
-                  <span className="ml-1 text-xs">Ø / Monat</span>
+                  <span className="ml-1 text-xs">{t('commitments.perMonth')}</span>
                 </span>
               </div>
 
@@ -175,24 +231,28 @@ export function CommitmentsPage() {
                     <li
                       key={commitment.id}
                       className={`border-border/60 grid grid-cols-[1fr_auto_auto] items-center gap-4 border-b py-2.5 last:border-b-0 ${
-                        commitment.active ? '' : 'opacity-55'
+                        hasEnded(commitment.endsOn) ? 'opacity-55' : ''
                       }`}
                     >
                       <div className="flex min-w-0 flex-col">
                         <span className="flex items-center gap-2 font-medium">
                           {commitment.name}
-                          {!commitment.active && (
+                          {commitment.endsOn !== null && hasEnded(commitment.endsOn) && (
                             <Badge variant="outline" className="font-normal">
-                              inaktiv
+                              {t('commitments.endedSince', {
+                                month: endMonthLabel(commitment.endsOn),
+                              })}
                             </Badge>
                           )}
                         </span>
                         <span className="text-muted-foreground truncate text-xs">
-                          {CATEGORY_LABEL[commitment.category]} ·{' '}
-                          {rhythmText(commitment)} · {commitment.dueDay}.
+                          {categoryLabel(commitment.category)} ·{' '}
+                          {intervalText(commitment)} ·{' '}
+                          {t('common.dueDay', { day: dueDayOf(commitment.firstDueDate) })}
                           {commitment.householdId
-                            ? ` · ${householdNames[commitment.householdId] ?? 'Haushalt'}`
-                            : ' · privat'}
+                            ? ` · ${householdNames[commitment.householdId] ?? t('plans.household')}`
+                            : ` · ${t('commitments.private')}`}
+                          {commitment.isLimit ? ` · ${t('budget.limit')}` : ''}
                           {detail ? ` · ${detail}` : ''}
                         </span>
                       </div>
@@ -207,7 +267,8 @@ export function CommitmentsPage() {
                             variant="ghost"
                             size="icon"
                             className="size-8"
-                            aria-label={`${commitment.name} bearbeiten oder löschen`}
+                            disabled={!mayEdit}
+                            aria-label={t('commitments.menuLabel', { name: commitment.name })}
                           >
                             <MoreHorizontal className="size-4" />
                           </Button>
@@ -218,16 +279,18 @@ export function CommitmentsPage() {
                             className="gap-2"
                           >
                             <Pencil className="size-4" />
-                            Bearbeiten
+                            {t('common.edit')}
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onSelect={() => setPendingDelete(commitment)}
-                            variant="destructive"
-                            className="gap-2"
-                          >
-                            <Trash2 className="size-4" />
-                            Löschen
-                          </DropdownMenuItem>
+                          {mayDelete && (
+                            <DropdownMenuItem
+                              onSelect={() => setPendingDelete(commitment)}
+                              variant="destructive"
+                              className="gap-2"
+                            >
+                              <Trash2 className="size-4" />
+                              {t('common.delete')}
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </li>
@@ -254,17 +317,16 @@ export function CommitmentsPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="font-heading">
-              „{pendingDelete?.name}" löschen?
+              {t('commitments.deleteTitle', { name: pendingDelete?.name })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Bereits geplante Posten in laufenden Monaten bleiben stehen. Für
-              künftige Monate entsteht nichts mehr.
+              {t('commitments.deleteText')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete}>
-              Löschen
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

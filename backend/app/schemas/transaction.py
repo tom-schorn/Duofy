@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from pydantic import Field, model_validator
 
-from app.models.enums import Block, Category
+from app.models.enums import Budget, Category
 from app.schemas.base import Schema
 
 
@@ -14,14 +14,14 @@ class TransactionBase(Schema):
     counter_account_id: uuid.UUID | None = None
 
     occurred_on: date
-    #: Always positive. The direction comes from `block`, or from the two accounts
+    #: Always positive. The direction comes from `budget`, or from the two accounts
     #: on a transfer.
     amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
     note: str | None = Field(default=None, max_length=200)
 
     #: Omittable on a pure transfer only.
     category: Category | None = None
-    block: Block | None = None
+    budget: Budget | None = None
 
     #: Set means it counts towards that position — independent of any transfer.
     position_id: uuid.UUID | None = None
@@ -35,7 +35,7 @@ class TransactionCreate(TransactionBase):
         **code** the frontend can translate."""
         transfer = self.counter_account_id is not None
 
-        if not transfer and (self.category is None or self.block is None):
+        if not transfer and (self.category is None or self.budget is None):
             raise ValueError("purpose_required")
 
         if transfer and self.counter_account_id == self.account_id:
@@ -54,7 +54,7 @@ class TransactionUpdate(Schema):
     amount: Decimal | None = Field(default=None, gt=0, max_digits=12, decimal_places=2)
     note: str | None = Field(default=None, max_length=200)
     category: Category | None = None
-    block: Block | None = None
+    budget: Budget | None = None
     position_id: uuid.UUID | None = None
     external_ref: str | None = Field(default=None, max_length=200)
 
@@ -68,3 +68,8 @@ class TransactionRead(TransactionBase):
     #: Created by ticking a position off. The frontend marks such bookings and
     #: warns before un-ticking removes them again.
     auto_booked: bool = False
+
+    #: The other side, where the booking came out of an import. Read-only —
+    #: nobody types this in, it is what the bank reported.
+    counterparty_name: str | None = None
+    counterparty_iban: str | None = None

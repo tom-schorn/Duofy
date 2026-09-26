@@ -66,7 +66,9 @@ async def _to_read(session: AsyncSession, household: Household) -> HouseholdRead
                 last_name=users[member.user_id].last_name,
                 email=users[member.user_id].email,
                 role=member.role,
-                grants_access=member.grants_access,
+                grants_plan=member.grants_plan,
+                grants_commitments=member.grants_commitments,
+                grants_accounts=member.grants_accounts,
             )
             for member in household.members
             if member.user_id in users
@@ -150,7 +152,11 @@ async def set_my_access(
     if member is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "not_a_member"})
 
-    member.grants_access = payload.grants_access
+    # Only what was sent. `exclude_unset` keeps an area that the form did not
+    # mention from being reset to its default.
+    for field, level in payload.model_dump(exclude_unset=True).items():
+        if level is not None:
+            setattr(member, field, level)
     await session.commit()
 
     return MemberRead(
@@ -159,7 +165,9 @@ async def set_my_access(
         last_name=user.last_name,
         email=user.email,
         role=member.role,
-        grants_access=member.grants_access,
+        grants_plan=member.grants_plan,
+        grants_commitments=member.grants_commitments,
+        grants_accounts=member.grants_accounts,
     )
 
 
@@ -171,9 +179,14 @@ async def leave_household(
 ) -> None:
     """Austreten.
 
-    Die eingebrachten Posten bleiben bestehen und werden wieder privat —
-    `household_id` steht auf ON DELETE SET NULL. Das Frontend sagt das im
-    Bestätigungsdialog.
+    Die eingebrachten Posten **bleiben im Haushalt stehen**. Das ist Absicht: was
+    gemeinsam geplant war, war gemeinsam geplant, und ein Austritt schreibt keine
+    vergangenen Monate um. In neue Pläne fließt nichts mehr, weil die Mitgliedschaft
+    fehlt.
+
+    `ON DELETE SET NULL` an `plan_positions.household_id` greift hier nicht — es
+    hängt am Haushalt, nicht an der Mitgliedschaft. Diese Zeile löscht nur die
+    Mitgliedschaft.
     """
     result = await session.execute(
         select(HouseholdMember).where(

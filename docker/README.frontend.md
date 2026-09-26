@@ -47,7 +47,7 @@ does not ship one, because everyone already has their own.
 |---|---|
 | `latest` | the newest release |
 | `1.2.0` | a specific release — pin this if you self-host |
-| `dev` | current state of the `develop` branch, may break |
+| `dev` | current state of the `main` branch, may break |
 
 ## Documentation
 

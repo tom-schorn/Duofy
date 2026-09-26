@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import {
   Dialog,
@@ -19,51 +20,54 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { CategoryPicker } from '@/components/CategoryPicker'
+import { cn } from '@/lib/utils'
 import {
-  BLOCK_LABEL,
-  BLOCK_SUGGESTION,
+  BUDGET_DOT,
+  budgetLabel,
+  BUDGET_SUGGESTION,
   BUDGET_ORDER,
-  CATEGORY_LABEL,
-  PAYMENT_LABEL,
-  type Block,
+  paymentLabel,
+  categoryGroup,
+  type Budget,
   type Category,
   type PaymentMethod,
   type PlanPosition,
+  PAYMENT_METHODS,
 } from '@/lib/domain'
 import { useAccounts, useHouseholds } from '@/lib/queries'
 
 /**
  * Create and edit one-off positions.
  *
- * Deliberately short: label, amount, block — that is all it takes to put a planned
+ * Deliberately short: label, amount, budget — that is all it takes to put a planned
  * purchase into the month. The rest is prefilled and only touched when needed.
  *
  * Anything recurring does **not** belong here but on the commitments page. A
  * commitment generates its positions itself, every month anew.
  */
 
-const CATEGORIES = Object.keys(CATEGORY_LABEL) as Category[]
-const PAYMENTS = Object.keys(PAYMENT_LABEL) as PaymentMethod[]
+const PAYMENTS = PAYMENT_METHODS
 
-/** The matching category, so the block does not jump the moment it is picked. */
-const DEFAULT_CATEGORY: Record<Block, Category> = {
-  income: 'income',
-  needs: 'housing',
-  wants: 'leisure',
-  savings: 'reserves',
+/** The matching category, so the budget does not jump the moment it is picked. */
+const DEFAULT_CATEGORY: Record<Budget, Category> = {
+  income: 'income.earned',
+  needs: 'housing.rent',
+  wants: 'leisure.hobbies',
+  savings: 'finance.savings',
 }
 
-function emptyDraft(block: Block): PlanPosition {
+function emptyDraft(budget: Budget): PlanPosition {
   return {
     id: '',
     label: '',
     amountPlanned: '',
     amountActual: null,
-    category: DEFAULT_CATEGORY[block],
-    block,
+    category: DEFAULT_CATEGORY[budget],
+    budget,
     dueDay: 1,
     accountId: null,
-    isBudget: false,
+    isLimit: false,
     counterAccountId: null,
     passThrough: false,
     paymentMethod: null,
@@ -76,8 +80,8 @@ function emptyDraft(block: Block): PlanPosition {
 type Props = {
   /** null means create, otherwise edit. */
   position: PlanPosition | null
-  /** The block the position should land in — prefilled when creating. */
-  block: Block
+  /** The budget the position should land in — prefilled when creating. */
+  budget: Budget
   /** Which plan the new position belongs to. */
   planId: string
   open: boolean
@@ -92,22 +96,23 @@ type Props = {
 
 export function PositionDialog({
   position,
-  block,
+  budget,
   planId: _planId,
   open,
   onOpenChange,
   onSave,
   onDelete,
 }: Props) {
+  const { t } = useTranslation()
   const households = useHouseholds().data ?? []
   const accounts = useAccounts().data ?? []
   const [draft, setDraft] = useState<PlanPosition>(
-    position ?? emptyDraft(block)
+    position ?? emptyDraft(budget)
   )
 
   useEffect(() => {
-    if (open) setDraft(position ?? emptyDraft(block))
-  }, [open, position, block])
+    if (open) setDraft(position ?? emptyDraft(budget))
+  }, [open, position, budget])
 
   const isEdit = position !== null
   // Positions generated from a commitment have a source — label and assignment
@@ -121,11 +126,16 @@ export function PositionDialog({
     setDraft((current) => ({ ...current, [key]: value }))
   }
 
+  // Every category under Einnahmen leads to the same budget, so there is nothing
+  // left to pick. Showing the field anyway asks the same question twice — under a
+  // heading that reads "Einnahmen" on both sides.
+  const budgetIsFixed = categoryGroup(draft.category) === 'income'
+
   function handleCategory(category: Category) {
     setDraft((current) => ({
       ...current,
       category,
-      block: BLOCK_SUGGESTION[category],
+      budget: BUDGET_SUGGESTION[category],
     }))
   }
 
@@ -142,23 +152,23 @@ export function PositionDialog({
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <DialogHeader>
             <DialogTitle className="font-heading text-xl">
-              {isEdit ? 'Posten bearbeiten' : 'Posten hinzufügen'}
+              {isEdit ? t('positionDialog.editTitle') : t('positionDialog.addTitle')}
             </DialogTitle>
             <DialogDescription>
               {fromCommitment
-                ? 'Kommt aus einem Vertrag. Änderungen hier gelten nur für diesen Monat.'
-                : 'Gilt nur für diesen Monat. Wiederkehrendes gehört zu den Verträgen.'}
+                ? t('positionDialog.fromCommitment')
+                : t('positionDialog.oneOff')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="label">Bezeichnung</Label>
+              <Label htmlFor="label">{t('positionDialog.label')}</Label>
               <Input
                 id="label"
                 value={draft.label}
                 onChange={(event) => set('label', event.target.value)}
-                placeholder="Rollo fürs Wohnzimmer"
+                placeholder={t('positionDialog.labelPlaceholder')}
                 required
                 autoFocus
               />
@@ -166,7 +176,7 @@ export function PositionDialog({
 
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="planned">Betrag</Label>
+                <Label htmlFor="planned">{t('common.amount')}</Label>
                 <Input
                   id="planned"
                   type="number"
@@ -177,13 +187,13 @@ export function PositionDialog({
                   onChange={(event) =>
                     set('amountPlanned', event.target.value)
                   }
-                  placeholder="0,00"
+                  placeholder={t('common.amountPlaceholder')}
                   required
                 />
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label htmlFor="pos-due-day">Fällig am</Label>
+                <Label htmlFor="pos-due-day">{t('common.dueOn')}</Label>
                 <Input
                   id="pos-due-day"
                   type="number"
@@ -200,46 +210,45 @@ export function PositionDialog({
 
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-2">
-                <Label>Kategorie</Label>
-                <Select value={draft.category} onValueChange={handleCategory}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {CATEGORY_LABEL[category]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>{t('common.category')}</Label>
+                <CategoryPicker
+                  value={draft.category}
+                  onChange={handleCategory}
+                />
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label>Budget</Label>
-                <Select
-                  value={draft.block}
-                  onValueChange={(value) => set('block', value as Block)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {/* BUDGET_ORDER statt BUDGETS: sonst fehlt „Einnahmen"
-                        und ein Einnahme-Posten wäre nicht bearbeitbar. */}
-                    {BUDGET_ORDER.map((budget) => (
-                      <SelectItem key={budget} value={budget}>
-                        {BLOCK_LABEL[budget]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>{t('common.budget')}</Label>
+                {budgetIsFixed ? (
+                  <span className="flex h-9 items-center gap-2 text-sm font-medium">
+                    <span className={cn('size-2.5 rounded-sm', BUDGET_DOT[draft.budget])} />
+                    {budgetLabel(draft.budget)}
+                  </span>
+                ) : (
+                  <Select
+                    value={draft.budget}
+                    onValueChange={(value) => set('budget', value as Budget)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {/* BUDGET_ORDER statt BUDGETS: sonst fehlt „Einnahmen"
+                          und ein Einnahme-Posten wäre nicht bearbeitbar. */}
+                      {BUDGET_ORDER.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {budgetLabel(option)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-2">
-                <Label>Konto</Label>
+                <Label>{t('common.account')}</Label>
                 <Select
                   value={draft.accountId ?? 'default'}
                   onValueChange={(value) =>
@@ -252,7 +261,7 @@ export function PositionDialog({
                   <SelectContent>
                     {/* „Standardkonto" statt einer Vorauswahl: so bleibt der
                         Posten richtig, wenn du das Standardkonto wechselst. */}
-                    <SelectItem value="default">Standardkonto</SelectItem>
+                    <SelectItem value="default">{t('common.defaultAccount')}</SelectItem>
                     {accounts
                       .filter((account) => account.active)
                       .map((account) => (
@@ -265,7 +274,7 @@ export function PositionDialog({
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label>Zielkonto</Label>
+                <Label>{t('common.counterAccount')}</Label>
                 <Select
                   value={draft.counterAccountId ?? 'none'}
                   onValueChange={(value) =>
@@ -276,7 +285,7 @@ export function PositionDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Geht raus</SelectItem>
+                    <SelectItem value="none">{t('common.goesOut')}</SelectItem>
                     {accounts
                       .filter((account) => account.id !== draft.accountId)
                       .map((account) => (
@@ -287,13 +296,12 @@ export function PositionDialog({
                   </SelectContent>
                 </Select>
                 <span className="text-muted-foreground text-xs">
-                  Nur beim Sparen auf ein eigenes Konto. Dann bucht der Haken
-                  eine Umbuchung, und der Gesamtstand bleibt richtig.
+                  {t('common.counterAccountHint')}
                 </span>
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label>Zahlungsart</Label>
+                <Label>{t('common.paymentMethod')}</Label>
                 <Select
                   value={draft.paymentMethod ?? 'none'}
                   onValueChange={(value) =>
@@ -307,10 +315,10 @@ export function PositionDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">offen</SelectItem>
+                    <SelectItem value="none">{t('common.paymentOpen')}</SelectItem>
                     {PAYMENTS.map((method) => (
                       <SelectItem key={method} value={method}>
-                        {PAYMENT_LABEL[method]}
+                        {paymentLabel(method)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -322,11 +330,9 @@ export function PositionDialog({
                   aus wie 1.139 € gespart. */}
               <div className="border-border flex items-center justify-between rounded-md border p-3">
                 <div className="flex flex-col pr-4">
-                  <Label htmlFor="position-pass-through">Durchlaufend</Label>
+                  <Label htmlFor="position-pass-through">{t('common.passThrough')}</Label>
                   <span className="text-muted-foreground text-xs">
-                    Geld, das nur weitergereicht wird — BuT, eine Rückzahlung,
-                    die sofort weggelegt wird. Zählt in kein Budget und in keine
-                    Quote.
+                    {t('common.passThroughHint')}
                   </span>
                 </div>
                 <Switch
@@ -337,7 +343,7 @@ export function PositionDialog({
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label>Zuordnung</Label>
+                <Label>{t('common.assignment')}</Label>
                 <Select
                   value={draft.householdId ?? 'private'}
                   onValueChange={(value) =>
@@ -348,7 +354,7 @@ export function PositionDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="private">Nur mein Plan</SelectItem>
+                    <SelectItem value="private">{t('common.privateOnly')}</SelectItem>
                     {households.map((household) => (
                       <SelectItem key={household.id} value={household.id}>
                         {household.name}
@@ -361,7 +367,7 @@ export function PositionDialog({
 
             {isEdit && (
               <div className="flex flex-col gap-2">
-                <Label htmlFor="actual">Tatsächlich bezahlt</Label>
+                <Label htmlFor="actual">{t('positionDialog.actual')}</Label>
                 <Input
                   id="actual"
                   type="number"
@@ -372,11 +378,10 @@ export function PositionDialog({
                   onChange={(event) =>
                     set('amountActual', event.target.value || null)
                   }
-                  placeholder="noch offen"
+                  placeholder={t('positionDialog.actualPlaceholder')}
                 />
                 <p className="text-muted-foreground text-xs">
-                  Nur nötig, wenn der Betrag vom geplanten abweicht. Abgehakt
-                  wird in der Liste.
+                  {t('positionDialog.actualHint')}
                 </p>
               </div>
             )}
@@ -394,7 +399,7 @@ export function PositionDialog({
                   onOpenChange(false)
                 }}
               >
-                Löschen
+                {t('common.delete')}
               </Button>
             ) : (
               <span />
@@ -405,10 +410,10 @@ export function PositionDialog({
                 variant="outline"
                 onClick={() => onOpenChange(false)}
               >
-                Abbrechen
+                {t('common.cancel')}
               </Button>
               <Button type="submit">
-                {isEdit ? 'Speichern' : 'Hinzufügen'}
+                {isEdit ? t('common.save') : t('common.add')}
               </Button>
             </div>
           </DialogFooter>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import {
   Dialog,
@@ -34,9 +35,24 @@ type Props = {
   onClose: () => void
   onConfirm: (values: { occurredOn: string; amount: string }) => void
   pending: boolean
+  /**
+   * The position already has bookings. The tick then books nothing more, so date
+   * and amount would be ignored — the fields are disabled and say so.
+   */
+  hasBookings?: boolean
+  /** The sentence for a rejected tick; the dialog stays open and shows it. */
+  error?: string | null
 }
 
-export function PaidDialog({ position, onClose, onConfirm, pending }: Props) {
+export function PaidDialog({
+  position,
+  onClose,
+  onConfirm,
+  pending,
+  hasBookings = false,
+  error = null,
+}: Props) {
+  const { t } = useTranslation()
   const [occurredOn, setOccurredOn] = useState(today())
   const [amount, setAmount] = useState('')
 
@@ -53,7 +69,7 @@ export function PaidDialog({ position, onClose, onConfirm, pending }: Props) {
 
   const planned = Number(position.amountPlanned)
   const entered = Number(amount)
-  const differs = Number.isFinite(entered) && entered !== planned
+  const differs = !hasBookings && Number.isFinite(entered) && entered !== planned
 
   function submit(event: React.FormEvent) {
     event.preventDefault()
@@ -65,24 +81,31 @@ export function PaidDialog({ position, onClose, onConfirm, pending }: Props) {
       <DialogContent className="sm:max-w-md">
         <form onSubmit={submit} className="flex flex-col gap-5">
           <DialogHeader>
-            <DialogTitle>{position.label} abhaken</DialogTitle>
+            <DialogTitle>
+              {t('paidDialog.title', { label: position.label })}
+            </DialogTitle>
             <DialogDescription>
-              Das legt zugleich die Buchung im Haushaltsbuch an.
+              {t('paidDialog.description')}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex gap-3">
+          <div
+            role="group"
+            aria-describedby={hasBookings ? 'paid-bookings-note' : undefined}
+            className="flex gap-3"
+          >
             <div className="flex flex-1 flex-col gap-1.5">
-              <Label htmlFor="paid-date">Datum</Label>
+              <Label htmlFor="paid-date">{t('common.date')}</Label>
               <DateField
                 id="paid-date"
                 value={occurredOn}
                 onChange={setOccurredOn}
+                disabled={hasBookings}
               />
             </div>
 
             <div className="flex w-36 flex-col gap-1.5">
-              <Label htmlFor="paid-amount">Betrag</Label>
+              <Label htmlFor="paid-amount">{t('common.amount')}</Label>
               <Input
                 id="paid-amount"
                 type="number"
@@ -92,25 +115,45 @@ export function PaidDialog({ position, onClose, onConfirm, pending }: Props) {
                 value={amount}
                 onChange={(event) => setAmount(event.target.value)}
                 required
+                aria-describedby={hasBookings ? 'paid-bookings-note' : undefined}
+                disabled={hasBookings}
               />
             </div>
           </div>
+
+          {hasBookings && (
+            <p
+              id="paid-bookings-note"
+              className="text-muted-foreground text-sm"
+              role="status"
+            >
+              {t('paidDialog.hasBookings')}
+            </p>
+          )}
+
+          {error && (
+            <p className="text-destructive text-sm" role="alert">
+              {error}
+            </p>
+          )}
 
           {/* Nur wenn abweichend: sonst wäre es eine Zeile, die immer dasselbe
               sagt wie das Feld daneben. */}
           {differs && (
             <p className="text-muted-foreground text-sm" role="status">
-              Geplant waren {euro.format(planned)} — der Posten steht danach auf{' '}
-              {euro.format(entered)}.
+              {t('paidDialog.differs', {
+                planned: euro.format(planned),
+                entered: euro.format(entered),
+              })}
             </p>
           )}
 
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>
-              Abbrechen
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending ? 'Bucht…' : 'Abhaken'}
+              {pending ? t('paidDialog.pending') : t('paidDialog.submit')}
             </Button>
           </DialogFooter>
         </form>

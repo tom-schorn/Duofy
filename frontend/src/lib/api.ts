@@ -5,7 +5,7 @@
  * the environment and is never hard-coded.
  *
  * The backend reports errors as a **code** (`{"detail": {"code": "..."}}`) and
- * the wording is added here. That keeps the API free of any language.
+ * the wording comes from the catalog. That keeps the API free of any language.
  *
  * ## Two tokens, and why only one of them is here
  *
@@ -21,6 +21,8 @@
  * Every request therefore goes out with `credentials: 'include'`; without it the
  * browser would leave the cookie at home.
  */
+
+import { i18n } from '@/lib/i18n'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1'
 
@@ -96,50 +98,17 @@ export class ApiError extends Error {
   }
 }
 
-/** German wording for the codes the backend knows. */
-const ERROR_TEXT: Record<string, string> = {
-  // Sign-in
-  LOGIN_BAD_CREDENTIALS: 'E-Mail oder Passwort stimmt nicht.',
-  LOGIN_USER_NOT_VERIFIED: 'Bitte bestätige zuerst deine E-Mail-Adresse.',
-  REGISTER_USER_ALREADY_EXISTS: 'Diese E-Mail ist schon vergeben.',
-  REGISTER_INVALID_PASSWORD: 'Das Passwort erfüllt die Anforderungen nicht.',
-
-  // Permissions
-  not_allowed: 'Dazu fehlt dir die Berechtigung.',
-  not_plan_owner: 'Dieser Plan gehört jemand anderem.',
-  not_commitment_owner: 'Dieser Vertrag gehört jemand anderem.',
-  not_household_owner: 'Das darf nur der Besitzer des Haushalts.',
-  not_household_member: 'Du bist kein Mitglied dieses Haushalts.',
-  not_a_member: 'Du bist kein Mitglied dieses Haushalts.',
-
-  // Domain rules
-  plan_not_found: 'Für diesen Monat gibt es noch keinen Plan.',
-  plan_already_exists: 'Für diesen Monat gibt es schon einen Plan.',
-  commitment_not_found: 'Der Vertrag existiert nicht mehr.',
-  position_not_found: 'Der Posten existiert nicht mehr.',
-  household_not_found: 'Der Haushalt existiert nicht mehr.',
-  last_owner_cannot_leave:
-    'Du bist der letzte Besitzer — übergib den Haushalt, bevor du austrittst.',
-  already_a_member: 'Diese Person ist schon im Haushalt.',
-  invitation_already_open: 'An diese Adresse läuft schon eine Einladung.',
-  invitation_not_found: 'Diese Einladung gibt es nicht.',
-  invitation_not_open: 'Diese Einladung wurde schon bearbeitet.',
-  invitation_expired: 'Diese Einladung ist abgelaufen.',
-  invitation_email_mismatch:
-    'Die Einladung gilt für eine andere E-Mail-Adresse.',
-  first_due_date_required:
-    'Bei nicht-monatlichem Rhythmus braucht es eine erste Fälligkeit.',
-  due_day_must_match_first_due_date:
-    'Fälligkeitstag und erste Fälligkeit widersprechen sich.',
-  target_only_for_savings_goal: 'Ein Zielbetrag gehört nur zu einem Sparziel.',
-  remaining_debt_only_for_debt: 'Eine Restschuld gehört nur zu einer Schuld.',
-}
-
+/**
+ * The sentence for an error, from the catalog (`errors.<code>`).
+ *
+ * A code the catalog does not know gets a general sentence rather than the raw
+ * code — the backend may learn a new one before the catalog does.
+ */
 export function errorText(error: unknown): string {
   if (error instanceof ApiError) {
-    return ERROR_TEXT[error.code] ?? 'Da ist etwas schiefgegangen.'
+    return i18n.t(`errors.${error.code}`, { defaultValue: i18n.t('errors.unknown') })
   }
-  return 'Das Backend ist gerade nicht erreichbar.'
+  return i18n.t('errors.unreachable')
 }
 
 /** Pull the error code out of the response, whatever shape it arrives in. */
@@ -234,6 +203,17 @@ export const api = {
     request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
 
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+
+  /**
+   * Send a file. `form: true` on purpose — the Content-Type has to stay unset so
+   * the browser can add the multipart boundary itself. Setting it by hand
+   * produces a request the server cannot take apart.
+   */
+  upload: <T>(path: string, file: File) => {
+    const body = new FormData()
+    body.append('file', file)
+    return request<T>(path, { method: 'POST', body }, { form: true })
+  },
 
   /**
    * Sign in. `/auth/login` rather than fastapi-users' `/auth/jwt/login`, because

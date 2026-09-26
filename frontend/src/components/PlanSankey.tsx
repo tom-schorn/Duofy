@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Layer, Rectangle, Sankey, Tooltip } from 'recharts'
+import type { TFunction } from 'i18next'
+import { useTranslation } from 'react-i18next'
 
 import {
   Empty,
@@ -10,24 +12,25 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { ChartContainer, type ChartConfig } from '@/components/ui/chart'
 import { euro, type PlanPosition } from '@/lib/domain'
+import { formatShare } from '@/lib/format'
 
 /**
- * Where the budget goes — read from left to right.
+ * Where the distributable amount goes — read from left to right.
  *
- * Income → budget → the three blocks → individual positions. Not a timeline but a
- * balance sheet: the chart answers "where does the money go", not "does the month
- * hold up over time". The book answers the latter.
+ * Income → distributable → the three budgets → individual positions. Not a
+ * timeline but a balance sheet: the chart answers "where does the money go", not
+ * "does the month hold up over time". The book answers the latter.
  *
- * The **budget in the middle is the bottleneck**, and that is exactly where the
- * buffer sits. A pass-through position visibly bypasses it: it appears in none of
- * the columns, because it never was budget.
+ * The **distributable amount in the middle is the bottleneck**, and that is
+ * exactly where the buffer sits. A pass-through position visibly bypasses it: it
+ * appears in none of the columns, because it was never distributable.
  *
  * ## Why bands are bundled
  *
  * 25 positions would be 25 bands, and a band worth 2.99 would be thinner than its
- * own label. Only what makes up at least `OWN_BAND` of the budget gets a band of its
- * own; the rest is merged into one band per block. The threshold is relative so it
- * works in any household.
+ * own label. Only what makes up at least `OWN_BAND` of the distributable amount
+ * gets a band of its own; the rest is merged into one band per budget. The
+ * threshold is relative so it works in any household.
  *
  * ## What the chart makes visible
  *
@@ -39,9 +42,9 @@ import { euro, type PlanPosition } from '@/lib/domain'
 type Props = {
   positions: PlanPosition[]
   /** Income minus buffer — comes from the server. */
-  budget: string
+  distributable: string
   /**
-   * From which share of the budget a position gets a band of its own.
+   * From which share of the distributable amount a position gets a band of its own.
    *
    * Coarser on paper than on screen: the plot area is flatter there, and eleven
    * nodes in the last column write their names on top of each other. Fewer but
@@ -58,27 +61,30 @@ type Props = {
   height?: string
 }
 
-/** From which share of the budget a position gets a band of its own. */
+/** From which share of the distributable amount a position gets a band of its own. */
 const OWN_BAND = 0.02
 
-const BLOCKS = [
-  { key: 'needs', label: 'Bedarf', color: 'var(--chart-1)' },
-  { key: 'wants', label: 'Wünsche', color: 'var(--chart-2)' },
-  { key: 'savings', label: 'Sparen', color: 'var(--chart-4)' },
+/** `label` is a catalog key. */
+const BUDGETS = [
+  { key: 'needs', label: 'sankey.needs', color: 'var(--chart-1)' },
+  { key: 'wants', label: 'sankey.wants', color: 'var(--chart-2)' },
+  { key: 'savings', label: 'sankey.savings', color: 'var(--chart-4)' },
 ] as const
 
-const CONFIG = {
-  income: { label: 'Einnahmen', color: 'var(--chart-3)' },
-  needs: { label: 'Bedarf', color: 'var(--chart-1)' },
-  wants: { label: 'Wünsche', color: 'var(--chart-2)' },
-  savings: { label: 'Sparen', color: 'var(--chart-4)' },
-} satisfies ChartConfig
+function chartConfig(t: TFunction) {
+  return {
+    income: { label: t('sankey.income'), color: 'var(--chart-3)' },
+    needs: { label: t('sankey.needs'), color: 'var(--chart-1)' },
+    wants: { label: t('sankey.wants'), color: 'var(--chart-2)' },
+    savings: { label: t('sankey.savings'), color: 'var(--chart-4)' },
+  } satisfies ChartConfig
+}
 
 type Knoten = {
   name: string
   betrag: number
   farbe: string
-  /** 0 income · 1 budget · 2 block · 3 position. Decides which side the label sits on. */
+  /** 0 income · 1 distributable · 2 budget · 3 position. Decides which side the label sits on. */
   spalte: number
 }
 
@@ -93,25 +99,26 @@ type Kante = { source: number; target: number; value: number; farbe: string }
  */
 function build(
   positions: PlanPosition[],
-  budget: number,
-  anteil: number
+  distributable: number,
+  anteil: number,
+  t: TFunction
 ) {
   const zaehlend = positions.filter((p) => !p.passThrough)
-  const threshold = budget * anteil
+  const threshold = distributable * anteil
 
   const nodes: Knoten[] = []
   const links: Kante[] = []
   const add = (k: Knoten) => nodes.push(k) - 1
 
   const einnahmen = zaehlend
-    .filter((p) => p.block === 'income')
+    .filter((p) => p.budget === 'income')
     .map((p) => ({ label: p.label, betrag: Number(p.amountPlanned) }))
     .filter((p) => p.betrag > 0)
     .sort((a, b) => b.betrag - a.betrag)
 
-  const budgetIndex = add({
-    name: 'Budget',
-    betrag: budget,
+  const distributableIndex = add({
+    name: t('sankey.distributable'),
+    betrag: distributable,
     farbe: 'var(--muted-foreground)',
     spalte: 1,
   })
@@ -125,16 +132,16 @@ function build(
     })
     links.push({
       source: i,
-      target: budgetIndex,
+      target: distributableIndex,
       value: e.betrag,
       farbe: 'var(--chart-3)',
     })
   }
 
   let verteilt = 0
-  for (const b of BLOCKS) {
+  for (const b of BUDGETS) {
     const posten = zaehlend
-      .filter((p) => p.block === b.key)
+      .filter((p) => p.budget === b.key)
       .map((p) => ({ label: p.label, betrag: Number(p.amountPlanned) }))
       .filter((p) => p.betrag > 0)
       .sort((a, b2) => b2.betrag - a.betrag)
@@ -142,15 +149,15 @@ function build(
     if (summe <= 0) continue
     verteilt += summe
 
-    const blockIndex = add({
-      name: b.label,
+    const budgetIndex = add({
+      name: t(b.label),
       betrag: summe,
       farbe: b.color,
       spalte: 2,
     })
     links.push({
-      source: budgetIndex,
-      target: blockIndex,
+      source: distributableIndex,
+      target: budgetIndex,
       value: summe,
       farbe: b.color,
     })
@@ -165,29 +172,29 @@ function build(
         farbe: b.color,
         spalte: 3,
       })
-      links.push({ source: blockIndex, target: i, value: p.betrag, farbe: b.color })
+      links.push({ source: budgetIndex, target: i, value: p.betrag, farbe: b.color })
     }
     if (klein.length > 0) {
       const rest = klein.reduce((s, p) => s + p.betrag, 0)
       const i = add({
         name:
           klein.length === 1
-            ? '1 weiterer Posten'
-            : `${klein.length} weitere Posten`,
+            ? t('sankey.oneMore')
+            : t('sankey.more', { number: klein.length }),
         betrag: rest,
         farbe: b.color,
         spalte: 3,
       })
-      links.push({ source: blockIndex, target: i, value: rest, farbe: b.color })
+      links.push({ source: budgetIndex, target: i, value: rest, farbe: b.color })
     }
   }
 
   // Whatever is left gets a band of its own. It runs into nothing, and that is
   // exactly the statement.
-  const offen = budget - verteilt
+  const offen = distributable - verteilt
   if (offen > 0) {
     const i = add({
-      name: 'Noch nicht verplant',
+      name: t('sankey.unplanned'),
       betrag: offen,
       farbe: 'var(--muted-foreground)',
       // Column 3, not 2: the node has no outgoing link, and Recharts pushes sinks
@@ -196,7 +203,7 @@ function build(
       spalte: 3,
     })
     links.push({
-      source: budgetIndex,
+      source: distributableIndex,
       target: i,
       value: offen,
       farbe: 'var(--muted-foreground)',
@@ -208,25 +215,25 @@ function build(
 
 export function PlanSankey({
   positions,
-  budget,
+  distributable,
   threshold = OWN_BAND,
   height = 'h-[26rem]',
 }: Props) {
+  const { t } = useTranslation()
   const [inProzent, setInProzent] = useState(false)
-  const summe = Number(budget)
-  const { nodes, links, offen } = build(positions, summe, threshold)
+  const summe = Number(distributable)
+  const { nodes, links, offen } = build(positions, summe, threshold, t)
 
   const zeige = (v: number) =>
     inProzent
-      ? `${((v / summe) * 100).toFixed(1).replace('.', ',')} %`
+      ? t('common.percent', { value: formatShare((v / summe) * 100) })
       : euro.format(v)
 
   if (links.length === 0) {
     return (
       <Empty className="border-border rounded-xl border border-dashed">
         <EmptyHeader>
-          <EmptyDescription>Für dieses Diagramm braucht der Monat Einnahmen und Posten. Sobald etwas
-        geplant ist, steht hier, wohin es geht.</EmptyDescription>
+          <EmptyDescription>{t('sankey.empty')}</EmptyDescription>
         </EmptyHeader>
       </Empty>
     )
@@ -240,7 +247,7 @@ export function PlanSankey({
             {euro.format(summe)}
           </span>
           <span className="text-muted-foreground text-sm">
-            Budget · davon {euro.format(offen)} noch nicht verplant
+            {t('sankey.summary', { amount: euro.format(offen) })}
           </span>
         </div>
 
@@ -266,7 +273,7 @@ export function PlanSankey({
       </header>
 
       <ChartContainer
-        config={CONFIG}
+        config={chartConfig(t)}
         className={`${height} w-full min-w-[42rem]`}
       >
         <Sankey
@@ -371,11 +378,12 @@ function Kachel({
   const zweizeilig = height > 22
 
   /**
-   * Block names sit **above** their node, not beside it.
+   * Budget names sit **above** their node, not beside it.
    *
-   * Beside it they collided with the position names in the last column: a block and
-   * its first position share the same height, because the first position starts at
-   * the top edge of its block. Above the node there is room and nothing else.
+   * Beside it they collided with the position names in the last column: a budget
+   * and its first position share the same height, because the first position
+   * starts at the top edge of its budget. Above the node there is room and
+   * nothing else.
    */
   if (knoten.spalte === 2) {
     return (

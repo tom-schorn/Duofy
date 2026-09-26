@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
 from app.core.permissions import (
+    Area,
     granted_level,
     is_member,
     require,
@@ -39,18 +40,30 @@ router = APIRouter()
 ZERO = Decimal("0.00")
 
 
-async def _may_book_for(session: AsyncSession, booking_owner: uuid.UUID, user: User) -> None:
-    """May `user` book on behalf of `owner_id`?
+async def _may_book_for(
+    session: AsyncSession,
+    booking_owner: uuid.UUID,
+    user: User,
+    *,
+    needs: AccessLevel = AccessLevel.EDIT,
+) -> None:
+    """May `user` act on bookings of `booking_owner`?
 
-    Your own always. Somebody else only at level `edit`, granted by the owner. This
-    puts bookings under the same rule as positions — the two used to disagree: a
+    Your own always. Somebody else from the level the owner granted. This puts
+    bookings under the same rule as positions — the two used to disagree: a
     delegate could **tick off** a position, which creates a booking on the other
     account, but could not book directly.
+
+    `needs` separates changing from deleting: a wrong booking can be corrected,
+    a deleted one leaves a gap in a balance that nothing explains.
     """
     if booking_owner == user.id:
         return
-    level = await granted_level(session, booking_owner, user.id)
-    require(level is AccessLevel.EDIT, "no_edit_granted")
+    level = await granted_level(session, booking_owner, user.id, Area.ACCOUNTS)
+    require(
+        level.rank >= needs.rank,
+        "no_delete_granted" if needs is AccessLevel.DELETE else "no_edit_granted",
+    )
 
 
 async def _account_owner(
@@ -105,11 +118,17 @@ async def _recalc_position(session: AsyncSession, position_id: uuid.UUID | None)
     position.amount_actual = total if total is not None else None
 
 
-async def _load(session: AsyncSession, transaction_id: uuid.UUID, user: User) -> Transaction:
+async def _load(
+    session: AsyncSession,
+    transaction_id: uuid.UUID,
+    user: User,
+    *,
+    needs: AccessLevel = AccessLevel.EDIT,
+) -> Transaction:
     transaction = await session.get(Transaction, transaction_id)
     if transaction is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "transaction_not_found"})
-    await _may_book_for(session, transaction.owner_id, user)
+    await _may_book_for(session, transaction.owner_id, user, needs=needs)
     return transaction
 
 
@@ -143,9 +162,9 @@ async def list_transactions(
     # owner decides, not the reader.
     if household is not None:
         require(await is_member(session, user.id, household), "not_household_member")
-        owner_ids = await viewable_members(session, household, user.id)
+        owner_ids = await viewable_members(session, household, user.id, Area.ACCOUNTS)
     elif owner is not None and owner != user.id:
-        level = await granted_level(session, owner, user.id)
+        level = await granted_level(session, owner, user.id, Area.ACCOUNTS)
         require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
         owner_ids = [owner]
     else:
@@ -176,7 +195,15 @@ async def list_transactions(
         query = query.where(extract("month", Transaction.occurred_on) == month)
 
     result = await session.execute(
-        query.order_by(Transaction.occurred_on.desc(), Transaction.created_at.desc())
+        query.order_by(
+            Transaction.occurred_on.desc(),
+            Transaction.created_at.desc(),
+            # Settles the rest, and it has to: an import writes every booking of
+            # a batch in one transaction, so `created_at` is identical across
+            # them. Without this the order is undefined and an edited booking
+            # comes back somewhere else in the list.
+            Transaction.id,
+        )
     )
     return [
         TransactionRead.model_validate(transaction).model_copy(
@@ -257,7 +284,7 @@ async def delete_transaction(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> None:
-    transaction = await _load(session, transaction_id, user)
+    transaction = await _load(session, transaction_id, user, needs=AccessLevel.DELETE)
     position_id = transaction.position_id
 
     await session.delete(transaction)

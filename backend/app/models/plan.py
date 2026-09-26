@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.types import enum_column
-from app.models.enums import Block, Category, PaymentMethod
+from app.models.enums import CATEGORY_LENGTH, Budget, Category, PaymentMethod
 from app.models.mixins import TimestampMixin, UUIDMixin
 
 
@@ -46,8 +46,18 @@ class Plan(UUIDMixin, TimestampMixin, Base):
     #: How many percent of the income is deliberately left unplanned.
     buffer_percent: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("0.00"))
 
+    #: Ordered on purpose. Without `order_by` the database returns them however
+    #: it likes, and an updated row typically comes back last — so changing one
+    #: position made the whole list jump.
+    #:
+    #: By due day, because that is the order a month is worked through. `id`
+    #: settles the rest: two positions can fall due on the same day, and
+    #: `created_at` cannot separate them either — a generated month writes every
+    #: position in one transaction, and `now()` is the transaction's start time.
     positions: Mapped[list["PlanPosition"]] = relationship(
-        back_populates="plan", cascade="all, delete-orphan"
+        back_populates="plan",
+        cascade="all, delete-orphan",
+        order_by="(PlanPosition.due_day, PlanPosition.id)",
     )
 
 
@@ -90,16 +100,13 @@ class PlanPosition(UUIDMixin, TimestampMixin, Base):
     #: without this field it would wrongly count as open.
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    category: Mapped[Category] = mapped_column(enum_column(Category))
+    category: Mapped[Category] = mapped_column(enum_column(Category, length=CATEGORY_LENGTH))
     #: Derived on creation and **stored** here — changing the mapping later must
     #: not rewrite plans that already exist.
-    block: Mapped[Block] = mapped_column(enum_column(Block))
+    budget: Mapped[Budget] = mapped_column(enum_column(Budget))
 
-    #: Day of the month the position falls due.
-    #
-    # TODO: when generating from a commitment, clamp its `due_day` to the last day
-    # of **this** month — a contract with `due_day = 31` falls due on the 28th or
-    # 29th in February, not never. This field would then hold the clamped day.
+    #: Day of the month the position falls due. From a commitment it is the day of
+    #: its `first_due_date`, clamped to the end of this month.
     due_day: Mapped[int]
     #: Copied from the commitment, overridable per month. Empty means the default
     #: account.
@@ -111,12 +118,15 @@ class PlanPosition(UUIDMixin, TimestampMixin, Base):
         enum_column(PaymentMethod), nullable=True
     )
 
-    #: A budget rather than a single payment — groceries, fuel, pocket money.
+    #: A limit rather than a single payment — groceries, fuel, pocket money.
     #:
     #: Such a position is not ticked off: it fills up over the month from
     #: individual bookings. A tick would mean nothing there, a fill level does.
-    #: Comes from commitment type `budget`, freely choosable on one-off positions.
-    is_budget: Mapped[bool] = mapped_column(default=False)
+    #: Copied from `Commitment.is_limit`, freely choosable on one-off positions.
+    #:
+    #: A snapshot, like `category` and `budget`: changing the commitment later
+    #: must not rewrite months that already exist.
+    is_limit: Mapped[bool] = mapped_column(default=False)
 
     #: **Where** the money goes when it moves to another own account.
     #:

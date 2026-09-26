@@ -1,37 +1,29 @@
 /**
- * A mirror of the backend enums in `backend/app/models/enums.py`, plus the German
- * labels for the UI.
+ * A mirror of the backend enums in `backend/app/models/enums.py`, plus the
+ * functions that turn them into words for the UI.
  *
- * TODO: once i18n is in place the labels move into the translation files (`de`,
- * `en`) and only the types stay here.
+ * The words themselves live in the catalog (`src/locales/de.json`, under
+ * `enums.*`) — only the types, orders and rules stay here.
  *
  * The keys match the backend enum values exactly — a divergence only shows up at
  * runtime.
  */
 
-/**
- * Called **Budget** in the UI.
- *
- * TODO: rename it to `Budget` in the code as well. That only works together with
- * the backend, where the enum is called `Block` (`app/models/enums.py`). While the
- * two differ, every API call would need a translation layer — so rename the
- * backend first, then follow here.
- */
-export type Block = 'income' | 'needs' | 'wants' | 'savings'
+import { i18n, locale } from '@/lib/i18n'
+
+/** Called **Budget** in the UI — one of the three 50/30/20 pots, or income. */
+export type Budget = 'income' | 'needs' | 'wants' | 'savings'
 
 /** The wording for `needs` is not final yet — a shorter word is under discussion. */
-export const BLOCK_LABEL: Record<Block, string> = {
-  income: 'Einnahmen',
-  needs: 'Fixkosten',
-  wants: 'Wünsche',
-  savings: 'Sparen',
+export function budgetLabel(budget: Budget): string {
+  return i18n.t(`enums.budget.${budget}`)
 }
 
 /**
- * Block colours. Income sits above the split rather than inside it, so it uses a
+ * Budget colours. Income sits above the split rather than inside it, so it uses a
  * muted tone instead of one of the three chart colours.
  */
-export const BLOCK_DOT: Record<Block, string> = {
+export const BUDGET_DOT: Record<Budget, string> = {
   income: 'bg-muted-foreground',
   needs: 'bg-chart-1',
   wants: 'bg-chart-2',
@@ -40,151 +32,352 @@ export const BLOCK_DOT: Record<Block, string> = {
 
 
 /** The three budgets — 50 · 30 · 20, in that order. */
-export const BUDGETS: Block[] = ['needs', 'wants', 'savings']
+export const BUDGETS: Budget[] = ['needs', 'wants', 'savings']
 
 /** Order in lists — income sits above the split, not inside it. */
-export const BUDGET_ORDER: Block[] = ['income', ...BUDGETS]
+export const BUDGET_ORDER: Budget[] = ['income', ...BUDGETS]
 
+/**
+ * Mirrored from `Category` in the backend.
+ *
+ * The dot carries the hierarchy: everything before it is the group, and a value
+ * without a dot stands on its own. Nothing else reads the dot — it is the same
+ * single string the API sends and the database stores.
+ */
 export type Category =
-  | 'income'
-  | 'housing'
-  | 'insurance'
-  | 'groceries'
-  | 'health'
-  | 'mobility'
-  | 'communication'
-  | 'children'
-  | 'subscriptions'
-  | 'leisure'
-  | 'vacation'
-  | 'pocket_money'
-  | 'reserves'
-  | 'debt_repayment'
-  | 'investment'
-  | 'legal'
-  | 'work'
-  | 'fees'
-  | 'settlement'
-  | 'interest'
+  // Haushalt
+  | 'household.groceries'
+  | 'household.clothing'
+  | 'household.healthcare'
+  | 'household.personal_care'
+  | 'household.cleaning'
+  | 'household.pets'
+  // Wohnen
+  | 'housing.rent'
+  | 'housing.utilities'
+  | 'housing.repairs'
+  | 'housing.interior'
+  | 'housing.outdoor'
+  | 'housing.insurance'
+  // Mobilität
+  | 'transport.public'
+  | 'transport.fuel'
+  | 'transport.repairs'
+  | 'transport.fines'
+  | 'transport.purchase'
+  | 'transport.insurance'
+  // Kinder
+  | 'children.care'
+  | 'children.school'
+  | 'children.allowance'
+  // Freizeit
+  | 'leisure.vacation'
+  | 'leisure.hobbies'
+  | 'leisure.entertainment'
+  | 'leisure.memberships'
+  | 'leisure.dining'
+  | 'leisure.subscriptions'
+  | 'leisure.indulgences'
+  // Persönlich
+  | 'personal.insurance'
+  | 'personal.communication'
+  | 'personal.work'
+  | 'personal.legal'
+  | 'personal.gifts'
+  | 'personal.donations'
+  | 'personal.education'
+  | 'personal.taxes'
+  // Einnahmen
+  | 'income.earned'
+  | 'income.benefits'
+  | 'income.interest'
+  | 'income.other'
+  // Finanzen
+  | 'finance.savings'
+  | 'finance.debt'
+  | 'finance.investment'
+  | 'finance.fees'
+  | 'finance.settlement'
 
-export const CATEGORY_LABEL: Record<Category, string> = {
-  income: 'Einnahmen',
-  housing: 'Wohnen',
-  insurance: 'Versicherung',
-  groceries: 'Lebensmittel',
-  health: 'Gesundheit',
-  mobility: 'Mobilität',
-  communication: 'Kommunikation',
-  children: 'Kinder',
-  subscriptions: 'Abos',
-  leisure: 'Freizeit',
-  vacation: 'Urlaub',
-  pocket_money: 'Taschengeld',
-  reserves: 'Rücklagen',
-  debt_repayment: 'Tilgung',
-  investment: 'Investition',
-  legal: 'Rechtliches',
-  work: 'Beruf',
-  fees: 'Gebühren',
-  settlement: 'Ausgleich',
-  interest: 'Zinsen',
+/** The order here is the order in every dropdown — grouped entries first. */
+export const CATEGORIES: Category[] = [
+  'household.groceries',
+  'household.clothing',
+  'household.healthcare',
+  'household.personal_care',
+  'household.cleaning',
+  'household.pets',
+
+  'housing.rent',
+  'housing.utilities',
+  'housing.repairs',
+  'housing.interior',
+  'housing.outdoor',
+  'housing.insurance',
+
+  'transport.public',
+  'transport.fuel',
+  'transport.repairs',
+  'transport.fines',
+  'transport.purchase',
+  'transport.insurance',
+
+  'children.care',
+  'children.school',
+  'children.allowance',
+
+  'leisure.vacation',
+  'leisure.hobbies',
+  'leisure.entertainment',
+  'leisure.memberships',
+  'leisure.dining',
+  'leisure.subscriptions',
+  'leisure.indulgences',
+
+  'personal.insurance',
+  'personal.communication',
+  'personal.work',
+  'personal.legal',
+  'personal.gifts',
+  'personal.donations',
+  'personal.education',
+  'personal.taxes',
+
+  'income.earned',
+  'income.benefits',
+  'income.interest',
+  'income.other',
+
+  'finance.savings',
+  'finance.debt',
+  'finance.investment',
+  'finance.fees',
+  'finance.settlement',
+]
+
+export function categoryLabel(category: Category): string {
+  return i18n.t(`enums.category.${category}`)
+}
+
+/** The heading of a category group — `household`, `housing`, … */
+export function categoryGroupLabel(group: string): string {
+  return i18n.t(`enums.categoryGroup.${group}`)
+}
+
+/** Everything before the dot — mirrors `Category.group` in the backend. */
+export function categoryGroup(category: Category): string | null {
+  const dot = category.indexOf('.')
+  return dot === -1 ? null : category.slice(0, dot)
 }
 
 /**
- * **A suggestion only.** Mirrored from `BLOCK_SUGGESTION` in the backend.
+ * The categories in dropdown order, cut into their groups.
  *
- * It preselects the obvious block in the form, nothing more — the user decides.
+ * Every category currently sits under a heading. A `group` of `null` is what an
+ * entry without a group would produce — it renders without a heading rather than
+ * disappearing, so adding an ungrouped value later cannot break the list.
+ *
+ * Carries the group **key**, not its label: the label depends on the language
+ * and is looked up when rendering (`categoryGroupLabel`).
+ */
+export const CATEGORY_GROUPS: { group: string | null; categories: Category[] }[] = (() => {
+  const groups: { group: string | null; categories: Category[] }[] = []
+
+  for (const category of CATEGORIES) {
+    const group = categoryGroup(category)
+    const previous = groups[groups.length - 1]
+
+    if (previous && previous.group === group) previous.categories.push(category)
+    else groups.push({ group, categories: [category] })
+  }
+
+  return groups
+})()
+
+/**
+ * **A suggestion only.** Mirrored from `BUDGET_SUGGESTION` in the backend, which
+ * derives it from the categories themselves.
+ *
+ * It preselects the obvious budget in the form, nothing more — the user decides.
  * Deliberately not data logic: whether fuel is a need or a want depends on the
  * household.
  */
-export const BLOCK_SUGGESTION: Record<Category, Block> = {
-  income: 'income',
-  housing: 'needs',
-  insurance: 'needs',
-  groceries: 'needs',
-  health: 'needs',
-  mobility: 'needs',
-  communication: 'needs',
-  children: 'needs',
-  subscriptions: 'wants',
-  leisure: 'wants',
-  vacation: 'wants',
-  pocket_money: 'wants',
-  reserves: 'savings',
-  debt_repayment: 'savings',
+export const BUDGET_SUGGESTION: Record<Category, Budget> = {
+  'household.groceries': 'needs',
+  'household.clothing': 'needs',
+  'household.healthcare': 'needs',
+  'household.personal_care': 'needs',
+  'household.cleaning': 'needs',
+  'household.pets': 'needs',
+
+  'housing.rent': 'needs',
+  'housing.utilities': 'needs',
+  'housing.repairs': 'needs',
+  // Furnishing is a deliberate purchase — unlike a repair it can wait.
+  'housing.interior': 'wants',
+  'housing.outdoor': 'wants',
+  'housing.insurance': 'needs',
+
+  'transport.public': 'needs',
+  'transport.fuel': 'needs',
+  'transport.repairs': 'needs',
+  // Nobody plans a fine, but it is not a want either.
+  'transport.fines': 'needs',
+  'transport.purchase': 'wants',
+  'transport.insurance': 'needs',
+
+  'children.care': 'needs',
+  'children.school': 'needs',
+  'children.allowance': 'wants',
+
+  'leisure.vacation': 'wants',
+  'leisure.hobbies': 'wants',
+  'leisure.entertainment': 'wants',
+  'leisure.memberships': 'wants',
+  'leisure.dining': 'wants',
+  'leisure.subscriptions': 'wants',
+  'leisure.indulgences': 'wants',
+
+  'personal.insurance': 'needs',
+  'personal.communication': 'needs',
+  // Work expenses: caused by the job, paid from private money.
+  'personal.work': 'needs',
+  'personal.legal': 'needs',
+  'personal.gifts': 'wants',
+  'personal.donations': 'wants',
+  'personal.education': 'needs',
+  'personal.taxes': 'needs',
+
+  'income.earned': 'income',
+  'income.benefits': 'income',
+  'income.interest': 'income',
+  'income.other': 'income',
+
+  'finance.savings': 'savings',
+  'finance.debt': 'savings',
   // Investments are ordinary wants — no special treatment, no group of their own,
   // no quota of their own.
-  investment: 'wants',
-  legal: 'needs',
-  // Work expenses: caused by the job, paid from private money.
-  work: 'needs',
+  'finance.investment': 'wants',
   // Account and card fees — they cannot be cancelled.
-  fees: 'needs',
+  'finance.fees': 'needs',
   // Reimbursing a household member. Not an expense in economic terms — exclude it
   // from household-wide evaluations, see issue #4.
-  settlement: 'needs',
-  interest: 'income',
+  'finance.settlement': 'needs',
 }
 
-export type Rhythm = 'monthly' | 'quarterly' | 'biannual' | 'annual'
+/** Allowed distance between two due dates, in months. Mirrors the backend range check. */
+export const INTERVAL_MIN = 1
+export const INTERVAL_MAX = 120
 
-export const RHYTHM_LABEL: Record<Rhythm, string> = {
-  monthly: 'monatlich',
-  quarterly: 'quartalsweise',
-  biannual: 'halbjährlich',
-  annual: 'jährlich',
+/** The distances the dialog offers directly; everything else is "anderer Abstand". */
+export const INTERVAL_PRESETS: number[] = [1, 3, 6, 12]
+
+/** Is this a whole number the backend accepts? */
+export function isValidInterval(value: number): boolean {
+  return Number.isInteger(value) && value >= INTERVAL_MIN && value <= INTERVAL_MAX
 }
 
-/** Distance in months — mirrors `Rhythm.interval`. */
-export const RHYTHM_INTERVAL: Record<Rhythm, number> = {
-  monthly: 1,
-  quarterly: 3,
-  biannual: 6,
-  annual: 12,
+/** `monatlich` for 1, `vierteljährlich` for 3, otherwise `alle N Monate`. */
+export function intervalLabel(intervalMonths: number): string {
+  if (intervalMonths === 1) return i18n.t('enums.interval.monthly')
+  if (intervalMonths === 3) return i18n.t('enums.interval.quarterly')
+  return i18n.t('enums.interval.every', { number: intervalMonths })
 }
 
-export const MONTH_LABEL = [
-  'Januar',
-  'Februar',
-  'März',
-  'April',
-  'Mai',
-  'Juni',
-  'Juli',
-  'August',
-  'September',
-  'Oktober',
-  'November',
-  'Dezember',
-]
+/** The months, 1 to 12. */
+export const MONTHS: number[] = Array.from({ length: 12 }, (_, index) => index + 1)
+
+/** `März` for 3 — the name comes from `Intl` in the active language. */
+export function monthLabel(month: number): string {
+  return new Intl.DateTimeFormat(locale(), { month: 'long' }).format(
+    new Date(2000, month - 1, 1)
+  )
+}
 
 /**
- * Which months does this fall due in? Mirrors `Commitment.is_due_in()`.
+ * Is a commitment due in this month? Mirrors `Commitment.is_due_in()`.
  *
- * Important: the rhythm continues across the turn of the year. Quarterly from July
- * means Jan, Apr, Jul, Oct — not only Jul and Oct. That is why every month is
- * tested individually instead of counting up from the start month.
- *
- * `%` returns a negative result for negative numbers in JavaScript, unlike Python
- * — adding `interval` before the second modulo compensates for that.
+ * Counts in absolute months from the start, so the cadence runs across the turn of
+ * the year (every 3 months from July 2026 hits January 2027) and an interval that
+ * does not divide 12 keeps its own cadence (every 5 months from November 2026 hits
+ * April 2027, then September 2027). Without a start date only a monthly commitment
+ * is due, in every month.
  */
-export function dueMonths(rhythm: Rhythm, firstMonth: number | null): number[] {
-  if (rhythm === 'monthly') return []
-  const start = firstMonth ?? 1
-  const interval = RHYTHM_INTERVAL[rhythm]
-  const months: number[] = []
-  for (let month = 1; month <= 12; month++) {
-    if ((((month - start) % interval) + interval) % interval === 0) {
-      months.push(month)
-    }
-  }
-  return months
+export function isDueIn(
+  intervalMonths: number,
+  firstDueDate: string | null,
+  year: number,
+  month: number
+): boolean {
+  if (firstDueDate === null) return intervalMonths === 1
+  const start = Number(firstDueDate.slice(0, 4)) * 12 + Number(firstDueDate.slice(5, 7))
+  const total = year * 12 + month
+  return total >= start && (total - start) % intervalMonths === 0
 }
 
-export const euro = new Intl.NumberFormat('de-DE', {
-  style: 'currency',
-  currency: 'EUR',
-})
+/** A month in a year — what the due-date list works with. */
+export type YearMonth = { year: number; month: number }
+
+/**
+ * The next due dates from a month on (that month included), earliest first.
+ *
+ * Built on `isDueIn`, so it follows the same absolute-month rule as the backend:
+ * every 5 months from November 2026, seen from January 2027, gives April 2027,
+ * September 2027, February 2028. Empty for a monthly commitment — "every month"
+ * needs no list — and without a start date.
+ */
+export function nextDueDates(
+  intervalMonths: number,
+  firstDueDate: string | null,
+  from: YearMonth,
+  count: number
+): YearMonth[] {
+  if (firstDueDate === null || !isValidInterval(intervalMonths) || intervalMonths === 1) {
+    return []
+  }
+  const start = Number(firstDueDate.slice(0, 4)) * 12 + Number(firstDueDate.slice(5, 7))
+  const begin = from.year * 12 + from.month
+  // Far enough to reach the start and then `count` steps beyond it.
+  const end = Math.max(begin, start) + count * intervalMonths
+  const dates: YearMonth[] = []
+  for (let total = begin; total <= end && dates.length < count; total++) {
+    const year = Math.floor((total - 1) / 12)
+    const month = total - year * 12
+    if (isDueIn(intervalMonths, firstDueDate, year, month)) dates.push({ year, month })
+  }
+  return dates
+}
+
+/** `Apr 2027` — the short month name from `Intl`, with the year. */
+export function dueDateLabel({ year, month }: YearMonth): string {
+  return `${monthLabel(month).slice(0, 3)} ${year}`
+}
+
+/**
+ * The text of the distance field as a value: a whole number from 1 to 120, or 0
+ * when the field is empty or holds anything else. 0 is what the range check
+ * rejects, so saving stays blocked until the field is right.
+ */
+export function parseIntervalText(text: string): number {
+  if (text.trim() === '') return 0
+  const parsed = Number(text)
+  return isValidInterval(parsed) ? parsed : 0
+}
+
+/**
+ * Amounts in euro, formatted for the active language.
+ *
+ * Built per call rather than once at load time: a constant would freeze the
+ * language the app happened to start with.
+ */
+export const euro = {
+  format(value: number | bigint): string {
+    return new Intl.NumberFormat(locale(), {
+      style: 'currency',
+      currency: 'EUR',
+    }).format(value)
+  },
+}
 
 /** Day 0 of the next month is the last day of this one — leap years included. */
 export function daysInMonth(year: number, month: number): number {
@@ -218,16 +411,16 @@ export const DUE_DAY_MAY_SHIFT = 29
  * is 9.03 a month, not 108.40. Without this conversion every budget total would be
  * wrong.
  */
-export function monthlyEquivalent(amount: string, rhythm: Rhythm): number {
-  return Number(amount) / RHYTHM_INTERVAL[rhythm]
+export function monthlyEquivalent(amount: string, intervalMonths: number): number {
+  return Number(amount) / intervalMonths
 }
 
 export type CommitmentType =
   | 'contract'
   | 'savings_goal'
   | 'debt'
-  /** A recurring amount with no contract: fuel, groceries, pocket money. */
-  | 'budget'
+  /** Money coming in: salary, benefits, interest. Nobody signs a contract for it. */
+  | 'income'
 
 /** Mirror of `Commitment` — one table for every type. */
 export type Commitment = {
@@ -238,22 +431,32 @@ export type Commitment = {
   /** Kept as a string so nothing gets rounded while typing. */
   amount: string
   category: Category
-  block: Block
+  budget: Budget
+  /**
+   * No fixed sum that gets ticked off — Lebensmittel, Sprit, Taschengeld. The
+   * generated position fills up over the month from bookings instead, and shows as
+   * running ("laufend") rather than with a checkbox. Sits on the commitment, not
+   * only on the position, because it is decided once and copied in every month.
+   */
+  isLimit: boolean
   /** null means private. Set means generated positions go into that household. */
   householdId: string | null
-  rhythm: Rhythm
+  /** Months between two due dates, 1 to 120. */
+  intervalMonths: number
   /**
-   * When it first falls due — day, month and year. Mandatory for a non-monthly
-   * rhythm. The month sets the cadence, the year the start.
+   * When it first falls due — day, month and year, for every commitment. The month
+   * sets the cadence, the year the start, the day the due day: it is stored nowhere
+   * else.
    */
-  firstDueDate: string | null
-  dueDay: number
-  active: boolean
+  firstDueDate: string
+  /**
+   * The last month in which it falls due, or null for "runs indefinitely". Only year
+   * and month count; the day is whatever was picked and is ignored.
+   */
+  endsOn: string | null
   /** only for savings_goal */
   targetAmount: string | null
   targetDate: string | null
-  /** only for debt */
-  remainingDebt: string | null
   /** Copied into the generated positions, overridable per month there. */
   paymentMethod: PaymentMethod | null
   /** Which account it is paid from. null means the default account. */
@@ -274,13 +477,26 @@ export type Commitment = {
   passThrough: boolean
 }
 
-/** The month the cadence starts in — taken from the start date. */
-export function firstMonthOf(commitment: {
-  firstDueDate: string | null
-}): number | null {
-  return commitment.firstDueDate
-    ? Number(commitment.firstDueDate.slice(5, 7))
-    : null
+/** Which commitments the list asks for — computed by the backend against today. */
+export type CommitmentStatus = 'active' | 'ended' | 'all'
+
+export const COMMITMENT_STATUSES: CommitmentStatus[] = ['active', 'ended', 'all']
+
+/** Has a commitment with this end month stopped? Mirrors the backend's `ended` filter. */
+export function hasEnded(endsOn: string | null, today: Date = new Date()): boolean {
+  if (endsOn === null) return false
+  const ends = Number(endsOn.slice(0, 4)) * 12 + Number(endsOn.slice(5, 7))
+  return ends < today.getFullYear() * 12 + today.getMonth() + 1
+}
+
+/** `März 2026` for `2026-03-15` — the day does not matter. */
+export function endMonthLabel(endsOn: string): string {
+  return `${monthLabel(Number(endsOn.slice(5, 7)))} ${endsOn.slice(0, 4)}`
+}
+
+/** The due day of a commitment — the day of its first due date (`2026-03-31` → 31). */
+export function dueDayOf(firstDueDate: string): number {
+  return Number(firstDueDate.slice(8, 10))
 }
 
 /**
@@ -296,13 +512,18 @@ export type AccountType =
   | 'payment_service'
   | 'cash'
 
-export const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
-  checking: 'Girokonto',
-  savings: 'Tagesgeld',
-  credit_card: 'Kreditkarte',
-  settlement: 'Verrechnungskonto',
-  payment_service: 'Zahlungsdienst',
-  cash: 'Bargeld',
+/** Every account type, in the order of the dropdown. */
+export const ACCOUNT_TYPES: AccountType[] = [
+  'checking',
+  'savings',
+  'credit_card',
+  'settlement',
+  'payment_service',
+  'cash',
+]
+
+export function accountTypeLabel(type: AccountType): string {
+  return i18n.t(`enums.accountType.${type}`)
 }
 
 export type Account = {
@@ -363,7 +584,7 @@ export function scopeKey(scope: BookScope): string {
  * One day of movement, broken down — every figure a positive amount.
  *
  * `change` is `income − needs − wants − savings`. Transfers leaving the spendable
- * pot count under `savings`: they carry no block, but the money has been put aside.
+ * pot count under `savings`: they carry no budget, but the money has been put aside.
  */
 export type BalanceMoves = {
   income: string
@@ -406,12 +627,12 @@ export type Transaction = {
   /** Set means a transfer to another own account. */
   counterAccountId: string | null
   occurredOn: string
-  /** Always positive — the direction comes from `block`. */
+  /** Always positive — the direction comes from `budget`. */
   amount: string
   note: string | null
   /** Empty on a pure transfer only. */
   category: Category | null
-  block: Block | null
+  budget: Budget | null
   positionId: string | null
   /** Only set in the household view: who booked it. */
   ownerName?: string | null
@@ -427,12 +648,17 @@ export type PaymentMethod =
   | 'direct_debit'
   | 'special'
 
-export const PAYMENT_LABEL: Record<PaymentMethod, string> = {
-  withdrawal: 'Abhebung',
-  transfer: 'Überweisung',
-  standing_order: 'Dauerauftrag',
-  direct_debit: 'Lastschrift',
-  special: 'Besonderheit',
+/** Every payment method, in the order of the dropdown. */
+export const PAYMENT_METHODS: PaymentMethod[] = [
+  'withdrawal',
+  'transfer',
+  'standing_order',
+  'direct_debit',
+  'special',
+]
+
+export function paymentLabel(method: PaymentMethod): string {
+  return i18n.t(`enums.paymentMethod.${method}`)
 }
 
 /** Mirror of `Plan` — always belongs to a person, never to a household. */
@@ -456,7 +682,7 @@ export type PlanPosition = {
   amountActual: string | null
   category: Category
   /** Frozen on creation — later changes do not act retroactively. */
-  block: Block
+  budget: Budget
   dueDay: number
   /** Copied from the commitment, overridable per month. null means the default. */
   accountId: string | null
@@ -468,12 +694,14 @@ export type PlanPosition = {
   counterAccountId: string | null
   paymentMethod: PaymentMethod | null
   /**
-   * A budget rather than a single payment — groceries, fuel, pocket money.
+   * No fixed sum, no single payment — groceries, fuel, pocket money. Copied from
+   * the commitment's `isLimit` when the position is generated.
    *
    * **Not ticked off**: such positions fill up over the month from individual
-   * bookings. Instead of a tick box the row shows a fill level.
+   * bookings. Instead of a tick box the row shows a fill level, and counts towards
+   * no "noch offen".
    */
-  isBudget: boolean
+  isLimit: boolean
   /**
    * A pass-through position — money that was never there to be spent.
    *
@@ -497,6 +725,91 @@ export type Me = {
   lastName: string
 }
 
+/**
+ * What the import thinks an entry is, and why.
+ *
+ * Worked out on the server while the list is read, never stored — a suggestion
+ * written into the row would go stale the moment somebody assigns something.
+ */
+export type Suggestion = {
+  /**
+   * Which of three questions this answers — they lead to three different
+   * buttons, and a row that offered "Übernehmen" for all of them would book a
+   * duplicate on the third.
+   *
+   * * `category` — what this was for. The everyday case
+   * * `transfer` — money moving to another own account. Not spending
+   * * `alreadyBooked` — the other side of a movement the book already holds
+   */
+  kind: 'category' | 'transfer' | 'already_booked'
+  /** Empty on a transfer: a movement between own accounts has no category. */
+  category: Category | null
+  /** The position it fits, from the month of the booking or the one after. */
+  positionId: string | null
+  /** On a transfer: the own account the money goes to or comes from. */
+  counterAccountId: string | null
+  counterAccountName: string | null
+  /**
+   * Was the other side **named** or only inferred?
+   *
+   * `true` means the bank supplied an IBAN belonging to one of your accounts —
+   * nothing to doubt. `false` means amount, direction and date alone, which is
+   * all that is left when the bank names nobody. The row phrases a guess as a
+   * question and a fact as a statement; showing both the same way would make
+   * the reliable case look as shaky as the other one.
+   */
+  certain: boolean
+  reason: string
+}
+
+/** One entry read out of a bank file, waiting to be understood. */
+export type ImportedEntry = {
+  id: string
+  accountId: string
+  ownerId: string
+
+  /** What the bank reported. None of it is editable. */
+  occurredOn: string
+  valueOn: string
+  amount: string
+  incoming: boolean
+  counterpartyName: string | null
+  counterpartyIban: string | null
+  purpose: string | null
+
+  /** The interpretation — empty until somebody assigns it. */
+  positionId: string | null
+  category: Category | null
+  budget: Budget | null
+
+  /** Set means this is a transfer to another own account, not spending. */
+  counterAccountId: string | null
+
+  discardedAt: string | null
+
+  /** Only on rows nobody has assigned yet. */
+  suggestion: Suggestion | null
+}
+
+/** What one upload did. */
+export type ImportSummary = {
+  accountId: string
+  iban: string
+  read: number
+  parked: number
+  known: number
+  /**
+   * Opening plus every booked entry equals closing. `false` means a page is
+   * missing or something was misread — the import cannot tell which.
+   */
+  balancesMatch: boolean
+  /**
+   * Set when the file names an IBAN no account carries yet. Not an error: the
+   * user is asked once which account it is, then never again.
+   */
+  unknownIban: string | null
+}
+
 export type Role = 'owner' | 'member'
 
 /**
@@ -505,21 +818,43 @@ export type Role = 'owner' | 'member'
  * Sits on your **own** membership: whoever owns the data decides. Nobody can grant
  * themselves insight into somebody else accounts.
  */
-export type AccessLevel = 'plan' | 'view' | 'edit'
+export type AccessLevel = 'plan' | 'view' | 'edit' | 'delete'
 
-export const ACCESS_LABEL: Record<AccessLevel, string> = {
-  plan: 'Nur gemeinsame Posten',
-  view: 'Buch und Konten sichtbar',
-  edit: 'Darf auch ändern',
+/**
+ * The rungs, in order. Mirrors `AccessLevel.rank` in the backend.
+ *
+ * **Compare with `atLeast`, never with `===`.** A check written as
+ * `level === 'edit'` turns false the moment a higher level exists, which takes
+ * the right to edit away from exactly the person who was trusted most. That
+ * happened once already, in three places at the same time.
+ */
+const ACCESS_RANK: Record<AccessLevel, number> = {
+  plan: 0,
+  view: 1,
+  edit: 2,
+  delete: 3,
 }
 
-export const ACCESS_HINT: Record<AccessLevel, string> = {
-  plan: 'Der Partner sieht, was ihr gemeinsam plant — sonst nichts.',
-  view: 'Der Partner sieht zusätzlich deine Buchungen, Kontostände und privaten Posten.',
-  edit: 'Der Partner darf deine Posten außerdem ändern und abhaken.',
+/** Is `level` at least `needed`? */
+export function atLeast(level: AccessLevel, needed: AccessLevel): boolean {
+  return ACCESS_RANK[level] >= ACCESS_RANK[needed]
 }
 
-export const ACCESS_ORDER: AccessLevel[] = ['plan', 'view', 'edit']
+/**
+ * What a level means, per area — the same word promises different things.
+ * "Sehen" on a month is the shared plan plus the private positions; on a contract
+ * it is the contract itself, which nobody used to be able to share at all.
+ */
+export function accessLabel(area: Area, level: AccessLevel): string {
+  return i18n.t(`enums.access.${area}.${level}`)
+}
+
+/** One sentence on what the level allows, per area. */
+export function accessHint(area: Area, level: AccessLevel): string {
+  return i18n.t(`enums.accessHint.${area}.${level}`)
+}
+
+export const ACCESS_ORDER: AccessLevel[] = ['plan', 'view', 'edit', 'delete']
 
 export type Member = {
   userId: string
@@ -527,8 +862,34 @@ export type Member = {
   lastName: string
   email: string
   role: Role
-  /** What this person allows the others to see about themselves. */
-  grantsAccess: AccessLevel
+  /**
+   * What this person allows the others to see about themselves, one level per
+   * area. Sharing the month you plan is a small step; handing over the contracts
+   * behind it is a much larger one, so they are answered separately.
+   */
+  grantsPlan: AccessLevel
+  grantsCommitments: AccessLevel
+  /** Covers the book too — an account you may see comes with its bookings. */
+  grantsAccounts: AccessLevel
+}
+
+/** The three areas a grant can be given for. Mirrors `Area` in the backend. */
+export type Area = 'plan' | 'commitments' | 'accounts'
+
+export function areaLabel(area: Area): string {
+  return i18n.t(`enums.area.${area}`)
+}
+
+export const AREA_ORDER: Area[] = ['plan', 'commitments', 'accounts']
+
+/** The `Member` fields the levels live in. */
+export type AreaField = 'grantsPlan' | 'grantsCommitments' | 'grantsAccounts'
+
+/** Which field on `Member` carries the level for an area. */
+export const AREA_FIELD: Record<Area, AreaField> = {
+  plan: 'grantsPlan',
+  commitments: 'grantsCommitments',
+  accounts: 'grantsAccounts',
 }
 
 export type Household = {
@@ -573,11 +934,12 @@ export type MyInvitation = {
 export type PlanSummary = Plan & {
   income: string
   /**
-   * Income minus buffer — the basis the quotas refer to. **Not** the same as what
-   * is left to allocate; that is the remainder of it.
+   * Income minus buffer — the basis the quotas refer to, shown in the UI as
+   * "Verteilbar". **Not** the same as what is left to allocate; that is the
+   * remainder of it.
    */
-  budget: string
-  /** Allocated per block. */
+  distributable: string
+  /** Allocated per budget. */
   spent: Record<'needs' | 'wants' | 'savings', string>
   /** Sum of the positions that are not ticked off yet. */
   unpaid: string
@@ -586,17 +948,6 @@ export type PlanSummary = Plan & {
 }
 
 /** A plan together with its positions. */
-/**
- * Another person plan — a view into it, not a plan of your own.
- *
- * `mayEdit` only says whether the UI may offer buttons. The actual check happens on
- * the writing endpoint, not here.
- */
-export type MemberPlanDetail = PlanDetail & {
-  ownerId: string
-  ownerName: string
-  mayEdit: boolean
-}
 
 export type PlanDetail = PlanSummary & {
   id: string
@@ -619,25 +970,27 @@ export type HouseholdPosition = PlanPosition & {
   ownerName: string
 }
 
-/** What of the budget has not been allocated to the three blocks yet. */
+/** What of the distributable amount has not been allocated to the three budgets yet. */
 export function unallocated(plan: PlanSummary): number {
   const spent =
     Number(plan.spent.needs) + Number(plan.spent.wants) + Number(plan.spent.savings)
-  return Number(plan.budget) - spent
+  return Number(plan.distributable) - spent
 }
 
 /**
  * What is still to leave the account for this position.
  *
- * Ticked off means done, and income never leaves. Otherwise what counts is the
- * planned amount minus what the book already records: a 600 budget with 127.50 of
- * purchases booked still expects 472.50, not 600.
+ * Ticked off means done, and income never leaves. A limit position never carries
+ * a tick either — it has no due amount of its own, only a fill level, so it never
+ * counts towards "Noch offen". Otherwise what counts is the planned amount minus
+ * what the book already records: a 600 limit with 127.50 of purchases booked still
+ * expects 472.50, not 600.
  *
- * Never negative — overspending a budget does not leave anything over. Same rule as
+ * Never negative — overspending a limit does not leave anything over. Same rule as
  * `remaining()` in the backend, so that both figures mean the same thing.
  */
 export function stillDue(position: PlanPosition): number {
-  if (position.block === 'income' || isPaid(position)) return 0
+  if (position.budget === 'income' || isPaid(position) || position.isLimit) return 0
   // Stands and falls with its own income — no money of your own is missing.
   if (position.passThrough) return 0
   const booked = Number(position.amountActual ?? 0)

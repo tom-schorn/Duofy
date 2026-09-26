@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
 from app.core.permissions import (
+    Area,
     granted_level,
     is_member,
     require,
@@ -26,7 +27,7 @@ from app.core.permissions import (
 )
 from app.db.session import get_session
 from app.models.account import Account
-from app.models.enums import AccessLevel, Block
+from app.models.enums import AccessLevel, Budget
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.schemas.account import (
@@ -44,25 +45,50 @@ ZERO = Decimal("0.00")
 
 
 async def _clear_other_defaults(
-    session: AsyncSession, user: User, keep: uuid.UUID | None = None
+    session: AsyncSession, owner_id: uuid.UUID, keep: uuid.UUID | None = None
 ) -> None:
-    """Clear the default flag on every other account of this user.
+    """Clear the default flag on every other account of this owner.
 
     A partial unique index in the database allows only one. Without this cleanup,
     switching the default would raise an integrity error instead of doing the
     obvious thing — a new default should replace the old one, not be rejected.
+
+    Takes the **owner**, not the caller: setting a default while standing in for
+    somebody would otherwise clear the flag on the helper's own accounts.
     """
-    query = update(Account).where(Account.owner_id == user.id, Account.is_default)
+    query = update(Account).where(Account.owner_id == owner_id, Account.is_default)
     if keep is not None:
         query = query.where(Account.id != keep)
     await session.execute(query.values(is_default=False))
 
 
-async def _load(session: AsyncSession, account_id: uuid.UUID, user: User) -> Account:
+async def _load(
+    session: AsyncSession,
+    account_id: uuid.UUID,
+    user: User,
+    *,
+    needs: AccessLevel = AccessLevel.EDIT,
+) -> Account:
+    """An account the user may act on.
+
+    Their own always, somebody else's from the level the owner granted in
+    `Area.ACCOUNTS`. Until now this checked ownership alone, which made the
+    accounts the one thing a delegate could not touch — while `transactions.py`
+    happily let them book on that same account. `needs` separates changing from
+    deleting.
+    """
     account = await session.get(Account, account_id)
     if account is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "account_not_found"})
-    require(account.owner_id == user.id, "not_account_owner")
+
+    if account.owner_id == user.id:
+        return account
+
+    level = await granted_level(session, account.owner_id, user.id, Area.ACCOUNTS)
+    require(
+        level.rank >= needs.rank,
+        "no_delete_granted" if needs is AccessLevel.DELETE else "no_edit_granted",
+    )
     return account
 
 
@@ -79,7 +105,7 @@ async def _scope(
     """
     if household is not None:
         require(await is_member(session, user.id, household), "not_household_member")
-        return await viewable_members(session, household, user.id)
+        return await viewable_members(session, household, user.id, Area.ACCOUNTS)
     return [await _target_owner(session, owner, user)]
 
 
@@ -95,7 +121,7 @@ async def _target_owner(
     if owner is None or owner == user.id:
         return user.id
 
-    level = await granted_level(session, owner, user.id)
+    level = await granted_level(session, owner, user.id, Area.ACCOUNTS)
     require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
     return owner
 
@@ -108,7 +134,7 @@ async def _balances(
     A booking carries no sign; the direction lives elsewhere:
 
     * **transfer** — leaves `account_id`, arrives at `counter_account_id`.
-    * **otherwise** — `block = income` is inbound, everything else outbound.
+    * **otherwise** — `budget = income` is inbound, everything else outbound.
 
     Two sums, because one account can appear in both columns: as the source of one
     transfer and the target of the next.
@@ -118,9 +144,9 @@ async def _balances(
             Transaction.account_id,
             func.sum(
                 case(
-                    # A transfer leaves the account, whatever the block says.
+                    # A transfer leaves the account, whatever the budget says.
                     (Transaction.counter_account_id.isnot(None), -Transaction.amount),
-                    (Transaction.block == Block.INCOME, Transaction.amount),
+                    (Transaction.budget == Budget.INCOME, Transaction.amount),
                     else_=-Transaction.amount,
                 )
             ),
@@ -213,7 +239,7 @@ def _delta(spendable: set[uuid.UUID] | None):
     if spendable is None:
         return case(
             (Transaction.counter_account_id.isnot(None), literal(0)),
-            (Transaction.block == Block.INCOME, Transaction.amount),
+            (Transaction.budget == Budget.INCOME, Transaction.amount),
             else_=-Transaction.amount,
         )
 
@@ -230,7 +256,7 @@ def _delta(spendable: set[uuid.UUID] | None):
         (is_transfer, literal(0)),
         # A normal booking only counts if it touches a spendable account.
         (source_spendable.is_(False), literal(0)),
-        (Transaction.block == Block.INCOME, Transaction.amount),
+        (Transaction.budget == Budget.INCOME, Transaction.amount),
         else_=-Transaction.amount,
     )
 
@@ -286,22 +312,22 @@ async def balance_history(
         )
     )
 
-    # Grouped by day **and block** so the chart can break the movement down. Pure
-    # transfers have no block; they land under `savings`, because a transfer leaving
+    # Grouped by day **and budget** so the chart can break the movement down. Pure
+    # transfers have no budget; they land under `savings`, because a transfer leaving
     # the spendable pot is money put aside.
     daily = await session.execute(
-        select(Transaction.occurred_on, Transaction.block, func.sum(delta))
+        select(Transaction.occurred_on, Transaction.budget, func.sum(delta))
         .where(
             Transaction.owner_id.in_(owner_ids),
             Transaction.occurred_on >= first,
             Transaction.occurred_on <= last,
         )
-        .group_by(Transaction.occurred_on, Transaction.block)
+        .group_by(Transaction.occurred_on, Transaction.budget)
         .order_by(Transaction.occurred_on)
     )
 
     nach_tag: dict[date, dict[str, Decimal]] = {}
-    for day, block, betrag in daily.all():
+    for day, budget, betrag in daily.all():
         eimer = nach_tag.setdefault(
             day, {"income": ZERO, "needs": ZERO, "wants": ZERO, "savings": ZERO}
         )
@@ -309,7 +335,7 @@ async def balance_history(
             # Anything entering the pot: income, or money pulled back in.
             eimer["income"] += betrag
         elif betrag < 0:
-            schluessel = block.value if block in (Block.NEEDS, Block.WANTS) else "savings"
+            schluessel = budget.value if budget in (Budget.NEEDS, Budget.WANTS) else "savings"
             eimer[schluessel] += -betrag
 
     # One point per day **with** movement. The chart fills the days in between as a
@@ -339,17 +365,28 @@ async def balance_history(
 @router.post("", response_model=AccountRead, status_code=status.HTTP_201_CREATED)
 async def create_account(
     payload: AccountCreate,
+    owner: uuid.UUID | None = None,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> AccountRead:
-    if payload.is_default:
-        await _clear_other_defaults(session, user)
+    """Create an account — your own, or that of a member who granted `edit`.
 
-    account = Account(owner_id=user.id, **payload.model_dump())
+    Helping somebody set Duofy up starts here: without their accounts there is
+    nothing to book on.
+    """
+    owner_id = owner or user.id
+    if owner_id != user.id:
+        level = await granted_level(session, owner_id, user.id, Area.ACCOUNTS)
+        require(level.rank >= AccessLevel.EDIT.rank, "no_edit_granted")
+
+    if payload.is_default:
+        await _clear_other_defaults(session, owner_id)
+
+    account = Account(owner_id=owner_id, **payload.model_dump())
     session.add(account)
     await session.commit()
     await session.refresh(account)
-    return await _with_balance(session, account, user.id)
+    return await _with_balance(session, account, account.owner_id)
 
 
 @router.patch("/{account_id}", response_model=AccountRead)
@@ -363,14 +400,14 @@ async def update_account(
     changes = payload.model_dump(exclude_unset=True)
 
     if changes.get("is_default"):
-        await _clear_other_defaults(session, user, keep=account.id)
+        await _clear_other_defaults(session, account.owner_id, keep=account.id)
 
     for field, value in changes.items():
         setattr(account, field, value)
 
     await session.commit()
     await session.refresh(account)
-    return await _with_balance(session, account, user.id)
+    return await _with_balance(session, account, account.owner_id)
 
 
 @router.delete("/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -384,6 +421,6 @@ async def delete_account(
     An account no longer in use is set to `active = false` — that way its bookings
     keep their reference.
     """
-    account = await _load(session, account_id, user)
+    account = await _load(session, account_id, user, needs=AccessLevel.DELETE)
     await session.delete(account)
     await session.commit()

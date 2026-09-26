@@ -17,6 +17,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.auth import current_active_user
 from app.core.permissions import (
+    Area,
     can_assign_to_household,
     granted_level,
     is_member,
@@ -25,7 +26,7 @@ from app.core.permissions import (
 )
 from app.db.session import get_session
 from app.models.commitment import Commitment
-from app.models.enums import AccessLevel, Block, CommitmentType
+from app.models.enums import AccessLevel, Budget
 from app.models.household import Household, HouseholdMember
 from app.models.plan import Plan, PlanPosition
 from app.models.user import User
@@ -33,7 +34,6 @@ from app.schemas.plan import (
     BudgetTotals,
     HouseholdPlanRead,
     HouseholdPositionRead,
-    MemberPlanRead,
     PlanCreate,
     PlanRead,
     PlanSummary,
@@ -57,20 +57,20 @@ def _summarize(
 ) -> dict:
     """The figures the overview and the detail page show.
 
-    `budget` is income minus buffer — the basis the quotas are computed on. Not to
-    be confused with what is left to allocate: that is the remainder of it and is
-    derived in the frontend, where it updates live anyway.
+    `distributable` is income minus buffer — the basis the quotas are computed on.
+    Not to be confused with what is left to allocate: that is the remainder of it
+    and is derived in the frontend, where it updates live anyway.
     """
-    # Pass-through positions stay out — they were never budget. Counting them would
-    # inflate the budget and the savings quota with it, although the household has
-    # not a cent more to distribute.
+    # Pass-through positions stay out — that money was never there to distribute.
+    # Counting it would inflate `distributable` and the savings quota with it,
+    # although the household has not a cent more to spend.
     counting = [p for p in positions if not p.pass_through]
 
-    income = sum((p.amount_planned for p in counting if p.block is Block.INCOME), ZERO)
-    budget = income - (income * buffer_percent / 100)
+    income = sum((p.amount_planned for p in counting if p.budget is Budget.INCOME), ZERO)
+    distributable = income - (income * buffer_percent / 100)
 
-    def total(block: Block) -> Decimal:
-        return sum((p.amount_planned for p in counting if p.block is block), ZERO)
+    def total(budget: Budget) -> Decimal:
+        return sum((p.amount_planned for p in counting if p.budget is budget), ZERO)
 
     def remaining(position: PlanPosition) -> Decimal:
         """What is still to go out for this position.
@@ -81,7 +81,12 @@ def _summarize(
 
         Never negative — overspending a budget does not leave anything over.
         """
-        if position.block is Block.INCOME or position.paid_at is not None:
+        if position.budget is Budget.INCOME or position.paid_at is not None:
+            return ZERO
+        # A limit is never "still to go out": it has no tick, it runs until the
+        # month is over. Counting its remainder would keep every month looking
+        # unfinished right up to the 31st.
+        if position.is_limit:
             return ZERO
         # A pass-through position stands and falls with its own income. Counting it
         # here would make the month look underfunded although no money of your own
@@ -106,34 +111,64 @@ def _summarize(
         "target_savings": targets[2],
         "buffer_percent": buffer_percent,
         "income": income,
-        "budget": budget,
+        "distributable": distributable,
         "spent": BudgetTotals(
-            needs=total(Block.NEEDS),
-            wants=total(Block.WANTS),
-            savings=total(Block.SAVINGS),
+            needs=total(Budget.NEEDS),
+            wants=total(Budget.WANTS),
+            savings=total(Budget.SAVINGS),
         ),
         "unpaid": unpaid,
         "household_ids": household_ids,
     }
 
 
-async def _load_plan(session: AsyncSession, plan_id: uuid.UUID, user: User) -> Plan:
+async def _load_plan(
+    session: AsyncSession,
+    plan_id: uuid.UUID,
+    user: User,
+    *,
+    allow_delegate: bool = True,
+) -> Plan:
+    """A month, either your own or one you stand in for.
+
+    Same ladder as `positions.py::_load`: your own always, somebody else only at
+    level `edit` in `Area.PLAN`, and only the owner can grant that. Standing in
+    for someone means being able to do the same things they can — a delegate who
+    may correct a position but not add one would be stuck the moment something
+    is missing, which is the usual reason for helping in the first place.
+    """
     plan = await session.get(Plan, plan_id, options=[selectinload(Plan.positions)])
     if plan is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "plan_not_found"})
-    require(owns_plan(user, plan), "not_plan_owner")
+
+    if owns_plan(user, plan):
+        return plan
+
+    require(allow_delegate, "not_plan_owner")
+    level = await granted_level(session, plan.user_id, user.id, Area.PLAN)
+    require(level.rank >= AccessLevel.EDIT.rank, "no_edit_granted")
     return plan
 
 
 @router.get("", response_model=list[PlanSummary])
 async def list_plans(
+    owner: uuid.UUID | None = None,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> list[PlanSummary]:
-    """Alle eigenen Monatspläne, neueste zuerst."""
+    """Monatspläne, neueste zuerst.
+
+    Ohne `owner` die eigenen, mit `owner` die einer Person, die mindestens `view`
+    auf `Area.PLAN` gegeben hat — dieselbe Regel wie beim einzelnen Monat.
+    """
+    owner_id = owner or user.id
+    if owner_id != user.id:
+        level = await granted_level(session, owner_id, user.id, Area.PLAN)
+        require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
+
     result = await session.execute(
         select(Plan)
-        .where(Plan.user_id == user.id)
+        .where(Plan.user_id == owner_id)
         .options(selectinload(Plan.positions))
         .order_by(Plan.year.desc(), Plan.month.desc())
     )
@@ -154,18 +189,30 @@ async def list_plans(
 @router.post("", response_model=PlanRead, status_code=status.HTTP_201_CREATED)
 async def create_plan(
     payload: PlanCreate,
+    owner: uuid.UUID | None = None,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> PlanRead:
     """Create a month.
 
-    Positions are generated from every active commitment falling due in that month.
+    Positions are generated from every commitment falling due in that month.
     Deliberately **no** "copy last month" — the recurring part comes from the
     commitments, one-off items are entered by hand.
+
+    Without `owner` your own month, with `owner` that of a person who granted
+    `edit` in `Area.PLAN`. **Everything is read from the owner**, not from
+    whoever is calling: the plan, the commitments it grows from, the check for a
+    month that already exists. Taking the caller for any one of those would
+    quietly build the wrong person a month out of the wrong contracts.
     """
+    owner_id = owner or user.id
+    if owner_id != user.id:
+        level = await granted_level(session, owner_id, user.id, Area.PLAN)
+        require(level.rank >= AccessLevel.EDIT.rank, "no_edit_granted")
+
     existing = await session.execute(
         select(Plan).where(
-            Plan.user_id == user.id,
+            Plan.user_id == owner_id,
             Plan.year == payload.year,
             Plan.month == payload.month,
         )
@@ -173,10 +220,10 @@ async def create_plan(
     if existing.scalar_one_or_none() is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, detail={"code": "plan_already_exists"})
 
-    plan = Plan(user_id=user.id, year=payload.year, month=payload.month)
+    plan = Plan(user_id=owner_id, year=payload.year, month=payload.month)
 
     commitments = await session.execute(
-        select(Commitment).where(Commitment.owner_id == user.id, Commitment.active.is_(True))
+        select(Commitment).where(Commitment.owner_id == owner_id)
     )
     for commitment in commitments.scalars():
         if not commitment.is_due_in(payload.year, payload.month):
@@ -188,16 +235,16 @@ async def create_plan(
                 label=commitment.name,
                 amount_planned=commitment.amount,
                 category=commitment.category,
-                block=commitment.block,
+                budget=commitment.budget,
                 # The 31st does not exist in every month — this holds the clamped
                 # day, not the raw one.
                 due_day=commitment.effective_due_day(payload.year, payload.month),
                 # Copied from the commitment, still overridable on the position.
                 account_id=commitment.account_id,
                 payment_method=commitment.payment_method,
-                # A budget commitment becomes a budget position: no tick box, a
-                # fill level fed by bookings instead.
-                is_budget=commitment.type is CommitmentType.BUDGET,
+                # A limit stays a limit in every month it is planned: no tick
+                # box, a fill level fed by bookings instead.
+                is_limit=commitment.is_limit,
                 counter_account_id=commitment.counter_account_id,
                 pass_through=commitment.pass_through,
             )
@@ -213,12 +260,30 @@ async def create_plan(
 async def get_plan(
     year: int,
     month: int,
+    owner: uuid.UUID | None = None,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> PlanRead:
+    """One month, whole — private positions included.
+
+    Without `owner` your own month. With `owner` that person's, which needs at least
+    `view` on `Area.PLAN`; the level comes from them.
+
+    Private positions are deliberately part of it. A level that shows the book but
+    hides a position would not be a degree of trust but a gap — the booking would
+    stand in the book anyway.
+
+    Not the same as the household plan: that one shows only positions with a
+    `household_id` and merges every member.
+    """
+    owner_id = owner or user.id
+    if owner_id != user.id:
+        level = await granted_level(session, owner_id, user.id, Area.PLAN)
+        require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
+
     result = await session.execute(
         select(Plan)
-        .where(Plan.user_id == user.id, Plan.year == year, Plan.month == month)
+        .where(Plan.user_id == owner_id, Plan.year == year, Plan.month == month)
         .options(selectinload(Plan.positions))
     )
     plan = result.scalar_one_or_none()
@@ -271,54 +336,6 @@ async def create_position(
 
 
 # --- Haushaltssicht -------------------------------------------------------
-
-
-@router.get("/member/{owner_id}/{year}/{month}", response_model=MemberPlanRead)
-async def get_member_plan(
-    owner_id: uuid.UUID,
-    year: int,
-    month: int,
-    session: AsyncSession = Depends(get_session),
-    user: User = Depends(current_active_user),
-) -> MemberPlanRead:
-    """The **whole** plan of a household member, private positions included.
-
-    Not the same as the shared plan: that one shows only positions with
-    `household_id` set and merges every member. Here one person stands alone, the
-    way they see their own month.
-
-    Verlangt mindestens Stufe `view` — und die gibt der Besitzer selbst, siehe
-    `AccessLevel`. Private Posten sind bewusst dabei: eine Stufe, die das Buch
-    zeigt, aber einen Posten verbirgt, wäre keine Vertrauensstufe, sondern eine
-    Lücke — im Buch stünde die Buchung ohnehin.
-
-    Die Route ist `/member/...`, nicht `/{owner_id}/...` — sonst käme sie
-    `/{year}/{month}` in den Weg.
-    """
-    level = await granted_level(session, owner_id, user.id)
-    require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
-
-    owner = await session.get(User, owner_id)
-    if owner is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "user_not_found"})
-
-    result = await session.execute(
-        select(Plan)
-        .where(Plan.user_id == owner_id, Plan.year == year, Plan.month == month)
-        .options(selectinload(Plan.positions))
-    )
-    plan = result.scalar_one_or_none()
-    if plan is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "plan_not_found"})
-
-    return MemberPlanRead(
-        owner_id=owner.id,
-        owner_name=owner.first_name,
-        # Tells the frontend whether to offer buttons. The real check still happens
-        # on the writing endpoint — this is presentation, not protection.
-        may_edit=level is AccessLevel.EDIT,
-        **_plan_read(plan).model_dump(),
-    )
 
 
 @router.get("/household/{household_id}/{year}/{month}", response_model=HouseholdPlanRead)

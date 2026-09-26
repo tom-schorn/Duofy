@@ -1,0 +1,91 @@
+name: Feature-Spezifikation
+description: Ein abgestimmtes Feature, so aufgeschrieben, dass man es ohne Raten bauen kann
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Nur für abgestimmte Arbeit.** Eine Idee beginnt in
+        [Discussions › Ideas](https://github.com/tom-schorn/Duofy/discussions/new?category=ideas);
+        sobald wir uns einig sind, wird hier eine Spezifikation daraus.
+
+        So schreiben, dass jemand, der nicht beim Gespräch dabei war, es bauen kann —
+        auch du selbst in drei Wochen. Und wie überall in Duofy:
+        **keine echten Beträge, Namen oder Kontonummern.**
+
+  - type: textarea
+    id: purpose
+    attributes:
+      label: Zweck
+      description: >-
+        Welches Problem löst das, und für wen? Ein oder zwei Absätze. Steht der
+        Grund nicht hier, geht er verloren.
+      placeholder: |
+        Sparziele gibt es heute nur als Vertrag, der eine Rate erzeugt. Niemand
+        sieht, wie viel für ein Ziel tatsächlich zurückgelegt ist …
+    validations:
+      required: true
+
+  - type: textarea
+    id: data-model
+    attributes:
+      label: Datenmodell
+      description: >-
+        Neue Tabellen, Spalten, Constraints, Enum-Werte. Datei und bestehendes
+        Modell nennen, auf dem es aufbaut. Sagen, was gespeichert und was
+        abgeleitet wird.
+      placeholder: |
+        `Transaction.savings_goal_id` — nullable FK auf `commitments.id` …
+    validations:
+      required: true
+
+  - type: textarea
+    id: automations
+    attributes:
+      label: Automatisierungen
+      description: >-
+        Was passiert, ohne dass der Nutzer es tut — Monat erzeugen, Abhaken,
+        Validierung, Neuberechnung. Auslöser → Wirkung.
+      placeholder: |
+        Monat erzeugen: Ein Ziel, dessen Stand das Ziel erreicht hat, erzeugt
+        keinen Posten …
+
+  - type: textarea
+    id: decisions
+    attributes:
+      label: Entscheidungen und warum
+      description: >-
+        Bewusste Entscheidungen, mit Grund und der verworfenen Alternative. Das
+        ist der Teil, den du später nachschlägst.
+      placeholder: |
+        **Harte Grenze, keine Einstellung.** Duofy legt Regeln fest, statt
+        Optionen anzubieten — eine Entscheidung weniger für den Nutzer.
+        Verworfen: eine Warnung, die man wegklicken kann.
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Akzeptanzkriterien
+      description: >-
+        Prüfbare Aussagen. Fertig heißt: Jedes Kästchen lässt sich abhaken,
+        Randfälle eingeschlossen.
+      value: |
+        - [ ] 
+    validations:
+      required: true
+
+  - type: textarea
+    id: open-questions
+    attributes:
+      label: Offene Fragen
+      description: >-
+        Alles, was noch nicht entschieden ist. Hält halbfertige Gedanken aus den
+        Abschnitten oben heraus. Leer ist in Ordnung.
+
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Nicht im Umfang
+      description: >-
+        Verwandtes, das dieses Issue bewusst nicht macht, mit Link auf das
+        zugehörige Issue, falls es eins gibt.

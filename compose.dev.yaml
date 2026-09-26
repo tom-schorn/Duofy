@@ -1,9 +1,12 @@
 # Local development — the database only. The app itself runs natively:
 #
+#     docker compose -f compose.dev.yaml up -d
 #     cd backend && uv run uvicorn app.main:app --reload
 #
-# Not to be confused with docker-compose.yml, which is the full stack for
-# self-hosting. See issue #36: `docker compose up` finds this file first.
+# The name matters. Called `compose.yaml` this file would be the one
+# `docker compose up` picks in a clone of the repository, and somebody expecting
+# the whole application would get a lone database. `docker-compose.yml` next to it
+# is the full stack for self-hosting; this one has to be asked for by name.
 
 services:
   db:

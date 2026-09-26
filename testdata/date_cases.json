@@ -1,0 +1,44 @@
+{
+  "$comment": "Date cases both halves must agree on. Read by backend/tests/test_date_cases.py and frontend/src/lib/date-cases.test.ts — change an expected value and both suites fail. No real data: years and days only.",
+  "days_in_month": [
+    { "case": "january has 31", "year": 2026, "month": 1, "expected": 31 },
+    { "case": "february in a common year has 28", "year": 2026, "month": 2, "expected": 28 },
+    { "case": "february in a leap year has 29", "year": 2028, "month": 2, "expected": 29 },
+    { "case": "a century is no leap year", "year": 2100, "month": 2, "expected": 28 },
+    { "case": "every 400 years it is one after all", "year": 2000, "month": 2, "expected": 29 },
+    { "case": "april has 30", "year": 2026, "month": 4, "expected": 30 },
+    { "case": "december has 31", "year": 2026, "month": 12, "expected": 31 }
+  ],
+  "effective_due_day": [
+    { "case": "a day every month has stays", "due_day": 15, "year": 2026, "month": 2, "expected": 15 },
+    { "case": "the 31st stays in a long month", "due_day": 31, "year": 2026, "month": 1, "expected": 31 },
+    { "case": "the 31st becomes the 30th in a short month", "due_day": 31, "year": 2026, "month": 4, "expected": 30 },
+    { "case": "the 31st becomes the 28th in a common february", "due_day": 31, "year": 2026, "month": 2, "expected": 28 },
+    { "case": "the 31st becomes the 29th in a leap february", "due_day": 31, "year": 2028, "month": 2, "expected": 29 },
+    { "case": "the 30th becomes the 28th in a common february", "due_day": 30, "year": 2026, "month": 2, "expected": 28 },
+    { "case": "the 29th stays in a leap february", "due_day": 29, "year": 2028, "month": 2, "expected": 29 },
+    { "case": "the 29th becomes the 28th in a common february", "due_day": 29, "year": 2026, "month": 2, "expected": 28 },
+    { "case": "the 28th never moves", "due_day": 28, "year": 2026, "month": 2, "expected": 28 }
+  ],
+  "is_due_in": [
+    { "case": "every 5 months from november is due in april across the year", "interval_months": 5, "first_due_date": "2026-11-01", "year": 2027, "month": 4, "expected": true },
+    { "case": "every 5 months from november is due in september", "interval_months": 5, "first_due_date": "2026-11-01", "year": 2027, "month": 9, "expected": true },
+    { "case": "every 5 months from november is due in its first month", "interval_months": 5, "first_due_date": "2026-11-01", "year": 2026, "month": 11, "expected": true },
+    { "case": "every 5 months from november is not due in march", "interval_months": 5, "first_due_date": "2026-11-01", "year": 2027, "month": 3, "expected": false },
+    { "case": "every 5 months from november is not due in may", "interval_months": 5, "first_due_date": "2026-11-01", "year": 2027, "month": 5, "expected": false },
+    { "case": "every 5 months from november is not due before its start", "interval_months": 5, "first_due_date": "2026-11-01", "year": 2026, "month": 10, "expected": false },
+    { "case": "every 3 months from july is due in january across the year", "interval_months": 3, "first_due_date": "2026-07-01", "year": 2027, "month": 1, "expected": true },
+    { "case": "every 3 months from july is not due in february", "interval_months": 3, "first_due_date": "2026-07-01", "year": 2027, "month": 2, "expected": false },
+    { "case": "every month is due in the month it starts", "interval_months": 1, "first_due_date": "2026-03-15", "year": 2026, "month": 3, "expected": true },
+    { "case": "every month is due in the month after", "interval_months": 1, "first_due_date": "2026-03-15", "year": 2026, "month": 4, "expected": true },
+    { "case": "every month is due across the year", "interval_months": 1, "first_due_date": "2026-03-15", "year": 2027, "month": 1, "expected": true },
+    { "case": "every month is not due before its start", "interval_months": 1, "first_due_date": "2026-03-15", "year": 2026, "month": 2, "expected": false },
+    { "case": "every 12 months from february is due in february a year on", "interval_months": 12, "first_due_date": "2026-02-10", "year": 2027, "month": 2, "expected": true },
+    { "case": "every 12 months from february is not due in january", "interval_months": 12, "first_due_date": "2026-02-10", "year": 2027, "month": 1, "expected": false },
+    { "case": "every 12 months from february is not due in august", "interval_months": 12, "first_due_date": "2026-02-10", "year": 2026, "month": 8, "expected": false },
+    { "case": "every 120 months from january is due ten years on", "interval_months": 120, "first_due_date": "2026-01-01", "year": 2036, "month": 1, "expected": true },
+    { "case": "every 120 months from january is not due after five years", "interval_months": 120, "first_due_date": "2026-01-01", "year": 2031, "month": 1, "expected": false },
+    { "case": "every 120 months from january is not due a month after ten years", "interval_months": 120, "first_due_date": "2026-01-01", "year": 2036, "month": 2, "expected": false },
+    { "case": "every 6 months from december is due in june", "interval_months": 6, "first_due_date": "2026-12-31", "year": 2027, "month": 6, "expected": true }
+  ]
+}
