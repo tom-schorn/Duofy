@@ -70,7 +70,8 @@ Genau das läuft in der CI. Backend-Tests brauchen ein echtes Postgres
 - **Rebase-Merge nach `main`**, kein Squash: die Einzelcommits bleiben. Deshalb ist
   **jeder Commit** nach Conventional Commits geschrieben (die CI prüft jeden
   Betreff, ebenso den PR-Titel) und macht genau eine Sache. Daraus entstehen
-  Version und Changelog
+  Version und Changelog. GitHubs „Revert"-Betreffe und `fixup!`-Commits vor dem
+  Merge umformulieren, sonst fallen sie durch die Prüfung
 - **Release** über release-please auf `main`: sein Release-PR erzeugt Tag und
   Images (`:latest` und Versionstag); jeder Push auf `main` baut `:dev`
 - **Jeder Commit signiert** (`git commit -s`, DCO). Commits über die API brauchen
@@ -173,8 +174,8 @@ nach Abhängigkeiten:
 5. #91, #84
 6. Release: #15, #64, #65, #66, zuletzt #58 (Hilfespalte) und #96 (README, Wiki)
 
-Querschnitt, erledigt: #116 Trunk statt develop (Dateien; Einstellungen auf GitHub folgen), #117 Logging,
-#118 Dependabot, #119 ADR-Ordner.
+Querschnitt, erledigt: #116 Trunk statt develop (Dateien; Einstellungen auf
+GitHub folgen), #117 Logging, #118 Dependabot, #119 ADR-Ordner.
 
 V2: Verträge und Forderungen (#89), Gemeinschaftskonten (#92), Sparziele mit
 eigenem Stand (#86). V3: Anträge (#90).
