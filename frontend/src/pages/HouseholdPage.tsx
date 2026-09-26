@@ -111,6 +111,12 @@ export function HouseholdPage() {
               household={household}
               onInvite={() => setInvitingTo(household)}
               onLeft={() => heading.current?.focus()}
+              isLastOwner={
+                household.members.filter((member) => member.role === 'owner').length === 1 &&
+                household.members.some(
+                  (member) => member.role === 'owner' && member.userId === currentUserId
+                )
+              }
             />
 
             <ul className="flex flex-col">
@@ -187,10 +193,13 @@ function HouseholdHeader({
   household,
   onInvite,
   onLeft,
+  isLastOwner,
 }: {
   household: Household
   onInvite: () => void
   onLeft: () => void
+  /** The only owner cannot leave; the dialog says so instead of offering it. */
+  isLastOwner: boolean
 }) {
   const leave = useLeaveHousehold()
   const [confirming, setConfirming] = useState(false)
@@ -214,10 +223,16 @@ function HouseholdHeader({
           {t('household.invite')}
         </Button>
 
-        {/* Die eingebrachten Posten bleiben im Haushalt stehen — vergangene
-            Monate werden nicht umgeschrieben. In neue Pläne fließt nichts
-            mehr, dafür fehlt die Mitgliedschaft. */}
-        <Button variant="outline" size="sm" onClick={() => setConfirming(true)}>
+        {/* Wer austritt, sieht die gemeinsamen Pläne nicht mehr, und die anderen
+            sehen seine Posten dort in keinem Monat mehr, auch nicht in
+            vergangenen. Gelöscht wird nichts; eigene Pläne, Konten und Verträge
+            bleiben bei der Person. */}
+        <Button
+          variant="outline"
+          size="sm"
+          aria-label={t('household.leaveFrom', { name: household.name })}
+          onClick={() => setConfirming(true)}
+        >
           <LogOut className="size-4" />
           {t('household.leave')}
         </Button>
@@ -236,11 +251,14 @@ function HouseholdHeader({
               <AlertDialogTitle className="font-heading">
                 {t('household.leaveTitle', { name: household.name })}
               </AlertDialogTitle>
-              <AlertDialogDescription>{t('household.leaveText')}</AlertDialogDescription>
+              <AlertDialogDescription>
+                {isLastOwner ? t('errors.last_owner_cannot_leave') : t('household.leaveText')}
+              </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               {/* Focus starts on the safe button (rule 13). */}
               <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+              {!isLastOwner && (
               <AlertDialogAction
                 disabled={leave.isPending}
                 onClick={(event) => {
@@ -256,6 +274,7 @@ function HouseholdHeader({
               >
                 {t('household.leave')}
               </AlertDialogAction>
+              )}
             </AlertDialogFooter>
             {leave.isError && <FormError error={leave.error} />}
           </AlertDialogContent>
