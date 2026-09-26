@@ -1,13 +1,11 @@
 name: CI
 
-# Every pull request, plus `main`. A squash merge creates a state nobody has ever
-# built before, so it is checked again there.
+# Every pull request. `main` is checked by `development.yml`, which calls this
+# workflow before it builds images; a `push: main` trigger here as well would run
+# everything twice. A rebase merge still creates a state nobody has built before
+# (the commits sit on a new base), so that call is the check of `main` itself.
 on:
   pull_request:
-  push:
-    branches: [main]
-  # `development.yml` calls this workflow before it builds images, which is why
-  # `develop` is no longer in the push trigger above — everything would run twice.
   workflow_call:
 
 # A new push to the same branch cancels the run in progress. Not on `main`, where

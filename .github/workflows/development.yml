@@ -1,9 +1,10 @@
 name: Development
 
-# Every merge into `develop` produces fresh images tagged `dev`.
+# Every push to `main` produces fresh images tagged `dev`. Releases (`latest` and the
+# version tag) are built by release.yml.
 on:
   push:
-    branches: [develop]
+    branches: [main]
 
 concurrency:
   group: dev-images
