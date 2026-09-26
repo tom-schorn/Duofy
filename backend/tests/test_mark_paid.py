@@ -281,6 +281,30 @@ async def test_mark_paid_rejects_a_position_with_no_account_and_no_default(
     await session.refresh(position)
     assert position.paid_at is None
     assert position.amount_actual is None
+    assert (
+        await session.scalar(select(func.count()).select_from(Transaction))
+    ) == 0
+
+
+async def test_mark_paid_rejects_a_transfer_from_the_default_account_onto_itself(
+    client: AsyncClient, session: AsyncSession, owner: User
+):
+    """No account on the position: the default account is the source, and it is
+    also the counter account — case 1 as the issue states it."""
+    giro = await make_account(session, owner, "Giro", is_default=True)
+    position = await make_position(session, owner)
+    position.counter_account_id = giro.id
+    await session.commit()
+
+    response = await client.post(f"/api/v1/positions/{position.id}/paid")
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == {"code": "position_source_equals_target"}
+    await session.refresh(position)
+    assert position.paid_at is None
+    assert (
+        await session.scalar(select(func.count()).select_from(Transaction))
+    ) == 0
 
 
 async def test_mark_paid_on_a_position_with_bookings_ticks_without_a_new_booking(

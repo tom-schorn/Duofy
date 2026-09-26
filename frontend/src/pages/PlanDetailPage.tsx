@@ -25,6 +25,7 @@ import { MonthFlow } from '@/components/MonthFlow'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PositionDialog } from '@/components/PositionDialog'
 import { errorText } from '@/lib/api'
+import { positionHasBookings } from '@/lib/paid'
 import {
   Empty,
   EmptyDescription,
@@ -498,7 +499,9 @@ function PlanBody({
           }
         }}
         pending={togglePaid.isPending}
-        hasBookings={booking?.amountActual != null}
+        hasBookings={
+          booking ? positionHasBookings(booking.id, transactions.data) : false
+        }
         error={togglePaid.isError ? errorText(togglePaid.error) : null}
       />
 

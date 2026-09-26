@@ -44,7 +44,14 @@ type Props = {
   error?: string | null
 }
 
-export function PaidDialog({ position, onClose, onConfirm, pending, hasBookings = false, error = null }: Props) {
+export function PaidDialog({
+  position,
+  onClose,
+  onConfirm,
+  pending,
+  hasBookings = false,
+  error = null,
+}: Props) {
   const { t } = useTranslation()
   const [occurredOn, setOccurredOn] = useState(today())
   const [amount, setAmount] = useState('')
@@ -82,7 +89,11 @@ export function PaidDialog({ position, onClose, onConfirm, pending, hasBookings 
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex gap-3">
+          <div
+            role="group"
+            aria-describedby={hasBookings ? 'paid-bookings-note' : undefined}
+            className="flex gap-3"
+          >
             <div className="flex flex-1 flex-col gap-1.5">
               <Label htmlFor="paid-date">{t('common.date')}</Label>
               <DateField
@@ -104,13 +115,18 @@ export function PaidDialog({ position, onClose, onConfirm, pending, hasBookings 
                 value={amount}
                 onChange={(event) => setAmount(event.target.value)}
                 required
+                aria-describedby={hasBookings ? 'paid-bookings-note' : undefined}
                 disabled={hasBookings}
               />
             </div>
           </div>
 
           {hasBookings && (
-            <p className="text-muted-foreground text-sm" role="status">
+            <p
+              id="paid-bookings-note"
+              className="text-muted-foreground text-sm"
+              role="status"
+            >
               {t('paidDialog.hasBookings')}
             </p>
           )}
