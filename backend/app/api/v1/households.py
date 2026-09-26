@@ -15,6 +15,7 @@ from sqlalchemy.orm import selectinload
 from app.core.auth import current_active_user
 from app.core.permissions import is_household_owner, is_member, require
 from app.db.session import get_session
+from app.models.commitment import Commitment
 from app.models.enums import InvitationStatus, Role
 from app.models.household import Household, HouseholdInvitation, HouseholdMember
 from app.models.plan import Plan, PlanPosition
@@ -221,6 +222,13 @@ async def leave_household(
             PlanPosition.household_id == household_id,
             PlanPosition.plan_id.in_(select(Plan.id).where(Plan.user_id == user.id)),
         )
+        .values(household_id=None)
+    )
+    # The commitments too, or the next month built from them would put the positions
+    # straight back into the household.
+    await session.execute(
+        update(Commitment)
+        .where(Commitment.household_id == household_id, Commitment.owner_id == user.id)
         .values(household_id=None)
     )
     await session.delete(member)
