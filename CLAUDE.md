@@ -123,6 +123,7 @@ kein `Rhythm`, kein `remaining_debt`, Verlauf und Monatsübertrag wie in #93/#94
 
 - **Keine echten Daten** — keine echten Beträge, Namen, Kontonummern, IBANs in
   Code, Tests, Issues, Commits, Wiki oder Screenshots. Das Repo ist öffentlich
+- **Oberfläche:** Änderungen folgen `docs/ui/README.md`; das Review prüft dagegen
 - **Beträge** immer `Numeric` / `Decimal`, nie `Float`
 - **Enums** über `enum_column()` aus `app/db/types.py` (speichert den Wert, nicht
   den Namen)
@@ -160,6 +161,9 @@ kein `Rhythm`, kein `remaining_debt`, Verlauf und Monatsübertrag wie in #93/#94
 | Umbuchung | Buchung mit `counter_account_id` zwischen eigenen Konten |
 | Monatsübertrag | Buchungsart, die den Startstand eines Kontos im Monat festlegt, bewegt keinen Kontostand (#94) |
 | Verlauf | Kurve durch den Monat, Standardkonto, Plan bis gebucht (#93) |
+| Frei | Betrag, der noch keinem Posten zugeteilt ist; bei 0 steht „Alles verplant“ |
+| Anstehend | verplant, aber noch nicht abgehakt oder bezahlt |
+| Grundbedarf | Oberflächenname des Budgets `needs`, überall statt Fixkosten oder Bedarf |
 
 ## Stand und Reihenfolge V1
 
