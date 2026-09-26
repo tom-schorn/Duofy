@@ -661,6 +661,7 @@
       "description": "Zeigt die Seitenleiste auf dem Handy.",
       "toggle": "Seitenleiste ein- oder ausblenden"
     },
-    "notifications": "Benachrichtigungen"
+    "notifications": "Benachrichtigungen",
+    "closeNotification": "Meldung schließen"
   }
 }

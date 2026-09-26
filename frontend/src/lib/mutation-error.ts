@@ -12,6 +12,10 @@ import { i18n } from '@/lib/i18n'
 export function reportMutationError(error: unknown, retry: () => void) {
   toast.error(errorText(error), {
     duration: Infinity,
+    // Sonner's own close button has a fixed English label the Toaster does not let
+    // us translate, so the dismissal is a labelled button from the catalog —
+    // reachable by keyboard, which the swipe-away toast is not.
+    cancel: { label: i18n.t('ui.closeNotification'), onClick: () => {} },
     action: { label: i18n.t('errors.retry'), onClick: retry },
   })
 }
