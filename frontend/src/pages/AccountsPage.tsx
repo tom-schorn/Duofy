@@ -441,6 +441,7 @@ export function AccountDialog({
             </span>
           </span>
           <Switch
+            aria-label={t('accounts.active')}
             checked={draft.active}
             onCheckedChange={(value) => set('active', value)}
           />
