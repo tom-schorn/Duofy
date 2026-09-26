@@ -24,12 +24,8 @@ import { longDate, today } from '@/lib/dates'
 import { MonthFlow } from '@/components/MonthFlow'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PositionDialog } from '@/components/PositionDialog'
-import {
-  Alert,
-  AlertAction,
-  AlertDescription,
-  AlertTitle,
-} from '@/components/ui/alert'
+import { errorText } from '@/lib/api'
+import { positionHasBookings } from '@/lib/paid'
 import {
   Empty,
   EmptyDescription,
@@ -41,7 +37,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
   useDeletePosition,
-  useAccounts,
   useHouseholdPlan,
   useHouseholds,
   useTransactions,
@@ -207,15 +202,9 @@ function PlanBody({
 
   // For the confirmation when un-ticking: which booking hangs off which position.
   const transactions = useTransactions(plan.year, plan.month)
-  const accounts = useAccounts().data ?? []
-  const hasDefaultAccount = accounts.some(
-    (account) => account.active && account.isDefault
-  )
 
   /** The position whose self-created booking is about to disappear. */
   const [confirming, setConfirming] = useState<PlanPosition | null>(null)
-  /** Last ticked off without a booking being possible. */
-  const [noAccountFor, setNoAccountFor] = useState<string | null>(null)
 
   const autoBookedOf = (position: PlanPosition) =>
     transactions.data?.find(
@@ -241,20 +230,8 @@ function PlanBody({
       return
     }
 
-    if (!position.isLimit && !position.accountId && !hasDefaultAccount) {
-      setNoAccountFor(position.label)
-      togglePaid.mutate({ id: position.id, paid: true })
-      return
-    }
-
-    // If an actual amount is already there, bookings exist — then the tick adds
-    // nothing and there is nothing to ask. Otherwise ask for date and amount,
-    // because both go into the book exactly as entered.
-    if (position.amountActual !== null) {
-      togglePaid.mutate({ id: position.id, paid: true })
-      return
-    }
-
+    // Always ask, even for a position that already has bookings: the dialog says
+    // that date and amount are not used then, and shows a rejected tick in place.
     setBooking(position)
   }
 
@@ -397,32 +374,6 @@ function PlanBody({
         </section>
       )}
 
-      {noAccountFor && (
-        <Alert>
-          <AlertTitle>{t('plan.noAccountTitle')}</AlertTitle>
-          <AlertDescription>
-            <Trans
-              i18nKey="plan.noAccount"
-              values={{ name: noAccountFor }}
-              components={{ name: <span className="font-medium" /> }}
-            />{' '}
-            <Link to="/accounts" className="underline underline-offset-4">
-              {t('accounts.create')}
-            </Link>
-          </AlertDescription>
-          <AlertAction>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setNoAccountFor(null)}
-            >
-              {t('plan.understood')}
-            </Button>
-          </AlertAction>
-        </Alert>
-      )}
-
       {/* Tabs statt Untereinander: der Verlauf beantwortet eine andere Frage
           als die Postenliste — „geht der Monat auf" gegen „was steht drin".
           Später kommt „Buch" als dritter Tab dazu. */}
@@ -535,14 +486,23 @@ function PlanBody({
           Abhaken von Hand korrigiert wurde. */}
       <PaidDialog
         position={booking}
-        onClose={() => setBooking(null)}
+        onClose={() => {
+          setBooking(null)
+          togglePaid.reset()
+        }}
         onConfirm={({ occurredOn, amount }) => {
           if (booking) {
-            togglePaid.mutate({ id: booking.id, paid: true, occurredOn, amount })
+            togglePaid.mutate(
+              { id: booking.id, paid: true, occurredOn, amount },
+              { onSuccess: () => setBooking(null) }
+            )
           }
-          setBooking(null)
         }}
         pending={togglePaid.isPending}
+        hasBookings={
+          booking ? positionHasBookings(booking.id, transactions.data) : false
+        }
+        error={togglePaid.isError ? errorText(togglePaid.error) : null}
       />
 
       <AlertDialog

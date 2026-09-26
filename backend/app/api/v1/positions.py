@@ -183,7 +183,12 @@ async def mark_paid(
     purchases over the month — there the tick only means "month done", and the book
     stays the truth.
 
-    Without that rule, purchases plus tick would count twice.
+    Without that rule, purchases plus tick would count twice. In that case the date
+    and amount of `payload` are not used.
+
+    If a booking would be needed but cannot be made (no account on the position and
+    no default account, or source equal to target), the tick is rejected with a 422
+    code and the position stays open.
 
     `payload` allows a different date and a different amount while ticking off. That
     is needed constantly: the payment was a few days ago, or the instalment came out
@@ -191,7 +196,6 @@ async def mark_paid(
     book afterwards and correct the booking that was just created.
     """
     position, plan = await _load(session, position_id, user)
-    position.paid_at = datetime.now(UTC)
     payload = payload or PositionPaid()
 
     already = await session.scalar(
@@ -202,7 +206,6 @@ async def mark_paid(
 
     if not already:
         # Where the money comes from: the position first, then the default account.
-        # If there is none, nothing is booked — ticking off must not fail over it.
         #
         # Always **the owner account**, not the one of whoever ticks. A delegate
         # ticking off somebody else rent must not create a booking in their own book
@@ -213,36 +216,41 @@ async def mark_paid(
                 select(Account.id).where(Account.owner_id == plan.user_id, Account.is_default)
             )
 
+        # Without a booking the tick would look like a payment that never reached
+        # the books, so both dead ends are rejected and the position stays open.
+        if account_id is None:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, detail={"code": "position_no_account"}
+            )
+
         # A counter account means **transfer** rather than expense. On a savings
         # goal the money moves to another own account; booked as an expense the
-        # total would be wrong, because nothing left the household.
-        #
-        # If target and source coincide — the position has no account and the
-        # default account is exactly the target — nothing is booked. A booking from
-        # an account to itself would be wrong, and the tick must not fail over it.
-        same_account = (
-            position.counter_account_id is not None
-            and position.counter_account_id == account_id
-        )
-
-        if account_id is not None and not same_account:
-            session.add(
-                Transaction(
-                    owner_id=plan.user_id,
-                    account_id=account_id,
-                    counter_account_id=position.counter_account_id,
-                    occurred_on=payload.occurred_on or date.today(),
-                    amount=payload.amount or position.amount_planned,
-                    note=position.label,
-                    category=position.category,
-                    budget=position.budget,
-                    position_id=position.id,
-                    auto_booked=True,
-                )
+        # total would be wrong, because nothing left the household. A booking from
+        # an account to itself would be wrong too.
+        if position.counter_account_id is not None and position.counter_account_id == account_id:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail={"code": "position_source_equals_target"},
             )
-            await session.flush()
-            position.amount_actual = payload.amount or position.amount_planned
 
+        session.add(
+            Transaction(
+                owner_id=plan.user_id,
+                account_id=account_id,
+                counter_account_id=position.counter_account_id,
+                occurred_on=payload.occurred_on or date.today(),
+                amount=payload.amount or position.amount_planned,
+                note=position.label,
+                category=position.category,
+                budget=position.budget,
+                position_id=position.id,
+                auto_booked=True,
+            )
+        )
+        await session.flush()
+        position.amount_actual = payload.amount or position.amount_planned
+
+    position.paid_at = datetime.now(UTC)
     await session.commit()
     await session.refresh(position)
     return position
