@@ -106,4 +106,28 @@ describe('FlowView', () => {
     renderView({ showSwitch: false })
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
   })
+
+  test('a foreign plan speaks about that person, not about you', () => {
+    renderView({ ownerName: 'Ida', flow: { ...flow, hints: [shortfall] } })
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(/^Ida braucht am 1\./)
+    expect(screen.getByText(/^Standardkonto von Ida/)).toBeInTheDocument()
+  })
+
+  test('the household has its own footnote, not the one about a single person', () => {
+    renderView({ shared: true })
+    expect(screen.getByText(/^Alle Posten des Haushalts/)).toBeInTheDocument()
+    expect(screen.queryByText(/^Standardkonto der Person/)).not.toBeInTheDocument()
+  })
+
+  test('a booking from another month shows its real date in the table', () => {
+    renderView()
+    expect(screen.getByText(/^30\.08\. \(Vormonat\)/)).toBeInTheDocument()
+  })
+
+  test('the headline is a heading, the chart an image and the table has a caption', () => {
+    renderView({ flow: { ...flow, hints: [shortfall] } })
+    expect(screen.getByRole('heading', { level: 2 })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /^Verlauf des Monats/ })).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: /^Eintr.ge des Verlaufs/ })).toBeInTheDocument()
+  })
 })
