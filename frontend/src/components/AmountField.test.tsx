@@ -16,10 +16,52 @@ function Holder({ start = '', required = true }: { start?: string; required?: bo
   )
 }
 
+function Ext({ value, allowZero = false }: { value: string; allowZero?: boolean }) {
+  return (
+    <form>
+      <label htmlFor="a">Betrag</label>
+      <AmountField id="a" value={value} onChange={() => {}} allowZero={allowZero} />
+    </form>
+  )
+}
+
 const field = () => screen.getByLabelText('Betrag') as HTMLInputElement
 const api = () => screen.getByTestId('api').textContent
 
 describe('AmountField', () => {
+  test('an invalid text in an optional field blocks the form', () => {
+    render(<Holder required={false} />)
+    fireEvent.change(field(), { target: { value: '12e3' } })
+    expect(field().form?.checkValidity()).toBe(false)
+  })
+
+  test('an empty optional field does not block the form', () => {
+    render(<Holder required={false} />)
+    expect(field().form?.checkValidity()).toBe(true)
+  })
+
+  test('a value changed from outside replaces the text', () => {
+    const { rerender } = render(<Ext value="10" />)
+    expect(field().value).toBe('10,00')
+    rerender(<Ext value="25.5" />)
+    expect(field().value).toBe('25,50')
+  })
+
+  test('zero is only accepted with allowZero', () => {
+    const { rerender } = render(<Ext value="" />)
+    fireEvent.change(field(), { target: { value: '0' } })
+    expect(field().form?.checkValidity()).toBe(false)
+    rerender(<Ext value="" allowZero />)
+    expect(field().form?.checkValidity()).toBe(true)
+  })
+
+  test('focuses the first invalid field when submitting', () => {
+    render(<Holder />)
+    fireEvent.submit(field().form as HTMLFormElement)
+    field().form?.reportValidity()
+    expect(field()).toHaveFocus()
+  })
+
   test('is a text field with a decimal keypad and a euro sign', () => {
     render(<Holder />)
     expect(field().type).toBe('text')

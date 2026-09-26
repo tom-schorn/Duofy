@@ -23,10 +23,12 @@ const MAX_INTEGER_DIGITS = 10
  * separators. Without one, a single dot is a decimal point (`12.5`) unless it
  * clearly groups thousands (`1.234`: one to three digits, not starting with 0,
  * then exactly three). So `0.005` is refused as three decimals, never read as 5.
+ * `,50` reads as 0.50. Zero is refused (`tooSmall`) unless `allowZero`.
  * `12e3`, letters and signs are refused; the sign comes from the kind of booking.
  */
-export function parseAmount(text: string): ParsedAmount {
-  const typed = text.replace('€', '').trim()
+export function parseAmount(text: string, { allowZero = false } = {}): ParsedAmount {
+  // Spaces of any kind (also no-break and thin ones) only group digits: "1 234,56".
+  const typed = text.replace('€', '').replace(/\s/g, '')
   if (typed === '') return { ok: false, reason: 'empty' }
   if (!/^[0-9.,]+$/.test(typed)) return { ok: false, reason: 'invalid' }
 
@@ -38,7 +40,7 @@ export function parseAmount(text: string): ParsedAmount {
   if (commas.length === 2) {
     integer = commas[0]
     decimals = commas[1]
-    if (!isGrouped(integer) && !/^[0-9]+$/.test(integer)) return { ok: false, reason: 'invalid' }
+    if (!isGrouped(integer) && !/^[0-9]*$/.test(integer)) return { ok: false, reason: 'invalid' }
     integer = integer.replaceAll('.', '')
   } else {
     const dots = typed.split('.')
@@ -64,7 +66,7 @@ export function parseAmount(text: string): ParsedAmount {
   if (integer.length > MAX_INTEGER_DIGITS) return { ok: false, reason: 'tooLarge' }
 
   const value = `${integer}.${decimals.padEnd(2, '0')}`
-  if (value === '0.00') return { ok: false, reason: 'tooSmall' }
+  if (value === '0.00' && !allowZero) return { ok: false, reason: 'tooSmall' }
   return { ok: true, value }
 }
 
@@ -75,7 +77,7 @@ function isGrouped(text: string): boolean {
 
 /** An API amount as shown in the field: `1234.5` becomes `1.234,50`. Empty stays empty. */
 export function formatAmount(value: string): string {
-  const parsed = parseAmount(value.replace('.', ','))
+  const parsed = parseAmount(value.replace('.', ','), { allowZero: true })
   if (!parsed.ok) return ''
   return formatNumber(Number(parsed.value), { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }

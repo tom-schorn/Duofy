@@ -13,6 +13,12 @@ describe('parseAmount', () => {
     ['1.234.567,89', '1234567.89'],
     ['1.234', '1234.00'],
     [' 45,00 € ', '45.00'],
+    [',50', '0.50'],
+    ['12,', '12.00'],
+    ['1.234.567', '1234567.00'],
+    ['1 234,56', '1234.56'],
+    ['1 234,56', '1234.56'],
+    ['1 234,56', '1234.56'],
   ])('reads %s as %s', (text, value) => {
     expect(parseAmount(text)).toEqual({ ok: true, value })
   })
@@ -40,7 +46,22 @@ describe('parseAmount', () => {
   })
 })
 
+describe('parseAmount with allowZero', () => {
+  it('reads zero only when asked to', () => {
+    expect(parseAmount('0,00', { allowZero: true })).toEqual({ ok: true, value: '0.00' })
+    expect(parseAmount('0,00')).toEqual({ ok: false, reason: 'tooSmall' })
+  })
+})
+
 describe('formatAmount', () => {
+  it('shows a valid API zero and survives a round trip', () => {
+    expect(formatAmount('0.00')).toBe('0,00')
+    for (const text of ['1.234,56', '0,50', '12,00', '1.234.567,00']) {
+      const parsed = parseAmount(text)
+      expect(parsed.ok && formatAmount(parsed.value)).toBe(text)
+    }
+  })
+
   it('writes an API amount the German way, with two decimals', () => {
     expect(formatAmount('1234.5')).toBe('1.234,50')
     expect(formatAmount('12')).toBe('12,00')
