@@ -5,8 +5,8 @@ normal path, on the current model, before #83.
 one, otherwise the owner's default account; a free date and amount override the
 planned ones. `unmark_paid` removes only the booking it created itself.
 
-The silent cases (no account anywhere, source equals target, a position that
-already carries hand-entered bookings) are #95's territory, not this file's.
+Ticking without a booking (#95): no account anywhere and source equal to target
+are rejected; a position that already carries bookings is ticked without a new one.
 
 Part of #13.
 """
@@ -16,7 +16,7 @@ from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.account import Account
@@ -242,3 +242,80 @@ async def test_unmark_paid_leaves_a_later_hand_entered_booking_alone(
     await session.refresh(position)
     assert position.paid_at is None
     assert position.amount_actual == Decimal("23.40")
+
+
+async def test_mark_paid_rejects_a_position_whose_source_equals_its_target(
+    client: AsyncClient, session: AsyncSession, owner: User
+):
+    giro = await make_account(session, owner, "Giro", is_default=True)
+    position = await make_position(session, owner, account_id=giro.id)
+    position.counter_account_id = giro.id
+    await session.commit()
+
+    response = await client.post(f"/api/v1/positions/{position.id}/paid")
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == {"code": "position_source_equals_target"}
+    await session.refresh(position)
+    assert position.paid_at is None
+    assert position.amount_actual is None
+    assert (
+        await session.scalar(
+            select(func.count()).select_from(Transaction).where(
+                Transaction.position_id == position.id
+            )
+        )
+    ) == 0
+
+
+async def test_mark_paid_rejects_a_position_with_no_account_and_no_default(
+    client: AsyncClient, session: AsyncSession, owner: User
+):
+    position = await make_position(session, owner)
+    await session.commit()
+
+    response = await client.post(f"/api/v1/positions/{position.id}/paid")
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == {"code": "position_no_account"}
+    await session.refresh(position)
+    assert position.paid_at is None
+    assert position.amount_actual is None
+
+
+async def test_mark_paid_on_a_position_with_bookings_ticks_without_a_new_booking(
+    client: AsyncClient, session: AsyncSession, owner: User
+):
+    giro = await make_account(session, owner, "Giro", is_default=True)
+    position = await make_position(session, owner, account_id=giro.id)
+    existing = Transaction(
+        owner_id=owner.id,
+        account_id=giro.id,
+        occurred_on=date(2026, 9, 3),
+        amount=Decimal("12.00"),
+        category=Category.LEISURE_SUBSCRIPTIONS,
+        budget=Budget.WANTS,
+        position_id=position.id,
+        auto_booked=False,
+    )
+    session.add(existing)
+    await session.commit()
+
+    response = await client.post(
+        f"/api/v1/positions/{position.id}/paid",
+        json={"occurred_on": "2026-09-10", "amount": "99.00"},
+    )
+
+    assert response.status_code == 200
+    bookings = (
+        (
+            await session.execute(
+                select(Transaction).where(Transaction.position_id == position.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert [transaction.id for transaction in bookings] == [existing.id]
+    await session.refresh(position)
+    assert position.paid_at is not None
