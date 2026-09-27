@@ -1056,6 +1056,12 @@ export type HouseholdPlanDetail = PlanSummary & {
   householdName: string
   hints: PlanHint[]
   positions: HouseholdPosition[]
+  /**
+   * First names of current members who have not created this month yet. Empty
+   * means every member has — the usual case. Set means `positions` and `hints`
+   * are empty on purpose: a half plan is not shown, only who is still missing.
+   */
+  missingMembers: string[]
 }
 
 /** Like a position, plus the person behind it — the point of the shared view. */
