@@ -44,6 +44,11 @@ function collect(form: HTMLFormElement, t: TFunction) {
     if (!(element instanceof HTMLInputElement || element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement)) continue
     if (element.disabled || element.validity.valid) continue
     const own = element.hasAttribute(OWN_ERROR_ATTRIBUTE)
+    // Rule: a sentence is shown under a field only through its `id` (see Form).
+    // An invalid control without an id (and not explaining itself) would fail silently.
+    if (!own && !element.id && import.meta.env.DEV) {
+      console.warn('Form: invalid field without an id gets no error sentence', element.name || element.type)
+    }
     if (own) element.checkValidity()
     found.push({ control: element, message: own ? null : sentence(element, t) })
   }

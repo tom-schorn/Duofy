@@ -678,6 +678,7 @@ export function CommitmentDialog({
                     onChange={(event) => handleIntervalText(event.target.value)}
                     aria-invalid={!intervalValid}
                     aria-describedby="interval-custom-hint"
+                    data-own-error
                     required
                   />
                   {/* Always in the DOM so the field can point at it; only the
