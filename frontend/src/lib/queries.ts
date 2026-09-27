@@ -84,6 +84,7 @@ export const keys = {
     ['plans', year, month, ownerId ?? 'me'] as const,
   householdPlan: (householdId: string, year: number, month: number) =>
     ['plans', 'household', householdId, year, month] as const,
+  householdPlans: (householdId: string) => ['plans', 'household', householdId] as const,
   /** Under `plans`, so everything that changes a plan reloads the flow too. */
   flow: (year: number, month: number, scope: string) =>
     ['plans', 'flow', scope, year, month] as const,
@@ -501,11 +502,27 @@ export function useDeleteCommitment() {
  * The owner is part of the key, otherwise their months would overwrite yours in
  * the cache the moment you switch.
  */
-export function usePlans(ownerId: string | null = null) {
+export function usePlans(ownerId: string | null = null, enabled = true) {
   return useQuery({
     queryKey: [...keys.plans, ownerId ?? 'me'] as const,
     queryFn: () =>
       api.get<PlanSummary[]>(ownerId === null ? '/plans' : `/plans?owner=${ownerId}`),
+    enabled,
+  })
+}
+
+/**
+ * Every month that carries this household, across every member — newest first.
+ *
+ * Backs "Alle Pläne" reached from the household plan. The household owns no plan
+ * of its own to read the months off of, so this is its own endpoint: filtering the
+ * viewer's own plans by household would miss a month only a partner planned into.
+ */
+export function useHouseholdPlans(householdId: string | null) {
+  return useQuery({
+    queryKey: keys.householdPlans(householdId ?? ''),
+    queryFn: () => api.get<PlanSummary[]>(`/plans/household/${householdId}`),
+    enabled: householdId !== null,
   })
 }
 
