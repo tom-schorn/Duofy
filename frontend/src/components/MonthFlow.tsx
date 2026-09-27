@@ -176,7 +176,9 @@ export function FlowView({
                 ? 'monthFlow.shortfallShared'
                 : ownerName
                   ? 'monthFlow.shortfallOther'
-                  : 'monthFlow.shortfall'
+                  : hasCarryOver
+                    ? 'monthFlow.overdrawn'
+                    : 'monthFlow.shortfall'
             }
             values={{ amount: euro.format(Number(shortfall.params.amount)), name: ownerName }}
             components={{ amount: <span className="font-mono tabular-nums" /> }}
