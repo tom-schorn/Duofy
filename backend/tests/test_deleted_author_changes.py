@@ -4,9 +4,9 @@ An entry a person left on **another** member's position is part of that position
 history and stays, without an author. An entry on the deleted person's **own**
 positions goes with those positions.
 
-The user is deleted straight in the database rather than through an endpoint: no
-endpoint deletes a user (that is a decision still to be taken), and the foreign keys
-are what is under test.
+The user is deleted straight in the database rather than through
+`DELETE /users/me` (#221): the foreign keys are what is under test here, not the
+endpoint that now wraps them.
 """
 
 from decimal import Decimal
