@@ -312,7 +312,6 @@
     "flowTitle": "Verlauf"
   },
   "quota": {
-    "userTitle": "Meine Richtwerte",
     "userDescription": "Mit diesen Werten startet jeder Monat, den du ab jetzt anlegst. Bestehende Monate bleiben, wie sie sind.",
     "householdTitle": "Richtwerte des Haushalts",
     "householdDescription": "Das gemeinsame Ziel des Haushalts. Es gilt sofort für jeden Monat des Haushaltsplans, auch für vergangene. Jedes Mitglied darf es ändern.",
@@ -321,8 +320,6 @@
     "savings": "Sparen in %",
     "percent": "{{value}} Prozent",
     "sumAlways": "Zusammen immer 100 %: Wenn du einen Regler bewegst, gleichen die anderen aus.",
-    "sum": "Zusammen: {{sum}} %",
-    "mustSum": "Grundbedarf, Wünsche und Sparen ergeben zusammen 100 %.",
     "change": "Richtwerte ändern",
     "current": "Richtwerte: {{needs}} / {{wants}} / {{savings}}"
   },
