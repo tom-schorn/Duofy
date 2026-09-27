@@ -384,7 +384,6 @@
     "dateLabel": "Wann bezahlt?"
   },
   "common": {
-    "moreDetails": "Weitere Angaben",
     "amount": "Betrag",
     "cancel": "Abbrechen",
     "dueDay": "{{day}}.",
