@@ -129,18 +129,33 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
   const query = shared ? householdPlan : foreign ? memberPlan : ownPlan
 
   const households = useHouseholds()
+  const deletePlan = useDeletePlan()
+  // Set by `onHide`/`onRestore` below — the plan has no row of its own to hide
+  // the way a list entry does, so the missing-month state stands in for it
+  // (decisions 21/22: leaves at once, undo brings it back without a request).
+  const [deletingMonth, setDeletingMonth] = useState(false)
   // A month nobody has created yet: not a failure, an invitation. Only for a
   // person's own plan — a household plan is composed, never created.
   const missing =
     !shared &&
-    query.error instanceof ApiError &&
-    query.error.code === 'plan_not_found'
+    (deletingMonth ||
+      (query.error instanceof ApiError && query.error.code === 'plan_not_found'))
   const mayCreate = atLeast(active.levelFor('plan'), 'edit')
   // A household month exists only once every current member has planned it.
   // Until then this is a half plan, not the household's: the backend sends
   // empty positions and names who is still missing instead, so a calm notice
   // replaces the numbers.
   const missingMembers = shared ? (householdPlan.data?.missingMembers ?? []) : []
+
+  function handleDeleteMonth() {
+    deletePlan({
+      year,
+      month,
+      ownerId: foreign ? memberId : null,
+      onHide: () => setDeletingMonth(true),
+      onRestore: () => setDeletingMonth(false),
+    })
+  }
 
   const names = Object.fromEntries(
     (households.data ?? []).map((household) => [household.id, household.name])
@@ -247,10 +262,11 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
                   householdNames={names}
                   tab={TABS.has(params.get('tab') ?? '') ? params.get('tab')! : 'plan'}
                   onTab={setTab}
+                  onDeleteMonth={handleDeleteMonth}
                 />
               )
             : ownPlan.data && (
-              <PlanBody plan={ownPlan.data} householdNames={names} />
+              <PlanBody plan={ownPlan.data} householdNames={names} onDeleteMonth={handleDeleteMonth} />
             )}
       </QueryState>
       )}
@@ -270,14 +286,15 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
 function PlanBody({
   plan,
   householdNames,
+  onDeleteMonth,
 }: {
   plan: PlanDetail
   householdNames: Record<string, string>
+  onDeleteMonth: () => void
 }) {
   const { t } = useTranslation()
   const savePosition = useSavePosition()
   const deletePosition = useDeletePosition()
-  const deletePlan = useDeletePlan()
   const togglePaid = useTogglePaid()
   // The position whose booking dialog is currently open.
   const [booking, setBooking] = useState<PlanPosition | null>(null)
@@ -471,7 +488,7 @@ function PlanBody({
             variant="ghost"
             className="text-destructive"
             disabled={!plan.deletable}
-            onClick={() => deletePlan({ year: plan.year, month: plan.month })}
+            onClick={onDeleteMonth}
           >
             <Trash2 className="size-4" />
             {t('plan.deleteMonth')}
@@ -746,6 +763,7 @@ function MemberPlanBody({
   householdNames,
   tab,
   onTab,
+  onDeleteMonth,
 }: {
   plan: PlanDetail
   ownerId: string
@@ -757,6 +775,7 @@ function MemberPlanBody({
   householdNames: Record<string, string>
   tab: string
   onTab: (value: string) => void
+  onDeleteMonth: () => void
 }) {
   const { t } = useTranslation()
   const groups = BUDGETS.map((budget) => {
@@ -793,7 +812,6 @@ function MemberPlanBody({
   const togglePaid = useTogglePaid()
   const savePosition = useSavePosition()
   const deletePosition = useDeletePosition()
-  const deletePlan = useDeletePlan()
   const [editing, setEditing] = useState<PlanPosition | null>(null)
   const [addingTo, setAddingTo] = useState<Budget>('wants')
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -848,7 +866,7 @@ function MemberPlanBody({
               variant="ghost"
               className="text-destructive"
               disabled={!plan.deletable}
-              onClick={() => deletePlan({ year: plan.year, month: plan.month, ownerId })}
+              onClick={onDeleteMonth}
             >
               <Trash2 className="size-4" />
               {t('plan.deleteMonth')}

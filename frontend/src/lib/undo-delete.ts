@@ -74,6 +74,8 @@ export function deleteWithUndo({
   hideIn,
   invalidate,
   request,
+  onHide,
+  onRestore,
 }: {
   client: QueryClient
   id: string
@@ -87,6 +89,15 @@ export function deleteWithUndo({
   invalidate: readonly QueryKey[]
   /** The DELETE. `keepalive` when the page is going away. */
   request: (keepalive: boolean) => Promise<unknown>
+  /**
+   * Extra view or cache state `hideIn` cannot express — a whole page rather
+   * than a row in one of its lists (deleting the month a plan page shows, say).
+   * Runs every time the built-in hide does, so it survives a refetch elsewhere
+   * while the message is up, exactly as `hideIn` does for a row.
+   */
+  onHide?: () => void
+  /** Undoes `onHide`, once, right before the built-in restore reloads. */
+  onRestore?: () => void
 }) {
   flushPendingDelete()
 
@@ -104,12 +115,14 @@ export function deleteWithUndo({
         client.setQueryData(key, next)
       }
     }
+    onHide?.()
   }
   const reload = () => {
     for (const queryKey of invalidate) client.invalidateQueries({ queryKey })
   }
   const restore = () => {
     for (const { key, data } of snapshots.values()) client.setQueryData(key, data)
+    onRestore?.()
     // The refetch only makes sure; the row is already back if it fails.
     reload()
   }

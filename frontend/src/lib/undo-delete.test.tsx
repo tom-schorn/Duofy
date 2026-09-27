@@ -17,7 +17,12 @@ const rows = () => [
 let client: QueryClient
 let request: ReturnType<typeof vi.fn>
 
-function remove(id: string, name: string, send = request) {
+function remove(
+  id: string,
+  name: string,
+  send = request,
+  hooks: { onHide?: () => void; onRestore?: () => void } = {}
+) {
   act(() => {
     deleteWithUndo({
       client,
@@ -26,6 +31,7 @@ function remove(id: string, name: string, send = request) {
       hideIn: [['plans']],
       invalidate: [['plans']],
       request: send as unknown as (keepalive: boolean) => Promise<unknown>,
+      ...hooks,
     })
   })
 }
@@ -150,6 +156,58 @@ describe('deleteWithUndo', () => {
       client.setQueryData(KEY, rows())
     })
     expect(client.getQueryData(KEY)).toEqual([{ id: 'b', label: 'Strom' }])
+  })
+
+  // `onHide`/`onRestore`: for a thing with no row of its own to hide — a whole
+  // page rather than a list entry (#219) — the caller does that hiding itself,
+  // at the same moments `hideIn` would act on a row.
+  test('onHide runs at once; onRestore only on Undo, not when the delete commits', async () => {
+    const onHide = vi.fn()
+    const onRestore = vi.fn()
+    remove('a', 'Miete', request, { onHide, onRestore })
+    expect(onHide).toHaveBeenCalledTimes(1)
+    expect(onRestore).not.toHaveBeenCalled()
+
+    await settle()
+    fireEvent.click(closeButton())
+    await settle(1000)
+    expect(request).toHaveBeenCalledTimes(1)
+    expect(onRestore).not.toHaveBeenCalled()
+  })
+
+  test('Undo calls onRestore and sends no request', async () => {
+    const onHide = vi.fn()
+    const onRestore = vi.fn()
+    remove('a', 'Miete', request, { onHide, onRestore })
+
+    await settle()
+    fireEvent.click(undoButton())
+    expect(onRestore).toHaveBeenCalledTimes(1)
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  test('onHide runs again if something else refetches while the message is up', () => {
+    const onHide = vi.fn()
+    remove('a', 'Miete', request, { onHide })
+    act(() => {
+      client.setQueryData(KEY, rows())
+    })
+    // Once at the start, once for the reload above, once more for hide()'s own
+    // corrective write putting the row back out — then it settles.
+    expect(onHide.mock.calls.length).toBeGreaterThan(1)
+  })
+
+  test('a failed delete calls onRestore too, same as Undo', async () => {
+    const onRestore = vi.fn()
+    const failing = vi.fn(async () => {
+      throw new ApiError('unreachable', 0)
+    })
+    remove('a', 'Miete', failing, { onRestore })
+
+    await settle()
+    fireEvent.click(closeButton())
+    await settle(1000)
+    expect(onRestore).toHaveBeenCalledTimes(1)
   })
 })
 
