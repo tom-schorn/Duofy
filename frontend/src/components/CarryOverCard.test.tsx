@@ -4,9 +4,9 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { CarryOverCard } from '@/components/CarryOverCard'
-import { MonthFlow } from '@/components/MonthFlow'
+import { FlowView } from '@/components/MonthFlow'
 import { i18n } from '@/lib/i18n'
-import type { Account, Transaction } from '@/lib/domain'
+import type { Account, PlanFlow, Transaction } from '@/lib/domain'
 
 const account = {
   id: 'a1',
@@ -99,22 +99,50 @@ describe('CarryOverCard', () => {
   })
 })
 
-describe('MonthFlow with a carry-over', () => {
-  const rent = {
-    id: 'p1',
-    label: 'Miete',
-    amountPlanned: '300.00',
-    budget: 'needs',
-    dueDay: 5,
-  } as never
+describe('the flow with a carry-over', () => {
+  const flow = (start: string, low: string | null): PlanFlow => ({
+    year: 2026,
+    month: 10,
+    flowLimitsBy: 'plan',
+    start,
+    entries: [
+      {
+        date: '2026-10-05',
+        day: 5,
+        amount: '-300.00',
+        kind: 'plan',
+        label: 'Miete',
+        positionId: 'p1',
+        balance: low ?? start,
+      },
+    ],
+    days: [{ day: 5, balance: low ?? start }],
+    hints: low
+      ? [
+          {
+            code: 'flow_shortfall',
+            severity: 'warning',
+            positionId: null,
+            params: { day: 5, amount: '200.00', account_id: null, account_name: null },
+          },
+        ]
+      : [],
+  })
+
+  const view = (value: PlanFlow) =>
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <FlowView flow={value} />
+      </QueryClientProvider>
+    )
 
   test('an account going below zero from a small carry-over is called overdrawn', () => {
-    render(<MonthFlow positions={[rent]} year={2026} month={10} startBalance={100} />)
+    view(flow('100.00', '-200.00'))
     expect(screen.getByText(/im Minus/)).toBeInTheDocument()
   })
 
   test('a carry-over that covers the month keeps it self-carrying', () => {
-    render(<MonthFlow positions={[rent]} year={2026} month={10} startBalance={500} />)
+    view(flow('500.00', null))
     expect(screen.getByText(i18n.t('monthFlow.selfCarrying'))).toBeInTheDocument()
   })
 })
