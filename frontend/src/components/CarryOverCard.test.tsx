@@ -128,6 +128,7 @@ describe('the flow with a carry-over', () => {
           },
         ]
       : [],
+    missingMembers: [],
   })
 
   const view = (value: PlanFlow) =>

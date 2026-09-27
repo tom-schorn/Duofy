@@ -714,8 +714,26 @@ async def get_household_flow(
 
     The curve starts at zero, not at a carry-over: the household owns no account, and
     a member's balance is theirs to share, not the household's. It shows the change
-    the shared positions bring."""
+    the shared positions bring.
+
+    Gated the same way as `get_household_plan`: once a member already part of the
+    household this month has not created their own plan yet, this is an empty
+    curve with `missing_members` set, not a curve half the household agreed to.
+    """
     require(await is_member(session, user.id, household_id), "not_household_member")
+
+    missing_members = await _household_missing_members(session, household_id, year, month)
+    if missing_members:
+        return FlowRead(
+            year=year,
+            month=month,
+            flow_limits_by=user.flow_limits_by,
+            start=ZERO,
+            entries=[],
+            days=[],
+            hints=[],
+            missing_members=missing_members,
+        )
 
     result = await session.execute(
         select(PlanPosition, Plan.user_id)

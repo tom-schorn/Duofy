@@ -45,6 +45,7 @@ const flow: PlanFlow = {
   ],
   days: [{ day: 1, balance: '-820.00' }],
   hints: [],
+  missingMembers: [],
 }
 
 const shortfall = {
