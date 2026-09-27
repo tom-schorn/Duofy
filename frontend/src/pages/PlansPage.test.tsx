@@ -13,7 +13,6 @@ function plan(overrides: Partial<PlanSummary> = {}): PlanSummary {
     targetNeeds: '50.00',
     targetWants: '30.00',
     targetSavings: '20.00',
-    bufferPercent: '0.00',
     income: '2000.00',
     distributable: '2000.00',
     spent: { needs: '0.00', wants: '0.00', savings: '0.00' },
