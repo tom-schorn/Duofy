@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DialogFrame } from '@/components/DialogFrame'
+import { ApiError, errorText } from '@/lib/api'
 import { AmountField } from '@/components/AmountField'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -71,6 +72,19 @@ const DEFAULT_CATEGORY: Record<Budget, Category> = {
   needs: 'housing.rent',
   wants: 'leisure.hobbies',
   savings: 'finance.savings',
+}
+
+/**
+ * Which sentence word explains a server field error — #203's form-errors helper
+ * reaching the sentence words, not only the label and amount inputs (review
+ * D-215-5). `transfer_needs_two_accounts` and `not_account_owner` name the
+ * account: the counter-account picker already excludes the chosen account, so
+ * only re-picking the account itself can produce the clash.
+ */
+const FIELD_ERROR_WORDS: Record<string, string> = {
+  not_household_member: 'assignment',
+  transfer_needs_two_accounts: 'account',
+  not_account_owner: 'account',
 }
 
 function emptyDraft(budget: Budget): PlanPosition {
@@ -155,6 +169,22 @@ export function PositionDialog({
       setOpenWord(null)
     }
   }, [open, position, budget])
+
+  // Which word a rejected save belongs to, if any (review D-215-5).
+  const fieldErrorWord = error instanceof ApiError ? FIELD_ERROR_WORDS[error.code] : undefined
+  const fieldErrors = fieldErrorWord ? { [fieldErrorWord]: errorText(error) } : undefined
+
+  useEffect(() => {
+    // Opens the word's panel and moves the focus there, the same way the first
+    // mistake of a client-side check gets it (`Form`, in form-errors.tsx) —
+    // otherwise the message would sit unseen behind a closed panel.
+    if (fieldErrorWord) {
+      setOpenWord(fieldErrorWord)
+      requestAnimationFrame(() => wordRefs.current[fieldErrorWord]?.focus())
+    }
+    // Only when the server answers again — not on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [error])
 
   const isEdit = position !== null
   const choosing = step === 'choose'
@@ -315,6 +345,7 @@ export function PositionDialog({
   const accountWord = (
     <SentenceWord
       ref={wordRef('account')}
+      id="account"
       open={openWord === 'account'}
       onClick={() => toggleWord('account')}
       describedBy={extrasSentenceId}
@@ -323,7 +354,7 @@ export function PositionDialog({
     </SentenceWord>
   )
   const accountPanel = openWord === 'account' && (
-    <SentencePanel label={t('common.account')}>
+    <SentencePanel label={t('common.account')} id="account">
       <div className="flex flex-wrap gap-2">
         <SentenceChip
           selected={draft.accountId === null}
@@ -434,6 +465,7 @@ export function PositionDialog({
   const assignmentWord = (
     <SentenceWord
       ref={wordRef('assignment')}
+      id="assignment"
       open={openWord === 'assignment'}
       onClick={() => toggleWord('assignment')}
       describedBy={extrasSentenceId}
@@ -444,7 +476,7 @@ export function PositionDialog({
     </SentenceWord>
   )
   const assignmentPanel = openWord === 'assignment' && (
-    <SentencePanel label={t('common.assignment')}>
+    <SentencePanel label={t('common.assignment')} id="assignment">
       <div className="flex flex-wrap gap-2">
         <SentenceChip
           selected={draft.householdId === null}
@@ -580,6 +612,7 @@ export function PositionDialog({
       dirty={!choosing && dirty}
       pending={pending}
       error={error}
+      fieldErrors={fieldErrors}
       returnFocus={() =>
         // The section the row was in, not the one the draft was moved to.
         deleted.current && position
