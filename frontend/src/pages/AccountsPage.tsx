@@ -2,14 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, Star, Trash2 } from 'lucide-react'
 
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-} from '@/components/ui/empty'
 import { DateField } from '@/components/DateField'
 import { ListRow } from '@/components/ListRow'
 import { today, shortDate } from '@/lib/dates'
+import { EmptyState } from '@/components/EmptyState'
 import { QueryState } from '@/components/QueryState'
 import {
   AlertDialog,
@@ -131,13 +127,20 @@ export function AccountsPage() {
         )}
       </header>
 
-      <QueryState isPending={accounts.isPending} error={accounts.error}>
+      <QueryState isPending={accounts.isPending} error={accounts.error} onRetry={() => void accounts.refetch()}>
         {list.length === 0 ? (
-          <Empty className="border-border rounded-xl border border-dashed">
-          <EmptyHeader>
-            <EmptyDescription>{t('accounts.empty')}</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+          <EmptyState
+            action={
+              mayEdit && (
+                <Button onClick={add}>
+                  <Plus className="size-4" />
+                  {t('accounts.create')}
+                </Button>
+              )
+            }
+          >
+            {t('accounts.empty')}
+          </EmptyState>
         ) : (
           <ul className="flex flex-col">
             {list.map((account) => (

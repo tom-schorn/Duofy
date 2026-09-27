@@ -4,6 +4,8 @@ import { AlertTriangle, ArrowLeftRight, Upload } from 'lucide-react'
 
 import { CategoryPicker } from '@/components/CategoryPicker'
 import { PositionPicker, type PositionMonth } from '@/components/PositionPicker'
+import { ErrorBox } from '@/components/ErrorBox'
+import { EmptyState } from '@/components/EmptyState'
 import { QueryState } from '@/components/QueryState'
 import { Button } from '@/components/ui/button'
 import {
@@ -121,7 +123,7 @@ export function ImportPage() {
       </header>
 
       {upload.isError && (
-        <p className="text-destructive text-sm">{errorText(upload.error)}</p>
+        <ErrorBox>{errorText(upload.error)}</ErrorBox>
       )}
 
       {summary && (
@@ -134,11 +136,20 @@ export function ImportPage() {
         />
       )}
 
-      <QueryState isPending={entries.isPending} error={entries.error}>
+      <QueryState isPending={entries.isPending} error={entries.error} onRetry={() => void entries.refetch()}>
         {rows.length === 0 ? (
-          <p className="text-muted-foreground border-border rounded-lg border border-dashed p-10 text-center text-sm">
+          <EmptyState
+            action={
+              mayEdit && (
+                <Button onClick={() => fileInput.current?.click()} disabled={upload.isPending}>
+                  <Upload className="size-4" />
+                  {upload.isPending ? t('import.reading') : t('import.upload')}
+                </Button>
+              )
+            }
+          >
             {t('import.empty')}
-          </p>
+          </EmptyState>
         ) : (
           <>
             <p className="text-muted-foreground text-sm">
