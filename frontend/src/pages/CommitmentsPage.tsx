@@ -166,7 +166,7 @@ export function CommitmentsPage() {
     // Positions already generated stay — the model sets `commitment_id` to NULL
     // (ON DELETE SET NULL).
     deleted.current = true
-    remove.mutate(pendingDelete.id)
+    remove.mutate({ id: pendingDelete.id, name: pendingDelete.name })
     setPendingDelete(null)
     setDialogOpen(false)
   }
