@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test } from 'vitest'
 
@@ -10,6 +10,7 @@ import { CommitmentDialog } from '@/components/CommitmentDialog'
 import type { Commitment } from '@/lib/domain'
 
 const KIND_CARDS = [i18n.t('commitmentDialog.types.contract.label'), 'Limit', 'Kredit oder Rate', 'Sparziel', 'Einnahme']
+const ADD_DETAILS = i18n.t('commitmentDialog.addDetails')
 
 async function chooseKind(user: ReturnType<typeof userEvent.setup>, name = i18n.t('commitmentDialog.types.contract.label')) {
   await user.click(screen.getByRole('button', { name: new RegExp(name) }))
@@ -90,46 +91,42 @@ describe('CommitmentDialog', () => {
     await chooseKind(user, 'Kredit oder Rate')
     expect(screen.getByRole('dialog', { name: 'Kredit anlegen' })).toBeInTheDocument()
     expect(screen.getByLabelText('Rate')).toBeInTheDocument()
-    expect(screen.queryByLabelText('Zielbetrag')).not.toBeInTheDocument()
   })
 
-  test('a savings goal shows target amount, target date and the target account up front', async () => {
+  test('a savings goal names the target account and target date in its sentence', async () => {
     const user = userEvent.setup()
     renderDialog(() => {})
     await chooseKind(user, 'Sparziel')
-    expect(screen.getByLabelText(/Zielbetrag/)).toBeInTheDocument()
-    expect(screen.getByLabelText(/Zieldatum/)).toBeInTheDocument()
-    expect(screen.getByText('Zielkonto')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Weitere Angaben' })).toHaveAttribute(
-      'aria-expanded',
-      'false'
-    )
+    expect(screen.getByRole('button', { name: 'Geht raus' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Kein Zieldatum' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Kein Zielbetrag' })).toBeInTheDocument()
   })
 
-  test('a loan shows its end and the account up front', async () => {
+  test('a loan names its end and its account in the sentence', async () => {
     const user = userEvent.setup()
     renderDialog(() => {})
     await chooseKind(user, 'Kredit oder Rate')
-    expect(screen.getByLabelText(/Läuft bis/)).toBeInTheDocument()
-    expect(screen.getByText('Konto')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'auf Weiteres' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Standardkonto' })).toBeInTheDocument()
   })
 
-  test('income shows the account up front', async () => {
+  test('income names the account in the sentence', async () => {
     const user = userEvent.setup()
     renderDialog(() => {})
     await chooseKind(user, 'Einnahme')
-    expect(screen.getByText('Konto')).toBeInTheDocument()
+    expect(screen.getByText(/Kommt/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Standardkonto' })).toBeInTheDocument()
   })
 
-  test('a regular expense asks for the account only when there is more than one', async () => {
+  test('a regular expense names the account only when there is more than one', async () => {
     const user = userEvent.setup()
     renderDialog(() => {})
     await chooseKind(user)
-    expect(screen.queryByText('Konto')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Standardkonto' })).not.toBeInTheDocument()
     cleanup()
     renderWithAccounts(2)
     await chooseKind(user)
-    expect(screen.getByText('Konto')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Standardkonto' })).toBeInTheDocument()
   })
 
   test('a limit is its own card, sets the flag and is named in the title', async () => {
@@ -149,8 +146,6 @@ describe('CommitmentDialog', () => {
     expect(screen.getByRole('dialog', { name: 'Limit anlegen' })).toBeInTheDocument()
     await user.type(screen.getByLabelText('Bezeichnung'), 'Lebensmittel')
     await user.type(document.getElementById('amount') as HTMLElement, '400')
-    await user.click(screen.getByRole('button', { name: 'Weitere Angaben' }))
-    expect(screen.queryByText(/kein fester Betrag zum Abhaken/)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Anlegen' }))
     expect(saved[0]).toMatchObject({ type: 'contract', isLimit: true })
   })
@@ -187,17 +182,14 @@ describe('CommitmentDialog', () => {
     expect(screen.getByRole('button', { name: new RegExp(i18n.t('commitmentDialog.types.contract.label')) })).toHaveFocus()
   })
 
-  test('Weitere Angaben stays open after going back and choosing again', async () => {
+  test('the rare fields stay open after going back and choosing again', async () => {
     const user = userEvent.setup()
     renderDialog(() => {})
     await chooseKind(user)
-    await user.click(screen.getByRole('button', { name: 'Weitere Angaben' }))
+    await user.click(screen.getByRole('button', { name: ADD_DETAILS }))
     await user.click(screen.getByRole('button', { name: i18n.t('commitmentDialog.back') }))
     await chooseKind(user, 'Einnahme')
-    expect(screen.getByRole('button', { name: 'Weitere Angaben' })).toHaveAttribute(
-      'aria-expanded',
-      'true'
-    )
+    expect(screen.getByRole('button', { name: ADD_DETAILS })).toHaveAttribute('aria-expanded', 'true')
   })
 
   test('offers Anlegen and puts the focus into the first field', async () => {
@@ -236,13 +228,77 @@ describe('CommitmentDialog interval', () => {
   })
 })
 
+describe('CommitmentDialog sentence words', () => {
+  test('the rhythm word opens a panel of chips right below the sentence, one at a time', async () => {
+    const user = userEvent.setup()
+    renderDialog(() => {})
+    await chooseKind(user)
+    const rhythm = screen.getByRole('button', { name: 'monatlich' })
+    await user.click(rhythm)
+    expect(rhythm).toHaveAttribute('aria-expanded', 'true')
+    const panel = screen.getByRole('group', { name: 'Wie oft?' })
+    await user.click(within(panel).getByRole('button', { name: i18n.t('enums.interval.quarterly') }))
+    expect(screen.getByRole('button', { name: i18n.t('enums.interval.quarterly') })).toBeInTheDocument()
+    // Picking closes the panel and gives the focus back to the word.
+    expect(screen.queryByRole('group', { name: 'Wie oft?' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: i18n.t('enums.interval.quarterly') })).toHaveFocus()
+  })
+
+  test('opening a second word closes the first', async () => {
+    const user = userEvent.setup()
+    renderWithAccounts(2)
+    await chooseKind(user)
+    await user.click(screen.getByRole('button', { name: 'monatlich' }))
+    expect(screen.getByRole('group', { name: 'Wie oft?' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Standardkonto' }))
+    expect(screen.queryByRole('group', { name: 'Wie oft?' })).not.toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Welches Konto?' })).toBeInTheDocument()
+  })
+
+  test('Esc closes the open word and gives the focus back to it', async () => {
+    const user = userEvent.setup()
+    renderDialog(() => {})
+    await chooseKind(user)
+    const rhythm = screen.getByRole('button', { name: 'monatlich' })
+    await user.click(rhythm)
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('group', { name: 'Wie oft?' })).not.toBeInTheDocument()
+    expect(rhythm).toHaveFocus()
+    // Esc did not also close the dialog.
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  test('a second click on the same word closes it', async () => {
+    const user = userEvent.setup()
+    renderDialog(() => {})
+    await chooseKind(user)
+    const rhythm = screen.getByRole('button', { name: 'monatlich' })
+    await user.click(rhythm)
+    await user.click(rhythm)
+    expect(screen.queryByRole('group', { name: 'Wie oft?' })).not.toBeInTheDocument()
+  })
+
+  test('an anderer Abstand keeps the panel open for the number field', async () => {
+    const user = userEvent.setup()
+    renderDialog(() => {})
+    await chooseKind(user)
+    await user.click(screen.getByRole('button', { name: 'monatlich' }))
+    await user.click(screen.getByRole('button', { name: 'Anderer Abstand' }))
+    const field = await screen.findByLabelText('Abstand in Monaten')
+    expect(screen.getByRole('group', { name: 'Wie oft?' })).toBeInTheDocument()
+    await user.clear(field)
+    await user.type(field, '5')
+    expect(screen.getByRole('button', { name: 'alle 5 Monate' })).toBeInTheDocument()
+  })
+})
+
 describe('CommitmentDialog invalid interval', () => {
   test('blocks saving with interval 0 and says why', async () => {
     const user = userEvent.setup()
     renderDialog(() => {})
     await chooseKind(user)
-    await user.click(screen.getByRole('combobox', { name: /Abstand/ }))
-    await user.click(await screen.findByRole('option', { name: 'Anderer Abstand' }))
+    await user.click(screen.getByRole('button', { name: 'monatlich' }))
+    await user.click(screen.getByRole('button', { name: 'Anderer Abstand' }))
     const field = await screen.findByLabelText('Abstand in Monaten')
     await user.clear(field)
     await user.type(field, '0')
@@ -311,33 +367,33 @@ describe('CommitmentDialog edit', () => {
   })
 })
 
-describe('CommitmentDialog Weitere Angaben', () => {
+describe('CommitmentDialog rare fields', () => {
   test('starts closed on a new commitment and opens on a click', async () => {
     const user = userEvent.setup()
     renderDialog(() => {})
     await chooseKind(user)
-    const toggle = screen.getByRole('button', { name: 'Weitere Angaben' })
+    const toggle = screen.getByRole('button', { name: ADD_DETAILS })
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByText('Zahlungsart')).not.toBeInTheDocument()
     await user.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByText('Zahlungsart')).toBeInTheDocument()
+    expect(screen.getByText('Kategorie')).toBeInTheDocument()
   })
 
   test('starts closed on an edit whose rare fields are all empty', () => {
     renderEdit(existing)
-    expect(screen.getByRole('button', { name: 'Weitere Angaben' })).toHaveAttribute(
-      'aria-expanded',
-      'false'
-    )
+    expect(screen.getByRole('button', { name: ADD_DETAILS })).toHaveAttribute('aria-expanded', 'false')
   })
 
   test('opens by itself on an edit that already holds a value in it', () => {
     renderEdit({ ...existing, paymentMethod: 'transfer' })
-    expect(screen.getByRole('button', { name: 'Weitere Angaben' })).toHaveAttribute(
-      'aria-expanded',
-      'true'
-    )
+    expect(screen.getByRole('button', { name: ADD_DETAILS })).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByText('Zahlungsart')).toBeInTheDocument()
+  })
+
+  test('a category that no longer matches the default also opens it by itself', () => {
+    renderEdit({ ...existing, category: 'income.earned' })
+    expect(screen.getByRole('button', { name: ADD_DETAILS })).toHaveAttribute('aria-expanded', 'true')
   })
 })
