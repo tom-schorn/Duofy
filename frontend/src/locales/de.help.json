@@ -88,7 +88,7 @@
       },
       "flow": {
         "title": "Verlauf und Limits",
-        "body": "<p>Der Verlauf zeigt, wann im Monat Geld hereinkommt und hinausgeht. So siehst du den Tiefpunkt: den Tag, an dem am meisten mehr ausgegeben als eingenommen ist, und damit den Betrag, der zu Monatsbeginn da sein muss. Er rechnet mit geplanten Fälligkeiten, nicht mit den echten Buchungstagen.</p><pSpaced>Bei einem <strong>Limit</strong> gibt es keinen festen Tag und keinen Haken. Du stellst pro Person ein, was der Verlauf dafür zählt: entweder den <strong>vollen geplanten Betrag</strong> am Fälligkeitstag oder nur das, was tatsächlich <strong>gebucht</strong> ist, an den echten Tagen. Eine Schätzung für den Rest des Monats gibt es nie, sie würde Zahlen erfinden. Alle anderen Posten zählen nach Plan, bis sie abgehakt sind.</pSpaced>"
+        "body": "<p>Der Verlauf zeigt, wann im Monat Geld hereinkommt und hinausgeht. So siehst du den Tiefpunkt: den Tag, an dem am meisten mehr ausgegeben als eingenommen ist, und damit den Betrag, der zu Monatsbeginn da sein muss. Offene Posten stehen an ihrem Fälligkeitstag; ist ein Posten abgehakt, zählt seine Buchung mit echtem Datum und Betrag. Gibt es einen Monatsübertrag, beginnt die Kurve bei diesem Kontostand.</p><pSpaced>Bei einem <strong>Limit</strong> gibt es keinen festen Tag und keinen Haken. Du stellst pro Person ein, was der Verlauf dafür zählt: entweder den <strong>vollen geplanten Betrag</strong> am Fälligkeitstag oder nur das, was tatsächlich <strong>gebucht</strong> ist, an den echten Tagen. Eine Schätzung für den Rest des Monats gibt es nie, sie würde Zahlen erfinden. Alle anderen Posten zählen nach Plan, bis sie abgehakt sind.</pSpaced>"
       },
       "hints": {
         "title": "Hinweise",
@@ -188,7 +188,7 @@
       },
       "preset": {
         "title": "Voreinstellung beim Beitritt",
-        "body": "<p>Legst du einen Haushalt an oder trittst einem bei, fragt Duofy einmal, was du teilst. Bisher sehen die anderen nur deinen Plan. Mit <strong>Paar übernehmen</strong> dürfen die anderen alles von dir sehen und bearbeiten; du kannst es aber auch so lassen.</p><pSpaced>Die Voreinstellung gilt nur für dich und setzt nur deine Freigaben. Danach änderst du jeden Bereich einzeln, und zurücknehmen kannst du sie jederzeit.</pSpaced>"
+        "body": "<p>Legst du einen Haushalt an oder trittst einem bei, fragt Duofy einmal, was du teilst. Ohne Freigabe sehen die anderen nur deine gemeinsamen Posten. Mit <strong>Paar übernehmen</strong> dürfen die anderen alles von dir sehen und bearbeiten; du kannst es aber auch so lassen.</p><pSpaced>Die Voreinstellung gilt nur für dich und setzt nur deine Freigaben. Danach änderst du jeden Bereich einzeln, und zurücknehmen kannst du sie jederzeit.</pSpaced>"
       },
       "areas": {
         "title": "Die drei Bereiche",
