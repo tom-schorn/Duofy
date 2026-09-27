@@ -10,10 +10,19 @@ from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.account import Account
-from app.models.enums import AccessLevel, AccountType, Budget, Category, FlowLimitsBy
+from app.models.enums import (
+    AccessLevel,
+    AccountType,
+    Budget,
+    Category,
+    FlowLimitsBy,
+    TransactionKind,
+)
+from app.models.household import Household
 from app.models.plan import Plan, PlanPosition
 from app.models.transaction import Transaction
 from app.models.user import User
@@ -450,3 +459,97 @@ async def test_the_household_flow_is_refused_to_a_non_member(
 
     assert response.status_code == 403
     assert "not_household_member" in response.text
+
+
+def carry_over(owner: User, account: Account, amount: str, month: int = 9) -> Transaction:
+    return Transaction(
+        owner_id=owner.id,
+        account_id=account.id,
+        amount=Decimal(amount),
+        occurred_on=date(2026, month, 1),
+        kind=TransactionKind.CARRY_OVER,
+    )
+
+
+async def test_the_curve_starts_at_the_carry_over_of_the_default_account(
+    client: AsyncClient, session: AsyncSession, owner: User, main_account: Account
+):
+    plan = await make_plan(session, owner)
+    session.add_all(
+        [position(plan, "Rent", "800.00", 1), carry_over(owner, main_account, "500.00")]
+    )
+    await session.commit()
+
+    body = await flow(client)
+
+    assert Decimal(body["start"]) == 500
+    # The carry-over is the start, not a movement inside the curve.
+    assert steps(body) == [(1, "-800.00")]
+    assert Decimal(body["days"][0]["balance"]) == Decimal("-300")
+    assert body["hints"][0]["params"]["amount"] == "300.00"
+
+
+async def test_a_carry_over_of_another_month_or_account_does_not_start_the_curve(
+    client: AsyncClient, session: AsyncSession, owner: User, main_account: Account
+):
+    other = await make_account(session, owner, "Savings", default=False)
+    plan = await make_plan(session, owner)
+    session.add_all(
+        [
+            position(plan, "Rent", "800.00", 1),
+            carry_over(owner, main_account, "500.00", month=8),
+            carry_over(owner, other, "900.00"),
+        ]
+    )
+    await session.commit()
+
+    assert Decimal((await flow(client))["start"]) == 0
+
+
+async def test_a_foreign_carry_over_starts_the_curve_only_with_the_accounts_grant(
+    client: AsyncClient, session: AsyncSession
+):
+    ada = await foreign_flow_setup(
+        session, plan_level=AccessLevel.VIEW, accounts_level=AccessLevel.PLAN
+    )
+    account = (
+        await session.execute(select(Account).where(Account.owner_id == ada.id))
+    ).scalar_one()
+    session.add(carry_over(ada, account, "500.00"))
+    await session.commit()
+    url = f"/api/v1/plans/2026/9/flow?owner={ada.id}"
+
+    assert Decimal((await flow(client, url))["start"]) == 0
+
+    await grant_area(
+        session,
+        (await session.execute(select(Household))).scalar_one(),
+        ada,
+        "accounts",
+        AccessLevel.VIEW,
+    )
+    assert Decimal((await flow(client, url))["start"]) == 500
+
+
+async def test_the_household_flow_ignores_carry_overs_because_the_household_owns_no_account(
+    client: AsyncClient, session: AsyncSession
+):
+    ada = await make_user(session, "Ada")
+    household = await make_household(session, "Shared")
+    await add_member(session, household, ada)
+    account = await make_account(session, ada, "Ada Giro", default=True)
+    plan = await make_plan(session, ada)
+    session.add_all(
+        [
+            position(plan, "Rent", "700.00", 2, household_id=household.id),
+            carry_over(ada, account, "500.00"),
+        ]
+    )
+    await session.commit()
+    await session.refresh(ada)
+    sign_in(ada)
+
+    body = await flow(client, f"/api/v1/plans/household/{household.id}/2026/9/flow")
+
+    assert Decimal(body["start"]) == 0
+    assert steps(body) == [(2, "-700.00")]
