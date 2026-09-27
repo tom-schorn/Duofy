@@ -10,6 +10,7 @@ import { describe, expect, test } from 'vitest'
 const INLINE_HOOKS = [
   'useAcceptInvitation',
   'useCreateHousehold',
+  'useCreateInstanceInvitation',
   'useCreatePlan',
   'useDeclineInvitation',
   'useDeleteAccount',
