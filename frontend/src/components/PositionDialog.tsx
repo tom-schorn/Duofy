@@ -343,11 +343,12 @@ export function PositionDialog({
       description={
         choosing
           ? t('positionDialog.chooseDescription')
-          : isEdit
-            ? undefined
-            : fromCommitment
-              ? t('positionDialog.fromCommitment')
-              : t('positionDialog.oneOff')
+          : // Unlike the commitment dialog's create hint, this names where the
+            // fields belong (this month only, or a commitment) — true in both
+            // create and edit.
+            fromCommitment
+            ? t('positionDialog.fromCommitment')
+            : t('positionDialog.oneOff')
       }
       submitLabel={isEdit ? t('common.save') : t('common.create')}
       hideSubmit={choosing}
