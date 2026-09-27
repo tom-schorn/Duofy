@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { api, errorText, setToken } from '@/lib/api'
+import { Form } from '@/lib/form-errors'
 
 export function LoginPage() {
   const { t } = useTranslation()
@@ -36,7 +37,7 @@ export function LoginPage() {
 
   return (
     <AuthLayout>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+      <Form onSubmit={handleSubmit} className="flex flex-col gap-6">
         <header className="flex flex-col gap-2">
           <h1 className="font-heading text-3xl font-semibold">
             {t('auth.login.title')}
@@ -104,7 +105,7 @@ export function LoginPage() {
             {t('auth.login.register')}
           </Link>
         </p>
-      </form>
+      </Form>
     </AuthLayout>
   )
 }

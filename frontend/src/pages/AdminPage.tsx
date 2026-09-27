@@ -18,6 +18,7 @@ import {
   useRegistrationMode,
   useRevokeInstanceInvitation,
 } from '@/lib/queries'
+import { Form } from '@/lib/form-errors'
 
 /**
  * The system level: who may come onto this instance.
@@ -64,7 +65,7 @@ export function AdminPage() {
         )}
       </header>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      <Form onSubmit={handleSubmit} className="flex flex-col gap-3">
         <h2 className="font-medium">{t('admin.createTitle')}</h2>
         <div className="flex flex-col gap-2">
           <Label htmlFor="admin-invite-email">{t('admin.emailLabel')}</Label>
@@ -81,7 +82,7 @@ export function AdminPage() {
         <Button type="submit" className="self-start" disabled={create.isPending}>
           {create.isPending ? t('admin.creating') : t('admin.create')}
         </Button>
-      </form>
+      </Form>
 
       <section className="flex flex-col gap-3">
         <h2 className="font-medium">{t('admin.openTitle')}</h2>

@@ -97,8 +97,8 @@ describe('CommitmentDialog', () => {
     const user = userEvent.setup()
     renderDialog(() => {})
     await chooseKind(user, 'Sparziel')
-    expect(screen.getByLabelText('Zielbetrag')).toBeInTheDocument()
-    expect(screen.getByLabelText('Zieldatum')).toBeInTheDocument()
+    expect(screen.getByLabelText(/Zielbetrag/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Zieldatum/)).toBeInTheDocument()
     expect(screen.getByText('Zielkonto')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Weitere Angaben' })).toHaveAttribute(
       'aria-expanded',

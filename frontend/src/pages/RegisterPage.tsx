@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { api, errorText, setToken } from '@/lib/api'
 import { invitationToken } from '@/lib/invitation'
 import { useRegistrationMode } from '@/lib/queries'
+import { Form } from '@/lib/form-errors'
 
 export function RegisterPage() {
   const { t } = useTranslation()
@@ -54,7 +55,7 @@ export function RegisterPage() {
   }
 
   const formElement = (
-      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+      <Form onSubmit={handleSubmit} className="flex flex-col gap-6">
         <header className="flex flex-col gap-2">
           <h1 className="font-heading text-3xl font-semibold">{t('auth.register.title')}</h1>
           <p className="text-muted-foreground text-sm">
@@ -149,7 +150,7 @@ export function RegisterPage() {
             {t('auth.register.login')}
           </Link>
         </p>
-      </form>
+      </Form>
   )
 
   if (modeQuery.isPending) {
