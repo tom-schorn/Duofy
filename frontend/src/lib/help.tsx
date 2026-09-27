@@ -38,6 +38,7 @@ export type HelpKey =
   | 'accounts'
   | 'household'
   | 'admin'
+  | 'settings'
 
 /** What each marker in the help catalog turns into. */
 const MARKERS = {
@@ -109,6 +110,7 @@ const ENTRIES: Record<HelpKey, string[]> = {
     'invitations',
     'leaving',
   ].map((id) => `household.entries.${id}`),
+  settings: ['plan.entries.quota', 'plan.entries.flow'],
 }
 
 /** The title and entries of one page, in the active language. */
