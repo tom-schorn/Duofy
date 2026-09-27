@@ -198,8 +198,10 @@ function BudgetRow({ plan, budget }: { plan: PlanSummary; budget: Budget }) {
   const isOver = percent > OVER_QUOTA
 
   return (
-    <div className="grid grid-cols-[7rem_1fr_auto] items-center gap-3 text-xs">
-      <span className="flex items-center gap-2">
+    <div className="grid grid-cols-[8rem_1fr_auto] items-center gap-3 text-xs">
+      {/* whitespace-nowrap: "Grundbedarf 50 %" no longer fit the old 7rem column
+          without the percent breaking onto its own line. */}
+      <span className="flex items-center gap-2 whitespace-nowrap">
         <span className={`size-2 rounded-sm ${BUDGET_DOT[budget]}`} />
         {budgetLabel(budget)}
         <span className="text-muted-foreground">
