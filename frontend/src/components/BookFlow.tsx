@@ -118,7 +118,7 @@ export function BookFlow({ year, month, scope = OWN_SCOPE }: Props) {
   const history = useBalanceHistory(year, month, scope, true)
 
   return (
-    <QueryState isPending={history.isPending} error={history.error} rows={2}>
+    <QueryState isPending={history.isPending} error={history.error} onRetry={() => void history.refetch()} rows={2}>
       {history.data && <Chart data={history.data} year={year} month={month} />}
     </QueryState>
   )

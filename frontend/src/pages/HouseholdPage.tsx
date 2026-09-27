@@ -104,7 +104,7 @@ export function HouseholdPage() {
 
       <PendingInvitations onJoined={setPresetFor} />
 
-      <QueryState isPending={households.isPending} error={households.error}>
+      <QueryState isPending={households.isPending} error={households.error} onRetry={() => void households.refetch()}>
       <ul className="flex flex-col gap-4">
         {households.data?.map((household) => (
           <li

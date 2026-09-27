@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { FormError } from '@/components/FormError'
+import { EmptyState } from '@/components/EmptyState'
 import { QueryState } from '@/components/QueryState'
 import { announce } from '@/lib/undo-delete'
 import { invitationLink } from '@/lib/invitation'
@@ -86,9 +87,9 @@ export function AdminPage() {
 
       <section className="flex flex-col gap-3">
         <h2 className="font-medium">{t('admin.openTitle')}</h2>
-        <QueryState isPending={invitations.isPending} error={invitations.error}>
+        <QueryState isPending={invitations.isPending} error={invitations.error} onRetry={() => void invitations.refetch()}>
           {(invitations.data ?? []).length === 0 ? (
-              <p className="text-muted-foreground text-sm">{t('admin.empty')}</p>
+              <EmptyState>{t('admin.empty')}</EmptyState>
             ) : (
               <ul className="flex flex-col divide-y rounded-lg border">
                 {(invitations.data ?? []).map((invitation) => (
