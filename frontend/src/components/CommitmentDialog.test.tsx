@@ -10,10 +10,20 @@ import { CommitmentDialog } from '@/components/CommitmentDialog'
 import type { Commitment } from '@/lib/domain'
 
 const KIND_CARDS = [i18n.t('commitmentDialog.types.contract.label'), 'Limit', 'Kredit oder Rate', 'Sparziel', 'Einnahme']
-const ADD_DETAILS = i18n.t('commitmentDialog.addDetails')
 
 async function chooseKind(user: ReturnType<typeof userEvent.setup>, name = i18n.t('commitmentDialog.types.contract.label')) {
   await user.click(screen.getByRole('button', { name: new RegExp(name) }))
+}
+
+// The main sentence's own <p> — not the quieter second one, which also
+// happens to say "Budget" in its passthrough word (issue #215, review D-215-4).
+function mainSentenceEl() {
+  return screen.getByText(
+    (_, element) =>
+      element?.tagName === 'P' &&
+      /Budget/.test(element.textContent ?? '') &&
+      !element.className.includes('text-muted-foreground')
+  )
 }
 
 const existing: Commitment = {
@@ -118,15 +128,21 @@ describe('CommitmentDialog', () => {
     expect(screen.getByRole('button', { name: 'Standardkonto' })).toBeInTheDocument()
   })
 
-  test('a regular expense names the account only when there is more than one', async () => {
+  test('a regular expense names the account in its main sentence only when there is more than one', async () => {
     const user = userEvent.setup()
     renderDialog(() => {})
     await chooseKind(user)
-    expect(screen.queryByRole('button', { name: 'Standardkonto' })).not.toBeInTheDocument()
+    // With just the one account it still names it, but in the second, quieter
+    // sentence (issue #215, review D-215-4) — not in the main one.
+    const mainSentence = mainSentenceEl()
+    expect(within(mainSentence).queryByRole('button', { name: 'Standardkonto' })).not.toBeInTheDocument()
     cleanup()
     renderWithAccounts(2)
     await chooseKind(user)
-    expect(screen.getByRole('button', { name: 'Standardkonto' })).toBeInTheDocument()
+    const mainSentenceWithAccounts = mainSentenceEl()
+    expect(
+      within(mainSentenceWithAccounts).getByRole('button', { name: 'Standardkonto' })
+    ).toBeInTheDocument()
   })
 
   test('a limit is its own card, sets the flag and is named in the title', async () => {
@@ -180,16 +196,6 @@ describe('CommitmentDialog', () => {
     expect(screen.getByLabelText('Bezeichnung')).toHaveFocus()
     await user.click(screen.getByRole('button', { name: i18n.t('commitmentDialog.back') }))
     expect(screen.getByRole('button', { name: new RegExp(i18n.t('commitmentDialog.types.contract.label')) })).toHaveFocus()
-  })
-
-  test('the rare fields stay open after going back and choosing again', async () => {
-    const user = userEvent.setup()
-    renderDialog(() => {})
-    await chooseKind(user)
-    await user.click(screen.getByRole('button', { name: ADD_DETAILS }))
-    await user.click(screen.getByRole('button', { name: i18n.t('commitmentDialog.back') }))
-    await chooseKind(user, 'Einnahme')
-    expect(screen.getByRole('button', { name: ADD_DETAILS })).toHaveAttribute('aria-expanded', 'true')
   })
 
   test('offers Anlegen and puts the focus into the first field', async () => {
@@ -367,36 +373,37 @@ describe('CommitmentDialog edit', () => {
   })
 })
 
-describe('CommitmentDialog rare fields', () => {
-  test('starts closed on a new commitment and opens on a click', async () => {
+describe('CommitmentDialog rare facts', () => {
+  test('a new commitment names category, account, payment, assignment and passthrough in a second sentence, all unset', async () => {
     const user = userEvent.setup()
     renderDialog(() => {})
     await chooseKind(user)
-    const toggle = screen.getByRole('button', { name: ADD_DETAILS })
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.queryByText('Zahlungsart')).not.toBeInTheDocument()
-    await user.click(toggle)
-    expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByText('Zahlungsart')).toBeInTheDocument()
-    expect(screen.getByText('Kategorie')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Miete' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Standardkonto' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'offen' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Nur mein Plan' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Zählt zum Budget.' })).toBeInTheDocument()
   })
 
-  test('starts closed on an edit whose rare fields are all empty', () => {
-    renderEdit(existing)
-    expect(screen.getByRole('button', { name: ADD_DETAILS })).toHaveAttribute('aria-expanded', 'false')
-  })
-
-  test('stays closed on an edit that already holds a value, and names it on a summary line', () => {
+  test('an existing payment method is named in the second sentence', () => {
     renderEdit({ ...existing, paymentMethod: 'transfer' })
-    expect(screen.getByRole('button', { name: ADD_DETAILS })).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.queryByText('Zahlungsart')).not.toBeInTheDocument()
     expect(screen.getByText(/Überweisung/)).toBeInTheDocument()
   })
 
-  test('a category that no longer matches the default also stays closed, named on the summary line', () => {
+  test('a category that no longer matches the default is named in the second sentence', () => {
     renderEdit({ ...existing, category: 'income.earned' })
-    expect(screen.getByRole('button', { name: ADD_DETAILS })).toHaveAttribute('aria-expanded', 'false')
     expect(screen.getByText(/Gehalt & Lohn/)).toBeInTheDocument()
+  })
+
+  test('the passthrough word toggles between its two states', async () => {
+    const user = userEvent.setup()
+    renderDialog(() => {})
+    await chooseKind(user)
+    await user.click(screen.getByRole('button', { name: 'Zählt zum Budget.' }))
+    await user.click(screen.getByRole('button', { name: 'Wird nur durchgereicht und zählt nicht zum Budget.' }))
+    expect(
+      screen.getByRole('button', { name: 'Wird nur durchgereicht und zählt nicht zum Budget.' })
+    ).toBeInTheDocument()
   })
 })
 

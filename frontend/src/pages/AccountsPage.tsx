@@ -6,7 +6,6 @@ import { ListRow } from '@/components/ListRow'
 import { today, shortDate, fromIsoDay, toIsoDay, longDate } from '@/lib/dates'
 import { EmptyState } from '@/components/EmptyState'
 import { QueryState } from '@/components/QueryState'
-import { MoreDetails } from '@/components/MoreDetails'
 import { SentenceWord } from '@/components/SentenceWord'
 import { SentencePanel } from '@/components/SentencePanel'
 import { SentenceChip } from '@/components/SentenceChip'
@@ -28,7 +27,6 @@ import { DialogFrame } from '@/components/DialogFrame'
 import { AmountField } from '@/components/AmountField'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import {
   atLeast,
   accountTypeLabel,
@@ -39,7 +37,6 @@ import {
 import { useActiveMember } from '@/hooks/use-active-member'
 import { OWN_SCOPE } from '@/lib/domain'
 import { useAccounts, useDeleteAccount, useSaveAccount } from '@/lib/queries'
-import { OptionalMark } from '@/components/OptionalMark'
 
 /**
  * Payment accounts — current, savings, card, wallet, cash.
@@ -240,7 +237,6 @@ export function AccountDialog({
   const remove = useDeleteAccount()
   const [draft, setDraft] = useState<Account>(account ?? emptyAccount(false))
   const [confirming, setConfirming] = useState(false)
-  const detailsOpened = useRef(false)
 
   // Which sentence word is open — only one at a time (issue #215).
   const [openWord, setOpenWord] = useState<string | null>(null)
@@ -248,6 +244,9 @@ export function AccountDialog({
   // Read out with every word and every opened field, so a screen reader hears the
   // whole sentence, not just the one word (issue #202, review D-215-3, fix 1).
   const sentenceId = useId()
+  // The quiet second sentence for the IBAN and the switches (issue #215, review
+  // D-215-4).
+  const extrasSentenceId = useId()
 
   // An old error must not greet the next attempt.
   const resetSave = save.reset
@@ -263,7 +262,6 @@ export function AccountDialog({
     if (open && account) setDraft(account)
     if (!open) {
       setConfirming(false)
-      detailsOpened.current = false
       setOpenWord(null)
     }
   }, [open, account])
@@ -347,17 +345,150 @@ export function AccountDialog({
     </SentencePanel>
   )
 
-  // A quiet line under the link when something rare is already set — the section
-  // itself stays collapsed regardless (same rule as the commitment dialog).
-  const extrasSummary = [
-    draft.isDefault && t('accounts.extrasSummary.default'),
-    !draft.countsAsAvailable && t('accounts.extrasSummary.notAvailable'),
-    !draft.active && t('accounts.extrasSummary.inactive'),
-    draft.externalRef && t('accounts.extrasSummary.iban', { value: draft.externalRef }),
-  ]
-    .filter((part): part is string => Boolean(part))
-    .join(' · ')
+  // --- Rare facts, as a second sentence (issue #215, review D-215-4) --------
 
+  const ibanWord = (
+    <SentenceWord
+      ref={wordRef('iban')}
+      open={openWord === 'iban'}
+      onClick={() => toggleWord('iban')}
+      describedBy={extrasSentenceId}
+    >
+      {draft.externalRef ? t('accounts.ibanWith', { iban: draft.externalRef }) : t('accounts.noIban')}
+    </SentenceWord>
+  )
+  const ibanPanel = openWord === 'iban' && (
+    <SentencePanel label={t('accounts.iban')}>
+      <Label htmlFor="account-iban" className="sr-only">
+        {t('accounts.iban')}
+      </Label>
+      <Input
+        id="account-iban"
+        value={draft.externalRef ?? ''}
+        onChange={(event) => set('externalRef', event.target.value || null)}
+        placeholder={t('accounts.ibanPlaceholder')}
+        autoComplete="off"
+        spellCheck={false}
+        aria-describedby={extrasSentenceId}
+      />
+      <p className="text-muted-foreground text-xs">{t('accounts.ibanHint')}</p>
+    </SentencePanel>
+  )
+
+  const defaultWord = (
+    <SentenceWord
+      ref={wordRef('default')}
+      open={openWord === 'default'}
+      onClick={() => toggleWord('default')}
+      describedBy={extrasSentenceId}
+    >
+      {draft.isDefault ? t('accounts.isDefault') : t('accounts.isNotDefault')}
+    </SentenceWord>
+  )
+  const defaultPanel = openWord === 'default' && (
+    <SentencePanel label={t('common.defaultAccount')}>
+      <div className="flex flex-wrap gap-2">
+        <SentenceChip
+          selected={!draft.isDefault}
+          onClick={() => {
+            set('isDefault', false)
+            closeWord()
+          }}
+        >
+          {t('accounts.isNotDefault')}
+        </SentenceChip>
+        <SentenceChip
+          selected={draft.isDefault}
+          onClick={() => {
+            set('isDefault', true)
+            closeWord()
+          }}
+        >
+          {t('accounts.isDefault')}
+        </SentenceChip>
+      </div>
+      <p className="text-muted-foreground text-xs">{t('accounts.defaultHint')}</p>
+    </SentencePanel>
+  )
+
+  const availableWord = (
+    <SentenceWord
+      ref={wordRef('available')}
+      open={openWord === 'available'}
+      onClick={() => toggleWord('available')}
+      describedBy={extrasSentenceId}
+    >
+      {draft.countsAsAvailable ? t('accounts.isAvailable') : t('accounts.isNotAvailable')}
+    </SentenceWord>
+  )
+  const availablePanel = openWord === 'available' && (
+    <SentencePanel label={t('accounts.countsAsAvailable')}>
+      <div className="flex flex-wrap gap-2">
+        <SentenceChip
+          selected={!draft.countsAsAvailable}
+          onClick={() => {
+            set('countsAsAvailable', false)
+            closeWord()
+          }}
+        >
+          {t('accounts.isNotAvailable')}
+        </SentenceChip>
+        <SentenceChip
+          selected={draft.countsAsAvailable}
+          onClick={() => {
+            set('countsAsAvailable', true)
+            closeWord()
+          }}
+        >
+          {t('accounts.isAvailable')}
+        </SentenceChip>
+      </div>
+      <p className="text-muted-foreground text-xs">{t('accounts.countsAsAvailableHint')}</p>
+    </SentencePanel>
+  )
+
+  const activeWord = (
+    <SentenceWord
+      ref={wordRef('active')}
+      open={openWord === 'active'}
+      onClick={() => toggleWord('active')}
+      describedBy={extrasSentenceId}
+    >
+      {draft.active ? t('accounts.isActive') : t('accounts.isClosed')}
+    </SentenceWord>
+  )
+  const activePanel = openWord === 'active' && (
+    <SentencePanel label={t('accounts.active')}>
+      <div className="flex flex-wrap gap-2">
+        <SentenceChip
+          selected={draft.active}
+          onClick={() => {
+            set('active', true)
+            closeWord()
+          }}
+        >
+          {t('accounts.isActive')}
+        </SentenceChip>
+        <SentenceChip
+          selected={!draft.active}
+          onClick={() => {
+            set('active', false)
+            closeWord()
+          }}
+        >
+          {t('accounts.isClosed')}
+        </SentenceChip>
+      </div>
+      <p className="text-muted-foreground text-xs">{t('accounts.activeHint')}</p>
+    </SentencePanel>
+  )
+
+  const extrasWords: Record<string, React.ReactNode> = {
+    iban: ibanWord,
+    default: defaultWord,
+    available: availableWord,
+    active: activeWord,
+  }
   return (
     <DialogFrame
       open={open}
@@ -431,7 +562,7 @@ export function AccountDialog({
             onChange={(event) => set('name', event.target.value)}
             placeholder={t('accounts.namePlaceholder')}
             required
-            className="font-heading h-auto rounded-none border-0 border-b border-border bg-transparent px-0 pb-2 text-3xl placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-0 md:text-3xl"
+            className="font-heading h-auto rounded-none border-0 border-b border-border bg-transparent px-0 pb-2 text-xl placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-0 md:text-xl"
           />
 
           <div className="flex items-baseline gap-3">
@@ -446,7 +577,7 @@ export function AccountDialog({
               required
               allowNegative
               className="flex-1"
-              inputClassName="h-auto border-0 bg-transparent px-0 pr-7 text-2xl font-semibold placeholder:text-muted-foreground md:text-2xl"
+              inputClassName="h-auto border-0 bg-transparent px-0 pr-7 text-xl font-semibold placeholder:text-muted-foreground md:text-xl"
             />
           </div>
         </div>
@@ -463,23 +594,21 @@ export function AccountDialog({
           {/* Ohne Stichtag wäre der Stand zu einem Zeitpunkt nicht
               berechenbar — man wüsste nicht, welche Buchungen schon
               im Anfangsbestand stecken. */}
-          <p id={sentenceId} className="text-lg leading-8">
+          <p id={sentenceId} className="text-base leading-relaxed">
             {fillSentence(t('accounts.sentence'), { type: typeWord, date: dateWord })}
           </p>
           {typePanel}
           {datePanel}
         </div>
 
-        <MoreDetails
-          resetKey={account}
-          hasValues={false}
-          startOpen={detailsOpened.current}
-          onToggle={(opened) => {
-            detailsOpened.current = opened
+        <div
+          className="flex flex-col gap-3"
+          onKeyDownCapture={(event) => {
+            if (event.key !== 'Escape' || openWord === null) return
+            event.stopPropagation()
+            event.preventDefault()
+            closeWord()
           }}
-          label={t('accounts.addDetails')}
-          plain
-          summary={extrasSummary || undefined}
         >
           {/* Die IBAN ist der Schlüssel zur Umbuchungserkennung: steht sie als
               Gegenpartei auf einer importierten Zeile, ist das keine Ausgabe,
@@ -487,65 +616,14 @@ export function AccountDialog({
               trägt sie von allein ein — von Hand ist sie für das Konto da,
               das nie eine Datei liefert. Meist das Sparkonto, und das ist
               genau das, wohin am häufigsten umgebucht wird. */}
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="account-iban">{t('accounts.iban')}<OptionalMark /></Label>
-            <Input
-              id="account-iban"
-              value={draft.externalRef ?? ''}
-              onChange={(event) =>
-                set('externalRef', event.target.value || null)
-              }
-              placeholder={t('accounts.ibanPlaceholder')}
-              autoComplete="off"
-              spellCheck={false}
-            />
-            <p className="text-muted-foreground text-xs">
-              {t('accounts.ibanHint')}
-            </p>
-          </div>
-
-          <div className="border-border flex items-center justify-between gap-4 rounded-lg border p-3">
-            <span className="flex flex-col">
-              <span className="text-sm font-medium">{t('common.defaultAccount')}</span>
-              <span className="text-muted-foreground text-xs">
-                {t('accounts.defaultHint')}
-              </span>
-            </span>
-            <Switch
-              checked={draft.isDefault}
-              onCheckedChange={(value) => set('isDefault', value)}
-            />
-          </div>
-
-          {/* Der Schalter, der das Buch beeinflusst: liegt Zweckgebundenes
-              auf dem Konto, ist eine Umbuchung dorthin eine Ausgabe. */}
-          <div className="border-border flex items-center justify-between gap-4 rounded-lg border p-3">
-            <span className="flex flex-col">
-              <span className="text-sm font-medium">{t('accounts.countsAsAvailable')}</span>
-              <span className="text-muted-foreground text-xs">
-                {t('accounts.countsAsAvailableHint')}
-              </span>
-            </span>
-            <Switch
-              checked={draft.countsAsAvailable}
-              onCheckedChange={(value) => set('countsAsAvailable', value)}
-            />
-          </div>
-
-          <div className="border-border flex items-center justify-between gap-4 rounded-lg border p-3">
-            <span className="flex flex-col">
-              <span className="text-sm font-medium">{t('accounts.active')}</span>
-              <span className="text-muted-foreground text-xs">
-                {t('accounts.activeHint')}
-              </span>
-            </span>
-            <Switch
-              aria-label={t('accounts.active')}
-              checked={draft.active}
-              onCheckedChange={(value) => set('active', value)}
-            />
-          </div>
-        </MoreDetails>
+          <p id={extrasSentenceId} className="text-muted-foreground text-base leading-relaxed">
+            {fillSentence(t('accounts.extrasSentence'), extrasWords)}
+          </p>
+          {ibanPanel}
+          {defaultPanel}
+          {availablePanel}
+          {activePanel}
+        </div>
       </div>
     </DialogFrame>
   )
