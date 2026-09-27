@@ -60,8 +60,10 @@ an eine feste Stelle: die Überschrift des Abschnitts, sonst die Seitenüberschr
 *Nicht so:* Ein grauer „Löschen“-Knopf, obwohl der Vertrag in einem Plan steht.
 
 **7. Kleines löscht sofort und ist umkehrbar; Folgenreiches fragt einmal.**
-- Kleines (Buchung, Posten, Import-Zeile) wird sofort gelöscht; die Meldung bietet zehn Sekunden
-  „Rückgängig“ an. Der Client verzögert dazu den Aufruf, das Backend bleibt unverändert.
+- Kleines (Buchung, Posten, Import-Zeile) wird sofort gelöscht; die Meldung bietet „Rückgängig“ an,
+  ohne Zeitdruck: Es bleibt stehen bis zur nächsten Aktion oder Meldung, bis man die Seite verlässt
+  oder die Meldung schließt. Auch ein Tabwechsel (Seite verborgen) löst das Löschen aus, sonst ginge
+  es auf dem Handy verloren. Der Client verzögert dazu den Aufruf, das Backend bleibt unverändert.
 - Vertrag: nur löschbar, solange er in keinem Plan steht; fragt einmal nach, in einem Satz, der sagt,
   was verloren geht und was bleibt. Danach endet er von selbst mit seinem Laufzeitende und ist
   inaktiv.
@@ -131,8 +133,8 @@ verschwindet.
 ## Rückmeldung
 
 **15. Jede Änderung meldet sich mit einem Satz aus Objekt und Tat.**
-Mit Namen oder Betrag, wenn möglich. Gibt es eine Umkehr, steht „Rückgängig“ (zehn Sekunden) daran,
-sonst genügen fünf Sekunden. Es steht immer nur eine Meldung, an fester Stelle unten mittig: Eine neue
+Mit Namen oder Betrag, wenn möglich. Gibt es eine Umkehr, steht „Rückgängig“ daran und bleibt ohne Zeitdruck
+stehen (Regel 7), sonst genügen fünf Sekunden. Es steht immer nur eine Meldung, an fester Stelle unten mittig: Eine neue
 ersetzt die alte, und ein dadurch ersetztes „Rückgängig“ führt sein Löschen sofort aus.
 *Warum:* Eine App mit Geld muss zeigen, dass etwas ankam. Unten mittig überdeckt sie die Hilfe rechts
 nicht.
@@ -141,7 +143,7 @@ nicht.
 **16. Ein Fehler verschwindet nie lautlos.**
 Er steht dort, wo man ihn beheben kann: in einer Bauform (Box mit Rand und roter Fläche,
 `role="alert"`) im Dialog über den Knöpfen. Aktionen ohne Formular (Haken, Löschen, Austreten) melden
-den Fehler als Meldung, die (anders als die Meldungen mit fünf oder zehn Sekunden) stehen bleibt, bis
+den Fehler als Meldung, die (anders als die Meldungen mit fünf Sekunden) stehen bleibt, bis
 man sie schließt oder „Erneut versuchen“ wählt. Darunter fängt ein
 gemeinsamer Fehlerweg alles ab, was niemand einzeln behandelt.
 *Warum:* „Still gescheitert“ ist der schlimmste Zustand, weil man dem Bildschirm glaubt.
@@ -195,8 +197,10 @@ Alle Fehler auf einmal, der Fokus springt auf das erste. Keine Sprechblasen des 
 
 **23. Ein Betragsfeld für alle Beträge.**
 Texteingabe mit Zifferntastatur, Komma und Tausenderpunkt erlaubt, kein „e“, rechtsbündig, „€“ als
-Endung, mindestens 0,01 (das Vorzeichen kommt aus der Art: Einnahme oder Ausgabe), zwei Nachkommastellen
-beim Verlassen des Felds.
+Endung, zwei Nachkommastellen beim Verlassen des Felds. Das Vorzeichen kommt aus der Art (Einnahme oder
+Ausgabe). Mindestwert: Buchungen und Abhaken mindestens 0,01 €; Planbetrag, Vertragsbetrag und
+Zielbetrag dürfen 0,00 € sein (Verträge erzeugen Posten); der Anfangsbestand eines Kontos darf 0 oder
+negativ sein (überzogenes Konto).
 *Warum:* Ein Geldfeld, das „12e3“ nimmt und „1.234,56“ ablehnt, spricht nicht die Sprache der Nutzer.
 *So:* „1.234,56“ wird zu „1.234,56 €“. *Nicht so:* „1.234,56“ wird abgelehnt.
 
@@ -218,6 +222,8 @@ Die Begriffe stehen in der Tabelle „Begriffe“ in `CLAUDE.md`. In der Oberfl�
 
 - **Frei** ist, was noch keinem Posten zugeteilt ist; bei 0 steht „Alles verplant“.
 - **Anstehend** ist, was verplant, aber noch nicht abgehakt oder bezahlt ist.
+- **Bleibt übrig** heißt die Buch-Kennzahl nach Abzug („Frei nach Abzug“ entfällt); „Frei“ steht nur im Plan.
+- **Verplanbar** heißt die Einkommensbasis, überall (nicht „Verteilbar“).
 - **Grundbedarf** heißt das Budget `needs`, überall (nicht Fixkosten, nicht Bedarf).
 - **Anlegen** für Neues, **Speichern** beim Bearbeiten; „Hinzufügen“ und „Sichern“ gibt es nicht.
 - **Deaktivieren** („Aktiv“ aus) für Konten, sobald sie genutzt wurden; Verträge enden mit dem Laufzeitende.
@@ -226,19 +232,22 @@ Die Begriffe stehen in der Tabelle „Begriffe“ in `CLAUDE.md`. In der Oberfl�
 
 ## Bausteine
 
-Damit die Regeln im Code stehen und nicht nur im Text, braucht es gemeinsame Komponenten. Sie sind das
-**Ziel**; die meisten gibt es noch nicht.
+Damit die Regeln im Code stehen und nicht nur im Text, gibt es gemeinsame Komponenten. Neues soll sie
+benutzen, statt eigene Varianten zu bauen.
 
-- **Listenzeile** (Regeln 1–4): eine Zeile, bei der der Name die ganze Fläche aufspannt; das Kästchen
-  liegt darüber. Kennt Hover, Fokusring und Lesemodus.
-- **Rückgängig-Helfer** (7, 15, #142): verzögertes Löschen im Client mit der einen Meldung und dem Knopf
-  „Rückgängig“.
-- **Dialograhmen** (11–14): Titel, Fuß, Fokus, Wächter für ungespeicherte Änderungen, Sperre bis zur
-  Serverantwort.
-- **Fehlerweg** (16): eine Fehlerbox im Dialog und ein gemeinsamer Fänger für alle Änderungen.
+- **Listenzeile** (Regeln 1–4, `ListRow`): eine Zeile, bei der der Name die ganze Fläche aufspannt;
+  das Kästchen liegt darüber. Kennt Hover, Fokusring und Lesemodus.
+- **Rückgängig-Helfer** (7, 15, `undo-delete.ts`, #142): verzögertes Löschen im Client mit der einen
+  Meldung und dem Knopf „Rückgängig“; `announce()` ist der eine Ort für jede Meldung.
+- **Dialograhmen** (11–14, `DialogFrame`): Titel, Fuß, Fokus, Wächter für ungespeicherte Änderungen,
+  Sperre bis zur Serverantwort.
+- **Fehlerbox** (16, `FormError`) und der gemeinsame Fänger für alle Änderungen.
 - **Leerzustand** (17): ein Satz plus Hauptknopf der Seite.
-- **Monatswechsel** (19): ‹ Monat Jahr › mit benannten Pfeilen und Stand in der Adresse.
-- **Betragsfeld** (23): ein Feld, eine Regel für alle Beträge.
+- **Monatswechsel** (19): ‹ Monat Jahr › mit benannten Pfeilen und Stand in der Adresse (kommt mit #200).
+- **Betragsfeld** (23, `AmountField`): ein Feld, eine Regel für alle Beträge.
+
+**Jede Regel, die gebaut werden soll, braucht ein Issue.** Eine Regel ohne Issue bleibt sonst ein
+Wunsch, an den sich niemand hält; das Review prüft gegen die Regel, nicht gegen die Erinnerung.
 
 ## Prüfliste für Reviews
 
