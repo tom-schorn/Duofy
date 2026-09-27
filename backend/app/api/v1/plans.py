@@ -194,6 +194,61 @@ async def list_plans(
     ]
 
 
+@router.get("/household/{household_id}", response_model=list[PlanSummary])
+async def list_household_plans(
+    household_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_active_user),
+) -> list[PlanSummary]:
+    """The months that carry this household, newest first.
+
+    Feeds "Alle Pläne" on the household plan: the household owns no plan of its
+    own to list, so this reads the months off every member's positions with this
+    `household_id` — the same rows `get_household_plan` composes one month from.
+    A month where only a partner carries a shared position still belongs on this
+    list, even if the viewer has no month of their own that far back.
+
+    Registered ahead of `get_plan` (`/{year}/{month}`) on purpose: that route has
+    no `int` converter in its path, so it would otherwise swallow this one first.
+    """
+    require(await is_member(session, user.id, household_id), "not_household_member")
+
+    household = await session.get(Household, household_id)
+    if household is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "household_not_found"})
+
+    result = await session.execute(
+        select(PlanPosition, Plan.year, Plan.month)
+        .join(Plan, Plan.id == PlanPosition.plan_id)
+        .join(HouseholdMember, HouseholdMember.user_id == Plan.user_id)
+        .where(
+            PlanPosition.household_id == household_id,
+            HouseholdMember.household_id == household_id,
+        )
+    )
+
+    months: dict[tuple[int, int], list[PlanPosition]] = {}
+    for position, year, month in result.unique().all():
+        months.setdefault((year, month), []).append(position)
+
+    return [
+        PlanSummary(
+            **_summarize(
+                year=year,
+                month=month,
+                targets=(
+                    household.target_needs,
+                    household.target_wants,
+                    household.target_savings,
+                ),
+                buffer_percent=household.buffer_percent,
+                positions=positions,
+            )
+        )
+        for (year, month), positions in sorted(months.items(), reverse=True)
+    ]
+
+
 @router.post("", response_model=PlanRead, status_code=status.HTTP_201_CREATED)
 async def create_plan(
     payload: PlanCreate,

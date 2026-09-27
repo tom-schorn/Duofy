@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.enums import Budget, Category
 from app.models.plan import Plan, PlanPosition
 from app.models.user import User
-from tests.test_area_permissions import make_user
+from tests.test_area_permissions import add_member, make_household, make_user
 from tests.test_delegation import sign_in
 
 
@@ -141,4 +141,44 @@ async def test_distributable_is_income_minus_the_buffer(
     assert Decimal(figure(figures, "income")) == Decimal("3000.00")
     assert Decimal(figure(figures, "distributable")) == Decimal("2700.00")
     assert "budget" not in figures, "the old name must be gone, not kept alongside"
+
+
+# --- The household's own month list (#214) ---------------------------------
+
+
+async def test_a_month_where_only_a_partner_carries_a_shared_position_still_appears(
+    client: AsyncClient, session: AsyncSession, owner: User
+):
+    """The list must be built from every member's positions, not the viewer's own
+    plans alone — a month the viewer has not even started yet still belongs on it
+    once a partner plans something shared in it."""
+    partner = await make_user(session, "Partner")
+    household = await make_household(session, "Shared")
+    await add_member(session, household, owner)
+    await add_member(session, household, partner)
+    partner_plan = await make_plan(session, partner)
+    session.add(position(partner_plan, "Rent", "700.00", household_id=household.id))
+    await session.commit()
+
+    response = await client.get(f"/api/v1/plans/household/{household.id}")
+
+    assert response.status_code == 200
+    rows = response.json()
+    assert [(row["year"], row["month"]) for row in rows] == [(2026, 9)]
+    assert Decimal(rows[0]["spent"]["needs"]) == Decimal("700.00")
+
+
+async def test_the_household_month_list_is_refused_to_a_non_member(
+    client: AsyncClient, session: AsyncSession
+):
+    household = await make_household(session, "Not mine")
+    outsider = await make_user(session, "Outsider")
+    await session.commit()
+    await session.refresh(outsider)
+    sign_in(outsider)
+
+    response = await client.get(f"/api/v1/plans/household/{household.id}")
+
+    assert response.status_code == 403
+    assert "not_household_member" in response.text
 
