@@ -182,3 +182,7 @@ class HouseholdPlanRead(PlanSummary):
     #: Derived on every read, never stored; ticking a position off removes its hint.
     hints: list[Hint] = Field(default_factory=list)
     positions: list[HouseholdPositionRead]
+    #: First names of current members who have not created this month yet. Empty
+    #: means complete. Set means `positions` and `hints` are empty on purpose — a
+    #: half plan is not shown, only the names still missing.
+    missing_members: list[str] = Field(default_factory=list)

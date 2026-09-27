@@ -203,10 +203,12 @@ async def list_household_plans(
     """The months that carry this household, newest first.
 
     Feeds "Alle Pläne" on the household plan: the household owns no plan of its
-    own to list, so this reads the months off every member's positions with this
-    `household_id` — the same rows `get_household_plan` composes one month from.
-    A month where only a partner carries a shared position still belongs on this
-    list, even if the viewer has no month of their own that far back.
+    own to list, so this reads the months off every member's plans. A month
+    belongs on this list only once **every current member** has created their
+    own plan for it — even with zero shared positions, since that is exactly
+    the state `get_household_plan` shows in full rather than behind a notice. A
+    month where a member has not planned yet does not appear at all, no matter
+    how many shared positions the others already carry.
 
     Registered ahead of `get_plan` (`/{year}/{month}`) on purpose: that route has
     no `int` converter in its path, so it would otherwise swallow this one first.
@@ -217,19 +219,44 @@ async def list_household_plans(
     if household is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "household_not_found"})
 
+    member_ids = (
+        (
+            await session.execute(
+                select(HouseholdMember.user_id).where(
+                    HouseholdMember.household_id == household_id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    member_count = len(member_ids)
+
+    owners_by_month: dict[tuple[int, int], set[uuid.UUID]] = {}
+    for year, month, owner_id in await session.execute(
+        select(Plan.year, Plan.month, Plan.user_id).where(Plan.user_id.in_(member_ids))
+    ):
+        owners_by_month.setdefault((year, month), set()).add(owner_id)
+
+    complete_months = {
+        key for key, owners in owners_by_month.items() if len(owners) == member_count
+    }
+    if not complete_months:
+        return []
+
     result = await session.execute(
         select(PlanPosition, Plan.year, Plan.month)
         .join(Plan, Plan.id == PlanPosition.plan_id)
-        .join(HouseholdMember, HouseholdMember.user_id == Plan.user_id)
         .where(
             PlanPosition.household_id == household_id,
-            HouseholdMember.household_id == household_id,
+            Plan.user_id.in_(member_ids),
         )
     )
 
-    months: dict[tuple[int, int], list[PlanPosition]] = {}
+    months: dict[tuple[int, int], list[PlanPosition]] = {key: [] for key in complete_months}
     for position, year, month in result.unique().all():
-        months.setdefault((year, month), []).append(position)
+        if (year, month) in months:
+            months[(year, month)].append(position)
 
     return [
         PlanSummary(
@@ -426,6 +453,12 @@ async def get_household_plan(
 
     It is built from every member position carrying this `household_id`. The quotas
     come from the household, not from any single plan.
+
+    Shown whole only once **every current member** has created their own plan for
+    this month — same rule as `list_household_plans`. Otherwise this is a half
+    plan, not the household's plan: `positions` and `hints` come back empty and
+    `missing_members` names who is still missing, so the frontend shows a calm
+    notice instead of numbers nobody agreed to yet.
     """
     require(await is_member(session, user.id, household_id), "not_household_member")
 
@@ -433,35 +466,63 @@ async def get_household_plan(
     if household is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "household_not_found"})
 
-    # The owner is joined in right away: "who carries what" is the point of this
-    # view, and loading it per position would be an N+1.
-    result = await session.execute(
-        select(PlanPosition, User.id, User.first_name)
-        .join(Plan, Plan.id == PlanPosition.plan_id)
-        .join(User, User.id == Plan.user_id)
-        .join(HouseholdMember, HouseholdMember.user_id == Plan.user_id)
-        .where(
-            PlanPosition.household_id == household_id,
-            HouseholdMember.household_id == household_id,
-            Plan.year == year,
-            Plan.month == month,
+    members = (
+        await session.execute(
+            select(HouseholdMember.user_id, User.first_name)
+            .join(User, User.id == HouseholdMember.user_id)
+            .where(HouseholdMember.household_id == household_id)
         )
-    )
-    rows = result.unique().all()
-    positions = [row[0] for row in rows]
+    ).all()
 
-    return HouseholdPlanRead(
-        household_id=household_id,
-        household_name=household.name,
-        hints=plan_hints(year, month, positions),
-        positions=[
+    planned_ids = set(
+        (
+            await session.execute(
+                select(Plan.user_id).where(
+                    Plan.user_id.in_([member_id for member_id, _ in members]),
+                    Plan.year == year,
+                    Plan.month == month,
+                )
+            )
+        ).scalars()
+    )
+    missing_members = sorted(
+        first_name for member_id, first_name in members if member_id not in planned_ids
+    )
+
+    positions: list[PlanPosition] = []
+    household_positions: list[HouseholdPositionRead] = []
+    if not missing_members:
+        # The owner is joined in right away: "who carries what" is the point of
+        # this view, and loading it per position would be an N+1.
+        result = await session.execute(
+            select(PlanPosition, User.id, User.first_name)
+            .join(Plan, Plan.id == PlanPosition.plan_id)
+            .join(User, User.id == Plan.user_id)
+            .join(HouseholdMember, HouseholdMember.user_id == Plan.user_id)
+            .where(
+                PlanPosition.household_id == household_id,
+                HouseholdMember.household_id == household_id,
+                Plan.year == year,
+                Plan.month == month,
+            )
+        )
+        rows = result.unique().all()
+        positions = [row[0] for row in rows]
+        household_positions = [
             HouseholdPositionRead(
                 **PositionRead.model_validate(position).model_dump(),
                 owner_id=owner_id,
                 owner_name=owner_name,
             )
             for position, owner_id, owner_name in rows
-        ],
+        ]
+
+    return HouseholdPlanRead(
+        household_id=household_id,
+        household_name=household.name,
+        hints=plan_hints(year, month, positions),
+        positions=household_positions,
+        missing_members=missing_members,
         **_summarize(
             year=year,
             month=month,
