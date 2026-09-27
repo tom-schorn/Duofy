@@ -215,17 +215,24 @@ Auswahl sofort wirkt, prüft nach.
 *So:* Neuer Monat: nächster fehlender Monat vorgewählt. *Nicht so:* Immer der heutige Monat, auch wenn
 es ihn schon gibt.
 
-**25. Satz statt Formular.**
-Name und Betrag bleiben ein Formular mit echten Feldern; alles andere liest sich als ein Satz aus
-Duofys Worten, dessen veränderliche Wörter anklickbar sind. Ein Klick öffnet die Auswahl direkt unter
-dem Satz — nie ein Popover, das darüberschwebt —, Chips für kleine Mengen, das bestehende Datums- oder
+**25. Satz statt Formular — auch für das Seltene.**
+Name und Betrag bleiben ein Formular mit echten Feldern; alles andere liest sich als Sätze aus Duofys
+Worten, deren veränderliche Wörter anklickbar sind. Ein Klick öffnet die Auswahl direkt unter dem Satz
+— nie ein Popover, das darüberschwebt —, Chips für kleine Mengen, das bestehende Datums- oder
 Betragsfeld für Zahlen. Esc oder ein zweiter Klick schließt sie wieder, der Fokus geht auf das Wort
-zurück, und immer ist höchstens eine Auswahl offen. Seltenes (Kategorie und mehr) steht hinter einem
-Textlink, nicht in einer Box.
+zurück, und immer ist höchstens eine Auswahl offen. Jedes Wort trägt `aria-describedby` auf den ganzen
+Satz, offen oder geschlossen, damit eine Vorleseansage mehr als das eine Wort nennt.
+Seltenes (Kategorie, Konto, Zahlungsart, Zuordnung, IBAN, Schalter wie Durchlaufend oder Aktiv, …)
+steht in einem zweiten, leiseren Satz darunter — keine Box, kein Textlink dahinter. Ist ein Wert nicht
+gesetzt, nennt das Wort selbst den leeren Zustand („keiner Kategorie“, „ohne Ende“, „ohne Notiz“) statt
+zu verschwinden. Jeder Satz ist ein ganzer Katalogschlüssel für die passende Art (kein Zusammensetzen
+aus Übersetzungsfragmenten), da nur so die Grammatik für jede Kombination stimmt.
 *Warum:* Ein Formular mit zwölf Feldern liest sich wie eine Prüfung; ein Satz liest sich wie eine
-Auskunft, die man an einer Stelle korrigiert.
-*So:* „Geht monatlich ab dem 1. Oktober vom Standardkonto ab und zählt zum Grundbedarf.“ *Nicht so:*
-Sechs Auswahlfelder untereinander für dieselben sechs Tatsachen.
+Auskunft, die man an einer Stelle korrigiert — und ein zweiter, leiserer Satz bleibt das auch für das
+Seltene, statt es hinter einem Klick zu verstecken.
+*So:* „Geht monatlich ab dem 1. Oktober vom Standardkonto ab und zählt zum Grundbedarf. Gehört zur
+Kategorie Wohnen und läuft ohne Ende.“ *Nicht so:* Sechs Auswahlfelder untereinander für dieselben
+sechs Tatsachen, oder ein „Weitere Angaben“-Link, der sie versteckt.
 
 ## Wörter
 

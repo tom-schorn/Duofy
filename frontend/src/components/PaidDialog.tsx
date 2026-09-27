@@ -112,7 +112,7 @@ export function PaidDialog({
           required
           aria-describedby={hasBookings ? 'paid-bookings-note' : undefined}
           disabled={hasBookings}
-          inputClassName="h-auto border-0 bg-transparent px-0 pr-7 text-2xl font-semibold placeholder:text-muted-foreground md:text-2xl"
+          inputClassName="h-auto border-0 bg-transparent px-0 pr-7 text-xl font-semibold placeholder:text-muted-foreground md:text-xl"
         />
       </div>
 
@@ -125,7 +125,7 @@ export function PaidDialog({
           closeDateWord()
         }}
       >
-        <p id={sentenceId} className="text-lg leading-8">
+        <p id={sentenceId} className="text-base leading-relaxed">
           {fillSentence(t('paidDialog.sentence'), {
             date: hasBookings ? (
               <span className="font-medium">{longDate(occurredOn)}</span>

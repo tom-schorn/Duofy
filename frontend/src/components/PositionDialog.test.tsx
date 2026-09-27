@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { describe, expect, test, vi } from 'vitest'
@@ -9,7 +9,16 @@ import { budgetHeadingId, budgetLabel, type PlanPosition } from '@/lib/domain'
 import { ApiError } from '@/lib/api'
 import { i18n } from '@/lib/i18n'
 
-const ADD_DETAILS = i18n.t('positionDialog.addDetails')
+// The main sentence's own <p> — not the quieter second one, which also
+// happens to say "Budget" in its passthrough word (issue #215, review D-215-4).
+function mainSentenceEl() {
+  return screen.getByText(
+    (_, element) =>
+      element?.tagName === 'P' &&
+      /Budget/.test(element.textContent ?? '') &&
+      !element.className.includes('text-muted-foreground')
+  )
+}
 
 // A parent the way the pages are: it closes on success only, and hands the error
 // back to the dialog when the server says no.
@@ -162,19 +171,21 @@ describe('PositionDialog kind', () => {
     expect(screen.queryByRole('button', { name: 'Anlegen' })).not.toBeInTheDocument()
   })
 
-  test('a Verpflichtung names the due day in its sentence, a Limit keeps it under the rare-fields link', async () => {
+  test('a Verpflichtung names the due day in its main sentence, a Limit names it in the second sentence', async () => {
     const user = userEvent.setup()
     renderCreate()
     await user.click(screen.getByRole('button', { name: /Verpflichtung/ }))
     expect(screen.getByRole('dialog', { name: i18n.t('positionDialog.kinds.obligation.addTitle') })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '1.' })).toBeInTheDocument()
+    const obligationMain = mainSentenceEl()
+    expect(within(obligationMain).getByRole('button', { name: '1.' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: i18n.t('positionDialog.back') }))
     await user.click(screen.getByRole('button', { name: /Limit/ }))
     expect(screen.getByRole('dialog', { name: i18n.t('positionDialog.kinds.limit.addTitle') })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '1.' })).not.toBeInTheDocument()
-    expect(screen.queryByLabelText(i18n.t('common.dueOn'))).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: ADD_DETAILS }))
-    expect(screen.getByLabelText(i18n.t('common.dueOn'))).toBeInTheDocument()
+    // Not in the main sentence anymore — the second, quieter one names it
+    // instead (issue #215, review D-215-4).
+    const limitMain = mainSentenceEl()
+    expect(within(limitMain).queryByRole('button', { name: '1.' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '1.' })).toBeInTheDocument()
   })
 
   test('the due day word and its opened field are described by the whole sentence for screen readers', async () => {
@@ -226,17 +237,21 @@ describe('PositionDialog kind', () => {
     expect(screen.queryByRole('button', { name: /Verpflichtung$/ })).not.toBeInTheDocument()
   })
 
-  test('the rare fields start closed and open on a click', async () => {
-    const user = userEvent.setup()
+})
+
+describe('PositionDialog rare facts', () => {
+  test('an edit names category, account, counterAccount, payment, assignment, passthrough and the actual amount in a second sentence, all unset', () => {
     render(<EditPage />)
-    const toggle = screen.getByRole('button', { name: ADD_DETAILS })
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.queryByText('Zahlungsart')).not.toBeInTheDocument()
-    await user.click(toggle)
-    expect(screen.getByText('Zahlungsart')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Miete' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Standardkonto' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Geht raus' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'offen' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Nur mein Plan' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Zählt zum Budget.' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Noch nichts verbucht.' })).toBeInTheDocument()
   })
 
-  test('a set value stays quiet on a summary line instead of forcing the rare fields open', () => {
+  test('an existing payment method is named in the second sentence', () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
         <PositionDialog
@@ -249,7 +264,13 @@ describe('PositionDialog kind', () => {
         />
       </QueryClientProvider>
     )
-    expect(screen.getByRole('button', { name: ADD_DETAILS })).toHaveAttribute('aria-expanded', 'false')
     expect(screen.getByText(/Überweisung/)).toBeInTheDocument()
+  })
+
+  test('creating has no actual-amount word — nothing has been booked yet', async () => {
+    const user = userEvent.setup()
+    renderCreate()
+    await user.click(screen.getByRole('button', { name: /Verpflichtung/ }))
+    expect(screen.queryByText(/verbucht/)).not.toBeInTheDocument()
   })
 })

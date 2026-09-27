@@ -5,7 +5,6 @@ import { AmountField } from '@/components/AmountField'
 import { CategoryPicker } from '@/components/CategoryPicker'
 import { Calendar } from '@/components/ui/calendar'
 import { DialogFrame } from '@/components/DialogFrame'
-import { MoreDetails } from '@/components/MoreDetails'
 import { SentenceWord } from '@/components/SentenceWord'
 import { SentencePanel } from '@/components/SentencePanel'
 import { SentenceChip } from '@/components/SentenceChip'
@@ -29,7 +28,6 @@ import {
   type PlanPosition,
   type Transaction,
 } from '@/lib/domain'
-import { OptionalMark } from '@/components/OptionalMark'
 
 /**
  * Change one booking: amount, date, account, category, position and note.
@@ -39,9 +37,9 @@ import { OptionalMark } from '@/components/OptionalMark'
  * never be overwritten by accident. The frame keeps the dialog open until the
  * server has said yes and shows a refusal inside.
  *
- * Amount stays a form; when and where read as one sentence with clickable words
- * (issue #215, decision 28). Category and the note sit behind a text link — this
- * dialog is where „Notiz“ actually lives, unlike the others' rare-fields link.
+ * Amount stays a form; everything else reads as two sentences with clickable
+ * words — when and where, then category and note (issue #215, decisions 28 and
+ * D-215-4: rare facts read as a sentence too, not a collapsed link).
  */
 export function EditBookingDialog({
   transaction,
@@ -81,7 +79,6 @@ export function EditBookingDialog({
   )
   const [positionId, setPositionId] = useState(transaction.positionId ?? 'none')
   const [note, setNote] = useState(transaction.note ?? '')
-  const detailsOpened = useRef(false)
 
   // Which sentence word is open — only one at a time (issue #215).
   const [openWord, setOpenWord] = useState<string | null>(null)
@@ -89,6 +86,8 @@ export function EditBookingDialog({
   // Read out with every word and every opened field, so a screen reader hears the
   // whole sentence, not just the one word (issue #202, review D-215-3, fix 1).
   const sentenceId = useId()
+  // The quiet second sentence for category and note (issue #215, review D-215-4).
+  const extrasSentenceId = useId()
 
   const chosen = positions.find((position) => position.id === positionId)
   const isTransfer = transaction.counterAccountId !== null
@@ -242,16 +241,50 @@ export function EditBookingDialog({
     </SentencePanel>
   )
 
-  // A quiet line under the link when something rare is already set — the section
-  // itself stays collapsed regardless (same rule as the other dialogs).
-  const extrasSummary = [
-    categoryShown &&
-      category !== (transaction.category ?? 'household.groceries') &&
-      t('common.extrasSummary.category', { value: categoryLabel(category) }),
-    note && t('monthBook.note') + ': ' + note,
-  ]
-    .filter((part): part is string => Boolean(part))
-    .join(' · ')
+  const categoryWord = (
+    <SentenceWord
+      ref={wordRef('category')}
+      open={openWord === 'category'}
+      onClick={() => toggleWord('category')}
+      describedBy={extrasSentenceId}
+    >
+      {categoryLabel(category)}
+    </SentenceWord>
+  )
+  const categoryPanel = openWord === 'category' && (
+    <SentencePanel label={t('common.category')}>
+      <CategoryPicker value={category} onChange={setCategory} />
+    </SentencePanel>
+  )
+
+  const noteWord = (
+    <SentenceWord
+      ref={wordRef('note')}
+      open={openWord === 'note'}
+      onClick={() => toggleWord('note')}
+      describedBy={extrasSentenceId}
+    >
+      {note ? t('monthBook.notedWith', { note }) : t('monthBook.noNote')}
+    </SentenceWord>
+  )
+  const notePanel = openWord === 'note' && (
+    <SentencePanel label={t('monthBook.note')}>
+      <Label htmlFor="edit-note" className="sr-only">
+        {t('monthBook.note')}
+      </Label>
+      <Input
+        id="edit-note"
+        value={note}
+        onChange={(event) => setNote(event.target.value)}
+        placeholder={t('monthBook.notePlaceholder')}
+        aria-describedby={extrasSentenceId}
+      />
+    </SentencePanel>
+  )
+
+  const extrasWords: Record<string, React.ReactNode> = { category: categoryWord, note: noteWord }
+  const extrasPanels = [categoryPanel, notePanel]
+  const extrasSentenceKey = categoryShown ? 'withCategory' : 'plain'
 
   return (
     <DialogFrame
@@ -289,7 +322,7 @@ export function EditBookingDialog({
             value={amount}
             onChange={setAmount}
             required
-            inputClassName="h-auto border-0 bg-transparent px-0 pr-7 text-2xl font-semibold placeholder:text-muted-foreground md:text-2xl"
+            inputClassName="h-auto border-0 bg-transparent px-0 pr-7 text-xl font-semibold placeholder:text-muted-foreground md:text-xl"
           />
         </div>
 
@@ -302,7 +335,7 @@ export function EditBookingDialog({
             closeWord()
           }}
         >
-          <p id={sentenceId} className="text-lg leading-8">
+          <p id={sentenceId} className="text-base leading-relaxed">
             {fillSentence(t('monthBook.sentence'), {
               date: dateWord,
               account: accountWord,
@@ -314,29 +347,20 @@ export function EditBookingDialog({
           {positionPanel}
         </div>
 
-        <MoreDetails
-          resetKey={transaction}
-          hasValues={false}
-          startOpen={detailsOpened.current}
-          onToggle={(opened) => {
-            detailsOpened.current = opened
+        <div
+          className="flex flex-col gap-3"
+          onKeyDownCapture={(event) => {
+            if (event.key !== 'Escape' || openWord === null) return
+            event.stopPropagation()
+            event.preventDefault()
+            closeWord()
           }}
-          label={t('monthBook.addDetails')}
-          plain
-          summary={extrasSummary || undefined}
         >
-          {categoryShown && (
-            <div className="flex flex-col gap-2">
-              <Label>{t('common.category')}</Label>
-              <CategoryPicker value={category} onChange={setCategory} />
-            </div>
-          )}
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="edit-note">{t('monthBook.note')}<OptionalMark /></Label>
-            <Input id="edit-note" value={note} onChange={(event) => setNote(event.target.value)} />
-          </div>
-        </MoreDetails>
+          <p id={extrasSentenceId} className="text-muted-foreground text-base leading-relaxed">
+            {fillSentence(t(`monthBook.extrasSentence.${extrasSentenceKey}`), extrasWords)}
+          </p>
+          {extrasPanels}
+        </div>
       </div>
     </DialogFrame>
   )

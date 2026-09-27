@@ -389,10 +389,6 @@
     "cancel": "Abbrechen",
     "dueDay": "{{day}}.",
     "amountPlaceholder": "0,00",
-    "dueOn": "Fällig",
-    "dueOnBefore": "am",
-    "dueOnAfter": ". jedes Monats",
-    "dueOnSentence": "am {{day}}. jedes Monats",
     "category": "Kategorie",
     "account": "Konto",
     "defaultAccount": "Standardkonto",
@@ -403,6 +399,8 @@
     "paymentOpen": "offen",
     "passThrough": "Durchlaufend",
     "passThroughHint": "Geld, das nur weitergereicht wird — BuT, eine Rückzahlung, die sofort weggelegt wird. Zählt in kein Budget und in keine Quote.",
+    "passThroughOn": "Wird nur durchgereicht und zählt nicht zum Budget.",
+    "passThroughOff": "Zählt zum Budget.",
     "assignment": "Zuordnung",
     "privateOnly": "Nur mein Plan",
     "delete": "Löschen",
@@ -412,17 +410,7 @@
     "create": "Anlegen",
     "dayOfMonth": "{{day}}. {{month}}",
     "percent": "{{value}} %",
-    "and": "und",
-    "extrasSummary": {
-      "category": "Kategorie: {{value}}",
-      "account": "Konto: {{value}}",
-      "counterAccount": "Zielkonto: {{value}}",
-      "endsOn": "läuft bis {{value}}",
-      "paymentMethod": "Zahlungsart: {{value}}",
-      "assignment": "Zuordnung: {{value}}",
-      "passThrough": "durchlaufend",
-      "actual": "Ist: {{value}}"
-    }
+    "and": "und"
   },
   "positionPicker": {
     "none": "kein Posten",
@@ -495,10 +483,17 @@
     "actual": "Tatsächlich bezahlt",
     "actualPlaceholder": "noch offen",
     "actualHint": "Nur nötig, wenn der Betrag vom geplanten abweicht. Abgehakt wird in der Liste.",
-    "addDetails": "Kategorie oder weitere Angaben hinzufügen",
+    "actualOpen": "Noch nichts verbucht.",
+    "actualBooked": "Bereits mit {{amount}} € verbucht.",
     "sentence": {
       "obligation": "Fällig am {dueDay} und zählt zum Budget {budget}.",
       "limit": "Zählt zum Budget {budget}."
+    },
+    "extrasSentence": {
+      "obligation": "Gehört zur Kategorie {category}, bezahlt vom {account} ans {counterAccount}, mit {payment} und zugeordnet an {assignment}. {passThrough}",
+      "obligationEdit": "Gehört zur Kategorie {category}, bezahlt vom {account} ans {counterAccount}, mit {payment} und zugeordnet an {assignment}. {passThrough} {actual}",
+      "limit": "Fällig am {dueDay}. Gehört zur Kategorie {category}, bezahlt vom {account} ans {counterAccount}, mit {payment} und zugeordnet an {assignment}. {passThrough}",
+      "limitEdit": "Fällig am {dueDay}. Gehört zur Kategorie {category}, bezahlt vom {account} ans {counterAccount}, mit {payment} und zugeordnet an {assignment}. {passThrough} {actual}"
     },
     "dueDayLabel": "Fällig am wievielten?",
     "budgetLabel": "Welches Budget?"
@@ -556,17 +551,14 @@
     "customInterval": "Anderer Abstand",
     "customIntervalField": "Abstand in Monaten",
     "intervalRange": "Ganze Monate von {{min}} bis {{max}}.",
-    "noPaymentMethod": "Keine Angabe",
     "firstDueHint": "Dieses Datum legt fest, ab wann Posten entstehen, in welchem Monat sie fällig sind und an welchem Tag gezahlt wird.",
     "firstDueHintMonthly": "Der Tag ist der Zahltag. Ab diesem Monat entstehen Posten.",
     "assignmentHint": "In welchem Plan die Posten landen. Einmal entschieden, gilt für alle künftigen Monate.",
     "noTargetDate": "Kein Zieldatum",
     "noTargetAmount": "Kein Zielbetrag",
-    "endsOn": "Läuft bis (letzter Monat)",
     "noEnd": "auf Weiteres",
     "clearEnd": "Kein Ende",
     "endsOnHint": "Nur Monat und Jahr zählen. Danach entstehen keine neuen Posten mehr. Leer lassen, wenn es unbegrenzt weiterläuft.",
-    "addDetails": "Kategorie oder weitere Angaben hinzufügen",
     "sentence": {
       "contract": "Geht {rhythm} ab dem {date} vom {account} ab und zählt zum Budget {budget}.",
       "contractDefaultAccount": "Geht {rhythm} ab dem {date} ab und zählt zum Budget {budget}.",
@@ -575,6 +567,12 @@
       "savings_goal": "Geht {rhythm} ab dem {date} aufs {counterAccount} und soll bis {targetDate} {targetAmount} erreichen.",
       "debt": "Geht {rhythm} ab dem {date} vom {account} ab und läuft bis {endsOn}.",
       "income": "Kommt {rhythm} ab dem {date} auf {account}."
+    },
+    "extrasSentence": {
+      "full": "Gehört zur Kategorie {category}, geht vom {account} ab, läuft bis {endsOn}, geht ans {counterAccount}, per {payment} und ist {assignment} zugeordnet. {passThrough}",
+      "noAccount": "Gehört zur Kategorie {category}, läuft bis {endsOn}, geht ans {counterAccount}, per {payment} und ist {assignment} zugeordnet. {passThrough}",
+      "noCounterAccount": "Gehört zur Kategorie {category}, geht vom {account} ab, läuft bis {endsOn}, per {payment} und ist {assignment} zugeordnet. {passThrough}",
+      "counterAccountOnly": "Gehört zur Kategorie {category}, geht ans {counterAccount}, per {payment} und ist {assignment} zugeordnet. {passThrough}"
     },
     "rhythmLabel": "Wie oft?",
     "dateLabel": "Erste Fälligkeit",
@@ -608,7 +606,11 @@
     "dateLabel": "Wann gebucht?",
     "accountLabel": "Von welchem Konto?",
     "positionLabel": "Welcher Posten?",
-    "addDetails": "Kategorie oder Notiz hinzufügen",
+    "extrasSentence": {
+      "withCategory": "Gehört zur Kategorie {category} und {note}.",
+      "plain": "{note}."
+    },
+    "notedWith": "mit der Notiz „{{note}}“",
     "editTitle": "Buchung bearbeiten",
     "editHint": "Eine Buchung vom Haken bleibt an ihrem Posten."
   },
@@ -748,21 +750,23 @@
     "iban": "IBAN",
     "ibanPlaceholder": "DE00 0000 0000 0000 0000 00",
     "ibanHint": "Freiwillig. Damit erkennt Duofy Umbuchungen auf dieses Konto und fragt nicht nach einer Kategorie.",
+    "ibanWith": "Trägt die IBAN {{iban}}.",
+    "noIban": "Ohne IBAN.",
     "defaultHint": "Wird beim schnellen Buchen vorausgewählt. Ein zweites löst das bisherige ab.",
+    "isDefault": "Ist das Standardkonto",
+    "isNotDefault": "Ist kein Standardkonto",
     "countsAsAvailable": "Zählt als verfügbar",
     "countsAsAvailableHint": "Aus beim Tagesgeld oder Depot: was dorthin wandert, gilt im Buch als ausgegeben. An bei Giro und PayPal — dort bleibt das Geld greifbar.",
+    "isAvailable": "zählt als verfügbar",
+    "isNotAvailable": "zählt nicht als verfügbar",
     "active": "Aktiv",
     "activeHint": "Aufgelöste Konten bleiben stehen, damit alte Buchungen ihren Bezug behalten.",
+    "isActive": "ist aktiv",
+    "isClosed": "ist aufgelöst",
     "sentence": "Ist ein {type} mit Stand vom {date}.",
     "typeLabel": "Welche Art?",
     "dateLabel": "Stand vom wann?",
-    "addDetails": "IBAN oder weitere Einstellungen hinzufügen",
-    "extrasSummary": {
-      "default": "Standardkonto",
-      "notAvailable": "zählt nicht als verfügbar",
-      "inactive": "aufgelöst",
-      "iban": "IBAN: {{value}}"
-    }
+    "extrasSentence": "{iban} {default}, {available} und {active}."
   },
   "household": {
     "roles": {

@@ -100,12 +100,13 @@ describe('EditBookingDialog sentence', () => {
     expect(screen.queryByRole('group', { name: i18n.t('monthBook.positionLabel') })).not.toBeInTheDocument()
   })
 
-  test('the rare fields stay collapsed with a note set, named on a summary line', () => {
+  test('the second sentence names the category and the note', () => {
     renderDialog(booking)
-    expect(screen.getByRole('button', { name: i18n.t('monthBook.addDetails') })).toHaveAttribute(
-      'aria-expanded',
-      'false'
-    )
     expect(screen.getByText(/Streaming/)).toBeInTheDocument()
+  })
+
+  test('the note is named as unset by default', () => {
+    renderDialog({ ...booking, note: null })
+    expect(screen.getByRole('button', { name: i18n.t('monthBook.noNote') })).toBeInTheDocument()
   })
 })

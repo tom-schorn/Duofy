@@ -98,13 +98,14 @@ describe('AccountDialog sentence', () => {
     expect(screen.queryByRole('group', { name: i18n.t('accounts.typeLabel') })).not.toBeInTheDocument()
   })
 
-  test('the rare fields stay collapsed even with a value set, named on a summary line', () => {
+  test('the second sentence names the IBAN when it is set', () => {
     render(ui({ account: { ...account, externalRef: 'DE00 1234' }, open: true }))
-    expect(screen.getByRole('button', { name: i18n.t('accounts.addDetails') })).toHaveAttribute(
-      'aria-expanded',
-      'false'
-    )
     expect(screen.getByText(/DE00 1234/)).toBeInTheDocument()
+  })
+
+  test('the second sentence names the IBAN as unset by default', () => {
+    render(ui({ account, open: true }))
+    expect(screen.getByRole('button', { name: i18n.t('accounts.noIban') })).toBeInTheDocument()
   })
 })
 
@@ -143,11 +144,12 @@ describe('AccountDialog delete', () => {
     expect(deleted).toHaveBeenCalledTimes(1)
   })
 
-  test('has no delete button once the account is in use; the Aktiv switch is what is left', async () => {
+  test('has no delete button once the account is in use; the Aktiv word is what is left', async () => {
     const user = userEvent.setup()
     render(ui({ account: { ...account, deletable: false }, open: true }))
     expect(screen.queryByRole('button', { name: i18n.t('common.delete') })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: i18n.t('accounts.addDetails') }))
-    expect(screen.getByRole('switch', { name: i18n.t('accounts.active') })).toBeInTheDocument()
+    const activeWord = screen.getByRole('button', { name: i18n.t('accounts.isActive') })
+    await user.click(activeWord)
+    expect(screen.getByRole('group', { name: i18n.t('accounts.active') })).toBeInTheDocument()
   })
 })

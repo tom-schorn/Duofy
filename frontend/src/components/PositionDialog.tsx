@@ -6,20 +6,12 @@ import { AmountField } from '@/components/AmountField'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { MoreDetails } from '@/components/MoreDetails'
-import { Switch } from '@/components/ui/switch'
 import { SentenceWord } from '@/components/SentenceWord'
 import { SentencePanel } from '@/components/SentencePanel'
 import { SentenceChip } from '@/components/SentenceChip'
 import { fillSentence } from '@/lib/sentence'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { CategoryPicker } from '@/components/CategoryPicker'
+import { formatAmount } from '@/lib/amount'
 import { cn } from '@/lib/utils'
 import {
   BUDGET_DOT,
@@ -32,19 +24,19 @@ import {
   categoryGroup,
   type Budget,
   type Category,
-  type PaymentMethod,
   type PlanPosition,
   PAYMENT_METHODS,
 } from '@/lib/domain'
 import { useAccounts, useHouseholds } from '@/lib/queries'
-import { OptionalMark } from '@/components/OptionalMark'
 
 /**
  * Create and edit one-off positions.
  *
  * Deliberately short: label and amount stay a form; day and budget read as one
  * sentence with clickable words (issue #215, decision 28 — „Satz statt
- * Formular“). Everything rarer sits behind a text link.
+ * Formular“). Everything rarer — category, account, payment, assignment,
+ * passthrough, the actual amount — reads as a second, quieter sentence, same
+ * mechanics (review D-215-4: no collapsed link left in this dialog).
  *
  * Same structure as the commitment dialog (#190): creating first asks what it is —
  * Verpflichtung (with a tick) or Limit — then the fields follow, with a way back.
@@ -145,22 +137,21 @@ export function PositionDialog({
   // A deleted position leaves no row to return the focus to.
   const deleted = useRef(false)
 
-  // Whether the rare fields were open; kept across „Zurück“, where they go away.
-  const detailsOpened = useRef(false)
-
   // Which sentence word is open — only one at a time (issue #215).
   const [openWord, setOpenWord] = useState<string | null>(null)
   const wordRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   // Read out with every word and every opened field, so a screen reader hears the
   // whole sentence, not just the one word (issue #202, review D-215-3, fix 1).
   const sentenceId = useId()
+  // The quiet second sentence for category, account, payment and the rest
+  // (issue #215, review D-215-4).
+  const extrasSentenceId = useId()
 
   useEffect(() => {
     if (open) {
       setDraft(position ?? emptyDraft(budget))
       setStep(position ? 'form' : 'choose')
       deleted.current = false
-      detailsOpened.current = false
       setOpenWord(null)
     }
   }, [open, position, budget])
@@ -230,30 +221,6 @@ export function PositionDialog({
     }
   }
 
-  const dueDayField = (
-    <div className="flex flex-col gap-2">
-      <Label htmlFor="pos-due-day">{t('common.dueOn')}</Label>
-      <div className="flex items-center gap-2 text-sm">
-        {t('common.dueOnBefore')}
-        <Input
-          id="pos-due-day"
-          type="number"
-          min="1"
-          max="31"
-          className="w-20"
-          value={draft.dueDay}
-          onChange={(event) => set('dueDay', Number(event.target.value))}
-          aria-describedby="pos-due-day-sentence"
-          required
-        />
-        {t('common.dueOnAfter')}
-        <span id="pos-due-day-sentence" className="sr-only">
-          {t('common.dueOnSentence', { day: draft.dueDay })}
-        </span>
-      </div>
-    </div>
-  )
-
   // --- Sentence words -------------------------------------------------------
 
   const dueDayWord = (
@@ -318,33 +285,276 @@ export function PositionDialog({
   )
 
   const words: Record<string, React.ReactNode> = { dueDay: dueDayWord, budget: budgetWord }
-  const panels = [dueDayPanel, budgetPanel]
+  // The limit kind names its due day in the second sentence instead (below), so
+  // its panel must not also render here — the same button, wherever it sits,
+  // opens the one panel.
+  const panels = [!draft.isLimit && dueDayPanel, budgetPanel]
   const sentenceKey = draft.isLimit ? 'limit' : 'obligation'
+
+  // --- Rare facts, as a second sentence (issue #215, review D-215-4) --------
 
   const accountName = (id: string | null) =>
     id === null ? t('common.defaultAccount') : (accounts.find((account) => account.id === id)?.name ?? '')
 
-  // A quiet line under the link when something rare is already set — the section
-  // itself stays collapsed regardless (same rule as the commitment dialog).
-  const extrasSummary = [
-    draft.category !== DEFAULT_CATEGORY[draft.budget] &&
-      t('common.extrasSummary.category', { value: categoryLabel(draft.category) }),
-    draft.accountId !== null &&
-      t('common.extrasSummary.account', { value: accountName(draft.accountId) }),
-    draft.counterAccountId !== null &&
-      t('common.extrasSummary.counterAccount', { value: accountName(draft.counterAccountId) }),
-    draft.paymentMethod !== null &&
-      t('common.extrasSummary.paymentMethod', { value: paymentLabel(draft.paymentMethod) }),
-    draft.householdId !== null &&
-      t('common.extrasSummary.assignment', {
-        value: households.find((household) => household.id === draft.householdId)?.name ?? '',
-      }),
-    draft.passThrough && t('common.extrasSummary.passThrough'),
-    draft.amountActual !== null &&
-      t('common.extrasSummary.actual', { value: `${draft.amountActual} €` }),
+  const categoryWord = (
+    <SentenceWord
+      ref={wordRef('category')}
+      open={openWord === 'category'}
+      onClick={() => toggleWord('category')}
+      describedBy={extrasSentenceId}
+    >
+      {categoryLabel(draft.category)}
+    </SentenceWord>
+  )
+  const categoryPanel = openWord === 'category' && (
+    <SentencePanel label={t('common.category')}>
+      <CategoryPicker value={draft.category} onChange={handleCategory} />
+    </SentencePanel>
+  )
+
+  const accountWord = (
+    <SentenceWord
+      ref={wordRef('account')}
+      open={openWord === 'account'}
+      onClick={() => toggleWord('account')}
+      describedBy={extrasSentenceId}
+    >
+      {accountName(draft.accountId)}
+    </SentenceWord>
+  )
+  const accountPanel = openWord === 'account' && (
+    <SentencePanel label={t('common.account')}>
+      <div className="flex flex-wrap gap-2">
+        <SentenceChip
+          selected={draft.accountId === null}
+          onClick={() => {
+            set('accountId', null)
+            closeWord()
+          }}
+        >
+          {t('common.defaultAccount')}
+        </SentenceChip>
+        {accounts
+          .filter((account) => account.active)
+          .map((account) => (
+            <SentenceChip
+              key={account.id}
+              selected={draft.accountId === account.id}
+              onClick={() => {
+                set('accountId', account.id)
+                closeWord()
+              }}
+            >
+              {account.name}
+            </SentenceChip>
+          ))}
+      </div>
+    </SentencePanel>
+  )
+
+  const counterAccountWord = (
+    <SentenceWord
+      ref={wordRef('counterAccount')}
+      open={openWord === 'counterAccount'}
+      onClick={() => toggleWord('counterAccount')}
+      describedBy={extrasSentenceId}
+    >
+      {draft.counterAccountId === null ? t('common.goesOut') : accountName(draft.counterAccountId)}
+    </SentenceWord>
+  )
+  const counterAccountPanel = openWord === 'counterAccount' && (
+    <SentencePanel label={t('common.counterAccount')}>
+      <div className="flex flex-wrap gap-2">
+        <SentenceChip
+          selected={draft.counterAccountId === null}
+          onClick={() => {
+            set('counterAccountId', null)
+            closeWord()
+          }}
+        >
+          {t('common.goesOut')}
+        </SentenceChip>
+        {accounts
+          .filter((account) => account.id !== draft.accountId)
+          .map((account) => (
+            <SentenceChip
+              key={account.id}
+              selected={draft.counterAccountId === account.id}
+              onClick={() => {
+                set('counterAccountId', account.id)
+                closeWord()
+              }}
+            >
+              {account.name}
+            </SentenceChip>
+          ))}
+      </div>
+      <p className="text-muted-foreground text-xs">{t('common.counterAccountHint')}</p>
+    </SentencePanel>
+  )
+
+  const paymentWord = (
+    <SentenceWord
+      ref={wordRef('payment')}
+      open={openWord === 'payment'}
+      onClick={() => toggleWord('payment')}
+      describedBy={extrasSentenceId}
+    >
+      {draft.paymentMethod === null ? t('common.paymentOpen') : paymentLabel(draft.paymentMethod)}
+    </SentenceWord>
+  )
+  const paymentPanel = openWord === 'payment' && (
+    <SentencePanel label={t('common.paymentMethod')}>
+      <div className="flex flex-wrap gap-2">
+        <SentenceChip
+          selected={draft.paymentMethod === null}
+          onClick={() => {
+            set('paymentMethod', null)
+            closeWord()
+          }}
+        >
+          {t('common.paymentOpen')}
+        </SentenceChip>
+        {PAYMENTS.map((method) => (
+          <SentenceChip
+            key={method}
+            selected={draft.paymentMethod === method}
+            onClick={() => {
+              set('paymentMethod', method)
+              closeWord()
+            }}
+          >
+            {paymentLabel(method)}
+          </SentenceChip>
+        ))}
+      </div>
+    </SentencePanel>
+  )
+
+  const assignmentWord = (
+    <SentenceWord
+      ref={wordRef('assignment')}
+      open={openWord === 'assignment'}
+      onClick={() => toggleWord('assignment')}
+      describedBy={extrasSentenceId}
+    >
+      {draft.householdId === null
+        ? t('common.privateOnly')
+        : (households.find((household) => household.id === draft.householdId)?.name ?? '')}
+    </SentenceWord>
+  )
+  const assignmentPanel = openWord === 'assignment' && (
+    <SentencePanel label={t('common.assignment')}>
+      <div className="flex flex-wrap gap-2">
+        <SentenceChip
+          selected={draft.householdId === null}
+          onClick={() => {
+            set('householdId', null)
+            closeWord()
+          }}
+        >
+          {t('common.privateOnly')}
+        </SentenceChip>
+        {households.map((household) => (
+          <SentenceChip
+            key={household.id}
+            selected={draft.householdId === household.id}
+            onClick={() => {
+              set('householdId', household.id)
+              closeWord()
+            }}
+          >
+            {household.name}
+          </SentenceChip>
+        ))}
+      </div>
+    </SentencePanel>
+  )
+
+  const passThroughWord = (
+    <SentenceWord
+      ref={wordRef('passThrough')}
+      open={openWord === 'passThrough'}
+      onClick={() => toggleWord('passThrough')}
+      describedBy={extrasSentenceId}
+    >
+      {draft.passThrough ? t('common.passThroughOn') : t('common.passThroughOff')}
+    </SentenceWord>
+  )
+  const passThroughPanel = openWord === 'passThrough' && (
+    <SentencePanel label={t('common.passThrough')}>
+      <div className="flex flex-wrap gap-2">
+        <SentenceChip
+          selected={!draft.passThrough}
+          onClick={() => {
+            set('passThrough', false)
+            closeWord()
+          }}
+        >
+          {t('common.passThroughOff')}
+        </SentenceChip>
+        <SentenceChip
+          selected={draft.passThrough}
+          onClick={() => {
+            set('passThrough', true)
+            closeWord()
+          }}
+        >
+          {t('common.passThroughOn')}
+        </SentenceChip>
+      </div>
+      <p className="text-muted-foreground text-xs">{t('common.passThroughHint')}</p>
+    </SentencePanel>
+  )
+
+  const actualWord = (
+    <SentenceWord
+      ref={wordRef('actual')}
+      open={openWord === 'actual'}
+      onClick={() => toggleWord('actual')}
+      describedBy={extrasSentenceId}
+    >
+      {draft.amountActual === null
+        ? t('positionDialog.actualOpen')
+        : t('positionDialog.actualBooked', { amount: formatAmount(draft.amountActual) })}
+    </SentenceWord>
+  )
+  const actualPanel = openWord === 'actual' && (
+    <SentencePanel label={t('positionDialog.actual')}>
+      <AmountField
+        id="actual"
+        value={draft.amountActual ?? ''}
+        onChange={(value) => set('amountActual', value || null)}
+        allowZero
+        placeholder={t('positionDialog.actualPlaceholder')}
+        aria-describedby={extrasSentenceId}
+        className="w-48"
+      />
+      <p className="text-muted-foreground text-xs">{t('positionDialog.actualHint')}</p>
+    </SentencePanel>
+  )
+
+  const extrasWords: Record<string, React.ReactNode> = {
+    dueDay: dueDayWord,
+    category: categoryWord,
+    account: accountWord,
+    counterAccount: counterAccountWord,
+    payment: paymentWord,
+    assignment: assignmentWord,
+    passThrough: passThroughWord,
+    actual: actualWord,
+  }
+  const extrasPanels = [
+    draft.isLimit && dueDayPanel,
+    categoryPanel,
+    accountPanel,
+    counterAccountPanel,
+    paymentPanel,
+    assignmentPanel,
+    passThroughPanel,
+    isEdit && actualPanel,
   ]
-    .filter((part): part is string => Boolean(part))
-    .join(' · ')
+  const extrasSentenceKey = `${draft.isLimit ? 'limit' : 'obligation'}${isEdit ? 'Edit' : ''}`
 
   return (
     <DialogFrame
@@ -425,7 +635,7 @@ export function PositionDialog({
               onChange={(event) => set('label', event.target.value)}
               placeholder={t('positionDialog.labelPlaceholder')}
               required
-              className="font-heading h-auto rounded-none border-0 border-b border-border bg-transparent px-0 pb-2 text-3xl placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-0 md:text-3xl"
+              className="font-heading h-auto rounded-none border-0 border-b border-border bg-transparent px-0 pb-2 text-xl placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-0 md:text-xl"
             />
 
             <div className="flex items-baseline gap-3">
@@ -439,7 +649,7 @@ export function PositionDialog({
                 required
                 allowZero
                 className="flex-1"
-                inputClassName="h-auto border-0 bg-transparent px-0 pr-7 text-2xl font-semibold placeholder:text-muted-foreground md:text-2xl"
+                inputClassName="h-auto border-0 bg-transparent px-0 pr-7 text-xl font-semibold placeholder:text-muted-foreground md:text-xl"
               />
             </div>
           </div>
@@ -453,152 +663,26 @@ export function PositionDialog({
               closeWord()
             }}
           >
-            <p id={sentenceId} className="text-lg leading-8">
+            <p id={sentenceId} className="text-base leading-relaxed">
               {fillSentence(t(`positionDialog.sentence.${sentenceKey}`), words)}
             </p>
             {panels}
           </div>
 
-          <MoreDetails
-            resetKey={position}
-            hasValues={false}
-            startOpen={detailsOpened.current}
-            onToggle={(opened) => {
-              detailsOpened.current = opened
+          <div
+            className="flex flex-col gap-3"
+            onKeyDownCapture={(event) => {
+              if (event.key !== 'Escape' || openWord === null) return
+              event.stopPropagation()
+              event.preventDefault()
+              closeWord()
             }}
-            label={t('positionDialog.addDetails')}
-            plain
-            summary={extrasSummary || undefined}
           >
-            {draft.isLimit && dueDayField}
-
-            <div className="flex flex-col gap-2">
-              <Label>{t('common.category')}</Label>
-              <CategoryPicker value={draft.category} onChange={handleCategory} />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label>{t('common.account')}</Label>
-              <Select
-                value={draft.accountId ?? 'default'}
-                onValueChange={(value) => set('accountId', value === 'default' ? null : value)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {/* „Standardkonto" statt einer Vorauswahl: so bleibt der
-                  Posten richtig, wenn du das Standardkonto wechselst. */}
-                  <SelectItem value="default">{t('common.defaultAccount')}</SelectItem>
-                  {accounts
-                    .filter((account) => account.active)
-                    .map((account) => (
-                      <SelectItem key={account.id} value={account.id}>
-                        {account.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label>{t('common.counterAccount')}</Label>
-              <Select
-                value={draft.counterAccountId ?? 'none'}
-                onValueChange={(value) => set('counterAccountId', value === 'none' ? null : value)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">{t('common.goesOut')}</SelectItem>
-                  {accounts
-                    .filter((account) => account.id !== draft.accountId)
-                    .map((account) => (
-                      <SelectItem key={account.id} value={account.id}>
-                        {account.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-              <span className="text-muted-foreground text-xs">
-                {t('common.counterAccountHint')}
-              </span>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label>{t('common.paymentMethod')}</Label>
-              <Select
-                value={draft.paymentMethod ?? 'none'}
-                onValueChange={(value) =>
-                  set('paymentMethod', value === 'none' ? null : (value as PaymentMethod))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">{t('common.paymentOpen')}</SelectItem>
-                  {PAYMENTS.map((method) => (
-                    <SelectItem key={method} value={method}>
-                      {paymentLabel(method)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Nimmt den Posten aus Budget und Quoten. Nötig für Geld, das
-            nur durchgereicht wird — sonst sähen 1.139 € weitergeleitet
-            aus wie 1.139 € gespart. */}
-            <div className="border-border flex items-center justify-between rounded-md border p-3">
-              <div className="flex flex-col pr-4">
-                <Label htmlFor="position-pass-through">{t('common.passThrough')}</Label>
-                <span className="text-muted-foreground text-xs">
-                  {t('common.passThroughHint')}
-                </span>
-              </div>
-              <Switch
-                id="position-pass-through"
-                checked={draft.passThrough}
-                onCheckedChange={(checked) => set('passThrough', checked)}
-              />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label>{t('common.assignment')}</Label>
-              <Select
-                value={draft.householdId ?? 'private'}
-                onValueChange={(value) => set('householdId', value === 'private' ? null : value)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="private">{t('common.privateOnly')}</SelectItem>
-                  {households.map((household) => (
-                    <SelectItem key={household.id} value={household.id}>
-                      {household.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {isEdit && (
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="actual">{t('positionDialog.actual')}<OptionalMark /></Label>
-                <AmountField
-                  id="actual"
-                  value={draft.amountActual ?? ''}
-                  onChange={(value) => set('amountActual', value || null)}
-                  allowZero
-                  placeholder={t('positionDialog.actualPlaceholder')}
-                />
-                <p className="text-muted-foreground text-xs">{t('positionDialog.actualHint')}</p>
-              </div>
-            )}
-          </MoreDetails>
+            <p id={extrasSentenceId} className="text-muted-foreground text-base leading-relaxed">
+              {fillSentence(t(`positionDialog.extrasSentence.${extrasSentenceKey}`), extrasWords)}
+            </p>
+            {extrasPanels}
+          </div>
         </div>
       )}
     </DialogFrame>
