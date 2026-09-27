@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { MonthBook } from '@/components/MonthBook'
@@ -33,7 +34,9 @@ function renderBook(readOnly: boolean) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
-      <MonthBook positions={[]} year={2026} month={9} readOnly={readOnly} />
+      <MemoryRouter>
+        <MonthBook positions={[]} year={2026} month={9} readOnly={readOnly} />
+      </MemoryRouter>
     </QueryClientProvider>
   )
 }
