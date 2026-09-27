@@ -51,4 +51,16 @@ describe('quota dialog', () => {
       targetSavings: '16',
     })
   })
+
+  test('shows one decimal once a value is fractional, so all three still add up to 100', () => {
+    open()
+    const needs = screen.getByLabelText(i18n.t('quota.needs'))
+    fireEvent.change(needs, { target: { value: '33' } })
+
+    // 33 needs; the remaining 67 split 30:20 → 40,2 / 26,8.
+    expect(screen.getByText('33,0 %')).toBeInTheDocument()
+    expect(screen.getByText('40,2 %')).toBeInTheDocument()
+    expect(screen.getByText('26,8 %')).toBeInTheDocument()
+    expect(needs).toHaveAttribute('aria-valuetext', '33,0 Prozent')
+  })
 })
