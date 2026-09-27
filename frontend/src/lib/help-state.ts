@@ -3,8 +3,12 @@ import { useLocation, useSearchParams } from 'react-router'
 
 import type { HelpKey } from '@/lib/help'
 
-/** Whether the help stays open beside the page. Default: closed. */
-const PINNED_KEY = 'duofy.help.pinned'
+/**
+ * Set once a person closes the column beside the page. Default: open. The old
+ * `duofy.help.pinned` key (default was closed) is ignored on purpose, so a stored
+ * "false" from before does not hide the help for everyone.
+ */
+const CLOSED_KEY = 'duofy.help.closed'
 
 /** The width from which the help can stay open next to the page (Tailwind `xl`). */
 const WIDE_QUERY = '(min-width: 1280px)'
@@ -30,26 +34,27 @@ export function useHelpKey(): HelpKey | null {
 }
 
 /**
- * The remembered choice to keep the help open beside the page.
+ * Whether the help stays open beside the page (from 1280 px up): open until the
+ * person closes it, and that choice is remembered.
  *
  * Storage can be refused (private window, blocked site data): reading then
- * answers "closed", and a write that fails is logged, not thrown — the choice
+ * answers "open", and a write that fails is logged, not thrown — the choice
  * simply lasts until the page is left.
  */
 export function useHelpPinned(): { pinned: boolean; setPinned: (next: boolean) => void } {
   const [pinned, setPinnedState] = useState(() => {
     try {
-      return localStorage.getItem(PINNED_KEY) === 'true'
+      return localStorage.getItem(CLOSED_KEY) !== 'true'
     } catch (error) {
       console.warn('Could not read the help setting', error)
-      return false
+      return true
     }
   })
 
   function setPinned(next: boolean) {
     setPinnedState(next)
     try {
-      localStorage.setItem(PINNED_KEY, String(next))
+      localStorage.setItem(CLOSED_KEY, String(!next))
     } catch (error) {
       console.warn('Could not save the help setting', error)
     }
