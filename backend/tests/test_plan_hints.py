@@ -260,3 +260,55 @@ async def test_a_month_without_income_has_no_nothing_free_hint(
     await session.commit()
 
     assert await nothing_free(client) == []
+
+
+async def test_pass_through_positions_count_in_neither_income_nor_planned(
+    client: AsyncClient, session: AsyncSession, owner: User, monkeypatch: pytest.MonkeyPatch
+):
+    pin_today(monkeypatch, date(2026, 9, 2))
+    plan = await make_plan(session, owner)
+    forwarded_income = position(
+        plan, 5, budget=Budget.INCOME, pass_through=True, amount_planned=Decimal("5000.00")
+    )
+    forwarded_expense = position(plan, 6, pass_through=True, amount_planned=Decimal("5000.00"))
+    session.add_all(
+        [await pay(plan, "890.00"), position(plan, 30), forwarded_income, forwarded_expense]
+    )
+    await session.commit()
+
+    assert await nothing_free(client) == [
+        {
+            "code": "plan_nothing_free",
+            "severity": "info",
+            "positionId": None,
+            "params": {"free": "0.00"},
+        }
+    ]
+
+
+async def test_nothing_free_hint_on_the_household_plan_path(
+    client: AsyncClient, session: AsyncSession, owner: User, monkeypatch: pytest.MonkeyPatch
+):
+    pin_today(monkeypatch, date(2026, 9, 2))
+    household = await make_household(session, "Shared")
+    await add_member(session, household, owner)
+    plan = await make_plan(session, owner)
+    income = position(
+        plan, 30, budget=Budget.INCOME, category=Category.INCOME_EARNED,
+        amount_planned=Decimal("890.00"), household_id=household.id,
+    )
+    committed = position(plan, 30, household_id=household.id)
+    session.add_all([income, committed])
+    await session.commit()
+
+    response = await client.get(f"/api/v1/plans/household/{household.id}/2026/9")
+    assert response.status_code == 200
+    hints = [h for h in response.json()["hints"] if h["code"] == "plan_nothing_free"]
+    assert hints == [
+        {
+            "code": "plan_nothing_free",
+            "severity": "info",
+            "positionId": None,
+            "params": {"free": "0.00"},
+        }
+    ]
