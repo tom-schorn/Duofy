@@ -70,6 +70,7 @@ export function deleteWithUndo({
   client,
   id,
   name,
+  messageKey = 'toast.deleted',
   hideIn,
   invalidate,
   request,
@@ -78,6 +79,8 @@ export function deleteWithUndo({
   id: string
   /** What the message calls the thing: a label or an amount. */
   name: string
+  /** Catalog key of the message; „gelöscht“ unless the row is only thrown out. */
+  messageKey?: string
   /** Cached lists the row disappears from at once. */
   hideIn: readonly QueryKey[]
   /** Reloaded when the delete is done or was taken back. */
@@ -158,7 +161,7 @@ export function deleteWithUndo({
 
   // The message goes up first: showing it flushes whatever was waiting before, and
   // that must not be this delete.
-  announce('success', i18n.t('toast.deleted', { name }), {
+  announce('success', i18n.t(messageKey, { name }), {
     // Stays until the next message, the user closing it, or the page being left.
     duration: Infinity,
     action: { label: i18n.t('ui.undo'), onClick: undo },
