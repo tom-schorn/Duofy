@@ -3,14 +3,15 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test } from 'vitest'
 
+import { i18n } from '@/lib/i18n'
 import { keys } from '@/lib/queries'
 import { OWN_SCOPE, type Account } from '@/lib/domain'
 import { CommitmentDialog } from '@/components/CommitmentDialog'
 import type { Commitment } from '@/lib/domain'
 
-const KIND_CARDS = ['Regelmäßige Ausgabe', 'Limit', 'Kredit oder Rate', 'Sparziel', 'Einnahme']
+const KIND_CARDS = [i18n.t('commitmentDialog.types.contract.label'), 'Limit', 'Kredit oder Rate', 'Sparziel', 'Einnahme']
 
-async function chooseKind(user: ReturnType<typeof userEvent.setup>, name = 'Regelmäßige Ausgabe') {
+async function chooseKind(user: ReturnType<typeof userEvent.setup>, name = i18n.t('commitmentDialog.types.contract.label')) {
   await user.click(screen.getByRole('button', { name: new RegExp(name) }))
 }
 
@@ -170,7 +171,7 @@ describe('CommitmentDialog', () => {
     renderDialog(() => {})
     await chooseKind(user)
     await user.type(screen.getByLabelText('Bezeichnung'), 'Miete')
-    await user.click(screen.getByRole('button', { name: 'Zurück' }))
+    await user.click(screen.getByRole('button', { name: i18n.t('commitmentDialog.back') }))
     expect(screen.getByRole('dialog', { name: 'Was ist das?' })).toBeInTheDocument()
     await chooseKind(user, 'Einnahme')
     expect(screen.getByLabelText('Bezeichnung')).toHaveValue('Miete')
@@ -179,11 +180,11 @@ describe('CommitmentDialog', () => {
   test('the way back puts the focus on the first card, a card on the first field', async () => {
     const user = userEvent.setup()
     renderDialog(() => {})
-    expect(screen.getByRole('button', { name: /Regelmäßige Ausgabe/ })).toHaveFocus()
+    expect(screen.getByRole('button', { name: new RegExp(i18n.t('commitmentDialog.types.contract.label')) })).toHaveFocus()
     await chooseKind(user)
     expect(screen.getByLabelText('Bezeichnung')).toHaveFocus()
-    await user.click(screen.getByRole('button', { name: 'Zurück' }))
-    expect(screen.getByRole('button', { name: /Regelmäßige Ausgabe/ })).toHaveFocus()
+    await user.click(screen.getByRole('button', { name: i18n.t('commitmentDialog.back') }))
+    expect(screen.getByRole('button', { name: new RegExp(i18n.t('commitmentDialog.types.contract.label')) })).toHaveFocus()
   })
 
   test('Weitere Angaben stays open after going back and choosing again', async () => {
@@ -191,7 +192,7 @@ describe('CommitmentDialog', () => {
     renderDialog(() => {})
     await chooseKind(user)
     await user.click(screen.getByRole('button', { name: 'Weitere Angaben' }))
-    await user.click(screen.getByRole('button', { name: 'Zurück' }))
+    await user.click(screen.getByRole('button', { name: i18n.t('commitmentDialog.back') }))
     await chooseKind(user, 'Einnahme')
     expect(screen.getByRole('button', { name: 'Weitere Angaben' })).toHaveAttribute(
       'aria-expanded',
@@ -305,7 +306,7 @@ describe('CommitmentDialog edit', () => {
     for (const card of KIND_CARDS) {
       expect(screen.queryByRole('button', { name: new RegExp(card) })).not.toBeInTheDocument()
     }
-    expect(screen.queryByRole('button', { name: 'Zurück' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: i18n.t('commitmentDialog.back') })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Speichern' })).toBeInTheDocument()
   })
 })

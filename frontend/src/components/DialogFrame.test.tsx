@@ -184,7 +184,7 @@ describe('DialogFrame focusKey', () => {
           <>
             <Input aria-label="Name" />
             <button type="button" onClick={() => setStep('choose')}>
-              Zurück
+              Back
             </button>
           </>
         )}
@@ -198,7 +198,7 @@ describe('DialogFrame focusKey', () => {
     expect(screen.getByRole('button', { name: 'Karte' })).toHaveFocus()
     await user.click(screen.getByRole('button', { name: 'Karte' }))
     expect(screen.getByLabelText('Name')).toHaveFocus()
-    await user.click(screen.getByRole('button', { name: 'Zurück' }))
+    await user.click(screen.getByRole('button', { name: 'Back' }))
     expect(screen.getByRole('button', { name: 'Karte' })).toHaveFocus()
   })
 })
