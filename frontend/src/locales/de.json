@@ -231,7 +231,6 @@
     "commitmentDeleted": "{{name}} gelöscht",
     "planCreated": "Monat {{month}} angelegt",
     "booked": "{{what}} {{amount}} gebucht",
-    "discarded": "{{what}} {{amount}} verworfen",
     "positionSaved": "{{label}} gespeichert",
     "deleted": "„{{name}}\" gelöscht",
     "discardedNamed": "„{{name}}\" verworfen",
