@@ -177,6 +177,14 @@ describe('PositionDialog kind', () => {
     expect(screen.getByLabelText(i18n.t('common.dueOn'))).toBeInTheDocument()
   })
 
+  test('the due day input is described by the whole sentence for screen readers', async () => {
+    const user = userEvent.setup()
+    renderCreate()
+    await user.click(screen.getByRole('button', { name: /Verpflichtung/ }))
+    const input = screen.getByLabelText(i18n.t('common.dueOn'))
+    expect(input).toHaveAccessibleDescription(i18n.t('common.dueOnSentence', { day: 1 }))
+  })
+
   test('choosing a card alone does not make the dialog dirty', async () => {
     const user = userEvent.setup()
     const onOpenChange = vi.fn()
