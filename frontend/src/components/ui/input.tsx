@@ -1,9 +1,13 @@
 import * as React from "react"
 
+import { useFieldError } from "@/lib/form-errors"
 import { cn } from "@/lib/utils"
 
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+  const error = useFieldError(props.id)
+  const errorId = props.id ? `${props.id}-error` : undefined
   return (
+    <>
     <input
       type={type}
       data-slot="input"
@@ -12,7 +16,15 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
         className
       )}
       {...props}
+      aria-invalid={error ? true : props["aria-invalid"]}
+      aria-describedby={[error && errorId, props["aria-describedby"]].filter(Boolean).join(" ") || undefined}
     />
+    {error && (
+      <p id={errorId} role="alert" className="text-destructive text-xs">
+        {error}
+      </p>
+    )}
+    </>
   )
 }
 

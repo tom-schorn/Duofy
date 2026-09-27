@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Input } from '@/components/ui/input'
+import { OWN_ERROR_ATTRIBUTE } from '@/lib/form-errors'
 import { formatAmount, parseAmount, type AmountError } from '@/lib/amount'
 import { cn } from '@/lib/utils'
 
@@ -95,6 +96,7 @@ export function AmountField({
           ref={input}
           id={id}
           type="text"
+          {...{ [OWN_ERROR_ATTRIBUTE]: '' }}
           inputMode="decimal"
           autoComplete="off"
           value={text}

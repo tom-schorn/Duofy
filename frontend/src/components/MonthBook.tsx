@@ -43,6 +43,8 @@ import {
   useSaveTransaction,
   useTransactions,
 } from '@/lib/queries'
+import { Form } from '@/lib/form-errors'
+import { OptionalMark } from '@/components/OptionalMark'
 
 /**
  * The household book for one month — what actually happened.
@@ -236,7 +238,7 @@ function QuickEntry({
   }
 
   return (
-    <form
+    <Form
       onSubmit={submit}
       className="bg-card flex flex-col gap-3 rounded-xl p-4 ring-1 ring-foreground/10"
     >
@@ -250,7 +252,7 @@ function QuickEntry({
 
         <div className="flex min-w-40 flex-1 flex-col gap-1.5">
           <Label htmlFor="book-note" className="text-xs">
-            {t('monthBook.note')}
+            {t('monthBook.note')}<OptionalMark />
           </Label>
           <Input
             id="book-note"
@@ -339,7 +341,7 @@ function QuickEntry({
           {errorText(error)}
         </p>
       )}
-    </form>
+    </Form>
   )
 }
 

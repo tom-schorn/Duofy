@@ -46,6 +46,7 @@ import {
 import { useActiveMember } from '@/hooks/use-active-member'
 import { OWN_SCOPE } from '@/lib/domain'
 import { useAccounts, useDeleteAccount, useSaveAccount } from '@/lib/queries'
+import { OptionalMark } from '@/components/OptionalMark'
 
 /**
  * Payment accounts — current, savings, card, wallet, cash.
@@ -386,7 +387,7 @@ export function AccountDialog({
             das nie eine Datei liefert. Meist das Sparkonto, und das ist
             genau das, wohin am häufigsten umgebucht wird. */}
         <div className="flex flex-col gap-2">
-          <Label htmlFor="account-iban">{t('accounts.iban')}</Label>
+          <Label htmlFor="account-iban">{t('accounts.iban')}<OptionalMark /></Label>
           <Input
             id="account-iban"
             value={draft.externalRef ?? ''}

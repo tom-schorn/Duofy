@@ -829,5 +829,12 @@
     "notifications": "Benachrichtigungen",
     "closeNotification": "Meldung schließen",
     "undo": "Rückgängig"
+  },
+  "formErrors": {
+    "required": "Bitte ausfüllen.",
+    "email": "Bitte eine E-Mail-Adresse wie name@beispiel.de eingeben.",
+    "tooShort": "Bitte mindestens {{min}} Zeichen eingeben.",
+    "range": "Bitte eine ganze Zahl von {{min}} bis {{max}} eingeben.",
+    "optional": "optional"
   }
 }

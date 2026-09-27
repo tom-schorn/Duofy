@@ -46,6 +46,7 @@ import {
   INTERVAL_PRESETS,
 } from '@/lib/domain'
 import { useAccounts, useHouseholds } from '@/lib/queries'
+import { OptionalMark } from '@/components/OptionalMark'
 
 /**
  * One form for every commitment — savings plans and loans are commitments too.
@@ -521,7 +522,7 @@ export function CommitmentDialog({
   )
   const endsOnField = (
     <div className="flex flex-col gap-2">
-      <Label htmlFor="ends-on">{t('commitmentDialog.endsOn')}</Label>
+      <Label htmlFor="ends-on">{t('commitmentDialog.endsOn')}<OptionalMark /></Label>
       <div className="flex gap-2">
         <DateField
           id="ends-on"
@@ -543,7 +544,7 @@ export function CommitmentDialog({
   )
   const targetDateField = (
     <div className="flex flex-col gap-2">
-      <Label htmlFor="target-date">{t('commitmentDialog.targetDate')}</Label>
+      <Label htmlFor="target-date">{t('commitmentDialog.targetDate')}<OptionalMark /></Label>
       <DateField
         id="target-date"
         value={draft.targetDate ?? ''}
@@ -701,7 +702,7 @@ export function CommitmentDialog({
           {draft.type === 'savings_goal' && (
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="target-amount">{t('commitmentDialog.targetAmount')}</Label>
+                <Label htmlFor="target-amount">{t('commitmentDialog.targetAmount')}<OptionalMark /></Label>
                 <AmountField
                   id="target-amount"
                   value={draft.targetAmount ?? ''}

@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
+import { Form } from '@/lib/form-errors'
 
 type Props = {
   open: boolean
@@ -161,7 +162,7 @@ export function DialogFrame({
           if (dirty || asking) event.preventDefault()
         }}
       >
-        <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col gap-4">
+        <Form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col gap-4">
           <DialogHeader className="shrink-0 pr-8">
             <DialogTitle className="font-heading text-xl">{title}</DialogTitle>
             {description ? (
@@ -212,7 +213,7 @@ export function DialogFrame({
               </div>
             </DialogFooter>
           )}
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   )

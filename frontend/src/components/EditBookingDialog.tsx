@@ -22,6 +22,7 @@ import {
   type PlanPosition,
   type Transaction,
 } from '@/lib/domain'
+import { OptionalMark } from '@/components/OptionalMark'
 
 /**
  * Change one booking: amount, date, account, category, position and note.
@@ -192,7 +193,7 @@ export function EditBookingDialog({
       )}
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="edit-note">{t('monthBook.note')}</Label>
+        <Label htmlFor="edit-note">{t('monthBook.note')}<OptionalMark /></Label>
         <Input id="edit-note" value={note} onChange={(event) => setNote(event.target.value)} />
       </div>
     </DialogFrame>

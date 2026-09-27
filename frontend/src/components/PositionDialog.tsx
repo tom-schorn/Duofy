@@ -32,6 +32,7 @@ import {
   PAYMENT_METHODS,
 } from '@/lib/domain'
 import { useAccounts, useHouseholds } from '@/lib/queries'
+import { OptionalMark } from '@/components/OptionalMark'
 
 /**
  * Create and edit one-off positions.
@@ -458,7 +459,7 @@ export function PositionDialog({
 
             {isEdit && (
               <div className="flex flex-col gap-2">
-                <Label htmlFor="actual">{t('positionDialog.actual')}</Label>
+                <Label htmlFor="actual">{t('positionDialog.actual')}<OptionalMark /></Label>
                 <AmountField
                   id="actual"
                   value={draft.amountActual ?? ''}
