@@ -204,15 +204,20 @@ export function PositionDialog({
   const dueDay = (
     <div className="flex flex-col gap-2">
       <Label htmlFor="pos-due-day">{t('common.dueOn')}</Label>
-      <Input
-        id="pos-due-day"
-        type="number"
-        min="1"
-        max="31"
-        value={draft.dueDay}
-        onChange={(event) => set('dueDay', Number(event.target.value))}
-        required
-      />
+      <div className="flex items-center gap-2 text-sm">
+        {t('common.dueOnBefore')}
+        <Input
+          id="pos-due-day"
+          type="number"
+          min="1"
+          max="31"
+          className="w-20"
+          value={draft.dueDay}
+          onChange={(event) => set('dueDay', Number(event.target.value))}
+          required
+        />
+        {t('common.dueOnAfter')}
+      </div>
     </div>
   )
 
