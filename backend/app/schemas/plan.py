@@ -148,6 +148,10 @@ class PlanSummary(PlanBase):
     unpaid: Decimal
     #: Households that positions of this plan feed into. Empty means fully private.
     household_ids: list[uuid.UUID]
+    #: No booking hangs on any of its positions yet, so it may still be deleted
+    #: (#219, same rule as commitments and accounts, #139). False on the
+    #: composed household plan, which is never deletable itself.
+    deletable: bool = False
 
 
 class PlanRead(PlanSummary):
