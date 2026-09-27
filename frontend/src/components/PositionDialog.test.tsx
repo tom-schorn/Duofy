@@ -9,6 +9,8 @@ import { budgetHeadingId, budgetLabel, type PlanPosition } from '@/lib/domain'
 import { ApiError } from '@/lib/api'
 import { i18n } from '@/lib/i18n'
 
+const ADD_DETAILS = i18n.t('positionDialog.addDetails')
+
 // A parent the way the pages are: it closes on success only, and hands the error
 // back to the dialog when the server says no.
 function Page() {
@@ -127,11 +129,8 @@ describe('PositionDialog delete', () => {
   test('after a delete the focus lands on the section the row was in, even if its budget was changed', async () => {
     const user = userEvent.setup()
     render(<EditPage onDelete={() => {}} />)
-    const budgetSelect = screen
-      .getAllByRole('combobox')
-      .find((select) => select.textContent === budgetLabel('needs'))!
-    await user.click(budgetSelect)
-    await user.click(screen.getByRole('option', { name: budgetLabel('wants') }))
+    await user.click(screen.getByRole('button', { name: budgetLabel('needs') }))
+    await user.click(screen.getByRole('button', { name: budgetLabel('wants') }))
     await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }))
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: budgetLabel('needs') })).toHaveFocus()
@@ -163,17 +162,18 @@ describe('PositionDialog kind', () => {
     expect(screen.queryByRole('button', { name: 'Anlegen' })).not.toBeInTheDocument()
   })
 
-  test('a Verpflichtung shows the due day up front, a Limit keeps it under Weitere Angaben', async () => {
+  test('a Verpflichtung names the due day in its sentence, a Limit keeps it under the rare-fields link', async () => {
     const user = userEvent.setup()
     renderCreate()
     await user.click(screen.getByRole('button', { name: /Verpflichtung/ }))
     expect(screen.getByRole('dialog', { name: i18n.t('positionDialog.kinds.obligation.addTitle') })).toBeInTheDocument()
-    expect(screen.getByLabelText(i18n.t('common.dueOn'))).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '1.' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: i18n.t('positionDialog.back') }))
     await user.click(screen.getByRole('button', { name: /Limit/ }))
     expect(screen.getByRole('dialog', { name: i18n.t('positionDialog.kinds.limit.addTitle') })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '1.' })).not.toBeInTheDocument()
     expect(screen.queryByLabelText(i18n.t('common.dueOn'))).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Weitere Angaben' }))
+    await user.click(screen.getByRole('button', { name: ADD_DETAILS }))
     expect(screen.getByLabelText(i18n.t('common.dueOn'))).toBeInTheDocument()
   })
 
@@ -214,17 +214,17 @@ describe('PositionDialog kind', () => {
     expect(screen.queryByRole('button', { name: /Verpflichtung$/ })).not.toBeInTheDocument()
   })
 
-  test('Weitere Angaben starts closed and opens on a click', async () => {
+  test('the rare fields start closed and open on a click', async () => {
     const user = userEvent.setup()
     render(<EditPage />)
-    const toggle = screen.getByRole('button', { name: 'Weitere Angaben' })
+    const toggle = screen.getByRole('button', { name: ADD_DETAILS })
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByText('Zahlungsart')).not.toBeInTheDocument()
     await user.click(toggle)
     expect(screen.getByText('Zahlungsart')).toBeInTheDocument()
   })
 
-  test('Weitere Angaben opens by itself when it already holds a value', () => {
+  test('a set value stays quiet on a summary line instead of forcing the rare fields open', () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
         <PositionDialog
@@ -237,9 +237,7 @@ describe('PositionDialog kind', () => {
         />
       </QueryClientProvider>
     )
-    expect(screen.getByRole('button', { name: 'Weitere Angaben' })).toHaveAttribute(
-      'aria-expanded',
-      'true'
-    )
+    expect(screen.getByRole('button', { name: ADD_DETAILS })).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByText(/Überweisung/)).toBeInTheDocument()
   })
 })

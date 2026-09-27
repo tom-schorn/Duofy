@@ -839,32 +839,32 @@ export function CommitmentDialog({
   // itself stays collapsed regardless (review D-215-2, fix 2).
   const extrasSummary = [
     draft.category !== typeOption.defaultCategory &&
-      t('commitmentDialog.extrasSummary.category', { value: categoryLabel(draft.category) }),
+      t('common.extrasSummary.category', { value: categoryLabel(draft.category) }),
     !up.account &&
       draft.accountId !== null &&
-      t('commitmentDialog.extrasSummary.account', { value: accountName(draft.accountId) }),
+      t('common.extrasSummary.account', { value: accountName(draft.accountId) }),
     !up.counterAccount &&
       draft.counterAccountId !== null &&
-      t('commitmentDialog.extrasSummary.counterAccount', {
+      t('common.extrasSummary.counterAccount', {
         value: accountName(draft.counterAccountId),
       }),
     !up.endsOn &&
       draft.endsOn !== null &&
-      t('commitmentDialog.extrasSummary.endsOn', {
+      t('common.extrasSummary.endsOn', {
         value: dueDateLabel({
           year: Number(draft.endsOn.slice(0, 4)),
           month: Number(draft.endsOn.slice(5, 7)),
         }),
       }),
     draft.paymentMethod !== null &&
-      t('commitmentDialog.extrasSummary.paymentMethod', {
+      t('common.extrasSummary.paymentMethod', {
         value: paymentLabel(draft.paymentMethod),
       }),
     draft.householdId !== null &&
-      t('commitmentDialog.extrasSummary.assignment', {
+      t('common.extrasSummary.assignment', {
         value: households.find((household) => household.id === draft.householdId)?.name ?? '',
       }),
-    draft.passThrough && t('commitmentDialog.extrasSummary.passThrough'),
+    draft.passThrough && t('common.extrasSummary.passThrough'),
   ]
     .filter((part): part is string => Boolean(part))
     .join(' · ')
