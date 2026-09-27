@@ -1,7 +1,8 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DialogFrame } from '@/components/DialogFrame'
+import { fillSentence } from '@/lib/sentence'
 import { Button } from '@/components/ui/button'
 import { AmountField } from '@/components/AmountField'
 import { Input } from '@/components/ui/input'
@@ -31,6 +32,7 @@ import {
   BUDGET_SUGGESTION,
   DUE_DAY_MAY_SHIFT,
   categoryGroup,
+  categoryLabel,
   monthLabel,
   paymentLabel,
   intervalLabel,
@@ -215,23 +217,6 @@ function upfront(kind: Kind, activeAccounts: number) {
   }
 }
 
-/** Something behind the link is set, so it must not stay hidden. */
-function hasExtras(commitment: Commitment, activeAccounts: number): boolean {
-  const kind = kindOf(commitment)
-  const option = TYPE_OPTIONS.find((item) => item.value === kind)!
-  const up = upfront(kind, activeAccounts)
-  return (
-    (!up.account && commitment.accountId !== null) ||
-    (!up.counterAccount && commitment.counterAccountId !== null) ||
-    commitment.paymentMethod !== null ||
-    commitment.householdId !== null ||
-    commitment.passThrough ||
-    (!up.endsOn && commitment.endsOn !== null) ||
-    (!up.targetDate && commitment.targetDate !== null) ||
-    commitment.category !== option.defaultCategory
-  )
-}
-
 function emptyDraft(): Commitment {
   return {
     id: '',
@@ -255,14 +240,6 @@ function emptyDraft(): Commitment {
     paymentMethod: null,
     accountId: null,
   }
-}
-
-/** Fills a catalog sentence's `{word}` placeholders with the sentence's own buttons. */
-function fillSentence(template: string, words: Record<string, React.ReactNode>): React.ReactNode {
-  return template.split(/(\{\w+\})/g).map((part, index) => {
-    const match = /^\{(\w+)\}$/.exec(part)
-    return <Fragment key={index}>{match ? words[match[1]] : part}</Fragment>
-  })
 }
 
 type Props = {
@@ -857,6 +834,41 @@ export function CommitmentDialog({
       </p>
     </div>
   )
+
+  // A quiet line under the link when something rare is already set — the section
+  // itself stays collapsed regardless (review D-215-2, fix 2).
+  const extrasSummary = [
+    draft.category !== typeOption.defaultCategory &&
+      t('commitmentDialog.extrasSummary.category', { value: categoryLabel(draft.category) }),
+    !up.account &&
+      draft.accountId !== null &&
+      t('commitmentDialog.extrasSummary.account', { value: accountName(draft.accountId) }),
+    !up.counterAccount &&
+      draft.counterAccountId !== null &&
+      t('commitmentDialog.extrasSummary.counterAccount', {
+        value: accountName(draft.counterAccountId),
+      }),
+    !up.endsOn &&
+      draft.endsOn !== null &&
+      t('commitmentDialog.extrasSummary.endsOn', {
+        value: dueDateLabel({
+          year: Number(draft.endsOn.slice(0, 4)),
+          month: Number(draft.endsOn.slice(5, 7)),
+        }),
+      }),
+    draft.paymentMethod !== null &&
+      t('commitmentDialog.extrasSummary.paymentMethod', {
+        value: paymentLabel(draft.paymentMethod),
+      }),
+    draft.householdId !== null &&
+      t('commitmentDialog.extrasSummary.assignment', {
+        value: households.find((household) => household.id === draft.householdId)?.name ?? '',
+      }),
+    draft.passThrough && t('commitmentDialog.extrasSummary.passThrough'),
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join(' · ')
+
   return (
     // The frame keeps title and buttons in place and lets only the middle scroll.
     <DialogFrame
@@ -871,7 +883,12 @@ export function CommitmentDialog({
             : t(typeOption.addTitle)
       }
       description={
-        choosing ? t('commitmentDialog.chooseDescription') : t('commitmentDialog.description')
+        choosing
+          ? t('commitmentDialog.chooseDescription')
+          : // The hint is about creating; editing already has the fields in front of you.
+            isEdit
+            ? undefined
+            : t('commitmentDialog.description')
       }
       submitLabel={isEdit ? t('common.save') : t('common.create')}
       hideSubmit={choosing}
@@ -927,7 +944,10 @@ export function CommitmentDialog({
               onChange={(event) => set('name', event.target.value)}
               placeholder={t(typeOption.namePlaceholder)}
               required
-              className="font-heading h-auto rounded-none border-0 border-b border-border bg-transparent px-0 pb-2 text-3xl focus-visible:border-primary focus-visible:ring-0"
+              // md:text-3xl repeats text-3xl: the base input's own md:text-sm is a
+              // Tailwind responsive utility, so it wins over a plain text-3xl on
+              // anything ≥768px unless the override names the same breakpoint.
+              className="font-heading h-auto rounded-none border-0 border-b border-border bg-transparent px-0 pb-2 text-3xl placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-0 md:text-3xl"
             />
 
             <div className="flex items-baseline gap-3">
@@ -945,7 +965,7 @@ export function CommitmentDialog({
                 required
                 allowZero
                 className="flex-1"
-                inputClassName="h-auto border-0 bg-transparent px-0 pr-7 text-2xl font-semibold"
+                inputClassName="h-auto border-0 bg-transparent px-0 pr-7 text-2xl font-semibold placeholder:text-muted-foreground md:text-2xl"
               />
             </div>
           </div>
@@ -975,13 +995,16 @@ export function CommitmentDialog({
 
           <MoreDetails
             resetKey={commitment}
-            hasValues={commitment !== null && hasExtras(commitment, activeAccounts.length)}
+            // A set value stays quiet on the summary line instead of forcing the
+            // section open (review D-215-2, fix 2).
+            hasValues={false}
             startOpen={detailsOpened.current}
             onToggle={(opened) => {
               detailsOpened.current = opened
             }}
             label={t('commitmentDialog.addDetails')}
             plain
+            summary={extrasSummary || undefined}
           >
             <div className="flex flex-col gap-2">
               <Label>{t('common.category')}</Label>

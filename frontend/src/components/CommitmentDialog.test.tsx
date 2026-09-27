@@ -386,14 +386,32 @@ describe('CommitmentDialog rare fields', () => {
     expect(screen.getByRole('button', { name: ADD_DETAILS })).toHaveAttribute('aria-expanded', 'false')
   })
 
-  test('opens by itself on an edit that already holds a value in it', () => {
+  test('stays closed on an edit that already holds a value, and names it on a summary line', () => {
     renderEdit({ ...existing, paymentMethod: 'transfer' })
-    expect(screen.getByRole('button', { name: ADD_DETAILS })).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByText('Zahlungsart')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: ADD_DETAILS })).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Zahlungsart')).not.toBeInTheDocument()
+    expect(screen.getByText(/Überweisung/)).toBeInTheDocument()
   })
 
-  test('a category that no longer matches the default also opens it by itself', () => {
+  test('a category that no longer matches the default also stays closed, named on the summary line', () => {
     renderEdit({ ...existing, category: 'income.earned' })
-    expect(screen.getByRole('button', { name: ADD_DETAILS })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('button', { name: ADD_DETAILS })).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByText(/Gehalt & Lohn/)).toBeInTheDocument()
+  })
+})
+
+describe('CommitmentDialog subtitle', () => {
+  test('the create hint shows only when creating', async () => {
+    const user = userEvent.setup()
+    renderDialog(() => {})
+    await chooseKind(user)
+    expect(screen.getByText(/Posten für jeden Monat entstehen daraus von selbst/)).toBeInTheDocument()
+  })
+
+  test('editing drops the create hint', () => {
+    renderEdit(existing)
+    expect(
+      screen.queryByText(/Posten für jeden Monat entstehen daraus von selbst/)
+    ).not.toBeInTheDocument()
   })
 })
