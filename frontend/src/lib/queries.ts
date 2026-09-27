@@ -126,7 +126,12 @@ export function useSetDefaultQuota() {
   return useInvalidating<Me, QuotaValues>(
     (values) => api.patch('/users/me', values),
     [keys.me],
-    'toast.quotaSaved',
+    (data) =>
+      i18n.t('toast.quotaSaved', {
+        needs: Number(data.targetNeeds),
+        wants: Number(data.targetWants),
+        savings: Number(data.targetSavings),
+      }),
     INLINE_ERROR
   )
 }

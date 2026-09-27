@@ -211,7 +211,7 @@
   "toast": {
     "householdCreated": "Haushalt {{name}} angelegt",
     "householdUpdated": "Haushalt {{name}} geändert",
-    "quotaSaved": "Richtwerte gespeichert",
+    "quotaSaved": "Richtwerte gespeichert: {{needs}} / {{wants}} / {{savings}}",
     "householdLeft": "Haushalt verlassen",
     "grantUpdated": "Freigabe geändert",
     "invitationSent": "Einladung verschickt",
