@@ -142,7 +142,7 @@
       },
       "types": {
         "title": "Die vier Typen",
-        "body": "<list><li><strong>Läuft weiter</strong> — Vertrag ohne festes Ende: Miete, Handy, Versicherung.</li><li><strong>Hat ein Ziel</strong> — Sparziel mit Zielbetrag, zählt zu Sparen.</li><li><strong>Wird abbezahlt</strong> — Kredit oder Rückstand, läuft auf null und zählt ebenfalls zu Sparen.</li><li><strong>Kommt rein</strong> — Gehalt, Transferleistungen, Zinsen.</li></list><p>Dazu das Kennzeichen <strong>Limit</strong>, an jedem laufenden Vertrag: kein fester Betrag zum Abhaken, du legst nur die Höhe fest — Lebensmittel, Sprit, Taschengeld. Der Posten läuft über den Monat und füllt sich aus den Buchungen.</p>"
+        "body": "<list><li><strong>Regelmäßige Ausgabe</strong> — Miete, Strom, Abo: fällt in festem Abstand an.</li><li><strong>Kredit oder Rate</strong> — wird in Raten abbezahlt und endet von selbst, zählt zu Sparen.</li><li><strong>Sparziel</strong> — du legst Geld für ein Ziel zurück, zählt zu Sparen.</li><li><strong>Einnahme</strong> — Gehalt oder anderes Geld, das reinkommt.</li></list><p>Die Art wählst du beim Anlegen; später ändert sie sich nicht. Dazu das Kennzeichen <strong>Limit</strong> unter „Weitere Angaben“, an jeder regelmäßigen Ausgabe: kein fester Betrag zum Abhaken, du legst nur die Höhe fest — Lebensmittel, Sprit, Taschengeld. Der Posten läuft über den Monat und füllt sich aus den Buchungen.</p>"
       },
       "interval": {
         "title": "Abstand und Fälligkeit",

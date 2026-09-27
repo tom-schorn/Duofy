@@ -6,6 +6,7 @@ import { AmountField } from '@/components/AmountField'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { MoreDetails } from '@/components/MoreDetails'
 import { Switch } from '@/components/ui/switch'
 import {
   Select,
@@ -36,13 +37,46 @@ import { useAccounts, useHouseholds } from '@/lib/queries'
  * Create and edit one-off positions.
  *
  * Deliberately short: label, amount, budget — that is all it takes to put a planned
- * purchase into the month. The rest is prefilled and only touched when needed.
+ * purchase into the month. The rest sits under „Weitere Angaben“.
+ *
+ * Same structure as the commitment dialog (#190): creating first asks what it is —
+ * Verpflichtung (with a tick) or Limit — then the fields follow, with a way back.
+ * Editing has no cards; the kind is named in the title.
  *
  * Anything recurring does **not** belong here but on the commitments page. A
  * commitment generates its positions itself, every month anew.
  */
 
 const PAYMENTS = PAYMENT_METHODS
+
+const KINDS = [
+  {
+    limit: false,
+    label: 'positionDialog.kinds.obligation.label',
+    hint: 'positionDialog.kinds.obligation.hint',
+    addTitle: 'positionDialog.kinds.obligation.addTitle',
+    editTitle: 'positionDialog.kinds.obligation.editTitle',
+  },
+  {
+    limit: true,
+    label: 'positionDialog.kinds.limit.label',
+    hint: 'positionDialog.kinds.limit.hint',
+    addTitle: 'positionDialog.kinds.limit.addTitle',
+    editTitle: 'positionDialog.kinds.limit.editTitle',
+  },
+] as const
+
+/** Something under „Weitere Angaben“ is set, so the section must start open. */
+function hasExtras(position: PlanPosition): boolean {
+  return (
+    position.accountId !== null ||
+    position.counterAccountId !== null ||
+    position.paymentMethod !== null ||
+    position.householdId !== null ||
+    position.passThrough ||
+    position.amountActual !== null
+  )
+}
 
 /** The matching category, so the budget does not jump the moment it is picked. */
 const DEFAULT_CATEGORY: Record<Budget, Category> = {
@@ -108,9 +142,10 @@ export function PositionDialog({
   const { t } = useTranslation()
   const households = useHouseholds().data ?? []
   const accounts = useAccounts().data ?? []
-  const [draft, setDraft] = useState<PlanPosition>(
-    position ?? emptyDraft(budget)
-  )
+  const [draft, setDraft] = useState<PlanPosition>(position ?? emptyDraft(budget))
+
+  // Creating starts with the question, editing goes straight to the fields.
+  const [step, setStep] = useState<'choose' | 'form'>(position ? 'form' : 'choose')
 
   // A deleted position leaves no row to return the focus to.
   const deleted = useRef(false)
@@ -118,21 +153,30 @@ export function PositionDialog({
   useEffect(() => {
     if (open) {
       setDraft(position ?? emptyDraft(budget))
+      setStep(position ? 'form' : 'choose')
       deleted.current = false
     }
   }, [open, position, budget])
 
   const isEdit = position !== null
-  const dirty =
-    JSON.stringify(draft) !== JSON.stringify(position ?? emptyDraft(budget))
+  const choosing = step === 'choose'
+  const kind = KINDS.find((item) => item.limit === draft.isLimit)!
+  // Choosing a card is no change yet: compare against a fresh draft of the same kind.
+  const baseline = position ?? {
+    ...emptyDraft(budget),
+    isLimit: draft.isLimit,
+  }
+  const dirty = JSON.stringify(draft) !== JSON.stringify(baseline)
+
+  function handleKind(isLimit: boolean) {
+    setDraft((current) => ({ ...current, isLimit }))
+    setStep('form')
+  }
   // Positions generated from a commitment have a source — label and assignment
   // then belong to the commitment, not to the single month.
   const fromCommitment = draft.commitmentId !== null
 
-  function set<K extends keyof PlanPosition>(
-    key: K,
-    value: PlanPosition[K]
-  ) {
+  function set<K extends keyof PlanPosition>(key: K, value: PlanPosition[K]) {
     setDraft((current) => ({ ...current, [key]: value }))
   }
 
@@ -156,19 +200,39 @@ export function PositionDialog({
     onSave(draft)
   }
 
+  const dueDay = (
+    <div className="flex flex-col gap-2">
+      <Label htmlFor="pos-due-day">{t('common.dueOn')}</Label>
+      <Input
+        id="pos-due-day"
+        type="number"
+        min="1"
+        max="31"
+        value={draft.dueDay}
+        onChange={(event) => set('dueDay', Number(event.target.value))}
+        required
+      />
+    </div>
+  )
+
   return (
     <DialogFrame
       open={open}
       onOpenChange={onOpenChange}
-      title={isEdit ? t('positionDialog.editTitle') : t('positionDialog.addTitle')}
+      title={
+        choosing ? t('positionDialog.chooseTitle') : isEdit ? t(kind.editTitle) : t(kind.addTitle)
+      }
       description={
-        fromCommitment
-          ? t('positionDialog.fromCommitment')
-          : t('positionDialog.oneOff')
+        choosing
+          ? t('positionDialog.chooseDescription')
+          : fromCommitment
+            ? t('positionDialog.fromCommitment')
+            : t('positionDialog.oneOff')
       }
       submitLabel={isEdit ? t('common.save') : t('common.create')}
-      onSubmit={handleSubmit}
-      dirty={dirty}
+      hideSubmit={choosing}
+      onSubmit={choosing ? (event) => event.preventDefault() : handleSubmit}
+      dirty={!choosing && dirty}
       pending={pending}
       error={error}
       returnFocus={() =>
@@ -192,222 +256,221 @@ export function PositionDialog({
           >
             {t('common.delete')}
           </Button>
+        ) : !isEdit && !choosing ? (
+          <Button type="button" variant="ghost" onClick={() => setStep('choose')}>
+            {t('positionDialog.back')}
+          </Button>
         ) : undefined
       }
     >
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="label">{t('positionDialog.label')}</Label>
-          <Input
-            id="label"
-            value={draft.label}
-            onChange={(event) => set('label', event.target.value)}
-            placeholder={t('positionDialog.labelPlaceholder')}
-            required
-          />
+      {choosing ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {KINDS.map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              onClick={() => handleKind(item.limit)}
+              className="border-border hover:bg-muted focus-visible:ring-ring flex flex-col gap-1 rounded-md border p-3 text-left focus-visible:ring-2 focus-visible:outline-none"
+            >
+              <span className="font-medium">{t(item.label)}</span>
+              <span className="text-muted-foreground text-xs">{t(item.hint)}</span>
+            </button>
+          ))}
         </div>
-
-        <div className="grid grid-cols-2 gap-3">
+      ) : (
+        <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="planned">{t('common.amount')}</Label>
-            <AmountField
-              id="planned"
-              value={draft.amountPlanned}
-              onChange={(value) => set('amountPlanned', value)}
-              required
-              allowZero
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="pos-due-day">{t('common.dueOn')}</Label>
+            <Label htmlFor="label">{t('positionDialog.label')}</Label>
             <Input
-              id="pos-due-day"
-              type="number"
-              min="1"
-              max="31"
-              value={draft.dueDay}
-              onChange={(event) =>
-                set('dueDay', Number(event.target.value))
-              }
+              id="label"
+              autoFocus
+              value={draft.label}
+              onChange={(event) => set('label', event.target.value)}
+              placeholder={t('positionDialog.labelPlaceholder')}
               required
             />
           </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-2">
-            <Label>{t('common.category')}</Label>
-            <CategoryPicker
-              value={draft.category}
-              onChange={handleCategory}
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="planned">{t('common.amount')}</Label>
+              <AmountField
+                id="planned"
+                value={draft.amountPlanned}
+                onChange={(value) => set('amountPlanned', value)}
+                required
+                allowZero
+              />
+            </div>
+
+            {!draft.isLimit && dueDay}
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Label>{t('common.budget')}</Label>
-            {budgetIsFixed ? (
-              <span className="flex h-9 items-center gap-2 text-sm font-medium">
-                <span className={cn('size-2.5 rounded-sm', BUDGET_DOT[draft.budget])} />
-                {budgetLabel(draft.budget)}
-              </span>
-            ) : (
-              <Select
-                value={draft.budget}
-                onValueChange={(value) => set('budget', value as Budget)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {/* BUDGET_ORDER statt BUDGETS: sonst fehlt „Einnahmen"
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-2">
+              <Label>{t('common.category')}</Label>
+              <CategoryPicker value={draft.category} onChange={handleCategory} />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label>{t('common.budget')}</Label>
+              {budgetIsFixed ? (
+                <span className="flex h-9 items-center gap-2 text-sm font-medium">
+                  <span className={cn('size-2.5 rounded-sm', BUDGET_DOT[draft.budget])} />
+                  {budgetLabel(draft.budget)}
+                </span>
+              ) : (
+                <Select
+                  value={draft.budget}
+                  onValueChange={(value) => set('budget', value as Budget)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {/* BUDGET_ORDER statt BUDGETS: sonst fehlt „Einnahmen"
                       und ein Einnahme-Posten wäre nicht bearbeitbar. */}
-                  {BUDGET_ORDER.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {budgetLabel(option)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+                    {BUDGET_ORDER.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {budgetLabel(option)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
           </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-2">
-            <Label>{t('common.account')}</Label>
-            <Select
-              value={draft.accountId ?? 'default'}
-              onValueChange={(value) =>
-                set('accountId', value === 'default' ? null : value)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {/* „Standardkonto" statt einer Vorauswahl: so bleibt der
+          <MoreDetails resetKey={position} hasValues={position !== null && hasExtras(position)}>
+            {draft.isLimit && dueDay}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-2">
+                <Label>{t('common.account')}</Label>
+                <Select
+                  value={draft.accountId ?? 'default'}
+                  onValueChange={(value) => set('accountId', value === 'default' ? null : value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {/* „Standardkonto" statt einer Vorauswahl: so bleibt der
                     Posten richtig, wenn du das Standardkonto wechselst. */}
-                <SelectItem value="default">{t('common.defaultAccount')}</SelectItem>
-                {accounts
-                  .filter((account) => account.active)
-                  .map((account) => (
-                    <SelectItem key={account.id} value={account.id}>
-                      {account.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
+                    <SelectItem value="default">{t('common.defaultAccount')}</SelectItem>
+                    {accounts
+                      .filter((account) => account.active)
+                      .map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="flex flex-col gap-2">
-            <Label>{t('common.counterAccount')}</Label>
-            <Select
-              value={draft.counterAccountId ?? 'none'}
-              onValueChange={(value) =>
-                set('counterAccountId', value === 'none' ? null : value)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">{t('common.goesOut')}</SelectItem>
-                {accounts
-                  .filter((account) => account.id !== draft.accountId)
-                  .map((account) => (
-                    <SelectItem key={account.id} value={account.id}>
-                      {account.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-            <span className="text-muted-foreground text-xs">
-              {t('common.counterAccountHint')}
-            </span>
-          </div>
+              <div className="flex flex-col gap-2">
+                <Label>{t('common.counterAccount')}</Label>
+                <Select
+                  value={draft.counterAccountId ?? 'none'}
+                  onValueChange={(value) =>
+                    set('counterAccountId', value === 'none' ? null : value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{t('common.goesOut')}</SelectItem>
+                    {accounts
+                      .filter((account) => account.id !== draft.accountId)
+                      .map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <span className="text-muted-foreground text-xs">
+                  {t('common.counterAccountHint')}
+                </span>
+              </div>
 
-          <div className="flex flex-col gap-2">
-            <Label>{t('common.paymentMethod')}</Label>
-            <Select
-              value={draft.paymentMethod ?? 'none'}
-              onValueChange={(value) =>
-                set(
-                  'paymentMethod',
-                  value === 'none' ? null : (value as PaymentMethod)
-                )
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">{t('common.paymentOpen')}</SelectItem>
-                {PAYMENTS.map((method) => (
-                  <SelectItem key={method} value={method}>
-                    {paymentLabel(method)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+              <div className="flex flex-col gap-2">
+                <Label>{t('common.paymentMethod')}</Label>
+                <Select
+                  value={draft.paymentMethod ?? 'none'}
+                  onValueChange={(value) =>
+                    set('paymentMethod', value === 'none' ? null : (value as PaymentMethod))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{t('common.paymentOpen')}</SelectItem>
+                    {PAYMENTS.map((method) => (
+                      <SelectItem key={method} value={method}>
+                        {paymentLabel(method)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-        {/* Nimmt den Posten aus Budget und Quoten. Nötig für Geld, das
+              {/* Nimmt den Posten aus Budget und Quoten. Nötig für Geld, das
               nur durchgereicht wird — sonst sähen 1.139 € weitergeleitet
               aus wie 1.139 € gespart. */}
-          <div className="border-border flex items-center justify-between rounded-md border p-3">
-            <div className="flex flex-col pr-4">
-              <Label htmlFor="position-pass-through">{t('common.passThrough')}</Label>
-              <span className="text-muted-foreground text-xs">
-                {t('common.passThroughHint')}
-              </span>
+              <div className="border-border flex items-center justify-between rounded-md border p-3">
+                <div className="flex flex-col pr-4">
+                  <Label htmlFor="position-pass-through">{t('common.passThrough')}</Label>
+                  <span className="text-muted-foreground text-xs">
+                    {t('common.passThroughHint')}
+                  </span>
+                </div>
+                <Switch
+                  id="position-pass-through"
+                  checked={draft.passThrough}
+                  onCheckedChange={(checked) => set('passThrough', checked)}
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label>{t('common.assignment')}</Label>
+                <Select
+                  value={draft.householdId ?? 'private'}
+                  onValueChange={(value) => set('householdId', value === 'private' ? null : value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="private">{t('common.privateOnly')}</SelectItem>
+                    {households.map((household) => (
+                      <SelectItem key={household.id} value={household.id}>
+                        {household.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <Switch
-              id="position-pass-through"
-              checked={draft.passThrough}
-              onCheckedChange={(checked) => set('passThrough', checked)}
-            />
-          </div>
 
-          <div className="flex flex-col gap-2">
-            <Label>{t('common.assignment')}</Label>
-            <Select
-              value={draft.householdId ?? 'private'}
-              onValueChange={(value) =>
-                set('householdId', value === 'private' ? null : value)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="private">{t('common.privateOnly')}</SelectItem>
-                {households.map((household) => (
-                  <SelectItem key={household.id} value={household.id}>
-                    {household.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+            {isEdit && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="actual">{t('positionDialog.actual')}</Label>
+                <AmountField
+                  id="actual"
+                  value={draft.amountActual ?? ''}
+                  onChange={(value) => set('amountActual', value || null)}
+                  allowZero
+                  placeholder={t('positionDialog.actualPlaceholder')}
+                />
+                <p className="text-muted-foreground text-xs">{t('positionDialog.actualHint')}</p>
+              </div>
+            )}
+          </MoreDetails>
         </div>
-
-        {isEdit && (
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="actual">{t('positionDialog.actual')}</Label>
-            <AmountField
-              id="actual"
-              value={draft.amountActual ?? ''}
-              onChange={(value) => set('amountActual', value || null)}
-              allowZero
-              placeholder={t('positionDialog.actualPlaceholder')}
-            />
-            <p className="text-muted-foreground text-xs">
-              {t('positionDialog.actualHint')}
-            </p>
-          </div>
-        )}
-      </div>
+      )}
     </DialogFrame>
   )
 }

@@ -33,6 +33,7 @@ describe('PositionDialog', () => {
   test('stays open, shows the error box and keeps the input when saving fails', async () => {
     const user = userEvent.setup()
     render(<Page />)
+    await user.click(screen.getByRole('button', { name: /Verpflichtung/ }))
     await user.type(screen.getByLabelText('Bezeichnung'), 'Miete')
     await user.type(screen.getByLabelText('Betrag'), '500')
     await user.click(screen.getByRole('button', { name: 'Anlegen' }))
@@ -134,6 +135,103 @@ describe('PositionDialog delete', () => {
     await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }))
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: budgetLabel('needs') })).toHaveFocus()
+    )
+  })
+})
+
+function renderCreate() {
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <PositionDialog
+        position={null}
+        budget="needs"
+        planId="p1"
+        open
+        onOpenChange={() => {}}
+        onSave={() => {}}
+      />
+    </QueryClientProvider>
+  )
+}
+
+describe('PositionDialog kind', () => {
+  test('creating asks what it is first: Verpflichtung or Limit, nothing to send yet', () => {
+    renderCreate()
+    expect(screen.getByRole('dialog', { name: 'Was ist das?' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Verpflichtung/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Limit/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Anlegen' })).not.toBeInTheDocument()
+  })
+
+  test('a Verpflichtung shows the due day up front, a Limit keeps it under Weitere Angaben', async () => {
+    const user = userEvent.setup()
+    renderCreate()
+    await user.click(screen.getByRole('button', { name: /Verpflichtung/ }))
+    expect(screen.getByRole('dialog', { name: 'Verpflichtung hinzufügen' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Fällig am')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Zurück' }))
+    await user.click(screen.getByRole('button', { name: /Limit/ }))
+    expect(screen.getByRole('dialog', { name: 'Limit hinzufügen' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Fällig am')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Weitere Angaben' }))
+    expect(screen.getByLabelText('Fällig am')).toBeInTheDocument()
+  })
+
+  test('choosing a card alone does not make the dialog dirty', async () => {
+    const user = userEvent.setup()
+    const onOpenChange = vi.fn()
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <PositionDialog
+          position={null}
+          budget="needs"
+          planId="p1"
+          open
+          onOpenChange={onOpenChange}
+          onSave={() => {}}
+        />
+      </QueryClientProvider>
+    )
+    await user.click(screen.getByRole('button', { name: /Limit/ }))
+    await user.keyboard('{Escape}')
+    expect(screen.queryByText(/verwerfen[?]/)).not.toBeInTheDocument()
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+
+  test('editing has no cards; the kind is in the title and the fields follow', () => {
+    render(<EditPage />)
+    expect(screen.getByRole('dialog', { name: 'Verpflichtung bearbeiten' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Bezeichnung')).toHaveValue('Miete')
+    expect(screen.queryByRole('button', { name: 'Zurück' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Verpflichtung$/ })).not.toBeInTheDocument()
+  })
+
+  test('Weitere Angaben starts closed and opens on a click', async () => {
+    const user = userEvent.setup()
+    render(<EditPage />)
+    const toggle = screen.getByRole('button', { name: 'Weitere Angaben' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Zahlungsart')).not.toBeInTheDocument()
+    await user.click(toggle)
+    expect(screen.getByText('Zahlungsart')).toBeInTheDocument()
+  })
+
+  test('Weitere Angaben opens by itself when it already holds a value', () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <PositionDialog
+          position={{ ...existing, paymentMethod: 'transfer' } as PlanPosition}
+          budget="needs"
+          planId="p1"
+          open
+          onOpenChange={() => {}}
+          onSave={() => {}}
+        />
+      </QueryClientProvider>
+    )
+    expect(screen.getByRole('button', { name: 'Weitere Angaben' })).toHaveAttribute(
+      'aria-expanded',
+      'true'
     )
   })
 })

@@ -60,7 +60,7 @@ describe('CommitmentsPage', () => {
     const user = userEvent.setup()
     renderPage()
     await user.click(await screen.findByRole('button', { name: /^Miete/ }))
-    expect(screen.getByRole('dialog', { name: i18n.t('commitmentDialog.editTitle') })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: i18n.t('commitmentDialog.types.contract.editTitle') })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /weitere Aktionen/ })).not.toBeInTheDocument()
   })
 

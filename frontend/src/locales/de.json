@@ -379,6 +379,7 @@
     "outsideMonth": "Das Datum liegt nicht im {{month}}. Die Buchung zählt trotzdem für diesen Plan."
   },
   "common": {
+    "moreDetails": "Weitere Angaben",
     "date": "Datum",
     "amount": "Betrag",
     "cancel": "Abbrechen",
@@ -453,8 +454,24 @@
     "standingOrderOrDebit": "Dauerauftrag / Lastschrift"
   },
   "positionDialog": {
-    "editTitle": "Posten bearbeiten",
     "addTitle": "Posten hinzufügen",
+    "chooseTitle": "Was ist das?",
+    "chooseDescription": "Wähle, was am besten passt. Der Posten gilt nur für diesen Monat.",
+    "back": "Zurück",
+    "kinds": {
+      "obligation": {
+        "label": "Verpflichtung",
+        "hint": "Ein Betrag, den du abhakst, wenn er bezahlt ist — zum Beispiel eine Rechnung.",
+        "addTitle": "Verpflichtung hinzufügen",
+        "editTitle": "Verpflichtung bearbeiten"
+      },
+      "limit": {
+        "label": "Limit",
+        "hint": "Kein Haken: du legst nur die Höhe fest, der Posten füllt sich aus deinen Buchungen — Lebensmittel, Sprit.",
+        "addTitle": "Limit hinzufügen",
+        "editTitle": "Limit bearbeiten"
+      }
+    },
     "fromCommitment": "Kommt aus einem Vertrag. Änderungen hier gelten nur für diesen Monat.",
     "oneOff": "Gilt nur für diesen Monat. Wiederkehrendes gehört zu den Verträgen.",
     "label": "Bezeichnung",
@@ -466,25 +483,33 @@
   "commitmentDialog": {
     "types": {
       "contract": {
-        "label": "Läuft weiter",
-        "hint": "Miete, Handy, Versicherung, Streaming — ohne festes Ende.",
+        "label": "Regelmäßige Ausgabe",
+        "hint": "Miete, Strom, Abo: fällt in festem Abstand an.",
+        "addTitle": "Regelmäßige Ausgabe anlegen",
+        "editTitle": "Ausgabe bearbeiten",
         "namePlaceholder": "Miete"
       },
       "savings_goal": {
-        "label": "Hat ein Ziel",
-        "hint": "Auto, Urlaub, Zähne — es gibt einen Zielbetrag.",
+        "label": "Sparziel",
+        "hint": "Du legst Geld für ein Ziel zurück.",
+        "addTitle": "Sparziel anlegen",
+        "editTitle": "Sparziel bearbeiten",
         "budgetHint": "Alles, was du zurücklegst, zählt hierher.",
         "namePlaceholder": "Auto"
       },
       "debt": {
-        "label": "Wird abbezahlt",
-        "hint": "Kredit oder Rückstand — läuft auf null.",
+        "label": "Kredit oder Rate",
+        "hint": "Wird in Raten abbezahlt und endet von selbst.",
+        "addTitle": "Kredit anlegen",
+        "editTitle": "Kredit bearbeiten",
         "budgetHint": "Tilgen ist kein Verbrauch — das Geld ist nicht weg, deine Schuld wird kleiner. Unterm Strich derselbe Vorgang wie Sparen.",
         "namePlaceholder": "Rundfunk-Altrückstand"
       },
       "income": {
-        "label": "Kommt rein",
-        "hint": "Gehalt, Kindergeld, Zinsen — Geld, das hereinkommt.",
+        "label": "Einnahme",
+        "hint": "Gehalt oder anderes Geld, das reinkommt.",
+        "addTitle": "Einnahme anlegen",
+        "editTitle": "Einnahme bearbeiten",
         "budgetHint": "Einnahmen sind kein Verbrauch — aus ihnen entsteht erst das Verplanbare, auf das sich die Quoten beziehen.",
         "namePlaceholder": "Gehalt"
       }
@@ -494,10 +519,12 @@
     "dueIn": "Fällt am {{day}}. an — nächste: {{dates}}",
     "firstTime": "erstmals {{month}} {{year}}.",
     "dayShifts": "Den {{day}}. gibt es nicht in jedem Monat — dann rutscht es auf den letzten Tag. Im Februar {{year}} also auf den {{februaryDay}}.",
-    "editTitle": "Vertrag bearbeiten",
-    "addTitle": "Vertrag anlegen",
+    "chooseTitle": "Was ist das?",
+    "chooseDescription": "Wähle, was am besten passt. Die Posten für jeden Monat entstehen daraus von selbst.",
+    "back": "Zurück",
     "description": "Einmal anlegen — die Posten für jeden Monat entstehen daraus von selbst.",
     "rate": "Rate",
+    "saving": "Sparbetrag",
     "interval": "Abstand",
     "customInterval": "Anderer Abstand",
     "customIntervalField": "Abstand in Monaten",
