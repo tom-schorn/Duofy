@@ -590,3 +590,51 @@ async def test_the_household_flow_ignores_carry_overs_because_the_household_owns
 
     assert Decimal(body["start"]) == 0
     assert steps(body) == [(2, "-700.00")]
+
+
+# --- The household flow waits for the same completeness (#214 review) ------
+
+
+async def test_the_household_flow_is_empty_with_missing_members_until_complete(
+    client: AsyncClient, session: AsyncSession
+):
+    """Same gate as the household plan: an incomplete month is an empty curve
+    naming who is still missing, not a curve built from half the household."""
+    ada = await make_user(session, "Ada")
+    bob = await make_user(session, "Bob")
+    household = await make_household(session, "Shared")
+    await add_member(session, household, ada)
+    await add_member(session, household, bob)
+    ada_plan = await make_plan(session, ada)
+    session.add(position(ada_plan, "Groceries", "300.00", 1, household_id=household.id))
+    await session.commit()
+    await session.refresh(ada)
+    sign_in(ada)
+
+    body = await flow(client, f"/api/v1/plans/household/{household.id}/2026/9/flow")
+
+    assert body["entries"] == []
+    assert body["days"] == []
+    assert body["missingMembers"] == ["Bob"]
+
+
+async def test_the_household_flow_shows_the_curve_once_everybody_has_planned(
+    client: AsyncClient, session: AsyncSession
+):
+    ada = await make_user(session, "Ada")
+    bob = await make_user(session, "Bob")
+    household = await make_household(session, "Shared")
+    await add_member(session, household, ada)
+    await add_member(session, household, bob)
+    ada_plan = await make_plan(session, ada)
+    bob_plan = await make_plan(session, bob)
+    session.add(position(ada_plan, "Groceries", "300.00", 1, household_id=household.id))
+    session.add(position(bob_plan, "Rent", "700.00", 2, household_id=household.id))
+    await session.commit()
+    await session.refresh(ada)
+    sign_in(ada)
+
+    body = await flow(client, f"/api/v1/plans/household/{household.id}/2026/9/flow")
+
+    assert body["missingMembers"] == []
+    assert steps(body) == [(1, "-300.00"), (2, "-700.00")]

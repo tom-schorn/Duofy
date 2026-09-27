@@ -1036,6 +1036,9 @@ export type PlanFlow = {
   entries: FlowEntry[]
   days: { day: number; balance: string }[]
   hints: PlanHint[]
+  /** First names of current household members who have not planned this month
+   * yet. Empty means complete; set means `entries` and `days` are empty. */
+  missingMembers: string[]
 }
 
 /** A plan together with its positions. */

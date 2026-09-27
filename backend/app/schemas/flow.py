@@ -3,6 +3,8 @@ from datetime import date
 from decimal import Decimal
 from enum import StrEnum
 
+from pydantic import Field
+
 from app.models.enums import Budget, FlowLimitsBy
 from app.schemas.base import Schema
 from app.schemas.plan import Hint
@@ -54,3 +56,7 @@ class FlowRead(Schema):
     entries: list[FlowEntry]
     days: list[FlowDay]
     hints: list[Hint]
+    #: First names of current household members who have not planned this month
+    #: yet. Empty means complete. Set means `entries` and `days` are empty on
+    #: purpose — same rule as `HouseholdPlanRead.missing_members`.
+    missing_members: list[str] = Field(default_factory=list)
