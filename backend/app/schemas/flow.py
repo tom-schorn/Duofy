@@ -3,7 +3,7 @@ from datetime import date
 from decimal import Decimal
 from enum import StrEnum
 
-from app.models.enums import FlowLimitsBy
+from app.models.enums import Budget, FlowLimitsBy
 from app.schemas.base import Schema
 from app.schemas.plan import Hint
 
@@ -27,6 +27,8 @@ class FlowEntry(Schema):
     #: The position or the note. Empty on a manual booking without a note.
     label: str
     position_id: uuid.UUID | None = None
+    #: The budget it counts against; `None` for a transfer between own accounts.
+    budget: Budget | None = None
     #: The curve after this entry.
     balance: Decimal
 

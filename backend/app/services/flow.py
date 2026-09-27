@@ -28,7 +28,7 @@ from app.schemas.plan import Hint, HintSeverity
 ZERO = Decimal("0.00")
 
 #: date, signed amount, kind, label, position
-Raw = tuple[date, Decimal, FlowEntryKind, str, uuid.UUID | None]
+Raw = tuple[date, Decimal, FlowEntryKind, str, uuid.UUID | None, Budget | None]
 
 
 @dataclass
@@ -72,6 +72,11 @@ def _plan_effect(position: PlanPosition, account_id: uuid.UUID | None) -> Decima
     return amount if position.budget is Budget.INCOME else -amount
 
 
+def _budget_of(budget: Budget, counter_account_id: uuid.UUID | None) -> Budget | None:
+    """The budget an entry counts against; a transfer between own accounts has none."""
+    return None if counter_account_id is not None else budget
+
+
 def _clamp_day(when: date, year: int, month: int) -> int:
     """The day of the month the curve moves on; outside the month it is an edge."""
     if (when.year, when.month) < (year, month):
@@ -101,19 +106,29 @@ def _entries(source: Source, year: int, month: int, limits_by: FlowLimitsBy) -> 
             effect = _plan_effect(position, source.account_id)
             if effect is not None:
                 due = date(year, month, min(position.due_day, last))
-                out.append((due, effect, FlowEntryKind.PLAN, position.label, position.id))
+                budget = _budget_of(position.budget, position.counter_account_id)
+                out.append((due, effect, FlowEntryKind.PLAN, position.label, position.id, budget))
             continue
         for tx in by_position.get(position.id, []):
             effect = _booking_effect(tx, source.account_id)
             if effect is not None:
+                budget = _budget_of(position.budget, position.counter_account_id)
                 out.append(
-                    (tx.occurred_on, effect, FlowEntryKind.BOOKING, position.label, position.id)
+                    (
+                        tx.occurred_on,
+                        effect,
+                        FlowEntryKind.BOOKING,
+                        position.label,
+                        position.id,
+                        budget,
+                    )
                 )
 
     for tx in manual:
         effect = _booking_effect(tx, source.account_id)
         if effect is not None:
-            out.append((tx.occurred_on, effect, FlowEntryKind.BOOKING, tx.note or "", None))
+            budget = _budget_of(tx.budget, tx.counter_account_id)
+            out.append((tx.occurred_on, effect, FlowEntryKind.BOOKING, tx.note or "", None, budget))
     return out
 
 
@@ -136,7 +151,7 @@ def build_flow(
 
     entries: list[FlowEntry] = []
     balance = start
-    for when, amount, kind, label, position_id in raw:
+    for when, amount, kind, label, position_id, budget in raw:
         balance += amount
         entries.append(
             FlowEntry(
@@ -146,6 +161,7 @@ def build_flow(
                 kind=kind,
                 label=label,
                 position_id=position_id,
+                budget=budget,
                 balance=balance,
             )
         )
