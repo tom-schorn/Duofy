@@ -393,7 +393,6 @@
     "dueOnAfter": ". jedes Monats",
     "dueOnSentence": "am {{day}}. jedes Monats",
     "category": "Kategorie",
-    "budget": "Budget",
     "account": "Konto",
     "defaultAccount": "Standardkonto",
     "counterAccount": "Zielkonto",
@@ -412,7 +411,17 @@
     "create": "Anlegen",
     "dayOfMonth": "{{day}}. {{month}}",
     "percent": "{{value}} %",
-    "and": "und"
+    "and": "und",
+    "extrasSummary": {
+      "category": "Kategorie: {{value}}",
+      "account": "Konto: {{value}}",
+      "counterAccount": "Zielkonto: {{value}}",
+      "endsOn": "läuft bis {{value}}",
+      "paymentMethod": "Zahlungsart: {{value}}",
+      "assignment": "Zuordnung: {{value}}",
+      "passThrough": "durchlaufend",
+      "actual": "Ist: {{value}}"
+    }
   },
   "positionPicker": {
     "none": "kein Posten",
@@ -484,7 +493,14 @@
     "labelPlaceholder": "Rollo fürs Wohnzimmer",
     "actual": "Tatsächlich bezahlt",
     "actualPlaceholder": "noch offen",
-    "actualHint": "Nur nötig, wenn der Betrag vom geplanten abweicht. Abgehakt wird in der Liste."
+    "actualHint": "Nur nötig, wenn der Betrag vom geplanten abweicht. Abgehakt wird in der Liste.",
+    "addDetails": "Kategorie oder weitere Angaben hinzufügen",
+    "sentence": {
+      "obligation": "Fällig am {dueDay} und zählt zum {budget}.",
+      "limit": "Zählt zum {budget}."
+    },
+    "dueDayLabel": "Fällig am wievielten?",
+    "budgetLabel": "Welches Budget?"
   },
   "commitmentDialog": {
     "types": {
@@ -550,15 +566,6 @@
     "clearEnd": "Kein Ende",
     "endsOnHint": "Nur Monat und Jahr zählen. Danach entstehen keine neuen Posten mehr. Leer lassen, wenn es unbegrenzt weiterläuft.",
     "addDetails": "Kategorie oder weitere Angaben hinzufügen",
-    "extrasSummary": {
-      "category": "Kategorie: {{value}}",
-      "account": "Konto: {{value}}",
-      "counterAccount": "Zielkonto: {{value}}",
-      "endsOn": "läuft bis {{value}}",
-      "paymentMethod": "Zahlungsart: {{value}}",
-      "assignment": "Zuordnung: {{value}}",
-      "passThrough": "durchlaufend"
-    },
     "sentence": {
       "contract": "Geht {rhythm} ab dem {date} vom {account} ab und zählt zum {budget}.",
       "contractDefaultAccount": "Geht {rhythm} ab dem {date} ab und zählt zum {budget}.",
