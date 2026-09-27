@@ -60,7 +60,6 @@ async def _to_read(session: AsyncSession, household: Household) -> HouseholdRead
         target_needs=household.target_needs,
         target_wants=household.target_wants,
         target_savings=household.target_savings,
-        buffer_percent=household.buffer_percent,
         members=[
             MemberRead(
                 user_id=member.user_id,
@@ -121,7 +120,7 @@ async def update_household(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> HouseholdRead:
-    """Rename (owner only) and change quotas and buffer (any member).
+    """Rename (owner only) and change quotas (any member).
 
     The household belongs to nobody, so the shared target is not the owner's to
     set alone; the name stays with the owner.

@@ -23,7 +23,6 @@ class UserRead(schemas.BaseUser[uuid.UUID]):
     target_needs: Decimal
     target_wants: Decimal
     target_savings: Decimal
-    buffer_percent: Decimal
     flow_limits_by: FlowLimitsBy
 
 
@@ -42,9 +41,6 @@ class UserUpdate(schemas.BaseUserUpdate):
     target_needs: Decimal | None = Field(default=None, ge=0, le=100, max_digits=5, decimal_places=2)
     target_wants: Decimal | None = Field(default=None, ge=0, le=100, max_digits=5, decimal_places=2)
     target_savings: Decimal | None = Field(
-        default=None, ge=0, le=100, max_digits=5, decimal_places=2
-    )
-    buffer_percent: Decimal | None = Field(
         default=None, ge=0, le=100, max_digits=5, decimal_places=2
     )
     flow_limits_by: FlowLimitsBy | None = None

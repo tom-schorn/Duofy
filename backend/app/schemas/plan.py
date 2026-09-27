@@ -95,7 +95,6 @@ class PlanBase(Schema):
     target_needs: Decimal = Field(ge=0, le=100)
     target_wants: Decimal = Field(ge=0, le=100)
     target_savings: Decimal = Field(ge=0, le=100)
-    buffer_percent: Decimal = Field(ge=0, le=100)
 
 
 class PlanCreate(Schema):
@@ -113,9 +112,6 @@ class PlanUpdate(Schema):
     target_needs: Decimal | None = Field(default=None, ge=0, le=100, max_digits=5, decimal_places=2)
     target_wants: Decimal | None = Field(default=None, ge=0, le=100, max_digits=5, decimal_places=2)
     target_savings: Decimal | None = Field(
-        default=None, ge=0, le=100, max_digits=5, decimal_places=2
-    )
-    buffer_percent: Decimal | None = Field(
         default=None, ge=0, le=100, max_digits=5, decimal_places=2
     )
 
@@ -143,7 +139,7 @@ class PlanSummary(PlanBase):
 
     #: Sum of the income positions.
     income: Decimal
-    #: Income minus buffer — the basis the quotas are computed on.
+    #: The basis the quotas are computed on — the income.
     #: **Not** the same as what is left to allocate; that is the remainder of it.
     distributable: Decimal
     #: Allocated per budget.

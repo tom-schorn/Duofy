@@ -37,7 +37,6 @@ class Household(UUIDMixin, TimestampMixin, Base):
     target_savings: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("20.00"))
 
     #: How many percent of the contributed income stays unplanned.
-    buffer_percent: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("0.00"))
 
     members: Mapped[list["HouseholdMember"]] = relationship(
         back_populates="household", cascade="all, delete-orphan"

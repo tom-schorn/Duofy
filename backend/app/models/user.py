@@ -44,9 +44,6 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     target_savings: Mapped[Decimal] = mapped_column(
         Numeric(5, 2), default=Decimal("20.00"), server_default="20.00"
     )
-    buffer_percent: Mapped[Decimal] = mapped_column(
-        Numeric(5, 2), default=Decimal("0.00"), server_default="0.00"
-    )
     #: What the flow chart counts for limits, read from the **viewer** — also in the
     #: household plan and in other people's plans. Stored on the server, not in the
     #: browser: whoever tracks groceries does so every month and on every device.

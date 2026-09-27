@@ -47,7 +47,7 @@ def position(plan: Plan, due_day: int, **kwargs) -> PlanPosition:
     return PlanPosition(
         plan_id=plan.id,
         label="Rent",
-        amount_planned=Decimal("890.00"),
+        amount_planned=kwargs.pop("amount_planned", Decimal("890.00")),
         category=kwargs.pop("category", Category.HOUSING_RENT),
         budget=kwargs.pop("budget", Budget.NEEDS),
         due_day=due_day,
@@ -194,3 +194,69 @@ async def test_income_and_pass_through_positions_are_overdue_too(
         str(salary.id),
         str(forwarded.id),
     }
+
+
+async def pay(plan: Plan, amount: str) -> PlanPosition:
+    return position(
+        plan,
+        30,
+        budget=Budget.INCOME,
+        category=Category.INCOME_EARNED,
+        label="Pay",
+        amount_planned=Decimal(amount),
+    )
+
+
+async def nothing_free(client: AsyncClient) -> list[dict]:
+    return [h for h in await read_hints(client) if h["code"] == "plan_nothing_free"]
+
+
+async def test_nothing_free_is_pointed_out_when_the_income_is_fully_allocated(
+    client: AsyncClient, session: AsyncSession, owner: User, monkeypatch: pytest.MonkeyPatch
+):
+    pin_today(monkeypatch, date(2026, 9, 2))
+    plan = await make_plan(session, owner)
+    session.add_all([await pay(plan, "890.00"), position(plan, 30)])
+    await session.commit()
+
+    assert await nothing_free(client) == [
+        {
+            "code": "plan_nothing_free",
+            "severity": "info",
+            "positionId": None,
+            "params": {"free": "0.00"},
+        }
+    ]
+
+
+async def test_nothing_free_reports_the_overshoot_when_more_is_allocated_than_earned(
+    client: AsyncClient, session: AsyncSession, owner: User, monkeypatch: pytest.MonkeyPatch
+):
+    pin_today(monkeypatch, date(2026, 9, 2))
+    plan = await make_plan(session, owner)
+    session.add_all([await pay(plan, "800.00"), position(plan, 30)])
+    await session.commit()
+
+    assert [h["params"]["free"] for h in await nothing_free(client)] == ["-90.00"]
+
+
+async def test_no_nothing_free_hint_while_money_is_left(
+    client: AsyncClient, session: AsyncSession, owner: User, monkeypatch: pytest.MonkeyPatch
+):
+    pin_today(monkeypatch, date(2026, 9, 2))
+    plan = await make_plan(session, owner)
+    session.add_all([await pay(plan, "1000.00"), position(plan, 30)])
+    await session.commit()
+
+    assert await nothing_free(client) == []
+
+
+async def test_a_month_without_income_has_no_nothing_free_hint(
+    client: AsyncClient, session: AsyncSession, owner: User, monkeypatch: pytest.MonkeyPatch
+):
+    pin_today(monkeypatch, date(2026, 9, 2))
+    plan = await make_plan(session, owner)
+    session.add(position(plan, 30))
+    await session.commit()
+
+    assert await nothing_free(client) == []

@@ -107,12 +107,11 @@ def _summarize(
     year: int,
     month: int,
     targets: tuple[Decimal, Decimal, Decimal],
-    buffer_percent: Decimal,
     positions: list[PlanPosition],
 ) -> dict:
     """The figures the overview and the detail page show.
 
-    `distributable` is income minus buffer — the basis the quotas are computed on.
+    `distributable` is the income — the basis the quotas are computed on.
     Not to be confused with what is left to allocate: that is the remainder of it
     and is derived in the frontend, where it updates live anyway.
     """
@@ -122,7 +121,7 @@ def _summarize(
     counting = [p for p in positions if not p.pass_through]
 
     income = sum((p.amount_planned for p in counting if p.budget is Budget.INCOME), ZERO)
-    distributable = income - (income * buffer_percent / 100)
+    distributable = income
 
     def total(budget: Budget) -> Decimal:
         return sum((p.amount_planned for p in counting if p.budget is budget), ZERO)
@@ -164,7 +163,6 @@ def _summarize(
         "target_needs": targets[0],
         "target_wants": targets[1],
         "target_savings": targets[2],
-        "buffer_percent": buffer_percent,
         "income": income,
         "distributable": distributable,
         "spent": BudgetTotals(
@@ -233,7 +231,6 @@ async def list_plans(
                 year=plan.year,
                 month=plan.month,
                 targets=(plan.target_needs, plan.target_wants, plan.target_savings),
-                buffer_percent=plan.buffer_percent,
                 positions=plan.positions,
             )
         )
@@ -367,7 +364,6 @@ async def create_plan(
         target_needs=owner_row.target_needs,
         target_wants=owner_row.target_wants,
         target_savings=owner_row.target_savings,
-        buffer_percent=owner_row.buffer_percent,
     )
 
     commitments = await session.execute(select(Commitment).where(Commitment.owner_id == owner_id))
@@ -450,7 +446,7 @@ async def update_plan(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> PlanRead:
-    """Change quotas and buffer. Guidelines, not rules."""
+    """Change the quotas. Guidelines, not rules."""
     plan = await _load_plan(session, plan_id, user)
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(plan, field, value)
@@ -560,7 +556,6 @@ async def get_household_plan(
                 household.target_wants,
                 household.target_savings,
             ),
-            buffer_percent=household.buffer_percent,
             positions=positions,
         ),
     )
@@ -766,7 +761,6 @@ def _plan_read(plan: Plan) -> PlanRead:
             year=plan.year,
             month=plan.month,
             targets=(plan.target_needs, plan.target_wants, plan.target_savings),
-            buffer_percent=plan.buffer_percent,
             positions=plan.positions,
         ),
     )
