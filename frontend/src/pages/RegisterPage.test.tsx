@@ -9,7 +9,7 @@ import { RegisterPage } from '@/pages/RegisterPage'
 afterEach(() => vi.unstubAllGlobals())
 
 function open(mode: string, url = '/register') {
-  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
     if (String(input).endsWith('/auth/registration')) {
       return new Response(JSON.stringify({ mode }), { status: 200 })
     }
