@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DialogFrame } from '@/components/DialogFrame'
@@ -7,7 +7,12 @@ import { AmountField } from '@/components/AmountField'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { DateField } from '@/components/DateField'
-import { firstOfNextMonth } from '@/lib/dates'
+import { Calendar } from '@/components/ui/calendar'
+import { SentenceWord } from '@/components/SentenceWord'
+import { SentencePanel } from '@/components/SentencePanel'
+import { SentenceChip } from '@/components/SentenceChip'
+import { firstOfNextMonth, fromIsoDay, longDate, toIsoDay } from '@/lib/dates'
+import { formatAmount } from '@/lib/amount'
 import { MoreDetails } from '@/components/MoreDetails'
 import { Switch } from '@/components/ui/switch'
 import {
@@ -35,7 +40,6 @@ import {
   dueDateLabel,
   parseIntervalText,
   effectiveDueDay,
-  type Budget,
   type Category,
   type Commitment,
   type CommitmentType,
@@ -53,8 +57,12 @@ import { OptionalMark } from '@/components/OptionalMark'
  *
  * Creating takes two steps: first four cards ask „Was ist das?“ in everyday words,
  * then only that kind's fields follow, with a way back. Editing has no cards and no
- * switch: the kind is fixed and named in the title (#190). Required fields are
- * visible, everything rare sits under „Weitere Angaben“.
+ * switch: the kind is fixed and named in the title (#190).
+ *
+ * Name and amount stay a form (real labels, real inputs); the rest of the facts read
+ * as one sentence with clickable words, each opening its choice right below the
+ * sentence — „Satz statt Formular“ (issue #215, decision 28). Category and every
+ * other rare field sit behind a text link instead of a boxed „Weitere Angaben“.
  *
  * The type drives the extra fields:
  *   contract      → none, plus the optional `isLimit` flag
@@ -190,7 +198,11 @@ function kindOf(commitment: Commitment): Kind {
 /** A contract and a limit are the same underneath: a free amount, a free category. */
 const isPlainKind = (kind: Kind) => kind === 'contract' || kind === 'limit'
 
-/** Which of the optional fields a kind asks for up front instead of under „Weitere Angaben“. */
+/**
+ * Which of the optional fields a kind names as a sentence word instead of leaving
+ * them behind the „Kategorie oder weitere Angaben“ link. Category itself is never a
+ * word — a fact this ordinary, not a household finding, sits with the rare fields.
+ */
 function upfront(kind: Kind, activeAccounts: number) {
   return {
     // Where the money comes from or goes to: always for a loan and income, and for an
@@ -200,11 +212,10 @@ function upfront(kind: Kind, activeAccounts: number) {
     // A savings goal is money moved to another account, and reached on a date.
     counterAccount: kind === 'savings_goal',
     targetDate: kind === 'savings_goal',
-    category: isPlainKind(kind),
   }
 }
 
-/** Something under „Weitere Angaben“ is set, so the section must start open. */
+/** Something behind the link is set, so it must not stay hidden. */
 function hasExtras(commitment: Commitment, activeAccounts: number): boolean {
   const kind = kindOf(commitment)
   const option = TYPE_OPTIONS.find((item) => item.value === kind)!
@@ -217,8 +228,7 @@ function hasExtras(commitment: Commitment, activeAccounts: number): boolean {
     commitment.passThrough ||
     (!up.endsOn && commitment.endsOn !== null) ||
     (!up.targetDate && commitment.targetDate !== null) ||
-    // A contract shows its category up front; the other kinds keep it in here.
-    (!up.category && commitment.category !== option.defaultCategory)
+    commitment.category !== option.defaultCategory
   )
 }
 
@@ -245,6 +255,14 @@ function emptyDraft(): Commitment {
     paymentMethod: null,
     accountId: null,
   }
+}
+
+/** Fills a catalog sentence's `{word}` placeholders with the sentence's own buttons. */
+function fillSentence(template: string, words: Record<string, React.ReactNode>): React.ReactNode {
+  return template.split(/(\{\w+\})/g).map((part, index) => {
+    const match = /^\{(\w+)\}$/.exec(part)
+    return <Fragment key={index}>{match ? words[match[1]] : part}</Fragment>
+  })
 }
 
 type Props = {
@@ -282,7 +300,7 @@ export function CommitmentDialog({
   const [draft, setDraft] = useState<Commitment>(commitment ?? emptyDraft())
   // Creating starts with the question, editing goes straight to the fields.
   const [step, setStep] = useState<'choose' | 'form'>(commitment ? 'form' : 'choose')
-  // Whether „Weitere Angaben“ was open; kept across „Zurück“, where the fields go away.
+  // Whether the rare fields were open; kept across „Zurück“, where the fields go away.
   const detailsOpened = useRef(false)
 
   // Reset on open — otherwise the previous state is still in the fields.
@@ -293,6 +311,10 @@ export function CommitmentDialog({
   const [intervalText, setIntervalText] = useState('1')
   const intervalField = useRef<HTMLInputElement>(null)
 
+  // Which sentence word is open — only one at a time (issue #215).
+  const [openWord, setOpenWord] = useState<string | null>(null)
+  const wordRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+
   useEffect(() => {
     if (open) {
       const next = commitment ?? emptyDraft()
@@ -301,6 +323,7 @@ export function CommitmentDialog({
       detailsOpened.current = false
       setCustomInterval(!INTERVAL_PRESETS.includes(next.intervalMonths))
       setIntervalText(String(next.intervalMonths))
+      setOpenWord(null)
     }
   }, [open, commitment])
 
@@ -334,6 +357,12 @@ export function CommitmentDialog({
   function handleType(next: Kind) {
     setDraft((current) => withType(current, next))
     setStep('form')
+    setOpenWord(null)
+  }
+
+  function handleBack() {
+    setStep('choose')
+    setOpenWord(null)
   }
 
   /** Changing the category preselects the budget — not for goals and debts. */
@@ -356,7 +385,7 @@ export function CommitmentDialog({
   function handleIntervalSelect(value: string) {
     if (value === CUSTOM) {
       setCustomInterval(true)
-      // The field only exists after this render; the select would otherwise keep
+      // The field only exists after this render; the panel would otherwise keep
       // the focus and leave the user to find the new field.
       requestAnimationFrame(() => intervalField.current?.focus())
       return
@@ -388,6 +417,23 @@ export function CommitmentDialog({
     onSave(draft)
   }
 
+  function toggleWord(key: string) {
+    setOpenWord((current) => (current === key ? null : key))
+  }
+
+  /** Closes whichever word is open and gives the focus back to its button (rule 13). */
+  function closeWord() {
+    const key = openWord
+    setOpenWord(null)
+    if (key) requestAnimationFrame(() => wordRefs.current[key]?.focus())
+  }
+
+  function wordRef(key: string) {
+    return (element: HTMLButtonElement | null) => {
+      wordRefs.current[key] = element
+    }
+  }
+
   // From the 29th on the day can shift — February is the hard case.
   const dueDay = dueDayOf(draft.firstDueDate)
   const dueDayShifts = dueDay >= DUE_DAY_MAY_SHIFT
@@ -405,48 +451,322 @@ export function CommitmentDialog({
 
   const choosing = step === 'choose'
 
-  const categoryBudget = (
-    <>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="flex flex-col gap-2">
-          <Label>{t('common.category')}</Label>
-          <CategoryPicker value={draft.category} onChange={handleCategory} />
-        </div>
+  // --- Sentence words -------------------------------------------------------
 
-        <div className="flex flex-col gap-2">
-          <Label>{t('common.budget')}</Label>
-          {budgetIsFixed ? (
-            <span className="flex h-9 items-center gap-2 text-sm font-medium">
-              <span className={cn('size-2.5 rounded-sm', BUDGET_DOT[draft.budget])} />
-              {budgetLabel(draft.budget)}
-            </span>
-          ) : (
-            <Select value={draft.budget} onValueChange={(value) => set('budget', value as Budget)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {BUDGET_ORDER.map((budget) => (
-                  <SelectItem key={budget} value={budget}>
-                    {budgetLabel(budget)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </div>
+  const rhythmWord = (
+    <SentenceWord ref={wordRef('rhythm')} open={openWord === 'rhythm'} onClick={() => toggleWord('rhythm')}>
+      {intervalLabel(draft.intervalMonths)}
+    </SentenceWord>
+  )
+  const rhythmPanel = openWord === 'rhythm' && (
+    <SentencePanel label={t('commitmentDialog.rhythmLabel')}>
+      <div className="flex flex-wrap gap-2">
+        {INTERVAL_PRESETS.map((months) => (
+          <SentenceChip
+            key={months}
+            selected={!customInterval && draft.intervalMonths === months}
+            onClick={() => {
+              handleIntervalSelect(String(months))
+              closeWord()
+            }}
+          >
+            {intervalLabel(months)}
+          </SentenceChip>
+        ))}
+        <SentenceChip selected={customInterval} onClick={() => handleIntervalSelect(CUSTOM)}>
+          {t('commitmentDialog.customInterval')}
+        </SentenceChip>
       </div>
-
-      {typeOption.budgetHint && (
-        <p className="text-muted-foreground bg-muted rounded-md px-3 py-2 text-xs">
-          {t(typeOption.budgetHint)}
-        </p>
+      {customInterval && (
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="interval-custom">{t('commitmentDialog.customIntervalField')}</Label>
+          <Input
+            id="interval-custom"
+            ref={intervalField}
+            type="number"
+            min={INTERVAL_MIN}
+            max={INTERVAL_MAX}
+            step="1"
+            inputMode="numeric"
+            value={intervalText}
+            onChange={(event) => handleIntervalText(event.target.value)}
+            aria-invalid={!intervalValid}
+            aria-describedby="interval-custom-hint"
+            className="w-32"
+            required
+          />
+          {/* Always in the DOM so the field can point at it; only the
+              error turns into an announcement. */}
+          <span
+            id="interval-custom-hint"
+            role={intervalValid ? undefined : 'alert'}
+            className={intervalValid ? 'text-muted-foreground text-xs' : 'text-destructive text-xs'}
+          >
+            {t('commitmentDialog.intervalRange', { min: INTERVAL_MIN, max: INTERVAL_MAX })}
+          </span>
+        </div>
       )}
-    </>
+    </SentencePanel>
   )
 
-  // Shared between „up front“ and „Weitere Angaben“: a kind asks for some of these
-  // right away, the rest keeps them folded away.
+  const dateWord = (
+    <SentenceWord ref={wordRef('date')} open={openWord === 'date'} onClick={() => toggleWord('date')}>
+      {longDate(draft.firstDueDate)}
+    </SentenceWord>
+  )
+  const datePanel = openWord === 'date' && (
+    <SentencePanel label={t('commitmentDialog.dateLabel')}>
+      <Calendar
+        mode="single"
+        selected={fromIsoDay(draft.firstDueDate)}
+        defaultMonth={fromIsoDay(draft.firstDueDate)}
+        onSelect={(date) => {
+          if (!date) return
+          handleFirstDueDate(toIsoDay(date))
+          closeWord()
+        }}
+        autoFocus
+      />
+      <p className="text-muted-foreground text-xs">
+        {t(
+          draft.intervalMonths === 1
+            ? 'commitmentDialog.firstDueHintMonthly'
+            : 'commitmentDialog.firstDueHint'
+        )}
+      </p>
+      {(upcoming.length > 0 || dueDayShifts) && (
+        <p className="text-muted-foreground flex flex-col gap-1 text-xs">
+          {upcoming.length > 0 && (
+            <span>
+              {t('commitmentDialog.dueIn', {
+                day: dueDay,
+                dates: upcoming.map(dueDateLabel).join(', '),
+              })}
+              {` — ${t('commitmentDialog.firstTime', {
+                month: monthLabel(Number(draft.firstDueDate.slice(5, 7))),
+                year: draft.firstDueDate.slice(0, 4),
+              })}`}
+            </span>
+          )}
+          {dueDayShifts && (
+            <span>
+              {t('commitmentDialog.dayShifts', { day: dueDay, year: shiftYear, februaryDay })}
+            </span>
+          )}
+        </p>
+      )}
+    </SentencePanel>
+  )
+
+  const accountName = (id: string | null) =>
+    id === null ? t('common.defaultAccount') : (accounts.find((account) => account.id === id)?.name ?? '')
+
+  const accountWord = (
+    <SentenceWord ref={wordRef('account')} open={openWord === 'account'} onClick={() => toggleWord('account')}>
+      {accountName(draft.accountId)}
+    </SentenceWord>
+  )
+  const accountPanel = openWord === 'account' && (
+    <SentencePanel label={t('commitmentDialog.accountLabel')}>
+      <div className="flex flex-wrap gap-2">
+        <SentenceChip
+          selected={draft.accountId === null}
+          onClick={() => {
+            set('accountId', null)
+            closeWord()
+          }}
+        >
+          {t('common.defaultAccount')}
+        </SentenceChip>
+        {activeAccounts.map((account) => (
+          <SentenceChip
+            key={account.id}
+            selected={draft.accountId === account.id}
+            onClick={() => {
+              set('accountId', account.id)
+              closeWord()
+            }}
+          >
+            {account.name}
+          </SentenceChip>
+        ))}
+      </div>
+    </SentencePanel>
+  )
+
+  const counterAccountWord = (
+    <SentenceWord
+      ref={wordRef('counterAccount')}
+      open={openWord === 'counterAccount'}
+      onClick={() => toggleWord('counterAccount')}
+    >
+      {draft.counterAccountId === null ? t('common.goesOut') : accountName(draft.counterAccountId)}
+    </SentenceWord>
+  )
+  const counterAccountPanel = openWord === 'counterAccount' && (
+    <SentencePanel label={t('commitmentDialog.counterAccountLabel')}>
+      <div className="flex flex-wrap gap-2">
+        <SentenceChip
+          selected={draft.counterAccountId === null}
+          onClick={() => {
+            set('counterAccountId', null)
+            closeWord()
+          }}
+        >
+          {t('common.goesOut')}
+        </SentenceChip>
+        {accounts
+          .filter((account) => account.id !== draft.accountId)
+          .map((account) => (
+            <SentenceChip
+              key={account.id}
+              selected={draft.counterAccountId === account.id}
+              onClick={() => {
+                set('counterAccountId', account.id)
+                closeWord()
+              }}
+            >
+              {account.name}
+            </SentenceChip>
+          ))}
+      </div>
+      <p className="text-muted-foreground text-xs">{t('common.counterAccountHint')}</p>
+    </SentencePanel>
+  )
+
+  const budgetWord = budgetIsFixed ? (
+    <span className="font-medium">{budgetLabel(draft.budget)}</span>
+  ) : (
+    <SentenceWord ref={wordRef('budget')} open={openWord === 'budget'} onClick={() => toggleWord('budget')}>
+      {budgetLabel(draft.budget)}
+    </SentenceWord>
+  )
+  const budgetPanel = !budgetIsFixed && openWord === 'budget' && (
+    <SentencePanel label={t('commitmentDialog.budgetLabel')}>
+      <div className="flex flex-wrap gap-2">
+        {BUDGET_ORDER.map((budget) => (
+          <SentenceChip
+            key={budget}
+            selected={draft.budget === budget}
+            onClick={() => {
+              set('budget', budget)
+              closeWord()
+            }}
+          >
+            <span className={cn('size-2.5 rounded-sm', BUDGET_DOT[budget])} />
+            {budgetLabel(budget)}
+          </SentenceChip>
+        ))}
+      </div>
+    </SentencePanel>
+  )
+
+  const endsOnWord = (
+    <SentenceWord ref={wordRef('endsOn')} open={openWord === 'endsOn'} onClick={() => toggleWord('endsOn')}>
+      {draft.endsOn ? longDate(draft.endsOn) : t('commitmentDialog.noEnd')}
+    </SentenceWord>
+  )
+  const endsOnPanel = openWord === 'endsOn' && (
+    <SentencePanel label={t('commitmentDialog.endsOnLabel')}>
+      <Calendar
+        mode="single"
+        selected={fromIsoDay(draft.endsOn ?? '')}
+        defaultMonth={fromIsoDay(draft.endsOn ?? draft.firstDueDate)}
+        onSelect={(date) => {
+          if (!date) return
+          set('endsOn', toIsoDay(date))
+          closeWord()
+        }}
+        autoFocus
+      />
+      <SentenceChip
+        selected={draft.endsOn === null}
+        onClick={() => {
+          set('endsOn', null)
+          closeWord()
+        }}
+      >
+        {t('commitmentDialog.clearEnd')}
+      </SentenceChip>
+      <p className="text-muted-foreground text-xs">{t('commitmentDialog.endsOnHint')}</p>
+    </SentencePanel>
+  )
+
+  const targetDateWord = (
+    <SentenceWord
+      ref={wordRef('targetDate')}
+      open={openWord === 'targetDate'}
+      onClick={() => toggleWord('targetDate')}
+    >
+      {draft.targetDate ? longDate(draft.targetDate) : t('commitmentDialog.noTargetDate')}
+    </SentenceWord>
+  )
+  const targetDatePanel = openWord === 'targetDate' && (
+    <SentencePanel label={t('commitmentDialog.targetDateLabel')}>
+      <Calendar
+        mode="single"
+        selected={fromIsoDay(draft.targetDate ?? '')}
+        defaultMonth={fromIsoDay(draft.targetDate ?? draft.firstDueDate)}
+        onSelect={(date) => {
+          if (!date) return
+          set('targetDate', toIsoDay(date))
+          closeWord()
+        }}
+        autoFocus
+      />
+    </SentencePanel>
+  )
+
+  const targetAmountWord = (
+    <SentenceWord
+      ref={wordRef('targetAmount')}
+      open={openWord === 'targetAmount'}
+      onClick={() => toggleWord('targetAmount')}
+    >
+      {draft.targetAmount ? `${formatAmount(draft.targetAmount)} €` : t('commitmentDialog.noTargetAmount')}
+    </SentenceWord>
+  )
+  const targetAmountPanel = openWord === 'targetAmount' && (
+    <SentencePanel label={t('commitmentDialog.targetAmountLabel')}>
+      <AmountField
+        id="target-amount"
+        value={draft.targetAmount ?? ''}
+        onChange={(value) => set('targetAmount', value || null)}
+        allowZero
+        className="w-48"
+      />
+    </SentencePanel>
+  )
+
+  const words: Record<string, React.ReactNode> = {
+    rhythm: rhythmWord,
+    date: dateWord,
+    account: accountWord,
+    counterAccount: counterAccountWord,
+    budget: budgetWord,
+    endsOn: endsOnWord,
+    targetDate: targetDateWord,
+    targetAmount: targetAmountWord,
+  }
+  const panels = [
+    rhythmPanel,
+    datePanel,
+    accountPanel,
+    counterAccountPanel,
+    budgetPanel,
+    endsOnPanel,
+    targetDatePanel,
+    targetAmountPanel,
+  ]
+
+  // Which catalog sentence fits this kind — the account clause drops out entirely
+  // once there is only the one, default account to speak of.
+  const sentenceKey = isPlainKind(kind)
+    ? `${kind}${up.account ? '' : 'DefaultAccount'}`
+    : kind
+
+  // --- Rare fields, behind the text link ------------------------------------
+
   const accountField = (
     <div className="flex flex-col gap-2">
       <Label>{t('common.account')}</Label>
@@ -458,17 +778,12 @@ export function CommitmentDialog({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {/* "Standardkonto" instead of a fixed preselection: the
-                commitment stays right when the default account changes.
-                Only set where it differs. */}
           <SelectItem value="default">{t('common.defaultAccount')}</SelectItem>
-          {accounts
-            .filter((account) => account.active)
-            .map((account) => (
-              <SelectItem key={account.id} value={account.id}>
-                {account.name}
-              </SelectItem>
-            ))}
+          {activeAccounts.map((account) => (
+            <SelectItem key={account.id} value={account.id}>
+              {account.name}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
     </div>
@@ -528,7 +843,7 @@ export function CommitmentDialog({
           id="ends-on"
           value={draft.endsOn ?? ''}
           onChange={(iso) => set('endsOn', iso || null)}
-          placeholder={t('commitmentDialog.noEnd')}
+          placeholder={t('commitmentDialog.clearEnd')}
           describedBy="ends-on-hint"
         />
         {draft.endsOn !== null && (
@@ -542,18 +857,6 @@ export function CommitmentDialog({
       </p>
     </div>
   )
-  const targetDateField = (
-    <div className="flex flex-col gap-2">
-      <Label htmlFor="target-date">{t('commitmentDialog.targetDate')}<OptionalMark /></Label>
-      <DateField
-        id="target-date"
-        value={draft.targetDate ?? ''}
-        onChange={(iso) => set('targetDate', iso || null)}
-        placeholder={t('commitmentDialog.noTargetDate')}
-      />
-    </div>
-  )
-
   return (
     // The frame keeps title and buttons in place and lets only the middle scroll.
     <DialogFrame
@@ -591,7 +894,7 @@ export function CommitmentDialog({
             {t('common.delete')}
           </Button>
         ) : !isEdit && !choosing ? (
-          <Button type="button" variant="ghost" onClick={() => setStep('choose')}>
+          <Button type="button" variant="ghost" onClick={handleBack}>
             {t('commitmentDialog.back')}
           </Button>
         ) : undefined
@@ -613,21 +916,22 @@ export function CommitmentDialog({
           ))}
         </div>
       ) : (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-6">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="name">{t('positionDialog.label')}</Label>
+            <Label htmlFor="name" className="sr-only">
+              {t('positionDialog.label')}
+            </Label>
             <Input
               id="name"
               value={draft.name}
               onChange={(event) => set('name', event.target.value)}
               placeholder={t(typeOption.namePlaceholder)}
               required
+              className="font-heading h-auto rounded-none border-0 border-b border-border bg-transparent px-0 pb-2 text-3xl focus-visible:border-primary focus-visible:ring-0"
             />
-          </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="amount">
+            <div className="flex items-baseline gap-3">
+              <Label htmlFor="amount" className="text-muted-foreground shrink-0 text-sm">
                 {draft.type === 'debt'
                   ? t('commitmentDialog.rate')
                   : draft.type === 'savings_goal'
@@ -640,131 +944,34 @@ export function CommitmentDialog({
                 onChange={(value) => set('amount', value)}
                 required
                 allowZero
+                className="flex-1"
+                inputClassName="h-auto border-0 bg-transparent px-0 pr-7 text-2xl font-semibold"
               />
             </div>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="interval">{t('commitmentDialog.interval')}</Label>
-              <Select
-                value={customInterval ? CUSTOM : String(draft.intervalMonths)}
-                onValueChange={handleIntervalSelect}
-              >
-                <SelectTrigger id="interval">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {INTERVAL_PRESETS.map((months) => (
-                    <SelectItem key={months} value={String(months)}>
-                      {intervalLabel(months)}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value={CUSTOM}>{t('commitmentDialog.customInterval')}</SelectItem>
-                </SelectContent>
-              </Select>
-              {customInterval && (
-                <>
-                  <Label htmlFor="interval-custom">
-                    {t('commitmentDialog.customIntervalField')}
-                  </Label>
-                  <Input
-                    id="interval-custom"
-                    ref={intervalField}
-                    type="number"
-                    min={INTERVAL_MIN}
-                    max={INTERVAL_MAX}
-                    step="1"
-                    inputMode="numeric"
-                    value={intervalText}
-                    onChange={(event) => handleIntervalText(event.target.value)}
-                    aria-invalid={!intervalValid}
-                    aria-describedby="interval-custom-hint"
-                    data-own-error
-                    required
-                  />
-                  {/* Always in the DOM so the field can point at it; only the
-                      error turns into an announcement. */}
-                  <span
-                    id="interval-custom-hint"
-                    role={intervalValid ? undefined : 'alert'}
-                    className={
-                      intervalValid ? 'text-muted-foreground text-xs' : 'text-destructive text-xs'
-                    }
-                  >
-                    {t('commitmentDialog.intervalRange', {
-                      min: INTERVAL_MIN,
-                      max: INTERVAL_MAX,
-                    })}
-                  </span>
-                </>
-              )}
-            </div>
           </div>
 
-          {draft.type === 'savings_goal' && (
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="target-amount">{t('commitmentDialog.targetAmount')}<OptionalMark /></Label>
-                <AmountField
-                  id="target-amount"
-                  value={draft.targetAmount ?? ''}
-                  onChange={(value) => set('targetAmount', value || null)}
-                  allowZero
-                />
-              </div>
-              {targetDateField}
-            </div>
-          )}
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="first-due">{t('commitmentDialog.firstDue')}</Label>
-            <DateField
-              id="first-due"
-              value={draft.firstDueDate}
-              onChange={handleFirstDueDate}
-              describedBy="first-due-hint"
-            />
-            <p id="first-due-hint" className="text-muted-foreground text-xs">
-              {t(
-                draft.intervalMonths === 1
-                  ? 'commitmentDialog.firstDueHintMonthly'
-                  : 'commitmentDialog.firstDueHint'
-              )}
-            </p>
+          <div
+            className="flex flex-col gap-3"
+            onKeyDownCapture={(event) => {
+              // The focus may still sit on the word (nothing chosen yet) or have
+              // moved into the panel — either way Esc closes just this, not the
+              // whole dialog. Capture, not bubble: a plain <div> has no ARIA role
+              // that a keyboard handler is normally attached to.
+              if (event.key !== 'Escape' || openWord === null) return
+              event.stopPropagation()
+              event.preventDefault()
+              closeWord()
+            }}
+          >
+            <p className="text-lg leading-8">{fillSentence(t(`commitmentDialog.sentence.${sentenceKey}`), words)}</p>
+            {panels}
           </div>
 
-          {(upcoming.length > 0 || dueDayShifts) && (
-            <p className="text-muted-foreground bg-muted flex flex-col gap-1 rounded-md px-3 py-2 text-xs">
-              {upcoming.length > 0 && (
-                <span>
-                  {t('commitmentDialog.dueIn', {
-                    day: dueDay,
-                    dates: upcoming.map(dueDateLabel).join(', '),
-                  })}
-                  {` — ${t('commitmentDialog.firstTime', {
-                    month: monthLabel(Number(draft.firstDueDate.slice(5, 7))),
-                    year: draft.firstDueDate.slice(0, 4),
-                  })}`}
-                </span>
-              )}
-              {dueDayShifts && (
-                <span>
-                  {t('commitmentDialog.dayShifts', {
-                    day: dueDay,
-                    year: shiftYear,
-                    februaryDay,
-                  })}
-                </span>
-              )}
+          {typeOption.budgetHint && (
+            <p className="text-muted-foreground bg-muted rounded-md px-3 py-2 text-xs">
+              {t(typeOption.budgetHint)}
             </p>
           )}
-
-          {/* A contract chooses its budget freely, so the question stays up front;
-              for the other kinds the budget is fixed and the category is a detail. */}
-          {up.category && categoryBudget}
-
-          {up.endsOn && endsOnField}
-          {up.account && accountField}
-          {up.counterAccount && counterAccountField}
 
           <MoreDetails
             resetKey={commitment}
@@ -773,19 +980,22 @@ export function CommitmentDialog({
             onToggle={(opened) => {
               detailsOpened.current = opened
             }}
+            label={t('commitmentDialog.addDetails')}
+            plain
           >
-            {!up.category && categoryBudget}
+            <div className="flex flex-col gap-2">
+              <Label>{t('common.category')}</Label>
+              <CategoryPicker value={draft.category} onChange={handleCategory} />
+            </div>
 
             {!up.endsOn && endsOnField}
 
             {/* Account and payment method belong to the commitment, not to the
                 month: they are copied into every position and stay overridable
                 there. */}
-            <div className="grid grid-cols-2 gap-3">
-              {!up.account && accountField}
-              {!up.counterAccount && counterAccountField}
-              {paymentField}
-            </div>
+            {!up.account && accountField}
+            {!up.counterAccount && counterAccountField}
+            {paymentField}
 
             <div className="flex flex-col gap-2">
               <Label>{t('common.assignment')}</Label>

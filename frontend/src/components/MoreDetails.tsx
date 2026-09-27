@@ -15,6 +15,10 @@ type Props = {
   startOpen?: boolean
   /** Told on every click, so the caller can remember the choice across a step. */
   onToggle?: (open: boolean) => void
+  /** Overrides „Weitere Angaben“ — the sentence dialog names what is actually inside. */
+  label?: string
+  /** Drops the chevron: a plain text link, for the sentence dialog (issue #215). */
+  plain?: boolean
   children: React.ReactNode
 }
 
@@ -28,6 +32,8 @@ export function MoreDetails({
   invalid = false,
   startOpen = false,
   onToggle,
+  label,
+  plain = false,
   children,
 }: Props) {
   const { t } = useTranslation()
@@ -54,10 +60,17 @@ export function MoreDetails({
           setOpen(!open)
           onToggle?.(!open)
         }}
-        className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1 text-sm font-medium"
+        className={cn(
+          'flex w-fit items-center gap-1 text-sm font-medium',
+          plain
+            ? 'text-primary underline decoration-dotted underline-offset-4'
+            : 'text-muted-foreground hover:text-foreground'
+        )}
       >
-        <ChevronRightIcon className={cn('size-4 transition-transform', open && 'rotate-90')} />
-        {t('common.moreDetails')}
+        {!plain && (
+          <ChevronRightIcon className={cn('size-4 transition-transform', open && 'rotate-90')} />
+        )}
+        {label ?? t('common.moreDetails')}
       </button>
       {open && (
         <div id="more-details" className="flex flex-col gap-4">

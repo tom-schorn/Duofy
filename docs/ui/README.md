@@ -215,9 +215,21 @@ Auswahl sofort wirkt, prüft nach.
 *So:* Neuer Monat: nächster fehlender Monat vorgewählt. *Nicht so:* Immer der heutige Monat, auch wenn
 es ihn schon gibt.
 
+**25. Satz statt Formular.**
+Name und Betrag bleiben ein Formular mit echten Feldern; alles andere liest sich als ein Satz aus
+Duofys Worten, dessen veränderliche Wörter anklickbar sind. Ein Klick öffnet die Auswahl direkt unter
+dem Satz — nie ein Popover, das darüberschwebt —, Chips für kleine Mengen, das bestehende Datums- oder
+Betragsfeld für Zahlen. Esc oder ein zweiter Klick schließt sie wieder, der Fokus geht auf das Wort
+zurück, und immer ist höchstens eine Auswahl offen. Seltenes (Kategorie und mehr) steht hinter einem
+Textlink, nicht in einer Box.
+*Warum:* Ein Formular mit zwölf Feldern liest sich wie eine Prüfung; ein Satz liest sich wie eine
+Auskunft, die man an einer Stelle korrigiert.
+*So:* „Geht monatlich ab dem 1. Oktober vom Standardkonto ab und zählt zum Grundbedarf.“ *Nicht so:*
+Sechs Auswahlfelder untereinander für dieselben sechs Tatsachen.
+
 ## Wörter
 
-**25. Ein Ding, ein Wort.**
+**26. Ein Ding, ein Wort.**
 Die Begriffe stehen in der Tabelle „Begriffe“ in `CLAUDE.md`. In der Oberfläche gilt:
 
 - **Frei** ist, was noch keinem Posten zugeteilt ist; bei 0 steht „Alles verplant“.

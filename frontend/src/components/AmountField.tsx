@@ -28,6 +28,7 @@ export function AmountField({
   disabled,
   placeholder,
   className,
+  inputClassName,
   'aria-describedby': describedBy,
 }: {
   id?: string
@@ -41,6 +42,8 @@ export function AmountField({
   disabled?: boolean
   placeholder?: string
   className?: string
+  /** Overrides the input's own look — the large borderless amount in the sentence dialog. */
+  inputClassName?: string
   'aria-describedby'?: string
 }) {
   const { t } = useTranslation()
@@ -118,7 +121,7 @@ export function AmountField({
           placeholder={placeholder ?? t('common.amountPlaceholder')}
           aria-invalid={error !== null}
           aria-describedby={cn(error && errorId, describedBy) || undefined}
-          className="pr-8 text-right tabular-nums"
+          className={cn('pr-8 text-right tabular-nums', inputClassName)}
         />
         <span
           aria-hidden="true"
