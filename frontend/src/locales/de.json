@@ -489,6 +489,13 @@
         "editTitle": "Ausgabe bearbeiten",
         "namePlaceholder": "Miete"
       },
+      "limit": {
+        "label": "Limit",
+        "hint": "Lebensmittel, Sprit: ein Betrag für den Monat, gefüllt durch Buchungen.",
+        "addTitle": "Limit anlegen",
+        "editTitle": "Limit bearbeiten",
+        "namePlaceholder": "Lebensmittel"
+      },
       "savings_goal": {
         "label": "Sparziel",
         "hint": "Du legst Geld für ein Ziel zurück.",
@@ -514,8 +521,6 @@
         "namePlaceholder": "Gehalt"
       }
     },
-    "limit": "Limit",
-    "limitHint": "Sprit, Lebensmittel, Taschengeld — kein fester Betrag zum Abhaken, du legst nur die Höhe fest. Der Posten läuft über den Monat und füllt sich aus den Buchungen.",
     "dueIn": "Fällt am {{day}}. an — nächste: {{dates}}",
     "firstTime": "erstmals {{month}} {{year}}.",
     "dayShifts": "Den {{day}}. gibt es nicht in jedem Monat — dann rutscht es auf den letzten Tag. Im Februar {{year}} also auf den {{februaryDay}}.",

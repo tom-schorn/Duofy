@@ -21,7 +21,7 @@ Mindestgröße der Bedienelemente in Zeilen: das Kästchen zum Abhaken 24 px.
 Name, Untertitel, Betrag und Leerraum tun dasselbe; nur das eigene Bedienelement der Zeile (das
 Kästchen zum Abhaken) tut etwas anderes.
 *Warum:* Dieselbe Geste soll überall dasselbe bewirken. Große Flächen sind leicht zu treffen.
-*So:* Klick auf „Miete“ oder auf den Betrag daneben öffnet „Posten bearbeiten“. *Nicht so:* Nur der
+*So:* Klick auf „Miete“ oder auf den Betrag daneben öffnet den Bearbeiten-Dialog, dessen Titel die Art nennt („Limit bearbeiten“, „Kredit bearbeiten“). *Nicht so:* Nur der
 Name ist klickbar, der Betrag tut nichts, und bei Verträgen geht Bearbeiten nur über ein Menü.
 
 **2. Was klickbar ist, sieht klickbar aus; was nicht, sieht nicht so aus.**
@@ -56,7 +56,7 @@ steht dort. Es gibt in keiner Liste ein ⋯.
 Fehlt das Recht oder ist der Eintrag schon benutzt, fehlt der Knopf (Regel 3). Danach geht der Fokus
 an eine feste Stelle: die Überschrift des Abschnitts, sonst die Seitenüberschrift (Regel 13).
 *Warum:* Wer bearbeitet, sieht dort den ganzen Eintrag und weiß, was er löscht.
-*So:* Dialog „Posten bearbeiten“: links „Löschen“ (rot), rechts „Abbrechen“ und „Speichern“.
+*So:* Bearbeiten-Dialog („Limit bearbeiten“, „Sparziel bearbeiten“ …): links „Löschen“ (rot), rechts „Abbrechen“ und „Speichern“.
 *Nicht so:* Ein grauer „Löschen“-Knopf, obwohl der Vertrag in einem Plan steht.
 
 **7. Kleines löscht sofort und ist umkehrbar; Folgenreiches fragt einmal.**
