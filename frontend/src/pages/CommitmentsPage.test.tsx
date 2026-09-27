@@ -33,9 +33,11 @@ function commitment(id: string, name: string, deletable: boolean) {
 const rows = [commitment('c1', 'Miete', true), commitment('c2', 'Strom', false)]
 let fetchMock: ReturnType<typeof vi.fn>
 
-function renderPage() {
+function renderPage(path = '/') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  const router = createMemoryRouter([{ path: '/', element: <CommitmentsPage /> }])
+  const router = createMemoryRouter([{ path: '/', element: <CommitmentsPage /> }], {
+    initialEntries: [path],
+  })
   render(
     <QueryClientProvider client={client}>
       <RouterProvider router={router} />
@@ -55,6 +57,16 @@ describe('CommitmentsPage', () => {
     vi.stubGlobal('fetch', fetchMock)
   })
   afterEach(() => vi.unstubAllGlobals())
+
+  test('the status filter comes from the address, so it survives a reload', async () => {
+    renderPage('/?status=ended')
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([url]) => String(url).includes('status=ended'))).toBe(true)
+    )
+    expect(screen.getByRole('combobox', { name: i18n.t('commitments.filterLabel') })).toHaveTextContent(
+      i18n.t('commitments.status.ended')
+    )
+  })
 
   test('a row has no menu, and a click on it opens the edit dialog', async () => {
     const user = userEvent.setup()

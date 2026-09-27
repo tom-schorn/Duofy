@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useSearchParams } from 'react-router'
 import { Plus } from 'lucide-react'
 
 import { CommitmentDialog } from '@/components/CommitmentDialog'
@@ -104,7 +105,22 @@ export function CommitmentsPage() {
   // private by default: whoever shares nothing appears in no switcher, and the
   // endpoint refuses the list anyway.
   const active = useActiveMember()
-  const [status, setStatus] = useState<CommitmentStatus>('active')
+  // The filter lives in the address, so a reload or a shared link keeps it.
+  const [params, setParams] = useSearchParams()
+  const asked = params.get('status')
+  const status: CommitmentStatus = COMMITMENT_STATUSES.includes(asked as CommitmentStatus)
+    ? (asked as CommitmentStatus)
+    : 'active'
+  const setStatus = (next: CommitmentStatus) =>
+    setParams(
+      (current) => {
+        const copy = new URLSearchParams(current)
+        if (next === 'active') copy.delete('status')
+        else copy.set('status', next)
+        return copy
+      },
+      { replace: true }
+    )
   const commitments = useCommitments(active.id, status)
   const mayEdit = atLeast(active.levelFor('commitments'), 'edit')
   // Your own you may always delete — as long as it is unused; another's needs `delete`.
