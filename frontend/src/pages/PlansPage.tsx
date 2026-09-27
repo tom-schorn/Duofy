@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { ChevronRight, Plus, Users } from 'lucide-react'
 
 import { CreatePlanDialog } from '@/components/CreatePlanDialog'
@@ -44,15 +44,29 @@ export function PlansPage() {
   // in it. Someone who is allowed to plan along needs to be able to start the
   // month, otherwise the first empty month stops them.
   const active = useActiveMember()
-  // Kein `mayDelete` hier: einen ganzen Monat löschen gibt es nicht.
-  const mayEdit = atLeast(active.levelFor('plan'), 'edit')
-  const plans = usePlans(active.id)
+  // `?household=` shows the months of the household plan — reached from "Alle
+  // Pläne" on that plan. The household owns nothing, so there is no month to list
+  // for it directly; the months that carry it are read off your own plans, the
+  // same list the composed view is built from.
+  const [params] = useSearchParams()
+  const householdId = params.get('household')
+  const inHousehold = householdId !== null
+  // Kein `mayDelete` hier: einen ganzen Monat löschen gibt es nicht. Für den
+  // Haushalt gibt es gar kein Anlegen — der Haushaltsplan wird zusammengesetzt,
+  // nie selbst erzeugt.
+  const mayEdit = !inHousehold && atLeast(active.levelFor('plan'), 'edit')
+  const plans = usePlans(inHousehold ? null : active.id)
   const households = useHouseholds()
   const [creating, setCreating] = useState(false)
 
   const names = Object.fromEntries(
     (households.data ?? []).map((household) => [household.id, household.name])
   )
+  const householdName = householdId ? (names[householdId] ?? t('plans.household')) : null
+
+  const rows = inHousehold
+    ? (plans.data?.filter((plan) => plan.householdIds.includes(householdId)) ?? [])
+    : (plans.data ?? [])
 
   return (
     <div className="flex flex-col gap-6">
@@ -60,11 +74,13 @@ export function PlansPage() {
         <div className="flex flex-col gap-2">
           <h1 className="font-heading text-3xl font-semibold">{t('plans.title')}</h1>
           <p className="text-muted-foreground">
-            {active.member === null
-              ? t('plans.lead')
-              : `${t('plans.leadMember', { name: active.member.firstName })}${
-                  mayEdit ? '' : ` ${t('plans.leadMemberView', { name: active.member.firstName })}`
-                }`}
+            {inHousehold
+              ? t('plans.leadHousehold', { name: householdName })
+              : active.member === null
+                ? t('plans.lead')
+                : `${t('plans.leadMember', { name: active.member.firstName })}${
+                    mayEdit ? '' : ` ${t('plans.leadMemberView', { name: active.member.firstName })}`
+                  }`}
           </p>
         </div>
         {mayEdit && (
@@ -76,7 +92,7 @@ export function PlansPage() {
       </header>
 
       <QueryState isPending={plans.isPending} error={plans.error} onRetry={() => void plans.refetch()}>
-        {plans.data?.length === 0 ? (
+        {rows.length === 0 ? (
           <EmptyState
             action={
               mayEdit && (
@@ -87,17 +103,23 @@ export function PlansPage() {
               )
             }
           >
-            {active.member === null
-              ? t('plans.empty')
-              : mayEdit
-                ? t('plans.emptyMemberEdit', { name: active.member.firstName })
-                : t('plans.emptyMember', { name: active.member.firstName })}
+            {inHousehold
+              ? t('plans.emptyHousehold', { name: householdName })
+              : active.member === null
+                ? t('plans.empty')
+                : mayEdit
+                  ? t('plans.emptyMemberEdit', { name: active.member.firstName })
+                  : t('plans.emptyMember', { name: active.member.firstName })}
           </EmptyState>
         ) : (
           <ul className="flex flex-col gap-3">
-            {plans.data?.map((plan) => (
+            {rows.map((plan) => (
               <li key={`${plan.year}-${plan.month}`}>
-                <PlanCard plan={plan} householdNames={names} ownerId={active.id} />
+                <PlanCard
+                  plan={plan}
+                  householdNames={names}
+                  search={inHousehold ? `?household=${householdId}` : active.id === null ? '' : `?member=${active.id}`}
+                />
               </li>
             ))}
           </ul>
@@ -118,12 +140,12 @@ export function PlansPage() {
 function PlanCard({
   plan,
   householdNames,
-  ownerId,
+  search,
 }: {
   plan: PlanSummary
   householdNames: Record<string, string>
-  /** Whose month this is, or null for your own. */
-  ownerId: string | null
+  /** `?member=` or `?household=` to carry along, or '' for your own plan. */
+  search: string
 }) {
   const unpaid = Number(plan.unpaid)
   const { t } = useTranslation()
@@ -134,11 +156,11 @@ function PlanCard({
 
   return (
     <Link
-      // The person travels with the link — without it a foreign month would open
-      // your own August, or nothing at all.
+      // The scope travels with the link — without it a foreign or household month
+      // would open your own August, or nothing at all.
       to={{
         pathname: `/plan/${plan.year}/${String(plan.month).padStart(2, '0')}`,
-        search: ownerId === null ? '' : `?member=${ownerId}`,
+        search,
       }}
       className="bg-card ring-foreground/10 hover:ring-ring focus-visible:ring-ring flex flex-col gap-4 rounded-xl p-5 ring-1 transition-[box-shadow]"
     >

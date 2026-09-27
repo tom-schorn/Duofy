@@ -650,6 +650,8 @@
   "plans": {
     "leadMember": "Die Monatspläne von {{name}}. Klick einen an, um hineinzuschauen.",
     "leadMemberView": "{{name}} hat den Plan nicht zum Bearbeiten freigegeben.",
+    "leadHousehold": "Die Monate von {{name}}. Klick einen an, um den gemeinsamen Plan zu sehen.",
+    "emptyHousehold": "Noch kein Monat mit {{name}} geteilt.",
     "emptyMemberEdit": "{{name}} hat noch keinen Monat angelegt. Du darfst einen anlegen — die Posten entstehen aus {{name}}s Verträgen.",
     "emptyMember": "{{name}} hat noch keinen Monat angelegt.",
     "createFor": "Monat für {{name}} anlegen",
