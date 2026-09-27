@@ -82,6 +82,28 @@ describe('PlanDetailPage', () => {
     expect(monthSelect).toHaveTextContent('Dezember')
   })
 
+  test.each([
+    ['own plan', '/plan/2026/11', ''],
+    ['member plan', '/plan/2026/11?member=u2&tab=flow', '?member=u2&tab=flow'],
+    ['household plan', '/plan/2026/11?household=h1', '?household=h1'],
+  ])('the month switch moves through the %s and keeps the address parameters', async (_name, path, search) => {
+    const router = renderAt(path)
+    fireEvent.click(await screen.findByRole('button', { name: 'Nächster Monat' }))
+    expect(router.state.location.pathname).toBe('/plan/2026/12')
+    expect(router.state.location.search).toBe(search)
+    expect(await screen.findByText('Dezember 2026')).toBeInTheDocument()
+
+    // Across the year boundary, with a two-digit month.
+    fireEvent.click(screen.getByRole('button', { name: 'Nächster Monat' }))
+    expect(router.state.location.pathname).toBe('/plan/2027/01')
+    fireEvent.click(screen.getByRole('button', { name: 'Vorheriger Monat' }))
+    expect(router.state.location.pathname).toBe('/plan/2026/12')
+
+    // Back goes to the month before, not out of the page.
+    await act(() => router.navigate(-1))
+    expect(router.state.location.pathname).toBe('/plan/2027/01')
+  })
+
   test('without the right to edit the plan there is no create button', async () => {
     renderAt('/plan/2026/11?member=u2')
     expect(await screen.findByText('November 2026 ist noch nicht angelegt')).toBeInTheDocument()
