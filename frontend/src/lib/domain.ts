@@ -30,6 +30,14 @@ export const BUDGET_DOT: Record<Budget, string> = {
   savings: 'bg-chart-4',
 }
 
+/** The same colours as SVG fills, for the flow chart. Income is the plan's chart-3. */
+export const BUDGET_FILL: Record<Budget, string> = {
+  income: 'fill-chart-3',
+  needs: 'fill-chart-1',
+  wants: 'fill-chart-2',
+  savings: 'fill-chart-4',
+}
+
 
 /** The three budgets — 50 · 30 · 20, in that order. */
 export const BUDGETS: Budget[] = ['needs', 'wants', 'savings']

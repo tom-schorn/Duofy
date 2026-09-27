@@ -35,11 +35,12 @@ import {
 } from '@/components/ui/table'
 import {
   BUDGET_DOT,
+  BUDGET_FILL,
   budgetLabel,
   euro,
   monthLabel,
-  type Budget,
-  type FlowEntry, type FlowLimitsBy,
+  type FlowEntry,
+  type FlowLimitsBy,
   type PlanFlow,
 } from '@/lib/domain'
 import { today } from '@/lib/dates'
@@ -64,14 +65,6 @@ import { useFlow, useSetFlowLimitsBy } from '@/lib/queries'
  *
  * Steps rather than a smooth line: money moves in jumps.
  */
-
-/** The plan's budget colours (same tokens as the plan and its Sankey), as SVG fills. */
-const BUDGET_FILL: Record<Budget, string> = {
-  income: 'fill-muted-foreground',
-  needs: 'fill-chart-1',
-  wants: 'fill-chart-2',
-  savings: 'fill-chart-4',
-}
 
 type Scope = { householdId?: string | null; ownerId?: string | null }
 
