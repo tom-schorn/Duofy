@@ -603,6 +603,11 @@
     "hint": "Datum ist heute. Eine Umbuchung mit Posten füllt zugleich das Budget — so wird aus „aufs Tagesgeld gelegt\" eine erfüllte Sparquote.",
     "noNote": "Ohne Notiz",
     "autoBooked": "vom Haken",
+    "sentence": "Gebucht am {date} vom {account}, verplant auf {position}.",
+    "dateLabel": "Wann gebucht?",
+    "accountLabel": "Von welchem Konto?",
+    "positionLabel": "Welcher Posten?",
+    "addDetails": "Kategorie oder Notiz hinzufügen",
     "editTitle": "Buchung bearbeiten",
     "editHint": "Eine Buchung vom Haken bleibt an ihrem Posten."
   },
