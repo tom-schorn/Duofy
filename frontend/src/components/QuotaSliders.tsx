@@ -2,6 +2,7 @@ import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { coupleQuotas } from '@/lib/domain'
+import { formatShare } from '@/lib/format'
 
 const KEYS = [
   ['targetNeeds', 'quota.needs'],
@@ -25,6 +26,10 @@ export function QuotaSliders({
 }) {
   const { t } = useTranslation()
   const prefix = useId()
+  // One decimal only when a value is not whole, so the three shown numbers keep
+  // adding up to 100 — rounding all three to whole percent can drop or add one.
+  const fractional = values.some((value) => !Number.isInteger(value))
+  const display = (value: number) => (fractional ? formatShare(value) : String(Math.round(value)))
 
   return (
     <div className="flex flex-col gap-4">
@@ -35,7 +40,7 @@ export function QuotaSliders({
               {t(label)}
             </label>
             <output htmlFor={`${prefix}-${key}`} className="text-sm tabular-nums">
-              {Math.round(values[index])} %
+              {display(values[index])} %
             </output>
           </div>
           <input
@@ -45,6 +50,7 @@ export function QuotaSliders({
             max={100}
             step={1}
             value={Math.round(values[index])}
+            aria-valuetext={t('quota.percent', { value: display(values[index]) })}
             onChange={(event) =>
               onChange(coupleQuotas(values, index as 0 | 1 | 2, Number(event.target.value)))
             }

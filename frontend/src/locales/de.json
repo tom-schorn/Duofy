@@ -319,6 +319,7 @@
     "needs": "Grundbedarf in %",
     "wants": "Wünsche in %",
     "savings": "Sparen in %",
+    "percent": "{{value}} Prozent",
     "sumAlways": "Zusammen immer 100 %: Wenn du einen Regler bewegst, gleichen die anderen aus.",
     "sum": "Zusammen: {{sum}} %",
     "mustSum": "Grundbedarf, Wünsche und Sparen ergeben zusammen 100 %.",
