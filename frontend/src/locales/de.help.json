@@ -82,6 +82,18 @@
         "title": "Übertrag",
         "body": "<p>Der Übertrag legt fest, mit welchem Stand das Standardkonto in den Monat geht. Ist einer gesetzt, beginnt der Verlauf dort statt bei null.</p><pSpaced>Er ist freiwillig und ändert keinen Kontostand: Der Stand enthält schon jeden Vormonat, ein Übertrag stellt ihn nur fest. Vorgeschlagen wird der Buchstand zum Ende des Vormonats; weicht die Bank ab, trägst du den Stand vom Kontoauszug ein. Ein überzogenes Konto darf im Minus starten.</pSpaced>"
       },
+      "quota": {
+        "title": "Richtwerte",
+        "body": "<p>Die Richtwerte sagen, wie das Verplanbare auf Grundbedarf, Wünsche und Sparen verteilt werden soll; als Puffer bleibt ein Teil unverplant. Vorgeschlagen sind 50, 30 und 20 Prozent. Es sind Orientierungswerte, keine Pflicht: Du kannst jeden Monat anders planen.</p><pSpaced>Du stellst <strong>deine eigenen</strong> Richtwerte im Benutzermenü ein. Sie gelten für jeden Monat, den du ab dann anlegst; bestehende Monate bleiben, wie sie sind. Grundbedarf, Wünsche und Sparen müssen zusammen 100 Prozent ergeben.</pSpaced><pSpaced>Im Haushaltsplan gibt es ein <strong>gemeinsames Ziel</strong>. Es gilt sofort für jeden Monat des Haushaltsplans, auch für vergangene, und jedes Mitglied darf es ändern.</pSpaced>"
+      },
+      "flow": {
+        "title": "Verlauf und Limits",
+        "body": "<p>Der Verlauf zeigt, wann im Monat Geld hereinkommt und hinausgeht. So siehst du den Tiefpunkt: den Tag, an dem am meisten mehr ausgegeben als eingenommen ist, und damit den Betrag, der zu Monatsbeginn da sein muss. Er rechnet mit geplanten Fälligkeiten, nicht mit den echten Buchungstagen.</p><pSpaced>Bei einem <strong>Limit</strong> gibt es keinen festen Tag und keinen Haken. Du stellst pro Person ein, was der Verlauf dafür zählt: entweder den <strong>vollen geplanten Betrag</strong> am Fälligkeitstag oder nur das, was tatsächlich <strong>gebucht</strong> ist, an den echten Tagen. Eine Schätzung für den Rest des Monats gibt es nie, sie würde Zahlen erfinden. Alle anderen Posten zählen nach Plan, bis sie abgehakt sind.</pSpaced>"
+      },
+      "hints": {
+        "title": "Hinweise",
+        "body": "<p>Duofy weist dich im Plan auf Dinge hin, die deine Aufmerksamkeit brauchen. Die Hinweise werden bei jedem Öffnen neu berechnet und nirgends gespeichert; sie verschwinden von selbst, sobald das Problem erledigt ist.</p><pSpaced>Bisher gibt es einen: <strong>überfällig</strong>. Ein Posten ohne Haken ist ab dem Tag nach seiner Fälligkeit überfällig, ohne Schonfrist. Dass die Bank später bucht, ändert nichts daran, dass er noch offen ist. Ein Limit hat keinen Haken und ist deshalb nie überfällig.</pSpaced>"
+      },
       "tick": {
         "title": "Posten abhaken",
         "body": "<p>Das Abhaken erzeugt eine Buchung. Datum und Betrag sind mit dem heutigen Datum und dem geplanten Betrag vorbelegt und lassen sich vor dem Bestätigen anpassen.</p><listSpaced><li>Der Posten entfällt aus „Anstehend“.</li><li>Bestehen zum Posten bereits Buchungen — etwa bei einem Limit, auf das über den Monat eingekauft wurde —, entsteht keine weitere. Der Haken bedeutet dann „Monat erledigt“; andernfalls würden die Beträge doppelt erfasst.</li><li>Bei Sparzielen mit hinterlegtem Zielkonto entsteht eine Umbuchung statt einer Ausgabe: das Geld verbleibt im Haushalt.</li><li>Bei Einnahmen bedeutet der Haken „eingegangen“ und wirkt sich auf „Anstehend“ nicht aus.</li></listSpaced><pSpaced>Ein abweichendes Buchungsdatum verschiebt den Posten nicht: Ein Augustposten mit Julidatum ergibt eine Julibuchung auf einem Augustposten.</pSpaced>"
@@ -173,6 +185,10 @@
       "grants": {
         "title": "Freigabe je Bereich",
         "body": "<p>Was die anderen von dir sehen, entscheidest du getrennt für drei Bereiche. Die Stufe vergibst nur du selbst und nur für dich; zurücknehmen kannst du sie jederzeit, ohne jemanden zu fragen.</p><p>Jeder Bereich hat dieselben vier Stufen, und sie bauen aufeinander auf — wer ändern darf, darf auch sehen.</p>"
+      },
+      "preset": {
+        "title": "Voreinstellung beim Beitritt",
+        "body": "<p>Legst du einen Haushalt an oder trittst einem bei, fragt Duofy einmal, was du teilst. Bisher sehen die anderen nur deinen Plan. Mit <strong>Paar übernehmen</strong> dürfen die anderen alles von dir sehen und bearbeiten; du kannst es aber auch so lassen.</p><pSpaced>Die Voreinstellung gilt nur für dich und setzt nur deine Freigaben. Danach änderst du jeden Bereich einzeln, und zurücknehmen kannst du sie jederzeit.</pSpaced>"
       },
       "areas": {
         "title": "Die drei Bereiche",
