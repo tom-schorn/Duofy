@@ -46,7 +46,7 @@ async def make_plan(
 def position(plan: Plan, due_day: int, **kwargs) -> PlanPosition:
     return PlanPosition(
         plan_id=plan.id,
-        label="Rent",
+        label=kwargs.pop("label", "Rent"),
         amount_planned=kwargs.pop("amount_planned", Decimal("890.00")),
         category=kwargs.pop("category", Category.HOUSING_RENT),
         budget=kwargs.pop("budget", Budget.NEEDS),
