@@ -1107,3 +1107,21 @@ export const QUOTA_KEY: Record<
 
 /** The heading of a budget section; the focus lands there after a position was deleted. */
 export const budgetHeadingId = (budget: Budget) => `budget-heading-${budget}`
+
+/** The first month from `today` on that has no plan yet — what „Monat anlegen“ offers. */
+export function nextMissingMonth(
+  plans: { year: number; month: number }[],
+  today: Date = new Date()
+): { year: number; month: number } {
+  const have = new Set(plans.map((plan) => `${plan.year}-${plan.month}`))
+  let year = today.getFullYear()
+  let month = today.getMonth() + 1
+  while (have.has(`${year}-${month}`)) {
+    month += 1
+    if (month > 12) {
+      month = 1
+      year += 1
+    }
+  }
+  return { year, month }
+}
