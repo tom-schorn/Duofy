@@ -79,6 +79,9 @@ const ENTRIES: Record<HelpKey, string[]> = {
     'plan.entries.tick',
     'plan.entries.limit',
     'plan.entries.carry-over',
+    'plan.entries.quota',
+    'plan.entries.flow',
+    'plan.entries.hints',
     OTHER_PERSON,
   ],
   book: [
@@ -99,6 +102,7 @@ const ENTRIES: Record<HelpKey, string[]> = {
   household: [
     'household',
     'grants',
+    'preset',
     'areas',
     'levels',
     'areas-hang-together',
