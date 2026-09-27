@@ -1,10 +1,33 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { i18n } from '@/lib/i18n'
+import { flushPendingDelete } from '@/lib/undo-delete'
 import { PlanDetailPage } from '@/pages/PlanDetailPage'
+
+/** A whole month, positions included — the shape `/plans/{year}/{month}` returns. */
+function ownPlan(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'plan1',
+    year: 2026,
+    month: 11,
+    targetNeeds: '50.00',
+    targetWants: '30.00',
+    targetSavings: '20.00',
+    bufferPercent: '0.00',
+    income: '0.00',
+    distributable: '0.00',
+    spent: { needs: '0.00', wants: '0.00', savings: '0.00' },
+    unpaid: '0.00',
+    householdIds: [],
+    deletable: true,
+    hints: [],
+    positions: [],
+    ...overrides,
+  }
+}
 
 function renderAt(path: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -109,6 +132,78 @@ describe('PlanDetailPage', () => {
     renderAt('/plan/2026/11?member=u2')
     expect(await screen.findByText('November 2026 ist noch nicht angelegt')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Monat anlegen' })).not.toBeInTheDocument()
+  })
+
+  describe('deleting the month (#219)', () => {
+    function stubPlan(plan: Record<string, unknown>, deletes: string[]) {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (url: string, init?: RequestInit) => {
+          const target = String(url)
+          // The permanently-mounted print chart loads the flow even on the plan tab.
+          if (target.includes('/flow')) {
+            return new Response(
+              JSON.stringify({
+                year: 2026,
+                month: 11,
+                flowLimitsBy: 'plan',
+                start: '0.00',
+                entries: [],
+                days: [],
+                hints: [],
+              }),
+              { status: 200 }
+            )
+          }
+          if (target.includes('/plans/2026/11') && init?.method === 'DELETE') {
+            deletes.push(target)
+            return new Response(null, { status: 204 })
+          }
+          if (target.includes('/plans/2026/11')) {
+            return new Response(JSON.stringify(plan), { status: 200 })
+          }
+          if (target.endsWith('/households')) {
+            return new Response(JSON.stringify(household('view')), { status: 200 })
+          }
+          return new Response('[]', { status: 200 })
+        })
+      )
+    }
+
+    test('a deletable month leaves with undo, and the request waits for it', async () => {
+      const deletes: string[] = []
+      stubPlan(ownPlan(), deletes)
+
+      renderAt('/plan/2026/11')
+      const button = await screen.findByRole('button', { name: i18n.t('plan.deleteMonth') })
+      expect(button).toBeEnabled()
+
+      fireEvent.click(button)
+      // Nothing is sent while the „Rückgängig" message could still take it back.
+      expect(deletes).toEqual([])
+
+      await act(() => flushPendingDelete())
+      await waitFor(() => expect(deletes).toHaveLength(1))
+    })
+
+    test('a month with bookings cannot be deleted, and says why', async () => {
+      stubPlan(ownPlan({ deletable: false }), [])
+
+      renderAt('/plan/2026/11')
+      const button = await screen.findByRole('button', { name: i18n.t('plan.deleteMonth') })
+      expect(button).toBeDisabled()
+      expect(screen.getByText(i18n.t('errors.plan_has_transactions'))).toBeInTheDocument()
+    })
+
+    test('a member plan without the delete right shows no delete button', async () => {
+      stubPlan(ownPlan(), [])
+
+      renderAt('/plan/2026/11?member=u2')
+      await screen.findByText('November 2026')
+      expect(
+        screen.queryByRole('button', { name: i18n.t('plan.deleteMonth') })
+      ).not.toBeInTheDocument()
+    })
   })
 
   test.each([

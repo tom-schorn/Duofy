@@ -988,6 +988,8 @@ export type PlanSummary = Plan & {
   unpaid: string
   /** Households that positions of this plan feed into. Empty means fully private. */
   householdIds: string[]
+  /** No booking hangs on any of its positions yet, so it may still be deleted. */
+  deletable: boolean
 }
 
 /** Mirror of `Hint` — something the backend wants the plan to point out. */
