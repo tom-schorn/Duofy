@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, Star, Trash2 } from 'lucide-react'
 
@@ -245,6 +245,9 @@ export function AccountDialog({
   // Which sentence word is open — only one at a time (issue #215).
   const [openWord, setOpenWord] = useState<string | null>(null)
   const wordRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  // Read out with every word and every opened field, so a screen reader hears the
+  // whole sentence, not just the one word (issue #202, review D-215-3, fix 1).
+  const sentenceId = useId()
 
   // An old error must not greet the next attempt.
   const resetSave = save.reset
@@ -289,7 +292,12 @@ export function AccountDialog({
   }
 
   const typeWord = (
-    <SentenceWord ref={wordRef('type')} open={openWord === 'type'} onClick={() => toggleWord('type')}>
+    <SentenceWord
+      ref={wordRef('type')}
+      open={openWord === 'type'}
+      onClick={() => toggleWord('type')}
+      describedBy={sentenceId}
+    >
       {accountTypeLabel(draft.type)}
     </SentenceWord>
   )
@@ -313,7 +321,12 @@ export function AccountDialog({
   )
 
   const dateWord = (
-    <SentenceWord ref={wordRef('date')} open={openWord === 'date'} onClick={() => toggleWord('date')}>
+    <SentenceWord
+      ref={wordRef('date')}
+      open={openWord === 'date'}
+      onClick={() => toggleWord('date')}
+      describedBy={sentenceId}
+    >
       {longDate(draft.openingDate)}
     </SentenceWord>
   )
@@ -328,6 +341,7 @@ export function AccountDialog({
           set('openingDate', toIsoDay(date))
           closeWord()
         }}
+        aria-describedby={sentenceId}
         autoFocus
       />
     </SentencePanel>
@@ -449,7 +463,7 @@ export function AccountDialog({
           {/* Ohne Stichtag wäre der Stand zu einem Zeitpunkt nicht
               berechenbar — man wüsste nicht, welche Buchungen schon
               im Anfangsbestand stecken. */}
-          <p className="text-lg leading-8">
+          <p id={sentenceId} className="text-lg leading-8">
             {fillSentence(t('accounts.sentence'), { type: typeWord, date: dateWord })}
           </p>
           {typePanel}

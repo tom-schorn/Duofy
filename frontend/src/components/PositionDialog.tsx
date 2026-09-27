@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DialogFrame } from '@/components/DialogFrame'
@@ -151,6 +151,9 @@ export function PositionDialog({
   // Which sentence word is open — only one at a time (issue #215).
   const [openWord, setOpenWord] = useState<string | null>(null)
   const wordRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  // Read out with every word and every opened field, so a screen reader hears the
+  // whole sentence, not just the one word (issue #202, review D-215-3, fix 1).
+  const sentenceId = useId()
 
   useEffect(() => {
     if (open) {
@@ -254,7 +257,12 @@ export function PositionDialog({
   // --- Sentence words -------------------------------------------------------
 
   const dueDayWord = (
-    <SentenceWord ref={wordRef('dueDay')} open={openWord === 'dueDay'} onClick={() => toggleWord('dueDay')}>
+    <SentenceWord
+      ref={wordRef('dueDay')}
+      open={openWord === 'dueDay'}
+      onClick={() => toggleWord('dueDay')}
+      describedBy={sentenceId}
+    >
       {t('common.dueDay', { day: draft.dueDay })}
     </SentenceWord>
   )
@@ -270,6 +278,7 @@ export function PositionDialog({
         max="31"
         value={draft.dueDay}
         onChange={(event) => set('dueDay', Number(event.target.value))}
+        aria-describedby={sentenceId}
         required
         className="w-24"
       />
@@ -279,7 +288,12 @@ export function PositionDialog({
   const budgetWord = budgetIsFixed ? (
     <span className="font-medium">{budgetLabel(draft.budget)}</span>
   ) : (
-    <SentenceWord ref={wordRef('budget')} open={openWord === 'budget'} onClick={() => toggleWord('budget')}>
+    <SentenceWord
+      ref={wordRef('budget')}
+      open={openWord === 'budget'}
+      onClick={() => toggleWord('budget')}
+      describedBy={sentenceId}
+    >
       {budgetLabel(draft.budget)}
     </SentenceWord>
   )
@@ -439,7 +453,7 @@ export function PositionDialog({
               closeWord()
             }}
           >
-            <p className="text-lg leading-8">
+            <p id={sentenceId} className="text-lg leading-8">
               {fillSentence(t(`positionDialog.sentence.${sentenceKey}`), words)}
             </p>
             {panels}

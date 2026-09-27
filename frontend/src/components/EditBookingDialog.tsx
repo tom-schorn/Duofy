@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { AmountField } from '@/components/AmountField'
@@ -86,6 +86,9 @@ export function EditBookingDialog({
   // Which sentence word is open — only one at a time (issue #215).
   const [openWord, setOpenWord] = useState<string | null>(null)
   const wordRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  // Read out with every word and every opened field, so a screen reader hears the
+  // whole sentence, not just the one word (issue #202, review D-215-3, fix 1).
+  const sentenceId = useId()
 
   const chosen = positions.find((position) => position.id === positionId)
   const isTransfer = transaction.counterAccountId !== null
@@ -146,7 +149,12 @@ export function EditBookingDialog({
   }
 
   const dateWord = (
-    <SentenceWord ref={wordRef('date')} open={openWord === 'date'} onClick={() => toggleWord('date')}>
+    <SentenceWord
+      ref={wordRef('date')}
+      open={openWord === 'date'}
+      onClick={() => toggleWord('date')}
+      describedBy={sentenceId}
+    >
       {longDate(occurredOn)}
     </SentenceWord>
   )
@@ -161,13 +169,19 @@ export function EditBookingDialog({
           setOccurredOn(toIsoDay(date))
           closeWord()
         }}
+        aria-describedby={sentenceId}
         autoFocus
       />
     </SentencePanel>
   )
 
   const accountWord = (
-    <SentenceWord ref={wordRef('account')} open={openWord === 'account'} onClick={() => toggleWord('account')}>
+    <SentenceWord
+      ref={wordRef('account')}
+      open={openWord === 'account'}
+      onClick={() => toggleWord('account')}
+      describedBy={sentenceId}
+    >
       {accounts.find((account) => account.id === accountId)?.name ?? ''}
     </SentenceWord>
   )
@@ -199,6 +213,7 @@ export function EditBookingDialog({
       ref={wordRef('position')}
       open={openWord === 'position'}
       onClick={() => toggleWord('position')}
+      describedBy={sentenceId}
     >
       {chosen?.label ?? t('monthBook.noPosition')}
     </SentenceWord>
@@ -287,7 +302,7 @@ export function EditBookingDialog({
             closeWord()
           }}
         >
-          <p className="text-lg leading-8">
+          <p id={sentenceId} className="text-lg leading-8">
             {fillSentence(t('monthBook.sentence'), {
               date: dateWord,
               account: accountWord,

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { AmountField } from '@/components/AmountField'
@@ -55,6 +55,9 @@ export function PaidDialog({
   const [amount, setAmount] = useState('')
   const [dateOpen, setDateOpen] = useState(false)
   const dateWordRef = useRef<HTMLButtonElement | null>(null)
+  // Read out with the word and the opened field, so a screen reader hears the
+  // whole sentence, not just the one word (issue #202, review D-215-3, fix 1).
+  const sentenceId = useId()
 
   // Back to the defaults on every open. Without this, the second position would
   // still show the amount of the first.
@@ -122,12 +125,17 @@ export function PaidDialog({
           closeDateWord()
         }}
       >
-        <p className="text-lg leading-8">
+        <p id={sentenceId} className="text-lg leading-8">
           {fillSentence(t('paidDialog.sentence'), {
             date: hasBookings ? (
               <span className="font-medium">{longDate(occurredOn)}</span>
             ) : (
-              <SentenceWord ref={dateWordRef} open={dateOpen} onClick={() => setDateOpen((open) => !open)}>
+              <SentenceWord
+                ref={dateWordRef}
+                open={dateOpen}
+                onClick={() => setDateOpen((open) => !open)}
+                describedBy={sentenceId}
+              >
                 {longDate(occurredOn)}
               </SentenceWord>
             ),
@@ -144,6 +152,7 @@ export function PaidDialog({
                 setOccurredOn(toIsoDay(date))
                 closeDateWord()
               }}
+              aria-describedby={sentenceId}
               autoFocus
             />
           </SentencePanel>

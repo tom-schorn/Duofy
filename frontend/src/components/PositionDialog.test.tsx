@@ -177,12 +177,24 @@ describe('PositionDialog kind', () => {
     expect(screen.getByLabelText(i18n.t('common.dueOn'))).toBeInTheDocument()
   })
 
-  test('the due day input is described by the whole sentence for screen readers', async () => {
+  test('the due day word and its opened field are described by the whole sentence for screen readers', async () => {
     const user = userEvent.setup()
     renderCreate()
     await user.click(screen.getByRole('button', { name: /Verpflichtung/ }))
-    const input = screen.getByLabelText(i18n.t('common.dueOn'))
-    expect(input).toHaveAccessibleDescription(i18n.t('common.dueOnSentence', { day: 1 }))
+    // A regex, not the exact string: the accessible-description algorithm adds a
+    // space of its own at an element boundary (before the sentence's closing
+    // full stop), which is not part of what this test cares about.
+    const sentence = new RegExp(
+      `Fällig am 1\\. und zählt zum Budget ${budgetLabel('needs')}`
+    )
+    const dueDayWord = screen.getByRole('button', { name: '1.' })
+    expect(dueDayWord).toHaveAccessibleDescription(sentence)
+    await user.click(dueDayWord)
+    // Not getByLabelText: the panel's own group and the field share one label
+    // text, so a label lookup is ambiguous between them.
+    expect(
+      screen.getByRole('spinbutton', { name: i18n.t('positionDialog.dueDayLabel') })
+    ).toHaveAccessibleDescription(sentence)
   })
 
   test('choosing a card alone does not make the dialog dirty', async () => {
