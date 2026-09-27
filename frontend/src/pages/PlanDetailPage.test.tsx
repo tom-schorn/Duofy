@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
+import { Toaster } from '@/components/ui/sonner'
 import { i18n } from '@/lib/i18n'
 import { flushPendingDelete } from '@/lib/undo-delete'
 import { PlanDetailPage } from '@/pages/PlanDetailPage'
@@ -38,6 +39,7 @@ function renderAt(path: string) {
   render(
     <QueryClientProvider client={client}>
       <RouterProvider router={router} />
+      <Toaster />
     </QueryClientProvider>
   )
   return router
@@ -170,7 +172,7 @@ describe('PlanDetailPage', () => {
       )
     }
 
-    test('a deletable month leaves with undo, and the request waits for it', async () => {
+    test('clicking it shows the missing-month state at once, before any request', async () => {
       const deletes: string[] = []
       stubPlan(ownPlan(), deletes)
 
@@ -179,11 +181,33 @@ describe('PlanDetailPage', () => {
       expect(button).toBeEnabled()
 
       fireEvent.click(button)
+      // Gone at once (decisions 21/22) — same moment a small thing leaves its list.
+      expect(
+        await screen.findByRole('button', { name: 'Monat anlegen' })
+      ).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: i18n.t('plan.deleteMonth') })).not.toBeInTheDocument()
       // Nothing is sent while the „Rückgängig" message could still take it back.
       expect(deletes).toEqual([])
 
       await act(() => flushPendingDelete())
       await waitFor(() => expect(deletes).toHaveLength(1))
+    })
+
+    test('Undo brings the plan back without ever sending a request', async () => {
+      const deletes: string[] = []
+      stubPlan(ownPlan(), deletes)
+
+      renderAt('/plan/2026/11')
+      fireEvent.click(await screen.findByRole('button', { name: i18n.t('plan.deleteMonth') }))
+      await screen.findByRole('button', { name: 'Monat anlegen' })
+
+      fireEvent.click(await screen.findByRole('button', { name: i18n.t('ui.undo') }))
+
+      expect(
+        await screen.findByRole('button', { name: i18n.t('plan.deleteMonth') })
+      ).toBeInTheDocument()
+      await act(() => flushPendingDelete())
+      expect(deletes).toEqual([])
     })
 
     test('a month with bookings cannot be deleted, and says why', async () => {

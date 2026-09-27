@@ -627,16 +627,29 @@ export function useCreatePlan() {
  * Delete a month with „Rückgängig“ — your own, or that of a member who granted
  * `delete`. Allowed only while nothing is booked against any of its positions
  * (#219, same rule as commitments and accounts, #139).
+ *
+ * `PlanSummary` has no `id` of its own, so the plan page cannot vanish through
+ * `hideIn` the way a row in a list does — the caller passes `onHide`/`onRestore`
+ * to switch its own view (to the missing-month state and back) at the same
+ * moments a row would be hidden or brought back.
  */
 export function useDeletePlan() {
   const client = useQueryClient()
-  return (plan: { year: number; month: number; ownerId?: string | null }) =>
+  return (plan: {
+    year: number
+    month: number
+    ownerId?: string | null
+    onHide?: () => void
+    onRestore?: () => void
+  }) =>
     deleteWithUndo({
       client,
       id: `${plan.year}-${plan.month}`,
       name: `${monthLabel(plan.month)} ${plan.year}`,
       hideIn: [],
       invalidate: [keys.planOf(plan.year, plan.month, plan.ownerId ?? null), keys.plans],
+      onHide: plan.onHide,
+      onRestore: plan.onRestore,
       request: (keepalive) =>
         api.delete(
           plan.ownerId
