@@ -35,7 +35,7 @@ async def test_a_new_month_starts_from_the_personal_default(
 ):
     user = await make_user(session, "Owner")
     user.target_needs, user.target_wants = Decimal("65"), Decimal("20")
-    user.target_savings, user.buffer_percent = Decimal("15"), Decimal("5")
+    user.target_savings = Decimal("15")
     await session.commit()
     sign_in(user)
 
@@ -43,7 +43,6 @@ async def test_a_new_month_starts_from_the_personal_default(
 
     plan = await plan_of(session, user)
     assert (plan.target_needs, plan.target_wants, plan.target_savings) == (65, 20, 15)
-    assert plan.buffer_percent == 5
 
 
 async def test_changing_the_default_leaves_existing_months_alone(

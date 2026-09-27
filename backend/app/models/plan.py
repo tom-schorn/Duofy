@@ -44,7 +44,6 @@ class Plan(UUIDMixin, TimestampMixin, Base):
     target_savings: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("20.00"))
 
     #: How many percent of the income is deliberately left unplanned.
-    buffer_percent: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("0.00"))
 
     #: Ordered on purpose. Without `order_by` the database returns them however
     #: it likes, and an updated row typically comes back last — so changing one

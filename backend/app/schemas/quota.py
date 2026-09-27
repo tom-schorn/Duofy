@@ -4,7 +4,7 @@ QUOTA_FIELDS = ("target_needs", "target_wants", "target_savings")
 
 
 def check_quotas(needs: Decimal | None, wants: Decimal | None, savings: Decimal | None) -> None:
-    """The three quotas describe the whole income after the buffer: they add up to 100.
+    """The three quotas describe the whole income: they add up to 100.
 
     On an update they are sent together or not at all — one alone could only be
     checked against what is stored, and a guideline that shifts silently under a

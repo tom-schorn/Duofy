@@ -2,7 +2,7 @@
 
 Both changed with #106 and neither had a test of its own before.
 
-`distributable` is the amount that may be allocated — income minus the buffer.
+`distributable` is the amount that may be allocated — the income.
 It used to be called `budget`, which was also the name of the 50/30/20
 dimension; one word for two things is exactly the kind of thing that confuses
 people who need clear terms.
@@ -37,13 +37,8 @@ async def owner(session: AsyncSession) -> User:
     return user
 
 
-async def make_plan(session: AsyncSession, owner: User, *, buffer_percent: str = "0.00") -> Plan:
-    plan = Plan(
-        user_id=owner.id,
-        year=2026,
-        month=9,
-        buffer_percent=Decimal(buffer_percent),
-    )
+async def make_plan(session: AsyncSession, owner: User) -> Plan:
+    plan = Plan(user_id=owner.id, year=2026, month=9)
     session.add(plan)
     await session.flush()
     return plan
@@ -122,11 +117,11 @@ async def test_an_open_single_payment_counts_what_is_left_of_it(
     assert Decimal(figure(await summary(client), "unpaid")) == Decimal("690.00")
 
 
-async def test_distributable_is_income_minus_the_buffer(
+async def test_distributable_is_the_income(
     client: AsyncClient, session: AsyncSession, owner: User
 ):
-    """The field the overview calls "Verteilbar" — 3000 less a tenth."""
-    plan = await make_plan(session, owner, buffer_percent="10.00")
+    """The field the overview calls "Verteilbar" — all of the income."""
+    plan = await make_plan(session, owner)
     session.add(
         position(
             plan,
@@ -140,7 +135,7 @@ async def test_distributable_is_income_minus_the_buffer(
 
     figures = await summary(client)
     assert Decimal(figure(figures, "income")) == Decimal("3000.00")
-    assert Decimal(figure(figures, "distributable")) == Decimal("2700.00")
+    assert Decimal(figure(figures, "distributable")) == Decimal("3000.00")
     assert "budget" not in figures, "the old name must be gone, not kept alongside"
 
 

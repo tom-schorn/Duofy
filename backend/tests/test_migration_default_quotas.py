@@ -23,9 +23,9 @@ async def test_existing_users_get_the_guideline_as_their_default(at_revision: As
     alembic("upgrade", "head")
 
     row = await at_revision.execute(
-        text("SELECT target_needs, target_wants, target_savings, buffer_percent FROM users")
+        text("SELECT target_needs, target_wants, target_savings FROM users")
     )
-    assert row.one() == (50, 30, 20, 0)
+    assert row.one() == (50, 30, 20)
 
 
 async def test_the_database_refuses_quotas_that_do_not_add_up(at_revision: AsyncConnection):
