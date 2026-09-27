@@ -9,6 +9,7 @@
 import { describe, expect, it, it as test } from 'vitest'
 
 import {
+  nextMissingMonth,
   DUE_DAY_MAY_SHIFT,
   daysInMonth,
   dueDayOf,
@@ -292,5 +293,27 @@ describe('commitment end month', () => {
 
   test('names the month and year', () => {
     expect(endMonthLabel('2026-03-15')).toBe('März 2026')
+  })
+})
+
+describe('nextMissingMonth', () => {
+  const today = new Date(2026, 8, 27)
+
+  test('is the current month when it has no plan', () => {
+    expect(nextMissingMonth([], today)).toEqual({ year: 2026, month: 9 })
+  })
+
+  test('skips the months that have a plan, also across the year end', () => {
+    const plans = [
+      { year: 2026, month: 9 },
+      { year: 2026, month: 10 },
+      { year: 2026, month: 11 },
+      { year: 2026, month: 12 },
+    ]
+    expect(nextMissingMonth(plans, today)).toEqual({ year: 2027, month: 1 })
+  })
+
+  test('ignores a gap in the past', () => {
+    expect(nextMissingMonth([{ year: 2026, month: 9 }], today)).toEqual({ year: 2026, month: 10 })
   })
 })

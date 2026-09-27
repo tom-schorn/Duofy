@@ -14,6 +14,7 @@ import {
   budgetLabel,
   BUDGETS,
   monthLabel,
+  nextMissingMonth,
   QUOTA_KEY,
   atLeast,
   euro,
@@ -94,6 +95,7 @@ export function PlansPage() {
       </QueryState>
 
       <CreatePlanDialog
+        {...nextMissingMonth(plans.data ?? [])}
         open={creating}
         onOpenChange={setCreating}
         ownerId={active.id}
