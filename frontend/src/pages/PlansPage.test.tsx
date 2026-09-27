@@ -37,7 +37,14 @@ function renderAt(path: string) {
 }
 
 describe('PlansPage', () => {
-  const plans = [plan({ month: 9, householdIds: ['h1'] }), plan({ month: 10, householdIds: [] })]
+  // Own plans and the household's months come from two different endpoints now
+  // (#214): the household list is composed on the backend from every member's
+  // positions, not filtered client-side from the viewer's own plans. September
+  // exists only on the household endpoint here — as if a partner alone had a
+  // shared position in it — to prove the page does not need it in the viewer's
+  // own list too.
+  const ownPlans = [plan({ month: 8, householdIds: [] }), plan({ month: 10, householdIds: [] })]
+  const householdPlans = [plan({ month: 9, householdIds: ['h1'] })]
 
   beforeEach(() => {
     vi.stubGlobal(
@@ -49,8 +56,11 @@ describe('PlansPage', () => {
             { status: 200 }
           )
         }
+        if (String(url).includes('/plans/household/')) {
+          return new Response(JSON.stringify(householdPlans), { status: 200 })
+        }
         if (String(url).includes('/plans')) {
-          return new Response(JSON.stringify(plans), { status: 200 })
+          return new Response(JSON.stringify(ownPlans), { status: 200 })
         }
         return new Response('[]', { status: 200 })
       })
@@ -58,9 +68,11 @@ describe('PlansPage', () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
-  test('?household= keeps only the months that carry the household, linked with it', async () => {
+  test('?household= lists the household endpoint\'s own months, linked with it', async () => {
     renderAt('/plan?household=h1')
-    // Only September feeds the household; October stays out of the list.
+    // September only exists on the household endpoint — not in the viewer's own
+    // plans — and still shows. October is a private month of the viewer's own
+    // and must not leak into the household view.
     expect(await screen.findByText('September 2026')).toBeInTheDocument()
     expect(screen.queryByText('Oktober 2026')).not.toBeInTheDocument()
 
@@ -76,10 +88,10 @@ describe('PlansPage', () => {
 
   test('without ?household= every own month is listed, linked without a scope', async () => {
     renderAt('/plan')
-    expect(await screen.findByText('September 2026')).toBeInTheDocument()
+    expect(await screen.findByText('August 2026')).toBeInTheDocument()
     expect(await screen.findByText('Oktober 2026')).toBeInTheDocument()
 
-    const link = screen.getByRole('link', { name: /September 2026/ })
-    expect(link).toHaveAttribute('href', '/plan/2026/09')
+    const link = screen.getByRole('link', { name: /August 2026/ })
+    expect(link).toHaveAttribute('href', '/plan/2026/08')
   })
 })

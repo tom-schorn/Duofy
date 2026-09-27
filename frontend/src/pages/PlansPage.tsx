@@ -9,7 +9,7 @@ import { QueryState } from '@/components/QueryState'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useActiveMember } from '@/hooks/use-active-member'
-import { useHouseholds, usePlans } from '@/lib/queries'
+import { useHouseholds, useHouseholdPlans, usePlans } from '@/lib/queries'
 import {
   BUDGET_DOT,
   budgetLabel,
@@ -46,8 +46,9 @@ export function PlansPage() {
   const active = useActiveMember()
   // `?household=` shows the months of the household plan — reached from "Alle
   // Pläne" on that plan. The household owns nothing, so there is no month to list
-  // for it directly; the months that carry it are read off your own plans, the
-  // same list the composed view is built from.
+  // for it directly; its own endpoint reads the months off every member's
+  // positions, not just the viewer's — a month only a partner planned into still
+  // belongs on this list.
   const [params] = useSearchParams()
   const householdId = params.get('household')
   const inHousehold = householdId !== null
@@ -55,7 +56,9 @@ export function PlansPage() {
   // Haushalt gibt es gar kein Anlegen — der Haushaltsplan wird zusammengesetzt,
   // nie selbst erzeugt.
   const mayEdit = !inHousehold && atLeast(active.levelFor('plan'), 'edit')
-  const plans = usePlans(inHousehold ? null : active.id)
+  const ownPlans = usePlans(active.id, !inHousehold)
+  const householdPlans = useHouseholdPlans(inHousehold ? householdId : null)
+  const plans = inHousehold ? householdPlans : ownPlans
   const households = useHouseholds()
   const [creating, setCreating] = useState(false)
 
@@ -64,9 +67,7 @@ export function PlansPage() {
   )
   const householdName = householdId ? (names[householdId] ?? t('plans.household')) : null
 
-  const rows = inHousehold
-    ? (plans.data?.filter((plan) => plan.householdIds.includes(householdId)) ?? [])
-    : (plans.data ?? [])
+  const rows = plans.data ?? []
 
   return (
     <div className="flex flex-col gap-6">
