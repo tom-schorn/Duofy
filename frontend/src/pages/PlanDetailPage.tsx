@@ -46,6 +46,7 @@ import {
   useDeletePosition,
   useHouseholdPlan,
   useHouseholds,
+  useMe,
   useTransactions,
   usePlan,
   useSavePosition,
@@ -58,6 +59,7 @@ import {
   euro,
   isPaid,
   stillDue,
+  type AccessLevel,
   type Budget,
   atLeast,
   type HouseholdPlanDetail,
@@ -1034,6 +1036,43 @@ function HouseholdPlanBody({
     .filter((member) => member.grantsAccounts === 'plan')
     .map((member) => member.firstName)
 
+  // #218: a position is one's own, or somebody else's shared into the household.
+  // Own positions behave exactly like the private plan (rule 4 of the UI
+  // guideline). Somebody else's only open with their own grant — set on their
+  // membership, never by the viewer — at `edit`; below that the row has no
+  // control at all (rule 3: a missing right removes the control, not just
+  // disables it).
+  const me = useMe()
+  const myId = me.data?.id ?? null
+  const levelOf = (ownerId: string): AccessLevel =>
+    members.find((member) => member.userId === ownerId)?.grantsPlan ?? 'plan'
+  const mayEdit = (position: HouseholdPosition) =>
+    position.ownerId === myId || atLeast(levelOf(position.ownerId), 'edit')
+  const mayDelete = (position: HouseholdPosition) =>
+    position.ownerId === myId || atLeast(levelOf(position.ownerId), 'delete')
+
+  const savePosition = useSavePosition()
+  const deletePosition = useDeletePosition()
+  const togglePaid = useTogglePaid()
+  const [editing, setEditing] = useState<PlanPosition | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  // An error from the last try must not greet the next opening.
+  const resetSaveposition = savePosition.reset
+  useEffect(() => {
+    if (dialogOpen) resetSaveposition()
+  }, [dialogOpen, resetSaveposition])
+
+  function openEditor(position: PlanPosition) {
+    setEditing(position)
+    setDialogOpen(true)
+  }
+
+  // Ticking somebody else's position acts on their behalf, exactly as in the
+  // member's own plan (#180): no booking-date question, ticked with today and
+  // the planned amount.
+  const toggle = (position: PlanPosition) =>
+    togglePaid.mutate({ id: position.id, paid: !isPaid(position) })
+
   return (
     <>
       {/* Nur auf Papier: ohne Topbar fehlte jeder Hinweis, wessen Haushalt das
@@ -1185,9 +1224,9 @@ function HouseholdPlanBody({
                   positions={incomeRows}
                   hints={plan.hints}
                   householdNames={householdNames}
-                  onEdit={() => {}}
-                  onTogglePaid={() => {}}
-                  readOnly
+                  onEdit={openEditor}
+                  onTogglePaid={toggle}
+                  readOnly={(position) => !mayEdit(position as HouseholdPosition)}
                   ownerName={ownerName}
                 />
 
@@ -1199,9 +1238,9 @@ function HouseholdPlanBody({
                     positions={group.rows}
                     hints={plan.hints}
                     householdNames={householdNames}
-                    onEdit={() => {}}
-                    onTogglePaid={() => {}}
-                    readOnly
+                    onEdit={openEditor}
+                    onTogglePaid={toggle}
+                    readOnly={(position) => !mayEdit(position as HouseholdPosition)}
                     ownerName={ownerName}
                   />
                 ))}
@@ -1214,6 +1253,31 @@ function HouseholdPlanBody({
           <PlanPrintout plan={plan} ownerName={ownerName} />
         </>
       )}
+
+      {/* Kein „Anlegen" hier: der Haushalt besitzt nichts, ein Posten entsteht
+          immer im eigenen Plan (#218 Nicht im Umfang). `planId` bleibt leer —
+          `useSavePosition` verwirft es bei einem PATCH ohnehin, und dieser
+          Dialog legt nie neu an. */}
+      <PositionDialog
+        position={editing}
+        budget={editing?.budget ?? 'wants'}
+        planId=""
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        pending={savePosition.isPending}
+        error={savePosition.error}
+        onSave={(position) =>
+          savePosition.mutate(
+            { ...position, planId: '' },
+            { onSuccess: () => setDialogOpen(false) }
+          )
+        }
+        onDelete={
+          editing && mayDelete(editing as HouseholdPosition)
+            ? (position) => deletePosition(position)
+            : null
+        }
+      />
     </>
   )
 }
