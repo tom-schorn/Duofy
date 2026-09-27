@@ -455,7 +455,7 @@ function EntryTable({
                         size="sm"
                         variant="ghost"
                         className="text-muted-foreground"
-                        onClick={() => discard.mutate(entry.id)}
+                        onClick={() => discard(entry)}
                       >
                         {t('import.discard')}
                       </Button>
@@ -490,8 +490,7 @@ function EntryTable({
                             size="sm"
                             variant="outline"
                             className="ml-1 h-7"
-                            disabled={discard.isPending}
-                            onClick={() => discard.mutate(entry.id)}
+                            onClick={() => discard(entry)}
                           >
                             {t('import.discard')}
                           </Button>
