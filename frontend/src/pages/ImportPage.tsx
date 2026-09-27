@@ -136,7 +136,16 @@ export function ImportPage() {
         />
       )}
 
-      <QueryState isPending={entries.isPending} error={entries.error} onRetry={() => void entries.refetch()}>
+      <QueryState
+        isPending={entries.isPending}
+        error={entries.error}
+        onRetry={() => void entries.refetch()}
+        notShared={
+          active.member
+            ? t('import.notShared', { name: active.member.firstName })
+            : undefined
+        }
+      >
         {rows.length === 0 ? (
           <EmptyState
             action={

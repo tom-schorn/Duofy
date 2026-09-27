@@ -434,7 +434,8 @@
     "lead": "Was tatsächlich gelaufen ist — Kontostände und jede Buchung darauf.",
     "noPlan": "Für diesen Monat gibt es keinen Plan. Buchen geht trotzdem — nur zuordnen lässt sich nichts, solange keine Posten da sind.",
     "leadMember": "Das Buch von {{name}}.",
-    "leadMemberView": "{{name}} hat die Konten nicht zum Bearbeiten freigegeben."
+    "leadMemberView": "{{name}} hat die Konten nicht zum Bearbeiten freigegeben.",
+    "notShared": "{{name}} hat dir das Buch nicht freigegeben."
   },
   "hints": {
     "plan_nothing_free": "Es ist nichts mehr frei: alles Einkommen ist verplant.",
@@ -726,6 +727,7 @@
     "target": "Ziel {{target}}",
     "leadMemberEdit": "Die Verträge von {{name}}. Du darfst sie ändern.",
     "leadMemberView": "{{name}} hat die Verträge nicht zum Bearbeiten freigegeben — du siehst sie nur.",
+    "notShared": "{{name}} hat dir die Verträge nicht freigegeben.",
     "private": "privat",
     "deleteTitle": "„{{name}}\" löschen?",
     "title": "Verträge",
@@ -747,6 +749,7 @@
   "accounts": {
     "leadMemberEdit": "Die Konten von {{name}}. Du darfst sie ändern.",
     "leadMemberView": "{{name}} hat die Konten nicht zum Bearbeiten freigegeben — du siehst sie nur.",
+    "notShared": "{{name}} hat dir die Konten nicht freigegeben.",
     "openingFrom": "Anfangsbestand vom {{date}}",
     "deleteTitle": "„{{name}}\" löschen?",
     "deleteText": "Das Konto hat noch keine Buchungen. Es wird endgültig gelöscht.",
@@ -817,6 +820,7 @@
   },
   "import": {
     "leadMember": "Die Parkposition von {{name}}.",
+    "notShared": "{{name}} hat dir den Import nicht freigegeben.",
     "parkedCount": "{{number}} geparkt",
     "withoutCategory": "{{number}} ohne Kategorie",
     "unknownIban": "Die Datei gehört zu <iban>{{iban}}</iban>. Zu welchem Konto?",
@@ -878,6 +882,7 @@
     "untick": "Haken wegnehmen",
     "standIn": "Vertretung",
     "viewOnly": "{{name}} hat den Plan nicht zum Bearbeiten freigegeben.",
+    "notShared": "{{name}} hat dir den Plan nicht freigegeben.",
     "mayDelete": "Du darfst abhaken, ändern, dazuschreiben und löschen; jede Änderung wird protokolliert.",
     "mayEdit": "Du darfst abhaken, ändern und Posten dazuschreiben; jede Änderung wird protokolliert. Löschen bleibt beim Besitzer.",
     "householdLead": "Alle Posten, die ihr gemeinsam tragt. Zusammengesetzt aus den Plänen aller Mitglieder — geändert wird im eigenen Plan.",

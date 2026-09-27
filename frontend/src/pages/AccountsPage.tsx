@@ -121,7 +121,16 @@ export function AccountsPage() {
         )}
       </header>
 
-      <QueryState isPending={accounts.isPending} error={accounts.error} onRetry={() => void accounts.refetch()}>
+      <QueryState
+        isPending={accounts.isPending}
+        error={accounts.error}
+        onRetry={() => void accounts.refetch()}
+        notShared={
+          active.member
+            ? t('accounts.notShared', { name: active.member.firstName })
+            : undefined
+        }
+      >
         {list.length === 0 ? (
           <EmptyState
             action={

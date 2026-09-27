@@ -238,7 +238,17 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
           </EmptyHeader>
         </Empty>
       ) : (
-      <QueryState isPending={query.isPending} error={query.error} onRetry={() => void query.refetch()} rows={4}>
+      <QueryState
+        isPending={query.isPending}
+        error={query.error}
+        onRetry={() => void query.refetch()}
+        rows={4}
+        notShared={
+          foreign && active.member
+            ? t('plan.notShared', { name: active.member.firstName })
+            : undefined
+        }
+      >
         {shared
           ? householdPlan.data && (
               <HouseholdPlanBody
