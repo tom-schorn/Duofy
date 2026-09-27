@@ -36,6 +36,12 @@ type Props = {
   pending?: boolean
   /** The server said no; shown above the buttons, the input stays. */
   error?: unknown
+  /**
+   * The server's refusal, id-keyed to the word or field it belongs to (review
+   * D-215-5) — passed on to {@link Form} so {@link SentenceWord} and
+   * {@link Input} can mark themselves through the same form-errors helper.
+   */
+  fieldErrors?: Record<string, string>
   /** Delete (rule 6): red, left in the footer, only when the person may delete. */
   start?: React.ReactNode
   /**
@@ -83,6 +89,7 @@ export function DialogFrame({
   dirty = false,
   pending = false,
   error = null,
+  fieldErrors,
   start,
   returnFocus,
   focusKey,
@@ -162,7 +169,7 @@ export function DialogFrame({
           if (dirty || asking) event.preventDefault()
         }}
       >
-        <Form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col gap-4">
+        <Form onSubmit={onSubmit} fieldErrors={fieldErrors} className="flex min-h-0 flex-1 flex-col gap-4">
           <DialogHeader className="shrink-0 pr-8">
             <DialogTitle className="font-heading text-xl">{title}</DialogTitle>
             {description ? (
