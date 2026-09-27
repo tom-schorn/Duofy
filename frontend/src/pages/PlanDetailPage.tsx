@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { Link, useParams, useSearchParams } from 'react-router'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { ArrowLeft, Eye, Pencil, Plus, Printer, Users } from 'lucide-react'
 
 import { useActiveMember } from '@/hooks/use-active-member'
@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Metric } from '@/components/Metric'
+import { MonthSwitch } from '@/components/MonthSwitch'
 import { PlanPrintout } from '@/components/PlanPrintout'
 import { PlanSankey } from '@/components/PlanSankey'
 import { CreatePlanDialog } from '@/components/CreatePlanDialog'
@@ -103,6 +104,7 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
   // shared view a place one can link to and reload — and it is visible why the page
   // looks different.
   const [params, setParams] = useSearchParams()
+  const navigate = useNavigate()
   const householdId = params.get('household')
   // `?member=` shows the plan of a person who granted insight. Same reasoning as
   // for the household: a place in the URL, not global state.
@@ -149,14 +151,27 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
 
   return (
     <div className="flex flex-col gap-8">
-      <Link
-        to="/plan"
-        data-print="hide"
-        className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1.5 text-sm"
-      >
-        <ArrowLeft className="size-4" />
-        {t('plan.allPlans')}
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Link
+          to="/plan"
+          data-print="hide"
+          className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1.5 text-sm"
+        >
+          <ArrowLeft className="size-4" />
+          {t('plan.allPlans')}
+        </Link>
+        {/* Household, member and tab stay in the address: only the month moves. */}
+        <MonthSwitch
+          year={year}
+          month={month}
+          onChange={(nextYear, nextMonth) =>
+            navigate({
+              pathname: `/plan/${nextYear}/${String(nextMonth).padStart(2, '0')}`,
+              search: params.toString() === '' ? '' : `?${params.toString()}`,
+            })
+          }
+        />
+      </div>
 
       {missing ? (
         <Empty>

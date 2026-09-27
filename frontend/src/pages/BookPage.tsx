@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { AccountCards } from '@/components/AccountCards'
 import { BookFlow } from '@/components/BookFlow'
 import { MonthBook } from '@/components/MonthBook'
-import { Button } from '@/components/ui/button'
+import { MonthSwitch } from '@/components/MonthSwitch'
 import { useActiveMember } from '@/hooks/use-active-member'
-import { monthLabel, OWN_SCOPE, atLeast, type BookScope } from '@/lib/domain'
+import { OWN_SCOPE, atLeast, type BookScope } from '@/lib/domain'
 import { usePlan } from '@/lib/queries'
 
 /**
@@ -40,12 +39,6 @@ export function BookPage() {
   const plan = usePlan(year, month, true, active.id)
   const positions = plan.data?.positions ?? []
 
-  function shift(by: number) {
-    const date = new Date(year, month - 1 + by, 1)
-    setYear(date.getFullYear())
-    setMonth(date.getMonth() + 1)
-  }
-
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -60,27 +53,14 @@ export function BookPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={t('book.previousMonth')}
-            onClick={() => shift(-1)}
-          >
-            <ChevronLeft className="size-4" />
-          </Button>
-          <span className="min-w-40 text-center font-medium tabular-nums">
-            {monthLabel(month)} {year}
-          </span>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={t('book.nextMonth')}
-            onClick={() => shift(1)}
-          >
-            <ChevronRight className="size-4" />
-          </Button>
-        </div>
+        <MonthSwitch
+          year={year}
+          month={month}
+          onChange={(nextYear, nextMonth) => {
+            setYear(nextYear)
+            setMonth(nextMonth)
+          }}
+        />
       </header>
 
       <AccountCards scope={scope} />
