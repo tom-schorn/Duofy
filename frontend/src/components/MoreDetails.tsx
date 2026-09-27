@@ -11,6 +11,10 @@ type Props = {
   hasValues: boolean
   /** Something in here is invalid: the section opens so the message can be seen. */
   invalid?: boolean
+  /** The person had it open before going back a step: it starts open again. */
+  startOpen?: boolean
+  /** Told on every click, so the caller can remember the choice across a step. */
+  onToggle?: (open: boolean) => void
   children: React.ReactNode
 }
 
@@ -18,14 +22,21 @@ type Props = {
  * „Weitere Angaben“ (UI guideline rule 21): everything optional or rare, folded
  * away. Opens by itself when it already holds a value or an error.
  */
-export function MoreDetails({ resetKey, hasValues, invalid = false, children }: Props) {
+export function MoreDetails({
+  resetKey,
+  hasValues,
+  invalid = false,
+  startOpen = false,
+  onToggle,
+  children,
+}: Props) {
   const { t } = useTranslation()
-  const [open, setOpen] = useState(hasValues)
+  const [open, setOpen] = useState(hasValues || startOpen)
 
   // Only on (re)open: while the user types, a value they just entered must not
   // decide about the fold; they opened it themselves.
   useEffect(() => {
-    setOpen(hasValues)
+    setOpen(hasValues || startOpen)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetKey])
 
@@ -38,8 +49,11 @@ export function MoreDetails({ resetKey, hasValues, invalid = false, children }: 
       <button
         type="button"
         aria-expanded={open}
-        aria-controls="more-details"
-        onClick={() => setOpen((current) => !current)}
+        aria-controls={open ? 'more-details' : undefined}
+        onClick={() => {
+          setOpen(!open)
+          onToggle?.(!open)
+        }}
         className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1 text-sm font-medium"
       >
         <ChevronRightIcon className={cn('size-4 transition-transform', open && 'rotate-90')} />

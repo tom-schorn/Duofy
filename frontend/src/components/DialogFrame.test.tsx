@@ -76,7 +76,16 @@ describe('DialogFrame', () => {
   test('cannot be closed and cannot cancel while the server has not answered', async () => {
     const user = userEvent.setup()
     render(
-      <DialogFrame open onOpenChange={() => { throw new Error('closed') }} title="T" submitLabel="Anlegen" onSubmit={() => {}} pending>
+      <DialogFrame
+        open
+        onOpenChange={() => {
+          throw new Error('closed')
+        }}
+        title="T"
+        submitLabel="Anlegen"
+        onSubmit={() => {}}
+        pending
+      >
         <Input aria-label="Name" />
       </DialogFrame>
     )
@@ -106,7 +115,15 @@ describe('DialogFrame', () => {
   test('Esc while pending changes nothing, not even the discard question', async () => {
     const user = userEvent.setup()
     render(
-      <DialogFrame open onOpenChange={() => {}} title="T" submitLabel="Anlegen" onSubmit={() => {}} pending dirty>
+      <DialogFrame
+        open
+        onOpenChange={() => {}}
+        title="T"
+        submitLabel="Anlegen"
+        onSubmit={() => {}}
+        pending
+        dirty
+      >
         <Input aria-label="Name" />
       </DialogFrame>
     )
@@ -118,7 +135,14 @@ describe('DialogFrame', () => {
   test('reopens without the discard question after it was closed from outside', async () => {
     const user = userEvent.setup()
     const frame = (open: boolean) => (
-      <DialogFrame open={open} onOpenChange={() => {}} title="T" submitLabel="Anlegen" onSubmit={() => {}} dirty>
+      <DialogFrame
+        open={open}
+        onOpenChange={() => {}}
+        title="T"
+        submitLabel="Anlegen"
+        onSubmit={() => {}}
+        dirty
+      >
         <Input aria-label="Name" />
       </DialogFrame>
     )
@@ -137,5 +161,44 @@ describe('DialogFrame', () => {
       </DialogFrame>
     )
     expect(screen.getByRole('dialog')).toContainElement(document.activeElement as HTMLElement)
+  })
+})
+
+describe('DialogFrame focusKey', () => {
+  function Steps() {
+    const [step, setStep] = useState<'choose' | 'form'>('choose')
+    return (
+      <DialogFrame
+        open
+        onOpenChange={() => {}}
+        title="Titel"
+        submitLabel="Anlegen"
+        onSubmit={() => {}}
+        focusKey={step}
+      >
+        {step === 'choose' ? (
+          <button type="button" data-dialog-card onClick={() => setStep('form')}>
+            Karte
+          </button>
+        ) : (
+          <>
+            <Input aria-label="Name" />
+            <button type="button" onClick={() => setStep('choose')}>
+              Zurück
+            </button>
+          </>
+        )}
+      </DialogFrame>
+    )
+  }
+
+  test('moves the focus to the first field on a change, and to the first card when there is no field', async () => {
+    const user = userEvent.setup()
+    render(<Steps />)
+    expect(screen.getByRole('button', { name: 'Karte' })).toHaveFocus()
+    await user.click(screen.getByRole('button', { name: 'Karte' }))
+    expect(screen.getByLabelText('Name')).toHaveFocus()
+    await user.click(screen.getByRole('button', { name: 'Zurück' }))
+    expect(screen.getByRole('button', { name: 'Karte' })).toHaveFocus()
   })
 })
