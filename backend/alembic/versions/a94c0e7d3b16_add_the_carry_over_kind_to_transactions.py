@@ -1,7 +1,7 @@
 """add the carry-over kind to transactions
 
 Revision ID: a94c0e7d3b16
-Revises: f7c1a3d58e29
+Revises: a3e8c5d14b72
 Create Date: 2026-09-26 22:40:00.000000
 
 """
@@ -17,7 +17,7 @@ import fastapi_users_db_sqlalchemy
 
 # revision identifiers, used by Alembic.
 revision: str = 'a94c0e7d3b16'
-down_revision: Union[str, Sequence[str], None] = 'f7c1a3d58e29'
+down_revision: Union[str, Sequence[str], None] = 'a3e8c5d14b72'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
