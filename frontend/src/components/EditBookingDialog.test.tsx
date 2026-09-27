@@ -1,5 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
+import { i18n } from '@/lib/i18n'
 
 import { EditBookingDialog } from '@/components/EditBookingDialog'
 import type { Account, PlanPosition, Transaction } from '@/lib/domain'
@@ -66,7 +68,8 @@ describe('EditBookingDialog', () => {
 
   test('a booking made by ticking off cannot be moved off its position', () => {
     renderDialog({ ...booking, autoBooked: true, positionId: 'p1' })
-    expect(screen.getByRole('combobox', { name: 'Posten' })).toBeDisabled()
+    expect(screen.getByText('Miete')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Miete' })).not.toBeInTheDocument()
   })
 
   test('stays open and locked until the server has answered', () => {
@@ -75,5 +78,34 @@ describe('EditBookingDialog', () => {
     expect(screen.getByRole('button', { name: 'Abbrechen' })).toBeDisabled()
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
     expect(onOpenChange).not.toHaveBeenCalled()
+  })
+})
+
+describe('EditBookingDialog sentence', () => {
+  test('names date, account and position in its sentence, each a clickable word', () => {
+    renderDialog(booking)
+    expect(screen.getByRole('button', { name: 'Giro' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: i18n.t('monthBook.noPosition') })).toBeInTheDocument()
+  })
+
+  test('picking a position closes its panel and gives the focus back to the word', async () => {
+    const user = userEvent.setup()
+    renderDialog(booking)
+    const positionWord = screen.getByRole('button', { name: i18n.t('monthBook.noPosition') })
+    await user.click(positionWord)
+    const panel = screen.getByRole('group', { name: i18n.t('monthBook.positionLabel') })
+    await user.click(within(panel).getByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: 'Miete' }))
+    expect(screen.getByRole('button', { name: 'Miete' })).toHaveFocus()
+    expect(screen.queryByRole('group', { name: i18n.t('monthBook.positionLabel') })).not.toBeInTheDocument()
+  })
+
+  test('the rare fields stay collapsed with a note set, named on a summary line', () => {
+    renderDialog(booking)
+    expect(screen.getByRole('button', { name: i18n.t('monthBook.addDetails') })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
+    expect(screen.getByText(/Streaming/)).toBeInTheDocument()
   })
 })
