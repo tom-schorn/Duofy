@@ -109,6 +109,21 @@ describe('AccountDialog sentence', () => {
   })
 })
 
+describe('AccountDialog for a member', () => {
+  test('creating a new account for a member sends the owner, not the caller’s own', async () => {
+    const user = userEvent.setup()
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(account), { status: 201 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const draft = { ...account, id: '', ownerId: 'u2', name: '' } as Account
+    render(ui({ account: draft, open: true }))
+    await user.type(screen.getByLabelText(i18n.t('positionDialog.label')), 'Girokonto von Alex')
+    await user.click(screen.getByRole('button', { name: i18n.t('common.create') }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    const url = (fetchMock.mock.calls as unknown[][])[0][0]
+    expect(String(url)).toMatch(/\/accounts\?owner=u2$/)
+  })
+})
+
 describe('AccountDialog delete', () => {
   test('asks once, deletes on confirm and puts the focus on the given target', async () => {
     const user = userEvent.setup()

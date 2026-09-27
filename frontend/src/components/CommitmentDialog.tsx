@@ -221,9 +221,10 @@ function upfront(kind: Kind, activeAccounts: number) {
   }
 }
 
-function emptyDraft(): Commitment {
+function emptyDraft(ownerId?: string): Commitment {
   return {
     id: '',
+    ownerId,
     deletable: false,
     type: 'contract',
     name: '',
@@ -249,6 +250,11 @@ function emptyDraft(): Commitment {
 type Props = {
   /** null means create, otherwise edit. */
   commitment: Commitment | null
+  /**
+   * Whose contract this is, while creating for a member — see `MemberSwitcher`.
+   * Editing already carries the owner on `commitment` itself; ignored then.
+   */
+  ownerId?: string
   open: boolean
   onOpenChange: (open: boolean) => void
   onSave: (commitment: Commitment) => void
@@ -267,6 +273,7 @@ type Props = {
 
 export function CommitmentDialog({
   commitment,
+  ownerId,
   open,
   onOpenChange,
   onSave,
@@ -277,8 +284,11 @@ export function CommitmentDialog({
 }: Props) {
   const { t } = useTranslation()
   const households = useHouseholds().data ?? []
-  const accounts = useAccounts().data ?? []
-  const [draft, setDraft] = useState<Commitment>(commitment ?? emptyDraft())
+  // The accounts of whoever this is for — one's own while creating for oneself,
+  // otherwise the member's, since that is who the position will be paid from.
+  const accounts =
+    useAccounts(ownerId ? { kind: 'member', ownerId } : undefined).data ?? []
+  const [draft, setDraft] = useState<Commitment>(commitment ?? emptyDraft(ownerId))
   // Creating starts with the question, editing goes straight to the fields.
   const [step, setStep] = useState<'choose' | 'form'>(commitment ? 'form' : 'choose')
 
@@ -302,14 +312,14 @@ export function CommitmentDialog({
 
   useEffect(() => {
     if (open) {
-      const next = commitment ?? emptyDraft()
+      const next = commitment ?? emptyDraft(ownerId)
       setDraft(next)
       setStep(commitment ? 'form' : 'choose')
       setCustomInterval(!INTERVAL_PRESETS.includes(next.intervalMonths))
       setIntervalText(String(next.intervalMonths))
       setOpenWord(null)
     }
-  }, [open, commitment])
+  }, [open, commitment, ownerId])
 
   // Which word a rejected save belongs to, if any (review D-215-5).
   const fieldErrorWord = error instanceof ApiError ? FIELD_ERROR_WORDS[error.code] : undefined
@@ -330,7 +340,7 @@ export function CommitmentDialog({
   const isEdit = commitment !== null
   // Choosing a card is no change yet: compare against a fresh draft of the same kind.
   const kind = kindOf(draft)
-  const baseline = commitment ?? withType(emptyDraft(), kind)
+  const baseline = commitment ?? withType(emptyDraft(ownerId), kind)
   const dirty = JSON.stringify(draft) !== JSON.stringify(baseline)
   const typeOption = TYPE_OPTIONS.find((option) => option.value === kind)!
   const activeAccounts = accounts.filter((account) => account.active)
