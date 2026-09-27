@@ -496,8 +496,8 @@
     "actualHint": "Nur nötig, wenn der Betrag vom geplanten abweicht. Abgehakt wird in der Liste.",
     "addDetails": "Kategorie oder weitere Angaben hinzufügen",
     "sentence": {
-      "obligation": "Fällig am {dueDay} und zählt zum {budget}.",
-      "limit": "Zählt zum {budget}."
+      "obligation": "Fällig am {dueDay} und zählt zum Budget {budget}.",
+      "limit": "Zählt zum Budget {budget}."
     },
     "dueDayLabel": "Fällig am wievielten?",
     "budgetLabel": "Welches Budget?"
@@ -567,10 +567,10 @@
     "endsOnHint": "Nur Monat und Jahr zählen. Danach entstehen keine neuen Posten mehr. Leer lassen, wenn es unbegrenzt weiterläuft.",
     "addDetails": "Kategorie oder weitere Angaben hinzufügen",
     "sentence": {
-      "contract": "Geht {rhythm} ab dem {date} vom {account} ab und zählt zum {budget}.",
-      "contractDefaultAccount": "Geht {rhythm} ab dem {date} ab und zählt zum {budget}.",
-      "limit": "Gilt {rhythm} ab dem {date}, gefüllt vom {account}, und zählt zum {budget}.",
-      "limitDefaultAccount": "Gilt {rhythm} ab dem {date} und zählt zum {budget}.",
+      "contract": "Geht {rhythm} ab dem {date} vom {account} ab und zählt zum Budget {budget}.",
+      "contractDefaultAccount": "Geht {rhythm} ab dem {date} ab und zählt zum Budget {budget}.",
+      "limit": "Gilt {rhythm} ab dem {date}, gefüllt vom {account}, und zählt zum Budget {budget}.",
+      "limitDefaultAccount": "Gilt {rhythm} ab dem {date} und zählt zum Budget {budget}.",
       "savings_goal": "Geht {rhythm} ab dem {date} aufs {counterAccount} und soll bis {targetDate} {targetAmount} erreichen.",
       "debt": "Geht {rhythm} ab dem {date} vom {account} ab und läuft bis {endsOn}.",
       "income": "Kommt {rhythm} ab dem {date} auf {account}."
