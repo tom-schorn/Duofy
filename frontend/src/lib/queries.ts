@@ -340,8 +340,13 @@ export function useSaveAccount() {
   // Switching the default account clears the flag on another one — so always
   // reload the whole list, not just the single entry.
   return useInvalidating<Account, Partial<Account> & { id?: string }>(
-    ({ id, ownerId: _o, ...body }) =>
-      id ? api.patch(`/accounts/${id}`, body) : api.post('/accounts', body),
+    ({ id, ownerId, ...body }) => {
+      // Editing already knows the owner from the account itself; only a new one
+      // needs to say whom it is for, and only when that is not the caller.
+      if (id) return api.patch(`/accounts/${id}`, body)
+      const path = ownerId ? `/accounts?owner=${ownerId}` : '/accounts'
+      return api.post(path, body)
+    },
     [keys.accounts],
     (account) => i18n.t('toast.accountSaved', { name: account.name }),
     INLINE_ERROR
@@ -477,10 +482,12 @@ export function useCommitments(
 export function useSaveCommitment() {
   return useInvalidating<Commitment, Commitment>(
     (input) => {
-      const { id, ownerId: _ownerId, ...body } = input
-      return id
-        ? api.patch(`/commitments/${id}`, body)
-        : api.post('/commitments', body)
+      const { id, ownerId, ...body } = input
+      // Editing already knows the owner from the commitment itself; only a new
+      // one needs to say whom it is for, and only when that is not the caller.
+      if (id) return api.patch(`/commitments/${id}`, body)
+      const path = ownerId ? `/commitments?owner=${ownerId}` : '/commitments'
+      return api.post(path, body)
     },
     // A changed commitment only affects **future** months — existing positions
     // stay. Reload both anyway, because a newly created month depends on it

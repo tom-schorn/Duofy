@@ -167,6 +167,50 @@ describe('CommitmentDialog', () => {
     expect(saved[0]).toMatchObject({ type: 'contract', isLimit: true })
   })
 
+  test('creating for a member puts the owner on the draft, and shows their accounts', async () => {
+    const user = userEvent.setup()
+    const client = new QueryClient()
+    client.setQueryData(keys.accountsIn({ kind: 'member', ownerId: 'u2' }), [
+      {
+        id: 'a-member',
+        deletable: true,
+        name: 'Konto von Alex',
+        type: 'checking',
+        openingBalance: '0.00',
+        openingDate: '2026-01-01',
+        isDefault: true,
+        active: true,
+        externalRef: null,
+      },
+    ] as unknown as Account[])
+    const saved: Commitment[] = []
+    render(
+      <QueryClientProvider client={client}>
+        <CommitmentDialog
+          commitment={null}
+          ownerId="u2"
+          open
+          onOpenChange={() => {}}
+          onSave={(c) => saved.push(c)}
+        />
+      </QueryClientProvider>
+    )
+    await chooseKind(user, 'Einnahme')
+    expect(screen.getByText(i18n.t('common.account'))).toBeInTheDocument()
+    // Several selects sit on this step (category, account); the account one is the
+    // only one still showing the untouched default.
+    const accountTrigger = screen
+      .getAllByRole('combobox')
+      .find((element) => element.textContent === i18n.t('common.defaultAccount'))!
+    await user.click(accountTrigger)
+    expect(screen.getByRole('option', { name: 'Konto von Alex' })).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    await user.type(screen.getByLabelText('Bezeichnung'), 'Gehalt von Alex')
+    await user.type(document.getElementById('amount') as HTMLElement, '2000')
+    await user.click(screen.getByRole('button', { name: 'Anlegen' }))
+    expect(saved[0]).toMatchObject({ ownerId: 'u2' })
+  })
+
   test('an existing limit is edited as „Limit bearbeiten“', () => {
     renderEdit({
       ...existing,

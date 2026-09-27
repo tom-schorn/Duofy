@@ -52,9 +52,10 @@ import { useAccounts, useDeleteAccount, useSaveAccount } from '@/lib/queries'
 
 const TYPES = ACCOUNT_TYPES
 
-function emptyAccount(isFirst: boolean): Account {
+function emptyAccount(isFirst: boolean, ownerId?: string): Account {
   return {
     id: '',
+    ownerId,
     deletable: false,
     name: '',
     type: 'checking',
@@ -90,7 +91,7 @@ export function AccountsPage() {
 
   function add() {
     deleted.current = false
-    setEditing(emptyAccount(list.length === 0))
+    setEditing(emptyAccount(list.length === 0, active.id ?? undefined))
     setOpen(true)
   }
 
