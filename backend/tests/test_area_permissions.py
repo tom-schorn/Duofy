@@ -11,6 +11,7 @@ that make that split worth having:
 """
 
 import uuid
+from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -50,6 +51,7 @@ async def add_member(
     plan: AccessLevel = AccessLevel.PLAN,
     commitments: AccessLevel = AccessLevel.PLAN,
     accounts: AccessLevel = AccessLevel.PLAN,
+    joined_at: datetime | None = None,
 ) -> HouseholdMember:
     member = HouseholdMember(
         household_id=household.id,
@@ -59,6 +61,8 @@ async def add_member(
         grants_commitments=commitments,
         grants_accounts=accounts,
     )
+    if joined_at is not None:
+        member.created_at = joined_at
     session.add(member)
     await session.flush()
     return member
