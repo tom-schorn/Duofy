@@ -189,7 +189,7 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
           )}
         </Empty>
       ) : (
-      <QueryState isPending={query.isPending} error={query.error} rows={4}>
+      <QueryState isPending={query.isPending} error={query.error} onRetry={() => void query.refetch()} rows={4}>
         {shared
           ? householdPlan.data && (
               <HouseholdPlanBody

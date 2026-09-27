@@ -106,6 +106,10 @@ export function BookMetrics({
     <QueryState
       isPending={transactions.isPending || accounts.isPending}
       error={transactions.error ?? accounts.error}
+      onRetry={() => {
+        void transactions.refetch()
+        void accounts.refetch()
+      }}
       rows={1}
     >
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

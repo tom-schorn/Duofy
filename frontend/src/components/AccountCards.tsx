@@ -39,7 +39,7 @@ export function AccountCards({ scope = OWN_SCOPE }: Props) {
   if (!accounts.isPending && usable.length === 0) return null
 
   return (
-    <QueryState isPending={accounts.isPending} error={accounts.error} rows={1}>
+    <QueryState isPending={accounts.isPending} error={accounts.error} onRetry={() => void accounts.refetch()} rows={1}>
       <section
         aria-label={t('accountCards.label')}
         className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"

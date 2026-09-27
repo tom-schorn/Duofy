@@ -1,22 +1,26 @@
 import type { ReactNode } from 'react'
 
+import { ErrorBox } from '@/components/ErrorBox'
 import { Skeleton } from '@/components/ui/skeleton'
 import { errorText } from '@/lib/api'
 
 /**
  * Loading and errors in one place instead of in every page.
  *
- * Errors show the wording that belongs to the backend code — the API stays free of
- * any language, the UI supplies the sentence.
+ * Errors show the wording that belongs to the backend code, in a box that can be run
+ * again — the API stays free of any language, the UI supplies the sentence.
  */
 export function QueryState({
   isPending,
   error,
+  onRetry,
   children,
   rows = 3,
 }: {
   isPending: boolean
   error: unknown
+  /** Runs the query again; without it the box has no retry button. */
+  onRetry?: () => void
   children: ReactNode
   rows?: number
 }) {
@@ -32,9 +36,7 @@ export function QueryState({
 
   if (error) {
     return (
-      <p className="border-destructive bg-destructive/10 text-destructive rounded-lg border px-4 py-3 text-sm">
-        {errorText(error)}
-      </p>
+      <ErrorBox onRetry={onRetry}>{errorText(error)}</ErrorBox>
     )
   }
 

@@ -90,7 +90,7 @@ export function MonthFlow({
 }: Props) {
   const query = useFlow(year, month, { householdId, ownerId })
   return (
-    <QueryState isPending={query.isPending} error={query.error} rows={2}>
+    <QueryState isPending={query.isPending} error={query.error} onRetry={() => void query.refetch()} rows={2}>
       {query.data && (
         <FlowView
           flow={query.data}

@@ -408,6 +408,7 @@
     "delete": "Löschen",
     "save": "Speichern",
     "saving": "Speichert…",
+    "retry": "Erneut versuchen",
     "create": "Anlegen",
     "dayOfMonth": "{{day}}. {{month}}",
     "percent": "{{value}} %",
@@ -554,8 +555,7 @@
   },
   "monthBook": {
     "title": "Buchungen",
-    "noAccountTitle": "Noch kein Konto",
-    "noAccountText": "Ohne Konto lässt sich nichts buchen — leg unter „Konten\" eins an, dann geht es hier weiter.",
+    "noAccountText": "Noch kein Konto. Ohne Konto lässt sich nichts buchen — leg eins an, dann geht es hier weiter.",
     "empty": "Für diesen Monat ist noch nichts erfasst.",
     "carryOver": "Übertrag",
     "carryOverName": "Übertrag in den Monat",
