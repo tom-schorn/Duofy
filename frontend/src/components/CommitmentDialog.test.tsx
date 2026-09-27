@@ -385,7 +385,9 @@ describe('CommitmentDialog rare facts', () => {
     expect(screen.getByRole('button', { name: 'Standardkonto' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'offen' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Nur mein Plan' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Zählt zum Budget.' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: i18n.t('common.passThroughOff') })
+    ).toBeInTheDocument()
   })
 
   test('an existing payment method is named in the second sentence', () => {
@@ -402,10 +404,10 @@ describe('CommitmentDialog rare facts', () => {
     const user = userEvent.setup()
     renderDialog(() => {})
     await chooseKind(user)
-    await user.click(screen.getByRole('button', { name: 'Zählt zum Budget.' }))
-    await user.click(screen.getByRole('button', { name: 'Wird nur durchgereicht und zählt nicht zum Budget.' }))
+    await user.click(screen.getByRole('button', { name: i18n.t('common.passThroughOff') }))
+    await user.click(screen.getByRole('button', { name: i18n.t('common.passThroughOn') }))
     expect(
-      screen.getByRole('button', { name: 'Wird nur durchgereicht und zählt nicht zum Budget.' })
+      screen.getByRole('button', { name: i18n.t('common.passThroughOn') })
     ).toBeInTheDocument()
   })
 })
@@ -447,7 +449,7 @@ describe('CommitmentDialog server field errors', () => {
       within(screen.getByRole('group', { name: i18n.t('commitmentDialog.endsOnLabel') })).getByRole(
         'alert'
       )
-    ).toHaveTextContent('Das Ende darf nicht vor dem Monat der ersten Fälligkeit liegen.')
+    ).toHaveTextContent(i18n.t('errors.ends_on_before_start'))
     await waitFor(() => expect(word).toHaveFocus())
   })
 })

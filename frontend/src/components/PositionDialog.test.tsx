@@ -194,10 +194,14 @@ describe('PositionDialog kind', () => {
     await user.click(screen.getByRole('button', { name: /Verpflichtung/ }))
     // A regex, not the exact string: the accessible-description algorithm adds a
     // space of its own at an element boundary (before the sentence's closing
-    // full stop), which is not part of what this test cares about.
-    const sentence = new RegExp(
-      `Fällig am 1\\. und zählt zum Budget ${budgetLabel('needs')}`
-    )
+    // full stop), which is not part of what this test cares about — hence the
+    // trailing full stop is stripped before building the pattern.
+    const filled = i18n
+      .t('positionDialog.sentence.obligation')
+      .replace('{dueDay}', '1.')
+      .replace('{budget}', budgetLabel('needs'))
+      .replace(/\.$/, '')
+    const sentence = new RegExp(filled.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
     const dueDayWord = screen.getByRole('button', { name: '1.' })
     expect(dueDayWord).toHaveAccessibleDescription(sentence)
     await user.click(dueDayWord)
@@ -247,7 +251,9 @@ describe('PositionDialog rare facts', () => {
     expect(screen.getByRole('button', { name: 'Geht raus' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'offen' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Nur mein Plan' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Zählt zum Budget.' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: i18n.t('common.passThroughOff') })
+    ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Noch nichts verbucht.' })).toBeInTheDocument()
   })
 
