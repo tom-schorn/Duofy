@@ -23,6 +23,7 @@ export function helpKeyFor(pathname: string, tab: string | null): HelpKey | null
   if (pathname === '/accounts') return 'accounts'
   if (pathname === '/household') return 'household'
   if (pathname === '/admin') return 'admin'
+  if (pathname === '/einstellungen') return 'settings'
   return null
 }
 

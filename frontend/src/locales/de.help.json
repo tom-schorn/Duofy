@@ -232,5 +232,8 @@
         "body": "<p>Ein Admin verwaltet die Instanz, mehr nicht. Pläne, Bücher und Konten anderer bleiben ihnen — Einblick gibt es nur über die Freigaben im Haushalt, die jede Person für sich selbst vergibt.</p>"
       }
     }
+  },
+  "settings": {
+    "title": "Einstellungen"
   }
 }
