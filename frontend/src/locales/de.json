@@ -738,9 +738,7 @@
     "edit": "Konto bearbeiten",
     "dialogDescription": "Der Stand ergibt sich später aus Anfangsbestand plus Buchungen. Ein Depot gehört nicht hierher — nur sein Verrechnungskonto.",
     "namePlaceholder": "Girokonto",
-    "type": "Art",
     "openingBalance": "Anfangsbestand",
-    "openingDate": "Stand vom",
     "iban": "IBAN",
     "ibanPlaceholder": "DE00 0000 0000 0000 0000 00",
     "ibanHint": "Freiwillig. Damit erkennt Duofy Umbuchungen auf dieses Konto und fragt nicht nach einer Kategorie.",
@@ -748,7 +746,17 @@
     "countsAsAvailable": "Zählt als verfügbar",
     "countsAsAvailableHint": "Aus beim Tagesgeld oder Depot: was dorthin wandert, gilt im Buch als ausgegeben. An bei Giro und PayPal — dort bleibt das Geld greifbar.",
     "active": "Aktiv",
-    "activeHint": "Aufgelöste Konten bleiben stehen, damit alte Buchungen ihren Bezug behalten."
+    "activeHint": "Aufgelöste Konten bleiben stehen, damit alte Buchungen ihren Bezug behalten.",
+    "sentence": "Ist ein {type} mit Stand vom {date}.",
+    "typeLabel": "Welche Art?",
+    "dateLabel": "Stand vom wann?",
+    "addDetails": "IBAN oder weitere Einstellungen hinzufügen",
+    "extrasSummary": {
+      "default": "Standardkonto",
+      "notAvailable": "zählt nicht als verfügbar",
+      "inactive": "aufgelöst",
+      "iban": "IBAN: {{value}}"
+    }
   },
   "household": {
     "roles": {

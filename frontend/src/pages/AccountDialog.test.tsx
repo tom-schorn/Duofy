@@ -86,6 +86,28 @@ describe('AccountDialog opening balance', () => {
   })
 })
 
+describe('AccountDialog sentence', () => {
+  test('names the type and the opening date, and offers a chip panel for the type', async () => {
+    const user = userEvent.setup()
+    render(ui({ account, open: true }))
+    const typeWord = screen.getByRole('button', { name: i18n.t('enums.accountType.checking') })
+    await user.click(typeWord)
+    const panel = screen.getByRole('group', { name: i18n.t('accounts.typeLabel') })
+    await user.click(within(panel).getByRole('button', { name: i18n.t('enums.accountType.savings') }))
+    expect(screen.getByRole('button', { name: i18n.t('enums.accountType.savings') })).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: i18n.t('accounts.typeLabel') })).not.toBeInTheDocument()
+  })
+
+  test('the rare fields stay collapsed even with a value set, named on a summary line', () => {
+    render(ui({ account: { ...account, externalRef: 'DE00 1234' }, open: true }))
+    expect(screen.getByRole('button', { name: i18n.t('accounts.addDetails') })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
+    expect(screen.getByText(/DE00 1234/)).toBeInTheDocument()
+  })
+})
+
 describe('AccountDialog delete', () => {
   test('asks once, deletes on confirm and puts the focus on the given target', async () => {
     const user = userEvent.setup()
@@ -121,9 +143,11 @@ describe('AccountDialog delete', () => {
     expect(deleted).toHaveBeenCalledTimes(1)
   })
 
-  test('has no delete button once the account is in use; the Aktiv switch is what is left', () => {
+  test('has no delete button once the account is in use; the Aktiv switch is what is left', async () => {
+    const user = userEvent.setup()
     render(ui({ account: { ...account, deletable: false }, open: true }))
     expect(screen.queryByRole('button', { name: i18n.t('common.delete') })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: i18n.t('accounts.addDetails') }))
     expect(screen.getByRole('switch', { name: i18n.t('accounts.active') })).toBeInTheDocument()
   })
 })

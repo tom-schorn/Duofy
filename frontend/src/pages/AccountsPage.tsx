@@ -2,11 +2,16 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, Star, Trash2 } from 'lucide-react'
 
-import { DateField } from '@/components/DateField'
 import { ListRow } from '@/components/ListRow'
-import { today, shortDate } from '@/lib/dates'
+import { today, shortDate, fromIsoDay, toIsoDay, longDate } from '@/lib/dates'
 import { EmptyState } from '@/components/EmptyState'
 import { QueryState } from '@/components/QueryState'
+import { MoreDetails } from '@/components/MoreDetails'
+import { SentenceWord } from '@/components/SentenceWord'
+import { SentencePanel } from '@/components/SentencePanel'
+import { SentenceChip } from '@/components/SentenceChip'
+import { fillSentence } from '@/lib/sentence'
+import { Calendar } from '@/components/ui/calendar'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,20 +28,12 @@ import { DialogFrame } from '@/components/DialogFrame'
 import { AmountField } from '@/components/AmountField'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import {
   atLeast,
   accountTypeLabel,
   euro,
   type Account,
-  type AccountType,
   ACCOUNT_TYPES,
 } from '@/lib/domain'
 import { useActiveMember } from '@/hooks/use-active-member'
@@ -243,6 +240,11 @@ export function AccountDialog({
   const remove = useDeleteAccount()
   const [draft, setDraft] = useState<Account>(account ?? emptyAccount(false))
   const [confirming, setConfirming] = useState(false)
+  const detailsOpened = useRef(false)
+
+  // Which sentence word is open — only one at a time (issue #215).
+  const [openWord, setOpenWord] = useState<string | null>(null)
+  const wordRefs = useRef<Record<string, HTMLButtonElement | null>>({})
 
   // An old error must not greet the next attempt.
   const resetSave = save.reset
@@ -256,7 +258,11 @@ export function AccountDialog({
 
   useEffect(() => {
     if (open && account) setDraft(account)
-    if (!open) setConfirming(false)
+    if (!open) {
+      setConfirming(false)
+      detailsOpened.current = false
+      setOpenWord(null)
+    }
   }, [open, account])
 
   const isEdit = Boolean(draft.id)
@@ -264,6 +270,79 @@ export function AccountDialog({
   function set<K extends keyof Account>(key: K, value: Account[K]) {
     setDraft((current) => ({ ...current, [key]: value }))
   }
+
+  function toggleWord(key: string) {
+    setOpenWord((current) => (current === key ? null : key))
+  }
+
+  /** Closes whichever word is open and gives the focus back to its button (rule 13). */
+  function closeWord() {
+    const key = openWord
+    setOpenWord(null)
+    if (key) requestAnimationFrame(() => wordRefs.current[key]?.focus())
+  }
+
+  function wordRef(key: string) {
+    return (element: HTMLButtonElement | null) => {
+      wordRefs.current[key] = element
+    }
+  }
+
+  const typeWord = (
+    <SentenceWord ref={wordRef('type')} open={openWord === 'type'} onClick={() => toggleWord('type')}>
+      {accountTypeLabel(draft.type)}
+    </SentenceWord>
+  )
+  const typePanel = openWord === 'type' && (
+    <SentencePanel label={t('accounts.typeLabel')}>
+      <div className="flex flex-wrap gap-2">
+        {TYPES.map((type) => (
+          <SentenceChip
+            key={type}
+            selected={draft.type === type}
+            onClick={() => {
+              set('type', type)
+              closeWord()
+            }}
+          >
+            {accountTypeLabel(type)}
+          </SentenceChip>
+        ))}
+      </div>
+    </SentencePanel>
+  )
+
+  const dateWord = (
+    <SentenceWord ref={wordRef('date')} open={openWord === 'date'} onClick={() => toggleWord('date')}>
+      {longDate(draft.openingDate)}
+    </SentenceWord>
+  )
+  const datePanel = openWord === 'date' && (
+    <SentencePanel label={t('accounts.dateLabel')}>
+      <Calendar
+        mode="single"
+        selected={fromIsoDay(draft.openingDate)}
+        defaultMonth={fromIsoDay(draft.openingDate)}
+        onSelect={(date) => {
+          if (!date) return
+          set('openingDate', toIsoDay(date))
+          closeWord()
+        }}
+        autoFocus
+      />
+    </SentencePanel>
+  )
+
+  // A quiet line under the link when something rare is already set — the section
+  // itself stays collapsed regardless (same rule as the commitment dialog).
+  const extrasSummary = [
+    draft.isDefault && t('accounts.extrasSummary.default'),
+    !draft.countsAsAvailable && t('accounts.extrasSummary.notAvailable'),
+    !draft.active && t('accounts.extrasSummary.inactive'),
+    draft.externalRef && t('accounts.extrasSummary.iban', { value: draft.externalRef }),
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join(' · ')
 
   return (
     <DialogFrame
@@ -327,40 +406,24 @@ export function AccountDialog({
         ) : undefined
       }
     >
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="account-name">{t('positionDialog.label')}</Label>
+          <Label htmlFor="account-name" className="sr-only">
+            {t('positionDialog.label')}
+          </Label>
           <Input
             id="account-name"
             value={draft.name}
             onChange={(event) => set('name', event.target.value)}
             placeholder={t('accounts.namePlaceholder')}
             required
+            className="font-heading h-auto rounded-none border-0 border-b border-border bg-transparent px-0 pb-2 text-3xl placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-0 md:text-3xl"
           />
-        </div>
 
-        <div className="flex flex-col gap-2">
-          <Label>{t('accounts.type')}</Label>
-          <Select
-            value={draft.type}
-            onValueChange={(value) => set('type', value as AccountType)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {TYPES.map((type) => (
-                <SelectItem key={type} value={type}>
-                  {accountTypeLabel(type)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="account-balance">{t('accounts.openingBalance')}</Label>
+          <div className="flex items-baseline gap-3">
+            <Label htmlFor="account-balance" className="text-muted-foreground shrink-0 text-sm">
+              {t('accounts.openingBalance')}
+            </Label>
             <AmountField
               id="account-balance"
               value={draft.openingBalance}
@@ -368,86 +431,108 @@ export function AccountDialog({
               placeholder="0,00"
               required
               allowNegative
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            {/* Ohne Stichtag wäre der Stand zu einem Zeitpunkt nicht
-                berechenbar — man wüsste nicht, welche Buchungen schon
-                im Anfangsbestand stecken. */}
-            <Label htmlFor="account-date">{t('accounts.openingDate')}</Label>
-            <DateField
-              id="account-date"
-              value={draft.openingDate}
-              onChange={(iso) => set('openingDate', iso)}
+              className="flex-1"
+              inputClassName="h-auto border-0 bg-transparent px-0 pr-7 text-2xl font-semibold placeholder:text-muted-foreground md:text-2xl"
             />
           </div>
         </div>
 
-        {/* Die IBAN ist der Schlüssel zur Umbuchungserkennung: steht sie als
-            Gegenpartei auf einer importierten Zeile, ist das keine Ausgabe,
-            sondern eine Bewegung zwischen zwei eigenen Konten. Ein Import
-            trägt sie von allein ein — von Hand ist sie für das Konto da,
-            das nie eine Datei liefert. Meist das Sparkonto, und das ist
-            genau das, wohin am häufigsten umgebucht wird. */}
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="account-iban">{t('accounts.iban')}<OptionalMark /></Label>
-          <Input
-            id="account-iban"
-            value={draft.externalRef ?? ''}
-            onChange={(event) =>
-              set('externalRef', event.target.value || null)
-            }
-            placeholder={t('accounts.ibanPlaceholder')}
-            autoComplete="off"
-            spellCheck={false}
-          />
-          <p className="text-muted-foreground text-xs">
-            {t('accounts.ibanHint')}
+        <div
+          className="flex flex-col gap-3"
+          onKeyDownCapture={(event) => {
+            if (event.key !== 'Escape' || openWord === null) return
+            event.stopPropagation()
+            event.preventDefault()
+            closeWord()
+          }}
+        >
+          {/* Ohne Stichtag wäre der Stand zu einem Zeitpunkt nicht
+              berechenbar — man wüsste nicht, welche Buchungen schon
+              im Anfangsbestand stecken. */}
+          <p className="text-lg leading-8">
+            {fillSentence(t('accounts.sentence'), { type: typeWord, date: dateWord })}
           </p>
+          {typePanel}
+          {datePanel}
         </div>
 
-        <div className="border-border flex items-center justify-between gap-4 rounded-lg border p-3">
-          <span className="flex flex-col">
-            <span className="text-sm font-medium">{t('common.defaultAccount')}</span>
-            <span className="text-muted-foreground text-xs">
-              {t('accounts.defaultHint')}
-            </span>
-          </span>
-          <Switch
-            checked={draft.isDefault}
-            onCheckedChange={(value) => set('isDefault', value)}
-          />
-        </div>
+        <MoreDetails
+          resetKey={account}
+          hasValues={false}
+          startOpen={detailsOpened.current}
+          onToggle={(opened) => {
+            detailsOpened.current = opened
+          }}
+          label={t('accounts.addDetails')}
+          plain
+          summary={extrasSummary || undefined}
+        >
+          {/* Die IBAN ist der Schlüssel zur Umbuchungserkennung: steht sie als
+              Gegenpartei auf einer importierten Zeile, ist das keine Ausgabe,
+              sondern eine Bewegung zwischen zwei eigenen Konten. Ein Import
+              trägt sie von allein ein — von Hand ist sie für das Konto da,
+              das nie eine Datei liefert. Meist das Sparkonto, und das ist
+              genau das, wohin am häufigsten umgebucht wird. */}
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="account-iban">{t('accounts.iban')}<OptionalMark /></Label>
+            <Input
+              id="account-iban"
+              value={draft.externalRef ?? ''}
+              onChange={(event) =>
+                set('externalRef', event.target.value || null)
+              }
+              placeholder={t('accounts.ibanPlaceholder')}
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <p className="text-muted-foreground text-xs">
+              {t('accounts.ibanHint')}
+            </p>
+          </div>
 
-        {/* Der Schalter, der das Buch beeinflusst: liegt Zweckgebundenes
-            auf dem Konto, ist eine Umbuchung dorthin eine Ausgabe. */}
-        <div className="border-border flex items-center justify-between gap-4 rounded-lg border p-3">
-          <span className="flex flex-col">
-            <span className="text-sm font-medium">{t('accounts.countsAsAvailable')}</span>
-            <span className="text-muted-foreground text-xs">
-              {t('accounts.countsAsAvailableHint')}
+          <div className="border-border flex items-center justify-between gap-4 rounded-lg border p-3">
+            <span className="flex flex-col">
+              <span className="text-sm font-medium">{t('common.defaultAccount')}</span>
+              <span className="text-muted-foreground text-xs">
+                {t('accounts.defaultHint')}
+              </span>
             </span>
-          </span>
-          <Switch
-            checked={draft.countsAsAvailable}
-            onCheckedChange={(value) => set('countsAsAvailable', value)}
-          />
-        </div>
+            <Switch
+              checked={draft.isDefault}
+              onCheckedChange={(value) => set('isDefault', value)}
+            />
+          </div>
 
-        <div className="border-border flex items-center justify-between gap-4 rounded-lg border p-3">
-          <span className="flex flex-col">
-            <span className="text-sm font-medium">{t('accounts.active')}</span>
-            <span className="text-muted-foreground text-xs">
-              {t('accounts.activeHint')}
+          {/* Der Schalter, der das Buch beeinflusst: liegt Zweckgebundenes
+              auf dem Konto, ist eine Umbuchung dorthin eine Ausgabe. */}
+          <div className="border-border flex items-center justify-between gap-4 rounded-lg border p-3">
+            <span className="flex flex-col">
+              <span className="text-sm font-medium">{t('accounts.countsAsAvailable')}</span>
+              <span className="text-muted-foreground text-xs">
+                {t('accounts.countsAsAvailableHint')}
+              </span>
             </span>
-          </span>
-          <Switch
-            aria-label={t('accounts.active')}
-            checked={draft.active}
-            onCheckedChange={(value) => set('active', value)}
-          />
-        </div>
-        </div>
+            <Switch
+              checked={draft.countsAsAvailable}
+              onCheckedChange={(value) => set('countsAsAvailable', value)}
+            />
+          </div>
+
+          <div className="border-border flex items-center justify-between gap-4 rounded-lg border p-3">
+            <span className="flex flex-col">
+              <span className="text-sm font-medium">{t('accounts.active')}</span>
+              <span className="text-muted-foreground text-xs">
+                {t('accounts.activeHint')}
+              </span>
+            </span>
+            <Switch
+              aria-label={t('accounts.active')}
+              checked={draft.active}
+              onCheckedChange={(value) => set('active', value)}
+            />
+          </div>
+        </MoreDetails>
+      </div>
     </DialogFrame>
   )
 }
