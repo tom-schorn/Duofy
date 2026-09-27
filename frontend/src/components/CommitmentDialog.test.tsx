@@ -1,12 +1,14 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test } from 'vitest'
 
+import { keys } from '@/lib/queries'
+import { OWN_SCOPE, type Account } from '@/lib/domain'
 import { CommitmentDialog } from '@/components/CommitmentDialog'
 import type { Commitment } from '@/lib/domain'
 
-const KIND_CARDS = ['Regelmäßige Ausgabe', 'Kredit oder Rate', 'Sparziel', 'Einnahme']
+const KIND_CARDS = ['Regelmäßige Ausgabe', 'Limit', 'Kredit oder Rate', 'Sparziel', 'Einnahme']
 
 async function chooseKind(user: ReturnType<typeof userEvent.setup>, name = 'Regelmäßige Ausgabe') {
   await user.click(screen.getByRole('button', { name: new RegExp(name) }))
@@ -41,6 +43,27 @@ function renderEdit(commitment: Commitment) {
   )
 }
 
+function renderWithAccounts(count: number) {
+  const client = new QueryClient()
+  const accounts = Array.from({ length: count }, (_, index) => ({
+    id: `a${index}`,
+    deletable: true,
+    name: `Konto ${index}`,
+    type: 'checking',
+    openingBalance: '0.00',
+    openingDate: '2026-01-01',
+    isDefault: index === 0,
+    active: true,
+    externalRef: null,
+  })) as unknown as Account[]
+  client.setQueryData(keys.accountsIn(OWN_SCOPE), accounts)
+  render(
+    <QueryClientProvider client={client}>
+      <CommitmentDialog commitment={null} open onOpenChange={() => {}} onSave={() => {}} />
+    </QueryClientProvider>
+  )
+}
+
 function renderDialog(onOpenChange: (open: boolean) => void) {
   render(
     <QueryClientProvider client={new QueryClient()}>
@@ -50,7 +73,7 @@ function renderDialog(onOpenChange: (open: boolean) => void) {
 }
 
 describe('CommitmentDialog', () => {
-  test('opens with the question and four kind cards, and nothing to send yet', () => {
+  test('opens with the question and five kind cards, and nothing to send yet', () => {
     renderDialog(() => {})
     expect(screen.getByRole('dialog', { name: 'Was ist das?' })).toBeInTheDocument()
     for (const card of KIND_CARDS) {
@@ -69,14 +92,77 @@ describe('CommitmentDialog', () => {
     expect(screen.queryByLabelText('Zielbetrag')).not.toBeInTheDocument()
   })
 
-  test('a savings goal shows its target amount up front and the target date under Weitere Angaben', async () => {
+  test('a savings goal shows target amount, target date and the target account up front', async () => {
     const user = userEvent.setup()
     renderDialog(() => {})
     await chooseKind(user, 'Sparziel')
     expect(screen.getByLabelText('Zielbetrag')).toBeInTheDocument()
-    expect(screen.queryByLabelText('Zieldatum')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Weitere Angaben' }))
     expect(screen.getByLabelText('Zieldatum')).toBeInTheDocument()
+    expect(screen.getByText('Zielkonto')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Weitere Angaben' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
+  })
+
+  test('a loan shows its end and the account up front', async () => {
+    const user = userEvent.setup()
+    renderDialog(() => {})
+    await chooseKind(user, 'Kredit oder Rate')
+    expect(screen.getByLabelText(/Läuft bis/)).toBeInTheDocument()
+    expect(screen.getByText('Konto')).toBeInTheDocument()
+  })
+
+  test('income shows the account up front', async () => {
+    const user = userEvent.setup()
+    renderDialog(() => {})
+    await chooseKind(user, 'Einnahme')
+    expect(screen.getByText('Konto')).toBeInTheDocument()
+  })
+
+  test('a regular expense asks for the account only when there is more than one', async () => {
+    const user = userEvent.setup()
+    renderDialog(() => {})
+    await chooseKind(user)
+    expect(screen.queryByText('Konto')).not.toBeInTheDocument()
+    cleanup()
+    renderWithAccounts(2)
+    await chooseKind(user)
+    expect(screen.getByText('Konto')).toBeInTheDocument()
+  })
+
+  test('a limit is its own card, sets the flag and is named in the title', async () => {
+    const user = userEvent.setup()
+    const saved: Commitment[] = []
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <CommitmentDialog
+          commitment={null}
+          open
+          onOpenChange={() => {}}
+          onSave={(c) => saved.push(c)}
+        />
+      </QueryClientProvider>
+    )
+    await chooseKind(user, 'Limit')
+    expect(screen.getByRole('dialog', { name: 'Limit anlegen' })).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Bezeichnung'), 'Lebensmittel')
+    await user.type(document.getElementById('amount') as HTMLElement, '400')
+    await user.click(screen.getByRole('button', { name: 'Weitere Angaben' }))
+    expect(screen.queryByText(/kein fester Betrag zum Abhaken/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Anlegen' }))
+    expect(saved[0]).toMatchObject({ type: 'contract', isLimit: true })
+  })
+
+  test('an existing limit is edited as „Limit bearbeiten“', () => {
+    renderEdit({
+      ...existing,
+      type: 'contract',
+      isLimit: true,
+      category: 'housing.rent',
+      budget: 'needs',
+    })
+    expect(screen.getByRole('dialog', { name: 'Limit bearbeiten' })).toBeInTheDocument()
   })
 
   test('the way back leads to the cards again, and the typed name stays', async () => {
@@ -88,6 +174,29 @@ describe('CommitmentDialog', () => {
     expect(screen.getByRole('dialog', { name: 'Was ist das?' })).toBeInTheDocument()
     await chooseKind(user, 'Einnahme')
     expect(screen.getByLabelText('Bezeichnung')).toHaveValue('Miete')
+  })
+
+  test('the way back puts the focus on the first card, a card on the first field', async () => {
+    const user = userEvent.setup()
+    renderDialog(() => {})
+    expect(screen.getByRole('button', { name: /Regelmäßige Ausgabe/ })).toHaveFocus()
+    await chooseKind(user)
+    expect(screen.getByLabelText('Bezeichnung')).toHaveFocus()
+    await user.click(screen.getByRole('button', { name: 'Zurück' }))
+    expect(screen.getByRole('button', { name: /Regelmäßige Ausgabe/ })).toHaveFocus()
+  })
+
+  test('Weitere Angaben stays open after going back and choosing again', async () => {
+    const user = userEvent.setup()
+    renderDialog(() => {})
+    await chooseKind(user)
+    await user.click(screen.getByRole('button', { name: 'Weitere Angaben' }))
+    await user.click(screen.getByRole('button', { name: 'Zurück' }))
+    await chooseKind(user, 'Einnahme')
+    expect(screen.getByRole('button', { name: 'Weitere Angaben' })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
   })
 
   test('offers Anlegen and puts the focus into the first field', async () => {
@@ -223,11 +332,11 @@ describe('CommitmentDialog Weitere Angaben', () => {
   })
 
   test('opens by itself on an edit that already holds a value in it', () => {
-    renderEdit({ ...existing, endsOn: '2027-12-01' })
+    renderEdit({ ...existing, paymentMethod: 'transfer' })
     expect(screen.getByRole('button', { name: 'Weitere Angaben' })).toHaveAttribute(
       'aria-expanded',
       'true'
     )
-    expect(screen.getByLabelText(/Läuft bis/)).toBeInTheDocument()
+    expect(screen.getByText('Zahlungsart')).toBeInTheDocument()
   })
 })
