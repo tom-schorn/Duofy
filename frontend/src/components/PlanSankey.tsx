@@ -21,9 +21,9 @@ import { formatShare } from '@/lib/format'
  * timeline but a balance sheet: the chart answers "where does the money go", not
  * "does the month hold up over time". The book answers the latter.
  *
- * The **distributable amount in the middle is the bottleneck**, and that is
- * exactly where the buffer sits. A pass-through position visibly bypasses it: it
- * appears in none of the columns, because it was never distributable.
+ * The **distributable amount in the middle is the bottleneck**. A pass-through
+ * position visibly bypasses it: it appears in none of the columns, because it
+ * was never distributable.
  *
  * ## Why bands are bundled
  *
@@ -41,7 +41,7 @@ import { formatShare } from '@/lib/format'
 
 type Props = {
   positions: PlanPosition[]
-  /** Income minus buffer — comes from the server. */
+  /** The income the quotas are computed on — comes from the server. */
   distributable: string
   /**
    * From which share of the distributable amount a position gets a band of its own.

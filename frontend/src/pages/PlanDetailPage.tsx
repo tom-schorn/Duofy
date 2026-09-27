@@ -70,8 +70,8 @@ import {
 /**
  * One monthly plan in detail — the heart of the app.
  *
- * The flow follows the ritual: expect the income, subtract the buffer, distribute
- * the rest across the three budgets, check whether it works out, confirm.
+ * The flow follows the ritual: expect the income, distribute it across the three
+ * budgets, check whether it works out, confirm.
  *
  * The quotas are **guidelines**, not rules. There is a target, the actual figure
  * stands next to it, and one decides whether that is acceptable.

@@ -63,8 +63,8 @@ import { shortDate } from '@/lib/dates'
  *
  * A user can belong to several households at once, so the page lists all of them.
  *
- * Every member may change the household's quotas and buffer (#84): the household
- * belongs to nobody, so no role decides for the others.
+ * Every member may change the household's quotas (#84): the household belongs
+ * to nobody, so no role decides for the others.
  */
 
 /** Catalog keys of the roles. */

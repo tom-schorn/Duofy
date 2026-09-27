@@ -36,8 +36,6 @@ class Household(UUIDMixin, TimestampMixin, Base):
     target_wants: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("30.00"))
     target_savings: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("20.00"))
 
-    #: How many percent of the contributed income stays unplanned.
-
     members: Mapped[list["HouseholdMember"]] = relationship(
         back_populates="household", cascade="all, delete-orphan"
     )
