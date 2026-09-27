@@ -167,6 +167,43 @@ async def test_a_transfer_away_lowers_the_curve_and_one_towards_it_raises_it(
     assert steps(await flow(client)) == [(3, "-100.00"), (5, "30.00")]
 
 
+async def test_every_entry_names_its_budget_and_a_transfer_has_none(
+    client: AsyncClient, session: AsyncSession, owner: User, main_account: Account
+):
+    other = await make_account(session, owner, "Tagesgeld")
+    plan = await make_plan(session, owner)
+    planned = position(plan, "Gym", "20.00", 2, budget=Budget.WANTS)
+    ticked = position(
+        plan, "Rent", "800.00", 4, budget=Budget.NEEDS, paid_at=datetime(2026, 9, 4, tzinfo=UTC)
+    )
+    session.add_all([planned, ticked])
+    await session.flush()
+    session.add_all(
+        [
+            booking(owner, main_account, "795.50", date(2026, 9, 4), position_id=ticked.id),
+            booking(owner, main_account, "12.00", date(2026, 9, 6), budget=Budget.WANTS),
+            booking(
+                owner,
+                main_account,
+                "50.00",
+                date(2026, 9, 8),
+                budget=Budget.SAVINGS,
+                counter_account_id=other.id,
+            ),
+        ]
+    )
+    await session.commit()
+
+    entries = (await flow(client))["entries"]
+
+    assert [(e["day"], e["kind"], e["budget"]) for e in entries] == [
+        (2, "plan", "wants"),
+        (4, "booking", "needs"),
+        (6, "booking", "wants"),
+        (8, "booking", None),
+    ]
+
+
 async def test_a_ticked_off_commitment_shows_its_booking_not_its_plan_even_in_another_month(
     client: AsyncClient, session: AsyncSession, owner: User, main_account: Account
 ):
