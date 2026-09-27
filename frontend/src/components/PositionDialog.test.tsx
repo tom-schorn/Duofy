@@ -274,3 +274,29 @@ describe('PositionDialog rare facts', () => {
     expect(screen.queryByText(/verbucht/)).not.toBeInTheDocument()
   })
 })
+
+describe('PositionDialog server field errors', () => {
+  test('a rejected save opens the word it names, marks it invalid, shows the message in its panel and moves the focus there (#203, review D-215-5)', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <PositionDialog
+          position={existing}
+          budget="needs"
+          planId="p1"
+          open
+          onOpenChange={() => {}}
+          onSave={() => {}}
+          error={new ApiError('not_household_member', 403)}
+        />
+      </QueryClientProvider>
+    )
+    // Its panel is open (the chip inside repeats the same name), so the word
+    // itself is told apart by its expanded state.
+    const word = screen.getByRole('button', { name: 'Nur mein Plan', expanded: true })
+    expect(word).toHaveAccessibleDescription(/Du bist kein Mitglied dieses Haushalts/)
+    expect(
+      within(screen.getByRole('group', { name: i18n.t('common.assignment') })).getByRole('alert')
+    ).toHaveTextContent('Du bist kein Mitglied dieses Haushalts.')
+    await waitFor(() => expect(word).toHaveFocus())
+  })
+})
