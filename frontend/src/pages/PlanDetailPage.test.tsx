@@ -291,3 +291,123 @@ describe('PlanDetailPage — household month not everyone has planned yet (#214)
     ).toBeInTheDocument()
   })
 })
+
+describe('PlanDetailPage — household plan positions clickable by rights (#218)', () => {
+  // Own position (Miete, owner u1 — the signed-in user) and Ida's (u2), whose
+  // grant varies per test. Both sit in the same budget on purpose: the
+  // household plan mixes rows with and without edit rights side by side.
+  function position(overrides: Record<string, unknown>) {
+    return {
+      id: 'p1',
+      label: 'Miete',
+      amountPlanned: '500.00',
+      amountActual: null,
+      category: 'housing.rent',
+      budget: 'needs',
+      dueDay: 1,
+      accountId: null,
+      counterAccountId: null,
+      paymentMethod: null,
+      isLimit: false,
+      passThrough: false,
+      householdId: 'h1',
+      commitmentId: null,
+      paidAt: null,
+      ownerId: 'u1',
+      ownerName: 'Max',
+      ...overrides,
+    }
+  }
+
+  function mockFetch(level: string) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        const path = String(url)
+        if (path.endsWith('/users/me')) {
+          return new Response(JSON.stringify({ id: 'u1', firstName: 'Max' }), { status: 200 })
+        }
+        if (path.endsWith('/households')) {
+          return new Response(JSON.stringify(household(level)), { status: 200 })
+        }
+        // The paper version of the charts is permanently mounted (also outside
+        // the flow tab), so it always asks for this too.
+        if (path.endsWith('/flow')) {
+          return new Response(
+            JSON.stringify({
+              year: 2026,
+              month: 11,
+              flowLimitsBy: 'plan',
+              start: '0.00',
+              entries: [],
+              days: [],
+              hints: [],
+              missingMembers: [],
+            }),
+            { status: 200 }
+          )
+        }
+        if (path.includes('/plans/household/')) {
+          return new Response(
+            JSON.stringify({
+              householdId: 'h1',
+              householdName: 'Zuhause',
+              year: 2026,
+              month: 11,
+              targetNeeds: '50.00',
+              targetWants: '30.00',
+              targetSavings: '20.00',
+              bufferPercent: '0.00',
+              income: '1000.00',
+              distributable: '1000.00',
+              spent: { needs: '0.00', wants: '0.00', savings: '0.00' },
+              unpaid: '0.00',
+              householdIds: [],
+              hints: [],
+              positions: [
+                position({}),
+                position({
+                  id: 'p2',
+                  label: 'Strom',
+                  category: 'housing.utilities',
+                  ownerId: 'u2',
+                  ownerName: 'Ida',
+                }),
+              ],
+              missingMembers: [],
+            }),
+            { status: 200 }
+          )
+        }
+        return new Response('[]', { status: 200 })
+      })
+    )
+  }
+
+  afterEach(() => vi.unstubAllGlobals())
+
+  test('an own position opens to edit even without a grant — it needs none for your own plan', async () => {
+    mockFetch('view')
+    renderAt('/plan/2026/11?household=h1')
+    fireEvent.click(await screen.findByRole('button', { name: /^Miete(?!:)/ }))
+    expect(
+      await screen.findByRole('dialog', { name: i18n.t('positionDialog.kinds.obligation.editTitle') })
+    ).toBeInTheDocument()
+  })
+
+  test('a position of somebody who granted edit opens too', async () => {
+    mockFetch('edit')
+    renderAt('/plan/2026/11?household=h1')
+    fireEvent.click(await screen.findByRole('button', { name: /^Strom(?!:)/ }))
+    expect(
+      await screen.findByRole('dialog', { name: i18n.t('positionDialog.kinds.obligation.editTitle') })
+    ).toBeInTheDocument()
+  })
+
+  test('a position of somebody who did not grant edit has no row button', async () => {
+    mockFetch('view')
+    renderAt('/plan/2026/11?household=h1')
+    await screen.findByRole('button', { name: /^Miete(?!:)/ })
+    expect(screen.queryByRole('button', { name: /^Strom(?!:)/ })).not.toBeInTheDocument()
+  })
+})
