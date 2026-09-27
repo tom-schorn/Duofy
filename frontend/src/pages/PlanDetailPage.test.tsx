@@ -110,4 +110,14 @@ describe('PlanDetailPage', () => {
     expect(await screen.findByText('November 2026 ist noch nicht angelegt')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Monat anlegen' })).not.toBeInTheDocument()
   })
+
+  test.each([
+    ['own plan', '/plan/2026/11', '/plan'],
+    ['member plan', '/plan/2026/11?member=u2', '/plan?member=u2'],
+    ['household plan', '/plan/2026/11?household=h1', '/plan?household=h1'],
+  ])('the all-plans link keeps the scope of the %s', async (_name, path, expected) => {
+    renderAt(path)
+    const link = await screen.findByRole('link', { name: i18n.t('plan.allPlans') })
+    expect(link).toHaveAttribute('href', expected)
+  })
 })

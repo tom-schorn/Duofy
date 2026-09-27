@@ -153,7 +153,17 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
     <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Link
-          to="/plan"
+          // The overview must open in the same scope: the household's months for
+          // the household plan, the other person's months for their plan — a bare
+          // `/plan` would silently drop back to your own.
+          to={{
+            pathname: '/plan',
+            search: shared
+              ? `?household=${householdId}`
+              : foreign
+                ? `?member=${memberId}`
+                : '',
+          }}
           data-print="hide"
           className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1.5 text-sm"
         >
