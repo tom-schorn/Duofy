@@ -165,6 +165,7 @@ describe('de.help.json', () => {
     'accounts',
     'household',
     'admin',
+    'settings',
   ]
 
   // Which keys the column asks for: the title of every page, and title and body
