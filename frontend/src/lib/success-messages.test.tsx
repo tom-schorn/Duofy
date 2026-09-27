@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import { toast } from 'sonner'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
-import { useCreatePlan, useSaveCommitment, useSaveTransaction } from '@/lib/queries'
+import { useCreatePlan, useSaveCommitment, useSaveTransaction, useSetDefaultQuota } from '@/lib/queries'
 
 function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
@@ -54,5 +54,14 @@ describe('success messages name the thing', () => {
     result.current.mutate({ year: 2026, month: 10 })
     await waitFor(() => expect(success).toHaveBeenCalled())
     expect(success.mock.calls[0][0]).toBe('Monat Oktober 2026 angelegt')
+  })
+
+  test('saved quotas name the three shares', async () => {
+    answer({ id: 'u', targetNeeds: '50.00', targetWants: '30.00', targetSavings: '20.00' })
+    const success = vi.spyOn(toast, 'success').mockImplementation(() => 1)
+    const { result } = renderHook(() => useSetDefaultQuota(), { wrapper })
+    result.current.mutate({ targetNeeds: '50', targetWants: '30', targetSavings: '20' })
+    await waitFor(() => expect(success).toHaveBeenCalled())
+    expect(success.mock.calls[0][0]).toBe('Richtwerte gespeichert: 50 / 30 / 20')
   })
 })
