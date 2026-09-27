@@ -58,8 +58,13 @@ type Props = {
   householdNames: Record<string, string>
   onEdit: (position: PlanPosition) => void
   onTogglePaid: (position: PlanPosition) => void
-  /** Shared view: other people positions are shown but not changed. */
-  readOnly?: boolean
+  /**
+   * Shared view: other people positions are shown but not changed. A function
+   * decides per position — the household plan mixes positions with and without
+   * edit rights in the same budget, unlike a single foreign plan where it is
+   * the same answer for every row.
+   */
+  readOnly?: boolean | ((position: PlanPosition) => boolean)
   /** Returns the first name of the person behind the position, otherwise null. */
   ownerName?: (position: PlanPosition) => string | null
 }
@@ -135,7 +140,7 @@ export function BudgetSection({
             householdNames={householdNames}
             onEdit={onEdit}
             onTogglePaid={onTogglePaid}
-            readOnly={readOnly}
+            readOnly={typeof readOnly === 'function' ? readOnly(position) : readOnly}
             ownerName={ownerName?.(position) ?? null}
           />
         ))}

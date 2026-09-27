@@ -59,6 +59,18 @@ describe('BudgetSection rows', () => {
     expect(screen.queryByRole('button', { name: /^Miete(?!:)/ })).not.toBeInTheDocument()
   })
 
+  test('readOnly as a function decides per position — the household plan mixes both (#218)', async () => {
+    const user = userEvent.setup()
+    const other = { ...position, id: 'p2', label: 'Strom' } as PlanPosition
+    const h = renderSection({
+      positions: [position, other],
+      readOnly: (row) => row.id === 'p2',
+    })
+    await user.click(screen.getByRole('button', { name: /^Miete(?!:)/ }))
+    expect(h.onEdit).toHaveBeenCalledWith(position)
+    expect(screen.queryByRole('button', { name: /^Strom(?!:)/ })).not.toBeInTheDocument()
+  })
+
   test('the section heading can take the focus after a delete', () => {
     renderSection()
     const heading = screen.getByRole('heading', { name: /Grundbedarf/ })
