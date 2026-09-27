@@ -24,7 +24,7 @@ const position = {
 } as unknown as PlanPosition
 
 function renderSection(props: Partial<React.ComponentProps<typeof BudgetSection>> = {}) {
-  const handlers = { onEdit: vi.fn(), onAdd: vi.fn(), onTogglePaid: vi.fn() }
+  const handlers = { onEdit: vi.fn(), onTogglePaid: vi.fn() }
   render(
     <BudgetSection
       budget="needs"

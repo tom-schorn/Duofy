@@ -551,7 +551,6 @@ function PlanBody({
             setEditing(position)
             setDialogOpen(true)
           }}
-          onAdd={handleAdd}
           onTogglePaid={togglePaidWithGuard}
         />
 
@@ -567,7 +566,6 @@ function PlanBody({
               setEditing(position)
               setDialogOpen(true)
             }}
-            onAdd={handleAdd}
             onTogglePaid={togglePaidWithGuard}
           />
         ))}
@@ -848,10 +846,8 @@ function MemberPlanBody({
               hints={plan.hints}
               householdNames={householdNames}
               onEdit={openEditor}
-              onAdd={handleAdd}
               onTogglePaid={toggle}
               readOnly={!mayEdit}
-              canAdd={mayEdit}
             />
 
             {groups.map((group) => (
@@ -863,10 +859,8 @@ function MemberPlanBody({
                 hints={plan.hints}
                 householdNames={householdNames}
                 onEdit={openEditor}
-                onAdd={handleAdd}
                 onTogglePaid={toggle}
                 readOnly={!mayEdit}
-                canAdd={mayEdit}
               />
             ))}
           </div>
@@ -1103,7 +1097,6 @@ function HouseholdPlanBody({
                   hints={plan.hints}
                   householdNames={householdNames}
                   onEdit={() => {}}
-                  onAdd={() => {}}
                   onTogglePaid={() => {}}
                   readOnly
                   ownerName={ownerName}
@@ -1118,7 +1111,6 @@ function HouseholdPlanBody({
                     hints={plan.hints}
                     householdNames={householdNames}
                     onEdit={() => {}}
-                    onAdd={() => {}}
                     onTogglePaid={() => {}}
                     readOnly
                     ownerName={ownerName}
