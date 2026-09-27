@@ -1,7 +1,7 @@
 """add personal default quotas to users
 
 Revision ID: a3e8c5d14b72
-Revises: f7c1a3d58e29
+Revises: a1d4e7c92b30
 Create Date: 2026-09-27 01:00:00.000000
 
 `users` gets the four numbers a new month starts from (#84): `target_needs`,
@@ -22,7 +22,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "a3e8c5d14b72"
-down_revision: Union[str, Sequence[str], None] = "f7c1a3d58e29"
+down_revision: Union[str, Sequence[str], None] = "a1d4e7c92b30"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
