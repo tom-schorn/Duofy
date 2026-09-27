@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test } from 'vitest'
 
+import { ApiError } from '@/lib/api'
 import { i18n } from '@/lib/i18n'
 import { keys } from '@/lib/queries'
 import { OWN_SCOPE, type Account } from '@/lib/domain'
@@ -420,5 +421,31 @@ describe('CommitmentDialog subtitle', () => {
     expect(
       screen.queryByText(/Posten für jeden Monat entstehen daraus von selbst/)
     ).not.toBeInTheDocument()
+  })
+})
+
+describe('CommitmentDialog server field errors', () => {
+  test('a rejected save opens the word it names, marks it invalid, shows the message in its panel and moves the focus there (#203, review D-215-5)', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <CommitmentDialog
+          commitment={existing}
+          open
+          onOpenChange={() => {}}
+          onSave={() => {}}
+          error={new ApiError('ends_on_before_start', 422)}
+        />
+      </QueryClientProvider>
+    )
+    const word = screen.getByRole('button', { name: i18n.t('commitmentDialog.noEnd') })
+    expect(word).toHaveAccessibleDescription(
+      /Das Ende darf nicht vor dem Monat der ersten Fälligkeit liegen/
+    )
+    expect(
+      within(screen.getByRole('group', { name: i18n.t('commitmentDialog.endsOnLabel') })).getByRole(
+        'alert'
+      )
+    ).toHaveTextContent('Das Ende darf nicht vor dem Monat der ersten Fälligkeit liegen.')
+    await waitFor(() => expect(word).toHaveFocus())
   })
 })

@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DialogFrame } from '@/components/DialogFrame'
+import { ApiError, errorText } from '@/lib/api'
 import { fillSentence } from '@/lib/sentence'
 import { Button } from '@/components/ui/button'
 import { AmountField } from '@/components/AmountField'
@@ -52,7 +53,8 @@ import { useAccounts, useHouseholds } from '@/lib/queries'
  * Name and amount stay a form (real labels, real inputs); the rest of the facts read
  * as one sentence with clickable words, each opening its choice right below the
  * sentence — „Satz statt Formular“ (issue #215, decision 28). Category and every
- * other rare field sit behind a text link instead of a boxed „Weitere Angaben“.
+ * other rare field read as a second, quieter sentence instead of sitting behind a
+ * boxed „Weitere Angaben“ (review D-215-4).
  *
  * The type drives the extra fields:
  *   contract      → none, plus the optional `isLimit` flag
@@ -139,6 +141,20 @@ const TYPE_OPTIONS: {
 const PAYMENTS = PAYMENT_METHODS
 /** Select value that opens the number field for any other distance. */
 const CUSTOM = 'custom'
+
+/**
+ * Which sentence word explains a server field error — #203's form-errors helper
+ * reaching the sentence words, not only the name and amount inputs (review
+ * D-215-5). Every code here is one `CommitmentCreate.check_shape` (or the
+ * matching update) can still send once the client-side checks are bypassed —
+ * a stale draft, or a request replayed with an older type.
+ */
+const FIELD_ERROR_WORDS: Record<string, string> = {
+  interval_months_out_of_range: 'rhythm',
+  ends_on_before_start: 'endsOn',
+  target_only_for_savings_goal: 'targetAmount',
+  not_household_member: 'assignment',
+}
 
 /**
  * Switching the type clears the extra fields that do not belong to the new one —
@@ -295,6 +311,22 @@ export function CommitmentDialog({
     }
   }, [open, commitment])
 
+  // Which word a rejected save belongs to, if any (review D-215-5).
+  const fieldErrorWord = error instanceof ApiError ? FIELD_ERROR_WORDS[error.code] : undefined
+  const fieldErrors = fieldErrorWord ? { [fieldErrorWord]: errorText(error) } : undefined
+
+  useEffect(() => {
+    // Opens the word's panel and moves the focus there, the same way the first
+    // mistake of a client-side check gets it (`Form`, in form-errors.tsx) —
+    // otherwise the message would sit unseen behind a closed panel.
+    if (fieldErrorWord) {
+      setOpenWord(fieldErrorWord)
+      requestAnimationFrame(() => wordRefs.current[fieldErrorWord]?.focus())
+    }
+    // Only when the server answers again — not on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [error])
+
   const isEdit = commitment !== null
   // Choosing a card is no change yet: compare against a fresh draft of the same kind.
   const kind = kindOf(draft)
@@ -424,6 +456,7 @@ export function CommitmentDialog({
   const rhythmWord = (
     <SentenceWord
       ref={wordRef('rhythm')}
+      id="rhythm"
       open={openWord === 'rhythm'}
       onClick={() => toggleWord('rhythm')}
       describedBy={sentenceId}
@@ -432,7 +465,7 @@ export function CommitmentDialog({
     </SentenceWord>
   )
   const rhythmPanel = openWord === 'rhythm' && (
-    <SentencePanel label={t('commitmentDialog.rhythmLabel')}>
+    <SentencePanel label={t('commitmentDialog.rhythmLabel')} id="rhythm">
       <div className="flex flex-wrap gap-2">
         {INTERVAL_PRESETS.map((months) => (
           <SentenceChip
@@ -654,6 +687,7 @@ export function CommitmentDialog({
   const endsOnWord = (
     <SentenceWord
       ref={wordRef('endsOn')}
+      id="endsOn"
       open={openWord === 'endsOn'}
       onClick={() => toggleWord('endsOn')}
       describedBy={sentenceId}
@@ -662,7 +696,7 @@ export function CommitmentDialog({
     </SentenceWord>
   )
   const endsOnPanel = openWord === 'endsOn' && (
-    <SentencePanel label={t('commitmentDialog.endsOnLabel')}>
+    <SentencePanel label={t('commitmentDialog.endsOnLabel')} id="endsOn">
       <Calendar
         mode="single"
         selected={fromIsoDay(draft.endsOn ?? '')}
@@ -718,6 +752,7 @@ export function CommitmentDialog({
   const targetAmountWord = (
     <SentenceWord
       ref={wordRef('targetAmount')}
+      id="targetAmount"
       open={openWord === 'targetAmount'}
       onClick={() => toggleWord('targetAmount')}
       describedBy={sentenceId}
@@ -726,7 +761,7 @@ export function CommitmentDialog({
     </SentenceWord>
   )
   const targetAmountPanel = openWord === 'targetAmount' && (
-    <SentencePanel label={t('commitmentDialog.targetAmountLabel')}>
+    <SentencePanel label={t('commitmentDialog.targetAmountLabel')} id="targetAmount">
       <AmountField
         id="target-amount"
         value={draft.targetAmount ?? ''}
@@ -828,6 +863,7 @@ export function CommitmentDialog({
   const assignmentWord = (
     <SentenceWord
       ref={wordRef('assignment')}
+      id="assignment"
       open={openWord === 'assignment'}
       onClick={() => toggleWord('assignment')}
       describedBy={extrasSentenceId}
@@ -838,7 +874,7 @@ export function CommitmentDialog({
     </SentenceWord>
   )
   const assignmentPanel = openWord === 'assignment' && (
-    <SentencePanel label={t('common.assignment')}>
+    <SentencePanel label={t('common.assignment')} id="assignment">
       <div className="flex flex-wrap gap-2">
         <SentenceChip
           selected={draft.householdId === null}
@@ -963,6 +999,7 @@ export function CommitmentDialog({
       dirty={!choosing && dirty}
       pending={pending}
       error={error}
+      fieldErrors={fieldErrors}
       returnFocus={returnFocus}
       start={
         isEdit && onDelete !== null ? (
