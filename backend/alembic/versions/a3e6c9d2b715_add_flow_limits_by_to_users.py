@@ -1,7 +1,7 @@
 """add flow_limits_by to users
 
 Revision ID: a3e6c9d2b715
-Revises: f7c1a3d58e29
+Revises: a94c0e7d3b16
 Create Date: 2026-09-27 01:00:00.000000
 
 The flow chart counts limit positions either by plan or by bookings (#93). The
@@ -20,7 +20,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "a3e6c9d2b715"
-down_revision: Union[str, Sequence[str], None] = "f7c1a3d58e29"
+down_revision: Union[str, Sequence[str], None] = "a94c0e7d3b16"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
