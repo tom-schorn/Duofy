@@ -19,6 +19,13 @@ type Props = {
   label?: string
   /** Drops the chevron: a plain text link, for the sentence dialog (issue #215). */
   plain?: boolean
+  /**
+   * Shown next to the closed link when there is something to summarize — the
+   * sentence dialog's rare fields stay collapsed even with a value set (issue
+   * #215, review D-215-2): the value shows here instead of forcing the section
+   * open.
+   */
+  summary?: React.ReactNode
   children: React.ReactNode
 }
 
@@ -34,6 +41,7 @@ export function MoreDetails({
   onToggle,
   label,
   plain = false,
+  summary,
   children,
 }: Props) {
   const { t } = useTranslation()
@@ -72,6 +80,7 @@ export function MoreDetails({
         )}
         {label ?? t('common.moreDetails')}
       </button>
+      {!open && summary && <p className="text-muted-foreground text-xs">{summary}</p>}
       {open && (
         <div id="more-details" className="flex flex-col gap-4">
           {children}

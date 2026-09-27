@@ -550,6 +550,15 @@
     "clearEnd": "Kein Ende",
     "endsOnHint": "Nur Monat und Jahr zählen. Danach entstehen keine neuen Posten mehr. Leer lassen, wenn es unbegrenzt weiterläuft.",
     "addDetails": "Kategorie oder weitere Angaben hinzufügen",
+    "extrasSummary": {
+      "category": "Kategorie: {{value}}",
+      "account": "Konto: {{value}}",
+      "counterAccount": "Zielkonto: {{value}}",
+      "endsOn": "läuft bis {{value}}",
+      "paymentMethod": "Zahlungsart: {{value}}",
+      "assignment": "Zuordnung: {{value}}",
+      "passThrough": "durchlaufend"
+    },
     "sentence": {
       "contract": "Geht {rhythm} ab dem {date} vom {account} ab und zählt zum {budget}.",
       "contractDefaultAccount": "Geht {rhythm} ab dem {date} ab und zählt zum {budget}.",
