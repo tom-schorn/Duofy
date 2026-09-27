@@ -104,7 +104,7 @@ export function MonthFlow({
   )
 }
 
-function LimitsSwitch({ value }: { value: FlowLimitsBy }) {
+export function LimitsSwitch({ value }: { value: FlowLimitsBy }) {
   const { t } = useTranslation()
   const save = useSetFlowLimitsBy()
   return (

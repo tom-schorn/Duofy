@@ -231,7 +231,6 @@ function HouseholdHeader({
             needs: Number(household.targetNeeds),
             wants: Number(household.targetWants),
             savings: Number(household.targetSavings),
-            buffer: Number(household.bufferPercent),
           })}
         </span>
       </div>

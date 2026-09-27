@@ -10,6 +10,7 @@ import { AccountsPage } from '@/pages/AccountsPage'
 import { BookPage } from '@/pages/BookPage'
 import { CommitmentsPage } from '@/pages/CommitmentsPage'
 import { AdminPage } from '@/pages/AdminPage'
+import { SettingsPage } from '@/pages/SettingsPage'
 import { HouseholdPage } from '@/pages/HouseholdPage'
 import { ImportPage } from '@/pages/ImportPage'
 import { LegalPage } from '@/pages/LegalPage'
@@ -52,6 +53,9 @@ export const router = createBrowserRouter([
           { path: '/import', element: <ImportPage /> },
 
           { path: '/household', element: <HouseholdPage /> },
+
+          // Personal settings, reached from the user menu, not the sidebar.
+          { path: '/einstellungen', element: <SettingsPage /> },
 
           // The system level; the page sends everybody but admins away.
           { path: '/admin', element: <AdminPage /> },

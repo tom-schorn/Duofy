@@ -76,7 +76,7 @@
     "entries": {
       "month": {
         "title": "Monatsplan",
-        "body": "<p>Der Monatsplan enthält alle Ein- und Auszahlungen, die für einen Monat vorgesehen sind. Er beschreibt den Soll-Zustand; was tatsächlich gebucht wurde, steht im Buch.</p><p>Grundlage der Verteilung ist das Verplanbare: Einnahmen abzüglich Puffer, aufgeteilt auf die drei folgenden Bereiche.</p>"
+        "body": "<p>Der Monatsplan enthält alle Ein- und Auszahlungen, die für einen Monat vorgesehen sind. Er beschreibt den Soll-Zustand; was tatsächlich gebucht wurde, steht im Buch.</p><p>Grundlage der Verteilung ist das Verplanbare: die Einnahmen, aufgeteilt auf die drei folgenden Bereiche.</p>"
       },
       "carry-over": {
         "title": "Übertrag",
@@ -84,7 +84,7 @@
       },
       "quota": {
         "title": "Richtwerte",
-        "body": "<p>Die Richtwerte sagen, wie das Verplanbare auf Grundbedarf, Wünsche und Sparen verteilt werden soll; als Puffer bleibt ein Teil unverplant. Vorgeschlagen sind 50, 30 und 20 Prozent. Es sind Orientierungswerte, keine Pflicht: Du kannst jeden Monat anders planen.</p><pSpaced>Du stellst <strong>deine eigenen</strong> Richtwerte im Benutzermenü ein. Sie gelten für jeden Monat, den du ab dann anlegst; bestehende Monate bleiben, wie sie sind. Grundbedarf, Wünsche und Sparen müssen zusammen 100 Prozent ergeben.</pSpaced><pSpaced>Im Haushaltsplan gibt es ein <strong>gemeinsames Ziel</strong>. Es gilt sofort für jeden Monat des Haushaltsplans, auch für vergangene, und jedes Mitglied darf es ändern.</pSpaced>"
+        "body": "<p>Die Richtwerte sagen, wie das Verplanbare auf Grundbedarf, Wünsche und Sparen verteilt werden soll. Vorgeschlagen sind 50, 30 und 20 Prozent. Es sind Orientierungswerte, keine Pflicht: Du kannst jeden Monat anders planen.</p><pSpaced>Du stellst <strong>deine eigenen</strong> Richtwerte unter „Einstellungen“ im Benutzermenü ein. Sie gelten für jeden Monat, den du ab dann anlegst; bestehende Monate bleiben, wie sie sind. Grundbedarf, Wünsche und Sparen müssen zusammen 100 Prozent ergeben.</pSpaced><pSpaced>Im Haushaltsplan gibt es ein <strong>gemeinsames Ziel</strong>. Es gilt sofort für jeden Monat des Haushaltsplans, auch für vergangene, und jedes Mitglied darf es ändern.</pSpaced>"
       },
       "flow": {
         "title": "Verlauf und Limits",

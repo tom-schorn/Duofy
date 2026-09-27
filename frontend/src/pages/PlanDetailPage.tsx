@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Metric } from '@/components/Metric'
 import { MonthSwitch } from '@/components/MonthSwitch'
+import { MonthHints } from '@/components/MonthHints'
 import { PlanPrintout } from '@/components/PlanPrintout'
 import { PlanSankey } from '@/components/PlanSankey'
 import { CreatePlanDialog } from '@/components/CreatePlanDialog'
@@ -490,6 +491,7 @@ function PlanBody({
           <Metric label={t('plans.open')} value={unpaid} hint={t('plan.notPaid')} />
         </section>
       )}
+      {tab !== 'book' && <MonthHints hints={plan.hints} />}
 
       {/* Tabs statt Untereinander: der Verlauf beantwortet eine andere Frage
           als die Postenliste — „geht der Monat auf" gegen „was steht drin".
@@ -851,6 +853,7 @@ function MemberPlanBody({
           <Metric label={t('plans.open')} value={unpaid} hint={t('plan.notPaid')} />
         </section>
       )}
+      {tab !== 'book' && <MonthHints hints={plan.hints} />}
 
       <Tabs value={tab} onValueChange={onTab} className="gap-6">
         <TabsList>
@@ -1052,6 +1055,7 @@ function HouseholdPlanBody({
               />
             </section>
           )}
+          {tab !== 'book' && <MonthHints hints={plan.hints} />}
 
           {/* Fehlt jemand, sind alle Summen im Buch unvollständig. Das muss
               dastehen — eine Zahl, der jemand fehlt, ohne dass man es sieht,
