@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
-import { ArrowLeft, Eye, Pencil, Plus, Printer, Users } from 'lucide-react'
+import { ArrowLeft, Eye, Pencil, Plus, Printer, Trash2, Users } from 'lucide-react'
 
 import { useActiveMember } from '@/hooks/use-active-member'
 import { BookMetrics } from '@/components/BookMetrics'
@@ -42,6 +42,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
   useAccounts,
+  useDeletePlan,
   useDeletePosition,
   useHouseholdPlan,
   useHouseholds,
@@ -276,6 +277,7 @@ function PlanBody({
   const { t } = useTranslation()
   const savePosition = useSavePosition()
   const deletePosition = useDeletePosition()
+  const deletePlan = useDeletePlan()
   const togglePaid = useTogglePaid()
   // The position whose booking dialog is currently open.
   const [booking, setBooking] = useState<PlanPosition | null>(null)
@@ -465,8 +467,25 @@ function PlanBody({
             <Plus className="size-4" />
             {t('positionDialog.addTitle')}
           </Button>
+          <Button
+            variant="ghost"
+            className="text-destructive"
+            disabled={!plan.deletable}
+            onClick={() => deletePlan({ year: plan.year, month: plan.month })}
+          >
+            <Trash2 className="size-4" />
+            {t('plan.deleteMonth')}
+          </Button>
         </div>
       </header>
+
+      {/* Nur sichtbar, solange der Knopf oben deaktiviert ist — dieselbe
+          Erklärung wie im Fehlerfall (409), nur schon vorher gesagt. */}
+      {!plan.deletable && (
+        <p className="text-muted-foreground text-sm print:hidden" data-print="hide">
+          {t('errors.plan_has_transactions')}
+        </p>
+      )}
 
       {/* Zwei Sichten, zwei Kartensätze. Der Plan rechnet mit dem Soll —
           „Verplanbar" ist Budget minus verteilte Posten und darf sich während
@@ -774,6 +793,7 @@ function MemberPlanBody({
   const togglePaid = useTogglePaid()
   const savePosition = useSavePosition()
   const deletePosition = useDeletePosition()
+  const deletePlan = useDeletePlan()
   const [editing, setEditing] = useState<PlanPosition | null>(null)
   const [addingTo, setAddingTo] = useState<Budget>('wants')
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -822,7 +842,24 @@ function MemberPlanBody({
               {t('positionDialog.addTitle')}
             </Button>
           )}
+          {mayDelete && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-destructive"
+              disabled={!plan.deletable}
+              onClick={() => deletePlan({ year: plan.year, month: plan.month, ownerId })}
+            >
+              <Trash2 className="size-4" />
+              {t('plan.deleteMonth')}
+            </Button>
+          )}
         </div>
+        {mayDelete && !plan.deletable && (
+          <p className="text-muted-foreground text-sm">
+            {t('errors.plan_has_transactions')}
+          </p>
+        )}
         <p className="text-muted-foreground">
           {t('plan.memberLead', { name: ownerName })}{' '}
           {!mayEdit

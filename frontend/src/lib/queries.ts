@@ -623,6 +623,30 @@ export function useCreatePlan() {
     i18n.t('toast.planCreated', { month: `${monthLabel(month)} ${year}` }), INLINE_ERROR)
 }
 
+/**
+ * Delete a month with „Rückgängig“ — your own, or that of a member who granted
+ * `delete`. Allowed only while nothing is booked against any of its positions
+ * (#219, same rule as commitments and accounts, #139).
+ */
+export function useDeletePlan() {
+  const client = useQueryClient()
+  return (plan: { year: number; month: number; ownerId?: string | null }) =>
+    deleteWithUndo({
+      client,
+      id: `${plan.year}-${plan.month}`,
+      name: `${monthLabel(plan.month)} ${plan.year}`,
+      hideIn: [],
+      invalidate: [keys.planOf(plan.year, plan.month, plan.ownerId ?? null), keys.plans],
+      request: (keepalive) =>
+        api.delete(
+          plan.ownerId
+            ? `/plans/${plan.year}/${plan.month}?owner=${plan.ownerId}`
+            : `/plans/${plan.year}/${plan.month}`,
+          { keepalive }
+        ),
+    })
+}
+
 // --- Import -----------------------------------------------------------------
 
 /**
