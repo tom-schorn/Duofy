@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router'
 import { Plus } from 'lucide-react'
 
 import { CommitmentDialog } from '@/components/CommitmentDialog'
+import { EmptyState } from '@/components/EmptyState'
 import { QueryState } from '@/components/QueryState'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -232,11 +233,20 @@ export function CommitmentsPage() {
         </Select>
       </div>
 
-      <QueryState isPending={commitments.isPending} error={commitments.error}>
+      <QueryState isPending={commitments.isPending} error={commitments.error} onRetry={() => void commitments.refetch()}>
       {groups.length === 0 ? (
-        <p className="text-muted-foreground border-border rounded-lg border border-dashed p-10 text-center text-sm">
+        <EmptyState
+          action={
+            mayEdit && (
+              <Button onClick={handleAdd}>
+                <Plus className="size-4" />
+                {t('commitments.create')}
+              </Button>
+            )
+          }
+        >
           {status === 'ended' ? t('commitments.emptyEnded') : t('commitments.empty')}
-        </p>
+        </EmptyState>
       ) : (
         <div className="flex flex-col gap-8">
           {groups.map((group) => (

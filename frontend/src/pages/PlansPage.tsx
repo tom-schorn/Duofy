@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 import { ChevronRight, Plus, Users } from 'lucide-react'
 
 import { CreatePlanDialog } from '@/components/CreatePlanDialog'
+import { EmptyState } from '@/components/EmptyState'
 import { QueryState } from '@/components/QueryState'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -74,15 +75,24 @@ export function PlansPage() {
         )}
       </header>
 
-      <QueryState isPending={plans.isPending} error={plans.error}>
+      <QueryState isPending={plans.isPending} error={plans.error} onRetry={() => void plans.refetch()}>
         {plans.data?.length === 0 ? (
-          <p className="text-muted-foreground border-border rounded-lg border border-dashed p-10 text-center text-sm">
+          <EmptyState
+            action={
+              mayEdit && (
+                <Button onClick={() => setCreating(true)}>
+                  <Plus className="size-4" />
+                  {t('plans.create')}
+                </Button>
+              )
+            }
+          >
             {active.member === null
               ? t('plans.empty')
               : mayEdit
-              ? t('plans.emptyMemberEdit', { name: active.member.firstName })
-              : t('plans.emptyMember', { name: active.member.firstName })}
-          </p>
+                ? t('plans.emptyMemberEdit', { name: active.member.firstName })
+                : t('plans.emptyMember', { name: active.member.firstName })}
+          </EmptyState>
         ) : (
           <ul className="flex flex-col gap-3">
             {plans.data?.map((plan) => (

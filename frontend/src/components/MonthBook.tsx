@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowRight } from 'lucide-react'
+import { Link } from 'react-router'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -13,16 +14,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from '@/components/ui/empty'
 import { AmountField } from '@/components/AmountField'
 import { CategoryPicker } from '@/components/CategoryPicker'
 import { EditBookingDialog } from '@/components/EditBookingDialog'
 import { ListRow } from '@/components/ListRow'
+import { EmptyState } from '@/components/EmptyState'
 import { QueryState } from '@/components/QueryState'
 import { errorText } from '@/lib/api'
 import { today } from '@/lib/dates'
@@ -99,14 +95,15 @@ export function MonthBook({
 
   if (usable.length === 0 && !readOnly) {
     return (
-      <Empty className="border-border rounded-xl border border-dashed">
-        <EmptyHeader>
-          <EmptyTitle>{t('monthBook.noAccountTitle')}</EmptyTitle>
-          <EmptyDescription>
-            {t('monthBook.noAccountText')}
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
+      <EmptyState
+        action={
+          <Button asChild>
+            <Link to="/accounts">{t('accounts.create')}</Link>
+          </Button>
+        }
+      >
+        {t('monthBook.noAccountText')}
+      </EmptyState>
     )
   }
 
@@ -133,12 +130,11 @@ export function MonthBook({
       <QueryState
         isPending={transactions.isPending}
         error={transactions.error}
+        onRetry={() => void transactions.refetch()}
         rows={3}
       >
         {transactions.data?.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            {t('monthBook.empty')}
-          </p>
+          <EmptyState>{t('monthBook.empty')}</EmptyState>
         ) : (
           <ul className="flex flex-col">
             {transactions.data?.map((transaction) => (
