@@ -460,7 +460,7 @@
     "standingOrderOrDebit": "Dauerauftrag / Lastschrift"
   },
   "positionDialog": {
-    "addTitle": "Posten hinzufügen",
+    "addTitle": "Posten anlegen",
     "chooseTitle": "Was ist das?",
     "chooseDescription": "Wähle, was am besten passt. Der Posten gilt nur für diesen Monat.",
     "back": "Zurück",
@@ -468,13 +468,13 @@
       "obligation": {
         "label": "Verpflichtung",
         "hint": "Ein Betrag, den du abhakst, wenn er bezahlt ist — zum Beispiel eine Rechnung.",
-        "addTitle": "Verpflichtung hinzufügen",
+        "addTitle": "Verpflichtung anlegen",
         "editTitle": "Verpflichtung bearbeiten"
       },
       "limit": {
         "label": "Limit",
         "hint": "Kein Haken: du legst nur die Höhe fest, der Posten füllt sich aus deinen Buchungen — Lebensmittel, Sprit.",
-        "addTitle": "Limit hinzufügen",
+        "addTitle": "Limit anlegen",
         "editTitle": "Limit bearbeiten"
       }
     },
@@ -567,7 +567,7 @@
     "noPosition": "Keinem Posten",
     "transferTo": "Umbuchung nach",
     "noTransfer": "Keine Umbuchung",
-    "pending": "Sichert…",
+    "pending": "Speichert…",
     "transfer": "Umbuchen",
     "book": "Buchen",
     "hint": "Datum ist heute. Eine Umbuchung mit Posten füllt zugleich das Budget — so wird aus „aufs Tagesgeld gelegt\" eine erfüllte Sparquote.",
