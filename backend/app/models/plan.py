@@ -43,8 +43,6 @@ class Plan(UUIDMixin, TimestampMixin, Base):
     target_wants: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("30.00"))
     target_savings: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("20.00"))
 
-    #: How many percent of the income is deliberately left unplanned.
-
     #: Ordered on purpose. Without `order_by` the database returns them however
     #: it likes, and an updated row typically comes back last — so changing one
     #: position made the whole list jump.
