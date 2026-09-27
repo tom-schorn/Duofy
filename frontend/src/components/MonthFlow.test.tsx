@@ -19,6 +19,7 @@ const flow: PlanFlow = {
       kind: 'plan',
       label: 'Miete',
       positionId: 'p1',
+      budget: 'needs',
       balance: '-800.00',
     },
     {
@@ -28,6 +29,7 @@ const flow: PlanFlow = {
       kind: 'booking',
       label: '',
       positionId: null,
+      budget: null,
       balance: '-820.00',
     },
     {
@@ -37,6 +39,7 @@ const flow: PlanFlow = {
       kind: 'plan',
       label: 'Gehalt',
       positionId: 'p2',
+      budget: 'income',
       balance: '1180.00',
     },
   ],
@@ -61,6 +64,14 @@ function renderView(props: Partial<React.ComponentProps<typeof FlowView>> = {}) 
 }
 
 describe('FlowView', () => {
+  test('the table names the budget of every entry in words, colour is not the only signal', () => {
+    renderView()
+    const rows = screen.getAllByRole('row')
+    expect(rows[1]).toHaveTextContent('Grundbedarf')
+    expect(rows[2]).toHaveTextContent('Umbuchung')
+    expect(rows[3]).toHaveTextContent('Einnahmen')
+  })
+
   test('the shortfall is the amount of the backend hint, not one worked out here', () => {
     renderView({ flow: { ...flow, hints: [shortfall] } })
     expect(screen.getByText(/Du brauchst am 1\. mindestens/)).toHaveTextContent('820,00')
