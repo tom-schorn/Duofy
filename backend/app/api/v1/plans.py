@@ -313,7 +313,6 @@ async def list_household_plans(
                     household.target_wants,
                     household.target_savings,
                 ),
-                buffer_percent=household.buffer_percent,
                 positions=positions,
             )
         )
