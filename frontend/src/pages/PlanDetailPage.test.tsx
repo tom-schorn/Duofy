@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
+import { i18n } from '@/lib/i18n'
 import { PlanDetailPage } from '@/pages/PlanDetailPage'
 
 function renderAt(path: string) {
@@ -88,13 +89,13 @@ describe('PlanDetailPage', () => {
     ['household plan', '/plan/2026/11?household=h1', '?household=h1'],
   ])('the month switch moves through the %s and keeps the address parameters', async (_name, path, search) => {
     const router = renderAt(path)
-    fireEvent.click(await screen.findByRole('button', { name: 'Nächster Monat' }))
+    fireEvent.click(await screen.findByRole('button', { name: i18n.t('book.nextMonth') }))
     expect(router.state.location.pathname).toBe('/plan/2026/12')
     expect(router.state.location.search).toBe(search)
     expect(await screen.findByText('Dezember 2026')).toBeInTheDocument()
 
     // Across the year boundary, with a two-digit month.
-    fireEvent.click(screen.getByRole('button', { name: 'Nächster Monat' }))
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('book.nextMonth') }))
     expect(router.state.location.pathname).toBe('/plan/2027/01')
     fireEvent.click(screen.getByRole('button', { name: 'Vorheriger Monat' }))
     expect(router.state.location.pathname).toBe('/plan/2026/12')

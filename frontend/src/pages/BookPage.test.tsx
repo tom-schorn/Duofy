@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
+import { i18n } from '@/lib/i18n'
 import { BookPage } from '@/pages/BookPage'
 
 function renderAt(path: string) {
@@ -57,7 +58,7 @@ describe('BookPage month in the address', () => {
 
   test('the arrows move the month in the address and Back returns', async () => {
     const router = renderAt('/book?month=2026-12')
-    fireEvent.click(await screen.findByRole('button', { name: 'Nächster Monat' }))
+    fireEvent.click(await screen.findByRole('button', { name: i18n.t('book.nextMonth') }))
     expect(router.state.location.search).toBe('?month=2027-01')
     expect(await screen.findByText('Januar 2027')).toBeInTheDocument()
     await act(() => router.navigate(-1))
