@@ -29,7 +29,7 @@ from app.core.permissions import (
 from app.db.session import get_session
 from app.models.account import Account
 from app.models.commitment import Commitment
-from app.models.enums import AccessLevel, Budget
+from app.models.enums import AccessLevel, Budget, TransactionKind
 from app.models.household import Household, HouseholdMember
 from app.models.plan import Plan, PlanPosition
 from app.models.transaction import Transaction
@@ -240,9 +240,7 @@ async def create_plan(
         buffer_percent=owner_row.buffer_percent,
     )
 
-    commitments = await session.execute(
-        select(Commitment).where(Commitment.owner_id == owner_id)
-    )
+    commitments = await session.execute(select(Commitment).where(Commitment.owner_id == owner_id))
     for commitment in commitments.scalars():
         if not commitment.is_due_in(payload.year, payload.month):
             continue
@@ -419,7 +417,7 @@ async def get_household_plan(
             ),
             buffer_percent=household.buffer_percent,
             positions=positions,
-        )
+        ),
     )
 
 
@@ -434,11 +432,13 @@ async def _sources(
     *,
     with_manual: bool,
     show_account: bool = True,
+    with_carry_over: bool = False,
 ) -> list[Source]:
     """One source per person: default account, positions and the bookings the
     flow needs. Manual bookings (no position) are read only for the own plan.
     `show_account` is False when the viewer has no insight into the accounts: the
-    account is then not named."""
+    account is then not named. `with_carry_over` reads the carry-over of the default
+    account as the start of that person's curve."""
     owner_ids = [owner_id for owner_id, _ in rows]
     accounts = {
         account.owner_id: account
@@ -451,6 +451,8 @@ async def _sources(
     position_ids = [p.id for _, positions in rows for p in positions]
     first, last = date(year, month, 1), date(year, month, monthrange(year, month)[1])
 
+    # A carry-over states the balance the month starts with. It is the curve's
+    # start, never a movement in it, so it is read on its own below.
     conditions = [Transaction.position_id.in_(position_ids)]
     if with_manual and accounts:
         default_ids = [account.id for account in accounts.values()]
@@ -464,8 +466,30 @@ async def _sources(
             )
         )
     transactions = (
-        (await session.execute(select(Transaction).where(or_(*conditions)))).scalars().all()
+        (
+            await session.execute(
+                select(Transaction).where(
+                    or_(*conditions), Transaction.kind != TransactionKind.CARRY_OVER
+                )
+            )
+        )
+        .scalars()
+        .all()
     )
+    carry_overs = {}
+    if with_carry_over and accounts:
+        carry_overs = {
+            tx.account_id: tx.amount
+            for tx in (
+                await session.execute(
+                    select(Transaction).where(
+                        Transaction.kind == TransactionKind.CARRY_OVER,
+                        Transaction.account_id.in_([a.id for a in accounts.values()]),
+                        Transaction.occurred_on == first,
+                    )
+                )
+            ).scalars()
+        }
 
     sources = []
     for owner_id, positions in rows:
@@ -475,6 +499,7 @@ async def _sources(
             Source(
                 account_id=account.id if account and show_account else None,
                 account_name=account.name if account and show_account else None,
+                start=carry_overs.get(account.id, ZERO) if account else ZERO,
                 positions=positions,
                 transactions=[
                     tx
@@ -525,6 +550,7 @@ async def get_flow(
         month,
         with_manual=sees_accounts,
         show_account=sees_accounts,
+        with_carry_over=sees_accounts,
     )
     return build_flow(sources, year, month, user.flow_limits_by, merged=False)
 
@@ -539,7 +565,11 @@ async def get_household_flow(
 ) -> FlowRead:
     """One curve over the household positions of every member, like the household
     plan itself: a lens, nothing stored. It answers whether it works out together,
-    not where money is missing."""
+    not where money is missing.
+
+    The curve starts at zero, not at a carry-over: the household owns no account, and
+    a member's balance is theirs to share, not the household's. It shows the change
+    the shared positions bring."""
     require(await is_member(session, user.id, household_id), "not_household_member")
 
     result = await session.execute(
@@ -557,9 +587,7 @@ async def get_household_flow(
     for position, owner_id in result.unique().all():
         by_owner.setdefault(owner_id, []).append(position)
 
-    sources = await _sources(
-        session, list(by_owner.items()), year, month, with_manual=False
-    )
+    sources = await _sources(session, list(by_owner.items()), year, month, with_manual=False)
     return build_flow(sources, year, month, user.flow_limits_by, merged=True)
 
 

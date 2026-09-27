@@ -40,6 +40,8 @@ class Source:
     positions: list[PlanPosition]
     #: Bookings linked to those positions, plus manual ones on the account.
     transactions: list[Transaction]
+    #: Carry-over of the default account for the month, zero without one.
+    start: Decimal = ZERO
 
 
 def _booking_effect(tx: Transaction, account_id: uuid.UUID | None) -> Decimal | None:
@@ -125,8 +127,10 @@ def build_flow(
     start: Decimal = ZERO,
 ) -> FlowRead:
     """The curve over every source. `merged` is the household view: one curve with
-    no single account to name. `start` is where the curve begins: zero, or the
-    carry-over of the default account when the month has one."""
+    no single account to name. The curve begins at `start` plus the sources' own
+    `start`:
+    zero, or the carry-over of the default account when the month has one."""
+    start += sum((source.start for source in sources), ZERO)
     raw = [e for source in sources for e in _entries(source, year, month, limits_by)]
     raw.sort(key=lambda e: (_clamp_day(e[0], year, month), e[0], -e[1]))
 
