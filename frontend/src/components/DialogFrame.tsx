@@ -22,6 +22,8 @@ type Props = {
   width?: 'narrow' | 'normal'
   /** Repeats the verb of the trigger: „Anlegen“ or „Speichern“. */
   submitLabel: string
+  /** Step 1 of a two-step create dialog has nothing to send yet: only „Abbrechen“. */
+  hideSubmit?: boolean
   /** Replaces „Speichert…“ while pending, when the verb is another one. */
   pendingLabel?: string
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void
@@ -56,6 +58,7 @@ export function DialogFrame({
   description,
   width = 'normal',
   submitLabel,
+  hideSubmit = false,
   pendingLabel,
   onSubmit,
   submitDisabled = false,
@@ -93,7 +96,8 @@ export function DialogFrame({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         className={cn(
-          'max-h-[90svh] overflow-y-auto',
+          // Header and footer stay put, only the middle scrolls (UI guideline rule 21).
+          'flex max-h-[90svh] flex-col gap-0 overflow-hidden',
           width === 'narrow' ? 'sm:max-w-sm' : 'sm:max-w-md',
           className
         )}
@@ -136,8 +140,8 @@ export function DialogFrame({
           if (dirty || asking) event.preventDefault()
         }}
       >
-        <form onSubmit={onSubmit} className="flex flex-col gap-5">
-          <DialogHeader>
+        <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col gap-4">
+          <DialogHeader className="shrink-0 pr-8">
             <DialogTitle className="font-heading text-xl">{title}</DialogTitle>
             {description ? (
               <DialogDescription>{description}</DialogDescription>
@@ -146,12 +150,17 @@ export function DialogFrame({
             )}
           </DialogHeader>
 
-          {children}
+          {/* The padding keeps focus rings from being cut off by the scroll area. */}
+          <div className="-mx-1 flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-1 py-1">
+            {children}
+          </div>
 
-          <FormError error={error} />
+          <div className="shrink-0 empty:hidden">
+            <FormError error={error} />
+          </div>
 
           {asking ? (
-            <DialogFooter className="items-center sm:justify-between">
+            <DialogFooter className="shrink-0 items-center sm:justify-between">
               <p role="alert" className="text-sm font-medium">
                 {t('ui.dialog.discardQuestion')}
               </p>
@@ -165,15 +174,17 @@ export function DialogFrame({
               </div>
             </DialogFooter>
           ) : (
-            <DialogFooter className={start ? 'sm:justify-between' : undefined}>
+            <DialogFooter className={cn('shrink-0', start && 'sm:justify-between')}>
               {start}
               <div className="flex flex-col-reverse gap-2 sm:flex-row">
                 <Button type="button" variant="outline" disabled={pending} onClick={close}>
                   {t('common.cancel')}
                 </Button>
-                <Button type="submit" disabled={pending || submitDisabled}>
-                  {pending ? (pendingLabel ?? t('common.saving')) : submitLabel}
-                </Button>
+                {!hideSubmit && (
+                  <Button type="submit" disabled={pending || submitDisabled}>
+                    {pending ? (pendingLabel ?? t('common.saving')) : submitLabel}
+                  </Button>
+                )}
               </div>
             </DialogFooter>
           )}

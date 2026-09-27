@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { DateField } from '@/components/DateField'
 import { firstOfNextMonth } from '@/lib/dates'
+import { MoreDetails } from '@/components/MoreDetails'
 import { Switch } from '@/components/ui/switch'
 import {
   Select,
@@ -49,7 +50,12 @@ import { useAccounts, useHouseholds } from '@/lib/queries'
 /**
  * One form for every commitment — savings plans and loans are commitments too.
  *
- * The type comes first, in everyday words, and drives the extra fields:
+ * Creating takes two steps: first four cards ask „Was ist das?“ in everyday words,
+ * then only that kind's fields follow, with a way back. Editing has no cards and no
+ * switch: the kind is fixed and named in the title (#190). Required fields are
+ * visible, everything rare sits under „Weitere Angaben“.
+ *
+ * The type drives the extra fields:
  *   contract      → none, plus the optional `isLimit` flag
  *   savings_goal  → target amount, target date
  *   debt          → none
@@ -65,6 +71,8 @@ const TYPE_OPTIONS: {
   value: CommitmentType
   label: string
   hint: string
+  addTitle: string
+  editTitle: string
   /** Why the budget is fixed — shown in place of the picker. Catalog keys, like the other texts. */
   budgetHint: string | null
   namePlaceholder: string
@@ -74,6 +82,8 @@ const TYPE_OPTIONS: {
     value: 'contract',
     label: 'commitmentDialog.types.contract.label',
     hint: 'commitmentDialog.types.contract.hint',
+    addTitle: 'commitmentDialog.types.contract.addTitle',
+    editTitle: 'commitmentDialog.types.contract.editTitle',
     budgetHint: null,
     namePlaceholder: 'commitmentDialog.types.contract.namePlaceholder',
     defaultCategory: 'housing.rent',
@@ -82,6 +92,8 @@ const TYPE_OPTIONS: {
     value: 'savings_goal',
     label: 'commitmentDialog.types.savings_goal.label',
     hint: 'commitmentDialog.types.savings_goal.hint',
+    addTitle: 'commitmentDialog.types.savings_goal.addTitle',
+    editTitle: 'commitmentDialog.types.savings_goal.editTitle',
     budgetHint: 'commitmentDialog.types.savings_goal.budgetHint',
     namePlaceholder: 'commitmentDialog.types.savings_goal.namePlaceholder',
     defaultCategory: 'finance.savings',
@@ -90,6 +102,8 @@ const TYPE_OPTIONS: {
     value: 'debt',
     label: 'commitmentDialog.types.debt.label',
     hint: 'commitmentDialog.types.debt.hint',
+    addTitle: 'commitmentDialog.types.debt.addTitle',
+    editTitle: 'commitmentDialog.types.debt.editTitle',
     // The reason, in one sentence.
     budgetHint: 'commitmentDialog.types.debt.budgetHint',
     namePlaceholder: 'commitmentDialog.types.debt.namePlaceholder',
@@ -99,6 +113,8 @@ const TYPE_OPTIONS: {
     value: 'income',
     label: 'commitmentDialog.types.income.label',
     hint: 'commitmentDialog.types.income.hint',
+    addTitle: 'commitmentDialog.types.income.addTitle',
+    editTitle: 'commitmentDialog.types.income.editTitle',
     budgetHint: 'commitmentDialog.types.income.budgetHint',
     namePlaceholder: 'commitmentDialog.types.income.namePlaceholder',
     defaultCategory: 'income.earned',
@@ -108,6 +124,62 @@ const TYPE_OPTIONS: {
 const PAYMENTS = PAYMENT_METHODS
 /** Select value that opens the number field for any other distance. */
 const CUSTOM = 'custom'
+
+/**
+ * Switching the type clears the extra fields that do not belong to the new one —
+ * otherwise the form sends values the database rejects.
+ */
+function withType(current: Commitment, type: CommitmentType): Commitment {
+  if (type === current.type) return current
+  const previous = TYPE_OPTIONS.find((item) => item.value === current.type)!
+  const option = TYPE_OPTIONS.find((item) => item.value === type)!
+  // Only follow along with the category if it still holds the old suggestion —
+  // or if it sits on the wrong side of the income line. The income group and
+  // the income type belong together in both directions: a salary filed under
+  // Miete is as wrong as a contract filed under Gehalt.
+  const categoryFits = (categoryGroup(current.category) === 'income') === (type === 'income')
+  const category =
+    categoryFits && current.category !== previous.defaultCategory
+      ? current.category
+      : option.defaultCategory
+
+  return {
+    ...current,
+    type,
+    category,
+    // Derived from the category that is actually being kept, not from the one
+    // being replaced. Otherwise switching away from a savings goal takes the
+    // new category but leaves the budget on Sparen.
+    budget:
+      type === 'savings_goal' || type === 'debt'
+        ? 'savings'
+        : type === 'income'
+          ? 'income'
+          : BUDGET_SUGGESTION[category],
+    // The limit flag only makes sense on a running contract — Lebensmittel and
+    // Sprit are contracts, not savings goals, debts or income.
+    isLimit: type === 'contract' ? current.isLimit : false,
+    targetAmount: type === 'savings_goal' ? current.targetAmount : null,
+    targetDate: type === 'savings_goal' ? current.targetDate : null,
+  }
+}
+
+/** Something under „Weitere Angaben“ is set, so the section must start open. */
+function hasExtras(commitment: Commitment): boolean {
+  const option = TYPE_OPTIONS.find((item) => item.value === commitment.type)!
+  return (
+    commitment.accountId !== null ||
+    commitment.counterAccountId !== null ||
+    commitment.paymentMethod !== null ||
+    commitment.householdId !== null ||
+    commitment.passThrough ||
+    commitment.isLimit ||
+    commitment.endsOn !== null ||
+    commitment.targetDate !== null ||
+    // A contract shows its category up front; the other kinds keep it in here.
+    (commitment.type !== 'contract' && commitment.category !== option.defaultCategory)
+  )
+}
 
 function emptyDraft(): Commitment {
   return {
@@ -167,6 +239,8 @@ export function CommitmentDialog({
   const households = useHouseholds().data ?? []
   const accounts = useAccounts().data ?? []
   const [draft, setDraft] = useState<Commitment>(commitment ?? emptyDraft())
+  // Creating starts with the question, editing goes straight to the fields.
+  const [step, setStep] = useState<'choose' | 'form'>(commitment ? 'form' : 'choose')
 
   // Reset on open — otherwise the previous state is still in the fields.
   // "Anderer Abstand" is its own state, not derived from the value: typing 6 into
@@ -180,13 +254,16 @@ export function CommitmentDialog({
     if (open) {
       const next = commitment ?? emptyDraft()
       setDraft(next)
+      setStep(commitment ? 'form' : 'choose')
       setCustomInterval(!INTERVAL_PRESETS.includes(next.intervalMonths))
       setIntervalText(String(next.intervalMonths))
     }
   }, [open, commitment])
 
   const isEdit = commitment !== null
-  const dirty = JSON.stringify(draft) !== JSON.stringify(commitment ?? emptyDraft())
+  // Choosing a card is no change yet: compare against a fresh draft of the same kind.
+  const baseline = commitment ?? withType(emptyDraft(), draft.type)
+  const dirty = JSON.stringify(draft) !== JSON.stringify(baseline)
   const typeOption = TYPE_OPTIONS.find((option) => option.value === draft.type)!
   const intervalValid = isValidInterval(draft.intervalMonths)
   // Only savings goals and debts are fixed — resolve_budget() in the backend
@@ -206,46 +283,10 @@ export function CommitmentDialog({
     setDraft((current) => ({ ...current, [key]: value }))
   }
 
-  /**
-   * Switching the type clears the extra fields that do not belong to the new one —
-   * otherwise the form sends values the database rejects.
-   */
+  /** The kind is chosen on the card of step 1, and can be changed again by going back. */
   function handleType(type: CommitmentType) {
-    // Clicking the type that is already chosen changes nothing — and must not make
-    // the dialog dirty.
-    if (type === draft.type) return
-    const option = TYPE_OPTIONS.find((item) => item.value === type)!
-    setDraft((current) => {
-      // Only follow along with the category if it still holds the old suggestion —
-      // or if it sits on the wrong side of the income line. The income group and
-      // the income type belong together in both directions: a salary filed under
-      // Miete is as wrong as a contract filed under Gehalt.
-      const categoryFits = (categoryGroup(current.category) === 'income') === (type === 'income')
-      const category =
-        categoryFits && current.category !== typeOption.defaultCategory
-          ? current.category
-          : option.defaultCategory
-
-      return {
-        ...current,
-        type,
-        category,
-        // Derived from the category that is actually being kept, not from the one
-        // being replaced. Otherwise switching away from a savings goal takes the
-        // new category but leaves the budget on Sparen.
-        budget:
-          type === 'savings_goal' || type === 'debt'
-            ? 'savings'
-            : type === 'income'
-              ? 'income'
-              : BUDGET_SUGGESTION[category],
-        // The limit flag only makes sense on a running contract — Lebensmittel and
-        // Sprit are contracts, not savings goals, debts or income.
-        isLimit: type === 'contract' ? current.isLimit : false,
-        targetAmount: type === 'savings_goal' ? current.targetAmount : null,
-        targetDate: type === 'savings_goal' ? current.targetDate : null,
-      }
-    })
+    setDraft((current) => withType(current, type))
+    setStep('form')
   }
 
   /** Changing the category preselects the budget — not for goals and debts. */
@@ -315,19 +356,69 @@ export function CommitmentDialog({
     : []
   const februaryDay = effectiveDueDay(dueDay, shiftYear, 2)
 
+  const choosing = step === 'choose'
+
+  const categoryBudget = (
+    <>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-2">
+          <Label>{t('common.category')}</Label>
+          <CategoryPicker value={draft.category} onChange={handleCategory} />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label>{t('common.budget')}</Label>
+          {budgetIsFixed ? (
+            <span className="flex h-9 items-center gap-2 text-sm font-medium">
+              <span className={cn('size-2.5 rounded-sm', BUDGET_DOT[draft.budget])} />
+              {budgetLabel(draft.budget)}
+            </span>
+          ) : (
+            <Select value={draft.budget} onValueChange={(value) => set('budget', value as Budget)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {BUDGET_ORDER.map((budget) => (
+                  <SelectItem key={budget} value={budget}>
+                    {budgetLabel(budget)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+      </div>
+
+      {typeOption.budgetHint && (
+        <p className="text-muted-foreground bg-muted rounded-md px-3 py-2 text-xs">
+          {t(typeOption.budgetHint)}
+        </p>
+      )}
+    </>
+  )
+
   return (
-    // The frame caps the height: with "debt" and on low screens the form is
-    // taller than the window, and title and buttons would be cut off.
+    // The frame keeps title and buttons in place and lets only the middle scroll.
     <DialogFrame
       open={open}
       onOpenChange={onOpenChange}
       className="sm:max-w-lg"
-      title={isEdit ? t('commitmentDialog.editTitle') : t('commitmentDialog.addTitle')}
-      description={t('commitmentDialog.description')}
+      title={
+        choosing
+          ? t('commitmentDialog.chooseTitle')
+          : isEdit
+            ? t(typeOption.editTitle)
+            : t(typeOption.addTitle)
+      }
+      description={
+        choosing ? t('commitmentDialog.chooseDescription') : t('commitmentDialog.description')
+      }
       submitLabel={isEdit ? t('common.save') : t('common.create')}
-      onSubmit={handleSubmit}
+      hideSubmit={choosing}
+      onSubmit={choosing ? (event) => event.preventDefault() : handleSubmit}
       submitDisabled={!intervalValid}
-      dirty={dirty}
+      dirty={!choosing && dirty}
       pending={pending}
       error={error}
       returnFocus={returnFocus}
@@ -342,330 +433,116 @@ export function CommitmentDialog({
           >
             {t('common.delete')}
           </Button>
+        ) : !isEdit && !choosing ? (
+          <Button type="button" variant="ghost" onClick={() => setStep('choose')}>
+            {t('commitmentDialog.back')}
+          </Button>
         ) : undefined
       }
     >
-      <div className="flex flex-col gap-2">
-        <div className="border-border grid grid-cols-3 gap-1 rounded-md border p-1">
+      {choosing ? (
+        <div className="grid gap-3 sm:grid-cols-2">
           {TYPE_OPTIONS.map((option) => (
-            <Button
+            <button
               key={option.value}
               type="button"
-              variant={draft.type === option.value ? 'default' : 'ghost'}
-              size="sm"
               onClick={() => handleType(option.value)}
-              aria-pressed={draft.type === option.value}
+              className="border-border hover:bg-muted focus-visible:ring-ring flex flex-col gap-1 rounded-md border p-3 text-left focus-visible:ring-2 focus-visible:outline-none"
             >
-              {t(option.label)}
-            </Button>
+              <span className="font-medium">{t(option.label)}</span>
+              <span className="text-muted-foreground text-xs">{t(option.hint)}</span>
+            </button>
           ))}
         </div>
-        <p className="text-muted-foreground text-xs">{t(typeOption.hint)}</p>
-      </div>
-
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="name">{t('positionDialog.label')}</Label>
-          <Input
-            id="name"
-            value={draft.name}
-            onChange={(event) => set('name', event.target.value)}
-            placeholder={t(typeOption.namePlaceholder)}
-            required
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
+      ) : (
+        <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="amount">
-              {draft.type === 'debt' ? t('commitmentDialog.rate') : t('common.amount')}
-            </Label>
-            <AmountField
-              id="amount"
-              value={draft.amount}
-              onChange={(value) => set('amount', value)}
+            <Label htmlFor="name">{t('positionDialog.label')}</Label>
+            <Input
+              id="name"
+              autoFocus
+              value={draft.name}
+              onChange={(event) => set('name', event.target.value)}
+              placeholder={t(typeOption.namePlaceholder)}
               required
-              allowZero
             />
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="interval">{t('commitmentDialog.interval')}</Label>
-            <Select
-              value={customInterval ? CUSTOM : String(draft.intervalMonths)}
-              onValueChange={handleIntervalSelect}
-            >
-              <SelectTrigger id="interval">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {INTERVAL_PRESETS.map((months) => (
-                  <SelectItem key={months} value={String(months)}>
-                    {intervalLabel(months)}
-                  </SelectItem>
-                ))}
-                <SelectItem value={CUSTOM}>{t('commitmentDialog.customInterval')}</SelectItem>
-              </SelectContent>
-            </Select>
-            {customInterval && (
-              <>
-                <Label htmlFor="interval-custom">
-                  {t('commitmentDialog.customIntervalField')}
-                </Label>
-                <Input
-                  id="interval-custom"
-                  ref={intervalField}
-                  type="number"
-                  min={INTERVAL_MIN}
-                  max={INTERVAL_MAX}
-                  step="1"
-                  inputMode="numeric"
-                  value={intervalText}
-                  onChange={(event) => handleIntervalText(event.target.value)}
-                  aria-invalid={!intervalValid}
-                  aria-describedby="interval-custom-hint"
-                  required
-                />
-                {/* Always in the DOM so the field can point at it; only the
-                    error turns into an announcement. */}
-                <span
-                  id="interval-custom-hint"
-                  role={intervalValid ? undefined : 'alert'}
-                  className={
-                    intervalValid
-                      ? 'text-muted-foreground text-xs'
-                      : 'text-destructive text-xs'
-                  }
-                >
-                  {t('commitmentDialog.intervalRange', {
-                    min: INTERVAL_MIN,
-                    max: INTERVAL_MAX,
-                  })}
-                </span>
-              </>
-            )}
-          </div>
-        </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="amount">
+                {draft.type === 'debt'
+                  ? t('commitmentDialog.rate')
+                  : draft.type === 'savings_goal'
+                    ? t('commitmentDialog.saving')
+                    : t('common.amount')}
+              </Label>
+              <AmountField
+                id="amount"
+                value={draft.amount}
+                onChange={(value) => set('amount', value)}
+                required
+                allowZero
+              />
+            </div>
 
-        {/* Beide gehören an den Vertrag, nicht an den Monat — sie werden
-            beim Erzeugen in jeden Posten kopiert und bleiben dort
-            überschreibbar. */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-2">
-            <Label>{t('common.account')}</Label>
-            <Select
-              value={draft.accountId ?? 'default'}
-              onValueChange={(value) =>
-                set('accountId', value === 'default' ? null : value)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {/* „Standardkonto" statt fester Vorauswahl: der Vertrag
-                    bleibt richtig, wenn du das Standardkonto wechselst.
-                    Gesetzt wird es nur, wo es abweicht — das Claude-Abo
-                    läuft über die Kreditkarte, nicht übers Giro. */}
-                <SelectItem value="default">{t('common.defaultAccount')}</SelectItem>
-                {accounts
-                  .filter((account) => account.active)
-                  .map((account) => (
-                    <SelectItem key={account.id} value={account.id}>
-                      {account.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label>{t('common.counterAccount')}</Label>
-            <Select
-              value={draft.counterAccountId ?? 'none'}
-              onValueChange={(value) =>
-                set('counterAccountId', value === 'none' ? null : value)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">{t('common.goesOut')}</SelectItem>
-                {accounts
-                  .filter((account) => account.id !== draft.accountId)
-                  .map((account) => (
-                    <SelectItem key={account.id} value={account.id}>
-                      {account.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-            <span className="text-muted-foreground text-xs">
-              {t('common.counterAccountHint')}
-            </span>
-          </div>
-
-
-        <div className="flex flex-col gap-2">
-          <Label>{t('common.paymentMethod')}</Label>
-          <Select
-            value={draft.paymentMethod ?? 'none'}
-            onValueChange={(value) =>
-              set(
-                'paymentMethod',
-                value === 'none' ? null : (value as PaymentMethod)
-              )
-            }
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">{t('commitmentDialog.noPaymentMethod')}</SelectItem>
-              {PAYMENTS.map((method) => (
-                <SelectItem key={method} value={method}>
-                  {paymentLabel(method)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="first-due">{t('commitmentDialog.firstDue')}</Label>
-          <DateField
-            id="first-due"
-            value={draft.firstDueDate}
-            onChange={handleFirstDueDate}
-            describedBy="first-due-hint"
-          />
-          <p id="first-due-hint" className="text-muted-foreground text-xs">
-            {t(
-              draft.intervalMonths === 1
-                ? 'commitmentDialog.firstDueHintMonthly'
-                : 'commitmentDialog.firstDueHint'
-            )}
-          </p>
-        </div>
-
-        {(upcoming.length > 0 || dueDayShifts) && (
-          <p className="text-muted-foreground bg-muted flex flex-col gap-1 rounded-md px-3 py-2 text-xs">
-            {upcoming.length > 0 && (
-              <span>
-                {t('commitmentDialog.dueIn', {
-                  day: dueDay,
-                  dates: upcoming.map(dueDateLabel).join(', '),
-                })}
-                {` — ${t('commitmentDialog.firstTime', {
-                  month: monthLabel(Number(draft.firstDueDate.slice(5, 7))),
-                  year: draft.firstDueDate.slice(0, 4),
-                })}`}
-              </span>
-            )}
-            {dueDayShifts && (
-              <span>
-                {t('commitmentDialog.dayShifts', {
-                  day: dueDay,
-                  year: shiftYear,
-                  februaryDay,
-                })}
-              </span>
-            )}
-          </p>
-        )}
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-2">
-            <Label>{t('common.category')}</Label>
-            <CategoryPicker
-              value={draft.category}
-              onChange={handleCategory}
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label>{t('common.budget')}</Label>
-            {budgetIsFixed ? (
-              <span className="flex h-9 items-center gap-2 text-sm font-medium">
-                <span className={cn('size-2.5 rounded-sm', BUDGET_DOT[draft.budget])} />
-                {budgetLabel(draft.budget)}
-              </span>
-            ) : (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="interval">{t('commitmentDialog.interval')}</Label>
               <Select
-                value={draft.budget}
-                onValueChange={(value) => set('budget', value as Budget)}
+                value={customInterval ? CUSTOM : String(draft.intervalMonths)}
+                onValueChange={handleIntervalSelect}
               >
-                <SelectTrigger>
+                <SelectTrigger id="interval">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {BUDGET_ORDER.map((budget) => (
-                    <SelectItem key={budget} value={budget}>
-                      {budgetLabel(budget)}
+                  {INTERVAL_PRESETS.map((months) => (
+                    <SelectItem key={months} value={String(months)}>
+                      {intervalLabel(months)}
                     </SelectItem>
                   ))}
+                  <SelectItem value={CUSTOM}>{t('commitmentDialog.customInterval')}</SelectItem>
                 </SelectContent>
               </Select>
-            )}
-          </div>
-        </div>
-
-        {typeOption.budgetHint && (
-          <p className="text-muted-foreground bg-muted rounded-md px-3 py-2 text-xs">
-            {t(typeOption.budgetHint)}
-          </p>
-        )}
-
-        {/* Only for a contract ("Läuft weiter"): a savings goal, a debt and
-            income have a fixed amount or none at all, so the limit checkbox
-            only decides something where the amount is chosen freely and
-            recurs. Replaces the former type of its own ("Setze ich selbst"):
-            existing contracts of that type were migrated here with the flag
-            set. The backend rejects a limit on any other type. */}
-        {draft.type === 'contract' && (
-          <div className="border-border flex items-center justify-between rounded-md border p-3">
-            <div className="flex flex-col pr-4">
-              <Label htmlFor="commitment-limit">{t('commitmentDialog.limit')}</Label>
-              <span className="text-muted-foreground text-xs">
-                {t('commitmentDialog.limitHint')}
-              </span>
+              {customInterval && (
+                <>
+                  <Label htmlFor="interval-custom">
+                    {t('commitmentDialog.customIntervalField')}
+                  </Label>
+                  <Input
+                    id="interval-custom"
+                    ref={intervalField}
+                    type="number"
+                    min={INTERVAL_MIN}
+                    max={INTERVAL_MAX}
+                    step="1"
+                    inputMode="numeric"
+                    value={intervalText}
+                    onChange={(event) => handleIntervalText(event.target.value)}
+                    aria-invalid={!intervalValid}
+                    aria-describedby="interval-custom-hint"
+                    required
+                  />
+                  {/* Always in the DOM so the field can point at it; only the
+                      error turns into an announcement. */}
+                  <span
+                    id="interval-custom-hint"
+                    role={intervalValid ? undefined : 'alert'}
+                    className={
+                      intervalValid ? 'text-muted-foreground text-xs' : 'text-destructive text-xs'
+                    }
+                  >
+                    {t('commitmentDialog.intervalRange', {
+                      min: INTERVAL_MIN,
+                      max: INTERVAL_MAX,
+                    })}
+                  </span>
+                </>
+              )}
             </div>
-            <Switch
-              id="commitment-limit"
-              checked={draft.isLimit}
-              onCheckedChange={(checked) => set('isLimit', checked)}
-            />
           </div>
-        )}
 
-        <div className="flex flex-col gap-2">
-          <Label>{t('common.assignment')}</Label>
-          <Select
-            value={draft.householdId ?? 'private'}
-            onValueChange={(value) =>
-              set('householdId', value === 'private' ? null : value)
-            }
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="private">{t('common.privateOnly')}</SelectItem>
-              {households.map((household) => (
-                <SelectItem key={household.id} value={household.id}>
-                  {household.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-muted-foreground text-xs">
-            {t('commitmentDialog.assignmentHint')}
-          </p>
-        </div>
-
-        {draft.type === 'savings_goal' && (
-          <div className="grid grid-cols-2 gap-3">
+          {draft.type === 'savings_goal' && (
             <div className="flex flex-col gap-2">
               <Label htmlFor="target-amount">{t('commitmentDialog.targetAmount')}</Label>
               <AmountField
@@ -675,60 +552,232 @@ export function CommitmentDialog({
                 allowZero
               />
             </div>
+          )}
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="first-due">{t('commitmentDialog.firstDue')}</Label>
+            <DateField
+              id="first-due"
+              value={draft.firstDueDate}
+              onChange={handleFirstDueDate}
+              describedBy="first-due-hint"
+            />
+            <p id="first-due-hint" className="text-muted-foreground text-xs">
+              {t(
+                draft.intervalMonths === 1
+                  ? 'commitmentDialog.firstDueHintMonthly'
+                  : 'commitmentDialog.firstDueHint'
+              )}
+            </p>
+          </div>
+
+          {(upcoming.length > 0 || dueDayShifts) && (
+            <p className="text-muted-foreground bg-muted flex flex-col gap-1 rounded-md px-3 py-2 text-xs">
+              {upcoming.length > 0 && (
+                <span>
+                  {t('commitmentDialog.dueIn', {
+                    day: dueDay,
+                    dates: upcoming.map(dueDateLabel).join(', '),
+                  })}
+                  {` — ${t('commitmentDialog.firstTime', {
+                    month: monthLabel(Number(draft.firstDueDate.slice(5, 7))),
+                    year: draft.firstDueDate.slice(0, 4),
+                  })}`}
+                </span>
+              )}
+              {dueDayShifts && (
+                <span>
+                  {t('commitmentDialog.dayShifts', {
+                    day: dueDay,
+                    year: shiftYear,
+                    februaryDay,
+                  })}
+                </span>
+              )}
+            </p>
+          )}
+
+          {/* A contract chooses its budget freely, so the question stays up front;
+              for the other kinds the budget is fixed and the category is a detail. */}
+          {draft.type === 'contract' && categoryBudget}
+
+          <MoreDetails
+            resetKey={commitment}
+            hasValues={commitment !== null && hasExtras(commitment)}
+          >
+            {draft.type !== 'contract' && categoryBudget}
+
+            {/* Only for a contract: a savings goal, a debt and income have a fixed
+                amount or none at all, so the limit switch only decides something
+                where the amount is chosen freely and recurs. The backend rejects a
+                limit on any other type. */}
+            {draft.type === 'contract' && (
+              <div className="border-border flex items-center justify-between rounded-md border p-3">
+                <div className="flex flex-col pr-4">
+                  <Label htmlFor="commitment-limit">{t('commitmentDialog.limit')}</Label>
+                  <span className="text-muted-foreground text-xs">
+                    {t('commitmentDialog.limitHint')}
+                  </span>
+                </div>
+                <Switch
+                  id="commitment-limit"
+                  checked={draft.isLimit}
+                  onCheckedChange={(checked) => set('isLimit', checked)}
+                />
+              </div>
+            )}
+
+            {draft.type === 'savings_goal' && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="target-date">{t('commitmentDialog.targetDate')}</Label>
+                <DateField
+                  id="target-date"
+                  value={draft.targetDate ?? ''}
+                  onChange={(iso) => set('targetDate', iso || null)}
+                  placeholder={t('commitmentDialog.noTargetDate')}
+                />
+              </div>
+            )}
+
             <div className="flex flex-col gap-2">
-              <Label htmlFor="target-date">{t('commitmentDialog.targetDate')}</Label>
-              <DateField
-                id="target-date"
-                value={draft.targetDate ?? ''}
-                onChange={(iso) => set('targetDate', iso || null)}
-                placeholder={t('commitmentDialog.noTargetDate')}
+              <Label htmlFor="ends-on">{t('commitmentDialog.endsOn')}</Label>
+              <div className="flex gap-2">
+                <DateField
+                  id="ends-on"
+                  value={draft.endsOn ?? ''}
+                  onChange={(iso) => set('endsOn', iso || null)}
+                  placeholder={t('commitmentDialog.noEnd')}
+                  describedBy="ends-on-hint"
+                />
+                {draft.endsOn !== null && (
+                  <Button type="button" variant="outline" onClick={() => set('endsOn', null)}>
+                    {t('commitmentDialog.clearEnd')}
+                  </Button>
+                )}
+              </div>
+              <p id="ends-on-hint" className="text-muted-foreground text-xs">
+                {t('commitmentDialog.endsOnHint')}
+              </p>
+            </div>
+
+            {/* Account and payment method belong to the commitment, not to the
+                month: they are copied into every position and stay overridable
+                there. */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-2">
+                <Label>{t('common.account')}</Label>
+                <Select
+                  value={draft.accountId ?? 'default'}
+                  onValueChange={(value) => set('accountId', value === 'default' ? null : value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {/* "Standardkonto" instead of a fixed preselection: the
+                        commitment stays right when the default account changes.
+                        Only set where it differs. */}
+                    <SelectItem value="default">{t('common.defaultAccount')}</SelectItem>
+                    {accounts
+                      .filter((account) => account.active)
+                      .map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label>{t('common.counterAccount')}</Label>
+                <Select
+                  value={draft.counterAccountId ?? 'none'}
+                  onValueChange={(value) =>
+                    set('counterAccountId', value === 'none' ? null : value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{t('common.goesOut')}</SelectItem>
+                    {accounts
+                      .filter((account) => account.id !== draft.accountId)
+                      .map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <span className="text-muted-foreground text-xs">
+                  {t('common.counterAccountHint')}
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label>{t('common.paymentMethod')}</Label>
+                <Select
+                  value={draft.paymentMethod ?? 'none'}
+                  onValueChange={(value) =>
+                    set('paymentMethod', value === 'none' ? null : (value as PaymentMethod))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{t('commitmentDialog.noPaymentMethod')}</SelectItem>
+                    {PAYMENTS.map((method) => (
+                      <SelectItem key={method} value={method}>
+                        {paymentLabel(method)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label>{t('common.assignment')}</Label>
+              <Select
+                value={draft.householdId ?? 'private'}
+                onValueChange={(value) => set('householdId', value === 'private' ? null : value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="private">{t('common.privateOnly')}</SelectItem>
+                  {households.map((household) => (
+                    <SelectItem key={household.id} value={household.id}>
+                      {household.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-muted-foreground text-xs">
+                {t('commitmentDialog.assignmentHint')}
+              </p>
+            </div>
+
+            {/* Takes the position out of budget and quotas. Needed for money that
+                is only passed through — otherwise 1.139 EUR forwarded would look
+                like 1.139 EUR saved. */}
+            <div className="border-border flex items-center justify-between rounded-md border p-3">
+              <div className="flex flex-col pr-4">
+                <Label htmlFor="commitment-pass-through">{t('common.passThrough')}</Label>
+                <span className="text-muted-foreground text-xs">{t('common.passThroughHint')}</span>
+              </div>
+              <Switch
+                id="commitment-pass-through"
+                checked={draft.passThrough}
+                onCheckedChange={(checked) => set('passThrough', checked)}
               />
             </div>
-          </div>
-        )}
-
-        {/* Nimmt den Posten aus Budget und Quoten. Nötig für Geld, das
-            nur durchgereicht wird — sonst sähen 1.139 € weitergeleitet
-            aus wie 1.139 € gespart. */}
-        <div className="border-border flex items-center justify-between rounded-md border p-3">
-          <div className="flex flex-col pr-4">
-            <Label htmlFor="commitment-pass-through">{t('common.passThrough')}</Label>
-            <span className="text-muted-foreground text-xs">
-              {t('common.passThroughHint')}
-            </span>
-          </div>
-          <Switch
-            id="commitment-pass-through"
-            checked={draft.passThrough}
-            onCheckedChange={(checked) => set('passThrough', checked)}
-          />
+          </MoreDetails>
         </div>
-
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="ends-on">{t('commitmentDialog.endsOn')}</Label>
-          <div className="flex gap-2">
-            <DateField
-              id="ends-on"
-              value={draft.endsOn ?? ''}
-              onChange={(iso) => set('endsOn', iso || null)}
-              placeholder={t('commitmentDialog.noEnd')}
-              describedBy="ends-on-hint"
-            />
-            {draft.endsOn !== null && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => set('endsOn', null)}
-              >
-                {t('commitmentDialog.clearEnd')}
-              </Button>
-            )}
-          </div>
-          <p id="ends-on-hint" className="text-muted-foreground text-xs">
-            {t('commitmentDialog.endsOnHint')}
-          </p>
-        </div>
-      </div>
+      )}
     </DialogFrame>
   )
 }
