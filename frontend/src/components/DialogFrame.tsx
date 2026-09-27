@@ -42,8 +42,25 @@ type Props = {
    * the opener is gone. Returns null to fall back to the opener.
    */
   returnFocus?: () => HTMLElement | null
+  /**
+   * Changes when the dialog shows something else (the step): the focus then moves
+   * to the first field, or to the first card when there is no field yet.
+   */
+  focusKey?: unknown
   className?: string
   children: React.ReactNode
+}
+
+const FIELD =
+  'input:not([type=hidden]):not(:disabled), textarea:not(:disabled), select:not(:disabled), [role=combobox]:not(:disabled)'
+/** Cards mark themselves with this attribute so the frame can find the first one. */
+const CARD_ATTRIBUTE = 'data-dialog-card'
+
+function focusFirst(root: HTMLElement): boolean {
+  const target =
+    root.querySelector<HTMLElement>(FIELD) ?? root.querySelector<HTMLElement>(`[${CARD_ATTRIBUTE}]`)
+  target?.focus()
+  return target !== null
 }
 
 /**
@@ -67,6 +84,7 @@ export function DialogFrame({
   error = null,
   start,
   returnFocus,
+  focusKey,
   className,
   children,
 }: Props) {
@@ -74,6 +92,15 @@ export function DialogFrame({
   const [asking, setAsking] = useState(false)
   // Who had the focus when the dialog opened; Radix only remembers a Trigger.
   const opener = useRef<HTMLElement | null>(null)
+  const body = useRef<HTMLDivElement>(null)
+  const lastFocusKey = useRef(focusKey)
+
+  // Going to another step: the focus would otherwise stay on the button that is gone.
+  useEffect(() => {
+    if (lastFocusKey.current === focusKey) return
+    lastFocusKey.current = focusKey
+    if (open && body.current) focusFirst(body.current)
+  }, [focusKey, open])
 
   // A dialog that closes from outside (after a save) must not reopen with the
   // question still standing.
@@ -103,14 +130,8 @@ export function DialogFrame({
         )}
         onOpenAutoFocus={(event) => {
           opener.current = document.activeElement as HTMLElement | null
-          // The first field, not the ✕ or whatever Radix finds first.
-          const field = (event.currentTarget as HTMLElement).querySelector<HTMLElement>(
-            'input:not([type=hidden]):not(:disabled), textarea:not(:disabled), select:not(:disabled), [role=combobox]:not(:disabled)'
-          )
-          if (field) {
-            event.preventDefault()
-            field.focus()
-          }
+          // The first field (or card), not the ✕ or whatever Radix finds first.
+          if (focusFirst(event.currentTarget as HTMLElement)) event.preventDefault()
         }}
         onCloseAutoFocus={(event) => {
           const target = returnFocus?.()
@@ -151,7 +172,10 @@ export function DialogFrame({
           </DialogHeader>
 
           {/* The padding keeps focus rings from being cut off by the scroll area. */}
-          <div className="-mx-1 flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-1 py-1">
+          <div
+            ref={body}
+            className="-mx-1 flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-1 py-1"
+          >
             {children}
           </div>
 

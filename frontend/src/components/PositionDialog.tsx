@@ -218,6 +218,7 @@ export function PositionDialog({
   return (
     <DialogFrame
       open={open}
+      focusKey={step}
       onOpenChange={onOpenChange}
       title={
         choosing ? t('positionDialog.chooseTitle') : isEdit ? t(kind.editTitle) : t(kind.addTitle)
@@ -269,6 +270,7 @@ export function PositionDialog({
             <button
               key={item.label}
               type="button"
+              data-dialog-card
               onClick={() => handleKind(item.limit)}
               className="border-border hover:bg-muted focus-visible:ring-ring flex flex-col gap-1 rounded-md border p-3 text-left focus-visible:ring-2 focus-visible:outline-none"
             >
@@ -283,7 +285,6 @@ export function PositionDialog({
             <Label htmlFor="label">{t('positionDialog.label')}</Label>
             <Input
               id="label"
-              autoFocus
               value={draft.label}
               onChange={(event) => set('label', event.target.value)}
               placeholder={t('positionDialog.labelPlaceholder')}
