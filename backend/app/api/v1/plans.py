@@ -175,6 +175,18 @@ def _summarize(
     }
 
 
+async def _used_position_ids(
+    session: AsyncSession, position_ids: list[uuid.UUID]
+) -> set[uuid.UUID]:
+    """Which of these positions already have a booking hanging off them."""
+    if not position_ids:
+        return set()
+    rows = await session.execute(
+        select(Transaction.position_id).where(Transaction.position_id.in_(position_ids)).distinct()
+    )
+    return set(rows.scalars())
+
+
 async def _load_plan(
     session: AsyncSession,
     plan_id: uuid.UUID,
@@ -225,16 +237,21 @@ async def list_plans(
         .options(selectinload(Plan.positions))
         .order_by(Plan.year.desc(), Plan.month.desc())
     )
+    plans = list(result.scalars().unique())
+    used = await _used_position_ids(
+        session, [position.id for plan in plans for position in plan.positions]
+    )
     return [
         PlanSummary(
+            deletable=not any(position.id in used for position in plan.positions),
             **_summarize(
                 year=plan.year,
                 month=plan.month,
                 targets=(plan.target_needs, plan.target_wants, plan.target_savings),
                 positions=plan.positions,
-            )
+            ),
         )
-        for plan in result.scalars().unique()
+        for plan in plans
     ]
 
 
@@ -399,7 +416,7 @@ async def create_plan(
     session.add(plan)
     await session.commit()
     await session.refresh(plan, ["positions"])
-    return _plan_read(plan)
+    return await _plan_read(session, plan)
 
 
 @router.get("/{year}/{month}", response_model=PlanRead)
@@ -435,7 +452,54 @@ async def get_plan(
     plan = result.scalar_one_or_none()
     if plan is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "plan_not_found"})
-    return _plan_read(plan)
+    return await _plan_read(session, plan)
+
+
+@router.delete("/{year}/{month}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_plan(
+    year: int,
+    month: int,
+    owner: uuid.UUID | None = None,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_active_user),
+) -> None:
+    """Delete a month nobody has booked against yet — a typo, not history.
+
+    Same rule as ending a commitment or deleting an account (#139): allowed only
+    while nothing refers to it yet. A booking's link to its position is `SET
+    NULL`, not `RESTRICT` — deleting one position must not take a booking's
+    history with it — so here the check itself is the only guard. The position
+    rows are locked first, so a booking cannot slip in between the check and the
+    delete.
+
+    Without `owner` your own month. With `owner` that of a person who granted
+    `delete` in `Area.PLAN` — a step above `edit`, like everywhere else deleting
+    asks for more than changing.
+    """
+    owner_id = owner or user.id
+    if owner_id != user.id:
+        level = await granted_level(session, owner_id, user.id, Area.PLAN)
+        require(level.rank >= AccessLevel.DELETE.rank, "no_delete_granted")
+
+    result = await session.execute(
+        select(Plan)
+        .where(Plan.user_id == owner_id, Plan.year == year, Plan.month == month)
+        .options(selectinload(Plan.positions))
+    )
+    plan = result.scalar_one_or_none()
+    if plan is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "plan_not_found"})
+
+    position_ids = [position.id for position in plan.positions]
+    if position_ids:
+        await session.execute(
+            select(PlanPosition.id).where(PlanPosition.id.in_(position_ids)).with_for_update()
+        )
+    if await _used_position_ids(session, position_ids):
+        raise HTTPException(status.HTTP_409_CONFLICT, detail={"code": "plan_has_transactions"})
+
+    await session.delete(plan)
+    await session.commit()
 
 
 @router.patch("/{plan_id}", response_model=PlanRead)
@@ -451,7 +515,7 @@ async def update_plan(
         setattr(plan, field, value)
     await session.commit()
     await session.refresh(plan, ["positions"])
-    return _plan_read(plan)
+    return await _plan_read(session, plan)
 
 
 @router.post(
@@ -751,11 +815,13 @@ async def get_household_flow(
 # --- Hilfen ---------------------------------------------------------------
 
 
-def _plan_read(plan: Plan) -> PlanRead:
+async def _plan_read(session: AsyncSession, plan: Plan) -> PlanRead:
+    used = await _used_position_ids(session, [position.id for position in plan.positions])
     return PlanRead(
         id=plan.id,
         hints=plan_hints(plan.year, plan.month, plan.positions),
         positions=[PositionRead.model_validate(p) for p in plan.positions],
+        deletable=not used,
         **_summarize(
             year=plan.year,
             month=plan.month,
