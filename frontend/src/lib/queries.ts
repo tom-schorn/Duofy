@@ -720,13 +720,22 @@ export function useBookEntry() {
   )
 }
 
-/** Throw an entry out. The row stays, so a second import does not bring it back. */
+/**
+ * Throw an entry out, with „Rückgängig“: the row leaves the list at once, the request
+ * goes out when the message goes away. The row stays on the server, so a second
+ * import does not bring it back.
+ */
 export function useDiscardEntry() {
-  return useInvalidating<ImportedEntry, string>(
-    (id) => api.delete(`/imports/${id}`),
-    [keys.imports],
-    (entry) => i18n.t('toast.discarded', { what: entryName(entry), amount: euro.format(Number(entry.amount)) })
-  )
+  const client = useQueryClient()
+  return (entry: ImportedEntry) =>
+    deleteWithUndo({
+      client,
+      id: entry.id,
+      name: `${entryName(entry)} ${euro.format(Number(entry.amount))}`,
+      hideIn: [keys.imports],
+      invalidate: [keys.imports],
+      request: (keepalive) => api.delete(`/imports/${entry.id}`, { keepalive }),
+    })
 }
 
 // --- Positions --------------------------------------------------------------
