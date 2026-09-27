@@ -39,7 +39,7 @@ from app.db.session import get_session
 from app.models.user import User
 from app.schemas.auth import AccessToken, RegistrationInfo
 from app.schemas.user import RegisterRequest, UserCreate, UserRead, UserUpdate
-from app.services import refresh_tokens, registration
+from app.services import account_deletion, refresh_tokens, registration
 
 router = APIRouter()
 
@@ -268,3 +268,18 @@ def _own_profile_only() -> APIRouter:
 
 
 router.include_router(_own_profile_only(), prefix="/users", tags=["users"])
+
+
+@router.delete("/users/me", status_code=status.HTTP_204_NO_CONTENT, tags=["users"])
+async def delete_own_account(
+    response: Response,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_active_user),
+) -> None:
+    """Delete this account and everything in it. Irreversible, on purpose (#221).
+
+    409 `last_admin` if this is the only `is_superuser` account — the instance
+    would otherwise be left with nobody to run it.
+    """
+    await account_deletion.delete_own_account(session, user)
+    _clear_cookie(response)
