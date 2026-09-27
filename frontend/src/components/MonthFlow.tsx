@@ -33,7 +33,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { euro, monthLabel, type FlowEntry, type FlowLimitsBy, type PlanFlow } from '@/lib/domain'
+import {
+  BUDGET_DOT,
+  budgetLabel,
+  euro,
+  monthLabel,
+  type Budget,
+  type FlowEntry, type FlowLimitsBy,
+  type PlanFlow,
+} from '@/lib/domain'
 import { today } from '@/lib/dates'
 import { formatNumber } from '@/lib/format'
 import { locale } from '@/lib/i18n'
@@ -56,6 +64,14 @@ import { useFlow, useSetFlowLimitsBy } from '@/lib/queries'
  *
  * Steps rather than a smooth line: money moves in jumps.
  */
+
+/** The plan's budget colours (same tokens as the plan and its Sankey), as SVG fills. */
+const BUDGET_FILL: Record<Budget, string> = {
+  income: 'fill-muted-foreground',
+  needs: 'fill-chart-1',
+  wants: 'fill-chart-2',
+  savings: 'fill-chart-4',
+}
 
 type Scope = { householdId?: string | null; ownerId?: string | null }
 
@@ -271,6 +287,12 @@ export function FlowView({
                       <div key={index} className="flex justify-between gap-3">
                         <span>
                           {entryLabel(entry, t)}
+                          {entry.budget && (
+                            <span className="text-muted-foreground">
+                              {' · '}
+                              {budgetLabel(entry.budget)}
+                            </span>
+                          )}
                           {outside(entry, flow) && (
                             <span className="text-muted-foreground">
                               {' · '}
@@ -302,6 +324,22 @@ export function FlowView({
               activeDot={{ r: 4 }}
             />
 
+            {/* Each movement in the colour of its budget: what moves the curve. The
+                table and the tooltip name the budget in words, so colour is never
+                the only signal. */}
+            {flow.entries.map((entry, index) =>
+              entry.budget === null ? null : (
+                <ReferenceDot
+                  key={`${entry.date}-${entry.positionId}-${index}`}
+                  x={entry.day}
+                  y={Number(entry.balance)}
+                  r={3.5}
+                  className={`${BUDGET_FILL[entry.budget]} stroke-card`}
+                  strokeWidth={1.5}
+                />
+              )
+            )}
+
             {shortfall && (
               <ReferenceDot
                 x={Number(shortfall.params.day)}
@@ -324,6 +362,7 @@ export function FlowView({
               <TableRow>
                 <TableHead className="w-14">{t('monthFlow.day')}</TableHead>
                 <TableHead>{t('monthFlow.position')}</TableHead>
+                <TableHead>{t('monthFlow.budget')}</TableHead>
                 <TableHead>{t('monthFlow.kind')}</TableHead>
                 <TableHead className="text-right">{t('common.amount')}</TableHead>
                 <TableHead className="text-right">
@@ -340,6 +379,17 @@ export function FlowView({
                       : t('common.dueDay', { day: entry.day })}
                   </TableCell>
                   <TableCell>{entryLabel(entry, t)}</TableCell>
+                  <TableCell>
+                    <span className="inline-flex items-center gap-2">
+                      {entry.budget && (
+                        <span
+                          aria-hidden="true"
+                          className={`size-2.5 rounded-full ${BUDGET_DOT[entry.budget]}`}
+                        />
+                      )}
+                      {entry.budget ? budgetLabel(entry.budget) : t('monthFlow.noBudget')}
+                    </span>
+                  </TableCell>
                   <TableCell>
                     <Badge variant={entry.kind === 'booking' ? 'secondary' : 'outline'}>
                       {t(entry.kind === 'booking' ? 'monthFlow.booked' : 'monthFlow.planned')}

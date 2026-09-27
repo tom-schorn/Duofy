@@ -113,6 +113,7 @@ describe('the flow with a carry-over', () => {
         kind: 'plan',
         label: 'Miete',
         positionId: 'p1',
+        budget: 'needs',
         balance: low ?? start,
       },
     ],

@@ -573,6 +573,8 @@
     "selfCarryingHint": "Zu keinem Zeitpunkt steht mehr aus, als bis dahin hereingekommen ist.",
     "day": "Tag",
     "position": "Posten",
+    "budget": "Budget",
+    "noBudget": "Umbuchung",
     "kind": "Art",
     "planned": "Geplant",
     "booked": "Gebucht",

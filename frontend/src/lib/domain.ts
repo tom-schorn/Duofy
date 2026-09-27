@@ -1012,6 +1012,8 @@ export type FlowEntry = {
   /** Empty on a manual booking without a note. */
   label: string
   positionId: string | null
+  /** The budget it counts against; null for a transfer between own accounts. */
+  budget: Budget | null
   /** The curve after this entry. */
   balance: string
 }
