@@ -731,7 +731,8 @@ export function useDiscardEntry() {
     deleteWithUndo({
       client,
       id: entry.id,
-      name: `${entryName(entry)} ${euro.format(Number(entry.amount))}`,
+      name: entryName(entry),
+      messageKey: 'toast.discardedNamed',
       hideIn: [keys.imports],
       invalidate: [keys.imports],
       request: (keepalive) => api.delete(`/imports/${entry.id}`, { keepalive }),

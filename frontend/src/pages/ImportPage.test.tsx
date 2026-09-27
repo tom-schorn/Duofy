@@ -51,11 +51,12 @@ describe('ImportPage', () => {
     vi.unstubAllGlobals()
   })
 
-  test('Verwerfen removes the row at once and Rückgängig brings it back without sending anything', async () => {
+  test('discarding removes the row at once, says verworfen, and undo brings it back without sending anything', async () => {
     const user = userEvent.setup()
     renderPage()
     await user.click(await screen.findByRole('button', { name: i18n.t('import.discard') }))
     expect(screen.queryByText('Muster Markt')).not.toBeInTheDocument()
+    expect(await screen.findByText(i18n.t('toast.discardedNamed', { name: 'Muster Markt' }))).toBeInTheDocument()
 
     await user.click(await screen.findByRole('button', { name: i18n.t('ui.undo') }))
     expect(await screen.findByText('Muster Markt')).toBeInTheDocument()
