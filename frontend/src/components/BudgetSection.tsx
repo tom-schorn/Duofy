@@ -1,8 +1,7 @@
-import { CircleCheck, Plus, TriangleAlert, User, Users } from 'lucide-react'
+import { CircleCheck, TriangleAlert, User, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ListRow } from '@/components/ListRow'
 import { Progress } from '@/components/ui/progress'
@@ -58,16 +57,9 @@ type Props = {
   hints?: PlanHint[]
   householdNames: Record<string, string>
   onEdit: (position: PlanPosition) => void
-  onAdd: (budget: Budget) => void
   onTogglePaid: (position: PlanPosition) => void
   /** Shared view: other people positions are shown but not changed. */
   readOnly?: boolean
-  /**
-   * Separate from `readOnly`, because the two are not the same question: a
-   * household plan is read-only for everyone and offers no adding either, while
-   * standing in for a member at level `edit` allows both.
-   */
-  canAdd?: boolean
   /** Returns the first name of the person behind the position, otherwise null. */
   ownerName?: (position: PlanPosition) => string | null
 }
@@ -79,10 +71,8 @@ export function BudgetSection({
   hints = [],
   householdNames,
   onEdit,
-  onAdd,
   onTogglePaid,
   readOnly = false,
-  canAdd = true,
   ownerName,
 }: Props) {
   const { t } = useTranslation()
@@ -150,21 +140,6 @@ export function BudgetSection({
           />
         ))}
       </ul>
-
-      {/* Anlegen direkt am Budget — dann stimmt die Zuordnung schon, ohne
-          dass man sie im Formular suchen muss. */}
-      {!readOnly && canAdd && (
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={() => onAdd(budget)}
-        className="text-muted-foreground hover:text-foreground w-fit"
-      >
-        <Plus className="size-4" />
-        {t('budget.addPosition', { budget: budgetLabel(budget) })}
-      </Button>
-      )}
     </section>
   )
 }
