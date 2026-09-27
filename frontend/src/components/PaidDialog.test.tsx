@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
 
@@ -44,6 +44,22 @@ describe('PaidDialog', () => {
     )
     await user.click(screen.getByRole('button', { name: 'Abhaken' }))
     expect(onConfirm).toHaveBeenCalled()
+  })
+
+  test('names the date in its sentence, a clickable word that opens a calendar panel', async () => {
+    const user = userEvent.setup()
+    render(<PaidDialog position={position} onClose={() => {}} onConfirm={() => {}} pending={false} />)
+    const dateWord = screen.getByRole('button', { name: /2026/ })
+    await user.click(dateWord)
+    expect(screen.getByRole('group', { name: i18n.t('paidDialog.dateLabel') })).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('group', { name: i18n.t('paidDialog.dateLabel') })).not.toBeInTheDocument()
+    await waitFor(() => expect(dateWord).toHaveFocus())
+  })
+
+  test('the date is named but not clickable once the position already has bookings', () => {
+    render(<PaidDialog position={position} onClose={() => {}} onConfirm={() => {}} pending={false} hasBookings />)
+    expect(screen.queryByRole('button', { name: /2026/ })).not.toBeInTheDocument()
   })
 
   test('shows no hint while the date is in the plan month', () => {

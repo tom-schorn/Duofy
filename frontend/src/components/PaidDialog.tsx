@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { AmountField } from '@/components/AmountField'
 import { DialogFrame } from '@/components/DialogFrame'
-import { DateField } from '@/components/DateField'
+import { Calendar } from '@/components/ui/calendar'
 import { Label } from '@/components/ui/label'
-import { today } from '@/lib/dates'
+import { SentenceWord } from '@/components/SentenceWord'
+import { SentencePanel } from '@/components/SentencePanel'
+import { fillSentence } from '@/lib/sentence'
+import { fromIsoDay, longDate, toIsoDay, today } from '@/lib/dates'
 import { monthLabel, type PlanPosition } from '@/lib/domain'
 
 /**
@@ -50,6 +53,8 @@ export function PaidDialog({
   const { t } = useTranslation()
   const [occurredOn, setOccurredOn] = useState(today())
   const [amount, setAmount] = useState('')
+  const [dateOpen, setDateOpen] = useState(false)
+  const dateWordRef = useRef<HTMLButtonElement | null>(null)
 
   // Back to the defaults on every open. Without this, the second position would
   // still show the amount of the first.
@@ -57,10 +62,16 @@ export function PaidDialog({
     if (position) {
       setOccurredOn(today())
       setAmount(position.amountPlanned)
+      setDateOpen(false)
     }
   }, [position])
 
   if (!position) return null
+
+  function closeDateWord() {
+    setDateOpen(false)
+    requestAnimationFrame(() => dateWordRef.current?.focus())
+  }
 
   // A payment on 25.06. may belong to the July plan; only say so, never block it.
   const outsideMonth =
@@ -87,32 +98,56 @@ export function PaidDialog({
       pending={pending}
       error={error}
     >
-      <div
-        role="group"
-        aria-describedby={hasBookings ? 'paid-bookings-note' : undefined}
-        className="flex gap-3"
-      >
-        <div className="flex flex-1 flex-col gap-1.5">
-          <Label htmlFor="paid-date">{t('common.date')}</Label>
-          <DateField
-            id="paid-date"
-            value={occurredOn}
-            onChange={setOccurredOn}
-            disabled={hasBookings}
-          />
-        </div>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="paid-amount" className="text-muted-foreground text-sm">
+          {t('common.amount')}
+        </Label>
+        <AmountField
+          id="paid-amount"
+          value={amount}
+          onChange={setAmount}
+          required
+          aria-describedby={hasBookings ? 'paid-bookings-note' : undefined}
+          disabled={hasBookings}
+          inputClassName="h-auto border-0 bg-transparent px-0 pr-7 text-2xl font-semibold placeholder:text-muted-foreground md:text-2xl"
+        />
+      </div>
 
-        <div className="flex w-36 flex-col gap-1.5">
-          <Label htmlFor="paid-amount">{t('common.amount')}</Label>
-          <AmountField
-            id="paid-amount"
-            value={amount}
-            onChange={setAmount}
-            required
-            aria-describedby={hasBookings ? 'paid-bookings-note' : undefined}
-            disabled={hasBookings}
-          />
-        </div>
+      <div
+        className="flex flex-col gap-3"
+        onKeyDownCapture={(event) => {
+          if (event.key !== 'Escape' || !dateOpen) return
+          event.stopPropagation()
+          event.preventDefault()
+          closeDateWord()
+        }}
+      >
+        <p className="text-lg leading-8">
+          {fillSentence(t('paidDialog.sentence'), {
+            date: hasBookings ? (
+              <span className="font-medium">{longDate(occurredOn)}</span>
+            ) : (
+              <SentenceWord ref={dateWordRef} open={dateOpen} onClick={() => setDateOpen((open) => !open)}>
+                {longDate(occurredOn)}
+              </SentenceWord>
+            ),
+          })}
+        </p>
+        {!hasBookings && dateOpen && (
+          <SentencePanel label={t('paidDialog.dateLabel')}>
+            <Calendar
+              mode="single"
+              selected={fromIsoDay(occurredOn)}
+              defaultMonth={fromIsoDay(occurredOn)}
+              onSelect={(date) => {
+                if (!date) return
+                setOccurredOn(toIsoDay(date))
+                closeDateWord()
+              }}
+              autoFocus
+            />
+          </SentencePanel>
+        )}
       </div>
 
       {hasBookings && (
