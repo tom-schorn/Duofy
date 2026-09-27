@@ -306,7 +306,7 @@ export function AccountDialog({
                 <AlertDialogAction
                   onClick={() => {
                     save.reset()
-                    remove.mutate(draft.id, {
+                    remove.mutate({ id: draft.id, name: draft.name }, {
                       onSuccess: () => {
                         onDeleted?.()
                         onOpenChange(false)

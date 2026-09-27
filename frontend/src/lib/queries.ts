@@ -9,7 +9,7 @@ import {
 import { i18n } from '@/lib/i18n'
 import { api } from '@/lib/api'
 import { reportMutationError, showsErrorInline } from '@/lib/mutation-error'
-import { OWN_SCOPE, euro, scopeKey, scopeQuery, type QuotaValues } from '@/lib/domain'
+import { OWN_SCOPE, euro, monthLabel, scopeKey, scopeQuery, type QuotaValues } from '@/lib/domain'
 import { announce, deleteWithUndo } from '@/lib/undo-delete'
 import type {
   AccessLevel,
@@ -178,7 +178,7 @@ export function useCreateHousehold() {
   return useInvalidating<Household, { name: string }>(
     (input) => api.post('/households', input),
     [keys.households],
-    'toast.householdCreated',
+    (household) => i18n.t('toast.householdCreated', { name: household.name }),
     INLINE_ERROR
   )
 }
@@ -188,7 +188,7 @@ export function useUpdateHousehold() {
     ({ id, ...changes }) => api.patch(`/households/${id}`, changes),
     // The household plan reads the quotas live, so it is reloaded too.
     [keys.households, keys.plans],
-    'toast.householdUpdated',
+    (household) => i18n.t('toast.householdUpdated', { name: household.name }),
     INLINE_ERROR
   )
 }
@@ -319,6 +319,17 @@ export function useBalanceHistory(
   })
 }
 
+/** What a booking is called in a message: its note, else the plain kind. */
+function bookingName(transaction: Transaction): string {
+  if (transaction.note) return transaction.note
+  return i18n.t(transaction.kind === 'carry_over' ? 'toast.carryOver' : 'toast.booking')
+}
+
+/** What an imported row is called in a message: who it was to or from, else its purpose. */
+function entryName(entry: ImportedEntry): string {
+  return entry.counterpartyName || entry.purpose || i18n.t('toast.booking')
+}
+
 export function useSaveAccount() {
   // Switching the default account clears the flag on another one — so always
   // reload the whole list, not just the single entry.
@@ -326,16 +337,16 @@ export function useSaveAccount() {
     ({ id, ownerId: _o, ...body }) =>
       id ? api.patch(`/accounts/${id}`, body) : api.post('/accounts', body),
     [keys.accounts],
-    'toast.accountSaved',
+    (account) => i18n.t('toast.accountSaved', { name: account.name }),
     INLINE_ERROR
   )
 }
 
 export function useDeleteAccount() {
-  return useInvalidating<void, string>(
-    (id) => api.delete(`/accounts/${id}`),
+  return useInvalidating<void, { id: string; name: string }>(
+    ({ id }) => api.delete(`/accounts/${id}`),
     [keys.accounts],
-    'toast.accountDeleted',
+    (_data, { name }) => i18n.t('toast.accountDeleted', { name }),
     INLINE_ERROR
   )
 }
@@ -399,7 +410,11 @@ export function useSaveTransaction(
       // Prefix: covers the accounts **and** their history.
       keys.accounts,
     ],
-    'toast.transactionSaved',
+    (transaction, input) =>
+      i18n.t(input.id ? 'toast.transactionSaved' : 'toast.transactionBooked', {
+        what: bookingName(transaction),
+        amount: euro.format(Number(transaction.amount)),
+      }),
     INLINE_ERROR
   )
 }
@@ -465,16 +480,16 @@ export function useSaveCommitment() {
     // stay. Reload both anyway, because a newly created month depends on it
     // immediately.
     [keys.commitments, keys.plans],
-    'toast.commitmentSaved',
+    (commitment) => i18n.t('toast.commitmentSaved', { name: commitment.name }),
     INLINE_ERROR
   )
 }
 
 export function useDeleteCommitment() {
-  return useInvalidating<void, string>(
-    (id) => api.delete(`/commitments/${id}`),
+  return useInvalidating<void, { id: string; name: string }>(
+    ({ id }) => api.delete(`/commitments/${id}`),
     [keys.commitments, keys.plans],
-    'toast.commitmentDeleted'
+    (_data, { name }) => i18n.t('toast.commitmentDeleted', { name })
   )
 }
 
@@ -582,7 +597,8 @@ export function useCreatePlan() {
   >(({ ownerId, ...body }) => {
     const path = ownerId ? `/plans?owner=${ownerId}` : '/plans'
     return api.post(path, body)
-  }, [keys.plans], 'toast.planCreated', INLINE_ERROR)
+  }, [keys.plans], (_plan, { year, month }) =>
+    i18n.t('toast.planCreated', { month: `${monthLabel(month)} ${year}` }), INLINE_ERROR)
 }
 
 // --- Import -----------------------------------------------------------------
@@ -691,7 +707,7 @@ export function useAcceptSuggestion() {
       return api.post<ImportedEntry>(`/imports/${id}/book`)
     },
     [keys.imports, keys.accounts, keys.allTransactions, keys.plans],
-    'toast.booked'
+    (entry) => i18n.t('toast.booked', { what: entryName(entry), amount: euro.format(Number(entry.amount)) })
   )
 }
 
@@ -700,7 +716,7 @@ export function useBookEntry() {
   return useInvalidating<ImportedEntry, string>(
     (id) => api.post(`/imports/${id}/book`),
     [keys.imports, keys.accounts, keys.allTransactions, keys.plans],
-    'toast.booked'
+    (entry) => i18n.t('toast.booked', { what: entryName(entry), amount: euro.format(Number(entry.amount)) })
   )
 }
 
@@ -709,7 +725,7 @@ export function useDiscardEntry() {
   return useInvalidating<ImportedEntry, string>(
     (id) => api.delete(`/imports/${id}`),
     [keys.imports],
-    'toast.discarded'
+    (entry) => i18n.t('toast.discarded', { what: entryName(entry), amount: euro.format(Number(entry.amount)) })
   )
 }
 
@@ -723,7 +739,7 @@ export function useSavePosition() {
     return id
       ? api.patch(`/positions/${id}`, body)
       : api.post(`/plans/${planId}/positions`, body)
-  }, [keys.plans], 'toast.positionSaved', INLINE_ERROR)
+  }, [keys.plans], (position) => i18n.t('toast.positionSaved', { label: position.label }), INLINE_ERROR)
 }
 
 /**
@@ -808,14 +824,15 @@ function useInvalidating<TData, TInput>(
   mutationFn: (input: TInput) => Promise<TData>,
   invalidate: readonly (readonly unknown[])[],
   /**
-   * The catalog key of what the toast says (`toast.*`). In **one** place rather
-   * than at every caller — otherwise half the actions give feedback and the other
-   * half do not.
+   * What the toast says: a catalog key (`toast.*`) or, when the message names the
+   * thing it is about, a function from the result and the input to the finished
+   * text. In **one** place rather than at every caller — otherwise half the actions
+   * give feedback and the other half do not.
    *
    * Errors stay out of it: those belong in the form, next to the field they
    * concern. What has no place of its own is caught below by the shared net.
    */
-  successKey?: string,
+  success?: string | ((data: TData, input: TInput) => string),
   options?: UseMutationOptions<TData, Error, TInput>
 ) {
   const client = useQueryClient()
@@ -830,12 +847,14 @@ function useInvalidating<TData, TInput>(
       }
       options?.onError?.(error, variables, ...rest)
     },
-    onSuccess: (...args) => {
+    onSuccess: (data, variables, ...rest) => {
       for (const key of invalidate) {
         client.invalidateQueries({ queryKey: key })
       }
-      if (successKey) announce('success', i18n.t(successKey))
-      options?.onSuccess?.(...args)
+      if (success) {
+        announce('success', typeof success === 'string' ? i18n.t(success) : success(data, variables))
+      }
+      options?.onSuccess?.(data, variables, ...rest)
     },
   })
   return mutation
