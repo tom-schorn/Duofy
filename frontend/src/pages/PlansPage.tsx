@@ -92,7 +92,16 @@ export function PlansPage() {
         )}
       </header>
 
-      <QueryState isPending={plans.isPending} error={plans.error} onRetry={() => void plans.refetch()}>
+      <QueryState
+        isPending={plans.isPending}
+        error={plans.error}
+        onRetry={() => void plans.refetch()}
+        notShared={
+          !inHousehold && active.member
+            ? t('plan.notShared', { name: active.member.firstName })
+            : undefined
+        }
+      >
         {rows.length === 0 ? (
           <EmptyState
             action={

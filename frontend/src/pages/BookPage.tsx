@@ -3,12 +3,14 @@ import { useSearchParams } from 'react-router'
 
 import { AccountCards } from '@/components/AccountCards'
 import { BookFlow } from '@/components/BookFlow'
+import { EmptyState } from '@/components/EmptyState'
 import { MonthBook } from '@/components/MonthBook'
 import { MonthSwitch } from '@/components/MonthSwitch'
 import { useActiveMember } from '@/hooks/use-active-member'
+import { ApiError } from '@/lib/api'
 import { parseMonth } from '@/lib/dates'
 import { OWN_SCOPE, atLeast, type BookScope } from '@/lib/domain'
-import { usePlan } from '@/lib/queries'
+import { useAccounts, usePlan } from '@/lib/queries'
 
 /**
  * The book, on its own.
@@ -46,6 +48,12 @@ export function BookPage() {
   const plan = usePlan(year, month, true, active.id)
   const positions = plan.data?.positions ?? []
 
+  // Loaded here, once, so a missing grant can gate the whole book instead of
+  // `AccountCards` and `MonthBook` each finding their own way to say nothing
+  // (#217). `useAccounts` shares its cache with theirs, so this costs no extra
+  // request.
+  const accounts = useAccounts(scope)
+
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -72,23 +80,33 @@ export function BookPage() {
         />
       </header>
 
-      <AccountCards scope={scope} />
+      {active.member &&
+      accounts.error instanceof ApiError &&
+      accounts.error.code === 'no_insight_granted' ? (
+        <EmptyState>
+          {t('book.notShared', { name: active.member.firstName })}
+        </EmptyState>
+      ) : (
+        <>
+          <AccountCards scope={scope} />
 
-      <BookFlow year={year} month={month} scope={scope} />
+          <BookFlow year={year} month={month} scope={scope} />
 
-      {plan.data === undefined && !plan.isPending && (
-        <p className="text-muted-foreground border-border rounded-lg border border-dashed px-4 py-3 text-sm">
-          {t('book.noPlan')}
-        </p>
+          {plan.data === undefined && !plan.isPending && (
+            <p className="text-muted-foreground border-border rounded-lg border border-dashed px-4 py-3 text-sm">
+              {t('book.noPlan')}
+            </p>
+          )}
+
+          <MonthBook
+            positions={positions}
+            year={year}
+            month={month}
+            scope={scope}
+            readOnly={!mayEdit}
+          />
+        </>
       )}
-
-      <MonthBook
-        positions={positions}
-        year={year}
-        month={month}
-        scope={scope}
-        readOnly={!mayEdit}
-      />
     </div>
   )
 }

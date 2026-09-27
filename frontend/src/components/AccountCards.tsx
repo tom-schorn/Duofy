@@ -36,7 +36,7 @@ export function AccountCards({ scope = OWN_SCOPE }: Props) {
   const accounts = useAccounts(scope)
   const usable = (accounts.data ?? []).filter((account) => account.active)
 
-  if (!accounts.isPending && usable.length === 0) return null
+  if (!accounts.isPending && !accounts.error && usable.length === 0) return null
 
   return (
     <QueryState isPending={accounts.isPending} error={accounts.error} onRetry={() => void accounts.refetch()} rows={1}>

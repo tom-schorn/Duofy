@@ -233,7 +233,16 @@ export function CommitmentsPage() {
         </Select>
       </div>
 
-      <QueryState isPending={commitments.isPending} error={commitments.error} onRetry={() => void commitments.refetch()}>
+      <QueryState
+        isPending={commitments.isPending}
+        error={commitments.error}
+        onRetry={() => void commitments.refetch()}
+        notShared={
+          active.member
+            ? t('commitments.notShared', { name: active.member.firstName })
+            : undefined
+        }
+      >
       {groups.length === 0 ? (
         <EmptyState
           action={
@@ -310,6 +319,7 @@ export function CommitmentsPage() {
 
       <CommitmentDialog
         commitment={editing}
+        ownerId={active.id ?? undefined}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         pending={save.isPending}
