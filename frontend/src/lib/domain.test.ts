@@ -10,6 +10,7 @@ import { describe, expect, it, it as test } from 'vitest'
 
 import {
   nextMissingMonth,
+  coupleQuotas,
   DUE_DAY_MAY_SHIFT,
   daysInMonth,
   dueDayOf,
@@ -76,7 +77,6 @@ function plan(overrides: Partial<PlanSummary> = {}): PlanSummary {
     targetNeeds: '50.00',
     targetWants: '30.00',
     targetSavings: '20.00',
-    bufferPercent: '0.00',
     income: '2000.00',
     distributable: '2000.00',
     spent: { needs: '0.00', wants: '0.00', savings: '0.00' },
@@ -315,5 +315,27 @@ describe('nextMissingMonth', () => {
 
   test('ignores a gap in the past', () => {
     expect(nextMissingMonth([{ year: 2026, month: 9 }], today)).toEqual({ year: 2026, month: 10 })
+  })
+})
+
+describe('coupleQuotas', () => {
+  test('takes the difference from the others in proportion', () => {
+    expect(coupleQuotas([50, 30, 20], 0, 60)).toEqual([60, 24, 16])
+  })
+
+  test('always adds up to exactly 100', () => {
+    let values: [number, number, number] = [50, 30, 20]
+    for (const [index, next] of [[1, 33], [2, 41], [0, 7], [1, 100], [2, 0]] as const) {
+      values = coupleQuotas(values, index, next)
+      expect(Math.round((values[0] + values[1] + values[2]) * 100) / 100).toBe(100)
+    }
+  })
+
+  test('splits evenly when the others are both 0', () => {
+    expect(coupleQuotas([100, 0, 0], 0, 50)).toEqual([50, 25, 25])
+  })
+
+  test('clamps to 0..100', () => {
+    expect(coupleQuotas([50, 30, 20], 0, 130)).toEqual([100, 0, 0])
   })
 })

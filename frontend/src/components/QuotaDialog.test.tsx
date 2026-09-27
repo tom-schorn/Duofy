@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
 
@@ -9,7 +9,6 @@ const INITIAL = {
   targetNeeds: '50.00',
   targetWants: '30.00',
   targetSavings: '20.00',
-  bufferPercent: '0.00',
 }
 
 function open(onSave = vi.fn()) {
@@ -17,7 +16,7 @@ function open(onSave = vi.fn()) {
     <QuotaDialog
       open
       onOpenChange={() => undefined}
-      title="Meine Richtwerte"
+      title="Richtwerte des Haushalts"
       description="Beschreibung"
       initial={INITIAL}
       pending={false}
@@ -29,69 +28,27 @@ function open(onSave = vi.fn()) {
 }
 
 describe('quota dialog', () => {
-  test('shows the stored values without trailing zeros and the sum', () => {
+  test('shows the stored values as sliders', () => {
     open()
-    expect(screen.getByLabelText('Grundbedarf in %')).toHaveValue('50')
-    expect(screen.getByText('Zusammen: 100 %')).toBeInTheDocument()
+    expect(screen.getByLabelText(i18n.t('quota.needs'))).toHaveValue('50')
+    expect(screen.getByLabelText(i18n.t('quota.wants'))).toHaveValue('30')
+    expect(screen.getByLabelText(i18n.t('quota.savings'))).toHaveValue('20')
   })
 
-  test('refuses to save while the three quotas do not add up to 100', async () => {
+  test('moving a slider takes the difference from the others', async () => {
     const user = userEvent.setup()
     const onSave = open()
-    const needs = screen.getByLabelText('Grundbedarf in %')
-    await user.clear(needs)
-    await user.type(needs, '60')
-
-    expect(screen.getByRole('alert')).toHaveTextContent('zusammen 100 %')
-    expect(screen.getByRole('button', { name: 'Speichern' })).toBeDisabled()
-    expect(onSave).not.toHaveBeenCalled()
-  })
-
-  test('saves 65/20/15 with the buffer', async () => {
-    const user = userEvent.setup()
-    const onSave = open()
-    for (const [label, value] of [
-      ['Grundbedarf in %', '65'],
-      [i18n.t('quota.wants'), '20'],
-      ['Sparen in %', '15'],
-      ['Puffer in %', '5,5'],
-    ]) {
-      const field = screen.getByLabelText(label)
-      await user.clear(field)
-      await user.type(field, value)
-    }
+    const needs = screen.getByLabelText(i18n.t('quota.needs'))
+    // A native range input; the arrow keys change its value in the browser and
+    // arrive here as this change event (jsdom does not press keys on a slider).
+    fireEvent.change(needs, { target: { value: '60' } })
     await user.click(screen.getByRole('button', { name: 'Speichern' }))
 
+    // 60 needs; the remaining 40 split 30:20 → 24 / 16.
     expect(onSave).toHaveBeenCalledWith({
-      targetNeeds: '65',
-      targetWants: '20',
-      targetSavings: '15',
-      bufferPercent: '5.5',
+      targetNeeds: '60',
+      targetWants: '24',
+      targetSavings: '16',
     })
-  })
-
-  test('adds 33,33 + 33,33 + 33,34 to exactly 100 without floating point noise', async () => {
-    const user = userEvent.setup()
-    open()
-    for (const [label, value] of [
-      ['Grundbedarf in %', '33,33'],
-      [i18n.t('quota.wants'), '33,33'],
-      [i18n.t('quota.savings'), '33,34'],
-    ]) {
-      const field = screen.getByLabelText(label)
-      await user.clear(field)
-      await user.type(field, value)
-    }
-    expect(screen.getByText('Zusammen: 100 %')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Speichern' })).toBeEnabled()
-  })
-
-  test.each(['1e2', '0x10', '50,555'])('does not accept %s as a percent', async (text) => {
-    const user = userEvent.setup()
-    open()
-    const needs = screen.getByLabelText('Grundbedarf in %')
-    await user.clear(needs)
-    await user.type(needs, text)
-    expect(screen.getByRole('button', { name: 'Speichern' })).toBeDisabled()
   })
 })

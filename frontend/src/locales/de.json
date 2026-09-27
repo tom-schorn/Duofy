@@ -305,6 +305,12 @@
     "label": "Person, deren Zahlen angezeigt werden",
     "me": "Ich"
   },
+  "settings": {
+    "title": "Einstellungen",
+    "lead": "Was für dich persönlich gilt. Änderungen gelten nur für dich.",
+    "quotaTitle": "Meine Richtwerte",
+    "flowTitle": "Verlauf"
+  },
   "quota": {
     "userTitle": "Meine Richtwerte",
     "userDescription": "Mit diesen Werten startet jeder Monat, den du ab jetzt anlegst. Bestehende Monate bleiben, wie sie sind.",
@@ -313,15 +319,15 @@
     "needs": "Grundbedarf in %",
     "wants": "Wünsche in %",
     "savings": "Sparen in %",
-    "buffer": "Puffer in %",
+    "sumAlways": "Zusammen immer 100 %: Wenn du einen Regler bewegst, gleichen die anderen aus.",
     "sum": "Zusammen: {{sum}} %",
     "mustSum": "Grundbedarf, Wünsche und Sparen ergeben zusammen 100 %.",
     "change": "Richtwerte ändern",
-    "current": "Richtwerte: {{needs}} / {{wants}} / {{savings}}, Puffer {{buffer}} %"
+    "current": "Richtwerte: {{needs}} / {{wants}} / {{savings}}"
   },
   "userMenu": {
     "account": "Konto",
-    "quota": "Meine Richtwerte",
+    "settings": "Einstellungen",
     "logout": "Abmelden",
     "admin": "Instanz verwalten"
   },
@@ -426,6 +432,8 @@
     "leadMemberView": "{{name}} hat die Konten nicht zum Bearbeiten freigegeben."
   },
   "hints": {
+    "plan_nothing_free": "Es ist nichts mehr frei: alles Einkommen ist verplant.",
+    "plan_nothing_free_over": "Es ist nichts mehr frei: du hast {{amount}} mehr verplant, als du einnimmst.",
     "position_overdue_one": "Seit einem Tag überfällig",
     "position_overdue_other": "Seit {{count}} Tagen überfällig"
   },

@@ -25,7 +25,6 @@ function household(id: string, members: Member[]): Household {
     targetNeeds: '50',
     targetWants: '30',
     targetSavings: '20',
-    bufferPercent: '0',
     members,
   }
 }

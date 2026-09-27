@@ -13,7 +13,6 @@ const household = {
   targetNeeds: '50.00',
   targetWants: '30.00',
   targetSavings: '20.00',
-  bufferPercent: '0.00',
   members: [
     {
       userId: 'u1',

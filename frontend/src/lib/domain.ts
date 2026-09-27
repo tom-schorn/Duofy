@@ -688,8 +688,6 @@ export type Plan = {
   targetNeeds: string
   targetWants: string
   targetSavings: string
-  /** How many percent of the income is deliberately left unplanned. */
-  bufferPercent: string
 }
 
 /** Mirror of `PlanPosition` — one item in exactly one monthly plan. */
@@ -737,12 +735,11 @@ export type PlanPosition = {
   paidAt: string | null
 }
 
-/** The three quotas add up to 100; the buffer is taken off the income first. */
+/** The three quotas add up to 100 percent of the income. */
 export type QuotaValues = {
   targetNeeds: string
   targetWants: string
   targetSavings: string
-  bufferPercent: string
 }
 
 export type Me = {
@@ -754,7 +751,6 @@ export type Me = {
   targetNeeds: string
   targetWants: string
   targetSavings: string
-  bufferPercent: string
   /** What the flow chart counts for limits — saved per person on the server. */
   flowLimitsBy: FlowLimitsBy
   /** The instance admin (#168). Runs the instance; sees nobody's plans or books. */
@@ -946,7 +942,6 @@ export type Household = {
   targetNeeds: string
   targetWants: string
   targetSavings: string
-  bufferPercent: string
   members: Member[]
 }
 
@@ -982,7 +977,7 @@ export type MyInvitation = {
 export type PlanSummary = Plan & {
   income: string
   /**
-   * Income minus buffer — the basis the quotas refer to, shown in the UI as
+   * The basis the quotas refer to — the income, shown in the UI as
    * "Verplanbar". **Not** the same as what is left to allocate; that is the
    * remainder of it.
    */
@@ -1133,4 +1128,29 @@ export function nextMissingMonth(
     }
   }
   return { year, month }
+}
+
+/**
+ * Moves one quota and takes the difference from the other two, so the three
+ * always add up to exactly 100.
+ *
+ * The others give (or take) in proportion to what they hold; when both are 0 the
+ * difference is split evenly. Values are kept to two decimals.
+ */
+export function coupleQuotas(
+  values: [number, number, number],
+  index: 0 | 1 | 2,
+  next: number
+): [number, number, number] {
+  const cents = (value: number) => Math.round(value * 100) / 100
+  const moved = cents(Math.min(100, Math.max(0, next)))
+  const rest = cents(100 - moved)
+  const [i, j] = ([0, 1, 2] as const).filter((k) => k !== index)
+  const others = values[i] + values[j]
+  const first = others > 0 ? cents((values[i] / others) * rest) : cents(rest / 2)
+  const result: [number, number, number] = [0, 0, 0]
+  result[index] = moved
+  result[i] = first
+  result[j] = cents(rest - first)
+  return result
 }
