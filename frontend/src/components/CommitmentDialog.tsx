@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DialogFrame } from '@/components/DialogFrame'
@@ -291,6 +291,9 @@ export function CommitmentDialog({
   // Which sentence word is open — only one at a time (issue #215).
   const [openWord, setOpenWord] = useState<string | null>(null)
   const wordRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  // Read out with every word and every opened field, so a screen reader hears the
+  // whole sentence, not just the one word (issue #202, review D-215-3, fix 1).
+  const sentenceId = useId()
 
   useEffect(() => {
     if (open) {
@@ -431,7 +434,12 @@ export function CommitmentDialog({
   // --- Sentence words -------------------------------------------------------
 
   const rhythmWord = (
-    <SentenceWord ref={wordRef('rhythm')} open={openWord === 'rhythm'} onClick={() => toggleWord('rhythm')}>
+    <SentenceWord
+      ref={wordRef('rhythm')}
+      open={openWord === 'rhythm'}
+      onClick={() => toggleWord('rhythm')}
+      describedBy={sentenceId}
+    >
       {intervalLabel(draft.intervalMonths)}
     </SentenceWord>
   )
@@ -468,7 +476,7 @@ export function CommitmentDialog({
             value={intervalText}
             onChange={(event) => handleIntervalText(event.target.value)}
             aria-invalid={!intervalValid}
-            aria-describedby="interval-custom-hint"
+            aria-describedby={cn('interval-custom-hint', sentenceId)}
             className="w-32"
             required
           />
@@ -487,7 +495,12 @@ export function CommitmentDialog({
   )
 
   const dateWord = (
-    <SentenceWord ref={wordRef('date')} open={openWord === 'date'} onClick={() => toggleWord('date')}>
+    <SentenceWord
+      ref={wordRef('date')}
+      open={openWord === 'date'}
+      onClick={() => toggleWord('date')}
+      describedBy={sentenceId}
+    >
       {longDate(draft.firstDueDate)}
     </SentenceWord>
   )
@@ -502,6 +515,7 @@ export function CommitmentDialog({
           handleFirstDueDate(toIsoDay(date))
           closeWord()
         }}
+        aria-describedby={sentenceId}
         autoFocus
       />
       <p className="text-muted-foreground text-xs">
@@ -539,7 +553,12 @@ export function CommitmentDialog({
     id === null ? t('common.defaultAccount') : (accounts.find((account) => account.id === id)?.name ?? '')
 
   const accountWord = (
-    <SentenceWord ref={wordRef('account')} open={openWord === 'account'} onClick={() => toggleWord('account')}>
+    <SentenceWord
+      ref={wordRef('account')}
+      open={openWord === 'account'}
+      onClick={() => toggleWord('account')}
+      describedBy={sentenceId}
+    >
       {accountName(draft.accountId)}
     </SentenceWord>
   )
@@ -576,6 +595,7 @@ export function CommitmentDialog({
       ref={wordRef('counterAccount')}
       open={openWord === 'counterAccount'}
       onClick={() => toggleWord('counterAccount')}
+      describedBy={sentenceId}
     >
       {draft.counterAccountId === null ? t('common.goesOut') : accountName(draft.counterAccountId)}
     </SentenceWord>
@@ -614,7 +634,12 @@ export function CommitmentDialog({
   const budgetWord = budgetIsFixed ? (
     <span className="font-medium">{budgetLabel(draft.budget)}</span>
   ) : (
-    <SentenceWord ref={wordRef('budget')} open={openWord === 'budget'} onClick={() => toggleWord('budget')}>
+    <SentenceWord
+      ref={wordRef('budget')}
+      open={openWord === 'budget'}
+      onClick={() => toggleWord('budget')}
+      describedBy={sentenceId}
+    >
       {budgetLabel(draft.budget)}
     </SentenceWord>
   )
@@ -639,7 +664,12 @@ export function CommitmentDialog({
   )
 
   const endsOnWord = (
-    <SentenceWord ref={wordRef('endsOn')} open={openWord === 'endsOn'} onClick={() => toggleWord('endsOn')}>
+    <SentenceWord
+      ref={wordRef('endsOn')}
+      open={openWord === 'endsOn'}
+      onClick={() => toggleWord('endsOn')}
+      describedBy={sentenceId}
+    >
       {draft.endsOn ? longDate(draft.endsOn) : t('commitmentDialog.noEnd')}
     </SentenceWord>
   )
@@ -654,6 +684,7 @@ export function CommitmentDialog({
           set('endsOn', toIsoDay(date))
           closeWord()
         }}
+        aria-describedby={sentenceId}
         autoFocus
       />
       <SentenceChip
@@ -674,6 +705,7 @@ export function CommitmentDialog({
       ref={wordRef('targetDate')}
       open={openWord === 'targetDate'}
       onClick={() => toggleWord('targetDate')}
+      describedBy={sentenceId}
     >
       {draft.targetDate ? longDate(draft.targetDate) : t('commitmentDialog.noTargetDate')}
     </SentenceWord>
@@ -689,6 +721,7 @@ export function CommitmentDialog({
           set('targetDate', toIsoDay(date))
           closeWord()
         }}
+        aria-describedby={sentenceId}
         autoFocus
       />
     </SentencePanel>
@@ -699,6 +732,7 @@ export function CommitmentDialog({
       ref={wordRef('targetAmount')}
       open={openWord === 'targetAmount'}
       onClick={() => toggleWord('targetAmount')}
+      describedBy={sentenceId}
     >
       {draft.targetAmount ? `${formatAmount(draft.targetAmount)} €` : t('commitmentDialog.noTargetAmount')}
     </SentenceWord>
@@ -711,6 +745,7 @@ export function CommitmentDialog({
         onChange={(value) => set('targetAmount', value || null)}
         allowZero
         className="w-48"
+        aria-describedby={sentenceId}
       />
     </SentencePanel>
   )
@@ -983,7 +1018,7 @@ export function CommitmentDialog({
               closeWord()
             }}
           >
-            <p className="text-lg leading-8">{fillSentence(t(`commitmentDialog.sentence.${sentenceKey}`), words)}</p>
+            <p id={sentenceId} className="text-lg leading-8">{fillSentence(t(`commitmentDialog.sentence.${sentenceKey}`), words)}</p>
             {panels}
           </div>
 
