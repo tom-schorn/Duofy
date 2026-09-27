@@ -1,11 +1,12 @@
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useSearchParams } from 'react-router'
 
 import { AccountCards } from '@/components/AccountCards'
 import { BookFlow } from '@/components/BookFlow'
 import { MonthBook } from '@/components/MonthBook'
 import { MonthSwitch } from '@/components/MonthSwitch'
 import { useActiveMember } from '@/hooks/use-active-member'
+import { parseMonth } from '@/lib/dates'
 import { OWN_SCOPE, atLeast, type BookScope } from '@/lib/domain'
 import { usePlan } from '@/lib/queries'
 
@@ -27,9 +28,15 @@ export function BookPage() {
   const active = useActiveMember()
   const mayEdit = atLeast(active.levelFor('accounts'), 'edit')
 
+  // The month lives in the address (`?month=2026-09`), so a reload and a link keep
+  // it. Anything that is not a valid month falls back to the current one.
+  const [params, setParams] = useSearchParams()
+  const raw = params.get('month') ?? ''
+  const [rawYear, rawMonth] = raw.split('-')
+  const parsed = /^\d{4}-\d{2}$/.test(raw) ? parseMonth(rawYear, rawMonth) : null
   const today = new Date()
-  const [year, setYear] = useState(today.getFullYear())
-  const [month, setMonth] = useState(today.getMonth() + 1)
+  const year = parsed?.year ?? today.getFullYear()
+  const month = parsed?.month ?? today.getMonth() + 1
 
   const scope: BookScope =
     active.id === null ? OWN_SCOPE : { kind: 'member', ownerId: active.id }
@@ -56,10 +63,12 @@ export function BookPage() {
         <MonthSwitch
           year={year}
           month={month}
-          onChange={(nextYear, nextMonth) => {
-            setYear(nextYear)
-            setMonth(nextMonth)
-          }}
+          onChange={(nextYear, nextMonth) =>
+            setParams((current: URLSearchParams) => {
+              current.set('month', `${nextYear}-${String(nextMonth).padStart(2, '0')}`)
+              return current
+            })
+          }
         />
       </header>
 
