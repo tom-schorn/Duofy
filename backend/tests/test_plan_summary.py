@@ -146,12 +146,32 @@ async def test_distributable_is_income_minus_the_buffer(
 # --- The household's own month list (#214) ---------------------------------
 
 
-async def test_a_month_where_only_a_partner_carries_a_shared_position_still_appears(
+async def test_a_month_appears_once_every_current_member_has_planned_it(
     client: AsyncClient, session: AsyncSession, owner: User
 ):
-    """The list must be built from every member's positions, not the viewer's own
-    plans alone — a month the viewer has not even started yet still belongs on it
-    once a partner plans something shared in it."""
+    """A household month exists only once every current member has created their
+    own plan for it — the month still belongs on the list even with no shared
+    position yet, exactly like the own plan overview."""
+    partner = await make_user(session, "Partner")
+    household = await make_household(session, "Shared")
+    await add_member(session, household, owner)
+    await add_member(session, household, partner)
+    await make_plan(session, owner)
+    await make_plan(session, partner)
+    await session.commit()
+
+    response = await client.get(f"/api/v1/plans/household/{household.id}")
+
+    assert response.status_code == 200
+    rows = response.json()
+    assert [(row["year"], row["month"]) for row in rows] == [(2026, 9)]
+
+
+async def test_a_month_where_only_one_member_has_planned_does_not_appear(
+    client: AsyncClient, session: AsyncSession, owner: User
+):
+    """A partner's shared position is not enough by itself — the owner has not
+    planned this month at all yet, so it must not show as a household month."""
     partner = await make_user(session, "Partner")
     household = await make_household(session, "Shared")
     await add_member(session, household, owner)
@@ -163,9 +183,7 @@ async def test_a_month_where_only_a_partner_carries_a_shared_position_still_appe
     response = await client.get(f"/api/v1/plans/household/{household.id}")
 
     assert response.status_code == 200
-    rows = response.json()
-    assert [(row["year"], row["month"]) for row in rows] == [(2026, 9)]
-    assert Decimal(rows[0]["spent"]["needs"]) == Decimal("700.00")
+    assert response.json() == []
 
 
 async def test_the_household_month_list_is_refused_to_a_non_member(
@@ -181,4 +199,50 @@ async def test_the_household_month_list_is_refused_to_a_non_member(
 
     assert response.status_code == 403
     assert "not_household_member" in response.text
+
+
+# --- The household month notice for a missing plan (#214) ------------------
+
+
+async def test_the_household_month_names_who_has_not_planned_yet(
+    client: AsyncClient, session: AsyncSession, owner: User
+):
+    """Nobody has created September yet: the month comes back as a half plan
+    with both first names in `missing_members`, not as numbers built from
+    nothing."""
+    partner = await make_user(session, "Partner")
+    household = await make_household(session, "Shared")
+    await add_member(session, household, owner)
+    await add_member(session, household, partner)
+    await session.commit()
+
+    response = await client.get(f"/api/v1/plans/household/{household.id}/2026/9")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert sorted(body["missingMembers"]) == ["Owner", "Partner"]
+    assert body["positions"] == []
+    assert body["hints"] == []
+
+
+async def test_the_household_month_is_whole_once_everybody_has_planned(
+    client: AsyncClient, session: AsyncSession, owner: User
+):
+    """Once both plans exist, `missing_members` is empty and the shared position
+    shows up as usual."""
+    partner = await make_user(session, "Partner")
+    household = await make_household(session, "Shared")
+    await add_member(session, household, owner)
+    await add_member(session, household, partner)
+    await make_plan(session, owner)
+    partner_plan = await make_plan(session, partner)
+    session.add(position(partner_plan, "Rent", "700.00", household_id=household.id))
+    await session.commit()
+
+    response = await client.get(f"/api/v1/plans/household/{household.id}/2026/9")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["missingMembers"] == []
+    assert Decimal(body["spent"]["needs"]) == Decimal("700.00")
 
