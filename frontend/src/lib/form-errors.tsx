@@ -64,10 +64,21 @@ function collect(form: HTMLFormElement, t: TFunction) {
 export function Form({
   onSubmit,
   onInput,
+  fieldErrors,
   ...props
-}: Omit<ComponentProps<'form'>, 'noValidate'>) {
+}: Omit<ComponentProps<'form'>, 'noValidate'> & {
+  /**
+   * A server field error, id-keyed like `errors` (review D-215-5): the caller
+   * maps a rejected save's error code to the id of the word or field it
+   * belongs to. Read the same way through {@link useFieldError} — one lookup,
+   * whether the sentence came from the browser or from the backend.
+   */
+  fieldErrors?: Record<string, string>
+}) {
   const { t } = useTranslation()
   const [errors, setErrors] = useState<Record<string, string>>({})
+  // A fresh client-side mistake on the same field wins over a stale server one.
+  const shown = fieldErrors ? { ...fieldErrors, ...errors } : errors
 
   const handleSubmit = useCallback(
     (event: Parameters<NonNullable<ComponentProps<'form'>['onSubmit']>>[0]) => {
@@ -89,7 +100,7 @@ export function Form({
   )
 
   return (
-    <ErrorsContext.Provider value={errors}>
+    <ErrorsContext.Provider value={shown}>
       <form
         {...props}
         noValidate
