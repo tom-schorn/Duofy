@@ -248,7 +248,9 @@ describe('CommitmentDialog sentence words', () => {
     expect(screen.getByRole('button', { name: i18n.t('enums.interval.quarterly') })).toBeInTheDocument()
     // Picking closes the panel and gives the focus back to the word.
     expect(screen.queryByRole('group', { name: 'Wie oft?' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: i18n.t('enums.interval.quarterly') })).toHaveFocus()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: i18n.t('enums.interval.quarterly') })).toHaveFocus()
+    )
   })
 
   test('opening a second word closes the first', async () => {

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
 import { i18n } from '@/lib/i18n'
@@ -96,7 +96,7 @@ describe('EditBookingDialog sentence', () => {
     const panel = screen.getByRole('group', { name: i18n.t('monthBook.positionLabel') })
     await user.click(within(panel).getByRole('combobox'))
     await user.click(await screen.findByRole('option', { name: 'Miete' }))
-    expect(screen.getByRole('button', { name: 'Miete' })).toHaveFocus()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Miete' })).toHaveFocus())
     expect(screen.queryByRole('group', { name: i18n.t('monthBook.positionLabel') })).not.toBeInTheDocument()
   })
 
