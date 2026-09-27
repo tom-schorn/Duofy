@@ -134,6 +134,11 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
     query.error instanceof ApiError &&
     query.error.code === 'plan_not_found'
   const mayCreate = atLeast(active.levelFor('plan'), 'edit')
+  // A household month exists only once every current member has planned it.
+  // Until then this is a half plan, not the household's: the backend sends
+  // empty positions and names who is still missing instead, so a calm notice
+  // replaces the numbers.
+  const missingMembers = shared ? (householdPlan.data?.missingMembers ?? []) : []
 
   const names = Object.fromEntries(
     (households.data ?? []).map((household) => [household.id, household.name])
@@ -197,6 +202,21 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
               {t('plans.create')}
             </Button>
           )}
+        </Empty>
+      ) : missingMembers.length > 0 ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>{t('plan.incompleteTitle')}</EmptyTitle>
+            <EmptyDescription>
+              {t(
+                missingMembers.length === 1 ? 'plan.incompleteOne' : 'plan.incompleteMany',
+                {
+                  names: missingMembers.join(` ${t('common.and')} `),
+                  month: `${monthLabel(month)} ${year}`,
+                }
+              )}
+            </EmptyDescription>
+          </EmptyHeader>
         </Empty>
       ) : (
       <QueryState isPending={query.isPending} error={query.error} onRetry={() => void query.refetch()} rows={4}>

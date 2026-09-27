@@ -121,3 +121,54 @@ describe('PlanDetailPage', () => {
     expect(link).toHaveAttribute('href', expected)
   })
 })
+
+describe('PlanDetailPage — household month not everyone has planned yet (#214)', () => {
+  // A household month exists only once every current member has created their
+  // own plan for it. Until then the backend sends empty positions and names who
+  // is still missing — the page must show that instead of a half plan.
+  beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (String(url).endsWith('/households')) {
+          return new Response(JSON.stringify(household('view')), { status: 200 })
+        }
+        if (String(url).includes('/plans/household/')) {
+          return new Response(
+            JSON.stringify({
+              householdId: 'h1',
+              householdName: 'Zuhause',
+              year: 2026,
+              month: 11,
+              targetNeeds: '50.00',
+              targetWants: '30.00',
+              targetSavings: '20.00',
+              bufferPercent: '0.00',
+              income: '0.00',
+              distributable: '0.00',
+              spent: { needs: '0.00', wants: '0.00', savings: '0.00' },
+              unpaid: '0.00',
+              householdIds: [],
+              hints: [],
+              positions: [],
+              missingMembers: ['Ida'],
+            }),
+            { status: 200 }
+          )
+        }
+        return new Response('[]', { status: 200 })
+      })
+    )
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  test('shows a calm notice instead of a half plan', async () => {
+    renderAt('/plan/2026/11?household=h1')
+    expect(await screen.findByText(i18n.t('plan.incompleteTitle'))).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        i18n.t('plan.incompleteOne', { names: 'Ida', month: 'November 2026' })
+      )
+    ).toBeInTheDocument()
+  })
+})
