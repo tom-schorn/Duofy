@@ -9,7 +9,8 @@ live under `/positions`, otherwise `positions` would collide with the year.
 
 import uuid
 from calendar import monthrange
-from datetime import date
+from collections.abc import Iterable
+from datetime import date, datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -53,6 +54,52 @@ from app.services.savings_goal import amount_to_plan
 router = APIRouter()
 
 ZERO = Decimal("0.00")
+
+
+def _eligible_member_ids(
+    members: Iterable[tuple[uuid.UUID, datetime]], year: int, month: int
+) -> set[uuid.UUID]:
+    """Members already part of the household by the last day of that month.
+
+    A member who joins later must not make earlier months incomplete, and does
+    not need a plan for a month before they joined.
+    """
+    last_day = date(year, month, monthrange(year, month)[1])
+    return {member_id for member_id, joined_at in members if joined_at.date() <= last_day}
+
+
+async def _household_missing_members(
+    session: AsyncSession, household_id: uuid.UUID, year: int, month: int
+) -> list[str]:
+    """First names of members already part of the household this month who have
+    not created their own plan for it yet."""
+    members = [
+        (member_id, first_name, created_at)
+        for member_id, first_name, created_at in await session.execute(
+            select(HouseholdMember.user_id, User.first_name, HouseholdMember.created_at)
+            .join(User, User.id == HouseholdMember.user_id)
+            .where(HouseholdMember.household_id == household_id)
+        )
+    ]
+    eligible_ids = _eligible_member_ids(
+        ((member_id, joined_at) for member_id, _, joined_at in members), year, month
+    )
+    planned_ids = set(
+        (
+            await session.execute(
+                select(Plan.user_id).where(
+                    Plan.user_id.in_([member_id for member_id, _, _ in members]),
+                    Plan.year == year,
+                    Plan.month == month,
+                )
+            )
+        ).scalars()
+    )
+    return sorted(
+        first_name
+        for member_id, first_name, _ in members
+        if member_id in eligible_ids and member_id not in planned_ids
+    )
 
 
 def _summarize(
@@ -204,11 +251,13 @@ async def list_household_plans(
 
     Feeds "Alle Pläne" on the household plan: the household owns no plan of its
     own to list, so this reads the months off every member's plans. A month
-    belongs on this list only once **every current member** has created their
-    own plan for it — even with zero shared positions, since that is exactly
-    the state `get_household_plan` shows in full rather than behind a notice. A
-    month where a member has not planned yet does not appear at all, no matter
-    how many shared positions the others already carry.
+    belongs on this list only once **every member already part of the household
+    that month** has created their own plan for it — even with zero shared
+    positions, since that is exactly the state `get_household_plan` shows in full
+    rather than behind a notice. A member who joins later does not make earlier
+    months incomplete; they count from the month they join in. A month where an
+    already-eligible member has not planned yet does not appear at all, no
+    matter how many shared positions the others already carry.
 
     Registered ahead of `get_plan` (`/{year}/{month}`) on purpose: that route has
     no `int` converter in its path, so it would otherwise swallow this one first.
@@ -219,18 +268,15 @@ async def list_household_plans(
     if household is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "household_not_found"})
 
-    member_ids = (
-        (
-            await session.execute(
-                select(HouseholdMember.user_id).where(
-                    HouseholdMember.household_id == household_id
-                )
+    members = [
+        (member_id, created_at)
+        for member_id, created_at in await session.execute(
+            select(HouseholdMember.user_id, HouseholdMember.created_at).where(
+                HouseholdMember.household_id == household_id
             )
         )
-        .scalars()
-        .all()
-    )
-    member_count = len(member_ids)
+    ]
+    member_ids = [member_id for member_id, _ in members]
 
     owners_by_month: dict[tuple[int, int], set[uuid.UUID]] = {}
     for year, month, owner_id in await session.execute(
@@ -239,7 +285,9 @@ async def list_household_plans(
         owners_by_month.setdefault((year, month), set()).add(owner_id)
 
     complete_months = {
-        key for key, owners in owners_by_month.items() if len(owners) == member_count
+        key
+        for key, owners in owners_by_month.items()
+        if (eligible := _eligible_member_ids(members, *key)) and eligible <= owners
     }
     if not complete_months:
         return []
@@ -454,11 +502,13 @@ async def get_household_plan(
     It is built from every member position carrying this `household_id`. The quotas
     come from the household, not from any single plan.
 
-    Shown whole only once **every current member** has created their own plan for
-    this month — same rule as `list_household_plans`. Otherwise this is a half
-    plan, not the household's plan: `positions` and `hints` come back empty and
-    `missing_members` names who is still missing, so the frontend shows a calm
-    notice instead of numbers nobody agreed to yet.
+    Shown whole only once **every member already part of the household this
+    month** has created their own plan for it — same rule as
+    `list_household_plans`. A member who joins later does not make earlier
+    months incomplete. Otherwise this is a half plan, not the household's plan:
+    `positions` and `hints` come back empty and `missing_members` names who is
+    still missing, so the frontend shows a calm notice instead of numbers nobody
+    agreed to yet.
     """
     require(await is_member(session, user.id, household_id), "not_household_member")
 
@@ -466,28 +516,7 @@ async def get_household_plan(
     if household is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "household_not_found"})
 
-    members = (
-        await session.execute(
-            select(HouseholdMember.user_id, User.first_name)
-            .join(User, User.id == HouseholdMember.user_id)
-            .where(HouseholdMember.household_id == household_id)
-        )
-    ).all()
-
-    planned_ids = set(
-        (
-            await session.execute(
-                select(Plan.user_id).where(
-                    Plan.user_id.in_([member_id for member_id, _ in members]),
-                    Plan.year == year,
-                    Plan.month == month,
-                )
-            )
-        ).scalars()
-    )
-    missing_members = sorted(
-        first_name for member_id, first_name in members if member_id not in planned_ids
-    )
+    missing_members = await _household_missing_members(session, household_id, year, month)
 
     positions: list[PlanPosition] = []
     household_positions: list[HouseholdPositionRead] = []

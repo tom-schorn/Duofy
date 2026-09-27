@@ -15,6 +15,7 @@ of what the number is for.
 Part of #106.
 """
 
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
@@ -245,4 +246,62 @@ async def test_the_household_month_is_whole_once_everybody_has_planned(
     body = response.json()
     assert body["missingMembers"] == []
     assert Decimal(body["spent"]["needs"]) == Decimal("700.00")
+
+
+# --- Completeness counts only members already in the household (#214 review) -
+
+
+async def test_a_member_who_joins_later_does_not_make_earlier_months_incomplete(
+    client: AsyncClient, session: AsyncSession, owner: User
+):
+    """A partner joining in October must not retroactively make September
+    incomplete — they were not part of the household yet."""
+    partner = await make_user(session, "Partner")
+    household = await make_household(session, "Shared")
+    await add_member(session, household, owner)
+    await add_member(session, household, partner, joined_at=datetime(2026, 10, 5, tzinfo=UTC))
+    await make_plan(session, owner)
+    await session.commit()
+
+    response = await client.get(f"/api/v1/plans/household/{household.id}/2026/9")
+
+    assert response.status_code == 200
+    assert response.json()["missingMembers"] == []
+
+
+async def test_a_member_counts_from_the_month_they_join_in(
+    client: AsyncClient, session: AsyncSession, owner: User
+):
+    """From October on the partner is expected to plan like anybody else."""
+    partner = await make_user(session, "Partner")
+    household = await make_household(session, "Shared")
+    await add_member(session, household, owner)
+    await add_member(session, household, partner, joined_at=datetime(2026, 10, 5, tzinfo=UTC))
+    session.add(Plan(user_id=owner.id, year=2026, month=10))
+    await session.commit()
+
+    response = await client.get(f"/api/v1/plans/household/{household.id}/2026/10")
+
+    assert response.status_code == 200
+    assert response.json()["missingMembers"] == ["Partner"]
+
+
+async def test_the_household_month_list_skips_a_month_before_a_member_joined(
+    client: AsyncClient, session: AsyncSession, owner: User
+):
+    """September belongs on the list although the partner — joining in October —
+    never planned it; October only once the partner plans it too."""
+    partner = await make_user(session, "Partner")
+    household = await make_household(session, "Shared")
+    await add_member(session, household, owner)
+    await add_member(session, household, partner, joined_at=datetime(2026, 10, 5, tzinfo=UTC))
+    await make_plan(session, owner)
+    session.add(Plan(user_id=owner.id, year=2026, month=10))
+    await session.commit()
+
+    response = await client.get(f"/api/v1/plans/household/{household.id}")
+
+    assert response.status_code == 200
+    rows = response.json()
+    assert [(row["year"], row["month"]) for row in rows] == [(2026, 9)]
 
