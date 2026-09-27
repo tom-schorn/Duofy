@@ -214,9 +214,13 @@ export function PositionDialog({
           className="w-20"
           value={draft.dueDay}
           onChange={(event) => set('dueDay', Number(event.target.value))}
+          aria-describedby="pos-due-day-sentence"
           required
         />
         {t('common.dueOnAfter')}
+        <span id="pos-due-day-sentence" className="sr-only">
+          {t('common.dueOnSentence', { day: draft.dueDay })}
+        </span>
       </div>
     </div>
   )
