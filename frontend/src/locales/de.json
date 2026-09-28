@@ -433,6 +433,7 @@
     "nextMonth": "Nächster Monat",
     "lead": "Was tatsächlich gelaufen ist — Kontostände und jede Buchung darauf.",
     "noPlan": "Für diesen Monat gibt es keinen Plan. Buchen geht trotzdem — nur zuordnen lässt sich nichts, solange keine Posten da sind.",
+    "planNotShared": "{{name}} hat dir den Plan nicht freigegeben. Buchen geht trotzdem — nur zuordnen lässt sich nichts, solange die Posten nicht sichtbar sind.",
     "leadMember": "Das Buch von {{name}}.",
     "leadMemberView": "{{name}} hat die Konten nicht zum Bearbeiten freigegeben.",
     "notShared": "{{name}} hat dir das Buch nicht freigegeben."

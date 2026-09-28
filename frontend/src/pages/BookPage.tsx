@@ -48,6 +48,14 @@ export function BookPage() {
   const plan = usePlan(year, month, true, active.id)
   const positions = plan.data?.positions ?? []
 
+  // Accounts and the book can be shared without the plan — the two grants are
+  // separate. A missing plan grant is not "no plan for this month" (that hint is
+  // for a month nobody has created yet); it is honestly a missing share (#217).
+  const planNotShared =
+    active.member !== null &&
+    plan.error instanceof ApiError &&
+    plan.error.code === 'no_insight_granted'
+
   // Loaded here, once, so a missing grant can gate the whole book instead of
   // `AccountCards` and `MonthBook` each finding their own way to say nothing
   // (#217). `useAccounts` shares its cache with theirs, so this costs no extra
@@ -92,10 +100,17 @@ export function BookPage() {
 
           <BookFlow year={year} month={month} scope={scope} />
 
-          {plan.data === undefined && !plan.isPending && (
+          {planNotShared ? (
             <p className="text-muted-foreground border-border rounded-lg border border-dashed px-4 py-3 text-sm">
-              {t('book.noPlan')}
+              {t('book.planNotShared', { name: active.member!.firstName })}
             </p>
+          ) : (
+            plan.data === undefined &&
+            !plan.isPending && (
+              <p className="text-muted-foreground border-border rounded-lg border border-dashed px-4 py-3 text-sm">
+                {t('book.noPlan')}
+              </p>
+            )
           )}
 
           <MonthBook
