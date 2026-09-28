@@ -18,6 +18,7 @@ from app.models.account import Account
 from app.models.commitment import Commitment
 from app.models.enums import AccountType, Budget, Category, CommitmentType, Role
 from app.models.household import Household, HouseholdMember
+from app.models.imported_entry import ImportedEntry
 from app.models.plan import Plan, PlanPosition, PlanPositionChange
 from app.models.transaction import Transaction
 from app.models.user import User
@@ -222,6 +223,49 @@ async def test_an_admin_can_delete_their_account_if_another_admin_remains(
 
     assert response.status_code == 204
     assert await session.get(User, admin_id) is None
+
+
+async def test_a_partners_parked_import_survives_the_importer_deleting_their_account(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    """`imported_entries.imported_by_id` is `SET NULL`, not `CASCADE`.
+
+    Somebody with `Area.ACCOUNTS` at `edit` may import a file for another
+    household member — the row then belongs to that member (`owner_id`), while
+    `imported_by_id` only remembers who uploaded it. Deleting the *importer's*
+    own account must not take the *owner's* parked row down with it.
+    """
+    owner = await make_user(session, "Owner")
+    importer = await make_user(session, "Importer")
+    account = await make_account(session, owner, "Girokonto")
+    entry = ImportedEntry(
+        owner_id=owner.id,
+        imported_by_id=importer.id,
+        account_id=account.id,
+        external_ref="ref-1",
+        occurred_on=date(2026, 9, 10),
+        value_on=date(2026, 9, 10),
+        amount=Decimal("42.00"),
+        incoming=True,
+    )
+    session.add(entry)
+    await session.commit()
+    entry_id = entry.id
+    sign_in(importer)
+
+    response = await client.delete("/api/v1/users/me")
+
+    assert response.status_code == 204
+    assert await session.get(User, importer.id) is None
+    assert await session.get(User, owner.id) is not None
+    # The SET NULL happened via the CASCADE from `users`, not through the ORM —
+    # the identity-mapped object still holds the value it had before the
+    # request, so it has to be expired before a SELECT will show the change.
+    session.expire(entry)
+    survived = await session.scalar(select(ImportedEntry).where(ImportedEntry.id == entry_id))
+    assert survived is not None
+    assert survived.owner_id == owner.id
+    assert survived.imported_by_id is None
 
 
 async def test_signing_in_afterwards_fails(client: AsyncClient) -> None:
