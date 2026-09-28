@@ -53,7 +53,11 @@ Posten nur einmal existiert.
 - **Hinweise im Plan**, zum Beispiel für überfällige Posten
 - **Haushalt mit Freigaben:** jede Person gibt pro Bereich (Planung, Verträge,
   Konten) frei, was die anderen sehen und ändern dürfen; ein Paar-Preset macht das
-  in einem Schritt
+  in einem Schritt; der Haushaltsplan zeigt einen Monat, sobald alle ihn angelegt
+  haben
+- **Dialoge als Satz:** „Geht monatlich ab dem 1. Oktober vom Standardkonto ab“ —
+  jedes Wort lässt sich anklicken und ändern
+- **Eigenes Konto löschen** in den Einstellungen, mit allen eigenen Daten
 - **Import** von Kontoauszügen als CSV und CAMT, mit Vorschlägen für die Zuordnung
 - **Rückgängig** statt Rückfragen, auch beim Löschen eines ganzen Monatsplans;
   dazu Druckversion, Dark- und Light-Theme

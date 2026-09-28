@@ -26,10 +26,9 @@ keine eigene Tabelle. Der Haushalt besitzt nichts — kein Konto, keinen Plan.
 - **Deutsch:** Issues, Wiki, README, diese Datei
 - **Oberfläche:** vorerst nur Deutsch. Weitere Sprachen sollen andere per Pull
   Request beisteuern können, ohne Code anzufassen — Texte gehören deshalb nicht
-  fest in Komponenten. Die Übersetzungseinheit baut #98 (`react-i18next`,
-  `src/locales/de.json`); bis dahin stehen Oberflächentexte direkt in den
-  Komponenten und Fehlercodes in `src/lib/api.ts`. Nach #98 kommt jeder neue
-  Text als Schlüssel in den Katalog
+  fest in Komponenten. Die Übersetzungseinheit steht seit #98 (`react-i18next`,
+  `src/locales/de.json`, Hilfe in `de.help.json`): jeder neue Text kommt als
+  Schlüssel in den Katalog, Fehlercodes unter `errors.*`
 - Das Backend liefert **Codes, nie Sätze**
 
 ## Repo
