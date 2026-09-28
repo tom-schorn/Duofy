@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router'
+import { createMemoryRouter, MemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
 import { i18n } from '@/lib/i18n'
@@ -63,5 +63,77 @@ describe('settings page', () => {
   test('offers the setting for limits in the flow', async () => {
     open()
     expect(await screen.findByLabelText(i18n.t('monthFlow.limitsBy'))).toBeInTheDocument()
+  })
+})
+
+/**
+ * `open()` above wires no `/login` route, so the deletion flow — which navigates
+ * there — gets its own render with a router that has both.
+ */
+function openForDeletion(deleteStatus = 204) {
+  const fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+    const path = String(url)
+    if (init?.method === 'DELETE' && path.endsWith('/users/me')) {
+      if (deleteStatus !== 204) {
+        return new Response(JSON.stringify({ detail: { code: 'last_admin' } }), {
+          status: deleteStatus,
+        })
+      }
+      return new Response(null, { status: 204 })
+    }
+    return new Response(JSON.stringify(ME), { status: 200 })
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  const router = createMemoryRouter(
+    [
+      { path: '/einstellungen', element: <SettingsPage /> },
+      { path: '/login', element: <p>Anmeldeseite</p> },
+    ],
+    { initialEntries: ['/einstellungen'] }
+  )
+  render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  )
+  return { fetchMock, router }
+}
+
+describe('deleting the account', () => {
+  test('the confirmation names what disappears, what stays, and household handover', async () => {
+    const user = userEvent.setup()
+    openForDeletion()
+    await user.click(await screen.findByRole('button', { name: i18n.t('settings.deleteAccount') }))
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+    expect(screen.getByText(i18n.t('settings.deleteAccountText'))).toBeInTheDocument()
+  })
+
+  test('confirming deletes the account, clears the session and lands on the login page', async () => {
+    const user = userEvent.setup()
+    const { fetchMock, router } = openForDeletion()
+    await user.click(await screen.findByRole('button', { name: i18n.t('settings.deleteAccount') }))
+    const confirm = screen.getByRole('alertdialog')
+    await user.click(within(confirm).getByRole('button', { name: i18n.t('settings.deleteAccount') }))
+
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(
+          ([url, init]) => init?.method === 'DELETE' && String(url).endsWith('/users/me')
+        )
+      ).toBe(true)
+    )
+    await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
+  })
+
+  test('the last admin sees why deletion is refused, and the dialog stays open', async () => {
+    const user = userEvent.setup()
+    const { router } = openForDeletion(409)
+    await user.click(await screen.findByRole('button', { name: i18n.t('settings.deleteAccount') }))
+    const confirm = screen.getByRole('alertdialog')
+    await user.click(within(confirm).getByRole('button', { name: i18n.t('settings.deleteAccount') }))
+
+    expect(await screen.findByText(i18n.t('errors.last_admin'))).toBeInTheDocument()
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/einstellungen')
   })
 })
