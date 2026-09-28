@@ -1,11 +1,24 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router'
 
 import { FormError } from '@/components/FormError'
 import { LimitsSwitch } from '@/components/MonthFlow'
 import { QueryState } from '@/components/QueryState'
 import { QuotaSliders } from '@/components/QuotaSliders'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { api, clearToken } from '@/lib/api'
 import { useMe, useSetDefaultQuota } from '@/lib/queries'
 
 /**
@@ -14,9 +27,23 @@ import { useMe, useSetDefaultQuota } from '@/lib/queries'
  */
 export function SettingsPage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
+  const client = useQueryClient()
   const me = useMe()
   const save = useSetDefaultQuota()
   const [values, setValues] = useState<[number, number, number]>([50, 30, 20])
+  const [confirming, setConfirming] = useState(false)
+
+  // The account is gone once this succeeds — clear it locally too and leave, the
+  // way UserMenu's logout does. No toast: the login page is the next thing seen.
+  const deleteAccount = useMutation({
+    mutationFn: () => api.delete<void>('/users/me'),
+    onSuccess: () => {
+      clearToken()
+      client.clear()
+      navigate('/login', { replace: true })
+    },
+  })
 
   const stored = me.data
   // Start from what is stored, again after a save (the server may round).
@@ -71,6 +98,48 @@ export function SettingsPage() {
             <section className="flex flex-col gap-3">
               <h2 className="font-medium">{t('settings.flowTitle')}</h2>
               <LimitsSwitch value={me.data.flowLimitsBy} />
+            </section>
+
+            <section className="flex flex-col gap-3">
+              <h2 className="font-medium">{t('settings.dangerTitle')}</h2>
+              <p className="text-muted-foreground text-sm">{t('settings.deleteAccountLead')}</p>
+              <div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="text-destructive"
+                  onClick={() => setConfirming(true)}
+                >
+                  {t('settings.deleteAccount')}
+                </Button>
+              </div>
+
+              <AlertDialog open={confirming} onOpenChange={setConfirming}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="font-heading">
+                      {t('settings.deleteAccountTitle')}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {t('settings.deleteAccountText')}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                    <AlertDialogAction
+                      disabled={deleteAccount.isPending}
+                      onClick={(event) => {
+                        // Stays open until the server has said yes.
+                        event.preventDefault()
+                        deleteAccount.mutate()
+                      }}
+                    >
+                      {t('settings.deleteAccount')}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                  {deleteAccount.isError && <FormError error={deleteAccount.error} />}
+                </AlertDialogContent>
+              </AlertDialog>
             </section>
           </>
         )}

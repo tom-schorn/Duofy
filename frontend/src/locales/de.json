@@ -24,6 +24,7 @@
     "position_not_found": "Der Posten existiert nicht mehr.",
     "household_not_found": "Der Haushalt existiert nicht mehr.",
     "last_owner_cannot_leave": "Du bist der letzte Besitzer — übergib den Haushalt, bevor du austrittst.",
+    "last_admin": "Du bist die letzte Person, die diese Instanz verwaltet — das Konto lässt sich nicht löschen, solange niemand sonst das kann. Wer die Instanz selbst hostet, ändert das über ADMIN_EMAIL in der Konfiguration.",
     "already_a_member": "Diese Person ist schon im Haushalt.",
     "registration_closed": "Auf dieser Duofy-Instanz kann man sich gerade nicht registrieren.",
     "invitation_required": "Zum Registrieren brauchst du einen Einladungslink.",
@@ -310,7 +311,12 @@
     "title": "Einstellungen",
     "lead": "Was für dich persönlich gilt. Änderungen gelten nur für dich.",
     "quotaTitle": "Meine Richtwerte",
-    "flowTitle": "Verlauf"
+    "flowTitle": "Verlauf",
+    "dangerTitle": "Konto löschen",
+    "deleteAccountLead": "Endgültig löschen. Das lässt sich nicht rückgängig machen.",
+    "deleteAccount": "Konto löschen",
+    "deleteAccountTitle": "Konto endgültig löschen?",
+    "deleteAccountText": "Deine Konten, Buchungen, Pläne, Verträge, Freigaben und Mitgliedschaften verschwinden vollständig. Änderungen, die du an fremden Posten vorgenommen hast, bleiben dort als „ehemaliges Mitglied\" stehen. Besitzt du einen Haushalt mit weiteren Mitgliedern, geht der Besitz an das Mitglied über, das am längsten dabei ist; bist du dort allein, wird der Haushalt mit gelöscht. Danach bist du abgemeldet."
   },
   "quota": {
     "userDescription": "Mit diesen Werten startet jeder Monat, den du ab jetzt anlegst. Bestehende Monate bleiben, wie sie sind.",
