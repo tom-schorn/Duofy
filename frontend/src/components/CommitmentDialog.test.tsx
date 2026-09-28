@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 
 import { ApiError } from '@/lib/api'
 import { i18n } from '@/lib/i18n'
@@ -205,6 +205,38 @@ describe('CommitmentDialog', () => {
     await user.type(document.getElementById('amount') as HTMLElement, '2000')
     await user.click(screen.getByRole('button', { name: 'Anlegen' }))
     expect(saved[0]).toMatchObject({ ownerId: 'u2' })
+  })
+
+  describe('the member has not shared their accounts (#217)', () => {
+    afterEach(() => vi.unstubAllGlobals())
+
+    test('the account panel says so instead of offering an empty list', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () =>
+          Response.json({ detail: { code: 'no_insight_granted' } }, { status: 403 })
+        )
+      )
+      const user = userEvent.setup()
+      render(
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <CommitmentDialog
+            commitment={null}
+            ownerId="u2"
+            ownerName="Alex"
+            open
+            onOpenChange={() => {}}
+            onSave={() => {}}
+          />
+        </QueryClientProvider>
+      )
+      await chooseKind(user, 'Einnahme')
+      await user.click(screen.getByRole('button', { name: i18n.t('common.defaultAccount') }))
+
+      expect(
+        await screen.findByText(i18n.t('commitmentDialog.accountsNotShared', { name: 'Alex' }))
+      ).toBeInTheDocument()
+    })
   })
 
   test('an existing limit is edited as „Limit bearbeiten“', () => {
