@@ -24,6 +24,45 @@ function renderAt(path: string) {
   )
 }
 
+const household = {
+  id: 'h1',
+  name: 'Demo-Haushalt',
+  targetNeeds: '50',
+  targetWants: '30',
+  targetSavings: '20',
+  bufferPercent: '10',
+  members: [],
+}
+
+const me = {
+  id: 'me',
+  email: 'me@example.com',
+  firstName: 'Mia',
+  lastName: 'Muster',
+  targetNeeds: '50',
+  targetWants: '30',
+  targetSavings: '20',
+  bufferPercent: '10',
+  flowLimitsBy: 'planned',
+  isSuperuser: false,
+}
+
+/** As `renderAt`, but `/households` answers with one household and `/users/me`
+ * with a full profile — the sidebar then has something to hang under
+ * "Haushalt", and the user menu's quota dialog has a shape to read. */
+function renderWithHousehold(path: string) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/households')) return new Response(JSON.stringify([household]), { status: 200 })
+      if (url.includes('/users/me')) return new Response(JSON.stringify(me), { status: 200 })
+      return new Response('[]', { status: 200 })
+    })
+  )
+  return renderAt(path)
+}
+
 describe('AppLayout', () => {
   // jsdom has no matchMedia; the sidebar asks it whether the screen is narrow.
   // Everything the shell loads is an empty list.
@@ -53,5 +92,18 @@ describe('AppLayout', () => {
     expect(
       screen.getByText(de.nav.commitments, { selector: 'header span' })
     ).toBeInTheDocument()
+  })
+
+  test('a household entry opens its month list, like "Planung" opens the own one (#218)', async () => {
+    renderWithHousehold('/household')
+    const link = await screen.findByRole('link', { name: household.name })
+    expect(link).toHaveAttribute('href', `/plan?household=${household.id}`)
+  })
+
+  test('a household entry is active on its list and on one of its months', async () => {
+    renderWithHousehold(`/plan?household=${household.id}`)
+    expect(
+      await screen.findByRole('link', { name: household.name })
+    ).toHaveAttribute('data-active', 'true')
   })
 })
