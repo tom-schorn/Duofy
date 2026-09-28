@@ -593,6 +593,7 @@
     "dateLabel": "Erste Fälligkeit",
     "accountLabel": "Welches Konto?",
     "counterAccountLabel": "Welches Zielkonto?",
+    "accountsNotShared": "{{name}} hat dir die Konten nicht freigegeben.",
     "budgetLabel": "Welches Budget?",
     "endsOnLabel": "Läuft bis wann?",
     "targetDateLabel": "Bis wann?",

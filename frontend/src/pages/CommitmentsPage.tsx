@@ -320,6 +320,7 @@ export function CommitmentsPage() {
       <CommitmentDialog
         commitment={editing}
         ownerId={active.id ?? undefined}
+        ownerName={active.member?.firstName}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         pending={save.isPending}
