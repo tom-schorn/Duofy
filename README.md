@@ -55,7 +55,8 @@ Posten nur einmal existiert.
   Konten) frei, was die anderen sehen und ändern dürfen; ein Paar-Preset macht das
   in einem Schritt
 - **Import** von Kontoauszügen als CSV und CAMT, mit Vorschlägen für die Zuordnung
-- **Rückgängig** statt Rückfragen, Druckversion, Dark- und Light-Theme
+- **Rückgängig** statt Rückfragen, auch beim Löschen eines ganzen Monatsplans;
+  dazu Druckversion, Dark- und Light-Theme
 
 ## Voraussetzungen
 
@@ -69,6 +70,9 @@ Posten nur einmal existiert.
   Cloudflare-Tunnel; Duofy liefert keinen mit)
 
 ## Starten
+
+Eine gehostete Instanz gibt es noch nicht — das folgt mit V2. Bis dahin betreibst
+du Duofy selbst, mit Docker Compose:
 
 ```bash
 mkdir duofy && cd duofy
