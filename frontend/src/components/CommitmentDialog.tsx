@@ -255,6 +255,8 @@ type Props = {
    * Editing already carries the owner on `commitment` itself; ignored then.
    */
   ownerId?: string
+  /** The member's first name, only used to name them if they have not shared their accounts (#217). */
+  ownerName?: string
   open: boolean
   onOpenChange: (open: boolean) => void
   onSave: (commitment: Commitment) => void
@@ -274,6 +276,7 @@ type Props = {
 export function CommitmentDialog({
   commitment,
   ownerId,
+  ownerName,
   open,
   onOpenChange,
   onSave,
@@ -286,8 +289,13 @@ export function CommitmentDialog({
   const households = useHouseholds().data ?? []
   // The accounts of whoever this is for — one's own while creating for oneself,
   // otherwise the member's, since that is who the position will be paid from.
-  const accounts =
-    useAccounts(ownerId ? { kind: 'member', ownerId } : undefined).data ?? []
+  const accountsQuery = useAccounts(ownerId ? { kind: 'member', ownerId } : undefined)
+  const accounts = accountsQuery.data ?? []
+  // Without the accounts grant the list above is simply empty — indistinguishable
+  // from a member who genuinely has none yet. Named here so the account panel can
+  // say so instead of offering a silent, empty choice (#217).
+  const accountsNotShared =
+    accountsQuery.error instanceof ApiError && accountsQuery.error.code === 'no_insight_granted'
   const [draft, setDraft] = useState<Commitment>(commitment ?? emptyDraft(ownerId))
   // Creating starts with the question, editing goes straight to the fields.
   const [step, setStep] = useState<'choose' | 'form'>(commitment ? 'form' : 'choose')
@@ -618,6 +626,11 @@ export function CommitmentDialog({
           </SentenceChip>
         ))}
       </div>
+      {accountsNotShared && (
+        <p className="text-muted-foreground text-xs">
+          {t('commitmentDialog.accountsNotShared', { name: ownerName })}
+        </p>
+      )}
     </SentencePanel>
   )
 
@@ -658,7 +671,11 @@ export function CommitmentDialog({
             </SentenceChip>
           ))}
       </div>
-      <p className="text-muted-foreground text-xs">{t('common.counterAccountHint')}</p>
+      <p className="text-muted-foreground text-xs">
+        {accountsNotShared
+          ? t('commitmentDialog.accountsNotShared', { name: ownerName })
+          : t('common.counterAccountHint')}
+      </p>
     </SentencePanel>
   )
 
