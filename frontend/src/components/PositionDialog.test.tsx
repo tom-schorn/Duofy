@@ -72,7 +72,15 @@ const existing = {
   paidAt: null,
 } as PlanPosition
 
-function EditPage({ onDelete }: { onDelete?: (position: PlanPosition) => void }) {
+function EditPage({
+  onDelete,
+  readOnly,
+  ownerName,
+}: {
+  onDelete?: (position: PlanPosition) => void
+  readOnly?: boolean
+  ownerName?: string | null
+}) {
   const [open, setOpen] = useState(true)
   return (
     <QueryClientProvider client={new QueryClient()}>
@@ -90,6 +98,8 @@ function EditPage({ onDelete }: { onDelete?: (position: PlanPosition) => void })
         onOpenChange={setOpen}
         onSave={() => {}}
         onDelete={onDelete}
+        readOnly={readOnly}
+        ownerName={ownerName}
       />
     </QueryClientProvider>
   )
@@ -278,6 +288,43 @@ describe('PositionDialog rare facts', () => {
     renderCreate()
     await user.click(screen.getByRole('button', { name: /Verpflichtung/ }))
     expect(screen.queryByText(/verbucht/)).not.toBeInTheDocument()
+  })
+})
+
+describe('PositionDialog rights (#218)', () => {
+  test('own position: no owner line, fields and words stay editable', () => {
+    render(<EditPage />)
+    expect(screen.queryByText(/^Posten von /)).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Bezeichnung')).toHaveValue('Miete')
+    expect(screen.getByRole('button', { name: 'Standardkonto' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: i18n.t('common.save') })).toBeInTheDocument()
+  })
+
+  test('foreign position with edit right: names the owner, fields stay editable', () => {
+    render(<EditPage ownerName="Alex" />)
+    expect(screen.getByText('Posten von Alex')).toBeInTheDocument()
+    expect(screen.getByLabelText('Bezeichnung')).toHaveValue('Miete')
+    expect(screen.getByRole('button', { name: 'Standardkonto' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: i18n.t('common.save') })).toBeInTheDocument()
+  })
+
+  test('foreign position without edit right: view-only — plain words, no inputs, no delete, footer only "Schließen"', () => {
+    render(<EditPage ownerName="Alex" readOnly onDelete={vi.fn()} />)
+    expect(screen.getByText('Posten von Alex')).toBeInTheDocument()
+    // Label and amount as plain text, no form controls left to edit them.
+    expect(screen.queryByLabelText('Bezeichnung')).not.toBeInTheDocument()
+    expect(screen.getByText('Miete', { selector: '.font-heading' })).toBeInTheDocument()
+    // The sentence words are plain text, not clickable buttons.
+    expect(screen.queryByRole('button', { name: 'Standardkonto' })).not.toBeInTheDocument()
+    expect(screen.getByText('Standardkonto')).toBeInTheDocument()
+    // No delete, even though a handler was passed — the caller may not know
+    // the right is missing until here.
+    expect(screen.queryByRole('button', { name: i18n.t('common.delete') })).not.toBeInTheDocument()
+    // No save either — the footer only offers to close (next to the dialog's
+    // own ✕, which is also named "Schließen" — hence two, not one).
+    expect(screen.queryByRole('button', { name: i18n.t('common.save') })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: i18n.t('common.cancel') })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: i18n.t('ui.close') })).toHaveLength(2)
   })
 })
 

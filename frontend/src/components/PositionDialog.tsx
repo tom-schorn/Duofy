@@ -23,6 +23,7 @@ import {
   categoryLabel,
   paymentLabel,
   categoryGroup,
+  euro,
   type Budget,
   type Category,
   type PlanPosition,
@@ -127,6 +128,14 @@ type Props = {
    * reversible, deleting is neither.
    */
   onDelete?: ((position: PlanPosition) => void) | null
+  /**
+   * A foreign position without edit rights: the sentence renders as plain
+   * words, label and amount as plain text, no inputs, no delete — footer only
+   * "Schließen" (rule 3: no right, no disabled control, review D-218-2).
+   */
+  readOnly?: boolean
+  /** The first name of the position's owner, shown when it is not your own. */
+  ownerName?: string | null
 }
 
 export function PositionDialog({
@@ -139,6 +148,8 @@ export function PositionDialog({
   pending = false,
   error = null,
   onDelete = null,
+  readOnly = false,
+  ownerName = null,
 }: Props) {
   const { t } = useTranslation()
   const households = useHouseholds().data ?? []
@@ -253,16 +264,23 @@ export function PositionDialog({
 
   // --- Sentence words -------------------------------------------------------
 
-  const dueDayWord = (
-    <SentenceWord
-      ref={wordRef('dueDay')}
-      open={openWord === 'dueDay'}
-      onClick={() => toggleWord('dueDay')}
-      describedBy={sentenceId}
-    >
-      {t('common.dueDay', { day: draft.dueDay })}
-    </SentenceWord>
-  )
+  /** A plain, non-clickable word in view mode (rule 3) — otherwise the usual button. */
+  function word(key: string, content: React.ReactNode, describedBy: string, id?: string) {
+    if (readOnly) return <span className="font-medium">{content}</span>
+    return (
+      <SentenceWord
+        ref={wordRef(key)}
+        id={id}
+        open={openWord === key}
+        onClick={() => toggleWord(key)}
+        describedBy={describedBy}
+      >
+        {content}
+      </SentenceWord>
+    )
+  }
+
+  const dueDayWord = word('dueDay', t('common.dueDay', { day: draft.dueDay }), sentenceId)
   const dueDayPanel = openWord === 'dueDay' && (
     <SentencePanel label={t('positionDialog.dueDayLabel')}>
       <Label htmlFor="pos-due-day-word" className="sr-only">
@@ -285,14 +303,7 @@ export function PositionDialog({
   const budgetWord = budgetIsFixed ? (
     <span className="font-medium">{budgetLabel(draft.budget)}</span>
   ) : (
-    <SentenceWord
-      ref={wordRef('budget')}
-      open={openWord === 'budget'}
-      onClick={() => toggleWord('budget')}
-      describedBy={sentenceId}
-    >
-      {budgetLabel(draft.budget)}
-    </SentenceWord>
+    word('budget', budgetLabel(draft.budget), sentenceId)
   )
   const budgetPanel = !budgetIsFixed && openWord === 'budget' && (
     <SentencePanel label={t('positionDialog.budgetLabel')}>
@@ -326,33 +337,14 @@ export function PositionDialog({
   const accountName = (id: string | null) =>
     id === null ? t('common.defaultAccount') : (accounts.find((account) => account.id === id)?.name ?? '')
 
-  const categoryWord = (
-    <SentenceWord
-      ref={wordRef('category')}
-      open={openWord === 'category'}
-      onClick={() => toggleWord('category')}
-      describedBy={extrasSentenceId}
-    >
-      {categoryLabel(draft.category)}
-    </SentenceWord>
-  )
+  const categoryWord = word('category', categoryLabel(draft.category), extrasSentenceId)
   const categoryPanel = openWord === 'category' && (
     <SentencePanel label={t('common.category')}>
       <CategoryPicker value={draft.category} onChange={handleCategory} />
     </SentencePanel>
   )
 
-  const accountWord = (
-    <SentenceWord
-      ref={wordRef('account')}
-      id="account"
-      open={openWord === 'account'}
-      onClick={() => toggleWord('account')}
-      describedBy={extrasSentenceId}
-    >
-      {accountName(draft.accountId)}
-    </SentenceWord>
-  )
+  const accountWord = word('account', accountName(draft.accountId), extrasSentenceId, 'account')
   const accountPanel = openWord === 'account' && (
     <SentencePanel label={t('common.account')} id="account">
       <div className="flex flex-wrap gap-2">
@@ -383,15 +375,10 @@ export function PositionDialog({
     </SentencePanel>
   )
 
-  const counterAccountWord = (
-    <SentenceWord
-      ref={wordRef('counterAccount')}
-      open={openWord === 'counterAccount'}
-      onClick={() => toggleWord('counterAccount')}
-      describedBy={extrasSentenceId}
-    >
-      {draft.counterAccountId === null ? t('common.goesOut') : accountName(draft.counterAccountId)}
-    </SentenceWord>
+  const counterAccountWord = word(
+    'counterAccount',
+    draft.counterAccountId === null ? t('common.goesOut') : accountName(draft.counterAccountId),
+    extrasSentenceId
   )
   const counterAccountPanel = openWord === 'counterAccount' && (
     <SentencePanel label={t('common.counterAccount')}>
@@ -424,15 +411,10 @@ export function PositionDialog({
     </SentencePanel>
   )
 
-  const paymentWord = (
-    <SentenceWord
-      ref={wordRef('payment')}
-      open={openWord === 'payment'}
-      onClick={() => toggleWord('payment')}
-      describedBy={extrasSentenceId}
-    >
-      {draft.paymentMethod === null ? t('common.paymentOpen') : paymentLabel(draft.paymentMethod)}
-    </SentenceWord>
+  const paymentWord = word(
+    'payment',
+    draft.paymentMethod === null ? t('common.paymentOpen') : paymentLabel(draft.paymentMethod),
+    extrasSentenceId
   )
   const paymentPanel = openWord === 'payment' && (
     <SentencePanel label={t('common.paymentMethod')}>
@@ -462,18 +444,13 @@ export function PositionDialog({
     </SentencePanel>
   )
 
-  const assignmentWord = (
-    <SentenceWord
-      ref={wordRef('assignment')}
-      id="assignment"
-      open={openWord === 'assignment'}
-      onClick={() => toggleWord('assignment')}
-      describedBy={extrasSentenceId}
-    >
-      {draft.householdId === null
-        ? t('common.privateOnly')
-        : (households.find((household) => household.id === draft.householdId)?.name ?? '')}
-    </SentenceWord>
+  const assignmentWord = word(
+    'assignment',
+    draft.householdId === null
+      ? t('common.privateOnly')
+      : (households.find((household) => household.id === draft.householdId)?.name ?? ''),
+    extrasSentenceId,
+    'assignment'
   )
   const assignmentPanel = openWord === 'assignment' && (
     <SentencePanel label={t('common.assignment')} id="assignment">
@@ -503,15 +480,10 @@ export function PositionDialog({
     </SentencePanel>
   )
 
-  const passThroughWord = (
-    <SentenceWord
-      ref={wordRef('passThrough')}
-      open={openWord === 'passThrough'}
-      onClick={() => toggleWord('passThrough')}
-      describedBy={extrasSentenceId}
-    >
-      {draft.passThrough ? t('common.passThroughOn') : t('common.passThroughOff')}
-    </SentenceWord>
+  const passThroughWord = word(
+    'passThrough',
+    draft.passThrough ? t('common.passThroughOn') : t('common.passThroughOff'),
+    extrasSentenceId
   )
   const passThroughPanel = openWord === 'passThrough' && (
     <SentencePanel label={t('common.passThrough')}>
@@ -539,17 +511,12 @@ export function PositionDialog({
     </SentencePanel>
   )
 
-  const actualWord = (
-    <SentenceWord
-      ref={wordRef('actual')}
-      open={openWord === 'actual'}
-      onClick={() => toggleWord('actual')}
-      describedBy={extrasSentenceId}
-    >
-      {draft.amountActual === null
-        ? t('positionDialog.actualOpen')
-        : t('positionDialog.actualBooked', { amount: formatAmount(draft.amountActual) })}
-    </SentenceWord>
+  const actualWord = word(
+    'actual',
+    draft.amountActual === null
+      ? t('positionDialog.actualOpen')
+      : t('positionDialog.actualBooked', { amount: formatAmount(draft.amountActual) }),
+    extrasSentenceId
   )
   const actualPanel = openWord === 'actual' && (
     <SentencePanel label={t('positionDialog.actual')}>
@@ -599,16 +566,21 @@ export function PositionDialog({
       description={
         choosing
           ? t('positionDialog.chooseDescription')
-          : // Unlike the commitment dialog's create hint, this names where the
-            // fields belong (this month only, or a commitment) — true in both
-            // create and edit.
-            fromCommitment
-            ? t('positionDialog.fromCommitment')
-            : t('positionDialog.oneOff')
+          : // The dialog says whose position it is before anything else — not
+            // your own means somebody else's, edit right or not (review D-218-2).
+            ownerName
+            ? t('positionDialog.ownedBy', { name: ownerName })
+            : // Unlike the commitment dialog's create hint, this names where the
+              // fields belong (this month only, or a commitment) — true in both
+              // create and edit.
+              fromCommitment
+              ? t('positionDialog.fromCommitment')
+              : t('positionDialog.oneOff')
       }
       submitLabel={isEdit ? t('common.save') : t('common.create')}
-      hideSubmit={choosing}
-      onSubmit={choosing ? (event) => event.preventDefault() : handleSubmit}
+      hideSubmit={choosing || readOnly}
+      cancelLabel={readOnly ? t('ui.close') : undefined}
+      onSubmit={choosing || readOnly ? (event) => event.preventDefault() : handleSubmit}
       dirty={!choosing && dirty}
       pending={pending}
       error={error}
@@ -620,7 +592,7 @@ export function PositionDialog({
           : null
       }
       start={
-        isEdit && onDelete !== null ? (
+        isEdit && onDelete !== null && !readOnly ? (
           <Button
             type="button"
             variant="ghost"
@@ -659,31 +631,46 @@ export function PositionDialog({
       ) : (
         <div className="flex flex-col gap-6">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="label" className="sr-only">
-              {t('positionDialog.label')}
-            </Label>
-            <Input
-              id="label"
-              value={draft.label}
-              onChange={(event) => set('label', event.target.value)}
-              placeholder={t('positionDialog.labelPlaceholder')}
-              required
-              className="font-heading h-auto rounded-none border-0 border-b border-border bg-transparent px-0 pb-2 text-xl placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-0 md:text-xl"
-            />
+            {readOnly ? (
+              <span className="font-heading text-xl font-semibold">{draft.label}</span>
+            ) : (
+              <>
+                <Label htmlFor="label" className="sr-only">
+                  {t('positionDialog.label')}
+                </Label>
+                <Input
+                  id="label"
+                  value={draft.label}
+                  onChange={(event) => set('label', event.target.value)}
+                  placeholder={t('positionDialog.labelPlaceholder')}
+                  required
+                  className="font-heading h-auto rounded-none border-0 border-b border-border bg-transparent px-0 pb-2 text-xl placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-0 md:text-xl"
+                />
+              </>
+            )}
 
             <div className="flex items-baseline gap-3">
-              <Label htmlFor="planned" className="text-muted-foreground shrink-0 text-sm">
-                {t('common.amount')}
-              </Label>
-              <AmountField
-                id="planned"
-                value={draft.amountPlanned}
-                onChange={(value) => set('amountPlanned', value)}
-                required
-                allowZero
-                className="flex-1"
-                inputClassName="h-auto border-0 bg-transparent px-0 pr-7 text-xl font-semibold placeholder:text-muted-foreground md:text-xl"
-              />
+              {readOnly ? (
+                <>
+                  <span className="text-muted-foreground shrink-0 text-sm">{t('common.amount')}</span>
+                  <span className="text-xl font-semibold">{euro.format(Number(draft.amountPlanned))}</span>
+                </>
+              ) : (
+                <>
+                  <Label htmlFor="planned" className="text-muted-foreground shrink-0 text-sm">
+                    {t('common.amount')}
+                  </Label>
+                  <AmountField
+                    id="planned"
+                    value={draft.amountPlanned}
+                    onChange={(value) => set('amountPlanned', value)}
+                    required
+                    allowZero
+                    className="flex-1"
+                    inputClassName="h-auto border-0 bg-transparent px-0 pr-7 text-xl font-semibold placeholder:text-muted-foreground md:text-xl"
+                  />
+                </>
+              )}
             </div>
           </div>
 

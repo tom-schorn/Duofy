@@ -975,6 +975,8 @@ function MemberPlanBody({
           )
         }
         onDelete={mayDelete ? (position) => deletePosition(position) : null}
+        readOnly={!mayEdit}
+        ownerName={ownerName}
       />
     </>
   )
@@ -1275,6 +1277,12 @@ function HouseholdPlanBody({
         onDelete={
           editing && mayDelete(editing as HouseholdPosition)
             ? (position) => deletePosition(position)
+            : null
+        }
+        readOnly={editing !== null && !mayEdit(editing as HouseholdPosition)}
+        ownerName={
+          editing && (editing as HouseholdPosition).ownerId !== myId
+            ? (editing as HouseholdPosition).ownerName
             : null
         }
       />

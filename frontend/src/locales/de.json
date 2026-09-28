@@ -502,7 +502,8 @@
       "limitEdit": "Fällig am {dueDay}. Gehört zur Kategorie {category}, bezahlt vom {account} ans {counterAccount}, mit {payment} und zugeordnet an {assignment}. {passThrough} {actual}"
     },
     "dueDayLabel": "Fällig am wievielten?",
-    "budgetLabel": "Welches Budget?"
+    "budgetLabel": "Welches Budget?",
+    "ownedBy": "Posten von {{name}}"
   },
   "commitmentDialog": {
     "types": {

@@ -23,6 +23,8 @@ type Props = {
   width?: 'narrow' | 'normal'
   /** Repeats the verb of the trigger: „Anlegen“ or „Speichern“. */
   submitLabel: string
+  /** Replaces „Abbrechen“ — a view-only dialog only closes, it never cancels anything. */
+  cancelLabel?: string
   /** Step 1 of a two-step create dialog has nothing to send yet: only „Abbrechen“. */
   hideSubmit?: boolean
   /** Replaces „Speichert…“ while pending, when the verb is another one. */
@@ -82,6 +84,7 @@ export function DialogFrame({
   description,
   width = 'normal',
   submitLabel,
+  cancelLabel,
   hideSubmit = false,
   pendingLabel,
   onSubmit,
@@ -210,7 +213,7 @@ export function DialogFrame({
               {start}
               <div className="flex flex-col-reverse gap-2 sm:flex-row">
                 <Button type="button" variant="outline" disabled={pending} onClick={close}>
-                  {t('common.cancel')}
+                  {cancelLabel ?? t('common.cancel')}
                 </Button>
                 {!hideSubmit && (
                   <Button type="submit" disabled={pending || submitDisabled}>
