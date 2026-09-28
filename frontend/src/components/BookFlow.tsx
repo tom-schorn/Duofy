@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import {
   Bar,
   CartesianGrid,
@@ -83,6 +84,8 @@ type Props = {
   month: number
   /** Whose book: your own, one person, or the household. */
   scope?: BookScope
+  /** Shown instead of the error box when the code is `no_insight_granted` (#217). */
+  notShared?: ReactNode
 }
 
 /**
@@ -113,13 +116,19 @@ type Row = {
   saldo: number
 }
 
-export function BookFlow({ year, month, scope = OWN_SCOPE }: Props) {
+export function BookFlow({ year, month, scope = OWN_SCOPE, notShared }: Props) {
   // onlyAvailable: see above — without it the line drifts away from the bars.
   const history = useBalanceHistory(year, month, scope, true)
 
   return (
-    <QueryState isPending={history.isPending} error={history.error} onRetry={() => void history.refetch()} rows={2}>
-      {history.data && <Chart data={history.data} year={year} month={month} />}
+    <QueryState
+      isPending={history.isPending}
+      error={history.error}
+      onRetry={() => void history.refetch()}
+      rows={2}
+      notShared={notShared}
+    >
+      {history.data?.points && <Chart data={history.data} year={year} month={month} />}
     </QueryState>
   )
 }
@@ -131,7 +140,7 @@ export function BookFlow({ year, month, scope = OWN_SCOPE }: Props) {
  * x-axis would not line up with the calendar.
  */
 function buildRows(data: BalanceHistory, year: number, month: number): Row[] {
-  const byDay = new Map(data.points.map((p) => [Number(p.day.slice(8, 10)), p]))
+  const byDay = new Map((data.points ?? []).map((p) => [Number(p.day.slice(8, 10)), p]))
   const rows: Row[] = []
   let saldo = Number(data.openingBalance)
 
