@@ -196,14 +196,10 @@ describe('CommitmentDialog', () => {
       </QueryClientProvider>
     )
     await chooseKind(user, 'Einnahme')
-    expect(screen.getByText(i18n.t('common.account'))).toBeInTheDocument()
-    // Several selects sit on this step (category, account); the account one is the
-    // only one still showing the untouched default.
-    const accountTrigger = screen
-      .getAllByRole('combobox')
-      .find((element) => element.textContent === i18n.t('common.defaultAccount'))!
-    await user.click(accountTrigger)
-    expect(screen.getByRole('option', { name: 'Konto von Alex' })).toBeInTheDocument()
+    // The account is the clickable word in the sentence "Kommt … auf {account}." —
+    // untouched, it still reads the default account's name.
+    await user.click(screen.getByRole('button', { name: i18n.t('common.defaultAccount') }))
+    expect(screen.getByRole('button', { name: 'Konto von Alex' })).toBeInTheDocument()
     await user.keyboard('{Escape}')
     await user.type(screen.getByLabelText('Bezeichnung'), 'Gehalt von Alex')
     await user.type(document.getElementById('amount') as HTMLElement, '2000')
