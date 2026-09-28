@@ -10,6 +10,7 @@ function plan(overrides: Partial<PlanSummary> = {}): PlanSummary {
   return {
     year: 2026,
     month: 9,
+    deletable: false,
     targetNeeds: '50.00',
     targetWants: '30.00',
     targetSavings: '20.00',
