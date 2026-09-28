@@ -56,6 +56,10 @@ export function PlansPage() {
   // Haushalt gibt es gar kein Anlegen — der Haushaltsplan wird zusammengesetzt,
   // nie selbst erzeugt.
   const mayEdit = !inHousehold && atLeast(active.levelFor('plan'), 'edit')
+  // The "nur ansehen" banner only fits at exactly `view` — below it there is
+  // nothing to see either, and the empty state below already says whose grant
+  // is missing (#217 follow-up).
+  const isViewOnly = !inHousehold && active.levelFor('plan') === 'view'
   const ownPlans = usePlans(active.id, !inHousehold)
   const householdPlans = useHouseholdPlans(inHousehold ? householdId : null)
   const plans = inHousehold ? householdPlans : ownPlans
@@ -80,7 +84,9 @@ export function PlansPage() {
               : active.member === null
                 ? t('plans.lead')
                 : `${t('plans.leadMember', { name: active.member.firstName })}${
-                    mayEdit ? '' : ` ${t('plans.leadMemberView', { name: active.member.firstName })}`
+                    isViewOnly
+                      ? ` ${t('plans.leadMemberView', { name: active.member.firstName })}`
+                      : ''
                   }`}
           </p>
         </div>

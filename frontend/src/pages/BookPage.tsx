@@ -29,6 +29,10 @@ export function BookPage() {
   const { t } = useTranslation()
   const active = useActiveMember()
   const mayEdit = atLeast(active.levelFor('accounts'), 'edit')
+  // The "nur ansehen" banner only fits at exactly `view` — below it there is
+  // nothing to see either, and the empty state below already says whose grant
+  // is missing (#217 follow-up).
+  const isViewOnly = active.levelFor('accounts') === 'view'
 
   // The month lives in the address (`?month=2026-09`), so a reload and a link keep
   // it. Anything that is not a valid month falls back to the current one.
@@ -71,7 +75,9 @@ export function BookPage() {
             {active.member === null
               ? t('book.lead')
               : `${t('book.leadMember', { name: active.member.firstName })}${
-                  mayEdit ? '' : ` ${t('book.leadMemberView', { name: active.member.firstName })}`
+                  isViewOnly
+                    ? ` ${t('book.leadMemberView', { name: active.member.firstName })}`
+                    : ''
                 }`}
           </p>
         </div>

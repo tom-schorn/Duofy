@@ -79,6 +79,10 @@ export function AccountsPage() {
     active.id === null ? OWN_SCOPE : { kind: 'member', ownerId: active.id }
   )
   const mayEdit = atLeast(active.levelFor('accounts'), 'edit')
+  // The "nur ansehen" banner only fits at exactly `view` — below it there is
+  // nothing to see either, and the empty state already says whose grant is
+  // missing (#217 follow-up).
+  const isViewOnly = active.levelFor('accounts') === 'view'
   // Your own you may always delete — as long as it is unused; another's needs `delete`.
   const mayDelete = active.member === null || atLeast(active.levelFor('accounts'), 'delete')
   const [editing, setEditing] = useState<Account | null>(null)
@@ -111,7 +115,9 @@ export function AccountsPage() {
               ? t('accounts.lead')
               : mayEdit
                 ? t('accounts.leadMemberEdit', { name: active.member.firstName })
-                : t('accounts.leadMemberView', { name: active.member.firstName })}
+                : isViewOnly
+                  ? t('accounts.leadMemberView', { name: active.member.firstName })
+                  : null}
           </p>
         </div>
         {mayEdit && (

@@ -124,6 +124,10 @@ export function CommitmentsPage() {
     )
   const commitments = useCommitments(active.id, status)
   const mayEdit = atLeast(active.levelFor('commitments'), 'edit')
+  // The "nur ansehen" banner only fits at exactly `view` — below it there is
+  // nothing to see either, and the empty state already says whose grant is
+  // missing (#217 follow-up).
+  const isViewOnly = active.levelFor('commitments') === 'view'
   // Your own you may always delete — as long as it is unused; another's needs `delete`.
   const mayDelete = active.member === null || atLeast(active.levelFor('commitments'), 'delete')
   const households = useHouseholds()
@@ -204,7 +208,9 @@ export function CommitmentsPage() {
               ? t('commitments.lead')
               : mayEdit
                 ? t('commitments.leadMemberEdit', { name: active.member.firstName })
-                : t('commitments.leadMemberView', { name: active.member.firstName })}
+                : isViewOnly
+                  ? t('commitments.leadMemberView', { name: active.member.firstName })
+                  : null}
           </p>
         </div>
         {mayEdit && (
