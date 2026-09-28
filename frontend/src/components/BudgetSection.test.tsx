@@ -54,9 +54,11 @@ describe('BudgetSection rows', () => {
     expect(screen.queryByRole('button', { name: /weitere Aktionen/ })).not.toBeInTheDocument()
   })
 
-  test('a read-only row has no row button', () => {
-    renderSection({ readOnly: true })
-    expect(screen.queryByRole('button', { name: /^Miete(?!:)/ })).not.toBeInTheDocument()
+  test('a read-only row still opens on click — for viewing, not editing (#218)', async () => {
+    const user = userEvent.setup()
+    const h = renderSection({ readOnly: true })
+    await user.click(screen.getByRole('button', { name: /^Miete(?!:)/ }))
+    expect(h.onEdit).toHaveBeenCalledWith(position)
   })
 
   test('readOnly as a function decides per position — the household plan mixes both (#218)', async () => {
@@ -68,7 +70,8 @@ describe('BudgetSection rows', () => {
     })
     await user.click(screen.getByRole('button', { name: /^Miete(?!:)/ }))
     expect(h.onEdit).toHaveBeenCalledWith(position)
-    expect(screen.queryByRole('button', { name: /^Strom(?!:)/ })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /^Strom(?!:)/ }))
+    expect(h.onEdit).toHaveBeenCalledWith(other)
   })
 
   test('the section heading can take the focus after a delete', () => {

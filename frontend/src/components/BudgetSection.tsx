@@ -283,7 +283,9 @@ function PositionRow({
 
   return (
     <ListRow
-      onOpen={readOnly ? undefined : () => onEdit(position)}
+      // Rule 3 means no disabled control, not "unreachable": a foreign position
+      // without edit still opens, just read-only (review D-218-2).
+      onOpen={() => onEdit(position)}
       leading={leading}
       trailing={amount}
       className={paid ? '[&>button]:opacity-60' : undefined}
