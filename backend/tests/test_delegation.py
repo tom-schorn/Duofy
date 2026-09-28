@@ -342,6 +342,25 @@ async def test_create_and_change_an_account_for_another_member(
     assert deleted.json()["detail"]["code"] == "no_delete_granted"
 
 
+async def test_create_an_account_for_another_member_needs_edit(
+    client: AsyncClient, session: AsyncSession, pair
+):
+    """`view` on accounts is enough to look, never enough to create one."""
+    from app.models.account import Account
+
+    owner, helper, household = pair
+    await grant_area(session, household, owner, "accounts", AccessLevel.VIEW)
+    sign_in(helper)
+
+    response = await client.post(
+        f"/api/v1/accounts?owner={owner.id}", json=account_payload()
+    )
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "no_edit_granted"
+
+    assert (await session.execute(select(Account))).scalars().first() is None
+
+
 async def test_create_a_commitment_for_another_member(
     client: AsyncClient, session: AsyncSession, pair
 ):
@@ -365,6 +384,36 @@ async def test_create_a_commitment_for_another_member(
     )
     assert response.status_code == 201
     assert response.json()["ownerId"] == str(owner.id)
+
+
+async def test_create_a_commitment_for_another_member_needs_edit(
+    client: AsyncClient, session: AsyncSession, pair
+):
+    """`view` on contracts is enough to look, never enough to create one."""
+    owner, helper, household = pair
+    await grant_area(session, household, owner, "commitments", AccessLevel.VIEW)
+    sign_in(helper)
+
+    response = await client.post(
+        f"/api/v1/commitments?owner={owner.id}",
+        json={
+            "name": "Should not be created",
+            "amount": "9.99",
+            "category": "leisure.subscriptions",
+            "budget": "wants",
+            "type": "contract",
+            "intervalMonths": 1,
+            "firstDueDate": "2026-01-01",
+            "dueDay": 1,
+        },
+    )
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "no_edit_granted"
+
+    rows = await session.execute(
+        select(Commitment).where(Commitment.name == "Should not be created")
+    )
+    assert rows.scalars().first() is None
 
 
 async def test_areas_do_not_leak_into_one_another(
