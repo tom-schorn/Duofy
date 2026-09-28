@@ -8,6 +8,7 @@ import { AccountsPage } from '@/pages/AccountsPage'
 import { BookPage } from '@/pages/BookPage'
 import { CommitmentsPage } from '@/pages/CommitmentsPage'
 import { ImportPage } from '@/pages/ImportPage'
+import { PlansPage } from '@/pages/PlansPage'
 
 /**
  * Nothing shared at all (level `plan`) used to look exactly like an empty list,
@@ -72,6 +73,11 @@ describe('nothing shared at all', () => {
       await screen.findByText(i18n.t('commitments.notShared', { name: 'Alex' }))
     ).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: i18n.t('common.retry') })).not.toBeInTheDocument()
+    // Below `view` the "nur ansehen" banner would contradict the honest
+    // sentence above — it belongs only at exactly `view` (#217 follow-up).
+    expect(
+      screen.queryByText(i18n.t('commitments.leadMemberView', { name: 'Alex' }))
+    ).not.toBeInTheDocument()
   })
 
   test('accounts: the honest sentence replaces the list, with no retry button', async () => {
@@ -81,6 +87,9 @@ describe('nothing shared at all', () => {
       await screen.findByText(i18n.t('accounts.notShared', { name: 'Alex' }))
     ).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: i18n.t('common.retry') })).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(i18n.t('accounts.leadMemberView', { name: 'Alex' }))
+    ).not.toBeInTheDocument()
   })
 
   test('import: the honest sentence replaces the table, with no retry button', async () => {
@@ -99,6 +108,21 @@ describe('nothing shared at all', () => {
       await screen.findByText(i18n.t('book.notShared', { name: 'Alex' }))
     ).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: i18n.t('common.retry') })).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(i18n.t('book.leadMemberView', { name: 'Alex' }))
+    ).not.toBeInTheDocument()
+  })
+
+  test('plans: the honest sentence replaces the list, with no retry button', async () => {
+    stubForbidden((url) => url.includes('/plans'))
+    renderAt('/?member=u2', <PlansPage />)
+    expect(
+      await screen.findByText(i18n.t('plan.notShared', { name: 'Alex' }))
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: i18n.t('common.retry') })).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(i18n.t('plans.leadMemberView', { name: 'Alex' }))
+    ).not.toBeInTheDocument()
   })
 })
 
