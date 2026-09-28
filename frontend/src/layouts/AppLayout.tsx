@@ -45,9 +45,6 @@ export function AppLayout() {
   const help = useHelpPinned()
   const wide = useIsWide()
   const households = useHouseholds().data ?? []
-  // The sub-entry points at the current month — there is no "current" household
-  // plan otherwise, it is composed from positions.
-  const now = new Date()
   const [params] = useSearchParams()
   const active = params.get('household')
   const activeMember = params.get('member')
@@ -96,9 +93,11 @@ export function AppLayout() {
                               asChild
                               isActive={active === household.id}
                             >
-                              <NavLink
-                                to={`/plan/${now.getFullYear()}/${now.getMonth() + 1}?household=${household.id}`}
-                              >
+                              {/* Öffnet die Monatsliste des Haushalts, genau wie
+                                  „Planung" die eigene öffnet (statt direkt in
+                                  einen Monat zu springen) — von dort aus wählt
+                                  man den Monat. */}
+                              <NavLink to={`/plan?household=${household.id}`}>
                                 <span>{household.name}</span>
                               </NavLink>
                             </SidebarMenuSubButton>
