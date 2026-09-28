@@ -98,7 +98,14 @@ export function BookPage() {
         <>
           <AccountCards scope={scope} />
 
-          <BookFlow year={year} month={month} scope={scope} />
+          <BookFlow
+            year={year}
+            month={month}
+            scope={scope}
+            notShared={
+              active.member && t('accounts.notShared', { name: active.member.firstName })
+            }
+          />
 
           {planNotShared ? (
             <p className="text-muted-foreground border-border rounded-lg border border-dashed px-4 py-3 text-sm">
