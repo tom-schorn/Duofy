@@ -20,6 +20,7 @@ import {
   parseIntervalText,
   intervalLabel,
   isValidInterval,
+  isViewOnly,
   monthlyEquivalent,
   effectiveDueDay,
   isPaid,
@@ -338,5 +339,23 @@ describe('coupleQuotas', () => {
 
   test('clamps to 0..100', () => {
     expect(coupleQuotas([50, 30, 20], 0, 130)).toEqual([100, 0, 0])
+  })
+})
+
+describe('isViewOnly', () => {
+  test('is false below view — there is nothing to see either', () => {
+    expect(isViewOnly('plan')).toBe(false)
+  })
+
+  test('is true at exactly view', () => {
+    expect(isViewOnly('view')).toBe(true)
+  })
+
+  test('is false at edit — the higher rung keeps the right to edit', () => {
+    expect(isViewOnly('edit')).toBe(false)
+  })
+
+  test('is false at delete', () => {
+    expect(isViewOnly('delete')).toBe(false)
   })
 })

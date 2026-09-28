@@ -31,6 +31,7 @@ import {
   atLeast,
   accountTypeLabel,
   euro,
+  isViewOnly,
   type Account,
   ACCOUNT_TYPES,
 } from '@/lib/domain'
@@ -78,13 +79,11 @@ export function AccountsPage() {
   const accounts = useAccounts(
     active.id === null ? OWN_SCOPE : { kind: 'member', ownerId: active.id }
   )
-  const mayEdit = atLeast(active.levelFor('accounts'), 'edit')
-  // The "nur ansehen" banner only fits at exactly `view` — below it there is
-  // nothing to see either, and the empty state already says whose grant is
-  // missing (#217 follow-up).
-  const isViewOnly = active.levelFor('accounts') === 'view'
+  const accountsLevel = active.levelFor('accounts')
+  const mayEdit = atLeast(accountsLevel, 'edit')
+  const isAccountsViewOnly = isViewOnly(accountsLevel)
   // Your own you may always delete — as long as it is unused; another's needs `delete`.
-  const mayDelete = active.member === null || atLeast(active.levelFor('accounts'), 'delete')
+  const mayDelete = active.member === null || atLeast(accountsLevel, 'delete')
   const [editing, setEditing] = useState<Account | null>(null)
   const [open, setOpen] = useState(false)
   // After a delete the row is gone; the focus goes to the page heading (rule 13).
@@ -115,7 +114,7 @@ export function AccountsPage() {
               ? t('accounts.lead')
               : mayEdit
                 ? t('accounts.leadMemberEdit', { name: active.member.firstName })
-                : isViewOnly
+                : isAccountsViewOnly
                   ? t('accounts.leadMemberView', { name: active.member.firstName })
                   : null}
           </p>

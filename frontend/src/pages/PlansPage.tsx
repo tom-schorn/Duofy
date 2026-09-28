@@ -19,6 +19,7 @@ import {
   QUOTA_KEY,
   atLeast,
   euro,
+  isViewOnly,
   unallocated,
   type Budget,
   type PlanSummary,
@@ -55,11 +56,9 @@ export function PlansPage() {
   // Kein `mayDelete` hier: einen ganzen Monat löschen gibt es nicht. Für den
   // Haushalt gibt es gar kein Anlegen — der Haushaltsplan wird zusammengesetzt,
   // nie selbst erzeugt.
-  const mayEdit = !inHousehold && atLeast(active.levelFor('plan'), 'edit')
-  // The "nur ansehen" banner only fits at exactly `view` — below it there is
-  // nothing to see either, and the empty state below already says whose grant
-  // is missing (#217 follow-up).
-  const isViewOnly = !inHousehold && active.levelFor('plan') === 'view'
+  const planLevel = active.levelFor('plan')
+  const mayEdit = !inHousehold && atLeast(planLevel, 'edit')
+  const isPlanViewOnly = !inHousehold && isViewOnly(planLevel)
   const ownPlans = usePlans(active.id, !inHousehold)
   const householdPlans = useHouseholdPlans(inHousehold ? householdId : null)
   const plans = inHousehold ? householdPlans : ownPlans
@@ -84,7 +83,7 @@ export function PlansPage() {
               : active.member === null
                 ? t('plans.lead')
                 : `${t('plans.leadMember', { name: active.member.firstName })}${
-                    isViewOnly
+                    isPlanViewOnly
                       ? ` ${t('plans.leadMemberView', { name: active.member.firstName })}`
                       : ''
                   }`}
