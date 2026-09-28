@@ -60,7 +60,13 @@ class ImportedEntry(Base, UUIDMixin, TimestampMixin):
 
     #: Who uploaded the file. Kept because an import can be done on someone
     #: else's behalf, and a row nobody remembers creating is unsettling.
-    imported_by_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    #:
+    #: SET NULL, not CASCADE: the row belongs to `owner_id`, not to whoever
+    #: uploaded it. Deleting the importer's account must not take the owner's
+    #: parked entries down with it — only `owner_id`'s cascade may do that.
+    imported_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
 
     #: RESTRICT like on `Transaction`: an account with a pending pile is not
     #: deleted, it is deactivated.
