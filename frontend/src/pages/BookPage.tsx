@@ -9,7 +9,7 @@ import { MonthSwitch } from '@/components/MonthSwitch'
 import { useActiveMember } from '@/hooks/use-active-member'
 import { ApiError } from '@/lib/api'
 import { parseMonth } from '@/lib/dates'
-import { OWN_SCOPE, atLeast, type BookScope } from '@/lib/domain'
+import { OWN_SCOPE, atLeast, isViewOnly, type BookScope } from '@/lib/domain'
 import { useAccounts, usePlan } from '@/lib/queries'
 
 /**
@@ -28,11 +28,9 @@ import { useAccounts, usePlan } from '@/lib/queries'
 export function BookPage() {
   const { t } = useTranslation()
   const active = useActiveMember()
-  const mayEdit = atLeast(active.levelFor('accounts'), 'edit')
-  // The "nur ansehen" banner only fits at exactly `view` — below it there is
-  // nothing to see either, and the empty state below already says whose grant
-  // is missing (#217 follow-up).
-  const isViewOnly = active.levelFor('accounts') === 'view'
+  const accountsLevel = active.levelFor('accounts')
+  const mayEdit = atLeast(accountsLevel, 'edit')
+  const isAccountsViewOnly = isViewOnly(accountsLevel)
 
   // The month lives in the address (`?month=2026-09`), so a reload and a link keep
   // it. Anything that is not a valid month falls back to the current one.
@@ -75,7 +73,7 @@ export function BookPage() {
             {active.member === null
               ? t('book.lead')
               : `${t('book.leadMember', { name: active.member.firstName })}${
-                  isViewOnly
+                  isAccountsViewOnly
                     ? ` ${t('book.leadMemberView', { name: active.member.firstName })}`
                     : ''
                 }`}

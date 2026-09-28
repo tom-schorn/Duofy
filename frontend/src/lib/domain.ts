@@ -884,6 +884,11 @@ export function atLeast(level: AccessLevel, needed: AccessLevel): boolean {
   return ACCESS_RANK[level] >= ACCESS_RANK[needed]
 }
 
+/** Can see but not edit — the rung the "nur ansehen" banner is for. */
+export function isViewOnly(level: AccessLevel): boolean {
+  return atLeast(level, 'view') && !atLeast(level, 'edit')
+}
+
 /**
  * What a level means, per area — the same word promises different things.
  * "Sehen" on a month is the shared plan plus the private positions; on a contract
