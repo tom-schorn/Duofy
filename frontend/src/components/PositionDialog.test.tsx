@@ -308,7 +308,7 @@ describe('PositionDialog rights (#218)', () => {
     expect(screen.getByRole('button', { name: i18n.t('common.save') })).toBeInTheDocument()
   })
 
-  test('foreign position without edit right: view-only — plain words, no inputs, no delete, footer only "Schließen"', () => {
+  test(`foreign position without edit right: view-only — plain words, no inputs, no delete, footer only "${i18n.t('ui.close')}"`, () => {
     render(<EditPage ownerName="Alex" readOnly onDelete={vi.fn()} />)
     expect(screen.getByText('Posten von Alex')).toBeInTheDocument()
     // Label and amount as plain text, no form controls left to edit them.

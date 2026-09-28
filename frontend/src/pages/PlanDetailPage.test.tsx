@@ -404,10 +404,16 @@ describe('PlanDetailPage — household plan positions clickable by rights (#218)
     ).toBeInTheDocument()
   })
 
-  test('a position of somebody who did not grant edit has no row button', async () => {
+  test('a position of somebody who did not grant edit opens read-only', async () => {
     mockFetch('view')
     renderAt('/plan/2026/11?household=h1')
-    await screen.findByRole('button', { name: /^Miete(?!:)/ })
-    expect(screen.queryByRole('button', { name: /^Strom(?!:)/ })).not.toBeInTheDocument()
+    fireEvent.click(await screen.findByRole('button', { name: /^Strom(?!:)/ }))
+    expect(
+      await screen.findByRole('dialog', { name: i18n.t('positionDialog.kinds.obligation.editTitle') })
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: i18n.t('common.save') })
+    ).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: i18n.t('ui.close') })).toHaveLength(2)
   })
 })
