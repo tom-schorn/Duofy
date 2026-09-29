@@ -90,6 +90,10 @@
         "title": "Verlauf und Limits",
         "body": "<p>Der Verlauf zeigt, wann im Monat Geld hereinkommt und hinausgeht. So siehst du den Tiefpunkt: den Tag, an dem am meisten mehr ausgegeben als eingenommen ist, und damit den Betrag, der zu Monatsbeginn da sein muss. Offene Posten stehen an ihrem Fälligkeitstag; ist ein Posten abgehakt, zählt seine Buchung mit echtem Datum und Betrag. Gibt es einen Monatsübertrag, beginnt die Kurve bei diesem Kontostand.</p><pSpaced>Bei einem <strong>Limit</strong> gibt es keinen festen Tag und keinen Haken. Du stellst pro Person ein, was der Verlauf dafür zählt: entweder den <strong>vollen geplanten Betrag</strong> am Fälligkeitstag oder nur das, was tatsächlich <strong>gebucht</strong> ist, an den echten Tagen. Eine Schätzung für den Rest des Monats gibt es nie, sie würde Zahlen erfinden. Alle anderen Posten zählen nach Plan, bis sie abgehakt sind.</pSpaced>"
       },
+      "unplanned": {
+        "title": "Ungeplant",
+        "body": "<p>Was du ohne Posten gebucht hast, taucht im Plan trotzdem auf: als Zeile <strong>Ungeplant</strong> in dem Budget, das die Buchung selbst trägt. Die Zeile zählt gegen das Budget und erscheint nur, wenn es solche Buchungen gibt. Ein Klick führt ins Buch, gefiltert auf Ungeplantes.</p><pSpaced>Ungeplante Einnahmen, etwa eine Erstattung, stehen bei den Einnahmen. Sie vergrößern kein Budget und nicht das Verplanbare, denn das ist, was du zu Monatsbeginn verteilt hast. Umbuchungen zwischen deinen Konten sind keine Ausgabe und fehlen hier.</pSpaced>"
+      },
       "hints": {
         "title": "Hinweise",
         "body": "<p>Duofy weist dich im Plan auf Dinge hin, die deine Aufmerksamkeit brauchen. Die Hinweise werden bei jedem Öffnen neu berechnet und nirgends gespeichert; sie verschwinden von selbst, sobald das Problem erledigt ist.</p><pSpaced>Bisher gibt es einen: <strong>überfällig</strong>. Ein Posten ohne Haken ist ab dem Tag nach seiner Fälligkeit überfällig, ohne Schonfrist. Dass die Bank später bucht, ändert nichts daran, dass er noch offen ist. Ein Limit hat keinen Haken und ist deshalb nie überfällig.</pSpaced>"
