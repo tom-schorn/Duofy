@@ -159,10 +159,6 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
     })
   }
 
-  const names = Object.fromEntries(
-    (households.data ?? []).map((household) => [household.id, household.name])
-  )
-
   // replace: switching tabs must not fill the back button with intermediate steps.
   const setTab = (value: string) =>
     setParams(
@@ -253,7 +249,6 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
           ? householdPlan.data && (
               <HouseholdPlanBody
                 plan={householdPlan.data}
-                householdNames={names}
                 members={
                   (households.data ?? []).find(
                     (household) => household.id === householdId
@@ -271,14 +266,13 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
                   ownerName={active.member?.firstName ?? ''}
                   mayEdit={atLeast(active.levelFor('plan'), 'edit')}
                   mayDelete={atLeast(active.levelFor('plan'), 'delete')}
-                  householdNames={names}
-                  tab={TABS.has(params.get('tab') ?? '') ? params.get('tab')! : 'plan'}
+                    tab={TABS.has(params.get('tab') ?? '') ? params.get('tab')! : 'plan'}
                   onTab={setTab}
                   onDeleteMonth={handleDeleteMonth}
                 />
               )
             : ownPlan.data && (
-              <PlanBody plan={ownPlan.data} householdNames={names} onDeleteMonth={handleDeleteMonth} />
+              <PlanBody plan={ownPlan.data} onDeleteMonth={handleDeleteMonth} />
             )}
       </QueryState>
       )}
@@ -297,11 +291,9 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
 
 function PlanBody({
   plan,
-  householdNames,
   onDeleteMonth,
 }: {
   plan: PlanDetail
-  householdNames: Record<string, string>
   onDeleteMonth: () => void
 }) {
   const { t } = useTranslation()
@@ -421,13 +413,6 @@ function PlanBody({
   // How many positions run into which household. The count is in the badge because
   // a bare name would read like ownership — the plan is yours, only part of it is
   // shared.
-  const householdCounts = plan.positions.reduce<Record<string, number>>(
-    (counts, row) =>
-      row.householdId === null
-        ? counts
-        : { ...counts, [row.householdId]: (counts[row.householdId] ?? 0) + 1 },
-    {}
-  )
 
   function handleAdd(budget: Budget) {
     setEditing(null)
@@ -456,15 +441,6 @@ function PlanBody({
             <h1 className="font-heading text-3xl font-semibold">
               {monthLabel(plan.month)} {plan.year}
             </h1>
-            {Object.entries(householdCounts).map(([id, count]) => (
-              <Badge key={id} variant="secondary" className="gap-1 font-normal">
-                <Users className="size-3" />
-                {t('plan.positionsFrom', {
-                  number: count,
-                  household: householdNames[id] ?? t('plans.household'),
-                })}
-              </Badge>
-            ))}
           </div>
           <p className="text-muted-foreground print:hidden">
             {t('plan.lead')}
@@ -626,7 +602,6 @@ function PlanBody({
           target={null}
           positions={incomeRows}
           hints={plan.hints}
-          householdNames={householdNames}
           onEdit={(position) => {
             setEditing(position)
             setDialogOpen(true)
@@ -641,8 +616,7 @@ function PlanBody({
             target={group.target}
             positions={group.rows}
             hints={plan.hints}
-            householdNames={householdNames}
-            onEdit={(position) => {
+              onEdit={(position) => {
               setEditing(position)
               setDialogOpen(true)
             }}
@@ -772,7 +746,6 @@ function MemberPlanBody({
   ownerName,
   mayEdit,
   mayDelete,
-  householdNames,
   tab,
   onTab,
   onDeleteMonth,
@@ -784,7 +757,6 @@ function MemberPlanBody({
   mayEdit: boolean
   /** A step above `mayEdit`: deleting is neither logged nor reversible. */
   mayDelete: boolean
-  householdNames: Record<string, string>
   tab: string
   onTab: (value: string) => void
   onDeleteMonth: () => void
@@ -944,8 +916,7 @@ function MemberPlanBody({
               target={null}
               positions={incomeRows}
               hints={plan.hints}
-              householdNames={householdNames}
-              onEdit={openEditor}
+                  onEdit={openEditor}
               onTogglePaid={toggle}
               readOnly={!mayEdit}
             />
@@ -957,8 +928,7 @@ function MemberPlanBody({
                 target={group.target}
                 positions={group.rows}
                 hints={plan.hints}
-                householdNames={householdNames}
-                onEdit={openEditor}
+                      onEdit={openEditor}
                 onTogglePaid={toggle}
                 readOnly={!mayEdit}
               />
@@ -994,13 +964,11 @@ function MemberPlanBody({
 
 function HouseholdPlanBody({
   plan,
-  householdNames,
   members,
   tab,
   onTab,
 }: {
   plan: HouseholdPlanDetail
-  householdNames: Record<string, string>
   /** For the notice shown when somebody does not share their figures. */
   members: Member[]
   tab: string
@@ -1235,8 +1203,7 @@ function HouseholdPlanBody({
                   target={null}
                   positions={incomeRows}
                   hints={plan.hints}
-                  householdNames={householdNames}
-                  onEdit={openEditor}
+                          onEdit={openEditor}
                   onTogglePaid={toggle}
                   readOnly={(position) => !mayEdit(position as HouseholdPosition)}
                   ownerName={ownerName}
@@ -1249,8 +1216,7 @@ function HouseholdPlanBody({
                     target={group.target}
                     positions={group.rows}
                     hints={plan.hints}
-                    householdNames={householdNames}
-                    onEdit={openEditor}
+                              onEdit={openEditor}
                     onTogglePaid={toggle}
                     readOnly={(position) => !mayEdit(position as HouseholdPosition)}
                     ownerName={ownerName}

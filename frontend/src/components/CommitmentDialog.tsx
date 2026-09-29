@@ -42,7 +42,7 @@ import {
   INTERVAL_MIN,
   INTERVAL_PRESETS,
 } from '@/lib/domain'
-import { useAccounts, useHouseholds } from '@/lib/queries'
+import { useAccounts } from '@/lib/queries'
 
 /**
  * One form for every commitment — savings plans and loans are commitments too.
@@ -154,7 +154,6 @@ const FIELD_ERROR_WORDS: Record<string, string> = {
   interval_months_out_of_range: 'rhythm',
   ends_on_before_start: 'endsOn',
   target_only_for_savings_goal: 'targetAmount',
-  not_household_member: 'assignment',
 }
 
 /**
@@ -233,7 +232,7 @@ function emptyDraft(ownerId?: string): Commitment {
     category: 'housing.rent',
     budget: 'needs',
     isLimit: false,
-    householdId: null,
+    isPrivate: false,
     intervalMonths: 1,
     // Every commitment has one; the 1st of next month is a better start than an
     // empty mandatory field, and keeps the pay day at 1 for whoever skips it.
@@ -287,7 +286,6 @@ export function CommitmentDialog({
   returnFocus,
 }: Props) {
   const { t } = useTranslation()
-  const households = useHouseholds().data ?? []
   // The accounts of whoever this is for — one's own while creating for oneself,
   // otherwise the member's, since that is who the position will be paid from.
   const accountsQuery = useAccounts(ownerId ? { kind: 'member', ownerId } : undefined)
@@ -946,48 +944,6 @@ export function CommitmentDialog({
     </SentencePanel>
   )
 
-  const assignmentWord = (
-    <SentenceWord
-      ref={wordRef('assignment')}
-      id="assignment"
-      open={openWord === 'assignment'}
-      onClick={() => toggleWord('assignment')}
-      describedBy={extrasSentenceId}
-    >
-      {draft.householdId === null
-        ? t('common.privateOnly')
-        : (households.find((household) => household.id === draft.householdId)?.name ?? '')}
-    </SentenceWord>
-  )
-  const assignmentPanel = openWord === 'assignment' && (
-    <SentencePanel label={t('common.assignment')} id="assignment">
-      <div className="flex flex-wrap gap-2">
-        <SentenceChip
-          selected={draft.householdId === null}
-          onClick={() => {
-            set('householdId', null)
-            closeWord()
-          }}
-        >
-          {t('common.privateOnly')}
-        </SentenceChip>
-        {households.map((household) => (
-          <SentenceChip
-            key={household.id}
-            selected={draft.householdId === household.id}
-            onClick={() => {
-              set('householdId', household.id)
-              closeWord()
-            }}
-          >
-            {household.name}
-          </SentenceChip>
-        ))}
-      </div>
-      <p className="text-muted-foreground text-xs">{t('commitmentDialog.assignmentHint')}</p>
-    </SentencePanel>
-  )
-
   const passThroughWord = (
     <SentenceWord
       ref={wordRef('passThrough')}
@@ -1030,7 +986,6 @@ export function CommitmentDialog({
     counterAccount: counterAccountWord,
     endsOn: endsOnWord,
     payment: paymentWord,
-    assignment: assignmentWord,
     passThrough: passThroughWord,
   }
   const extrasPanels = [
@@ -1039,7 +994,6 @@ export function CommitmentDialog({
     !up.counterAccount && counterAccountPanel,
     !up.endsOn && endsOnPanel,
     paymentPanel,
-    assignmentPanel,
     passThroughPanel,
   ]
   // Which of account, counterAccount and endsOn are rare here, not upfront in

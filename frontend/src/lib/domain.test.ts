@@ -83,7 +83,6 @@ function plan(overrides: Partial<PlanSummary> = {}): PlanSummary {
     distributable: '2000.00',
     spent: { needs: '0.00', wants: '0.00', savings: '0.00' },
     unpaid: '0.00',
-    householdIds: [],
     ...overrides,
   }
 }
@@ -135,7 +134,7 @@ function position(overrides: Partial<PlanPosition> = {}): PlanPosition {
     paymentMethod: null,
     isLimit: false,
     passThrough: false,
-    householdId: null,
+    isPrivate: false,
     commitmentId: null,
     paidAt: null,
     ...overrides,

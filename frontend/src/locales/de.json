@@ -10,6 +10,7 @@
     "not_commitment_owner": "Dieser Vertrag gehört jemand anderem.",
     "not_household_owner": "Das darf nur der Besitzer des Haushalts.",
     "not_household_member": "Du bist kein Mitglied dieses Haushalts.",
+    "household_not_empty": "In deinem Haushalt sind noch andere Personen. Tritt zuerst aus, dann kannst du der Einladung folgen.",
     "not_a_member": "Du bist kein Mitglied dieses Haushalts.",
     "not_account_owner": "Dieses Konto gehört jemand anderem.",
     "no_insight_granted": "Diese Person teilt diesen Bereich nicht mit dir.",
@@ -211,7 +212,6 @@
     }
   },
   "toast": {
-    "householdCreated": "Haushalt {{name}} angelegt",
     "householdUpdated": "Haushalt {{name}} geändert",
     "quotaSaved": "Richtwerte gespeichert: {{needs}} / {{wants}} / {{savings}}",
     "householdLeft": "Haushalt verlassen",
@@ -290,12 +290,13 @@
     }
   },
   "nav": {
-    "plan": "Planung",
+    "plan": "Meine Planung",
+    "ourHousehold": "Unser Haushalt",
     "commitments": "Verträge",
     "book": "Buch",
     "accounts": "Konten",
     "import": "Import",
-    "household": "Haushalt"
+    "household": "Mitglieder"
   },
   "theme": {
     "light": "Hell",
@@ -411,8 +412,6 @@
     "passThroughHint": "Geld, das nur weitergereicht wird — BuT, eine Rückzahlung, die sofort weggelegt wird. Zählt in kein Budget und in keine Quote.",
     "passThroughOn": "Wird nur durchgereicht und zählt nicht zum Budget.",
     "passThroughOff": "Zählt zum Budget.",
-    "assignment": "Zuordnung",
-    "privateOnly": "Nur mein Plan",
     "delete": "Löschen",
     "save": "Speichern",
     "saving": "Speichert…",
@@ -445,6 +444,7 @@
     "position_overdue_other": "Seit {{count}} Tagen überfällig"
   },
   "budget": {
+    "private": "Privat",
     "of": "von {{amount}}",
     "quotaLabel": "{{budget}}: {{percent}} % der Quote",
     "statusPaid": "bezahlt",
@@ -504,10 +504,10 @@
       "limit": "Zählt zum Budget {budget}."
     },
     "extrasSentence": {
-      "obligation": "Gehört zur Kategorie {category}, bezahlt vom {account} ans {counterAccount}, mit {payment} und zugeordnet an {assignment}. {passThrough}",
-      "obligationEdit": "Gehört zur Kategorie {category}, bezahlt vom {account} ans {counterAccount}, mit {payment} und zugeordnet an {assignment}. {passThrough} {actual}",
-      "limit": "Fällig am {dueDay}. Gehört zur Kategorie {category}, bezahlt vom {account} ans {counterAccount}, mit {payment} und zugeordnet an {assignment}. {passThrough}",
-      "limitEdit": "Fällig am {dueDay}. Gehört zur Kategorie {category}, bezahlt vom {account} ans {counterAccount}, mit {payment} und zugeordnet an {assignment}. {passThrough} {actual}"
+      "obligation": "Gehört zur Kategorie {category}, bezahlt vom {account} ans {counterAccount} und mit {payment}. {passThrough}",
+      "obligationEdit": "Gehört zur Kategorie {category}, bezahlt vom {account} ans {counterAccount} und mit {payment}. {passThrough} {actual}",
+      "limit": "Fällig am {dueDay}. Gehört zur Kategorie {category}, bezahlt vom {account} ans {counterAccount} und mit {payment}. {passThrough}",
+      "limitEdit": "Fällig am {dueDay}. Gehört zur Kategorie {category}, bezahlt vom {account} ans {counterAccount} und mit {payment}. {passThrough} {actual}"
     },
     "dueDayLabel": "Fällig am wievielten?",
     "budgetLabel": "Welches Budget?",
@@ -568,7 +568,6 @@
     "intervalRange": "Ganze Monate von {{min}} bis {{max}}.",
     "firstDueHint": "Dieses Datum legt fest, ab wann Posten entstehen, in welchem Monat sie fällig sind und an welchem Tag gezahlt wird.",
     "firstDueHintMonthly": "Der Tag ist der Zahltag. Ab diesem Monat entstehen Posten.",
-    "assignmentHint": "In welchem Plan die Posten landen. Einmal entschieden, gilt für alle künftigen Monate.",
     "noTargetDate": "Kein Zieldatum",
     "noTargetAmount": "Kein Zielbetrag",
     "noEnd": "nicht festgelegt",
@@ -587,10 +586,10 @@
       "income": "Kommt {rhythm} ab dem {date} auf {account}."
     },
     "extrasSentence": {
-      "full": "Gehört zur Kategorie {category}, geht vom {account} ab, die letzte Zahlung ist {endsOn}, geht ans {counterAccount}, per {payment} und ist {assignment} zugeordnet. {passThrough}",
-      "noAccount": "Gehört zur Kategorie {category}, die letzte Zahlung ist {endsOn}, geht ans {counterAccount}, per {payment} und ist {assignment} zugeordnet. {passThrough}",
-      "noCounterAccount": "Gehört zur Kategorie {category}, geht vom {account} ab, die letzte Zahlung ist {endsOn}, per {payment} und ist {assignment} zugeordnet. {passThrough}",
-      "counterAccountOnly": "Gehört zur Kategorie {category}, geht ans {counterAccount}, per {payment} und ist {assignment} zugeordnet. {passThrough}"
+      "full": "Gehört zur Kategorie {category}, geht vom {account} ab, die letzte Zahlung ist {endsOn}, geht ans {counterAccount} und per {payment}. {passThrough}",
+      "noAccount": "Gehört zur Kategorie {category}, die letzte Zahlung ist {endsOn}, geht ans {counterAccount} und per {payment}. {passThrough}",
+      "noCounterAccount": "Gehört zur Kategorie {category}, geht vom {account} ab, die letzte Zahlung ist {endsOn} und per {payment}. {passThrough}",
+      "counterAccountOnly": "Gehört zur Kategorie {category}, geht ans {counterAccount} und per {payment}. {passThrough}"
     },
     "rhythmLabel": "Wie oft?",
     "dateLabel": "Erste Fälligkeit",
@@ -805,22 +804,18 @@
     "invitedBy": "{{name}} lädt dich in „{{household}}\" ein",
     "validUntil": "Gültig bis {{date}}",
     "title": "Haushalt",
-    "lead": "Ein Haushalt sagt nur, wer zusammen plant. Er besitzt nichts — Konten und Verträge gehören immer einer Person.",
+    "lead": "Jede Person gehört zu genau einem Haushalt. Er sagt nur, wer zusammen plant, und besitzt nichts — Konten und Verträge gehören immer einer Person.",
     "you": "du",
     "invite": "Einladen",
     "leaveTitle": "„{{name}}\" verlassen?",
     "leaveFrom": "Austreten aus {{name}}",
-    "leaveText": "Danach siehst du die gemeinsamen Pläne dieses Haushalts nicht mehr, und die anderen sehen deine Posten dort nicht mehr — in keinem Monat, auch nicht in vergangenen. Deine Posten bleiben in deinen eigenen Plänen als private Posten; bei einem späteren Wiedereintritt kommen sie nicht von selbst zurück. Deine eigenen Pläne, Konten und Verträge bleiben bei dir.",
+    "leaveText": "Danach siehst du die gemeinsamen Pläne dieses Haushalts nicht mehr, und die anderen sehen deine Posten dort nicht mehr — in keinem Monat, auch nicht in vergangenen. Du bekommst sofort einen neuen, eigenen Haushalt. Deine Pläne, Konten und Verträge bleiben bei dir.",
     "leave": "Austreten",
-    "inviteDescription": "Wer beitritt, sieht ab dann alle Posten, die in diesen Haushalt eingebracht wurden — und darf sie ändern.",
-    "inviteHint": "Private Posten bleiben privat. Nur was ausdrücklich dem Haushalt zugeordnet ist, wird geteilt.",
+    "inviteDescription": "Wer beitritt, sieht ab dann die Posten aller Mitglieder im Haushaltsplan. Beitreten geht nur, wenn im eigenen Haushalt sonst niemand ist.",
+    "inviteHint": "Verträge, Konten und Import bleiben persönlich, bis jemand sie freigibt.",
     "sending": "Wird gesendet…",
     "decline": "Ablehnen",
     "join": "Beitreten",
-    "create": "Haushalt anlegen",
-    "createDescription": "Wer anlegt, wird Besitzer. Danach kannst du jemanden einladen.",
-    "name": "Name",
-    "namePlaceholder": "Unser Haushalt",
     "youShare": "Du teilst:",
     "presetTitle": "Was teilst du in „{{name}}“?",
     "presetDescription": "Bisher sehen die anderen nur deinen Plan. Du kannst das jetzt in einem Schritt weiter öffnen oder so lassen.",

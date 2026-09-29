@@ -456,8 +456,8 @@ export type Commitment = {
    * only on the position, because it is decided once and copied in every month.
    */
   isLimit: boolean
-  /** null means private. Set means generated positions go into that household. */
-  householdId: string | null
+  /** Kept out of the household plan. Read only until #243 brings the switch. */
+  isPrivate: boolean
   /** Months between two due dates, 1 to 120. */
   intervalMonths: number
   /**
@@ -741,8 +741,8 @@ export type PlanPosition = {
    * quota.
    */
   passThrough: boolean
-  /** null means private. Set means it appears in that household plan. */
-  householdId: string | null
+  /** Kept out of the household plan. Read only until #243 brings the switch. */
+  isPrivate: boolean
   /** Empty on one-off positions that do not come from a commitment. */
   commitmentId: string | null
   /** When it was ticked off. null means still open. */
@@ -1005,8 +1005,6 @@ export type PlanSummary = Plan & {
   spent: Record<'needs' | 'wants' | 'savings', string>
   /** Sum of the positions that are not ticked off yet. */
   unpaid: string
-  /** Households that positions of this plan feed into. Empty means fully private. */
-  householdIds: string[]
   /** No booking hangs on any of its positions yet, so it may still be deleted. */
   deletable: boolean
 }
@@ -1068,7 +1066,7 @@ export type PlanDetail = PlanSummary & {
 
 /**
  * The shared plan. Composed, not stored — hence no `id`: there is no row behind it,
- * only the positions of every member that carry this `householdId`.
+ * only the positions of every member that are not private.
  */
 export type HouseholdPlanDetail = PlanSummary & {
   householdId: string

@@ -18,7 +18,7 @@ const position = {
   passThrough: false,
   counterAccountId: null,
   paymentMethod: null,
-  householdId: null,
+  isPrivate: false,
   commitmentId: null,
   paidAt: null,
 } as unknown as PlanPosition

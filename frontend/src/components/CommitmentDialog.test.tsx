@@ -36,7 +36,7 @@ const existing: Commitment = {
   category: 'finance.debt',
   budget: 'savings',
   isLimit: false,
-  householdId: null,
+  isPrivate: false,
   intervalMonths: 1,
   firstDueDate: '2026-01-05',
   endsOn: null,
@@ -449,14 +449,13 @@ describe('CommitmentDialog edit', () => {
 })
 
 describe('CommitmentDialog rare facts', () => {
-  test('a new commitment names category, account, payment, assignment and passthrough in a second sentence, all unset', async () => {
+  test('a new commitment names category, account, payment and passthrough in a second sentence, all unset', async () => {
     const user = userEvent.setup()
     renderDialog(() => {})
     await chooseKind(user)
     expect(screen.getByRole('button', { name: 'Miete' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Standardkonto' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'offen' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Nur mein Plan' })).toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: i18n.t('common.passThroughOff') })
     ).toBeInTheDocument()

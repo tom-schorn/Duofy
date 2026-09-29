@@ -18,7 +18,6 @@ function plan(overrides: Partial<PlanSummary> = {}): PlanSummary {
     distributable: '2000.00',
     spent: { needs: '0.00', wants: '0.00', savings: '0.00' },
     unpaid: '0.00',
-    householdIds: [],
     ...overrides,
   }
 }
@@ -43,8 +42,8 @@ describe('PlansPage', () => {
   // exists only on the household endpoint here — as if a partner alone had a
   // shared position in it — to prove the page does not need it in the viewer's
   // own list too.
-  const ownPlans = [plan({ month: 8, householdIds: [] }), plan({ month: 10, householdIds: [] })]
-  const householdPlans = [plan({ month: 9, householdIds: ['h1'] })]
+  const ownPlans = [plan({ month: 8 }), plan({ month: 10 })]
+  const householdPlans = [plan({ month: 9 })]
 
   beforeEach(() => {
     vi.stubGlobal(

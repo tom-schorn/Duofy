@@ -1,3 +1,5 @@
+import { Fragment } from 'react'
+import { Home } from 'lucide-react'
 import { NavLink, Outlet, useLocation, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 
@@ -21,9 +23,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
@@ -44,7 +43,7 @@ export function AppLayout() {
   const titleKey = titleKeyFor(pathname)
   const help = useHelpPinned()
   const wide = useIsWide()
-  const households = useHouseholds().data ?? []
+  const household = (useHouseholds().data ?? [])[0]
   const [params] = useSearchParams()
   const active = params.get('household')
   const activeMember = params.get('member')
@@ -65,13 +64,14 @@ export function AppLayout() {
             <SidebarGroupContent>
               <SidebarMenu>
                 {NAV.map((item) => (
-                  <SidebarMenuItem key={item.to}>
+                  <Fragment key={item.to}>
+                  <SidebarMenuItem>
                     {/* Die gewählte Person reist mit. Ohne das fiele man beim
                         ersten Klick auf „Verträge" wieder auf sich selbst
                         zurück, ohne dass es jemand ansagt. */}
                     <SidebarMenuButton
                       asChild
-                      isActive={pathname === item.to}
+                      isActive={pathname === item.to && (item.to !== '/plan' || active === null)}
                       tooltip={t(item.label)}
                     >
                       <NavLink to={{ pathname: item.to, search: navSearch }} end>
@@ -79,33 +79,29 @@ export function AppLayout() {
                         <span>{t(item.label)}</span>
                       </NavLink>
                     </SidebarMenuButton>
-
-                    {/* Die gemeinsamen Pläne hängen unter „Haushalt", statt
-                        hinter einem Umschalter zu verschwinden. Ein Menüpunkt
-                        ist ein Ort, den man ansteuert und verlinken kann —
-                        ein Umschalter ändert unsichtbar, was alle Seiten
-                        zeigen. */}
-                    {item.to === '/household' && households.length > 0 && (
-                      <SidebarMenuSub>
-                        {households.map((household) => (
-                          <SidebarMenuSubItem key={household.id}>
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={active === household.id}
-                            >
-                              {/* Öffnet die Monatsliste des Haushalts, genau wie
-                                  „Planung" die eigene öffnet (statt direkt in
-                                  einen Monat zu springen) — von dort aus wählt
-                                  man den Monat. */}
-                              <NavLink to={`/plan?household=${household.id}`}>
-                                <span>{household.name}</span>
-                              </NavLink>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
-                      </SidebarMenuSub>
-                    )}
                   </SidebarMenuItem>
+
+                  {/* Jede Person ist in genau einem Haushalt, also gibt es genau
+                      einen Menüpunkt dafür. Ein Menüpunkt ist ein Ort, den man
+                      ansteuert und verlinken kann — ein Umschalter änderte
+                      unsichtbar, was alle Seiten zeigen. Er öffnet die
+                      Monatsliste des Haushalts, wie „Meine Planung" die eigene
+                      öffnet. */}
+                  {item.to === '/plan' && household !== undefined && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={active === household.id}
+                        tooltip={t('nav.ourHousehold')}
+                      >
+                        <NavLink to={`/plan?household=${household.id}`}>
+                          <Home className="size-4" />
+                          <span>{t('nav.ourHousehold')}</span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                  </Fragment>
                 ))}
               </SidebarMenu>
             </SidebarGroupContent>

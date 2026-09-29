@@ -67,7 +67,7 @@ const existing = {
   counterAccountId: null,
   passThrough: false,
   paymentMethod: null,
-  householdId: null,
+  isPrivate: false,
   commitmentId: null,
   paidAt: null,
 } as PlanPosition
@@ -254,13 +254,12 @@ describe('PositionDialog kind', () => {
 })
 
 describe('PositionDialog rare facts', () => {
-  test('an edit names category, account, counterAccount, payment, assignment, passthrough and the actual amount in a second sentence, all unset', () => {
+  test('an edit names category, account, counterAccount, payment, passthrough and the actual amount in a second sentence, all unset', () => {
     render(<EditPage />)
     expect(screen.getByRole('button', { name: 'Miete' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Standardkonto' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Geht raus' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'offen' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Nur mein Plan' })).toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: i18n.t('common.passThroughOff') })
     ).toBeInTheDocument()
@@ -329,27 +328,4 @@ describe('PositionDialog rights (#218)', () => {
 })
 
 describe('PositionDialog server field errors', () => {
-  test('a rejected save opens the word it names, marks it invalid, shows the message in its panel and moves the focus there (#203, review D-215-5)', async () => {
-    render(
-      <QueryClientProvider client={new QueryClient()}>
-        <PositionDialog
-          position={existing}
-          budget="needs"
-          planId="p1"
-          open
-          onOpenChange={() => {}}
-          onSave={() => {}}
-          error={new ApiError('not_household_member', 403)}
-        />
-      </QueryClientProvider>
-    )
-    // Its panel is open (the chip inside repeats the same name), so the word
-    // itself is told apart by its expanded state.
-    const word = screen.getByRole('button', { name: 'Nur mein Plan', expanded: true })
-    expect(word).toHaveAccessibleDescription(/Du bist kein Mitglied dieses Haushalts/)
-    expect(
-      within(screen.getByRole('group', { name: i18n.t('common.assignment') })).getByRole('alert')
-    ).toHaveTextContent('Du bist kein Mitglied dieses Haushalts.')
-    await waitFor(() => expect(word).toHaveFocus())
-  })
 })
