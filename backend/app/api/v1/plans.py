@@ -440,14 +440,7 @@ async def get_plan(
     owner_id = owner or user.id
     await require_level(session, owner_id, user, Area.PLAN, AccessLevel.VIEW)
 
-    result = await session.execute(
-        select(Plan)
-        .where(Plan.user_id == owner_id, Plan.year == year, Plan.month == month)
-        .options(selectinload(Plan.positions))
-    )
-    plan = result.scalar_one_or_none()
-    if plan is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "plan_not_found"})
+    plan = await _month_of(session, owner_id, year, month)
     return await _plan_read(session, plan, user)
 
 
@@ -475,14 +468,7 @@ async def delete_plan(
     owner_id = owner or user.id
     await require_level(session, owner_id, user, Area.PLAN, AccessLevel.DELETE)
 
-    result = await session.execute(
-        select(Plan)
-        .where(Plan.user_id == owner_id, Plan.year == year, Plan.month == month)
-        .options(selectinload(Plan.positions))
-    )
-    plan = result.scalar_one_or_none()
-    if plan is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "plan_not_found"})
+    plan = await _month_of(session, owner_id, year, month)
 
     position_ids = [position.id for position in plan.positions]
     if position_ids:
@@ -569,21 +555,7 @@ async def get_household_plan(
     positions: list[PlanPosition] = []
     household_positions: list[HouseholdPositionRead] = []
     if not missing_members:
-        # The owner is joined in right away: "who carries what" is the point of
-        # this view, and loading it per position would be an N+1.
-        result = await session.execute(
-            select(PlanPosition, User.id, User.first_name)
-            .join(Plan, Plan.id == PlanPosition.plan_id)
-            .join(User, User.id == Plan.user_id)
-            .join(HouseholdMember, HouseholdMember.user_id == Plan.user_id)
-            .where(
-                PlanPosition.is_private.is_(False),
-                HouseholdMember.household_id == household_id,
-                Plan.year == year,
-                Plan.month == month,
-            )
-        )
-        rows = result.unique().all()
+        rows = await _household_positions(session, household_id, year, month)
         positions = [row[0] for row in rows]
         household_positions = [
             HouseholdPositionRead(
@@ -730,14 +702,7 @@ async def get_flow(
     await require_level(session, owner_id, user, Area.PLAN, AccessLevel.VIEW)
     sees_accounts = await may_see(session, owner_id, user, Area.ACCOUNTS)
 
-    result = await session.execute(
-        select(Plan)
-        .where(Plan.user_id == owner_id, Plan.year == year, Plan.month == month)
-        .options(selectinload(Plan.positions))
-    )
-    plan = result.scalar_one_or_none()
-    if plan is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "plan_not_found"})
+    plan = await _month_of(session, owner_id, year, month)
 
     sources = await _sources(
         session,
@@ -786,9 +751,44 @@ async def get_household_flow(
             missing_members=missing_members,
         )
 
+    by_owner: dict[uuid.UUID, list[PlanPosition]] = {}
+    for position, owner_id, _ in await _household_positions(session, household_id, year, month):
+        by_owner.setdefault(owner_id, []).append(position)
+
+    sources = await _sources(session, list(by_owner.items()), year, month, with_manual=False)
+    return build_flow(sources, year, month, user.flow_limits_by, merged=True)
+
+
+# --- Hilfen ---------------------------------------------------------------
+
+
+async def _month_of(session: AsyncSession, owner_id: uuid.UUID, year: int, month: int) -> Plan:
+    """One person's month with its positions, or `plan_not_found`. The caller has
+    checked the right to it."""
     result = await session.execute(
-        select(PlanPosition, Plan.user_id)
+        select(Plan)
+        .where(Plan.user_id == owner_id, Plan.year == year, Plan.month == month)
+        .options(selectinload(Plan.positions))
+    )
+    plan = result.scalar_one_or_none()
+    if plan is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "plan_not_found"})
+    return plan
+
+
+async def _household_positions(
+    session: AsyncSession, household_id: uuid.UUID, year: int, month: int
+) -> list[tuple[PlanPosition, uuid.UUID, str]]:
+    """Every non-private position of every member in one month, with who carries it.
+
+    What the household plan and its flow are built from (decision 48). The owner is
+    joined in right away: "who carries what" is the point of the household view, and
+    loading it per position would be an N+1.
+    """
+    result = await session.execute(
+        select(PlanPosition, User.id, User.first_name)
         .join(Plan, Plan.id == PlanPosition.plan_id)
+        .join(User, User.id == Plan.user_id)
         .join(HouseholdMember, HouseholdMember.user_id == Plan.user_id)
         .where(
             PlanPosition.is_private.is_(False),
@@ -797,15 +797,7 @@ async def get_household_flow(
             Plan.month == month,
         )
     )
-    by_owner: dict[uuid.UUID, list[PlanPosition]] = {}
-    for position, owner_id in result.unique().all():
-        by_owner.setdefault(owner_id, []).append(position)
-
-    sources = await _sources(session, list(by_owner.items()), year, month, with_manual=False)
-    return build_flow(sources, year, month, user.flow_limits_by, merged=True)
-
-
-# --- Hilfen ---------------------------------------------------------------
+    return [(position, owner_id, name) for position, owner_id, name in result.unique().all()]
 
 
 async def _plan_read(session: AsyncSession, plan: Plan, viewer: User) -> PlanRead:
