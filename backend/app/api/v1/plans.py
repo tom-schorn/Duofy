@@ -8,9 +8,7 @@ live under `/positions`, otherwise `positions` would collide with the year.
 """
 
 import uuid
-from calendar import monthrange
-from collections.abc import Iterable
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -19,14 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.auth import current_active_user
-from app.core.permissions import (
-    Area,
-    granted_level,
-    household_member_ids,
-    is_member,
-    require,
-    require_level,
-)
+from app.core.permissions import Area, is_member, require, require_level
+from app.core.scope import eligible_member_ids, household_member_ids, may_see
 from app.db.session import get_session
 from app.models.account import Account
 from app.models.commitment import Commitment
@@ -57,18 +49,6 @@ router = APIRouter()
 ZERO = Decimal("0.00")
 
 
-def _eligible_member_ids(
-    members: Iterable[tuple[uuid.UUID, datetime]], year: int, month: int
-) -> set[uuid.UUID]:
-    """Members already part of the household by the last day of that month.
-
-    A member who joins later must not make earlier months incomplete, and does
-    not need a plan for a month before they joined.
-    """
-    last_day = date(year, month, monthrange(year, month)[1])
-    return {member_id for member_id, joined_at in members if joined_at.date() <= last_day}
-
-
 async def _household_missing_members(
     session: AsyncSession, household_id: uuid.UUID, year: int, month: int
 ) -> list[str]:
@@ -82,7 +62,7 @@ async def _household_missing_members(
             .where(HouseholdMember.household_id == household_id)
         )
     ]
-    eligible_ids = _eligible_member_ids(
+    eligible_ids = eligible_member_ids(
         ((member_id, joined_at) for member_id, _, joined_at in members), year, month
     )
     planned_ids = set(
@@ -168,16 +148,6 @@ def _summarize(
         ),
         "unpaid": unpaid,
     }
-
-
-async def _may_see_bookings(session: AsyncSession, owner_id: uuid.UUID, viewer: User) -> bool:
-    """Whether `viewer` may see the bookings of `owner_id`: one's own always, another
-    person's from the level `view` they granted on the accounts. The household has no
-    grant to check: it sees every member (`household_member_ids`)."""
-    if owner_id == viewer.id:
-        return True
-    level = await granted_level(session, owner_id, viewer.id, Area.ACCOUNTS)
-    return level.rank >= AccessLevel.VIEW.rank
 
 
 async def _unplanned(
@@ -331,7 +301,7 @@ async def list_household_plans(
     complete_months = {
         key
         for key, owners in owners_by_month.items()
-        if (eligible := _eligible_member_ids(members, *key)) and eligible <= owners
+        if (eligible := eligible_member_ids(members, *key)) and eligible <= owners
     }
     if not complete_months:
         return []
@@ -758,7 +728,7 @@ async def get_flow(
     # Manual bookings and the account name belong to the accounts area, not to the
     # plan: for somebody else's plan they need their own grant.
     await require_level(session, owner_id, user, Area.PLAN, AccessLevel.VIEW)
-    sees_accounts = await _may_see_bookings(session, owner_id, user)
+    sees_accounts = await may_see(session, owner_id, user, Area.ACCOUNTS)
 
     result = await session.execute(
         select(Plan)
@@ -842,7 +812,7 @@ async def _plan_read(session: AsyncSession, plan: Plan, viewer: User) -> PlanRea
     used = await _used_position_ids(session, [position.id for position in plan.positions])
     # Unplanned bookings are the owner's book, not the plan: somebody else sees them
     # only with their own grant on the accounts, like the flow's manual bookings.
-    sees_bookings = await _may_see_bookings(session, plan.user_id, viewer)
+    sees_bookings = await may_see(session, plan.user_id, viewer, Area.ACCOUNTS)
     return PlanRead(
         id=plan.id,
         hints=plan_hints(plan.year, plan.month, plan.positions),
