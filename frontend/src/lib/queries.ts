@@ -16,7 +16,6 @@ import type {
   Account,
   AreaField,
   BookScope,
-  BalanceHistory,
   Category,
   Commitment,
   CommitmentStatus,
@@ -60,20 +59,6 @@ export const keys = {
   commitmentsOf: (ownerId: string | null) => ['commitments', ownerId ?? 'me'] as const,
   /** Every month — for invalidating when it is unclear which one is affected. */
   allTransactions: ['transactions'] as const,
-  balanceHistory: (
-    year: number,
-    month: number,
-    scope: BookScope = OWN_SCOPE,
-    onlyAvailable = false
-  ) =>
-    [
-      'accounts',
-      'history',
-      scopeKey(scope),
-      year,
-      month,
-      onlyAvailable ? 'frei' : 'alle',
-    ] as const,
   transactions: (year: number, month: number, scope: BookScope = OWN_SCOPE) =>
     ['transactions', scopeKey(scope), year, month] as const,
   imports: ['imports'] as const,
@@ -284,35 +269,6 @@ export function useAccounts(scope: BookScope = OWN_SCOPE) {
     queryKey: keys.accountsIn(scope),
     // The suffix starts with `&`, hence the empty `?` in front of it.
     queryFn: () => api.get<Account[]>(`/accounts?${scopeQuery(scope).slice(1)}`),
-  })
-}
-
-/**
- * The real balance history of a calendar month.
- *
- * Its own endpoint rather than derived from the bookings: the book groups by
- * position, this curve by date. Both cannot be read off the same list.
- */
-/**
- * The history of a calendar month.
- *
- * `onlyAvailable` looks at the accounts that count as spendable only. That is the
- * only way bars and balance line add up: a transfer to savings leaves the pot and
- * lowers the line by exactly the bar it produces.
- */
-export function useBalanceHistory(
-  year: number,
-  month: number,
-  scope: BookScope = OWN_SCOPE,
-  onlyAvailable = false
-) {
-  return useQuery({
-    queryKey: keys.balanceHistory(year, month, scope, onlyAvailable),
-    queryFn: () =>
-      api.get<BalanceHistory>(
-        `/accounts/history?year=${year}&month=${month}` +
-          `${scopeQuery(scope)}${onlyAvailable ? '&onlyAvailable=true' : ''}`
-      ),
   })
 }
 

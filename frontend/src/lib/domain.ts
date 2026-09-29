@@ -607,39 +607,6 @@ export function scopeKey(scope: BookScope): string {
 }
 
 /**
- * One day of movement, broken down — every figure a positive amount.
- *
- * `change` is `income − needs − wants − savings`. Transfers leaving the spendable
- * pot count under `savings`: they carry no budget, but the money has been put aside.
- */
-export type BalanceMoves = {
-  income: string
-  needs: string
-  wants: string
-  savings: string
-}
-
-/** A day with movement, together with the balance at its end. */
-export type BalancePoint = {
-  day: string
-  balance: string
-  change: string
-  moves: BalanceMoves
-}
-
-/**
- * The overall balance across one calendar month.
- *
- * `openingBalance` is the balance **before** the first day — without it the curve
- * would start at zero and every month would look like a fresh start.
- */
-export type BalanceHistory = {
-  openingBalance: string
-  closingBalance: string
-  points: BalancePoint[]
-}
-
-/**
  * A booking in the household book.
  *
  * The effect on balances and the effect on the budget are independent:
