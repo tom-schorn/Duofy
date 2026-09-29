@@ -382,3 +382,37 @@ async def test_stand_in_with_edit_books_the_chosen_date_and_amount_for_the_owner
     assert booking.account_id == giro.id
     assert booking.occurred_on == date(2026, 9, 10)
     assert booking.amount == Decimal("42.00")
+
+
+async def test_household_member_without_plan_edit_cannot_tick_anothers_position(
+    client: AsyncClient, session: AsyncSession
+):
+    """#251: a view grant lets one see the position, not tick it off. The refusal
+    leaves no booking and no tick behind."""
+    from app.models.enums import AccessLevel
+    from tests.test_area_permissions import add_member, make_household
+
+    owner = await make_user(session, "Owner")
+    viewer = await make_user(session, "Viewer")
+    household = await make_household(session, "Home")
+    await add_member(session, household, owner, plan=AccessLevel.VIEW)
+    await add_member(session, household, viewer)
+    giro = await make_account(session, owner, "Giro", is_default=True)
+    position = await make_position(session, owner, account_id=giro.id)
+    await session.commit()
+    sign_in(viewer)
+
+    response = await client.post(
+        f"/api/v1/positions/{position.id}/paid",
+        json={"occurred_on": "2026-09-10", "amount": "42.00"},
+    )
+
+    assert response.status_code == 403
+    bookings = (
+        await session.execute(
+            select(Transaction).where(Transaction.position_id == position.id)
+        )
+    ).scalars().all()
+    assert bookings == []
+    await session.refresh(position)
+    assert position.paid_at is None
