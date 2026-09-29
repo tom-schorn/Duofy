@@ -226,7 +226,7 @@ describe('languages', () => {
     })
 
     expect(instance.t('nav.plan')).toBe('Planning')
-    expect(instance.t('nav.book')).toBe(de.nav.book)
+    expect(instance.t('nav.accounts')).toBe(de.nav.accounts)
     expect(instance.t('errors.unknown')).toBe(de.errors.unknown)
     expect(instance.t('import.title', { ns: 'help' })).toBe(deHelp.import.title)
   })

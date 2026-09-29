@@ -1,4 +1,4 @@
-import { BookOpen, CalendarRange, FileText, Upload, Users, Wallet } from 'lucide-react'
+import { CalendarRange, FileText, Upload, Users, Wallet } from 'lucide-react'
 
 /**
  * One page for every commitment — savings plans and loans are commitments too.
@@ -11,7 +11,6 @@ import { BookOpen, CalendarRange, FileText, Upload, Users, Wallet } from 'lucide
 export const NAV = [
   { to: '/plan', label: 'nav.plan', icon: CalendarRange },
   { to: '/contracts', label: 'nav.commitments', icon: FileText },
-  { to: '/book', label: 'nav.book', icon: BookOpen },
   { to: '/accounts', label: 'nav.accounts', icon: Wallet },
   { to: '/import', label: 'nav.import', icon: Upload },
   { to: '/household', label: 'nav.household', icon: Users },

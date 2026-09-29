@@ -5,7 +5,6 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 
 import { i18n } from '@/lib/i18n'
 import { AccountsPage } from '@/pages/AccountsPage'
-import { BookPage } from '@/pages/BookPage'
 import { CommitmentsPage } from '@/pages/CommitmentsPage'
 import { ImportPage } from '@/pages/ImportPage'
 import { PlansPage } from '@/pages/PlansPage'
@@ -101,18 +100,6 @@ describe('nothing shared at all', () => {
     expect(screen.queryByRole('button', { name: i18n.t('common.retry') })).not.toBeInTheDocument()
   })
 
-  test('book: the honest sentence replaces the accounts and the bookings', async () => {
-    stubForbidden((url) => url.includes('/accounts') || url.includes('/transactions'))
-    renderAt('/?member=u2', <BookPage />)
-    expect(
-      await screen.findByText(i18n.t('book.notShared', { name: 'Alex' }))
-    ).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: i18n.t('common.retry') })).not.toBeInTheDocument()
-    expect(
-      screen.queryByText(i18n.t('book.leadMemberView', { name: 'Alex' }))
-    ).not.toBeInTheDocument()
-  })
-
   test('plans: the honest sentence replaces the list, with no retry button', async () => {
     stubForbidden((url) => url.includes('/plans'))
     renderAt('/?member=u2', <PlansPage />)
@@ -123,78 +110,5 @@ describe('nothing shared at all', () => {
     expect(
       screen.queryByText(i18n.t('plans.leadMemberView', { name: 'Alex' }))
     ).not.toBeInTheDocument()
-  })
-})
-
-describe('accounts shared, the plan not (#217)', () => {
-  const partial = {
-    ...household,
-    members: [
-      { ...household.members[0], grantsAccounts: 'view', grantsPlan: 'plan' },
-    ],
-  }
-
-  test('the book stays usable and says the plan is not shared, instead of "kein Plan"', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (url: string) => {
-        const address = String(url)
-        if (address.endsWith('/households')) {
-          return new Response(JSON.stringify([partial]), { status: 200 })
-        }
-        if (address.includes('/plans/')) {
-          return new Response(JSON.stringify({ detail: { code: 'no_insight_granted' } }), {
-            status: 403,
-          })
-        }
-        if (address.includes('/accounts/history')) {
-          return new Response(JSON.stringify({ openingBalance: '0.00', points: [] }), {
-            status: 200,
-          })
-        }
-        return new Response('[]', { status: 200 })
-      })
-    )
-
-    renderAt('/?member=u2', <BookPage />)
-
-    expect(
-      await screen.findByText(i18n.t('book.planNotShared', { name: 'Alex' }))
-    ).toBeInTheDocument()
-    expect(screen.queryByText(i18n.t('book.noPlan'))).not.toBeInTheDocument()
-    // The accounts area is shared, so the book itself must not be gated away.
-    expect(screen.queryByText(i18n.t('book.notShared', { name: 'Alex' }))).not.toBeInTheDocument()
-  })
-
-  test('the flow chart does not crash on a malformed history response', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (url: string) => {
-        const address = String(url)
-        if (address.endsWith('/households')) {
-          return new Response(JSON.stringify([partial]), { status: 200 })
-        }
-        if (address.includes('/plans/')) {
-          return new Response(JSON.stringify({ detail: { code: 'no_insight_granted' } }), {
-            status: 403,
-          })
-        }
-        // Neither an error nor the expected shape — the chart must not throw.
-        if (address.includes('/accounts/history')) {
-          return new Response('[]', { status: 200 })
-        }
-        return new Response('[]', { status: 200 })
-      })
-    )
-
-    renderAt('/?member=u2', <BookPage />)
-
-    // A view grant on accounts is not edit, hence the second sentence too — the
-    // point here is only that rendering completed without an uncaught exception.
-    expect(
-      await screen.findByText(
-        `${i18n.t('book.leadMember', { name: 'Alex' })} ${i18n.t('book.leadMemberView', { name: 'Alex' })}`
-      )
-    ).toBeInTheDocument()
   })
 })

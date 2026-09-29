@@ -81,7 +81,7 @@ describe('AppLayout', () => {
   afterAll(() => vi.unstubAllGlobals())
 
   test('each sidebar entry is one link, with no button inside it', () => {
-    renderAt('/book')
+    renderAt('/plan')
     const link = screen.getByRole('link', { name: de.nav.commitments })
     expect(link.querySelector('button')).toBeNull()
     expect(link.closest('button')).toBeNull()

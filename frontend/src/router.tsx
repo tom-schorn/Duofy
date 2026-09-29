@@ -7,7 +7,7 @@ import { RegisterPage } from '@/pages/RegisterPage'
 import { PlansPage } from '@/pages/PlansPage'
 import { PlanDetailPage } from '@/pages/PlanDetailPage'
 import { AccountsPage } from '@/pages/AccountsPage'
-import { BookPage } from '@/pages/BookPage'
+import { BookRedirect } from '@/pages/BookRedirect'
 import { CommitmentsPage } from '@/pages/CommitmentsPage'
 import { AdminPage } from '@/pages/AdminPage'
 import { SettingsPage } from '@/pages/SettingsPage'
@@ -41,10 +41,9 @@ export const router = createBrowserRouter([
           // One page for every commitment — savings plans and loans are
           // commitments too. Grouped by budget, not by type.
           { path: '/contracts', element: <CommitmentsPage /> },
-          // Das Buch steht für sich: eine Buchung gehört zu einem Konto,
-          // nicht zu einem Plan. Im Monatsplan bleibt es als Tab, weil man
-          // beim Planen hineinschauen will.
-          { path: '/book', element: <BookPage /> },
+          // Das Buch ist ein Reiter des Monatsplans (#241). Die alte Adresse
+          // bleibt als Weiterleitung, damit Lesezeichen nicht ins Leere führen.
+          { path: '/book', element: <BookRedirect /> },
           { path: '/accounts', element: <AccountsPage /> },
 
           // Bank files in, bookings out. Its own page because CSV and the bank
