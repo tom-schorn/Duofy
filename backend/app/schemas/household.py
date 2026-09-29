@@ -25,6 +25,10 @@ class MemberRead(Schema):
     my_grants: dict[Area, AccessLevel]
 
 
+class MemberRoleUpdate(Schema):
+    role: Role
+
+
 class HouseholdRead(Schema):
     id: uuid.UUID
     name: str

@@ -225,3 +225,118 @@ async def test_removing_somebody_outside_the_household_is_not_found(
 
     assert response.status_code == 404
     assert response.json()["detail"] == {"code": "not_a_member"}
+
+
+# --- hand the admin role on or take it away ------------------------------
+
+
+async def test_an_admin_makes_a_member_admin_and_takes_it_away_again(
+    client: AsyncClient, session: AsyncSession, home
+):
+    admin, member, _, household = home
+    url = f"/api/v1/households/{household.id}/members/{member.id}"
+    sign_in(admin)
+
+    promoted = await client.patch(url, json={"role": "admin"})
+    assert promoted.status_code == 200
+    assert promoted.json()["role"] == "admin"
+
+    demoted = await client.patch(url, json={"role": "member"})
+    assert demoted.status_code == 200
+    assert demoted.json()["role"] == "member"
+
+
+async def test_a_member_may_not_make_anybody_admin(
+    client: AsyncClient, session: AsyncSession, home
+):
+    _, member, _, household = home
+    member_id = member.id
+    sign_in(member)
+
+    response = await client.patch(
+        f"/api/v1/households/{household.id}/members/{member_id}", json={"role": "admin"}
+    )
+
+    assert refused(response)
+    assert (await membership_of(session, member_id)).role is Role.MEMBER
+
+
+async def test_an_admin_takes_the_role_from_another_admin(
+    client: AsyncClient, session: AsyncSession, home
+):
+    admin, member, _, household = home
+    await make_admin(session, household, member)
+    await session.commit()
+    sign_in(member)
+
+    response = await client.patch(
+        f"/api/v1/households/{household.id}/members/{admin.id}", json={"role": "member"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["role"] == "member"
+
+
+async def test_the_last_admin_cannot_give_up_the_role(
+    client: AsyncClient, session: AsyncSession, home
+):
+    admin, _, _, household = home
+    admin_id = admin.id
+    sign_in(admin)
+
+    response = await client.patch(
+        f"/api/v1/households/{household.id}/members/{admin_id}", json={"role": "member"}
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == {"code": "last_admin_required"}
+    assert (await membership_of(session, admin_id)).role is Role.ADMIN
+
+
+async def test_passing_the_household_on_is_two_steps_and_then_leaving_works(
+    client: AsyncClient, session: AsyncSession, home
+):
+    """#249: make somebody else admin, then step down or leave."""
+    admin, member, _, household = home
+    household_id, admin_id = household.id, admin.id
+    sign_in(admin)
+
+    await client.patch(
+        f"/api/v1/households/{household_id}/members/{member.id}", json={"role": "admin"}
+    )
+    stepped_down = await client.patch(
+        f"/api/v1/households/{household_id}/members/{admin_id}", json={"role": "member"}
+    )
+    left = await client.delete(f"/api/v1/households/{household_id}/members/me")
+
+    assert stepped_down.status_code == 200
+    assert left.status_code == 204
+    assert (await membership_of(session, admin_id)).household_id != household_id
+
+
+async def test_the_last_admin_cannot_leave_but_one_of_two_can(
+    client: AsyncClient, session: AsyncSession, home
+):
+    admin, member, _, household = home
+    household_id = household.id
+    sign_in(admin)
+
+    alone = await client.delete(f"/api/v1/households/{household_id}/members/me")
+    assert alone.status_code == 409
+    assert alone.json()["detail"] == {"code": "last_admin_cannot_leave"}
+
+    await make_admin(session, household, member)
+    await session.commit()
+    with_another = await client.delete(f"/api/v1/households/{household_id}/members/me")
+    assert with_another.status_code == 204
+
+
+async def test_an_unknown_role_is_rejected(client: AsyncClient, session: AsyncSession, home):
+    admin, member, _, household = home
+    sign_in(admin)
+
+    response = await client.patch(
+        f"/api/v1/households/{household.id}/members/{member.id}", json={"role": "owner"}
+    )
+
+    assert response.status_code == 422
