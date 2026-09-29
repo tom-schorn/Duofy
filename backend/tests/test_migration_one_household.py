@@ -40,6 +40,10 @@ BEN = "aaaaaaaa-0000-0000-0000-000000000002"
 CARLA = "aaaaaaaa-0000-0000-0000-000000000003"
 DINO = "aaaaaaaa-0000-0000-0000-000000000004"
 
+EVE = "aaaaaaaa-0000-0000-0000-000000000005"
+EVE_OWN = "bbbbbbbb-0000-0000-0000-000000000004"
+SHARED = "bbbbbbbb-0000-0000-0000-000000000005"
+
 #: The oldest household, Alice owns it and Ben is a member.
 OLD = "bbbbbbbb-0000-0000-0000-000000000001"
 #: Alice's second membership; Carla is a member and stays.
@@ -354,3 +358,51 @@ async def test_the_whole_chain_runs_up_down_and_up_again(at_revision: AsyncConne
     members = await members_by_household(at_revision)
     assert all(len(user_ids) >= 1 for user_ids in members.values())
     assert len({user for user_ids in members.values() for user in user_ids}) == 4
+
+
+async def test_the_second_step_prefers_the_shared_household_over_an_older_empty_one(
+    at_revision: AsyncConnection,
+):
+    """Eve's own household is older but holds only her; the newer one is shared with
+    Ben. The shared one stays, and her own empty one goes."""
+    await at_revision.execute(
+        text(
+            "INSERT INTO users (id, email, hashed_password, is_active, is_superuser,"
+            " is_verified, first_name, last_name) VALUES"
+            " (:eve, 'eve@example.invalid', 'x', true, false, true, 'Eve', 'Example'),"
+            " (:ben, 'ben@example.invalid', 'x', true, false, true, 'Ben', 'Example')"
+        ),
+        {"eve": EVE, "ben": BEN},
+    )
+    for household_id in (EVE_OWN, SHARED):
+        await at_revision.execute(
+            text(
+                "INSERT INTO households (id, name, target_needs, target_wants, target_savings)"
+                " VALUES (:id, 'H', 50, 30, 20)"
+            ),
+            {"id": household_id},
+        )
+    for household_id, user_id, role, created in [
+        (EVE_OWN, EVE, "owner", "2026-01-01"),
+        (SHARED, EVE, "member", "2026-05-01"),
+        (SHARED, BEN, "owner", "2026-04-01"),
+    ]:
+        await at_revision.execute(
+            text(
+                "INSERT INTO household_members (id, household_id, user_id, role, grants_plan,"
+                " grants_commitments, grants_accounts, created_at) VALUES"
+                " (gen_random_uuid(), :household, :user, :role, 'plan', 'plan', 'plan',"
+                " :created)"
+            ),
+            {
+                "household": household_id,
+                "user": user_id,
+                "role": role,
+                "created": datetime.fromisoformat(f"{created}T12:00:00+00:00"),
+            },
+        )
+
+    alembic("upgrade", MEMBERSHIPS)
+
+    members = await members_by_household(at_revision)
+    assert members == {SHARED: {EVE, BEN}}

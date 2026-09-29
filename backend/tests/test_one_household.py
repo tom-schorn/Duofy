@@ -47,10 +47,10 @@ async def add_position(session: AsyncSession, user, label: str, **kwargs) -> Pla
         plan = Plan(user_id=user.id, year=2026, month=9)
         session.add(plan)
         await session.flush()
+    kwargs.setdefault("amount_planned", Decimal("10.00"))
     position = PlanPosition(
         plan_id=plan.id,
         label=label,
-        amount_planned=Decimal("10.00"),
         category=Category.LEISURE_SUBSCRIPTIONS,
         budget=Budget.WANTS,
         due_day=15,
@@ -190,3 +190,42 @@ async def test_a_month_built_from_contracts_copies_the_private_flag(
     assert created.status_code == 201
     private_by_label = {p["label"]: p["isPrivate"] for p in created.json()["positions"]}
     assert private_by_label == {shared.name: False, hidden.name: True}
+
+
+async def test_the_household_flow_leaves_out_private_positions(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    ada = await make_user(session, "Ada")
+    household = await make_household(session, "Together")
+    await add_member(session, household, ada)
+    await add_position(session, ada, "Ada shared")
+    await add_position(
+        session, ada, "Ada private", is_private=True, amount_planned=Decimal("77.00")
+    )
+    await session.commit()
+    sign_in(ada)
+
+    response = await client.get(f"/api/v1/plans/household/{household.id}/2026/9/flow")
+
+    assert response.status_code == 200
+    assert [entry["amount"] for entry in response.json()["entries"]] == ["-10.00"]
+
+
+async def test_the_household_month_list_leaves_out_private_positions(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    ada = await make_user(session, "Ada")
+    household = await make_household(session, "Together")
+    await add_member(session, household, ada)
+    await add_position(session, ada, "Ada shared")
+    await add_position(
+        session, ada, "Ada private", is_private=True, amount_planned=Decimal("77.00")
+    )
+    await session.commit()
+    sign_in(ada)
+
+    response = await client.get(f"/api/v1/plans/household/{household.id}")
+
+    assert response.status_code == 200
+    (month,) = response.json()
+    assert Decimal(month["spent"]["wants"]) == Decimal("10.00")
