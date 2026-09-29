@@ -35,8 +35,9 @@ import {
   type Account,
   ACCOUNT_TYPES,
 } from '@/lib/domain'
+import { AccountCards } from '@/components/AccountCards'
 import { useActiveMember } from '@/hooks/use-active-member'
-import { OWN_SCOPE } from '@/lib/domain'
+import { OWN_SCOPE, type BookScope } from '@/lib/domain'
 import { useAccounts, useDeleteAccount, useSaveAccount } from '@/lib/queries'
 
 /**
@@ -76,9 +77,9 @@ export function AccountsPage() {
   // `?member=` shows somebody else's accounts — see `MemberSwitcher`. Their level
   // decides whether the page offers buttons; the endpoint checks it again anyway.
   const active = useActiveMember()
-  const accounts = useAccounts(
+  const scope: BookScope =
     active.id === null ? OWN_SCOPE : { kind: 'member', ownerId: active.id }
-  )
+  const accounts = useAccounts(scope)
   const accountsLevel = active.levelFor('accounts')
   const mayEdit = atLeast(accountsLevel, 'edit')
   const isAccountsViewOnly = isViewOnly(accountsLevel)
@@ -126,6 +127,10 @@ export function AccountsPage() {
           </Button>
         )}
       </header>
+
+      {/* The balances used to sit in the book; the book is a tab of the plan now
+          (#241), so they live with the accounts. */}
+      {list.length > 0 && <AccountCards scope={scope} />}
 
       <QueryState
         isPending={accounts.isPending}
