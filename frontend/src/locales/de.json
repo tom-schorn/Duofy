@@ -877,6 +877,7 @@
     "notPaid": "noch nicht bezahlt",
     "tabPlan": "Plan",
     "tabBook": "Buch",
+    "tabBookCount": "Buch · {{count}}",
     "tabFlow": "Verlauf",
     "untickTitle": "Haken wegnehmen und die Buchung entfernen?",
     "untick": "Haken wegnehmen",

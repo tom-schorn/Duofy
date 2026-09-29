@@ -310,6 +310,33 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
 }
 
 /**
+ * The book's tab, with how many bookings the month holds — "Buch · 7". A carry-over
+ * is a balance, not a booking, so it is not counted. Where the book cannot be read
+ * (no grant yet, still loading) it is just "Buch".
+ */
+function BookTabTrigger({
+  year,
+  month,
+  scope = OWN_SCOPE,
+}: {
+  year: number
+  month: number
+  scope?: BookScope
+}) {
+  const { t } = useTranslation()
+  const rows = useTransactions(year, month, scope).data
+  return (
+    <TabsTrigger value="book">
+      {rows
+        ? t('plan.tabBookCount', {
+            count: rows.filter((row) => row.kind !== 'carry_over').length,
+          })
+        : t('plan.tabBook')}
+    </TabsTrigger>
+  )
+}
+
+/**
  * The book tab of the plan page (#241): the bookings of this plan month.
  *
  * The filter lives in the address (`?filter=unplanned`), so the "Ungeplant" rows of
@@ -621,7 +648,7 @@ function PlanBody({
       >
         <TabsList data-print="hide">
           <TabsTrigger value="plan">{t('plan.tabPlan')}</TabsTrigger>
-          <TabsTrigger value="book">{t('plan.tabBook')}</TabsTrigger>
+          <BookTabTrigger year={plan.year} month={plan.month} />
           <TabsTrigger value="flow">{t('plan.tabFlow')}</TabsTrigger>
         </TabsList>
 
@@ -1015,7 +1042,7 @@ function MemberPlanBody({
       <Tabs value={tab} onValueChange={onTab} className="gap-6">
         <TabsList>
           <TabsTrigger value="plan">{t('plan.tabPlan')}</TabsTrigger>
-          <TabsTrigger value="book">{t('plan.tabBook')}</TabsTrigger>
+          <BookTabTrigger year={plan.year} month={plan.month} scope={scope} />
           <TabsTrigger value="flow">{t('plan.tabFlow')}</TabsTrigger>
         </TabsList>
 
@@ -1297,7 +1324,7 @@ function HouseholdPlanBody({
           <Tabs value={tab} onValueChange={onTab} className="gap-6">
             <TabsList data-print="hide">
               <TabsTrigger value="plan">{t('plan.tabPlan')}</TabsTrigger>
-              <TabsTrigger value="book">{t('plan.tabBook')}</TabsTrigger>
+              <BookTabTrigger year={plan.year} month={plan.month} scope={scope} />
               <TabsTrigger value="flow">{t('plan.tabFlow')}</TabsTrigger>
             </TabsList>
 

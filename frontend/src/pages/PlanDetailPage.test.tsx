@@ -626,15 +626,39 @@ describe('PlanDetailPage — the book as a tab (#241)', () => {
 
   const add = () => screen.queryByRole('button', { name: i18n.t('monthBook.add') })
 
-  test('the tabs are Plan, Buch and Verlauf, in that order', async () => {
+  test('the tabs are Plan, Buch and Verlauf, in that order, the book with its number of bookings', async () => {
     stub()
     renderAt('/plan/2026/11')
-    await screen.findByRole('tab', { name: i18n.t('plan.tabBook') })
+    await screen.findByRole('tab', { name: i18n.t('plan.tabBookCount', { count: 2 }) })
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
       i18n.t('plan.tabPlan'),
-      i18n.t('plan.tabBook'),
+      i18n.t('plan.tabBookCount', { count: 2 }),
       i18n.t('plan.tabFlow'),
     ])
+  })
+
+  test('a carry-over is no booking in the count of the tab', async () => {
+    stub()
+    const original = globalThis.fetch
+    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+      if (String(url).includes('/transactions')) {
+        return new Response(
+          JSON.stringify([...rows, booking({ id: 't3', kind: 'carry_over', category: null, budget: null })]),
+          { status: 200 }
+        )
+      }
+      return original(url, init)
+    })
+    renderAt('/plan/2026/11')
+    expect(
+      await screen.findByRole('tab', { name: i18n.t('plan.tabBookCount', { count: 2 }) })
+    ).toBeInTheDocument()
+  })
+
+  test('without a readable book the tab is just Buch', async () => {
+    stub('none', 'no_insight_granted')
+    renderAt('/plan/2026/11?member=u2')
+    expect(await screen.findByRole('tab', { name: i18n.t('plan.tabBook') })).toBeInTheDocument()
   })
 
   test('the book tab lists the bookings of the month by date', async () => {
@@ -652,7 +676,7 @@ describe('PlanDetailPage — the book as a tab (#241)', () => {
   test('clicking the tab puts it in the address', async () => {
     stub()
     const router = renderAt('/plan/2026/11')
-    await userEvent.setup().click(await screen.findByRole('tab', { name: i18n.t('plan.tabBook') }))
+    await userEvent.setup().click(await screen.findByRole('tab', { name: /^Buch/ }))
     expect(new URLSearchParams(router.state.location.search).get('tab')).toBe('book')
   })
 
@@ -660,7 +684,7 @@ describe('PlanDetailPage — the book as a tab (#241)', () => {
     stub()
     renderAt('/plan/2026/11')
     expect(await screen.findByRole('button', { name: i18n.t('monthBook.add') })).toBeInTheDocument()
-    await userEvent.setup().click(await screen.findByRole('tab', { name: i18n.t('plan.tabBook') }))
+    await userEvent.setup().click(await screen.findByRole('tab', { name: /^Buch/ }))
     expect(add()).toBeInTheDocument()
   })
 
