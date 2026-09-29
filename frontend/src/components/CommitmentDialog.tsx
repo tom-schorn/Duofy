@@ -1,3 +1,4 @@
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -310,6 +311,8 @@ export function CommitmentDialog({
 
   // Which sentence word is open — only one at a time (issue #215).
   const [openWord, setOpenWord] = useState<string | null>(null)
+  // The year the end panel shows while paging; null means the year of the end itself.
+  const [endsYear, setEndsYear] = useState<number | null>(null)
   const wordRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   // Read out with every word and every opened field, so a screen reader hears the
   // whole sentence, not just the one word (issue #202, review D-215-3, fix 1).
@@ -326,6 +329,7 @@ export function CommitmentDialog({
       setCustomInterval(!INTERVAL_PRESETS.includes(next.intervalMonths))
       setIntervalText(String(next.intervalMonths))
       setOpenWord(null)
+      setEndsYear(null)
     }
   }, [open, commitment, ownerId])
 
@@ -719,27 +723,70 @@ export function CommitmentDialog({
       onClick={() => toggleWord('endsOn')}
       describedBy={sentenceId}
     >
-      {draft.endsOn ? longDate(draft.endsOn) : t('commitmentDialog.noEnd')}
+      {draft.endsOn
+        ? t('commitmentDialog.endsOnWord', {
+            month: monthLabel(Number(draft.endsOn.slice(5, 7))),
+            year: draft.endsOn.slice(0, 4),
+          })
+        : t('commitmentDialog.noEnd')}
     </SentenceWord>
   )
+  // The end is a month, not a day (decision 44): the month of the last payment
+  // still counts, so a day would only pretend to be more exact than the plan is.
+  const startYear = Number(draft.firstDueDate.slice(0, 4))
+  const startMonth = Number(draft.firstDueDate.slice(5, 7))
+  const shownEndYear =
+    endsYear ?? (draft.endsOn ? Number(draft.endsOn.slice(0, 4)) : Math.max(startYear, now.getFullYear()))
   const endsOnPanel = openWord === 'endsOn' && (
     <SentencePanel label={t('commitmentDialog.endsOnLabel')} id="endsOn">
-      <Calendar
-        mode="single"
-        selected={fromIsoDay(draft.endsOn ?? '')}
-        defaultMonth={fromIsoDay(draft.endsOn ?? draft.firstDueDate)}
-        onSelect={(date) => {
-          if (!date) return
-          set('endsOn', toIsoDay(date))
-          closeWord()
-        }}
-        aria-describedby={sentenceId}
-        autoFocus
-      />
+      <div className="flex items-center justify-between gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label={t('commitmentDialog.previousYear')}
+          disabled={shownEndYear <= startYear}
+          onClick={() => setEndsYear(shownEndYear - 1)}
+        >
+          <ChevronLeft className="size-4" />
+        </Button>
+        <span className="font-medium tabular-nums" aria-live="polite">
+          {shownEndYear}
+        </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label={t('commitmentDialog.nextYear')}
+          onClick={() => setEndsYear(shownEndYear + 1)}
+        >
+          <ChevronRight className="size-4" />
+        </Button>
+      </div>
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+        {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => (
+          <SentenceChip
+            key={month}
+            selected={
+              draft.endsOn !== null &&
+              draft.endsOn.slice(0, 7) === `${shownEndYear}-${String(month).padStart(2, '0')}`
+            }
+            disabled={shownEndYear * 12 + month < startYear * 12 + startMonth}
+            onClick={() => {
+              set('endsOn', `${shownEndYear}-${String(month).padStart(2, '0')}-01`)
+              setEndsYear(null)
+              closeWord()
+            }}
+          >
+            {monthLabel(month)}
+          </SentenceChip>
+        ))}
+      </div>
       <SentenceChip
         selected={draft.endsOn === null}
         onClick={() => {
           set('endsOn', null)
+          setEndsYear(null)
           closeWord()
         }}
       >

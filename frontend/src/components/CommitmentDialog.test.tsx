@@ -117,7 +117,7 @@ describe('CommitmentDialog', () => {
     const user = userEvent.setup()
     renderDialog(() => {})
     await chooseKind(user, 'Kredit oder Rate')
-    expect(screen.getByRole('button', { name: 'auf Weiteres' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: i18n.t('commitmentDialog.noEnd') })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Standardkonto' })).toBeInTheDocument()
   })
 
@@ -537,7 +537,7 @@ describe('CommitmentDialog date words on a running contract (#237)', () => {
     endsOn: null,
   }
 
-  test('setting „läuft bis“ saves it as the end and leaves the first due date alone', async () => {
+  test('setting the last payment saves it as the end and leaves the first due date alone', async () => {
     const user = userEvent.setup()
     const onSave = vi.fn()
     render(
@@ -547,13 +547,49 @@ describe('CommitmentDialog date words on a running contract (#237)', () => {
     )
     await user.click(screen.getByRole('button', { name: i18n.t('commitmentDialog.noEnd') }))
     const panel = screen.getByRole('group', { name: i18n.t('commitmentDialog.endsOnLabel') })
-    await user.click(within(panel).getByRole('button', { name: /15\. August 2026/ }))
+    await user.click(within(panel).getByRole('button', { name: 'Dezember' }))
     await user.click(screen.getByRole('button', { name: 'Speichern' }))
     expect(onSave).toHaveBeenCalledTimes(1)
-    expect(onSave.mock.calls[0][0]).toMatchObject({ endsOn: '2026-08-15', firstDueDate: '2026-08-05' })
+    // Month and year only: the end is stored as the first day of that month.
+    expect(onSave.mock.calls[0][0]).toMatchObject({ endsOn: '2026-12-01', firstDueDate: '2026-08-05' })
   })
 
-  async function saveAfterPicking(commitment: Commitment, word: RegExp | string, day: RegExp) {
+  test('the end panel pages through the years and refuses months before the start', async () => {
+    const user = userEvent.setup()
+    const onSave = vi.fn()
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <CommitmentDialog commitment={running} open onOpenChange={() => {}} onSave={onSave} />
+      </QueryClientProvider>
+    )
+    await user.click(screen.getByRole('button', { name: i18n.t('commitmentDialog.noEnd') }))
+    const panel = screen.getByRole('group', { name: i18n.t('commitmentDialog.endsOnLabel') })
+    expect(within(panel).getByRole('button', { name: 'Juli' })).toBeDisabled()
+    expect(within(panel).getByRole('button', { name: 'August' })).toBeEnabled()
+    expect(within(panel).getByRole('button', { name: i18n.t('commitmentDialog.previousYear') })).toBeDisabled()
+    await user.click(within(panel).getByRole('button', { name: i18n.t('commitmentDialog.nextYear') }))
+    expect(within(panel).getByRole('button', { name: 'Juli' })).toBeEnabled()
+    await user.click(within(panel).getByRole('button', { name: 'Februar' }))
+    expect(screen.getByRole('button', { name: 'im Februar 2027' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Speichern' }))
+    expect(onSave.mock.calls[0][0]).toMatchObject({ endsOn: '2027-02-01' })
+  })
+
+  test('an end already set can be cleared again', async () => {
+    const user = userEvent.setup()
+    const onSave = vi.fn()
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <CommitmentDialog commitment={{ ...running, endsOn: '2026-11-01' }} open onOpenChange={() => {}} onSave={onSave} />
+      </QueryClientProvider>
+    )
+    await user.click(screen.getByRole('button', { name: 'im November 2026' }))
+    await user.click(screen.getByRole('button', { name: i18n.t('commitmentDialog.clearEnd') }))
+    await user.click(screen.getByRole('button', { name: 'Speichern' }))
+    expect(onSave.mock.calls[0][0]).toMatchObject({ endsOn: null, firstDueDate: '2026-08-05' })
+  })
+
+  async function saveAfterPicking(commitment: Commitment, word: RegExp | string, day: RegExp | string) {
     const user = userEvent.setup()
     const onSave = vi.fn()
     render(
@@ -579,7 +615,7 @@ describe('CommitmentDialog date words on a running contract (#237)', () => {
   })
 
   test('the end word of a loan, which sits in the main sentence, changes only the end', async () => {
-    const saved = await saveAfterPicking({ ...existing, firstDueDate: '2026-08-05' }, i18n.t('commitmentDialog.noEnd'), /15\. August 2026/)
-    expect(saved).toMatchObject({ endsOn: '2026-08-15', firstDueDate: '2026-08-05' })
+    const saved = await saveAfterPicking({ ...existing, firstDueDate: '2026-08-05' }, i18n.t('commitmentDialog.noEnd'), 'Oktober')
+    expect(saved).toMatchObject({ endsOn: '2026-10-01', firstDueDate: '2026-08-05' })
   })
 })
