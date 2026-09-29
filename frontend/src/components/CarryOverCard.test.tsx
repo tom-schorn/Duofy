@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { CarryOverCard } from '@/components/CarryOverCard'
@@ -46,7 +47,8 @@ let fetchMock: ReturnType<typeof vi.fn>
 describe('CarryOverCard', () => {
   beforeEach(() => {
     fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
-      if (init?.method === 'POST') return new Response(JSON.stringify(carryOver), { status: 201 })
+      if (init?.method === 'POST')
+        return new Response(JSON.stringify(carryOver), { status: 201 })
       if (String(url).includes('carry-over-suggestion')) {
         return new Response(JSON.stringify({ amount: '950.00' }), { status: 200 })
       }
@@ -58,7 +60,9 @@ describe('CarryOverCard', () => {
 
   test('without a carry-over it says the curve starts at zero', () => {
     renderCard(undefined)
-    expect(screen.getByText(i18n.t('carryOver.notSet', { account: 'Giro' }))).toBeInTheDocument()
+    expect(
+      screen.getByText(i18n.t('carryOver.notSet', { account: 'Giro' }))
+    ).toBeInTheDocument()
     expect(screen.getByText(i18n.t('carryOver.notSetHint'))).toBeInTheDocument()
   })
 
@@ -91,7 +95,9 @@ describe('CarryOverCard', () => {
 
     await user.click(screen.getByRole('button', { name: i18n.t('carryOver.change') }))
 
-    expect(await screen.findByRole('button', { name: i18n.t('common.delete') })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('button', { name: i18n.t('common.delete') })
+    ).toBeInTheDocument()
     // Only a new carry-over asks for a suggestion.
     expect(
       fetchMock.mock.calls.some(([url]) => String(url).includes('carry-over-suggestion'))
@@ -134,7 +140,9 @@ describe('the flow with a carry-over', () => {
   const view = (value: PlanFlow) =>
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <FlowView flow={value} />
+        <MemoryRouter>
+          <FlowView flow={value} />
+        </MemoryRouter>
       </QueryClientProvider>
     )
 
