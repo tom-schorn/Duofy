@@ -14,7 +14,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -26,6 +26,7 @@ from app.core.permissions import (
     is_member,
     owns_plan,
     require,
+    viewable_members,
 )
 from app.db.session import get_session
 from app.models.account import Account
@@ -46,6 +47,7 @@ from app.schemas.plan import (
     PlanUpdate,
     PositionCreate,
     PositionRead,
+    UnplannedTotals,
 )
 from app.services.flow import Source, build_flow
 from app.services.hints import plan_hints
@@ -173,6 +175,40 @@ def _summarize(
         "unpaid": unpaid,
         "household_ids": household_ids,
     }
+
+
+async def _unplanned(
+    session: AsyncSession, owner_ids: list[uuid.UUID], year: int, month: int
+) -> UnplannedTotals:
+    """Bookings of the plan month that hang on no position, by their own budget.
+
+    The booking's stored `budget` decides, not the category's suggestion: the person
+    already answered that when booking. A transfer is no spending, and a carry-over
+    states a balance — both stay out. Income is reported apart (#240).
+    """
+    totals = {budget: ZERO for budget in Budget}
+    if owner_ids:
+        rows = await session.execute(
+            select(Transaction.budget, func.sum(Transaction.amount))
+            .where(
+                Transaction.owner_id.in_(owner_ids),
+                Transaction.plan_year == year,
+                Transaction.plan_month == month,
+                Transaction.position_id.is_(None),
+                Transaction.counter_account_id.is_(None),
+                Transaction.kind != TransactionKind.CARRY_OVER,
+                Transaction.budget.is_not(None),
+            )
+            .group_by(Transaction.budget)
+        )
+        for budget, total in rows.all():
+            totals[budget] = total
+    return UnplannedTotals(
+        income=totals[Budget.INCOME],
+        needs=totals[Budget.NEEDS],
+        wants=totals[Budget.WANTS],
+        savings=totals[Budget.SAVINGS],
+    )
 
 
 async def _used_position_ids(
@@ -416,7 +452,7 @@ async def create_plan(
     session.add(plan)
     await session.commit()
     await session.refresh(plan, ["positions"])
-    return await _plan_read(session, plan)
+    return await _plan_read(session, plan, user)
 
 
 @router.get("/{year}/{month}", response_model=PlanRead)
@@ -452,7 +488,7 @@ async def get_plan(
     plan = result.scalar_one_or_none()
     if plan is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "plan_not_found"})
-    return await _plan_read(session, plan)
+    return await _plan_read(session, plan, user)
 
 
 @router.delete("/{year}/{month}", status_code=status.HTTP_204_NO_CONTENT)
@@ -515,7 +551,7 @@ async def update_plan(
         setattr(plan, field, value)
     await session.commit()
     await session.refresh(plan, ["positions"])
-    return await _plan_read(session, plan)
+    return await _plan_read(session, plan, user)
 
 
 @router.post(
@@ -610,6 +646,12 @@ async def get_household_plan(
         household_name=household.name,
         hints=plan_hints(year, month, positions),
         positions=household_positions,
+        unplanned=await _unplanned(
+            session,
+            await viewable_members(session, household_id, user.id, Area.ACCOUNTS),
+            year,
+            month,
+        ),
         missing_members=missing_members,
         **_summarize(
             year=year,
@@ -816,13 +858,22 @@ async def get_household_flow(
 # --- Hilfen ---------------------------------------------------------------
 
 
-async def _plan_read(session: AsyncSession, plan: Plan) -> PlanRead:
+async def _plan_read(session: AsyncSession, plan: Plan, viewer: User) -> PlanRead:
     used = await _used_position_ids(session, [position.id for position in plan.positions])
+    # Unplanned bookings are the owner's book, not the plan: somebody else sees them
+    # only with their own grant on the accounts, like the flow's manual bookings.
+    sees_bookings = plan.user_id == viewer.id
+    if not sees_bookings:
+        level = await granted_level(session, plan.user_id, viewer.id, Area.ACCOUNTS)
+        sees_bookings = level.rank >= AccessLevel.VIEW.rank
     return PlanRead(
         id=plan.id,
         hints=plan_hints(plan.year, plan.month, plan.positions),
         positions=[PositionRead.model_validate(p) for p in plan.positions],
         deletable=not used,
+        unplanned=await _unplanned(
+            session, [plan.user_id] if sees_bookings else [], plan.year, plan.month
+        ),
         **_summarize(
             year=plan.year,
             month=plan.month,
