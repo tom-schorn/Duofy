@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
 
 import { FormError } from '@/components/FormError'
-import { LimitsSwitch } from '@/components/MonthFlow'
+import { LimitsSwitch } from '@/components/LimitsSwitch'
 import { QueryState } from '@/components/QueryState'
 import { QuotaSliders } from '@/components/QuotaSliders'
 import {
