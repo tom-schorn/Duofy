@@ -85,6 +85,8 @@ async def test_deletes_everything_and_hands_household_ownership_to_the_partner(
             account_id=checking.id,
             counter_account_id=savings.id,
             occurred_on=date(2026, 9, 10),
+            plan_year=2026,
+            plan_month=9,
             amount=Decimal("20.00"),
         )
     )
@@ -93,6 +95,8 @@ async def test_deletes_everything_and_hands_household_ownership_to_the_partner(
             owner_id=owner.id,
             account_id=checking.id,
             occurred_on=date(2026, 9, 12),
+            plan_year=2026,
+            plan_month=9,
             amount=Decimal("15.00"),
             category=Category.LEISURE_SUBSCRIPTIONS,
             budget=Budget.WANTS,

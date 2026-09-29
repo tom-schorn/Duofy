@@ -106,6 +106,8 @@ async def test_a_booking_without_a_position_counts_in_the_month_of_its_date(
             owner_id=owner.id,
             account_id=account.id,
             occurred_on=date(2026, 7, 15),
+            plan_year=2026,
+            plan_month=7,
             amount=Decimal("23.40"),
             category=Category.LEISURE_SUBSCRIPTIONS,
             budget=Budget.WANTS,

@@ -91,6 +91,8 @@ async def test_bookings_keep_their_order_when_one_changes(
                 owner_id=user.id,
                 account_id=account.id,
                 occurred_on=date(2026, 8, 14),
+                plan_year=2026,
+                plan_month=8,
                 amount=Decimal("10.00") + number,
                 category=Category.HOUSEHOLD_GROCERIES,
                 budget=Budget.NEEDS,
