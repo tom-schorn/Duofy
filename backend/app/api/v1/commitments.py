@@ -19,7 +19,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
-from app.core.permissions import Area, granted_level, require
+from app.core.permissions import Area, load_owned, require_level
 from app.db.session import get_session
 from app.models.commitment import Commitment
 from app.models.enums import AccessLevel, CommitmentType, resolve_budget
@@ -79,25 +79,21 @@ async def _load(
     *,
     needs: AccessLevel = AccessLevel.EDIT,
 ) -> Commitment:
-    """Load a commitment the user is allowed to act on.
+    """A commitment the user may act on: their own always, somebody else's from the
+    level the owner granted. `needs` separates changing from deleting.
 
-    Their own always, and somebody else’s from the level the owner granted.
-    `granted_level()` answers `edit` for oneself, so there is no separate case
-    for the normal path. `needs` separates changing from deleting.
+    Your own is always yours to delete — whether it is still allowed is the
+    separate question of `_require_unused`.
     """
-    commitment = await session.get(Commitment, commitment_id)
-    if commitment is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "commitment_not_found"})
-    # Your own is always yours to delete — whether it is still allowed is the
-    # separate question of `_require_unused`. Others' need the granted level.
-    if commitment.owner_id == user.id:
-        return commitment
-    level = await granted_level(session, commitment.owner_id, user.id, Area.COMMITMENTS)
-    require(
-        level.rank >= needs.rank,
-        "no_delete_granted" if needs is AccessLevel.DELETE else "no_edit_granted",
+    return await load_owned(
+        session,
+        Commitment,
+        commitment_id,
+        user,
+        Area.COMMITMENTS,
+        needs,
+        not_found="commitment_not_found",
     )
-    return commitment
 
 
 async def _mark_deletable(session: AsyncSession, commitments: list[Commitment]) -> None:
@@ -141,9 +137,7 @@ async def list_commitments(
     nothing has to.
     """
     owner_id = owner or user.id
-    if owner_id != user.id:
-        level = await granted_level(session, owner_id, user.id, Area.COMMITMENTS)
-        require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
+    await require_level(session, owner_id, user, Area.COMMITMENTS, AccessLevel.VIEW)
 
     if status_filter not in STATUS_FILTERS:
         raise HTTPException(
@@ -175,9 +169,7 @@ async def create_commitment(
     The contract belongs to the **owner** and, through them, to their one household.
     """
     owner_id = owner or user.id
-    if owner_id != user.id:
-        level = await granted_level(session, owner_id, user.id, Area.COMMITMENTS)
-        require(level.rank >= AccessLevel.EDIT.rank, "no_edit_granted")
+    await require_level(session, owner_id, user, Area.COMMITMENTS, AccessLevel.EDIT)
 
     # A limit only means something on a contract — see `_check_limit`.
     _check_limit(payload.type, payload.is_limit)

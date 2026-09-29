@@ -15,12 +15,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
-from app.core.permissions import (
-    Area,
-    granted_level,
-    owns_plan,
-    require,
-)
+from app.core.permissions import Area, load_position, require
 from app.db.session import get_session
 from app.models.account import Account
 from app.models.enums import AccessLevel
@@ -39,21 +34,9 @@ async def _load(
     *,
     needs: AccessLevel = AccessLevel.EDIT,
 ) -> tuple[PlanPosition, Plan]:
-    position = await session.get(PlanPosition, position_id)
-    if position is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "position_not_found"})
-
-    plan = await session.get(Plan, position.plan_id)
-    if plan is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "plan_not_found"})
-
-    # Your own position is always allowed.
-    if owns_plan(user, plan):
-        return position, plan
-
-    # Somebody else position only from the level the owner granted, and only the
-    # owner can grant it. Without it everyone carries their own part and books on
-    # their own positions.
+    # Your own position is always allowed. Somebody else position only from the
+    # level the owner granted in `Area.PLAN`, and only the owner can grant it.
+    # Without it everyone carries their own part and books on their own positions.
     #
     # It stays traceable through `plan_position_changes`, which records who changed
     # which field when. That is why this needs a log rather than a lock: locking
@@ -61,12 +44,7 @@ async def _load(
     #
     # Deleting asks for `delete` rather than `edit`: a change is in that log and
     # can be undone, a deletion is in neither.
-    level = await granted_level(session, plan.user_id, user.id, Area.PLAN)
-    require(
-        level.rank >= needs.rank,
-        "no_delete_granted" if needs is AccessLevel.DELETE else "no_edit_granted",
-    )
-    return position, plan
+    return await load_position(session, position_id, user, Area.PLAN, needs)
 
 
 async def _check_accounts(session: AsyncSession, plan: Plan, changes: dict) -> None:

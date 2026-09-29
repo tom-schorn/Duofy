@@ -24,8 +24,8 @@ from app.core.permissions import (
     granted_level,
     household_member_ids,
     is_member,
-    owns_plan,
     require,
+    require_level,
 )
 from app.db.session import get_session
 from app.models.account import Account
@@ -230,8 +230,6 @@ async def _load_plan(
     session: AsyncSession,
     plan_id: uuid.UUID,
     user: User,
-    *,
-    allow_delegate: bool = True,
 ) -> Plan:
     """A month, either your own or one you stand in for.
 
@@ -245,12 +243,7 @@ async def _load_plan(
     if plan is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "plan_not_found"})
 
-    if owns_plan(user, plan):
-        return plan
-
-    require(allow_delegate, "not_plan_owner")
-    level = await granted_level(session, plan.user_id, user.id, Area.PLAN)
-    require(level.rank >= AccessLevel.EDIT.rank, "no_edit_granted")
+    await require_level(session, plan.user_id, user, Area.PLAN, AccessLevel.EDIT)
     return plan
 
 
@@ -266,9 +259,7 @@ async def list_plans(
     auf `Area.PLAN` gegeben hat — dieselbe Regel wie beim einzelnen Monat.
     """
     owner_id = owner or user.id
-    if owner_id != user.id:
-        level = await granted_level(session, owner_id, user.id, Area.PLAN)
-        require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
+    await require_level(session, owner_id, user, Area.PLAN, AccessLevel.VIEW)
 
     result = await session.execute(
         select(Plan)
@@ -396,9 +387,7 @@ async def create_plan(
     quietly build the wrong person a month out of the wrong contracts.
     """
     owner_id = owner or user.id
-    if owner_id != user.id:
-        level = await granted_level(session, owner_id, user.id, Area.PLAN)
-        require(level.rank >= AccessLevel.EDIT.rank, "no_edit_granted")
+    await require_level(session, owner_id, user, Area.PLAN, AccessLevel.EDIT)
 
     existing = await session.execute(
         select(Plan).where(
@@ -479,9 +468,7 @@ async def get_plan(
     are not private and merges every member.
     """
     owner_id = owner or user.id
-    if owner_id != user.id:
-        level = await granted_level(session, owner_id, user.id, Area.PLAN)
-        require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
+    await require_level(session, owner_id, user, Area.PLAN, AccessLevel.VIEW)
 
     result = await session.execute(
         select(Plan)
@@ -516,9 +503,7 @@ async def delete_plan(
     asks for more than changing.
     """
     owner_id = owner or user.id
-    if owner_id != user.id:
-        level = await granted_level(session, owner_id, user.id, Area.PLAN)
-        require(level.rank >= AccessLevel.DELETE.rank, "no_delete_granted")
+    await require_level(session, owner_id, user, Area.PLAN, AccessLevel.DELETE)
 
     result = await session.execute(
         select(Plan)
@@ -772,9 +757,7 @@ async def get_flow(
     owner_id = owner or user.id
     # Manual bookings and the account name belong to the accounts area, not to the
     # plan: for somebody else's plan they need their own grant.
-    if owner_id != user.id:
-        level = await granted_level(session, owner_id, user.id, Area.PLAN)
-        require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
+    await require_level(session, owner_id, user, Area.PLAN, AccessLevel.VIEW)
     sees_accounts = await _may_see_bookings(session, owner_id, user)
 
     result = await session.execute(

@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.transactions import _recalc_position
 from app.core.auth import current_active_user
-from app.core.permissions import Area, granted_level, require
+from app.core.permissions import Area, load_owned, require, require_level
 from app.db.session import get_session
 from app.models.account import Account
 from app.models.enums import AccessLevel, Category
@@ -48,28 +48,24 @@ router = APIRouter()
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 
-async def _may_act_for(session: AsyncSession, owner_id: uuid.UUID, user: User) -> None:
-    """Importing and booking both hang off `Area.ACCOUNTS` at level `edit`.
-
-    The same rule `transactions.py` uses — an import is a way of writing
-    bookings, so it cannot be an easier one.
-    """
-    if owner_id == user.id:
-        return
-    level = await granted_level(session, owner_id, user.id, Area.ACCOUNTS)
-    require(level.rank >= AccessLevel.EDIT.rank, "no_edit_granted")
-
-
 async def _load(
     session: AsyncSession, entry_id: uuid.UUID, user: User
 ) -> ImportedEntry:
-    entry = await session.get(ImportedEntry, entry_id)
-    if entry is None:
-        raise HTTPException(
-            status.HTTP_404_NOT_FOUND, detail={"code": "imported_entry_not_found"}
-        )
-    await _may_act_for(session, entry.owner_id, user)
-    return entry
+    """Importing and booking both hang off `Area.ACCOUNTS` at level `edit`.
+
+    The same rule `transactions.py` uses — an import is a way of writing
+    bookings, so it cannot be an easier one. Discarding asks for `edit` as well,
+    not `delete`.
+    """
+    return await load_owned(
+        session,
+        ImportedEntry,
+        entry_id,
+        user,
+        Area.ACCOUNTS,
+        AccessLevel.EDIT,
+        not_found="imported_entry_not_found",
+    )
 
 
 async def _read_body(file: UploadFile) -> bytes:
@@ -114,7 +110,7 @@ async def upload(
     why `account` is passed down into the reader.
     """
     owner_id = owner or user.id
-    await _may_act_for(session, owner_id, user)
+    await require_level(session, owner_id, user, Area.ACCOUNTS, AccessLevel.EDIT)
 
     chosen = await session.get(Account, account) if account is not None else None
     try:
@@ -780,9 +776,7 @@ async def list_entries(
     them was given a category.
     """
     owner_id = owner or user.id
-    if owner_id != user.id:
-        level = await granted_level(session, owner_id, user.id, Area.ACCOUNTS)
-        require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
+    await require_level(session, owner_id, user, Area.ACCOUNTS, AccessLevel.VIEW)
 
     rows = await session.execute(
         select(ImportedEntry)
