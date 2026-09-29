@@ -25,6 +25,7 @@ from app.schemas.household import (
     InvitationPreview,
     InvitationRead,
     MemberRead,
+    MemberRoleUpdate,
     MyInvitationRead,
 )
 from app.services.grants import drop_all_of, levels_with, no_levels, set_levels
@@ -44,6 +45,18 @@ async def _load(session: AsyncSession, household_id: uuid.UUID) -> Household:
     if household is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "household_not_found"})
     return household
+
+
+async def _lock_members(session: AsyncSession, household_id: uuid.UUID) -> None:
+    """Serialise changes to who is in a household and who is admin.
+
+    Two admins demoting or removing each other at the same moment would each
+    still count the other and leave the household without one. Locking the
+    household row first makes the second request wait and then see the first.
+    """
+    await session.execute(
+        select(Household.id).where(Household.id == household_id).with_for_update()
+    )
 
 
 async def _admin_count(session: AsyncSession, household_id: uuid.UUID) -> int:
@@ -198,6 +211,7 @@ async def leave_household(
     genau einem. Posten und Verträge bleiben unverändert; weil sie am Haushalt der
     Person hängen, sehen die bisherigen Mitglieder sie nicht mehr.
     """
+    await _lock_members(session, household_id)
     result = await session.execute(
         select(HouseholdMember).where(
             HouseholdMember.household_id == household_id,
@@ -246,6 +260,7 @@ async def remove_member(
     their own, keep all their data, and every grant from and to them is gone.
     Another admin may be removed too (decision 68); removing oneself is leaving.
     """
+    await _lock_members(session, household_id)
     require(await is_household_admin(session, user.id, household_id), "not_household_admin")
     if user_id == user.id:
         raise HTTPException(
@@ -259,6 +274,38 @@ async def remove_member(
     await session.flush()
     await create_own_household(session, removed)
     await session.commit()
+
+
+@router.patch("/{household_id}/members/{user_id}", response_model=MemberRead)
+async def set_role(
+    household_id: uuid.UUID,
+    user_id: uuid.UUID,
+    payload: MemberRoleUpdate,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_active_user),
+) -> MemberRead:
+    """Make somebody admin or take the role away — admins only (decisions 58, 68).
+
+    All admins are equal, so one may demote another. Only the last admin keeps the
+    role: without one nobody could invite or remove anymore. Handing the household
+    on (#249) is two steps: make the other admin, then step down or leave.
+    """
+    await _lock_members(session, household_id)
+    require(await is_household_admin(session, user.id, household_id), "not_household_admin")
+    member = await _member_of(session, household_id, user_id)
+    if (
+        member.role is Role.ADMIN
+        and payload.role is Role.MEMBER
+        and await _admin_count(session, household_id) == 1
+    ):
+        raise HTTPException(status.HTTP_409_CONFLICT, detail={"code": "last_admin_required"})
+
+    member.role = payload.role
+    await session.commit()
+
+    target = await session.get(User, user_id)
+    given, received = await levels_with(session, user.id, [user_id])
+    return _member_read(member, target, given, received)
 
 
 # --- Einladungen ----------------------------------------------------------
