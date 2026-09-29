@@ -57,7 +57,7 @@ jobs:
 
       # Pinned in full: setup-uv publishes no moving `v9` tag, only `v9.0.0`. With
       # `@v9` GitHub cannot find the action.
-      - uses: astral-sh/setup-uv@v9.0.0
+      - uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
