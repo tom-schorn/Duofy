@@ -127,6 +127,18 @@ class BudgetTotals(Schema):
     savings: Decimal
 
 
+class UnplannedTotals(Schema):
+    """What was booked in the month without a position, by the booking's own budget.
+
+    Income is apart on purpose: it raises what is left, but never the budgets.
+    """
+
+    income: Decimal
+    needs: Decimal
+    wants: Decimal
+    savings: Decimal
+
+
 class PlanSummary(PlanBase):
     """One row in the plan overview.
 
@@ -157,6 +169,9 @@ class PlanRead(PlanSummary):
     #: Derived on every read, never stored; ticking a position off removes its hint.
     hints: list[Hint] = Field(default_factory=list)
     positions: list[PositionRead]
+    #: Bookings of this plan month that hang on no position (#240). Empty of
+    #: figures (all zero) where the viewer may not see the bookings.
+    unplanned: UnplannedTotals
 
 
 class HouseholdPositionRead(PositionRead):
@@ -180,6 +195,8 @@ class HouseholdPlanRead(PlanSummary):
     #: Derived on every read, never stored; ticking a position off removes its hint.
     hints: list[Hint] = Field(default_factory=list)
     positions: list[HouseholdPositionRead]
+    #: The unplanned bookings of every member whose accounts the viewer may see (#240).
+    unplanned: UnplannedTotals
     #: First names of current members who have not created this month yet. Empty
     #: means complete. Set means `positions` and `hints` are empty on purpose — a
     #: half plan is not shown, only the names still missing.
