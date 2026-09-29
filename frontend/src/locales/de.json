@@ -863,7 +863,6 @@
   },
   "plan": {
     "printHeader": "Duofy · Monatsplan {{month}} {{year}} · gedruckt am {{date}}",
-    "positionsFrom": "{{number}} Posten aus {{household}}",
     "untickText": "Das nimmt die Buchung über <amount>{{amount}}</amount> aus dem Haushaltsbuch. Von Hand erfasste Buchungen an diesem Posten bleiben stehen.",
     "memberLead": "{{name}}s ganzer Monat, auch die privaten Posten — so freigegeben.",
     "printHeaderHousehold": "Duofy · Haushalt {{household}} · {{month}} {{year}} · gedruckt am {{date}}",

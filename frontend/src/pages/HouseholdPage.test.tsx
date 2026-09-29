@@ -94,13 +94,13 @@ describe('HouseholdPage', () => {
     expect(screen.queryByLabelText(/weitere Aktionen/)).toBeNull()
   })
 
-  test('the confirmation says the positions leave in every month and do not come back on re-joining', async () => {
+  test('the confirmation says the positions leave in every month and that a fresh own household follows', async () => {
     const user = userEvent.setup()
     renderPage()
     await user.click(await leaveButton())
     const dialog = screen.getByRole('alertdialog')
     expect(dialog).toHaveTextContent(/in keinem Monat, auch nicht in vergangenen/)
-    expect(dialog).toHaveTextContent(/Wiedereintritt kommen sie nicht von selbst zurück/)
+    expect(dialog).toHaveTextContent(/neuen, eigenen Haushalt/)
   })
 
   test('leaving asks first, starts on Abbrechen, leaves on confirm and focuses the page heading', async () => {
