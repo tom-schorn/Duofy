@@ -24,6 +24,7 @@ import { ApiError } from '@/lib/api'
 import { longDate, today } from '@/lib/dates'
 import {
   BUDGETS,
+  isPaid,
   monthLabel,
   OWN_SCOPE,
   QUOTA_KEY,
@@ -230,6 +231,10 @@ export function PlanView({
   const savePosition = useSavePosition()
   const deletePosition = useDeletePosition()
   const { toggle, dialogs: paidDialogs } = usePaidFlow(plan.year, plan.month, scope)
+  // The box goes both ways: an open one asks for ticking, a ticked one for taking
+  // the tick back — the two need different steps of the book grant.
+  const tickReadOnly = (position: PlanPosition) =>
+    isPaid(position) ? !rights.untickPosition(position) : !rights.tickPosition(position)
   const [editing, setEditing] = useState<PlanPosition | null>(null)
   const [addingTo, setAddingTo] = useState<Budget>('wants')
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -497,7 +502,7 @@ export function PlanView({
               hints={plan.hints}
               onEdit={openEditor}
               onTogglePaid={toggle}
-              readOnly={(position) => !rights.tickPosition(position)}
+              readOnly={tickReadOnly}
               ownerName={rowOwner}
             />
 
@@ -512,7 +517,7 @@ export function PlanView({
                 hints={plan.hints}
                 onEdit={openEditor}
                 onTogglePaid={toggle}
-                readOnly={(position) => !rights.tickPosition(position)}
+                readOnly={tickReadOnly}
                 ownerName={rowOwner}
               />
             ))}
