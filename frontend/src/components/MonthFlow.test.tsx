@@ -1,5 +1,6 @@
 import '@/lib/i18n'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, test } from 'vitest'
 
@@ -59,7 +60,9 @@ function renderView(props: Partial<React.ComponentProps<typeof FlowView>> = {}) 
   const client = new QueryClient()
   render(
     <QueryClientProvider client={client}>
-      <FlowView flow={flow} {...props} />
+      <MemoryRouter>
+        <FlowView flow={flow} {...props} />
+      </MemoryRouter>
     </QueryClientProvider>
   )
 }
@@ -107,16 +110,19 @@ describe('FlowView', () => {
     expect(screen.getByText('Buchung ohne Posten')).toBeInTheDocument()
   })
 
-  test('the switch for limits shows the saved setting and can be left out for print', () => {
+  test('the flow names the setting it follows and links to the settings, no switch', () => {
     renderView({ flow: { ...flow, flowLimitsBy: 'bookings' } })
-    expect(screen.getByRole('combobox', { name: /^Limits z.hlen nach/ })).toHaveTextContent(
-      'Buchungen'
+    expect(screen.getByText(/^Limits zählen hier nach Buchungen\./)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'In den Einstellungen ändern' })).toHaveAttribute(
+      'href',
+      '/settings'
     )
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
   })
 
-  test('no switch in the print copy', () => {
-    renderView({ showSwitch: false })
-    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+  test('no hint in the print copy', () => {
+    renderView({ showHint: false })
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
   })
 
   test('a foreign plan speaks about that person, not about you', () => {

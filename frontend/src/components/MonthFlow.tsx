@@ -10,6 +10,7 @@ import {
   YAxis,
 } from 'recharts'
 import { Trans, useTranslation } from 'react-i18next'
+import { Link } from 'react-router'
 
 import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart'
 import { Badge } from '@/components/ui/badge'
@@ -73,7 +74,7 @@ type Props = Scope & {
   month: number
   /** Height of the plot area. Flatter for printing — see `PlanSankey`. */
   height?: string
-  /** Print copies show the curve only, no switch. */
+  /** Print copies show the curve only, no hint. */
   print?: boolean
   /** First name of the person whose plan this is; empty for your own. */
   ownerName?: string | null
@@ -97,7 +98,7 @@ export function MonthFlow({
           shared={householdId != null}
           ownerName={ownerName}
           height={height}
-          showSwitch={!print}
+          showHint={!print}
         />
       )}
     </QueryState>
@@ -140,17 +141,37 @@ export function LimitsSwitch({ value }: { value: FlowLimitsBy }) {
   )
 }
 
+/**
+ * What the limits are counted by is the viewer's own setting, the same in every
+ * flow — one's own, another person's and the household's (#253). It is changed in
+ * the settings only; here the flow says which setting it follows and where to change
+ * it, so nobody looks for a switch that would look like it belongs to this plan.
+ */
+function LimitsHint({ value }: { value: FlowLimitsBy }) {
+  const { t } = useTranslation()
+  return (
+    <p className="text-muted-foreground max-w-[60ch] text-xs print:hidden">
+      {t('monthFlow.limitsSetting', {
+        by: t(value === 'plan' ? 'monthFlow.limitsByPlan' : 'monthFlow.limitsByBookings'),
+      })}{' '}
+      <Link to="/settings" className="text-foreground underline underline-offset-2">
+        {t('monthFlow.limitsChange')}
+      </Link>
+    </p>
+  )
+}
+
 export function FlowView({
   flow,
   shared = false,
   height = 'h-60',
-  showSwitch = true,
+  showHint = true,
   ownerName = null,
 }: {
   flow: PlanFlow
   shared?: boolean
   height?: string
-  showSwitch?: boolean
+  showHint?: boolean
   ownerName?: string | null
 }) {
   const { t } = useTranslation()
@@ -210,7 +231,7 @@ export function FlowView({
     <Card className="gap-5 px-5 py-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <header className="flex flex-col gap-1">{flow.entries.length === 0 ? null : heading}</header>
-        {showSwitch && <LimitsSwitch value={flow.flowLimitsBy} />}
+        {showHint && <LimitsHint value={flow.flowLimitsBy} />}
       </div>
 
       {flow.entries.length === 0 ? (
