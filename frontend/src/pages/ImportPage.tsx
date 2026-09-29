@@ -51,6 +51,8 @@ export function ImportPage() {
   const { t } = useTranslation()
   const active = useActiveMember()
   const mayEdit = atLeast(active.levelFor('import'), 'edit')
+  // Discarding deletes the parked line, so it asks for `delete`, not `edit`.
+  const mayDiscard = atLeast(active.levelFor('import'), 'delete')
 
   const entries = useImportedEntries(active.id)
   // Accounts take a scope, not a plain id — see `BookScope`.
@@ -168,6 +170,7 @@ export function ImportPage() {
             <EntryTable
               entries={rows}
               mayEdit={mayEdit}
+              mayDiscard={mayDiscard}
               positionsByMonth={positionsByMonth}
               accounts={accounts.data ?? []}
             />
@@ -305,11 +308,13 @@ function uniqueMonths(entries: ImportedEntry[]): { year: number; month: number }
 function EntryTable({
   entries,
   mayEdit,
+  mayDiscard,
   positionsByMonth,
   accounts,
 }: {
   entries: ImportedEntry[]
   mayEdit: boolean
+  mayDiscard: boolean
   positionsByMonth: Map<string, PlanPosition[]>
   accounts: Account[]
 }) {
@@ -458,28 +463,28 @@ function EntryTable({
                 </td>
                 <td className="px-3 py-2 text-right whitespace-nowrap">
                   {mayEdit && (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={
-                          (entry.category === null &&
-                            entry.counterAccountId === null) ||
-                          book.isPending
-                        }
-                        onClick={() => book.mutate(entry.id)}
-                      >
-                        {t('monthBook.book')}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-muted-foreground"
-                        onClick={() => discard(entry)}
-                      >
-                        {t('import.discard')}
-                      </Button>
-                    </>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={
+                        (entry.category === null &&
+                          entry.counterAccountId === null) ||
+                        book.isPending
+                      }
+                      onClick={() => book.mutate(entry.id)}
+                    >
+                      {t('monthBook.book')}
+                    </Button>
+                  )}
+                  {mayDiscard && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-muted-foreground"
+                      onClick={() => discard(entry)}
+                    >
+                      {t('import.discard')}
+                    </Button>
                   )}
                 </td>
               </tr>
@@ -505,7 +510,7 @@ function EntryTable({
                             ? t('import.alreadyBooked', { name: suggestion.counterAccountName })
                             : t('import.maybeBooked', { name: suggestion.counterAccountName })}
                         </span>
-                        {mayEdit && (
+                        {mayDiscard && (
                           <Button
                             size="sm"
                             variant="outline"
