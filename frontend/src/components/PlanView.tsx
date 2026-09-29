@@ -431,6 +431,9 @@ export function PlanView({
         </TabsContent>
 
         <TabsContent value="flow" className="flex flex-col gap-4">
+          {/* Only in the own plan. Somebody else's carry-over asks their accounts
+              grant, not the book (decision 69): offering it here would need
+              accounts edit to set or change it and accounts delete to remove it. */}
           {scope.kind === 'own' && <OwnCarryOver year={plan.year} month={plan.month} />}
           <MonthFlow
             year={plan.year}
