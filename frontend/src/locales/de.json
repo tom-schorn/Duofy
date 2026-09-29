@@ -9,7 +9,7 @@
     "not_commitment_owner": "Dieser Vertrag gehört jemand anderem.",
     "not_household_admin": "Das dürfen nur Admins des Haushalts.",
     "not_household_member": "Du bist kein Mitglied dieses Haushalts.",
-    "household_not_empty": "In deinem Haushalt sind noch andere Personen. Die anderen Personen müssen den Haushalt zuerst selbst verlassen, dann kannst du der Einladung folgen.",
+    "household_not_empty": "In deinem Haushalt sind noch andere Personen. Tritt zuerst aus – bist du der letzte Admin, gib die Rolle vorher weiter. Dann kannst du der Einladung folgen.",
     "not_a_member": "Du bist kein Mitglied dieses Haushalts.",
     "member_not_found": "Diese Person ist nicht mehr im Haushalt.",
     "not_account_owner": "Dieses Konto gehört jemand anderem.",
