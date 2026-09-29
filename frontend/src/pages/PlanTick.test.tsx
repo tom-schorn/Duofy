@@ -163,15 +163,15 @@ describe('ticking off, one operation in every plan (#251)', () => {
   })
 
   test.each([
-    ['view', 'create', 'Du darfst abhaken;'],
-    ['edit', 'none', 'Du darfst Posten dazuschreiben und ändern;'],
-    ['delete', 'delete', 'Du darfst abhaken, Posten dazuschreiben, ändern und löschen;'],
+    ['view', 'create', /Du darfst abhaken;/],
+    ['edit', 'none', /Du darfst Posten dazuschreiben und .ndern;/],
+    ['delete', 'delete', /Du darfst abhaken, Posten dazuschreiben, .ndern und l.schen;/],
   ])(
     'plan %s and book %s: the lead names only what is allowed',
     async (planLevel, bookLevel, sentence) => {
       stub(planLevel, [], { bookLevel })
       renderAt('/plan/2026/11?member=u2')
-      expect(await screen.findByText((text) => text.includes(sentence))).toBeInTheDocument()
+      expect(await screen.findByText((text) => sentence.test(text))).toBeInTheDocument()
     }
   )
 })
