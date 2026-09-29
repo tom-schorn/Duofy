@@ -18,7 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
-from app.core.permissions import Area, load_owned, load_position, require
+from app.core.permissions import Area, load_owned, load_position, require, require_level
 from app.core.scope import HouseholdMembers, Lens, resolve_scope
 from app.db.session import get_session
 from app.models.account import Account
@@ -66,15 +66,18 @@ async def _account_owner(
     account_id: uuid.UUID,
     user: User,
     needs: AccessLevel = AccessLevel.EDIT,
+    area: Area = Area.BOOK,
 ) -> uuid.UUID:
     """Who owns the account — and whether `user` may book on it.
 
     Booking is a question of the owner's book, not of their accounts: the accounts
     grant is about the accounts themselves. Seeing the balances without the book
-    is only a hint in the grants page, never a refusal here (decision 62).
+    is only a hint in the grants page, never a refusal here (decision 62). A
+    carry-over is the exception: it sets where the account starts, so it asks the
+    accounts grant (decision 69).
     """
     account = await load_owned(
-        session, Account, account_id, user, Area.BOOK, needs, not_found="account_not_found"
+        session, Account, account_id, user, area, needs, not_found="account_not_found"
     )
     return account.owner_id
 
@@ -126,20 +129,20 @@ async def _load(
     needs: AccessLevel = AccessLevel.EDIT,
 ) -> Transaction:
     """A booking the user may act on: their own always, somebody else's from the
-    level the owner granted in `Area.BOOK`.
+    level the owner granted in `Area.BOOK` — or in `Area.ACCOUNTS` for a
+    carry-over, which belongs to the account rather than the book (decision 69).
 
     `needs` separates changing from deleting: a wrong booking can be corrected,
     a deleted one leaves a gap in a balance that nothing explains.
     """
-    return await load_owned(
-        session,
-        Transaction,
-        transaction_id,
-        user,
-        Area.BOOK,
-        needs,
-        not_found="transaction_not_found",
-    )
+    transaction = await session.get(Transaction, transaction_id)
+    if transaction is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail={"code": "transaction_not_found"}
+        )
+    area = Area.ACCOUNTS if transaction.kind is TransactionKind.CARRY_OVER else Area.BOOK
+    await require_level(session, transaction.owner_id, user, area, needs)
+    return transaction
 
 
 async def _check_carry_over_change(
@@ -161,7 +164,9 @@ async def _check_carry_over_change(
     if changes.get("account_id") is not None:
         # Ownership first: otherwise "taken" (409) against "not yours" (403) would
         # tell a stranger which months another person's account has a carry-over for.
-        new_owner = await _account_owner(session, changes["account_id"], user)
+        new_owner = await _account_owner(
+            session, changes["account_id"], user, area=Area.ACCOUNTS
+        )
         require(new_owner == transaction.owner_id, "not_account_owner")
     await _require_free_month(
         session,
@@ -273,8 +278,15 @@ async def create_transaction(
     # off somebody else position puts the booking in **their** book; booking
     # directly has to behave the same, otherwise their payment would show up in the
     # delegate book.
+    # A carry-over sets where somebody's account starts: that is their accounts,
+    # at edit, not a booking in their book (decision 69).
+    carry_over = payload.kind is TransactionKind.CARRY_OVER
     booking_owner = await _account_owner(
-        session, payload.account_id, user, AccessLevel.CREATE
+        session,
+        payload.account_id,
+        user,
+        AccessLevel.EDIT if carry_over else AccessLevel.CREATE,
+        area=Area.ACCOUNTS if carry_over else Area.BOOK,
     )
     if payload.counter_account_id is not None:
         target_owner = await _account_owner(
@@ -287,7 +299,7 @@ async def create_transaction(
         )
         require(position_owner == booking_owner, "position_needs_same_owner")
 
-    if payload.kind is TransactionKind.CARRY_OVER:
+    if carry_over:
         await _require_free_month(session, payload.account_id, payload.occurred_on)
 
     chosen = (

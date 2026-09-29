@@ -11,6 +11,8 @@ opens another.
 """
 
 from collections.abc import Awaitable, Callable
+from datetime import date
+from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient, Response
@@ -20,8 +22,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import current_active_user
 from app.core.permissions import Area
 from app.main import app
-from app.models.enums import AccessLevel, Role
+from app.models.enums import AccessLevel, Role, TransactionKind
 from app.models.household import HouseholdMember
+from app.models.transaction import Transaction
 from app.models.user import User
 from app.services.grants import set_levels
 from tests.test_access_paths import _account, _commitment, _entry, _position, _transaction
@@ -259,3 +262,81 @@ async def test_a_grant_to_one_member_gives_another_nothing(
 
     assert response.status_code == 403
     assert response.json()["detail"] == {"code": "no_insight_granted"}
+
+
+async def _carry_over(session: AsyncSession, owner) -> Transaction:
+    account = await _account(session, owner)
+    transaction = Transaction(
+        owner_id=owner.id,
+        account_id=account.id,
+        kind=TransactionKind.CARRY_OVER,
+        occurred_on=date(2026, 9, 1),
+        plan_year=2026,
+        plan_month=9,
+        amount=Decimal("10.00"),
+    )
+    session.add(transaction)
+    await session.flush()
+    return transaction
+
+
+async def _carry_over_create(client, session, owner):
+    account = await _account(session, owner)
+    await session.commit()
+    return await client.post(
+        "/api/v1/transactions",
+        json={
+            "kind": "carry_over",
+            "accountId": str(account.id),
+            "occurredOn": "2026-09-01",
+            "amount": "10.00",
+        },
+    )
+
+
+async def _carry_over_edit(client, session, owner):
+    transaction = await _carry_over(session, owner)
+    await session.commit()
+    return await client.patch(f"/api/v1/transactions/{transaction.id}", json={"amount": "12.00"})
+
+
+async def _carry_over_delete(client, session, owner):
+    transaction = await _carry_over(session, owner)
+    await session.commit()
+    return await client.delete(f"/api/v1/transactions/{transaction.id}")
+
+
+CARRY_OVER_CALLS: dict[str, tuple[Call, AccessLevel, str]] = {
+    "create": (_carry_over_create, AccessLevel.EDIT, "no_edit_granted"),
+    "edit": (_carry_over_edit, AccessLevel.EDIT, "no_edit_granted"),
+    "delete": (_carry_over_delete, AccessLevel.DELETE, "no_delete_granted"),
+}
+
+
+@pytest.mark.parametrize("action", list(CARRY_OVER_CALLS))
+@pytest.mark.parametrize("level", list(AccessLevel), ids=lambda level: level.value)
+async def test_a_carry_over_on_another_persons_account_asks_the_accounts_not_the_book(
+    client: AsyncClient,
+    session: AsyncSession,
+    owner_and_helper,
+    level: AccessLevel,
+    action: str,
+) -> None:
+    """Decision 69: a carry-over sets where an account starts. Creating and changing
+    it need accounts `edit`, deleting it accounts `delete` — the book grant, even
+    at its top, opens none of it."""
+    owner, helper = owner_and_helper
+    await set_levels(
+        session, owner.id, helper.id, {Area.ACCOUNTS: level, Area.BOOK: AccessLevel.DELETE}
+    )
+    await session.commit()
+    sign_in(helper)
+
+    call, needed, code = CARRY_OVER_CALLS[action]
+    response = await call(client, session, owner)
+
+    if level.rank >= needed.rank:
+        assert response.status_code != 403, response.text
+    else:
+        assert response.status_code == 403, response.text
+        assert response.json()["detail"] == {"code": code}
