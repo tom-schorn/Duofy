@@ -21,9 +21,9 @@ from app.core.auth import current_active_user
 from app.core.permissions import (
     Area,
     granted_level,
+    household_member_ids,
     is_member,
     require,
-    viewable_members,
 )
 from app.db.session import get_session
 from app.models.account import Account
@@ -216,13 +216,12 @@ async def list_transactions(
     # Whose book: your own, one person, or the household. Bookings are private —
     # they only become visible once the owner granted at least level `view`. The
     # owner decides, not the reader.
-    # TODO(#242): the household book should show every member's bookings except
-    # those on private positions, regardless of the accounts grant (decision 48),
-    # like the household plan. Until #242 lands it follows the accounts grant.
-    # `plans._unplanned` for the household plan has to follow the same rule.
+    # The household book shows every member's bookings except those on a private
+    # position, whatever the accounts grant says: the same rule as the household
+    # plan, so book and plan add up to the same thing (decision 48, #242).
     if household is not None:
         require(await is_member(session, user.id, household), "not_household_member")
-        owner_ids = await viewable_members(session, household, user.id, Area.ACCOUNTS)
+        owner_ids = await household_member_ids(session, household)
     elif owner is not None and owner != user.id:
         level = await granted_level(session, owner, user.id, Area.ACCOUNTS)
         require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
@@ -234,6 +233,12 @@ async def list_transactions(
     query = select(Transaction, User.first_name).join(
         User, User.id == Transaction.owner_id
     ).where(Transaction.owner_id.in_(owner_ids))
+
+    if household is not None:
+        private = select(PlanPosition.id).where(PlanPosition.is_private.is_(True))
+        query = query.where(
+            Transaction.position_id.is_(None) | Transaction.position_id.not_in(private)
+        )
 
     if year is not None:
         query = query.where(Transaction.plan_year == year)

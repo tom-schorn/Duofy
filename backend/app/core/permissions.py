@@ -98,6 +98,18 @@ async def granted_level(
     return max(stufen, key=lambda s: s.rank) if stufen else AccessLevel.PLAN
 
 
+async def household_member_ids(
+    session: AsyncSession, household_id: uuid.UUID
+) -> list[uuid.UUID]:
+    """Every member of a household. The household plan and book show everything of
+    everybody except what sits on a private position, so no grant narrows this list
+    (decision 48, #242)."""
+    result = await session.execute(
+        select(HouseholdMember.user_id).where(HouseholdMember.household_id == household_id)
+    )
+    return list(result.scalars())
+
+
 async def viewable_members(
     session: AsyncSession, household_id: uuid.UUID, viewer_id: uuid.UUID, area: Area
 ) -> list[uuid.UUID]:

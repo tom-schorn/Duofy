@@ -22,10 +22,10 @@ from app.core.auth import current_active_user
 from app.core.permissions import (
     Area,
     granted_level,
+    household_member_ids,
     is_member,
     owns_plan,
     require,
-    viewable_members,
 )
 from app.db.session import get_session
 from app.models.account import Account
@@ -172,8 +172,8 @@ def _summarize(
 
 async def _may_see_bookings(session: AsyncSession, owner_id: uuid.UUID, viewer: User) -> bool:
     """Whether `viewer` may see the bookings of `owner_id`: one's own always, another
-    person's from the level `view` they granted on the accounts. The household form
-    of this rule is `viewable_members`."""
+    person's from the level `view` they granted on the accounts. The household has no
+    grant to check: it sees every member (`household_member_ids`)."""
     if owner_id == viewer.id:
         return True
     level = await granted_level(session, owner_id, viewer.id, Area.ACCOUNTS)
@@ -647,9 +647,7 @@ async def get_household_plan(
         # A half plan shows nothing, and that goes for its sums too.
         unplanned=await _unplanned(
             session,
-            []
-            if missing_members
-            else await viewable_members(session, household_id, user.id, Area.ACCOUNTS),
+            [] if missing_members else await household_member_ids(session, household_id),
             year,
             month,
         ),
