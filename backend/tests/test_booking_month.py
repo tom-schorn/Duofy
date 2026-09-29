@@ -1,6 +1,8 @@
 """Which month a booking belongs to (`GET /transactions?year=&month=`).
 
-With a position, the **plan** decides the month; without one, `occurred_on` does.
+The **plan month** of a booking decides (#239): with a position it is the month of
+that position's plan, without one it is the month of `occurred_on` unless another
+was chosen.
 Benefits paid on 31 July for August belong in August, with their real July date —
 excluding rather than adding on top is what keeps a booking in exactly one month.
 
@@ -80,6 +82,8 @@ async def test_a_booking_with_a_position_follows_the_plan_month(
             category=Category.INCOME_BENEFITS,
             budget=Budget.INCOME,
             position_id=august_position.id,
+            plan_year=2026,
+            plan_month=8,
         )
     )
     await session.commit()
@@ -93,7 +97,7 @@ async def test_a_booking_with_a_position_follows_the_plan_month(
     assert in_july.json() == []
 
 
-async def test_a_booking_without_a_position_follows_its_own_date(
+async def test_a_booking_without_a_position_counts_in_the_month_of_its_date(
     client: AsyncClient, session: AsyncSession, owner: User
 ):
     account = await make_account(session, owner)
@@ -136,6 +140,8 @@ async def test_a_booking_never_counts_in_both_months(
             category=Category.INCOME_BENEFITS,
             budget=Budget.INCOME,
             position_id=august_position.id,
+            plan_year=2026,
+            plan_month=8,
         )
     )
     await session.commit()

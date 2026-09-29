@@ -3,12 +3,27 @@ from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import CheckConstraint, Date, ForeignKey, Index, Numeric, String, text
+from sqlalchemy.engine.default import DefaultExecutionContext
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.db.types import enum_column
 from app.models.enums import CATEGORY_LENGTH, Budget, Category, TransactionKind
 from app.models.mixins import TimestampMixin, UUIDMixin
+
+
+def _month_of_date(part: str):
+    """Column default: the year or month of `occurred_on`.
+
+    The API sets the plan month explicitly (`app/services/plan_month.py`). This
+    default is the rule that holds when nobody says otherwise — and the fixed one
+    for a carry-over and a pure transfer.
+    """
+
+    def default(context: DefaultExecutionContext) -> int:
+        return getattr(context.get_current_parameters()["occurred_on"], part)
+
+    return default
 
 
 class Transaction(Base, UUIDMixin, TimestampMixin):
@@ -74,6 +89,8 @@ class Transaction(Base, UUIDMixin, TimestampMixin):
             "kind <> 'carry_over' OR EXTRACT(DAY FROM occurred_on) = 1",
             name="ck_transaction_carry_over_on_first_of_month",
         ),
+        CheckConstraint("plan_month BETWEEN 1 AND 12", name="ck_transaction_plan_month"),
+        Index("ix_transactions_plan_year_plan_month", "plan_year", "plan_month"),
         # Two carry-overs on the same day would leave open which one counts.
         Index(
             "uq_transaction_one_carry_over_per_account_and_month",
@@ -105,6 +122,21 @@ class Transaction(Base, UUIDMixin, TimestampMixin):
     )
 
     occurred_on: Mapped[date] = mapped_column(Date, index=True)
+
+    #: The month of the plan this booking counts in (#239). Not the month of
+    #: `occurred_on`: a salary paid on 25 September can be October's income.
+    #:
+    #: With a position, that position's plan decides. Without one it is chosen —
+    #: previous, own or next month of the date. A carry-over and a pure transfer
+    #: always count in the month of their date. Stored rather than derived from
+    #: the position, because it must survive the position being deleted (SET NULL
+    #: below) and because unplanned bookings have no plan to ask.
+    #:
+    #: Not a foreign key to `plans`: the month may not have been created yet, and
+    #: the booking counts there all the same once it is.
+    plan_year: Mapped[int] = mapped_column(default=_month_of_date("year"))
+    plan_month: Mapped[int] = mapped_column(default=_month_of_date("month"))
+
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     note: Mapped[str | None] = mapped_column(String(200), nullable=True)
 

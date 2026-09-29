@@ -245,6 +245,8 @@ async def mark_paid(
                 budget=position.budget,
                 position_id=position.id,
                 auto_booked=True,
+                plan_year=plan.year,
+                plan_month=plan.month,
             )
         )
         await session.flush()
