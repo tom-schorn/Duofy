@@ -32,6 +32,7 @@ async def _load(
     position_id: uuid.UUID,
     user: User,
     *,
+    area: Area = Area.PLAN,
     needs: AccessLevel = AccessLevel.EDIT,
 ) -> tuple[PlanPosition, Plan]:
     # Your own position is always allowed. Somebody else's position only from the
@@ -44,7 +45,10 @@ async def _load(
     #
     # Deleting asks for `delete` rather than `edit`: a change is in that log and
     # can be undone, a deletion is in neither.
-    return await load_position(session, position_id, user, Area.PLAN, needs)
+    #
+    # Ticking off is not a change to the plan but a booking in the owner's book, so
+    # it asks the book (decision 61); see `mark_paid`.
+    return await load_position(session, position_id, user, area, needs)
 
 
 async def _check_accounts(session: AsyncSession, plan: Plan, changes: dict) -> None:
@@ -163,7 +167,11 @@ async def mark_paid(
     differently than planned. Without those two fields one would have to go into the
     book afterwards and correct the booking that was just created.
     """
-    position, plan = await _load(session, position_id, user)
+    # A tick writes into the owner's book, so it needs `book: create` from them —
+    # not the plan grant (decision 61).
+    position, plan = await _load(
+        session, position_id, user, area=Area.BOOK, needs=AccessLevel.CREATE
+    )
     payload = payload or PositionPaid()
 
     already = await session.scalar(
@@ -239,7 +247,10 @@ async def unmark_paid(
     The frontend asks first and names the amount, so that a manually corrected
     figure does not disappear unnoticed.
     """
-    position, _ = await _load(session, position_id, user)
+    # Taking the tick back deletes the booking it made: `book: delete` (Tom, 29.09.).
+    position, _ = await _load(
+        session, position_id, user, area=Area.BOOK, needs=AccessLevel.DELETE
+    )
     position.paid_at = None
 
     booked = await session.execute(
