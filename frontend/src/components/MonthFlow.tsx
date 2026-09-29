@@ -16,15 +16,7 @@ import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader } from '@/components/ui/empty'
-import { Label } from '@/components/ui/label'
 import { QueryState } from '@/components/QueryState'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -47,8 +39,7 @@ import {
 import { today } from '@/lib/dates'
 import { formatNumber } from '@/lib/format'
 import { locale } from '@/lib/i18n'
-import { announce } from '@/lib/undo-delete'
-import { useFlow, useSetFlowLimitsBy } from '@/lib/queries'
+import { useFlow } from '@/lib/queries'
 
 /**
  * The flow of money across the month: when does what come in and go out.
@@ -102,42 +93,6 @@ export function MonthFlow({
         />
       )}
     </QueryState>
-  )
-}
-
-export function LimitsSwitch({ value }: { value: FlowLimitsBy }) {
-  const { t } = useTranslation()
-  const save = useSetFlowLimitsBy()
-  return (
-    <div className="flex flex-col gap-1.5 print:hidden">
-      <Label htmlFor="flow-limits-by">{t('monthFlow.limitsBy')}</Label>
-      {/* Not disabled while saving: that would drop the focus. A second choice
-          during the save is simply ignored. */}
-      <Select
-        value={value}
-        onValueChange={(next) => {
-          if (save.isPending) return
-          save.mutate(next as FlowLimitsBy, {
-            onSuccess: () =>
-              announce(
-                'success',
-                t(next === 'bookings' ? 'monthFlow.limitsNowBookings' : 'monthFlow.limitsNowPlan')
-              ),
-          })
-        }}
-      >
-        <SelectTrigger id="flow-limits-by" className="w-56" aria-busy={save.isPending}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="plan">{t('monthFlow.limitsByPlan')}</SelectItem>
-          <SelectItem value="bookings">{t('monthFlow.limitsByBookings')}</SelectItem>
-        </SelectContent>
-      </Select>
-      <p className="text-muted-foreground max-w-[60ch] text-xs">
-        {t(value === 'plan' ? 'monthFlow.limitsByPlanHint' : 'monthFlow.limitsByBookingsHint')}
-      </p>
-    </div>
   )
 }
 
