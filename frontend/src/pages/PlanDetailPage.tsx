@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Trans, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { ArrowLeft, Eye, Pencil, Plus, Printer, Trash2, Users } from 'lucide-react'
 
@@ -9,17 +9,7 @@ import { BookMetrics } from '@/components/BookMetrics'
 import { EmptyState } from '@/components/EmptyState'
 import { MonthBook, type BookFilter } from '@/components/MonthBook'
 import { BudgetSection } from '@/components/BudgetSection'
-import { PaidDialog } from '@/components/PaidDialog'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+import { usePaidFlow } from '@/components/PaidFlow'
 import { Metric } from '@/components/Metric'
 import { MonthSwitch } from '@/components/MonthSwitch'
 import { MonthHints } from '@/components/MonthHints'
@@ -32,8 +22,7 @@ import { CarryOverCard } from '@/components/CarryOverCard'
 import { MonthFlow } from '@/components/MonthFlow'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PositionDialog } from '@/components/PositionDialog'
-import { ApiError, errorText } from '@/lib/api'
-import { positionHasBookings } from '@/lib/paid'
+import { ApiError } from '@/lib/api'
 import {
   Empty,
   EmptyDescription,
@@ -53,14 +42,11 @@ import {
   useTransactions,
   usePlan,
   useSavePosition,
-  useTogglePaid,
 } from '@/lib/queries'
 import {
   BUDGETS,
   monthLabel,
   QUOTA_KEY,
-  euro,
-  isPaid,
   stillDue,
   type AccessLevel,
   type Budget,
@@ -407,9 +393,10 @@ function PlanBody({
   const { t } = useTranslation()
   const savePosition = useSavePosition()
   const deletePosition = useDeletePosition()
-  const togglePaid = useTogglePaid()
-  // The position whose booking dialog is currently open.
-  const [booking, setBooking] = useState<PlanPosition | null>(null)
+  const { toggle: togglePaidWithGuard, dialogs: paidDialogs } = usePaidFlow(
+    plan.year,
+    plan.month
+  )
 
   // The tab lives in the URL: otherwise every reload lands back in the plan even
   // though one was just working in the book. A link to the flow of a month stays
@@ -449,38 +436,6 @@ function PlanBody({
     (entry) =>
       entry.kind === 'carry_over' && entry.accountId === defaultAccount?.id
   )
-
-  /** The position whose self-created booking is about to disappear. */
-  const [confirming, setConfirming] = useState<PlanPosition | null>(null)
-
-  const autoBookedOf = (position: PlanPosition) =>
-    transactions.data?.find(
-      (entry) => entry.positionId === position.id && entry.autoBooked
-    )
-
-  /**
-   * Ticking and un-ticking are not symmetric:
-   *
-   * Ticking quietly creates a booking — unless there is no account, in which case a
-   * hint follows. Un-ticking **removes** the booking again, and that is a loss of
-   * data one wants to know about.
-   */
-  function togglePaidWithGuard(position: PlanPosition) {
-    const paid = isPaid(position)
-
-    if (paid) {
-      if (autoBookedOf(position)) {
-        setConfirming(position)
-        return
-      }
-      togglePaid.mutate({ id: position.id, paid: false })
-      return
-    }
-
-    // Always ask, even for a position that already has bookings: the dialog says
-    // that date and amount are not used then, and shows a rejected tick in place.
-    setBooking(position)
-  }
 
   const groups = BUDGETS.map((budget) => {
     const key = budget as keyof typeof QUOTA_KEY
@@ -760,80 +715,7 @@ function PlanBody({
 
       <PlanPrintout plan={plan} />
 
-      {/* Enthaken entfernt die vom Haken erzeugte Buchung. Der Betrag steht
-          in der Frage, damit man sieht, was verloren geht — falls er nach dem
-          Abhaken von Hand korrigiert wurde. */}
-      <PaidDialog
-        position={booking}
-        onClose={() => {
-          setBooking(null)
-          togglePaid.reset()
-        }}
-        onConfirm={({ occurredOn, amount }) => {
-          if (booking) {
-            togglePaid.mutate(
-              {
-                id: booking.id,
-                paid: true,
-                occurredOn,
-                amount,
-                inlineError: true,
-                hasBookings: positionHasBookings(booking.id, transactions.data),
-              },
-              { onSuccess: () => setBooking(null) }
-            )
-          }
-        }}
-        pending={togglePaid.isPending}
-        planMonth={{ year: plan.year, month: plan.month }}
-        hasBookings={
-          booking ? positionHasBookings(booking.id, transactions.data) : false
-        }
-        error={togglePaid.isError ? errorText(togglePaid.error) : null}
-      />
-
-      <AlertDialog
-        open={confirming !== null}
-        onOpenChange={(open) => !open && setConfirming(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('plan.untickTitle')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirming && (
-                <>
-                  <Trans
-                    i18nKey="plan.untickText"
-                    values={{
-                      amount: euro.format(
-                        Number(autoBookedOf(confirming)?.amount ?? 0)
-                      ),
-                    }}
-                    components={{
-                      amount: (
-                        <span className="text-foreground font-mono font-medium" />
-                      ),
-                    }}
-                  />
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (confirming) {
-                  togglePaid.mutate({ id: confirming.id, paid: false })
-                }
-                setConfirming(null)
-              }}
-            >
-              {t('plan.untick')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {paidDialogs}
 
       <PositionDialog
         position={editing}
@@ -929,7 +811,7 @@ function MemberPlanBody({
   // deleting is neither.
   const scope: BookScope = { kind: 'member', ownerId }
 
-  const togglePaid = useTogglePaid()
+  const { toggle, dialogs: paidDialogs } = usePaidFlow(plan.year, plan.month, scope)
   const savePosition = useSavePosition()
   const deletePosition = useDeletePosition()
   const [editing, setEditing] = useState<PlanPosition | null>(null)
@@ -951,11 +833,6 @@ function MemberPlanBody({
     setAddingTo(budget)
     setDialogOpen(true)
   }
-
-  // No date dialog: that belongs to the owner. Acting on their behalf means
-  // ticking off what was due, with the planned amount and today.
-  const toggle = (position: PlanPosition) =>
-    togglePaid.mutate({ id: position.id, paid: !isPaid(position) })
 
   return (
     <>
@@ -1108,6 +985,8 @@ function MemberPlanBody({
         </TabsContent>
       </Tabs>
 
+      {paidDialogs}
+
       {/* Löschen nur ab der Stufe `delete`: ändern steht im Protokoll und lässt
           sich zurücknehmen, löschen tut beides nicht. Der Endpunkt prüft es
           ohnehin noch einmal. */}
@@ -1200,7 +1079,7 @@ function HouseholdPlanBody({
 
   const savePosition = useSavePosition()
   const deletePosition = useDeletePosition()
-  const togglePaid = useTogglePaid()
+  const { toggle, dialogs: paidDialogs } = usePaidFlow(plan.year, plan.month, scope)
   const [editing, setEditing] = useState<PlanPosition | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   // An error from the last try must not greet the next opening.
@@ -1213,12 +1092,6 @@ function HouseholdPlanBody({
     setEditing(position)
     setDialogOpen(true)
   }
-
-  // Ticking somebody else's position acts on their behalf, exactly as in the
-  // member's own plan (#180): no booking-date question, ticked with today and
-  // the planned amount.
-  const toggle = (position: PlanPosition) =>
-    togglePaid.mutate({ id: position.id, paid: !isPaid(position) })
 
   return (
     <>
@@ -1393,6 +1266,8 @@ function HouseholdPlanBody({
           beim gemeinsamen Plan ist genau das die Information. */}
       <PlanPrintout plan={plan} ownerName={ownerName} />
 
+
+{paidDialogs}
 
       {/* Kein „Anlegen" hier: der Haushalt besitzt nichts, ein Posten entsteht
           immer im eigenen Plan (#218 Nicht im Umfang). `planId` bleibt leer —
