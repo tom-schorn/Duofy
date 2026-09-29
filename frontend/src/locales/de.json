@@ -359,12 +359,12 @@
     "deleteAccountLead": "Endgültig löschen. Das lässt sich nicht rückgängig machen.",
     "deleteAccount": "Konto löschen",
     "deleteAccountTitle": "Konto endgültig löschen?",
-    "deleteAccountText": "Deine Konten, Buchungen, Pläne, Verträge, Freigaben und Mitgliedschaften verschwinden vollständig. Änderungen, die du an fremden Posten vorgenommen hast, bleiben dort als „ehemaliges Mitglied\" stehen. Besitzt du einen Haushalt mit weiteren Mitgliedern, geht der Besitz an das Mitglied über, das am längsten dabei ist; bist du dort allein, wird der Haushalt mit gelöscht. Danach bist du abgemeldet."
+    "deleteAccountText": "Deine Konten, Buchungen, Pläne, Verträge, Freigaben und Mitgliedschaften verschwinden vollständig. Änderungen, die du an fremden Posten vorgenommen hast, bleiben dort als „ehemaliges Mitglied\" stehen. Bist du der letzte Admin eines Haushalts mit weiteren Mitgliedern, wird das Mitglied Admin, das am längsten dabei ist; bist du dort allein, wird der Haushalt mit gelöscht. Danach bist du abgemeldet."
   },
   "quota": {
     "userDescription": "Mit diesen Werten startet jeder Monat, den du ab jetzt anlegst. Bestehende Monate bleiben, wie sie sind.",
     "householdTitle": "Richtwerte des Haushalts",
-    "householdDescription": "Das gemeinsame Ziel des Haushalts. Es gilt sofort für jeden Monat des Haushaltsplans, auch für vergangene. Jedes Mitglied darf es ändern.",
+    "householdDescription": "Das gemeinsame Ziel des Haushalts. Es gilt sofort für jeden Monat des Haushaltsplans, auch für vergangene. Ändern dürfen es die Admins des Haushalts.",
     "needs": "Grundbedarf in %",
     "wants": "Wünsche in %",
     "savings": "Sparen in %",

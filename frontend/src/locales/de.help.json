@@ -84,7 +84,7 @@
       },
       "quota": {
         "title": "Richtwerte",
-        "body": "<p>Die Richtwerte sagen, wie das Verplanbare auf Grundbedarf, Wünsche und Sparen verteilt werden soll. Vorgeschlagen sind 50, 30 und 20 Prozent. Es sind Orientierungswerte, keine Pflicht: Du kannst jeden Monat anders planen.</p><pSpaced>Du stellst <strong>deine eigenen</strong> Richtwerte unter „Einstellungen“ im Benutzermenü ein. Sie gelten für jeden Monat, den du ab dann anlegst; bestehende Monate bleiben, wie sie sind. Grundbedarf, Wünsche und Sparen müssen zusammen 100 Prozent ergeben.</pSpaced><pSpaced>Im Haushaltsplan gibt es ein <strong>gemeinsames Ziel</strong>. Es gilt sofort für jeden Monat des Haushaltsplans, auch für vergangene, und jedes Mitglied darf es ändern.</pSpaced>"
+        "body": "<p>Die Richtwerte sagen, wie das Verplanbare auf Grundbedarf, Wünsche und Sparen verteilt werden soll. Vorgeschlagen sind 50, 30 und 20 Prozent. Es sind Orientierungswerte, keine Pflicht: Du kannst jeden Monat anders planen.</p><pSpaced>Du stellst <strong>deine eigenen</strong> Richtwerte unter „Einstellungen“ im Benutzermenü ein. Sie gelten für jeden Monat, den du ab dann anlegst; bestehende Monate bleiben, wie sie sind. Grundbedarf, Wünsche und Sparen müssen zusammen 100 Prozent ergeben.</pSpaced><pSpaced>Im Haushaltsplan gibt es ein <strong>gemeinsames Ziel</strong>. Es gilt sofort für jeden Monat des Haushaltsplans, auch für vergangene. Ändern dürfen es die Admins des Haushalts.</pSpaced>"
       },
       "flow": {
         "title": "Verlauf und Limits",
