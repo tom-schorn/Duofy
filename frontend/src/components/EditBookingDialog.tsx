@@ -54,6 +54,7 @@ export function EditBookingDialog({
   accounts,
   positions,
   viewedMonth,
+  startWord = null,
   open,
   onOpenChange,
   onSave,
@@ -67,6 +68,8 @@ export function EditBookingDialog({
   positions: PlanPosition[]
   /** The plan month the positions belong to — where a booking with a position counts. */
   viewedMonth: YearMonth
+  /** The sentence word that starts open, e.g. `position` when assigning (#241). */
+  startWord?: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
   onSave: (changes: Partial<Transaction> & { id: string }) => void
@@ -95,7 +98,7 @@ export function EditBookingDialog({
   const [planChoice, setPlanChoice] = useState<YearMonth | null>(null)
 
   // Which sentence word is open — only one at a time (issue #215).
-  const [openWord, setOpenWord] = useState<string | null>(null)
+  const [openWord, setOpenWord] = useState<string | null>(startWord)
   const wordRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   // Read out with every word and every opened field, so a screen reader hears the
   // whole sentence, not just the one word (issue #202, review D-215-3, fix 1).

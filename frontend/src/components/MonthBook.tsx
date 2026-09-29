@@ -5,31 +5,17 @@ import { Link } from 'react-router'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { AmountField } from '@/components/AmountField'
-import { CategoryPicker } from '@/components/CategoryPicker'
 import { EditBookingDialog } from '@/components/EditBookingDialog'
 import { ListRow } from '@/components/ListRow'
 import { EmptyState } from '@/components/EmptyState'
 import { QueryState } from '@/components/QueryState'
-import { errorText } from '@/lib/api'
-import { shiftMonth, today } from '@/lib/dates'
 import {
   OWN_SCOPE,
-  BUDGET_SUGGESTION,
   categoryLabel,
   euro,
-  monthText,
+  isUnplanned,
+  monthShort,
   type Account,
-  type Category,
   type PlanPosition,
   type Transaction,
   type BookScope,
@@ -40,22 +26,22 @@ import {
   useSaveTransaction,
   useTransactions,
 } from '@/lib/queries'
-import { Form } from '@/lib/form-errors'
-import { OptionalMark } from '@/components/OptionalMark'
 
 /**
- * The household book for one month — what actually happened.
+ * The book of one plan month — what actually happened, as one plain list by date.
  *
- * The plan says how the month was meant to go. The book says how it went. They are
- * connected at exactly one point: a booking **can** be assigned to a position, but
- * it does not have to be. An unplanned purchase belongs in the book all the same.
+ * It is a tab of the plan page (#241). The plan says how the month was meant to go,
+ * the book says how it went. They are connected at exactly one point: a booking
+ * **can** be assigned to a position, but it does not have to be. An unplanned
+ * purchase belongs in the book all the same, and "zuordnen" is where it can still
+ * be given one.
  *
- * The quick entry is built for speed, because it is used daily. Picking a position
- * makes the booking inherit its category and budget, leaving three fields. Without a
- * position the category is asked for, because a booking with no purpose would sit
- * in the book without counting anywhere.
+ * Adding a booking is a button on the plan page (`AddBookingButton`), not a form in
+ * here: one does it from any tab.
  */
 
+/** Everything the plan month holds, or only what hangs on no position. */
+export type BookFilter = 'all' | 'unplanned'
 
 type Props = {
   positions: PlanPosition[]
@@ -69,6 +55,8 @@ type Props = {
    * booking.
    */
   readOnly?: boolean
+  filter: BookFilter
+  onFilterChange: (filter: BookFilter) => void
 }
 
 export function MonthBook({
@@ -77,22 +65,23 @@ export function MonthBook({
   month,
   scope = OWN_SCOPE,
   readOnly = false,
+  filter,
+  onFilterChange,
 }: Props) {
   const { t } = useTranslation()
   const transactions = useTransactions(year, month, scope)
   const accounts = useAccounts(scope).data ?? []
-  const save = useSaveTransaction(year, month, scope)
-  // Its own instance: the quick entry must never show the edit's error, nor the
-  // edit dialog the quick entry's.
   const saveEdit = useSaveTransaction(year, month, scope)
   const remove = useDeleteTransaction(year, month, scope)
-  const [editing, setEditing] = useState<Transaction | null>(null)
+  const [editing, setEditing] = useState<{
+    transaction: Transaction
+    startWord: string | null
+  } | null>(null)
   // After a delete the row is gone; the focus goes to the (hidden) list heading.
   const heading = useRef<HTMLHeadingElement>(null)
   const deleted = useRef(false)
 
   const usable = accounts.filter((account) => account.active)
-  const fallback = usable.find((account) => account.isDefault) ?? usable[0]
 
   if (usable.length === 0 && !readOnly) {
     return (
@@ -108,25 +97,40 @@ export function MonthBook({
     )
   }
 
+  // By the day the money moved, oldest first — the plain list "nach Datum". The
+  // server sends newest first; a stable sort keeps its order within a day.
+  const all = [...(transactions.data ?? [])].sort((a, b) =>
+    a.occurredOn < b.occurredOn ? -1 : a.occurredOn > b.occurredOn ? 1 : 0
+  )
+  const unplannedCount = all.filter(isUnplanned).length
+  const shown = filter === 'unplanned' ? all.filter(isUnplanned) : all
+
+  function open(transaction: Transaction, startWord: string | null) {
+    saveEdit.reset()
+    deleted.current = false
+    setEditing({ transaction, startWord })
+  }
+
   return (
-    <section className="flex flex-col gap-5">
+    <section className="flex flex-col gap-4">
       <h2 ref={heading} tabIndex={-1} className="sr-only">
         {t('monthBook.title')}
       </h2>
 
-      {/* Die Buchung landet beim **Kontobesitzer**, nicht beim Eintippenden —
-          das entscheidet das Backend aus dem gewählten Konto. Zur Auswahl
-          stehen hier ohnehin nur dessen Konten. */}
-      {!readOnly && (
-        <QuickEntry
-          accounts={usable}
-          fallbackAccountId={fallback?.id ?? ''}
-          positions={positions}
-          onSave={(draft) => save.mutate(draft)}
-          pending={save.isPending}
-          error={save.error}
-        />
-      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <FilterChip
+          pressed={filter === 'all'}
+          onClick={() => onFilterChange('all')}
+        >
+          {t('monthBook.filterAll')}
+        </FilterChip>
+        <FilterChip
+          pressed={filter === 'unplanned'}
+          onClick={() => onFilterChange('unplanned')}
+        >
+          {t('monthBook.filterUnplanned', { count: unplannedCount })}
+        </FilterChip>
+      </div>
 
       <QueryState
         isPending={transactions.isPending}
@@ -134,39 +138,42 @@ export function MonthBook({
         onRetry={() => void transactions.refetch()}
         rows={3}
       >
-        {transactions.data?.length === 0 ? (
-          <EmptyState>{t('monthBook.empty')}</EmptyState>
+        {shown.length === 0 ? (
+          <EmptyState>
+            {t(filter === 'unplanned' ? 'monthBook.noUnplanned' : 'monthBook.empty')}
+          </EmptyState>
         ) : (
           <ul className="flex flex-col">
-            {transactions.data?.map((transaction) => (
-              <Row
-                key={transaction.id}
-                transaction={transaction}
-                accounts={accounts}
-                positions={positions}
-                onEdit={
-                  // A carry-over is changed in the flow tab, where it is used.
-                  readOnly || transaction.kind === 'carry_over'
-                    ? null
-                    : () => {
-                        saveEdit.reset()
-                        deleted.current = false
-                        setEditing(transaction)
-                      }
-                }
-              />
-            ))}
+            {shown.map((transaction) => {
+              // A carry-over is changed in the flow tab, where it is used.
+              const editable = !readOnly && transaction.kind !== 'carry_over'
+              return (
+                <Row
+                  key={transaction.id}
+                  transaction={transaction}
+                  accounts={accounts}
+                  positions={positions}
+                  onEdit={editable ? () => open(transaction, null) : null}
+                  onAssign={
+                    editable && isUnplanned(transaction)
+                      ? () => open(transaction, 'position')
+                      : null
+                  }
+                />
+              )
+            })}
           </ul>
         )}
       </QueryState>
 
       {editing !== null && (
         <EditBookingDialog
-          key={editing.id}
-          transaction={editing}
+          key={editing.transaction.id}
+          transaction={editing.transaction}
           accounts={accounts}
           positions={positions}
           viewedMonth={{ year, month }}
+          startWord={editing.startWord}
           open
           onOpenChange={(open) => !open && setEditing(null)}
           onSave={(draft) =>
@@ -179,7 +186,7 @@ export function MonthBook({
               ? null
               : () => {
                   deleted.current = true
-                  remove(editing)
+                  remove(editing.transaction)
                   setEditing(null)
                 }
           }
@@ -190,188 +197,26 @@ export function MonthBook({
   )
 }
 
-function QuickEntry({
-  accounts,
-  fallbackAccountId,
-  positions,
-  onSave,
-  pending,
-  error,
+function FilterChip({
+  pressed,
+  onClick,
+  children,
 }: {
-  accounts: Account[]
-  fallbackAccountId: string
-  positions: PlanPosition[]
-  onSave: (draft: Partial<Transaction>) => void
-  pending: boolean
-  error: unknown
+  pressed: boolean
+  onClick: () => void
+  children: React.ReactNode
 }) {
-  const [amount, setAmount] = useState('')
-  const { t } = useTranslation()
-  const [note, setNote] = useState('')
-  const [positionId, setPositionId] = useState('none')
-  const [category, setCategory] = useState<Category>('household.groceries')
-  const [accountId, setAccountId] = useState(fallbackAccountId)
-  const [counterAccountId, setCounterAccountId] = useState('none')
-  // Offset of the plan month to the month of today, see the choice below (#239).
-  const [planOffset, setPlanOffset] = useState('0')
-
-  const chosen = positions.find((position) => position.id === positionId)
-  const isTransfer = counterAccountId !== 'none'
-  const bookedOn = today()
-  const planMonth = shiftMonth(bookedOn, Number(planOffset))
-
-  function submit(event: React.FormEvent) {
-    event.preventDefault()
-    onSave({
-      accountId,
-      counterAccountId: isTransfer ? counterAccountId : null,
-      occurredOn: bookedOn,
-      amount,
-      note: note || null,
-      // Inherited from the position, otherwise taken from the picker. A pure
-      // transfer without a position needs no purpose — there the answer is "where
-      // to", not "what for".
-      category: chosen ? chosen.category : isTransfer ? null : category,
-      budget: chosen ? chosen.budget : isTransfer ? null : BUDGET_SUGGESTION[category],
-      positionId: chosen ? chosen.id : null,
-      // Only without a position and outside a transfer can the month be chosen;
-      // the server rejects a choice next to either.
-      ...(chosen || isTransfer
-        ? {}
-        : { planYear: planMonth.year, planMonth: planMonth.month }),
-    })
-    setAmount('')
-    setNote('')
-  }
-
   return (
-    <Form
-      onSubmit={submit}
-      className="bg-card flex flex-col gap-3 rounded-xl p-4 ring-1 ring-foreground/10"
+    <Button
+      type="button"
+      size="sm"
+      variant={pressed ? 'default' : 'outline'}
+      aria-pressed={pressed}
+      onClick={onClick}
+      className="rounded-full"
     >
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="flex w-28 flex-col gap-1.5">
-          <Label htmlFor="book-amount" className="text-xs">
-            {t('common.amount')}
-          </Label>
-          <AmountField id="book-amount" value={amount} onChange={setAmount} required />
-        </div>
-
-        <div className="flex min-w-40 flex-1 flex-col gap-1.5">
-          <Label htmlFor="book-note" className="text-xs">
-            {t('monthBook.note')}<OptionalMark />
-          </Label>
-          <Input
-            id="book-note"
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-            placeholder={t('monthBook.notePlaceholder')}
-          />
-        </div>
-
-        <div className="flex min-w-44 flex-col gap-1.5">
-          <Label className="text-xs">{t('monthBook.position')}</Label>
-          <Select value={positionId} onValueChange={setPositionId}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">{t('monthBook.noPosition')}</SelectItem>
-              {positions.map((position) => (
-                <SelectItem key={position.id} value={position.id}>
-                  {position.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Nur nötig, wenn kein Posten gewählt ist — sonst erbt die Buchung
-            Kategorie und Budget von dort. */}
-        {!chosen && !isTransfer && (
-          <div className="flex min-w-40 flex-col gap-1.5">
-            <Label className="text-xs">{t('common.category')}</Label>
-            <CategoryPicker value={category} onChange={setCategory} />
-          </div>
-        )}
-
-        {/* Mit Posten zählt die Buchung im Plan des Postens, eine reine Umbuchung
-            im Monat des Datums — dort gibt es nichts zu wählen. */}
-        {!chosen && !isTransfer && (
-          <div className="flex min-w-40 flex-col gap-1.5">
-            <Label className="text-xs">{t('monthBook.planMonthLabel')}</Label>
-            <Select value={planOffset} onValueChange={setPlanOffset}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {([-1, 0, 1] as const).map((offset) => (
-                  <SelectItem key={offset} value={String(offset)}>
-                    {t(
-                      `monthBook.planMonthOption.${offset < 0 ? 'previous' : offset > 0 ? 'next' : 'same'}`,
-                      { month: monthText(shiftMonth(bookedOn, offset), bookedOn) }
-                    )}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-
-        <div className="flex min-w-40 flex-col gap-1.5">
-          <Label className="text-xs">{t('common.account')}</Label>
-          <Select value={accountId} onValueChange={setAccountId}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {accounts.map((account) => (
-                <SelectItem key={account.id} value={account.id}>
-                  {account.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Gesetzt = Umbuchung. Sie verschiebt den Stand zwischen zwei
-            eigenen Konten und ist weder Einnahme noch Ausgabe — es sei denn,
-            ein Posten ist gewählt. Geld aufs Tagesgeld legen erfüllt so die
-            Sparquote, PayPal aufladen dagegen nicht. */}
-        <div className="flex min-w-40 flex-col gap-1.5">
-          <Label className="text-xs">{t('monthBook.transferTo')}</Label>
-          <Select value={counterAccountId} onValueChange={setCounterAccountId}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">{t('monthBook.noTransfer')}</SelectItem>
-              {accounts
-                .filter((account) => account.id !== accountId)
-                .map((account) => (
-                  <SelectItem key={account.id} value={account.id}>
-                    {account.name}
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <Button type="submit" disabled={pending}>
-          {pending ? t('monthBook.pending') : isTransfer ? t('monthBook.transfer') : t('monthBook.book')}
-        </Button>
-      </div>
-
-      <p className="text-muted-foreground text-xs">
-        {t('monthBook.hint')}
-      </p>
-
-      {Boolean(error) && (
-        <p role="alert" className="text-destructive text-sm">
-          {errorText(error)}
-        </p>
-      )}
-    </Form>
+      {children}
+    </Button>
   )
 }
 
@@ -380,12 +225,15 @@ function Row({
   accounts,
   positions,
   onEdit,
+  onAssign,
 }: {
   transaction: Transaction
   accounts: Account[]
   positions: PlanPosition[]
   /** null means read only: the row is not clickable. */
   onEdit: (() => void) | null
+  /** Only for a booking on no position; null where it cannot be assigned. */
+  onAssign: (() => void) | null
 }) {
   const account = accounts.find((item) => item.id === transaction.accountId)
   const counter = accounts.find(
@@ -395,14 +243,34 @@ function Row({
   const isTransfer = transaction.counterAccountId !== null
   const isCarryOver = transaction.kind === 'carry_over'
   const { t } = useTranslation()
+  // Booked in one month, counting in another: say which (a salary paid on the 25th
+  // for the month after).
+  const countsElsewhere =
+    transaction.planMonth !== Number(transaction.occurredOn.slice(5, 7)) ||
+    transaction.planYear !== Number(transaction.occurredOn.slice(0, 4))
 
   return (
     <ListRow
       onOpen={onEdit ?? undefined}
       trailing={
-        <span className="font-mono font-medium">
-          {euro.format(Number(transaction.amount))}
-        </span>
+        <>
+          <span className="font-mono font-medium">
+            {euro.format(Number(transaction.amount))}
+          </span>
+          {/* Above the row's stretched click layer, like the tick box of a
+              position: it has a job of its own. */}
+          {onAssign && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onAssign}
+              className="text-primary relative z-10 h-auto px-1 py-0 text-xs font-normal"
+            >
+              {t('monthBook.assign')}
+            </Button>
+          )}
+        </>
       }
     >
       <span className="grid w-full grid-cols-[auto_1fr] items-center gap-3">
@@ -425,6 +293,11 @@ function Row({
             {transaction.autoBooked && (
               <Badge variant="outline" className="font-normal">
                 {t('monthBook.autoBooked')}
+              </Badge>
+            )}
+            {!isCarryOver && countsElsewhere && (
+              <Badge variant="secondary" className="font-normal">
+                {t('monthBook.forMonth', { month: monthShort(transaction.planMonth) })}
               </Badge>
             )}
           </span>

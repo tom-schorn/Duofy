@@ -302,6 +302,13 @@ export function monthLabel(month: number): string {
   )
 }
 
+/** `Sept.` for 9 — the short name, for a badge in a row. */
+export function monthShort(month: number): string {
+  return new Intl.DateTimeFormat(locale(), { month: 'short' }).format(
+    new Date(2000, month - 1, 1)
+  )
+}
+
 /** The month's name, with the year only when it is not the year of the booking date. */
 export function monthText(target: { year: number; month: number }, day: string): string {
   return target.year === Number(day.slice(0, 4))
@@ -1007,6 +1014,21 @@ export type PlanSummary = Plan & {
   unpaid: string
   /** No booking hangs on any of its positions yet, so it may still be deleted. */
   deletable: boolean
+}
+
+/**
+ * A booking that hangs on no position and is no transfer or carry-over: the
+ * "Ungeplant" of the plan and of the book's filter. Mirrors what the backend sums
+ * per budget (#240).
+ */
+export function isUnplanned(
+  transaction: Pick<Transaction, 'positionId' | 'counterAccountId' | 'kind'>
+): boolean {
+  return (
+    transaction.positionId === null &&
+    transaction.counterAccountId === null &&
+    transaction.kind !== 'carry_over'
+  )
 }
 
 /** Mirror of `Hint` — something the backend wants the plan to point out. */
