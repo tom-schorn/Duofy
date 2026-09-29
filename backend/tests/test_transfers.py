@@ -312,6 +312,8 @@ async def test_the_other_side_of_a_booked_movement_is_not_offered_again(
             account_id=giro.id,
             counter_account_id=savings.id,
             occurred_on=date(2026, 8, 15),
+            plan_year=2026,
+            plan_month=8,
             amount=Decimal("200.00"),
             note="Übertrag",
         )
@@ -352,6 +354,8 @@ async def test_a_movement_a_fortnight_apart_is_a_second_movement(
             account_id=giro.id,
             counter_account_id=savings.id,
             occurred_on=date(2026, 8, 1),
+            plan_year=2026,
+            plan_month=8,
             amount=Decimal("200.00"),
             note="Übertrag",
         )
@@ -395,6 +399,8 @@ async def test_one_booking_answers_for_one_entry_only(
             account_id=giro.id,
             counter_account_id=savings.id,
             occurred_on=date(2026, 8, 15),
+            plan_year=2026,
+            plan_month=8,
             amount=Decimal("200.00"),
             note="Übertrag",
         )
@@ -767,6 +773,8 @@ async def test_a_booked_movement_the_other_way_round_is_not_a_match(
             account_id=savings.id,
             counter_account_id=giro.id,
             occurred_on=date(2026, 8, 15),
+            plan_year=2026,
+            plan_month=8,
             amount=Decimal("200.00"),
             note="Übertrag",
         )

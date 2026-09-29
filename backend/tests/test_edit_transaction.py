@@ -116,6 +116,8 @@ async def test_taking_the_transfer_away_without_a_purpose_is_refused_with_a_code
         account_id=giro.id,
         counter_account_id=savings.id,
         occurred_on=date(2026, 9, 1),
+        plan_year=2026,
+        plan_month=9,
         amount=Decimal("10.00"),
     )
     session.add(transfer)
@@ -140,6 +142,8 @@ async def test_pointing_a_transfer_at_its_own_account_is_refused_with_a_code(
         account_id=giro.id,
         counter_account_id=savings.id,
         occurred_on=date(2026, 9, 1),
+        plan_year=2026,
+        plan_month=9,
         amount=Decimal("10.00"),
     )
     session.add(transfer)
@@ -174,6 +178,8 @@ async def test_a_plain_booking_changes_its_purpose(
         owner_id=owner.id,
         account_id=account.id,
         occurred_on=date(2026, 9, 1),
+        plan_year=2026,
+        plan_month=9,
         amount=Decimal("10.00"),
         category=Category.LEISURE_SUBSCRIPTIONS,
         budget=Budget.WANTS,
@@ -253,6 +259,8 @@ async def test_a_booking_cannot_be_pointed_at_somebody_elses_account_counter_acc
         owner_id=owner.id,
         account_id=own_account.id,
         occurred_on=date(2026, 9, 1),
+        plan_year=2026,
+        plan_month=9,
         amount=Decimal("10.00"),
         category=Category.LEISURE_SUBSCRIPTIONS,
         budget=Budget.WANTS,

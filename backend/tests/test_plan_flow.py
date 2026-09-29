@@ -87,6 +87,8 @@ def booking(owner: User, account: Account, amount: str, day: date, **kwargs) -> 
         account_id=account.id,
         amount=Decimal(amount),
         occurred_on=day,
+        plan_year=kwargs.pop("plan_year", day.year),
+        plan_month=kwargs.pop("plan_month", day.month),
         category=kwargs.pop("category", Category.HOUSING_RENT),
         budget=kwargs.pop("budget", Budget.NEEDS),
         **kwargs,
@@ -504,6 +506,8 @@ def carry_over(owner: User, account: Account, amount: str, month: int = 9) -> Tr
         account_id=account.id,
         amount=Decimal(amount),
         occurred_on=date(2026, month, 1),
+        plan_year=2026,
+        plan_month=month,
         kind=TransactionKind.CARRY_OVER,
     )
 

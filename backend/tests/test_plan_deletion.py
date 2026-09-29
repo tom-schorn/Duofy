@@ -41,6 +41,8 @@ async def book(session: AsyncSession, owner, account, position: PlanPosition) ->
             owner_id=owner.id,
             account_id=account.id,
             occurred_on=date(2026, 9, 5),
+            plan_year=2026,
+            plan_month=9,
             amount=Decimal("890.00"),
             note="Rent",
             category=Category.HOUSING_RENT,
