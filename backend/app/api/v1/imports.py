@@ -49,21 +49,24 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 
 async def _load(
-    session: AsyncSession, entry_id: uuid.UUID, user: User
+    session: AsyncSession,
+    entry_id: uuid.UUID,
+    user: User,
+    needs: AccessLevel = AccessLevel.EDIT,
 ) -> ImportedEntry:
-    """Importing and booking both hang off `Area.ACCOUNTS` at level `edit`.
+    """An imported entry, checked against `Area.IMPORT` of its owner.
 
-    The same rule `transactions.py` uses — an import is a way of writing
-    bookings, so it cannot be an easier one. Discarding asks for `edit` as well,
-    not `delete`.
+    Changing an entry and booking it both ask for `edit` there — booking asks the
+    import alone, the book grant is only a hint (Tom, 29.09.). Discarding asks for
+    `delete` (decision 65).
     """
     return await load_owned(
         session,
         ImportedEntry,
         entry_id,
         user,
-        Area.ACCOUNTS,
-        AccessLevel.EDIT,
+        Area.IMPORT,
+        needs,
         not_found="imported_entry_not_found",
     )
 
@@ -110,7 +113,7 @@ async def upload(
     why `account` is passed down into the reader.
     """
     owner_id = owner or user.id
-    await require_level(session, owner_id, user, Area.ACCOUNTS, AccessLevel.EDIT)
+    await require_level(session, owner_id, user, Area.IMPORT, AccessLevel.CREATE)
 
     chosen = await session.get(Account, account) if account is not None else None
     try:
@@ -776,7 +779,7 @@ async def list_entries(
     them was given a category.
     """
     owner_id = owner or user.id
-    await require_level(session, owner_id, user, Area.ACCOUNTS, AccessLevel.VIEW)
+    await require_level(session, owner_id, user, Area.IMPORT, AccessLevel.VIEW)
 
     rows = await session.execute(
         select(ImportedEntry)
@@ -1031,7 +1034,7 @@ async def discard(
     import of the same file brings the entry straight back, and the user would
     have to throw it out again every month.
     """
-    entry = await _load(session, entry_id, user)
+    entry = await _load(session, entry_id, user, AccessLevel.DELETE)
     entry.discarded_at = datetime.now(UTC)
     await session.commit()
     await session.refresh(entry)
