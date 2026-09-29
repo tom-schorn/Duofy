@@ -224,7 +224,23 @@ async def test_removing_somebody_outside_the_household_is_not_found(
     response = await client.delete(f"/api/v1/households/{household.id}/members/{stranger.id}")
 
     assert response.status_code == 404
-    assert response.json()["detail"] == {"code": "not_a_member"}
+    assert response.json()["detail"] == {"code": "member_not_found"}
+
+
+async def test_changing_the_role_of_somebody_outside_the_household_is_not_found(
+    client: AsyncClient, session: AsyncSession, home
+):
+    admin, _, _, household = home
+    stranger = await make_user(session, "Stranger")
+    await session.commit()
+    sign_in(admin)
+
+    response = await client.patch(
+        f"/api/v1/households/{household.id}/members/{stranger.id}", json={"role": "admin"}
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == {"code": "member_not_found"}
 
 
 # --- hand the admin role on or take it away ------------------------------

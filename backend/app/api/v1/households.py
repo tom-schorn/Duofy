@@ -231,7 +231,7 @@ async def _member_of(
         )
     )
     if member is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "not_a_member"})
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "member_not_found"})
     return member
 
 
