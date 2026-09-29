@@ -564,11 +564,18 @@ describe('CommitmentDialog date words on a running contract (#237)', () => {
     )
     await user.click(screen.getByRole('button', { name: i18n.t('commitmentDialog.noEnd') }))
     const panel = screen.getByRole('group', { name: i18n.t('commitmentDialog.endsOnLabel') })
-    expect(within(panel).getByRole('button', { name: 'Juli' })).toBeDisabled()
-    expect(within(panel).getByRole('button', { name: 'August' })).toBeEnabled()
+    // Refused months stay focusable (aria-disabled) so keyboard and screen reader
+    // users reach them and the hint says why; a click does nothing.
+    const july = within(panel).getByRole('button', { name: 'Juli' })
+    expect(july).toHaveAttribute('aria-disabled', 'true')
+    expect(july).not.toBeDisabled()
+    expect(within(panel).getByRole('button', { name: 'August' })).not.toHaveAttribute('aria-disabled', 'true')
+    expect(panel).toHaveTextContent('Monate vor dem Start sind nicht wählbar.')
+    await user.click(july)
+    expect(screen.queryByRole('button', { name: 'im Juli 2026' })).not.toBeInTheDocument()
     expect(within(panel).getByRole('button', { name: i18n.t('commitmentDialog.previousYear') })).toBeDisabled()
     await user.click(within(panel).getByRole('button', { name: i18n.t('commitmentDialog.nextYear') }))
-    expect(within(panel).getByRole('button', { name: 'Juli' })).toBeEnabled()
+    expect(within(panel).getByRole('button', { name: 'Juli' })).not.toHaveAttribute('aria-disabled', 'true')
     await user.click(within(panel).getByRole('button', { name: 'Februar' }))
     expect(screen.getByRole('button', { name: 'im Februar 2027' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Speichern' }))
@@ -589,7 +596,12 @@ describe('CommitmentDialog date words on a running contract (#237)', () => {
     expect(onSave.mock.calls[0][0]).toMatchObject({ endsOn: null, firstDueDate: '2026-08-05' })
   })
 
-  async function saveAfterPicking(commitment: Commitment, word: RegExp | string, day: RegExp | string) {
+  async function saveAfterPicking(
+    commitment: Commitment,
+    word: RegExp | string,
+    day: RegExp | string,
+    nextMonth = false
+  ) {
     const user = userEvent.setup()
     const onSave = vi.fn()
     render(
@@ -598,6 +610,9 @@ describe('CommitmentDialog date words on a running contract (#237)', () => {
       </QueryClientProvider>
     )
     await user.click(screen.getByRole('button', { name: word }))
+    if (nextMonth) {
+      await user.click(within(screen.getByRole('group')).getByRole('button', { name: /nächsten monat|next month/i }))
+    }
     await user.click(within(screen.getByRole('group')).getByRole('button', { name: day }))
     await user.click(screen.getByRole('button', { name: 'Speichern' }))
     return onSave.mock.calls[0][0] as Commitment
@@ -606,6 +621,27 @@ describe('CommitmentDialog date words on a running contract (#237)', () => {
   test('the first due date word changes the start and leaves the end alone', async () => {
     const saved = await saveAfterPicking({ ...running, endsOn: '2026-12-01' }, /05\. August 2026/, /12\. August 2026/)
     expect(saved).toMatchObject({ firstDueDate: '2026-08-12', endsOn: '2026-12-01' })
+  })
+
+  test('moving the first due date past the end clears the end instead of leaving it for a 422', async () => {
+    const saved = await saveAfterPicking({ ...running, endsOn: '2026-08-01' }, /05\. August 2026/, /12\. September 2026/, true)
+    expect(saved).toMatchObject({ firstDueDate: '2026-09-12', endsOn: null })
+  })
+
+  test('the end year of a closed panel does not survive to the next opening', async () => {
+    const user = userEvent.setup()
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <CommitmentDialog commitment={running} open onOpenChange={() => {}} onSave={() => {}} />
+      </QueryClientProvider>
+    )
+    const word = () => screen.getByRole('button', { name: i18n.t('commitmentDialog.noEnd') })
+    await user.click(word())
+    await user.click(screen.getByRole('button', { name: i18n.t('commitmentDialog.nextYear') }))
+    expect(screen.getByText('2027')).toBeInTheDocument()
+    await user.click(word())
+    await user.click(word())
+    expect(screen.getByText('2026')).toBeInTheDocument()
   })
 
   test('the target date word of a savings goal changes only the target date', async () => {
