@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
@@ -487,5 +488,218 @@ describe('PlanDetailPage — the Ungeplant row (#240)', () => {
     expect(router.state.location.pathname).toBe('/plan/2026/11')
     expect(new URLSearchParams(router.state.location.search).get('tab')).toBe('book')
     expect(new URLSearchParams(router.state.location.search).get('filter')).toBe('unplanned')
+  })
+})
+
+describe('PlanDetailPage — the book as a tab (#241)', () => {
+  const account = {
+    id: 'a1',
+    name: 'Giro',
+    active: true,
+    isDefault: true,
+    type: 'checking',
+    balance: '0.00',
+    countsAsAvailable: true,
+  }
+  const rent = {
+    id: 'p1',
+    label: 'Miete',
+    amountPlanned: '500.00',
+    amountActual: null,
+    category: 'housing.rent',
+    budget: 'needs',
+    dueDay: 1,
+    accountId: null,
+    counterAccountId: null,
+    paymentMethod: null,
+    isLimit: false,
+    passThrough: false,
+    householdId: null,
+    commitmentId: null,
+    paidAt: null,
+  }
+  const booking = (overrides: Record<string, unknown>) => ({
+    id: 't1',
+    accountId: 'a1',
+    counterAccountId: null,
+    kind: 'booking',
+    occurredOn: '2026-11-05',
+    amount: '10.00',
+    note: 'Kino',
+    category: 'leisure.entertainment',
+    budget: 'wants',
+    positionId: null,
+    planYear: 2026,
+    planMonth: 11,
+    autoBooked: false,
+    externalRef: null,
+    ...overrides,
+  })
+  const rows = [
+    booking({ id: 't1', note: 'Kino' }),
+    booking({ id: 't2', note: 'Miete Nov', positionId: 'p1', occurredOn: '2026-11-01' }),
+  ]
+
+  function members(accountsLevel: string) {
+    return [
+      {
+        id: 'h1',
+        name: 'Zuhause',
+        members: [
+          {
+            userId: 'u2',
+            firstName: 'Ida',
+            lastName: 'Test',
+            email: 'ida@example.org',
+            role: 'member',
+            grantsPlan: 'view',
+            grantsCommitments: 'none',
+            grantsAccounts: accountsLevel,
+          },
+        ],
+      },
+    ]
+  }
+
+  function stub(accountsLevel = 'none', bookError: string | null = null) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        const target = String(url)
+        if (target.includes('/flow')) {
+          return new Response(
+            JSON.stringify({
+              year: 2026,
+              month: 11,
+              flowLimitsBy: 'plan',
+              start: '0.00',
+              entries: [],
+              days: [],
+              hints: [],
+              missingMembers: [],
+            }),
+            { status: 200 }
+          )
+        }
+        if (target.includes('/transactions')) {
+          return bookError
+            ? new Response(JSON.stringify({ detail: { code: bookError } }), { status: 403 })
+            : new Response(JSON.stringify(rows), { status: 200 })
+        }
+        if (target.includes('/accounts')) {
+          return new Response(JSON.stringify([account]), { status: 200 })
+        }
+        if (target.includes('/plans/household/')) {
+          return new Response(
+            JSON.stringify({
+              householdId: 'h1',
+              householdName: 'Zuhause',
+              year: 2026,
+              month: 11,
+              targetNeeds: '50.00',
+              targetWants: '30.00',
+              targetSavings: '20.00',
+              income: '1000.00',
+              distributable: '1000.00',
+              spent: { needs: '0.00', wants: '0.00', savings: '0.00' },
+              unpaid: '0.00',
+              householdIds: [],
+              hints: [],
+              positions: [{ ...rent, ownerId: 'u2', ownerName: 'Ida' }],
+              unplanned: { income: '0.00', needs: '0.00', wants: '0.00', savings: '0.00' },
+              missingMembers: [],
+            }),
+            { status: 200 }
+          )
+        }
+        if (target.includes('/plans/2026/11')) {
+          return new Response(JSON.stringify(ownPlan({ positions: [rent] })), { status: 200 })
+        }
+        if (target.endsWith('/households')) {
+          return new Response(JSON.stringify(members(accountsLevel)), { status: 200 })
+        }
+        return new Response('[]', { status: 200 })
+      })
+    )
+  }
+  afterEach(() => vi.unstubAllGlobals())
+
+  const add = () => screen.queryByRole('button', { name: i18n.t('monthBook.add') })
+
+  test('the tabs are Plan, Buch and Verlauf, in that order', async () => {
+    stub()
+    renderAt('/plan/2026/11')
+    await screen.findByRole('tab', { name: i18n.t('plan.tabBook') })
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+      i18n.t('plan.tabPlan'),
+      i18n.t('plan.tabBook'),
+      i18n.t('plan.tabFlow'),
+    ])
+  })
+
+  test('the book tab lists the bookings of the month by date', async () => {
+    stub()
+    renderAt('/plan/2026/11?tab=book')
+    expect(await screen.findByRole('button', { name: /Miete Nov/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Kino/ })).toBeInTheDocument()
+    const names = screen
+      .getAllByRole('button')
+      .filter((button) => button.hasAttribute('data-row-open'))
+      .map((button) => button.textContent)
+    expect(names[0]).toMatch(/Miete Nov/)
+  })
+
+  test('clicking the tab puts it in the address', async () => {
+    stub()
+    const router = renderAt('/plan/2026/11')
+    await userEvent.setup().click(await screen.findByRole('tab', { name: i18n.t('plan.tabBook') }))
+    expect(new URLSearchParams(router.state.location.search).get('tab')).toBe('book')
+  })
+
+  test('the add-booking button sits at the top of the page, on every tab', async () => {
+    stub()
+    renderAt('/plan/2026/11')
+    expect(await screen.findByRole('button', { name: i18n.t('monthBook.add') })).toBeInTheDocument()
+    await userEvent.setup().click(await screen.findByRole('tab', { name: i18n.t('plan.tabBook') }))
+    expect(add()).toBeInTheDocument()
+  })
+
+  test('the filter lives in the address: ?filter=unplanned shows the unplanned only', async () => {
+    stub()
+    const router = renderAt('/plan/2026/11?tab=book&filter=unplanned')
+    await screen.findByRole('button', { name: /Kino/ })
+    expect(screen.queryByRole('button', { name: /Miete Nov/ })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('monthBook.filterAll') }))
+    expect(await screen.findByRole('button', { name: /Miete Nov/ })).toBeInTheDocument()
+    expect(new URLSearchParams(router.state.location.search).get('filter')).toBeNull()
+  })
+
+  test('another person plan with the accounts grant at view shows their book and no add button', async () => {
+    stub('view')
+    renderAt('/plan/2026/11?member=u2&tab=book')
+    expect(await screen.findByText('Kino')).toBeInTheDocument()
+    expect(add()).not.toBeInTheDocument()
+  })
+
+  test('another person plan with the accounts grant at edit offers to book', async () => {
+    stub('edit')
+    renderAt('/plan/2026/11?member=u2&tab=book')
+    expect(await screen.findByRole('button', { name: i18n.t('monthBook.add') })).toBeInTheDocument()
+  })
+
+  test('another person plan without the accounts grant says the book is not shared', async () => {
+    stub('none', 'no_insight_granted')
+    renderAt('/plan/2026/11?member=u2&tab=book')
+    expect(
+      await screen.findByText(i18n.t('book.notShared', { name: 'Ida' }))
+    ).toBeInTheDocument()
+  })
+
+  test('the household plan has the book tab, read only', async () => {
+    stub('view')
+    renderAt('/plan/2026/11?household=h1&tab=book')
+    expect(await screen.findByText('Kino')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Kino/ })).not.toBeInTheDocument()
+    expect(add()).not.toBeInTheDocument()
   })
 })

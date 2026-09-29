@@ -113,11 +113,11 @@
     "entries": {
       "book": {
         "title": "Was das Buch ist",
-        "body": "<p>Das Buch enthält die tatsächlichen Buchungen eines Monats. Der Plan beschreibt den Soll-Zustand, das Buch den Ist-Zustand; die Gegenüberstellung beider zeigt, wie tragfähig die Planung war.</p>"
+        "body": "<p>Das Buch ist ein Reiter des Monatsplans und listet die tatsächlichen Buchungen dieses Plan-Monats nach Datum. Der Plan beschreibt den Soll-Zustand, das Buch den Ist-Zustand; die Gegenüberstellung beider zeigt, wie tragfähig die Planung war.</p><pSpaced>Eine neue Buchung legst du mit „Buchung hinzufügen“ oben auf der Seite an, ein Klick auf eine Zeile öffnet sie zum Ändern. Die Kontostände stehen unter Konten.</pSpaced>"
       },
       "assignment": {
         "title": "Buchung mit und ohne Posten",
-        "body": "<p>Eine Buchung kann einem Posten zugeordnet sein und wird dann gegen dessen geplanten Betrag gerechnet. Buchungen ohne Zuordnung sind zulässig — nicht jede Ausgabe ist geplant.</p><p>Kategorie und Bereich übernimmt die Buchung vom zugeordneten Posten. Eine nachträgliche Kategorisierung entfällt damit.</p>"
+        "body": "<p>Eine Buchung kann einem Posten zugeordnet sein und wird dann gegen dessen geplanten Betrag gerechnet. Buchungen ohne Zuordnung sind zulässig — nicht jede Ausgabe ist geplant.</p><pSpaced>Solche Buchungen heißen <strong>ungeplant</strong>. Der Filter „Ungeplant“ zeigt nur sie, und „zuordnen“ in der Zeile hängt eine an einen Posten. Im Plan erscheinen sie als Zeile „Ungeplant“ im Budget der Buchung.</pSpaced><pSpaced>Steht bei einer Buchung „für Okt.“, wurde sie in einem anderen Monat gebucht, als sie im Plan zählt: ein Gehalt vom 25. September kann der Oktober-Plan sein.</pSpaced><p>Kategorie und Bereich übernimmt die Buchung vom zugeordneten Posten. Eine nachträgliche Kategorisierung entfällt damit.</p>"
       },
       "transfer": {
         "title": "Umbuchung statt Ausgabe",

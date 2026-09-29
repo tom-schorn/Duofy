@@ -4,7 +4,10 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { ArrowLeft, Eye, Pencil, Plus, Printer, Trash2, Users } from 'lucide-react'
 
 import { useActiveMember } from '@/hooks/use-active-member'
+import { AddBookingButton } from '@/components/AddBookingButton'
 import { BookMetrics } from '@/components/BookMetrics'
+import { EmptyState } from '@/components/EmptyState'
+import { MonthBook, type BookFilter } from '@/components/MonthBook'
 import { BudgetSection } from '@/components/BudgetSection'
 import { PaidDialog } from '@/components/PaidDialog'
 import {
@@ -62,6 +65,7 @@ import {
   type AccessLevel,
   type Budget,
   atLeast,
+  OWN_SCOPE,
   type HouseholdPlanDetail,
   type HouseholdPosition,
   type BookScope,
@@ -79,7 +83,7 @@ import {
  * The quotas are **guidelines**, not rules. There is a target, the actual figure
  * stands next to it, and one decides whether that is acceptable.
  */
-const TABS = new Set(['plan', 'flow'])
+const TABS = new Set(['plan', 'book', 'flow'])
 
 /**
  * An invalid month in the address (`/plan/2026/13`, `/plan/abc/x`) is the not-found
@@ -276,7 +280,8 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
                   ownerName={active.member?.firstName ?? ''}
                   mayEdit={atLeast(active.levelFor('plan'), 'edit')}
                   mayDelete={atLeast(active.levelFor('plan'), 'delete')}
-                    tab={TABS.has(params.get('tab') ?? '') ? params.get('tab')! : 'plan'}
+                  mayBook={atLeast(active.levelFor('accounts'), 'edit')}
+                  tab={TABS.has(params.get('tab') ?? '') ? params.get('tab')! : 'plan'}
                   onTab={setTab}
                   onOpenUnplanned={openUnplanned}
                   onDeleteMonth={handleDeleteMonth}
@@ -304,6 +309,65 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
   )
 }
 
+/**
+ * The book tab of the plan page (#241): the bookings of this plan month.
+ *
+ * The filter lives in the address (`?filter=unplanned`), so the "Ungeplant" rows of
+ * the plan can link straight to it and a reload keeps it. For somebody else's plan
+ * the book hangs on the accounts grant, not on the plan one — a missing grant is
+ * said in words, not shown as an error.
+ */
+function PlanBook({
+  year,
+  month,
+  positions,
+  scope = OWN_SCOPE,
+  readOnly = false,
+  notSharedWith,
+}: {
+  year: number
+  month: number
+  positions: PlanPosition[]
+  scope?: BookScope
+  readOnly?: boolean
+  /** First name of the person whose plan this is, when it is not one's own. */
+  notSharedWith?: string
+}) {
+  const { t } = useTranslation()
+  const [params, setParams] = useSearchParams()
+  const filter: BookFilter = params.get('filter') === 'unplanned' ? 'unplanned' : 'all'
+  const transactions = useTransactions(year, month, scope)
+
+  if (
+    notSharedWith &&
+    transactions.error instanceof ApiError &&
+    transactions.error.code === 'no_insight_granted'
+  ) {
+    return <EmptyState>{t('book.notShared', { name: notSharedWith })}</EmptyState>
+  }
+
+  return (
+    <MonthBook
+      positions={positions}
+      year={year}
+      month={month}
+      scope={scope}
+      readOnly={readOnly}
+      filter={filter}
+      onFilterChange={(next) =>
+        setParams(
+          (current: URLSearchParams) => {
+            if (next === 'all') current.delete('filter')
+            else current.set('filter', next)
+            return current
+          },
+          { replace: true }
+        )
+      }
+    />
+  )
+}
+
 function PlanBody({
   plan,
   onOpenUnplanned,
@@ -327,8 +391,6 @@ function PlanBody({
   // The values are English while the labels are German: the interface will be
   // translated later and a URL should stay stable through that.
   const [params, setParams] = useSearchParams()
-  // `book` war einmal ein Reiter und ist jetzt eine eigene Seite. Alte Links
-  // und Lesezeichen zeigen sonst auf einen Reiter ohne Inhalt.
   const tab = TABS.has(params.get('tab') ?? '') ? params.get('tab')! : 'plan'
   const setTab = (value: string) =>
     setParams(
@@ -485,6 +547,11 @@ function PlanBody({
             <Printer className="size-4" />
             {t('plan.print')}
           </Button>
+          <AddBookingButton
+            year={plan.year}
+            month={plan.month}
+            positions={plan.positions}
+          />
           <Button onClick={() => handleAdd('wants')}>
             <Plus className="size-4" />
             {t('positionDialog.addTitle')}
@@ -554,8 +621,24 @@ function PlanBody({
       >
         <TabsList data-print="hide">
           <TabsTrigger value="plan">{t('plan.tabPlan')}</TabsTrigger>
+          <TabsTrigger value="book">{t('plan.tabBook')}</TabsTrigger>
           <TabsTrigger value="flow">{t('plan.tabFlow')}</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="book">
+
+          <PlanBook
+
+                    year={plan.year}
+
+                    month={plan.month}
+
+                    positions={plan.positions}
+
+                  />
+
+        </TabsContent>
+
 
         <TabsContent value="flow" className="flex flex-col gap-4">
           {defaultAccount && (
@@ -767,6 +850,7 @@ function MemberPlanBody({
   ownerName,
   mayEdit,
   mayDelete,
+  mayBook,
   tab,
   onTab,
   onOpenUnplanned,
@@ -779,6 +863,8 @@ function MemberPlanBody({
   mayEdit: boolean
   /** A step above `mayEdit`: deleting is neither logged nor reversible. */
   mayDelete: boolean
+  /** The accounts grant reaches `edit`: adding and changing bookings is offered. */
+  mayBook: boolean
   tab: string
   onTab: (value: string) => void
   onOpenUnplanned: () => void
@@ -861,12 +947,21 @@ function MemberPlanBody({
               {t('plan.standIn')}
             </Badge>
           )}
-          {mayEdit && (
-            <Button size="sm" className="ml-auto" onClick={() => handleAdd('wants')}>
-              <Plus className="size-4" />
-              {t('positionDialog.addTitle')}
-            </Button>
-          )}
+          <span className="ml-auto flex items-center gap-2">
+            <AddBookingButton
+              year={plan.year}
+              month={plan.month}
+              positions={plan.positions}
+              scope={scope}
+              readOnly={!mayBook}
+            />
+            {mayEdit && (
+              <Button size="sm" onClick={() => handleAdd('wants')}>
+                <Plus className="size-4" />
+                {t('positionDialog.addTitle')}
+              </Button>
+            )}
+          </span>
           {mayDelete && (
             <Button
               size="sm"
@@ -920,8 +1015,30 @@ function MemberPlanBody({
       <Tabs value={tab} onValueChange={onTab} className="gap-6">
         <TabsList>
           <TabsTrigger value="plan">{t('plan.tabPlan')}</TabsTrigger>
+          <TabsTrigger value="book">{t('plan.tabBook')}</TabsTrigger>
           <TabsTrigger value="flow">{t('plan.tabFlow')}</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="book">
+
+          <PlanBook
+
+                    year={plan.year}
+
+                    month={plan.month}
+
+                    positions={plan.positions}
+
+                    scope={scope}
+
+                    readOnly={!mayBook}
+
+                    notSharedWith={ownerName}
+
+                  />
+
+        </TabsContent>
+
 
         <TabsContent value="flow">
           <MonthFlow
@@ -1180,8 +1297,28 @@ function HouseholdPlanBody({
           <Tabs value={tab} onValueChange={onTab} className="gap-6">
             <TabsList data-print="hide">
               <TabsTrigger value="plan">{t('plan.tabPlan')}</TabsTrigger>
+              <TabsTrigger value="book">{t('plan.tabBook')}</TabsTrigger>
               <TabsTrigger value="flow">{t('plan.tabFlow')}</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="book">
+
+              <PlanBook
+
+                        year={plan.year}
+
+                        month={plan.month}
+
+                        positions={plan.positions}
+
+                        scope={scope}
+
+                        readOnly
+
+                      />
+
+            </TabsContent>
+
 
             <TabsContent value="flow">
               <MonthFlow

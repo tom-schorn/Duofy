@@ -293,7 +293,6 @@
     "plan": "Meine Planung",
     "ourHousehold": "Unser Haushalt",
     "commitments": "Verträge",
-    "book": "Buch",
     "accounts": "Konten",
     "import": "Import",
     "household": "Mitglieder"
@@ -427,14 +426,8 @@
     "limit": "Limit"
   },
   "book": {
-    "title": "Buch",
     "previousMonth": "Vorheriger Monat",
     "nextMonth": "Nächster Monat",
-    "lead": "Was tatsächlich gelaufen ist — Kontostände und jede Buchung darauf.",
-    "noPlan": "Für diesen Monat gibt es keinen Plan. Buchen geht trotzdem — nur zuordnen lässt sich nichts, solange keine Posten da sind.",
-    "planNotShared": "{{name}} hat dir den Plan nicht freigegeben. Buchen geht trotzdem — nur zuordnen lässt sich nichts, solange die Posten nicht sichtbar sind.",
-    "leadMember": "Das Buch von {{name}}.",
-    "leadMemberView": "{{name}} hat die Konten nicht zum Bearbeiten freigegeben.",
     "notShared": "{{name}} hat dir das Buch nicht freigegeben."
   },
   "hints": {
@@ -622,7 +615,6 @@
     "noPosition": "Keinem Posten",
     "transferTo": "Umbuchung nach",
     "noTransfer": "Keine Umbuchung",
-    "pending": "Speichert…",
     "transfer": "Umbuchen",
     "book": "Buchen",
     "hint": "Datum ist heute. Eine Umbuchung mit Posten füllt zugleich das Budget — so wird aus „aufs Tagesgeld gelegt\" eine erfüllte Sparquote.",
@@ -645,14 +637,6 @@
     "notedWith": "mit der Notiz „{{note}}“",
     "editTitle": "Buchung bearbeiten",
     "editHint": "Eine Buchung vom Haken bleibt an ihrem Posten."
-  },
-  "bookFlow": {
-    "income": "Einnahmen",
-    "needs": "Grundbedarf",
-    "wants": "Wünsche",
-    "savings": "Weggelegt",
-    "balance": "Verfügbarer Saldo",
-    "summary": "verfügbar · {{income}} herein, {{spending}} hinaus"
   },
   "carryOver": {
     "set": "{{account}} startet mit {{amount}} in den Monat",
@@ -890,6 +874,7 @@
     "notDistributed": "noch nicht verteilt",
     "notPaid": "noch nicht bezahlt",
     "tabPlan": "Plan",
+    "tabBook": "Buch",
     "tabFlow": "Verlauf",
     "untickTitle": "Haken wegnehmen und die Buchung entfernen?",
     "untick": "Haken wegnehmen",
