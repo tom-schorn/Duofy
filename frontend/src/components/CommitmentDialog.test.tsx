@@ -531,7 +531,7 @@ describe('CommitmentDialog date words on a running contract (#237)', () => {
     ...existing,
     type: 'contract',
     name: 'Streaming',
-    category: 'leisure.streaming',
+    category: 'leisure.entertainment',
     budget: 'wants',
     firstDueDate: '2026-08-05',
     endsOn: null,
