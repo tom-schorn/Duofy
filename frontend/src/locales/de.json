@@ -13,6 +13,7 @@
     "not_a_member": "Du bist kein Mitglied dieses Haushalts.",
     "not_account_owner": "Dieses Konto gehört jemand anderem.",
     "no_insight_granted": "Diese Person teilt diesen Bereich nicht mit dir.",
+    "no_create_granted": "Du darfst hier zusehen, aber nichts anlegen.",
     "no_edit_granted": "Du darfst hier zusehen, aber nichts ändern.",
     "no_delete_granted": "Löschen bleibt beim Besitzer.",
     "commitment_in_use": "Der Vertrag steht schon in einem Monat. Beende ihn stattdessen.",
@@ -62,7 +63,8 @@
     "category_missing": "Ohne Kategorie lässt sich nicht buchen.",
     "internal_error": "Im Backend ist ein Fehler aufgetreten. Versuch es gleich noch einmal; wenn es bleibt, steht die Ursache im Log.",
     "unknown": "Da ist etwas schiefgegangen.",
-    "unreachable": "Das Backend ist gerade nicht erreichbar."
+    "unreachable": "Das Backend ist gerade nicht erreichbar.",
+    "cannot_grant_self": "Rechte an deinen eigenen Daten hast du schon."
   },
   "enums": {
     "budget": {
@@ -166,48 +168,84 @@
     },
     "access": {
       "plan": {
-        "plan": "Nur gemeinsame Posten",
-        "view": "Ganzer Monat sichtbar",
-        "edit": "Darf ändern und anlegen",
-        "delete": "Darf auch löschen"
+        "none": "Nichts",
+        "view": "Ansehen",
+        "create": "Ansehen und anlegen",
+        "edit": "Ansehen, anlegen und bearbeiten",
+        "delete": "Alles, auch löschen"
       },
-      "commitments": {
-        "plan": "Nichts",
-        "view": "Verträge sichtbar",
-        "edit": "Darf ändern und anlegen",
-        "delete": "Darf auch löschen"
+      "book": {
+        "none": "Nichts",
+        "view": "Ansehen",
+        "create": "Ansehen und anlegen",
+        "edit": "Ansehen, anlegen und bearbeiten",
+        "delete": "Alles, auch löschen"
       },
       "accounts": {
-        "plan": "Nichts",
-        "view": "Buch und Konten sichtbar",
-        "edit": "Darf ändern und anlegen",
-        "delete": "Darf auch löschen"
+        "none": "Nichts",
+        "view": "Ansehen",
+        "create": "Ansehen und anlegen",
+        "edit": "Ansehen, anlegen und bearbeiten",
+        "delete": "Alles, auch löschen"
+      },
+      "commitments": {
+        "none": "Nichts",
+        "view": "Ansehen",
+        "create": "Ansehen und anlegen",
+        "edit": "Ansehen, anlegen und bearbeiten",
+        "delete": "Alles, auch löschen"
+      },
+      "import": {
+        "none": "Nichts",
+        "view": "Ansehen",
+        "create": "Ansehen und anlegen",
+        "edit": "Ansehen, anlegen und bearbeiten",
+        "delete": "Alles, auch löschen"
       }
     },
     "accessHint": {
       "plan": {
-        "plan": "Der Partner sieht, was ihr gemeinsam plant — sonst nichts.",
-        "view": "Der Partner sieht zusätzlich deine privaten Posten des Monats.",
-        "edit": "Der Partner darf Monate anlegen, Posten dazuschreiben, ändern und abhaken.",
-        "delete": "Der Partner darf Posten außerdem endgültig löschen. Änderungen stehen im Protokoll, Löschungen nicht."
+        "none": "Die anderen sehen deine Posten nur im Haushaltsplan, deine Monatsseite nicht.",
+        "view": "Die anderen sehen deinen ganzen Monat, auch die privaten Posten.",
+        "create": "Die anderen dürfen zusätzlich Monate anlegen und Posten dazuschreiben.",
+        "edit": "Die anderen dürfen deine Posten außerdem ändern. Änderungen stehen im Protokoll.",
+        "delete": "Die anderen dürfen Posten und Monate außerdem endgültig löschen. Löschungen stehen nicht im Protokoll."
       },
-      "commitments": {
-        "plan": "Deine Verträge, Sparziele und Schulden bleiben für sich.",
-        "view": "Der Partner sieht, was bei dir fest läuft — Betrag, Abstand, Kategorie.",
-        "edit": "Der Partner darf Verträge für dich anlegen und ändern — der Weg, wenn dir jemand beim Einrichten hilft.",
-        "delete": "Der Partner darf Verträge außerdem löschen. Schon erzeugte Posten bleiben stehen, künftige entstehen nicht mehr."
+      "book": {
+        "none": "Dein Buch bleibt für sich. Im Haushaltsbuch stehen nur die Buchungen auf gemeinsamen Posten.",
+        "view": "Die anderen sehen jede Buchung in deinem Buch.",
+        "create": "Die anderen dürfen für dich buchen und deine Posten abhaken.",
+        "edit": "Die anderen dürfen deine Buchungen außerdem ändern.",
+        "delete": "Die anderen dürfen Buchungen außerdem löschen und Häkchen zurücknehmen."
       },
       "accounts": {
-        "plan": "Deine Konten und Buchungen bleiben für sich.",
-        "view": "Der Partner sieht deine Kontostände und jede Buchung darauf.",
-        "edit": "Der Partner darf Konten anlegen und ändern und auf ihnen buchen.",
-        "delete": "Der Partner darf Konten und Buchungen außerdem löschen. Eine gelöschte Buchung hinterlässt eine Lücke im Kontostand, die nichts erklärt."
+        "none": "Deine Konten und Kontostände bleiben für sich.",
+        "view": "Die anderen sehen deine Konten und ihre Stände.",
+        "create": "Die anderen dürfen zusätzlich Konten für dich anlegen.",
+        "edit": "Die anderen dürfen deine Konten außerdem ändern.",
+        "delete": "Die anderen dürfen Konten außerdem löschen."
+      },
+      "commitments": {
+        "none": "Deine Verträge, Sparziele und Schulden bleiben für sich.",
+        "view": "Die anderen sehen, was bei dir fest läuft: Betrag, Abstand, Kategorie.",
+        "create": "Die anderen dürfen Verträge für dich anlegen, etwa beim Einrichten.",
+        "edit": "Die anderen dürfen deine Verträge außerdem ändern.",
+        "delete": "Die anderen dürfen Verträge außerdem löschen. Schon erzeugte Posten bleiben stehen."
+      },
+      "import": {
+        "none": "Deine Kontoauszüge und importierten Zeilen bleiben für sich.",
+        "view": "Die anderen sehen deine importierten Zeilen.",
+        "create": "Die anderen dürfen zusätzlich Kontoauszüge für dich hochladen.",
+        "edit": "Die anderen dürfen importierte Zeilen außerdem zuordnen und buchen.",
+        "delete": "Die anderen dürfen importierte Zeilen außerdem verwerfen."
       }
     },
     "area": {
       "plan": "Planung",
+      "book": "Buch",
+      "accounts": "Konten",
       "commitments": "Verträge",
-      "accounts": "Konten und Buch"
+      "import": "Import"
     }
   },
   "toast": {

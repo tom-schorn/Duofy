@@ -50,7 +50,7 @@ import {
 export function ImportPage() {
   const { t } = useTranslation()
   const active = useActiveMember()
-  const mayEdit = atLeast(active.levelFor('accounts'), 'edit')
+  const mayEdit = atLeast(active.levelFor('import'), 'edit')
 
   const entries = useImportedEntries(active.id)
   // Accounts take a scope, not a plain id — see `BookScope`.

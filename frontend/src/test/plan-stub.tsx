@@ -54,7 +54,12 @@ export const planBase = {
   month: 11,
 }
 
-export function households(level: string, accountsLevel = 'none') {
+/**
+ * One other member who grants me `level` on the plan. The book follows the plan
+ * level unless `bookLevel` says otherwise: most tests speak of "a stand-in at
+ * edit", and ticking off asks the book since #254.
+ */
+export function households(level: string, accountsLevel = 'none', bookLevel = level) {
   return [
     {
       id: 'h1',
@@ -66,9 +71,14 @@ export function households(level: string, accountsLevel = 'none') {
           lastName: 'Test',
           email: 'ida@example.org',
           role: 'member',
-          grantsPlan: level,
-          grantsCommitments: 'none',
-          grantsAccounts: accountsLevel,
+          grantsToMe: {
+            plan: level,
+            book: bookLevel,
+            accounts: accountsLevel,
+            commitments: 'none',
+            import: accountsLevel,
+          },
+          myGrants: { plan: 'none', book: 'none', accounts: 'none', commitments: 'none', import: 'none' },
         },
       ],
     },
@@ -82,6 +92,7 @@ export type Options = {
   paidAt?: string | null
   deletes?: string[]
   accountsLevel?: string
+  bookLevel?: string
 }
 
 export function stub(level: string, ticks: Tick[] = [], options: Options = {}) {
@@ -106,7 +117,7 @@ export function stub(level: string, ticks: Tick[] = [], options: Options = {}) {
       }
       if (path.endsWith('/users/me')) return json({ id: 'u1', firstName: 'Max' })
       if (path.endsWith('/households'))
-        return json(households(level, options.accountsLevel))
+        return json(households(level, options.accountsLevel, options.bookLevel ?? level))
       if (path.includes('/flow')) {
         return json({
           year: 2026,

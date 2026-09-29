@@ -21,6 +21,7 @@ import {
   intervalLabel,
   isValidInterval,
   isViewOnly,
+  lowestLevel,
   monthlyEquivalent,
   effectiveDueDay,
   isPaid,
@@ -341,13 +342,24 @@ describe('coupleQuotas', () => {
   })
 })
 
+describe('lowestLevel', () => {
+  test('takes the lowest step and answers none for nobody', () => {
+    expect(lowestLevel(['delete', 'create', 'edit'])).toBe('create')
+    expect(lowestLevel([])).toBe('none')
+  })
+})
+
 describe('isViewOnly', () => {
   test('is false below view — there is nothing to see either', () => {
-    expect(isViewOnly('plan')).toBe(false)
+    expect(isViewOnly('none')).toBe(false)
   })
 
   test('is true at exactly view', () => {
     expect(isViewOnly('view')).toBe(true)
+  })
+
+  test('is false at create — adding is more than looking', () => {
+    expect(isViewOnly('create')).toBe(false)
   })
 
   test('is false at edit — the higher rung keeps the right to edit', () => {

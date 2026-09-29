@@ -845,12 +845,12 @@ export type ImportSummary = {
 export type Role = 'owner' | 'member'
 
 /**
- * What somebody allows the other members to see about themselves.
+ * What one person allows one other person to do with their data, per area.
  *
- * Sits on your **own** membership: whoever owns the data decides. Nobody can grant
- * themselves insight into somebody else accounts.
+ * Whoever owns the data decides, for each other member separately. Nobody can
+ * grant themselves insight into somebody else's accounts.
  */
-export type AccessLevel = 'plan' | 'view' | 'edit' | 'delete'
+export type AccessLevel = 'none' | 'view' | 'create' | 'edit' | 'delete'
 
 /**
  * The rungs, in order. Mirrors `AccessLevel.rank` in the backend.
@@ -861,10 +861,11 @@ export type AccessLevel = 'plan' | 'view' | 'edit' | 'delete'
  * happened once already, in three places at the same time.
  */
 const ACCESS_RANK: Record<AccessLevel, number> = {
-  plan: 0,
+  none: 0,
   view: 1,
-  edit: 2,
-  delete: 3,
+  create: 2,
+  edit: 3,
+  delete: 4,
 }
 
 /** Is `level` at least `needed`? */
@@ -872,15 +873,21 @@ export function atLeast(level: AccessLevel, needed: AccessLevel): boolean {
   return ACCESS_RANK[level] >= ACCESS_RANK[needed]
 }
 
-/** Can see but not edit — the rung the "nur ansehen" banner is for. */
+/** Can see but not add or change — the rung the "nur ansehen" banner is for. */
 export function isViewOnly(level: AccessLevel): boolean {
-  return atLeast(level, 'view') && !atLeast(level, 'edit')
+  return atLeast(level, 'view') && !atLeast(level, 'create')
+}
+
+/** The lowest of several levels; `none` for no levels at all. */
+export function lowestLevel(levels: AccessLevel[]): AccessLevel {
+  if (levels.length === 0) return 'none'
+  return levels.reduce((low, level) => (ACCESS_RANK[level] < ACCESS_RANK[low] ? level : low))
 }
 
 /**
  * What a level means, per area — the same word promises different things.
- * "Sehen" on a month is the shared plan plus the private positions; on a contract
- * it is the contract itself, which nobody used to be able to share at all.
+ * "Sehen" on a month is the plan with the private positions; on a contract it
+ * is the contract itself.
  */
 export function accessLabel(area: Area, level: AccessLevel): string {
   return i18n.t(`enums.access.${area}.${level}`)
@@ -891,7 +898,10 @@ export function accessHint(area: Area, level: AccessLevel): string {
   return i18n.t(`enums.accessHint.${area}.${level}`)
 }
 
-export const ACCESS_ORDER: AccessLevel[] = ['plan', 'view', 'edit', 'delete']
+export const ACCESS_ORDER: AccessLevel[] = ['none', 'view', 'create', 'edit', 'delete']
+
+/** One level per area. */
+export type AreaLevels = Record<Area, AccessLevel>
 
 export type Member = {
   userId: string
@@ -899,35 +909,20 @@ export type Member = {
   lastName: string
   email: string
   role: Role
-  /**
-   * What this person allows the others to see about themselves, one level per
-   * area. Sharing the month you plan is a small step; handing over the contracts
-   * behind it is a much larger one, so they are answered separately.
-   */
-  grantsPlan: AccessLevel
-  grantsCommitments: AccessLevel
-  /** Covers the book too — an account you may see comes with its bookings. */
-  grantsAccounts: AccessLevel
+  /** What this member allows me, per area. All `none` on my own entry. */
+  grantsToMe: AreaLevels
+  /** What I allow this member, per area. All `none` on my own entry. */
+  myGrants: AreaLevels
 }
 
-/** The three areas a grant can be given for. Mirrors `Area` in the backend. */
-export type Area = 'plan' | 'commitments' | 'accounts'
+/** The five areas a grant can be given for. Mirrors `Area` in the backend. */
+export type Area = 'plan' | 'book' | 'accounts' | 'commitments' | 'import'
 
 export function areaLabel(area: Area): string {
   return i18n.t(`enums.area.${area}`)
 }
 
-export const AREA_ORDER: Area[] = ['plan', 'commitments', 'accounts']
-
-/** The `Member` fields the levels live in. */
-export type AreaField = 'grantsPlan' | 'grantsCommitments' | 'grantsAccounts'
-
-/** Which field on `Member` carries the level for an area. */
-export const AREA_FIELD: Record<Area, AreaField> = {
-  plan: 'grantsPlan',
-  commitments: 'grantsCommitments',
-  accounts: 'grantsAccounts',
-}
+export const AREA_ORDER: Area[] = ['plan', 'book', 'accounts', 'commitments', 'import']
 
 export type Household = {
   id: string

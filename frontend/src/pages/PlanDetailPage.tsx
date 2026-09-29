@@ -31,6 +31,7 @@ import {
   monthLabel,
   OWN_SCOPE,
   type AccessLevel,
+  type Area,
   type BookScope,
   type HouseholdPlanDetail,
   type HouseholdPosition,
@@ -108,7 +109,7 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
     !shared &&
     (deletingMonth ||
       (query.error instanceof ApiError && query.error.code === 'plan_not_found'))
-  const mayCreate = atLeast(active.levelFor('plan'), 'edit')
+  const mayCreate = atLeast(active.levelFor('plan'), 'create')
   // A household month exists only once every current member has planned it.
   // Until then this is a half plan, not the household's: the backend sends
   // empty positions and names who is still missing instead, so a calm notice
@@ -142,10 +143,11 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
   } | null = null
   if (shared && householdPlan.data) {
     // #218: a position is one's own, or somebody else's shared into the household.
-    // Somebody else's only open with their own grant — set on their membership,
-    // never by the viewer — at `edit`; below that the row has no control at all.
-    const levelOf = (ownerId: string): AccessLevel =>
-      householdMembers.find((member) => member.userId === ownerId)?.grantsPlan ?? 'plan'
+    // Somebody else's only open with the grant they gave the viewer — never set by
+    // the viewer; below it the row has no control at all. Ticking asks the book
+    // (decision 61), changing and deleting the plan.
+    const levelOf = (ownerId: string, area: Area): AccessLevel =>
+      householdMembers.find((member) => member.userId === ownerId)?.grantsToMe[area] ?? 'none'
     const ownerOf = (position: PlanPosition) => (position as HouseholdPosition).ownerId
     view = {
       plan: householdPlan.data,
@@ -157,37 +159,42 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
         addBooking: false,
         deleteMonth: false,
         editPosition: (position) =>
-          ownerOf(position) === myId || atLeast(levelOf(ownerOf(position)), 'edit'),
+          ownerOf(position) === myId || atLeast(levelOf(ownerOf(position), 'plan'), 'edit'),
+        tickPosition: (position) =>
+          ownerOf(position) === myId || atLeast(levelOf(ownerOf(position), 'book'), 'create'),
         deletePosition: (position) =>
-          ownerOf(position) === myId || atLeast(levelOf(ownerOf(position)), 'delete'),
+          ownerOf(position) === myId || atLeast(levelOf(ownerOf(position), 'plan'), 'delete'),
       },
       lead: t('plan.householdLead'),
       standIn: false,
     }
   } else if (foreign && memberPlan.data) {
-    // Acting on their behalf: at level `edit` everything the owner can do except
-    // deleting. Only decides which controls are offered; the endpoint checks again.
+    // Acting on their behalf, step by step as they granted it. Only decides which
+    // controls are offered; the endpoint checks again.
     const name = active.member?.firstName ?? ''
+    const mayAdd = atLeast(active.levelFor('plan'), 'create')
     const mayEdit = atLeast(active.levelFor('plan'), 'edit')
     const mayDelete = atLeast(active.levelFor('plan'), 'delete')
+    const mayTick = atLeast(active.levelFor('book'), 'create')
     view = {
       plan: memberPlan.data,
       scope: { kind: 'member', ownerId: memberId ?? '' },
       rights: {
-        addPosition: mayEdit,
-        addBooking: atLeast(active.levelFor('accounts'), 'edit'),
+        addPosition: mayAdd,
+        addBooking: mayTick,
         deleteMonth: mayDelete,
         editPosition: () => mayEdit,
+        tickPosition: () => mayTick,
         deletePosition: () => mayDelete,
       },
       lead: `${t('plan.memberLead', { name })} ${
-        !mayEdit
+        !mayAdd && !mayTick
           ? t('plan.viewOnly', { name })
           : mayDelete
             ? t('plan.mayDelete')
             : t('plan.mayEdit')
       }`,
-      standIn: mayEdit,
+      standIn: mayAdd || mayTick,
     }
   } else if (!shared && !foreign && ownPlan.data) {
     view = {

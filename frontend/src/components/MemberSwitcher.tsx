@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { AREA_FIELD, AREA_ORDER, type Member } from '@/lib/domain'
+import { AREA_ORDER, type Member } from '@/lib/domain'
 import { useHouseholds, useMe } from '@/lib/queries'
 
 /**
@@ -26,9 +26,9 @@ import { useHouseholds, useMe } from '@/lib/queries'
  * The uuid rather than the name: names repeat and change, an id does not.
  */
 
-/** Anyone who granted at least `view` in some area — below that there is nothing to show. */
+/** Anyone who granted me at least `view` in some area — below that there is nothing to show. */
 export function sharesAnything(member: Member): boolean {
-  return AREA_ORDER.some((area) => member[AREA_FIELD[area]] !== 'plan')
+  return AREA_ORDER.some((area) => member.grantsToMe[area] !== 'none')
 }
 
 /** The value the select uses for "myself" — an empty param would be ambiguous. */

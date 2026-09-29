@@ -497,7 +497,7 @@ export function PlanView({
               hints={plan.hints}
               onEdit={openEditor}
               onTogglePaid={toggle}
-              readOnly={(position) => !rights.editPosition(position)}
+              readOnly={(position) => !rights.tickPosition(position)}
               ownerName={rowOwner}
             />
 
@@ -512,7 +512,7 @@ export function PlanView({
                 hints={plan.hints}
                 onEdit={openEditor}
                 onTogglePaid={toggle}
-                readOnly={(position) => !rights.editPosition(position)}
+                readOnly={(position) => !rights.tickPosition(position)}
                 ownerName={rowOwner}
               />
             ))}

@@ -27,9 +27,14 @@ const household = {
       lastName: 'Test',
       email: 'alex@example.org',
       role: 'member',
-      grantsPlan: 'plan',
-      grantsCommitments: 'plan',
-      grantsAccounts: 'plan',
+      grantsToMe: {
+        plan: 'none',
+        book: 'none',
+        accounts: 'none',
+        commitments: 'none',
+        import: 'none',
+      },
+      myGrants: { plan: 'none', book: 'none', accounts: 'none', commitments: 'none', import: 'none' },
     },
   ],
 }

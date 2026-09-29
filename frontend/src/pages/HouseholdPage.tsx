@@ -43,12 +43,11 @@ import {
   accessHint,
   accessLabel,
   ACCESS_ORDER,
-  AREA_FIELD,
   areaLabel,
   AREA_ORDER,
+  lowestLevel,
   type AccessLevel,
   type Household,
-  type Member,
   type Role,
 } from '@/lib/domain'
 import { shortDate } from '@/lib/dates'
@@ -163,13 +162,13 @@ export function HouseholdPage() {
                         Text da — man soll sehen, was man von ihnen sieht. */}
                     <span className="w-full pl-11">
                       {isMe ? (
-                        <AccessChoice householdId={household.id} member={member} />
+                        <AccessChoice household={household} myId={member.userId} />
                       ) : (
                         <span className="text-muted-foreground flex flex-col gap-0.5 text-xs">
                           {AREA_ORDER.map((area) => (
                             <span key={area}>
                               {areaLabel(area)}:{' '}
-                              {accessLabel(area, member[AREA_FIELD[area]]).toLowerCase()}
+                              {accessLabel(area, member.grantsToMe[area]).toLowerCase()}
                             </span>
                           ))}
                         </span>
@@ -461,7 +460,13 @@ function SharingPresetDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const { t } = useTranslation()
-  const save = useSetMyAccess(household?.id ?? '')
+  const me = useMe().data
+  const save = useSetMyAccess(
+    household?.id ?? '',
+    (household?.members ?? [])
+      .map((member) => member.userId)
+      .filter((userId) => userId !== me?.id)
+  )
 
   return (
     <DialogFrame
@@ -473,7 +478,7 @@ function SharingPresetDialog({
       onSubmit={(event) => {
         event.preventDefault()
         save.mutate(
-          { grantsPlan: 'edit', grantsCommitments: 'edit', grantsAccounts: 'edit' },
+          Object.fromEntries(AREA_ORDER.map((area) => [area, 'edit'])),
           { onSuccess: () => onOpenChange(false) }
         )
       }}
@@ -491,15 +496,17 @@ function SharingPresetDialog({
  *
  * Deliberately here and not in the settings: the decision concerns exactly the
  * people listed next to it. Whoever makes it has to see who they are giving it to.
+ *
+ * The server keeps a level per person; until the grants page lets me choose per
+ * person, this card sets the same level for everybody and shows the lowest one I
+ * gave anybody — never more than everybody has.
  */
-function AccessChoice({
-  householdId,
-  member,
-}: {
-  householdId: string
-  member: Member
-}) {
-  const save = useSetMyAccess(householdId)
+function AccessChoice({ household, myId }: { household: Household; myId: string }) {
+  const others = household.members.filter((member) => member.userId !== myId)
+  const save = useSetMyAccess(
+    household.id,
+    others.map((member) => member.userId)
+  )
   const { t } = useTranslation()
 
   return (
@@ -507,7 +514,7 @@ function AccessChoice({
       <span className="text-muted-foreground text-xs">{t('household.youShare')}</span>
 
       {AREA_ORDER.map((area) => {
-        const level = member[AREA_FIELD[area]]
+        const level = lowestLevel(others.map((member) => member.myGrants[area]))
         return (
           <span key={area} className="flex flex-col gap-1">
             <span className="flex flex-wrap items-center gap-2">
@@ -515,11 +522,9 @@ function AccessChoice({
               <Select
                 value={level}
                 // Only this area travels. What the call leaves out keeps its
-                // level, so the other two are not touched.
-                onValueChange={(next) =>
-                  save.mutate({ [AREA_FIELD[area]]: next as AccessLevel })
-                }
-                disabled={save.isPending}
+                // level, so the other areas are not touched.
+                onValueChange={(next) => save.mutate({ [area]: next as AccessLevel })}
+                disabled={save.isPending || others.length === 0}
               >
                 <SelectTrigger className="h-8 w-64 text-xs">
                   <SelectValue />
