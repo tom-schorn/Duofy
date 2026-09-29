@@ -1266,8 +1266,7 @@ function HouseholdPlanBody({
           beim gemeinsamen Plan ist genau das die Information. */}
       <PlanPrintout plan={plan} ownerName={ownerName} />
 
-
-{paidDialogs}
+      {paidDialogs}
 
       {/* Kein „Anlegen" hier: der Haushalt besitzt nichts, ein Posten entsteht
           immer im eigenen Plan (#218 Nicht im Umfang). `planId` bleibt leer —

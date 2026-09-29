@@ -36,6 +36,8 @@ function position(overrides: Record<string, unknown> = {}) {
   }
 }
 
+const TICKED = '2026-11-03T10:00:00Z'
+
 const planBase = {
   targetNeeds: '50.00',
   targetWants: '30.00',
@@ -74,12 +76,29 @@ function households(level: string) {
 }
 
 /** Every request the page makes; ticks are recorded with their body. */
-function stub(level: string, ticks: Tick[]) {
+type Options = {
+  /** Bookings of the month; `null` = the request is refused (no accounts view). */
+  transactions?: Record<string, unknown>[] | null
+  paidAt?: string | null
+  deletes?: string[]
+}
+
+function stub(level: string, ticks: Tick[], options: Options = {}) {
+  const { transactions = [], paidAt = null, deletes = [] } = options
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init?: RequestInit) => {
       const path = String(url)
       const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200 })
+      if (path.endsWith('/paid') && init?.method === 'DELETE') {
+        deletes.push(path)
+        return json(position())
+      }
+      if (path.includes('/transactions')) {
+        return transactions === null
+          ? new Response(JSON.stringify({ code: 'forbidden' }), { status: 403 })
+          : json(transactions)
+      }
       if (path.endsWith('/paid') && init?.method === 'POST') {
         ticks.push({ url: path, body: JSON.parse(String(init.body ?? '{}')) })
         return json(position({ paidAt: '2026-11-03T10:00:00Z' }))
@@ -105,8 +124,14 @@ function stub(level: string, ticks: Tick[]) {
           householdName: 'Zuhause',
           missingMembers: [],
           positions: [
-            position(),
-            position({ id: 'p2', label: 'Strom', ownerId: 'u2', ownerName: 'Ida' }),
+            position({ paidAt }),
+            position({
+              id: 'p2',
+              label: 'Strom',
+              ownerId: 'u2',
+              ownerName: 'Ida',
+              paidAt,
+            }),
           ],
         })
       }
@@ -116,7 +141,9 @@ function stub(level: string, ticks: Tick[]) {
         return json({
           ...planBase,
           id: foreign ? 'plan2' : 'plan1',
-          positions: [position(foreign ? { ownerId: 'u2', ownerName: 'Ida' } : {})],
+          positions: [
+            position(foreign ? { ownerId: 'u2', ownerName: 'Ida', paidAt } : { paidAt }),
+          ],
         })
       }
       return json([])
@@ -125,7 +152,9 @@ function stub(level: string, ticks: Tick[]) {
 }
 
 function renderAt(path: string) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
   const router = createMemoryRouter(
     [{ path: '/plan/:year/:month', element: <PlanDetailPage /> }],
     { initialEntries: [path] }
@@ -142,12 +171,32 @@ const tickBox = (label: string) => i18n.t('budget.tick', { label })
 async function tickAndConfirm(label: string) {
   fireEvent.click(await screen.findByRole('checkbox', { name: tickBox(label) }))
   expect(
-    await screen.findByRole('dialog', { name: i18n.t('paidDialog.title', { label }) })
+    await screen.findByRole('dialog', {
+      name: i18n.t('paidDialog.title', { label }),
+    })
   ).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: i18n.t('paidDialog.submit') }))
 }
 
 afterEach(() => vi.unstubAllGlobals())
+
+const booking = (positionId: string) => ({
+  id: 'b1',
+  positionId,
+  autoBooked: true,
+  amount: '42.00',
+  occurredOn: '2026-11-03',
+  accountId: 'a1',
+  label: 'Miete',
+})
+
+async function untickAndConfirm(label: string) {
+  const box = await screen.findByRole('checkbox', {
+    name: i18n.t('budget.reopen', { label }),
+  })
+  fireEvent.click(box)
+  return screen.findByRole('alertdialog')
+}
 
 describe('ticking off, one operation in every plan (#251)', () => {
   test('own plan: the dialog opens and the tick carries date and amount', async () => {
@@ -203,7 +252,53 @@ describe('ticking off, one operation in every plan (#251)', () => {
   test('household plan, position of somebody without the edit grant: no box', async () => {
     stub('view', [])
     renderAt('/plan/2026/11?household=h1')
-    expect(await screen.findByRole('checkbox', { name: tickBox('Miete') })).toBeInTheDocument()
-    expect(screen.queryByRole('checkbox', { name: tickBox('Strom') })).not.toBeInTheDocument()
+    expect(
+      await screen.findByRole('checkbox', { name: tickBox('Miete') })
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('checkbox', { name: tickBox('Strom') })
+    ).not.toBeInTheDocument()
+  })
+
+  test.each([
+    ['own plan', '/plan/2026/11', 'none', 'Miete', 'p1'],
+    ['another person plan', '/plan/2026/11?member=u2', 'edit', 'Miete', 'p1'],
+    ['household plan', '/plan/2026/11?household=h1', 'edit', 'Strom', 'p2'],
+  ])(
+    '%s: unticking asks with the amount, confirming sends the DELETE',
+    async (_n, path, level, label, id) => {
+      const deletes: string[] = []
+      stub(level, [], { transactions: [booking(id)], paidAt: TICKED, deletes })
+      renderAt(path)
+      const dialog = await untickAndConfirm(label)
+      await waitFor(() => expect(dialog).toHaveTextContent('42,00'))
+      expect(deletes).toHaveLength(0)
+      fireEvent.click(screen.getByRole('button', { name: i18n.t('plan.untick') }))
+      await waitFor(() => expect(deletes).toHaveLength(1))
+      expect(deletes[0]).toContain(`/positions/${id}/paid`)
+      await waitFor(() =>
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      )
+    }
+  )
+
+  test('bookings not loadable: unticking still asks, without an amount', async () => {
+    const deletes: string[] = []
+    stub('edit', [], { transactions: null, paidAt: TICKED, deletes })
+    renderAt('/plan/2026/11?member=u2')
+    const dialog = await untickAndConfirm('Miete')
+    expect(dialog).toHaveTextContent(i18n.t('plan.untickTextUnknown'))
+    expect(deletes).toHaveLength(0)
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('plan.untick') }))
+    await waitFor(() => expect(deletes).toHaveLength(1))
+  })
+
+  test('bookings not loadable: the tick dialog does not pretend date and amount count', async () => {
+    stub('edit', [], { transactions: null })
+    renderAt('/plan/2026/11?member=u2')
+    fireEvent.click(await screen.findByRole('checkbox', { name: tickBox('Miete') }))
+    expect(
+      await screen.findByText(i18n.t('paidDialog.bookingsUnknown'))
+    ).toBeInTheDocument()
   })
 })
