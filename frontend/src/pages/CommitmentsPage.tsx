@@ -145,9 +145,6 @@ export function CommitmentsPage() {
   const heading = useRef<HTMLHeadingElement>(null)
   const deleted = useRef(false)
 
-  const householdNames = Object.fromEntries(
-    (households.data ?? []).map((household) => [household.id, household.name])
-  )
   const rowsAll = commitments.data ?? []
 
   const groups = BUDGET_ORDER.map((budget) => {
@@ -306,9 +303,7 @@ export function CommitmentsPage() {
                         {categoryLabel(commitment.category)} ·{' '}
                         {intervalText(commitment)} ·{' '}
                         {t('common.dueDay', { day: dueDayOf(commitment.firstDueDate) })}
-                        {commitment.householdId
-                          ? ` · ${householdNames[commitment.householdId] ?? t('plans.household')}`
-                          : ` · ${t('commitments.private')}`}
+                        {commitment.isPrivate ? ` · ${t('commitments.private')}` : ''}
                         {commitment.isLimit ? ` · ${t('budget.limit')}` : ''}
                         {detail ? ` · ${detail}` : ''}
                       </span>

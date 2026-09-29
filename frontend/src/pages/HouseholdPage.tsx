@@ -30,7 +30,6 @@ import { QueryState } from '@/components/QueryState'
 import { errorText } from '@/lib/api'
 import {
   useAcceptInvitation,
-  useCreateHousehold,
   useDeclineInvitation,
   useHouseholds,
   useInvite,
@@ -61,7 +60,8 @@ import { shortDate } from '@/lib/dates'
  * says who plans together. That is why no amount appears here: the figures live in
  * the plan, not on the household.
  *
- * A user can belong to several households at once, so the page lists all of them.
+ * Everybody belongs to exactly one household, their own or the one they were
+ * invited into. The list keeps its shape, but holds one entry.
  *
  * Every member may change the household's quotas (#84): the household belongs
  * to nobody, so no role decides for the others.
@@ -78,7 +78,7 @@ export function HouseholdPage() {
   const households = useHouseholds()
   const me = useMe()
   const [invitingTo, setInvitingTo] = useState<Household | null>(null)
-  // The household a preset is currently offered for: right after joining or creating.
+  // The household a preset is currently offered for: right after joining.
   const [presetFor, setPresetFor] = useState<Household | null>(null)
   const currentUserId = me.data?.id ?? ''
   // After leaving, the card is gone; the focus goes to the page heading (rule 13).
@@ -99,7 +99,6 @@ export function HouseholdPage() {
             {t('household.lead')}
           </p>
         </div>
-        <CreateHouseholdButton onCreated={setPresetFor} />
       </header>
 
       <PendingInvitations onJoined={setPresetFor} />
@@ -454,77 +453,6 @@ function PendingInvitations({ onJoined }: { onJoined: (household: Household) => 
   )
 }
 
-export function CreateHouseholdButton({
-  onCreated,
-}: {
-  onCreated?: (household: Household) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const [name, setName] = useState('')
-  const { t } = useTranslation()
-  const create = useCreateHousehold()
-
-  // Every opening starts empty: closing without saving must really discard.
-  const resetCreate = create.reset
-  useEffect(() => {
-    if (open) {
-      setName('')
-      resetCreate()
-    }
-  }, [open, resetCreate])
-
-  return (
-    <>
-      <Button onClick={() => setOpen(true)}>
-        <Plus className="size-4" />
-        {t('household.create')}
-      </Button>
-
-      <DialogFrame
-        open={open}
-        onOpenChange={setOpen}
-        title={t('household.create')}
-        description={t('household.createDescription')}
-        submitLabel={t('common.create')}
-        onSubmit={(event) => {
-          event.preventDefault()
-          create.mutate(
-            { name },
-            {
-              onSuccess: (household) => {
-                setName('')
-                setOpen(false)
-                onCreated?.(household)
-              },
-            }
-          )
-        }}
-        dirty={name !== ''}
-        pending={create.isPending}
-        error={create.isError ? create.error : null}
-      >
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="household-name">{t('household.name')}</Label>
-          <Input
-            id="household-name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder={t('household.namePlaceholder')}
-            required
-          />
-        </div>
-      </DialogFrame>
-    </>
-  )
-}
-
-/**
- * The couple preset, offered once after joining or creating a household.
- *
- * It is a suggestion to the person themselves and sets only their own levels —
- * nobody grants for someone else. Declining keeps the default (`plan` everywhere);
- * every area stays changeable below afterwards.
- */
 function SharingPresetDialog({
   household,
   onOpenChange,

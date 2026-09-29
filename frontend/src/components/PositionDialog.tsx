@@ -29,7 +29,7 @@ import {
   type PlanPosition,
   PAYMENT_METHODS,
 } from '@/lib/domain'
-import { useAccounts, useHouseholds } from '@/lib/queries'
+import { useAccounts } from '@/lib/queries'
 
 /**
  * Create and edit one-off positions.
@@ -83,7 +83,6 @@ const DEFAULT_CATEGORY: Record<Budget, Category> = {
  * only re-picking the account itself can produce the clash.
  */
 const FIELD_ERROR_WORDS: Record<string, string> = {
-  not_household_member: 'assignment',
   transfer_needs_two_accounts: 'account',
   not_account_owner: 'account',
 }
@@ -102,7 +101,7 @@ function emptyDraft(budget: Budget): PlanPosition {
     counterAccountId: null,
     passThrough: false,
     paymentMethod: null,
-    householdId: null,
+    isPrivate: false,
     commitmentId: null,
     paidAt: null,
   }
@@ -152,7 +151,6 @@ export function PositionDialog({
   ownerName = null,
 }: Props) {
   const { t } = useTranslation()
-  const households = useHouseholds().data ?? []
   const accounts = useAccounts().data ?? []
   const [draft, setDraft] = useState<PlanPosition>(position ?? emptyDraft(budget))
 
@@ -444,42 +442,6 @@ export function PositionDialog({
     </SentencePanel>
   )
 
-  const assignmentWord = word(
-    'assignment',
-    draft.householdId === null
-      ? t('common.privateOnly')
-      : (households.find((household) => household.id === draft.householdId)?.name ?? ''),
-    extrasSentenceId,
-    'assignment'
-  )
-  const assignmentPanel = openWord === 'assignment' && (
-    <SentencePanel label={t('common.assignment')} id="assignment">
-      <div className="flex flex-wrap gap-2">
-        <SentenceChip
-          selected={draft.householdId === null}
-          onClick={() => {
-            set('householdId', null)
-            closeWord()
-          }}
-        >
-          {t('common.privateOnly')}
-        </SentenceChip>
-        {households.map((household) => (
-          <SentenceChip
-            key={household.id}
-            selected={draft.householdId === household.id}
-            onClick={() => {
-              set('householdId', household.id)
-              closeWord()
-            }}
-          >
-            {household.name}
-          </SentenceChip>
-        ))}
-      </div>
-    </SentencePanel>
-  )
-
   const passThroughWord = word(
     'passThrough',
     draft.passThrough ? t('common.passThroughOn') : t('common.passThroughOff'),
@@ -539,7 +501,6 @@ export function PositionDialog({
     account: accountWord,
     counterAccount: counterAccountWord,
     payment: paymentWord,
-    assignment: assignmentWord,
     passThrough: passThroughWord,
     actual: actualWord,
   }
@@ -549,7 +510,6 @@ export function PositionDialog({
     accountPanel,
     counterAccountPanel,
     paymentPanel,
-    assignmentPanel,
     passThroughPanel,
     isEdit && actualPanel,
   ]

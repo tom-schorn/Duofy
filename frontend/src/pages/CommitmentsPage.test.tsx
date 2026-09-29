@@ -17,7 +17,7 @@ function commitment(id: string, name: string, deletable: boolean) {
     category: 'housing.rent',
     budget: 'needs',
     isLimit: false,
-    householdId: null,
+    isPrivate: false,
     intervalMonths: 1,
     firstDueDate: '2026-10-01',
     endsOn: null,

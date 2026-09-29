@@ -1,4 +1,4 @@
-import { CircleCheck, TriangleAlert, User, Users } from 'lucide-react'
+import { CircleCheck, Lock, TriangleAlert, User } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
@@ -55,7 +55,6 @@ type Props = {
   positions: PlanPosition[]
   /** The hints of the plan; each row shows those that concern its position. */
   hints?: PlanHint[]
-  householdNames: Record<string, string>
   onEdit: (position: PlanPosition) => void
   onTogglePaid: (position: PlanPosition) => void
   /**
@@ -74,7 +73,6 @@ export function BudgetSection({
   target,
   positions,
   hints = [],
-  householdNames,
   onEdit,
   onTogglePaid,
   readOnly = false,
@@ -137,7 +135,6 @@ export function BudgetSection({
             key={position.id}
             position={position}
             hints={hints.filter((hint) => hint.positionId === position.id)}
-            householdNames={householdNames}
             onEdit={onEdit}
             onTogglePaid={onTogglePaid}
             readOnly={typeof readOnly === 'function' ? readOnly(position) : readOnly}
@@ -152,7 +149,6 @@ export function BudgetSection({
 function PositionRow({
   position,
   hints,
-  householdNames,
   onEdit,
   onTogglePaid,
   readOnly,
@@ -161,7 +157,6 @@ function PositionRow({
   position: PlanPosition
   /** Only the hints of this position. */
   hints: PlanHint[]
-  householdNames: Record<string, string>
   onEdit: (position: PlanPosition) => void
   onTogglePaid: (position: PlanPosition) => void
   readOnly: boolean
@@ -292,21 +287,19 @@ function PositionRow({
     >
       <span className="flex flex-wrap items-center gap-2">
           <span className="font-medium">{position.label}</span>
-          {/* In der gemeinsamen Sicht steht hier die Person, nicht der
-              Haushalt — der ist dort in jeder Zeile derselbe und sagt nichts.
-              Im eigenen Plan umgekehrt: dort ist die Person klar, und der
-              Badge zeigt, dass der Posten zusätzlich in einen Haushaltsplan
-              läuft. */}
+          {/* In der gemeinsamen Sicht steht hier die Person: der Haushalt ist
+              dort in jeder Zeile derselbe. Im eigenen Plan zeigt das Schloss,
+              was der Haushalt nicht sieht. */}
           {ownerName ? (
             <Badge variant="secondary" className="gap-1 font-normal">
               <User className="size-3" />
               {ownerName}
             </Badge>
           ) : (
-            position.householdId && (
+            position.isPrivate && (
               <Badge variant="secondary" className="gap-1 font-normal">
-                <Users className="size-3" />
-                {householdNames[position.householdId]}
+                <Lock className="size-3" />
+                {t('budget.private')}
               </Badge>
             )
           )}

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router'
-import { ChevronRight, Plus, Users } from 'lucide-react'
+import { ChevronRight, Plus } from 'lucide-react'
 
 import { CreatePlanDialog } from '@/components/CreatePlanDialog'
 import { EmptyState } from '@/components/EmptyState'
@@ -132,7 +132,6 @@ export function PlansPage() {
               <li key={`${plan.year}-${plan.month}`}>
                 <PlanCard
                   plan={plan}
-                  householdNames={names}
                   search={inHousehold ? `?household=${householdId}` : active.id === null ? '' : `?member=${active.id}`}
                 />
               </li>
@@ -154,11 +153,9 @@ export function PlansPage() {
 
 function PlanCard({
   plan,
-  householdNames,
   search,
 }: {
   plan: PlanSummary
-  householdNames: Record<string, string>
   /** `?member=` or `?household=` to carry along, or '' for your own plan. */
   search: string
 }) {
@@ -184,15 +181,6 @@ function PlanCard({
           <span className="font-heading text-xl font-semibold">
             {monthLabel(plan.month)} {plan.year}
           </span>
-          {/* Zeigt, dass dieser Plan Posten in einen Haushalt einspeist.
-              Der Haushaltsplan ist keine eigene Tabelle — er entsteht aus
-              genau diesen Posten. */}
-          {plan.householdIds.map((id) => (
-            <Badge key={id} variant="secondary" className="gap-1 font-normal">
-              <Users className="size-3" />
-              {householdNames[id] ?? t('plans.household')}
-            </Badge>
-          ))}
         </div>
         <ChevronRight className="text-muted-foreground size-4" />
       </div>

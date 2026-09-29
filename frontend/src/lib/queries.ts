@@ -180,15 +180,6 @@ export function useHouseholds() {
   })
 }
 
-export function useCreateHousehold() {
-  return useInvalidating<Household, { name: string }>(
-    (input) => api.post('/households', input),
-    [keys.households],
-    (household) => i18n.t('toast.householdCreated', { name: household.name }),
-    INLINE_ERROR
-  )
-}
-
 export function useUpdateHousehold() {
   return useInvalidating<Household, { id: string } & Partial<Household>>(
     ({ id, ...changes }) => api.patch(`/households/${id}`, changes),

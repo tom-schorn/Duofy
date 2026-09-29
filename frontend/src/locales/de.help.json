@@ -180,7 +180,7 @@
     "entries": {
       "household": {
         "title": "Was ein Haushalt ist",
-        "body": "<p>Eine Planungsebene, mehr nicht. Ein Haushalt besitzt nichts: keine Konten, keine Verträge, keine Posten. Er sagt nur, wer zusammen plant.</p><p>Der gemeinsame Plan ist keine eigene Tabelle, sondern die Zusammenstellung aller Posten, die ihr als gemeinsam markiert habt. Der Posten existiert genau einmal — es gibt nichts abzugleichen.</p>"
+        "body": "<p>Eine Planungsebene, mehr nicht. Ein Haushalt besitzt nichts: keine Konten, keine Verträge, keine Posten. Er sagt nur, wer zusammen plant.</p><p>Jede Person gehört zu genau einem Haushalt: zu ihrem eigenen oder zu dem, in den sie eingeladen wurde. Der gemeinsame Plan ist keine eigene Tabelle, sondern die Zusammenstellung aller Posten der Mitglieder, außer den privaten. Der Posten existiert genau einmal — es gibt nichts abzugleichen.</p>"
       },
       "grants": {
         "title": "Freigabe je Bereich",
@@ -188,7 +188,7 @@
       },
       "preset": {
         "title": "Voreinstellung beim Beitritt",
-        "body": "<p>Legst du einen Haushalt an oder trittst einem bei, fragt Duofy einmal, was du teilst. Ohne Freigabe sehen die anderen nur deine gemeinsamen Posten. Mit <strong>Paar übernehmen</strong> dürfen die anderen alles von dir sehen und bearbeiten; du kannst es aber auch so lassen.</p><pSpaced>Die Voreinstellung gilt nur für dich und setzt nur deine Freigaben. Danach änderst du jeden Bereich einzeln, und zurücknehmen kannst du sie jederzeit.</pSpaced>"
+        "body": "<p>Trittst du einem Haushalt bei, fragt Duofy einmal, was du teilst. Ohne Freigabe sehen die anderen im Haushaltsplan deine Posten, aber nicht deine Verträge, Konten oder deinen Import. Beitreten geht nur, wenn in deinem bisherigen Haushalt sonst niemand ist. Mit <strong>Paar übernehmen</strong> dürfen die anderen alles von dir sehen und bearbeiten; du kannst es aber auch so lassen.</p><pSpaced>Die Voreinstellung gilt nur für dich und setzt nur deine Freigaben. Danach änderst du jeden Bereich einzeln, und zurücknehmen kannst du sie jederzeit.</pSpaced>"
       },
       "areas": {
         "title": "Die drei Bereiche",
@@ -208,7 +208,7 @@
       },
       "leaving": {
         "title": "Austreten",
-        "body": "<p>Deine Posten verlassen den Haushaltsplan in allen Monaten, auch in vergangenen: Der Haushaltsplan ist eine Sicht auf die Pläne der aktuellen Mitglieder, keine eigene Geschichte. Sie bleiben als private Posten in deinem eigenen Plan, nichts wird gelöscht.</p><pSpaced>Bei einem späteren Wiedereintritt kommen sie nicht von selbst zurück — du ordnest dann neu zu.</pSpaced>"
+        "body": "<p>Deine Posten verlassen den Haushaltsplan in allen Monaten, auch in vergangenen: Der Haushaltsplan ist eine Sicht auf die Pläne der aktuellen Mitglieder, keine eigene Geschichte. Sie bleiben in deinem eigenen Plan, nichts wird gelöscht. Du bekommst sofort einen neuen, eigenen Haushalt.</p>"
       }
     }
   },

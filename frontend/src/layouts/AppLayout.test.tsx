@@ -94,16 +94,20 @@ describe('AppLayout', () => {
     ).toBeInTheDocument()
   })
 
-  test('a household entry opens its month list, like "Planung" opens the own one (#218)', async () => {
+  test('"Unser Haushalt" opens the month list of the household, like "Meine Planung" opens the own one (#242)', async () => {
     renderWithHousehold('/household')
-    const link = await screen.findByRole('link', { name: household.name })
+    const link = await screen.findByRole('link', { name: de.nav.ourHousehold })
     expect(link).toHaveAttribute('href', `/plan?household=${household.id}`)
   })
 
-  test('a household entry is active on its list and on one of its months', async () => {
+  test('"Unser Haushalt" is active on its list and on one of its months, "Meine Planung" is not', async () => {
     renderWithHousehold(`/plan?household=${household.id}`)
     expect(
-      await screen.findByRole('link', { name: household.name })
+      await screen.findByRole('link', { name: de.nav.ourHousehold })
     ).toHaveAttribute('data-active', 'true')
+    expect(screen.getByRole('link', { name: de.nav.plan })).not.toHaveAttribute(
+      'data-active',
+      'true'
+    )
   })
 })
