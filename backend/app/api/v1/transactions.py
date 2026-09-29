@@ -62,26 +62,37 @@ async def _require_free_month(
 
 
 async def _account_owner(
-    session: AsyncSession, account_id: uuid.UUID, user: User
+    session: AsyncSession,
+    account_id: uuid.UUID,
+    user: User,
+    needs: AccessLevel = AccessLevel.EDIT,
 ) -> uuid.UUID:
-    """Who owns the account — and whether `user` may book on it."""
+    """Who owns the account — and whether `user` may book on it.
+
+    Booking is a question of the owner's book, not of their accounts: the accounts
+    grant is about the accounts themselves. Seeing the balances without the book
+    is only a hint in the grants page, never a refusal here (decision 62).
+    """
     account = await load_owned(
-        session, Account, account_id, user, Area.ACCOUNTS, not_found="account_not_found"
+        session, Account, account_id, user, Area.BOOK, needs, not_found="account_not_found"
     )
     return account.owner_id
 
 
 async def _position_owner(
-    session: AsyncSession, position_id: uuid.UUID, user: User
+    session: AsyncSession,
+    position_id: uuid.UUID,
+    user: User,
+    needs: AccessLevel = AccessLevel.EDIT,
 ) -> uuid.UUID:
     """A position belongs to the owner of its plan, shared ones included.
 
-    Booking onto it is a question of the accounts, not the plan: bookings are under
+    Booking onto it is a question of the book, not the plan: bookings are under
     the same rule as ticking a position off, which creates a booking in the owner's
     book. Without this check, bookings could be attached to other people positions
     and change their actual amounts.
     """
-    _, plan = await load_position(session, position_id, user, Area.ACCOUNTS)
+    _, plan = await load_position(session, position_id, user, Area.BOOK, needs)
     return plan.user_id
 
 
@@ -115,7 +126,7 @@ async def _load(
     needs: AccessLevel = AccessLevel.EDIT,
 ) -> Transaction:
     """A booking the user may act on: their own always, somebody else's from the
-    level the owner granted in `Area.ACCOUNTS`.
+    level the owner granted in `Area.BOOK`.
 
     `needs` separates changing from deleting: a wrong booking can be corrected,
     a deleted one leaves a gap in a balance that nothing explains.
@@ -125,7 +136,7 @@ async def _load(
         Transaction,
         transaction_id,
         user,
-        Area.ACCOUNTS,
+        Area.BOOK,
         needs,
         not_found="transaction_not_found",
     )
@@ -190,12 +201,12 @@ async def list_transactions(
     # they only become visible once the owner granted at least level `view`. The
     # owner decides, not the reader.
     # The household book shows every member's bookings except those on a private
-    # position, whatever the accounts grant says: the same rule as the household
+    # position, whatever the book grant says: the same rule as the household
     # plan, so book and plan add up to the same thing (decision 48, #242).
     scope = await resolve_scope(
         session,
         user,
-        Area.ACCOUNTS,
+        Area.BOOK,
         owner=owner,
         household=household,
         members=HouseholdMembers.ALL,
@@ -262,12 +273,18 @@ async def create_transaction(
     # off somebody else position puts the booking in **their** book; booking
     # directly has to behave the same, otherwise their payment would show up in the
     # delegate book.
-    booking_owner = await _account_owner(session, payload.account_id, user)
+    booking_owner = await _account_owner(
+        session, payload.account_id, user, AccessLevel.CREATE
+    )
     if payload.counter_account_id is not None:
-        target_owner = await _account_owner(session, payload.counter_account_id, user)
+        target_owner = await _account_owner(
+            session, payload.counter_account_id, user, AccessLevel.CREATE
+        )
         require(target_owner == booking_owner, "transfer_needs_one_owner")
     if payload.position_id is not None:
-        position_owner = await _position_owner(session, payload.position_id, user)
+        position_owner = await _position_owner(
+            session, payload.position_id, user, AccessLevel.CREATE
+        )
         require(position_owner == booking_owner, "position_needs_same_owner")
 
     if payload.kind is TransactionKind.CARRY_OVER:
