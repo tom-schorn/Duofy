@@ -2,8 +2,8 @@
 
 No role framework — a handful of rules the endpoints call into.
 
-    Commitment   owner, plus whoever they granted `commitments` access to
-    Plan         owner, plus whoever they granted `plan` access to
+    Everything   owner, plus whoever they granted the area to (`Grant`), at
+                 the step the action needs: view, create, edit or delete
     Position     read:  plan owner plus members of the household it is in
                  write: the same, and every change is recorded
     Household    read:  members
@@ -17,38 +17,16 @@ Whose data a list or a household view covers is the other half, in `scope.py`.
 """
 
 import uuid
-from enum import StrEnum
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.enums import AccessLevel, Role
+from app.models.enums import AccessLevel, Area, Role
+from app.models.grant import Grant
 from app.models.household import HouseholdMember
 from app.models.plan import Plan, PlanPosition
 from app.models.user import User
-
-
-class Area(StrEnum):
-    """Which kind of data a grant is about.
-
-    Not stored anywhere — the value names the column on `HouseholdMember` that
-    carries the level. Keeping it out of the database means adding an area is a
-    migration for the new column and nothing else.
-    """
-
-    PLAN = "plan"
-    COMMITMENTS = "commitments"
-    #: The book belongs here too, see `HouseholdMember.grants_accounts`.
-    ACCOUNTS = "accounts"
-
-
-#: Which column answers for which area.
-GRANT_COLUMN = {
-    Area.PLAN: HouseholdMember.grants_plan,
-    Area.COMMITMENTS: HouseholdMember.grants_commitments,
-    Area.ACCOUNTS: HouseholdMember.grants_accounts,
-}
 
 
 def require(allowed: bool, code: str) -> None:
@@ -73,12 +51,11 @@ async def is_member(session: AsyncSession, user_id: uuid.UUID, household_id: uui
 async def granted_level(
     session: AsyncSession, owner_id: uuid.UUID, viewer_id: uuid.UUID, area: Area
 ) -> AccessLevel:
-    """What `viewer` may do with `owner` data in one area, across all households.
+    """What `viewer` may do with `owner` data in one area.
 
-    The level hangs on **the owner** membership: they grant it, not the person who
-    wants to use it. If both share several households, the highest level wins —
-    otherwise the right would depend on which household one happens to be looking
-    through, and the same person would see different things by different routes.
+    The owner grants it to this one person (decision 57), and it counts only while
+    both share a household: a grant is trust inside a household, and a row left
+    over from before must not open anything. No row is `none`.
 
     The areas are independent of each other. Granting insight into the month says
     nothing about the contracts behind it, and a caller has to name which one it
@@ -88,26 +65,33 @@ async def granted_level(
     There is no restriction towards yourself.
     """
     if owner_id == viewer_id:
-        return AccessLevel.EDIT
+        return AccessLevel.DELETE
 
-    gemeinsam = select(HouseholdMember.household_id).where(HouseholdMember.user_id == viewer_id)
-    result = await session.execute(
-        select(GRANT_COLUMN[area]).where(
-            HouseholdMember.user_id == owner_id,
-            HouseholdMember.household_id.in_(gemeinsam),
+    shared = select(HouseholdMember.household_id).where(HouseholdMember.user_id == viewer_id)
+    level = await session.scalar(
+        select(Grant.level).where(
+            Grant.granter_id == owner_id,
+            Grant.grantee_id == viewer_id,
+            Grant.area == area,
+            select(HouseholdMember.id)
+            .where(
+                HouseholdMember.user_id == owner_id,
+                HouseholdMember.household_id.in_(shared),
+            )
+            .exists(),
         )
     )
-    stufen = [AccessLevel(x) for x in result.scalars()]
-    return max(stufen, key=lambda s: s.rank) if stufen else AccessLevel.PLAN
+    return AccessLevel(level) if level is not None else AccessLevel.NONE
 
 
 #: Which code a refusal carries, by the level that was missing. Every level has
-#: an entry — even `plan`, though the check itself never fires below it: Python
+#: an entry — even `none`, though the check itself never fires below it: Python
 #: evaluates the lookup before `require` looks at the condition, and a missing
-#: entry would turn any `needs=plan` call into a 500 the moment one is added.
+#: entry would turn any `needs=none` call into a 500 the moment one is added.
 _REFUSAL = {
-    AccessLevel.PLAN: "no_insight_granted",
+    AccessLevel.NONE: "no_insight_granted",
     AccessLevel.VIEW: "no_insight_granted",
+    AccessLevel.CREATE: "no_create_granted",
     AccessLevel.EDIT: "no_edit_granted",
     AccessLevel.DELETE: "no_delete_granted",
 }
@@ -122,8 +106,9 @@ async def require_level(
 ) -> None:
     """Refuse unless `user` may act on data of `owner_id` in `area` at level `needs`.
 
-    Your own always passes. Everybody else needs the level the owner granted, and
-    the refusal says which step was missing: seeing, changing or deleting.
+    Your own always passes. Everybody else needs the level the owner granted them,
+    and the refusal says which step was missing: seeing, adding, changing or
+    deleting.
     """
     if owner_id == user.id:
         return
@@ -166,7 +151,7 @@ async def load_position(
 
     A position has no owner of its own: it belongs to whoever owns the plan it
     sits in. The area is the caller's — changing a position is a question of the
-    plan, booking onto one a question of the accounts.
+    plan, ticking it off or booking onto it a question of the book.
     """
     position = await session.get(PlanPosition, position_id)
     if position is None:
