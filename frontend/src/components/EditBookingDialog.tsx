@@ -19,10 +19,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { fromIsoDay, longDate, toIsoDay } from '@/lib/dates'
+import {
+  fromIsoDay,
+  longDate,
+  monthOffset,
+  shiftMonth,
+  toIsoDay,
+  type YearMonth,
+} from '@/lib/dates'
 import {
   BUDGET_SUGGESTION,
   categoryLabel,
+  monthText,
   type Account,
   type Category,
   type PlanPosition,
@@ -45,6 +53,7 @@ export function EditBookingDialog({
   transaction,
   accounts,
   positions,
+  viewedMonth,
   open,
   onOpenChange,
   onSave,
@@ -56,6 +65,8 @@ export function EditBookingDialog({
   transaction: Transaction
   accounts: Account[]
   positions: PlanPosition[]
+  /** The plan month the positions belong to — where a booking with a position counts. */
+  viewedMonth: YearMonth
   open: boolean
   onOpenChange: (open: boolean) => void
   onSave: (changes: Partial<Transaction> & { id: string }) => void
@@ -79,6 +90,9 @@ export function EditBookingDialog({
   )
   const [positionId, setPositionId] = useState(transaction.positionId ?? 'none')
   const [note, setNote] = useState(transaction.note ?? '')
+  // Null until the person picks a month: then the server keeps the choice the
+  // booking had relative to its date, also when the date moves (#239).
+  const [planChoice, setPlanChoice] = useState<YearMonth | null>(null)
 
   // Which sentence word is open — only one at a time (issue #215).
   const [openWord, setOpenWord] = useState<string | null>(null)
@@ -93,6 +107,20 @@ export function EditBookingDialog({
   const isTransfer = transaction.counterAccountId !== null
   const categoryShown = !chosen && !isTransfer
 
+  // Where the booking counts: with a position, in that position's plan; a pure
+  // transfer in the month of its date; otherwise the choice — previous, own or next
+  // month — which keeps its distance to the date when the date moves.
+  const planFixed = Boolean(chosen) || isTransfer
+  const storedOffset = monthOffset(transaction.occurredOn, {
+    year: transaction.planYear,
+    month: transaction.planMonth,
+  })
+  const planMonth: YearMonth = chosen
+    ? viewedMonth
+    : isTransfer
+      ? shiftMonth(occurredOn, 0)
+      : (planChoice ?? shiftMonth(occurredOn, Math.abs(storedOffset) <= 1 ? storedOffset : 0))
+
   /** Everything that differs from the stored booking. */
   function changes(): Partial<Transaction> {
     const diff: Partial<Transaction> = {}
@@ -101,6 +129,10 @@ export function EditBookingDialog({
     if (accountId !== transaction.accountId) diff.accountId = accountId
     if ((note || null) !== transaction.note) diff.note = note || null
     if ((chosen?.id ?? null) !== transaction.positionId) diff.positionId = chosen?.id ?? null
+    if (planChoice && !planFixed) {
+      diff.planYear = planChoice.year
+      diff.planMonth = planChoice.month
+    }
 
     // As in the quick entry: a position gives the booking its category and budget,
     // otherwise the picked category decides. A pure transfer has neither, and one
@@ -205,6 +237,44 @@ export function EditBookingDialog({
 
   // A booking made by ticking off cannot be moved off its position (its own
   // dialog is where that happens) — named, not offered as a word to click.
+  const planMonthText = monthText(planMonth, occurredOn)
+  const planMonthWord = planFixed ? (
+    <span className="font-medium">{planMonthText}</span>
+  ) : (
+    <SentenceWord
+      ref={wordRef('planMonth')}
+      open={openWord === 'planMonth'}
+      onClick={() => toggleWord('planMonth')}
+      describedBy={sentenceId}
+    >
+      {planMonthText}
+    </SentenceWord>
+  )
+  const planMonthPanel = !planFixed && openWord === 'planMonth' && (
+    <SentencePanel label={t('monthBook.planMonthLabel')}>
+      <div className="flex flex-wrap gap-2">
+        {([-1, 0, 1] as const).map((offset) => {
+          const option = shiftMonth(occurredOn, offset)
+          const kind = offset < 0 ? 'previous' : offset > 0 ? 'next' : 'same'
+          return (
+            <SentenceChip
+              key={offset}
+              selected={option.year === planMonth.year && option.month === planMonth.month}
+              onClick={() => {
+                setPlanChoice(option)
+                closeWord()
+              }}
+            >
+              {t(`monthBook.planMonthOption.${kind}`, {
+                month: monthText(option, occurredOn),
+              })}
+            </SentenceChip>
+          )
+        })}
+      </div>
+    </SentencePanel>
+  )
+
   const positionWord = transaction.autoBooked ? (
     <span className="font-medium">{chosen?.label ?? t('monthBook.noPosition')}</span>
   ) : (
@@ -340,11 +410,13 @@ export function EditBookingDialog({
               date: dateWord,
               account: accountWord,
               position: positionWord,
+              planMonth: planMonthWord,
             })}
           </p>
           {datePanel}
           {accountPanel}
           {positionPanel}
+          {planMonthPanel}
         </div>
 
         <div

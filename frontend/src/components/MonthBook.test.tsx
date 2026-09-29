@@ -18,6 +18,8 @@ const booking = {
   category: 'leisure.subscriptions',
   budget: 'wants',
   positionId: null,
+  planYear: 2026,
+  planMonth: 9,
   autoBooked: false,
   externalRef: null,
 }
@@ -85,6 +87,21 @@ describe('MonthBook rows', () => {
     // The window closing sends the request.
     act(() => flushPendingDelete())
     await waitFor(() => expect(deleted()).toBe(true))
+  })
+
+  test('the quick entry counts an unplanned booking in the month of today unless another is chosen', async () => {
+    const user = userEvent.setup()
+    renderBook(false)
+    await user.type(await screen.findByLabelText(i18n.t('common.amount')), '12,50')
+    await user.click(screen.getByRole('button', { name: i18n.t('monthBook.book') }))
+    const post = await waitFor(() => {
+      const call = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST')
+      expect(call).toBeDefined()
+      return JSON.parse(String(call![1].body))
+    })
+    const now = new Date()
+    expect(post.planYear).toBe(now.getFullYear())
+    expect(post.planMonth).toBe(now.getMonth() + 1)
   })
 
   test('a read-only row is not a button and its book cannot delete', async () => {
