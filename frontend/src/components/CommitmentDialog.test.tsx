@@ -525,3 +525,61 @@ describe('CommitmentDialog server field errors', () => {
     await waitFor(() => expect(word).toHaveFocus())
   })
 })
+
+describe('CommitmentDialog date words on a running contract (#237)', () => {
+  const running: Commitment = {
+    ...existing,
+    type: 'contract',
+    name: 'Streaming',
+    category: 'leisure.streaming',
+    budget: 'wants',
+    firstDueDate: '2026-08-05',
+    endsOn: null,
+  }
+
+  test('setting „läuft bis“ saves it as the end and leaves the first due date alone', async () => {
+    const user = userEvent.setup()
+    const onSave = vi.fn()
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <CommitmentDialog commitment={running} open onOpenChange={() => {}} onSave={onSave} />
+      </QueryClientProvider>
+    )
+    await user.click(screen.getByRole('button', { name: i18n.t('commitmentDialog.noEnd') }))
+    const panel = screen.getByRole('group', { name: i18n.t('commitmentDialog.endsOnLabel') })
+    await user.click(within(panel).getByRole('button', { name: /15\. August 2026/ }))
+    await user.click(screen.getByRole('button', { name: 'Speichern' }))
+    expect(onSave).toHaveBeenCalledTimes(1)
+    expect(onSave.mock.calls[0][0]).toMatchObject({ endsOn: '2026-08-15', firstDueDate: '2026-08-05' })
+  })
+
+  async function saveAfterPicking(commitment: Commitment, word: RegExp | string, day: RegExp) {
+    const user = userEvent.setup()
+    const onSave = vi.fn()
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <CommitmentDialog commitment={commitment} open onOpenChange={() => {}} onSave={onSave} />
+      </QueryClientProvider>
+    )
+    await user.click(screen.getByRole('button', { name: word }))
+    await user.click(within(screen.getByRole('group')).getByRole('button', { name: day }))
+    await user.click(screen.getByRole('button', { name: 'Speichern' }))
+    return onSave.mock.calls[0][0] as Commitment
+  }
+
+  test('the first due date word changes the start and leaves the end alone', async () => {
+    const saved = await saveAfterPicking({ ...running, endsOn: '2026-12-01' }, /05\. August 2026/, /12\. August 2026/)
+    expect(saved).toMatchObject({ firstDueDate: '2026-08-12', endsOn: '2026-12-01' })
+  })
+
+  test('the target date word of a savings goal changes only the target date', async () => {
+    const goal: Commitment = { ...running, type: 'savings_goal', category: 'finance.savings', budget: 'savings', targetDate: '2026-12-10' }
+    const saved = await saveAfterPicking(goal, /10\. Dezember 2026/, /20\. Dezember 2026/)
+    expect(saved).toMatchObject({ targetDate: '2026-12-20', firstDueDate: '2026-08-05', endsOn: null })
+  })
+
+  test('the end word of a loan, which sits in the main sentence, changes only the end', async () => {
+    const saved = await saveAfterPicking({ ...existing, firstDueDate: '2026-08-05' }, i18n.t('commitmentDialog.noEnd'), /15\. August 2026/)
+    expect(saved).toMatchObject({ endsOn: '2026-08-15', firstDueDate: '2026-08-05' })
+  })
+})

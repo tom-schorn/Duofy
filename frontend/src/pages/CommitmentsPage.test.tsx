@@ -101,3 +101,33 @@ describe('CommitmentsPage', () => {
     )
   })
 })
+
+describe('CommitmentsPage ending a running contract (#237)', () => {
+  test('the end chosen in the dialog reaches the server as endsOn, the start stays', async () => {
+    const running = { ...commitment('c9', 'Streaming', true), firstDueDate: '2026-08-05' }
+    const sent: { url: string; body: unknown }[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method === 'PATCH') {
+          sent.push({ url: String(url), body: JSON.parse(String(init.body)) })
+          return new Response(JSON.stringify(running), { status: 200 })
+        }
+        if (String(url).includes('/commitments')) {
+          return new Response(JSON.stringify([running]), { status: 200 })
+        }
+        return new Response('[]', { status: 200 })
+      })
+    )
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /^Streaming/ }))
+    await user.click(screen.getByRole('button', { name: i18n.t('commitmentDialog.noEnd') }))
+    const panel = screen.getByRole('group', { name: i18n.t('commitmentDialog.endsOnLabel') })
+    await user.click(within(panel).getByRole('button', { name: /15\. August 2026/ }))
+    await user.click(screen.getByRole('button', { name: 'Speichern' }))
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect(sent[0].body).toMatchObject({ endsOn: '2026-08-15', firstDueDate: '2026-08-05' })
+    vi.unstubAllGlobals()
+  })
+})

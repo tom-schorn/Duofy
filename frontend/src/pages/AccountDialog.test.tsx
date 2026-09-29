@@ -167,4 +167,29 @@ describe('AccountDialog delete', () => {
     await user.click(activeWord)
     expect(screen.getByRole('group', { name: i18n.t('accounts.active') })).toBeInTheDocument()
   })
+
+  test('the date word changes only the opening date (#237)', async () => {
+    const user = userEvent.setup()
+    const sent: unknown[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        if (init?.method === 'PATCH') {
+          sent.push(JSON.parse(String(init.body)))
+          return new Response(JSON.stringify(account), { status: 200 })
+        }
+        return new Response('[]', { status: 200 })
+      })
+    )
+    render(ui({ account, open: true }))
+    await user.click(screen.getByRole('button', { name: /01\. Januar 2026/ }))
+    await user.click(
+      within(screen.getByRole('group', { name: i18n.t('accounts.dateLabel') })).getByRole('button', {
+        name: /15\. Januar 2026/,
+      })
+    )
+    await user.click(screen.getByRole('button', { name: 'Speichern' }))
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect(sent[0]).toMatchObject({ openingDate: '2026-01-15', name: 'Giro' })
+  })
 })
