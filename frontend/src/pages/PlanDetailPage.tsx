@@ -180,6 +180,12 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
     const mayDelete = atLeast(active.levelFor('plan'), 'delete')
     const mayTick = atLeast(active.levelFor('book'), 'create')
     const mayUntick = atLeast(active.levelFor('book'), 'delete')
+    const actions = [
+      mayTick && t('plan.mayDoTick'),
+      mayAdd && t('plan.mayDoAdd'),
+      mayEdit && t('plan.mayDoEdit'),
+      mayDelete && t('plan.mayDoDelete'),
+    ].filter((action): action is string => Boolean(action))
     view = {
       plan: memberPlan.data,
       scope: { kind: 'member', ownerId: memberId ?? '' },
@@ -192,12 +198,12 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
         untickPosition: () => mayUntick,
         deletePosition: () => mayDelete,
       },
+      // Grants are per area, so the plan and the book may differ: the sentence
+      // names exactly what is allowed, never a fixed bundle.
       lead: `${t('plan.memberLead', { name })} ${
-        !mayAdd && !mayTick
+        actions.length === 0
           ? t('plan.viewOnly', { name })
-          : mayDelete
-            ? t('plan.mayDelete')
-            : t('plan.mayEdit')
+          : t('plan.mayDo', { actions })
       }`,
       standIn: mayAdd || mayTick,
     }

@@ -161,4 +161,17 @@ describe('ticking off, one operation in every plan (#251)', () => {
       await screen.findByText(i18n.t('paidDialog.bookingsUnknown'))
     ).toBeInTheDocument()
   })
+
+  test.each([
+    ['view', 'create', 'Du darfst abhaken;'],
+    ['edit', 'none', 'Du darfst Posten dazuschreiben und ändern;'],
+    ['delete', 'delete', 'Du darfst abhaken, Posten dazuschreiben, ändern und löschen;'],
+  ])(
+    'plan %s and book %s: the lead names only what is allowed',
+    async (planLevel, bookLevel, sentence) => {
+      stub(planLevel, [], { bookLevel })
+      renderAt('/plan/2026/11?member=u2')
+      expect(await screen.findByText((text) => text.includes(sentence))).toBeInTheDocument()
+    }
+  )
 })
