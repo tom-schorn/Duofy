@@ -66,7 +66,14 @@ const leaveButton = () =>
   screen.findByRole('button', { name: i18n.t('household.leaveFrom', { name: household.name }) })
 
 const leaveCalled = () =>
-  fetchMock.mock.calls.some(([, init]) => init?.method === 'DELETE')
+  fetchMock.mock.calls.some(
+    ([url, init]) => init?.method === 'DELETE' && String(url).endsWith('/members/me')
+  )
+
+const callTo = (method: string, path: string) =>
+  fetchMock.mock.calls.find(([url, init]) => init?.method === method && String(url).endsWith(path))
+
+const maxRow = () => screen.findByRole('button', { name: /Max Test/ })
 
 describe('HouseholdPage', () => {
   beforeEach(() => {
@@ -75,6 +82,13 @@ describe('HouseholdPage', () => {
     deleteStatus = 204
     fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       const path = String(url)
+      if (init?.method === 'PATCH' && path.endsWith('/members/u2')) {
+        const body = JSON.parse(String(init.body))
+        return new Response(JSON.stringify({ ...household.members[1], ...body }), { status: 200 })
+      }
+      if (init?.method === 'DELETE' && path.endsWith('/members/u2')) {
+        return new Response(null, { status: 204 })
+      }
       if (init?.method === 'DELETE') {
         if (deleteStatus !== 204) {
           return new Response(JSON.stringify({ detail: { code: 'last_admin_cannot_leave' } }), {
@@ -97,6 +111,7 @@ describe('HouseholdPage', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   test('there is no ⋯ menu; leaving is a visible button next to inviting', async () => {
+    me = 'u1'
     renderPage()
     expect(await leaveButton()).toBeInTheDocument()
     expect(screen.getByRole('button', { name: i18n.t('household.invite') })).toBeInTheDocument()
@@ -137,7 +152,7 @@ describe('HouseholdPage', () => {
     expect(leaveCalled()).toBe(false)
   })
 
-  test('the only owner is told so up front and is not offered the confirm button', async () => {
+  test('the only admin is told so up front and is not offered the confirm button', async () => {
     me = 'u1'
     const user = userEvent.setup()
     renderPage()
@@ -162,5 +177,43 @@ describe('HouseholdPage', () => {
     )
     expect(screen.getByRole('alertdialog')).toBeInTheDocument()
     expect(screen.getAllByText(i18n.t('errors.last_admin_cannot_leave'))).toHaveLength(1)
+  })
+
+  test('a member sees neither quotas nor inviting, and the other rows do not open', async () => {
+    renderPage()
+    expect(await leaveButton()).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: i18n.t('household.invite') })).toBeNull()
+    expect(screen.queryByRole('button', { name: i18n.t('quota.change') })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Ida Test/ })).toBeNull()
+  })
+
+  test('an admin opens another member and makes them admin; their own row does not open', async () => {
+    me = 'u1'
+    const user = userEvent.setup()
+    renderPage()
+    const row = await maxRow()
+    expect(screen.queryByRole('button', { name: /Ida Test/ })).toBeNull()
+    await user.click(row)
+    const dialog = screen.getByRole('dialog')
+    await user.click(within(dialog).getByRole('checkbox', { name: i18n.t('household.adminRole') }))
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('common.save') }))
+    await waitFor(() => expect(callTo('PATCH', '/members/u2')).toBeDefined())
+    expect(JSON.parse(String(callTo('PATCH', '/members/u2')![1]!.body))).toEqual({ role: 'admin' })
+  })
+
+  test('removing a member asks once, starting on Abbrechen, then removes', async () => {
+    me = 'u1'
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await maxRow())
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: i18n.t('household.remove') })
+    )
+    const confirm = screen.getByRole('alertdialog')
+    expect(confirm).toHaveTextContent(/eigenen Haushalt/)
+    expect(within(confirm).getByRole('button', { name: i18n.t('common.cancel') })).toHaveFocus()
+    expect(callTo('DELETE', '/members/u2')).toBeUndefined()
+    await user.click(within(confirm).getByRole('button', { name: i18n.t('household.remove') }))
+    await waitFor(() => expect(callTo('DELETE', '/members/u2')).toBeDefined())
   })
 })

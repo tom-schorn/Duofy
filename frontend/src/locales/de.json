@@ -64,7 +64,9 @@
     "internal_error": "Im Backend ist ein Fehler aufgetreten. Versuch es gleich noch einmal; wenn es bleibt, steht die Ursache im Log.",
     "unknown": "Da ist etwas schiefgegangen.",
     "unreachable": "Das Backend ist gerade nicht erreichbar.",
-    "cannot_grant_self": "Rechte an deinen eigenen Daten hast du schon."
+    "cannot_grant_self": "Rechte an deinen eigenen Daten hast du schon.",
+    "cannot_remove_self": "Dich selbst entfernst du nicht, du trittst aus.",
+    "last_admin_required": "Ein Haushalt braucht mindestens einen Admin. Mach erst jemand anderen zum Admin."
   },
   "enums": {
     "budget": {
@@ -252,6 +254,9 @@
     "householdUpdated": "Haushalt {{name}} geändert",
     "quotaSaved": "Richtwerte gespeichert: {{needs}} / {{wants}} / {{savings}}",
     "householdLeft": "Haushalt verlassen",
+    "memberRemoved": "{{name}} aus dem Haushalt entfernt",
+    "madeAdmin": "{{name}} ist jetzt Admin",
+    "madeMember": "{{name}} ist jetzt Mitglied",
     "grantUpdated": "Freigabe geändert",
     "invitationSent": "Einladung verschickt",
     "invitationRevoked": "Einladung zurückgezogen",
@@ -865,7 +870,13 @@
     "presetCouple": "Paar: Die anderen dürfen alles von mir sehen und bearbeiten.",
     "presetHint": "Das gilt nur für dich. Danach kannst du jeden Bereich unten einzeln ändern.",
     "presetApply": "Paar übernehmen",
-    "invitePlaceholder": "partner@beispiel.de"
+    "invitePlaceholder": "partner@beispiel.de",
+    "memberTitle": "{{name}} im Haushalt",
+    "adminRole": "Admin",
+    "adminRoleHint": "Admins laden ein, entfernen Mitglieder, benennen den Haushalt um und ändern seine Richtwerte. Rechte an den Daten anderer vergeben sie nicht.",
+    "remove": "Entfernen",
+    "removeTitle": "{{name}} aus dem Haushalt entfernen?",
+    "removeText": "{{name}} bekommt sofort einen eigenen Haushalt und behält Pläne, Konten und Verträge. Alle Freigaben zwischen {{name}} und den anderen enden."
   },
   "import": {
     "leadMember": "Die Parkposition von {{name}}.",
