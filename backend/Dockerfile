@@ -24,7 +24,7 @@ COPY . .
 RUN uv sync --frozen --no-dev
 
 
-FROM python:3.12-slim-bookworm
+FROM python:3.14-slim-bookworm
 
 # Never run the app as root.
 RUN useradd --create-home --uid 1000 duofy
