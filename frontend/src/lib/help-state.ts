@@ -16,7 +16,6 @@ const WIDE_QUERY = '(min-width: 1280px)'
 /** Which set of entries belongs to the current route. */
 export function helpKeyFor(pathname: string, tab: string | null): HelpKey | null {
   if (pathname.startsWith('/plan/')) return tab === 'book' ? 'book' : 'plan'
-  if (pathname === '/book') return 'book'
   if (pathname === '/import') return 'import'
   if (pathname === '/plan') return 'plans'
   if (pathname === '/contracts') return 'commitments'

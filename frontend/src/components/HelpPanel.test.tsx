@@ -21,12 +21,12 @@ function Wired({ wide = true }: { wide?: boolean }) {
 }
 
 /** A person who closed the column before: the help is a button and a sheet only. */
-function renderClosed(path = '/book', wide = true) {
+function renderClosed(path = '/accounts', wide = true) {
   localStorage.setItem(CLOSED_KEY, 'true')
   return renderAt(path, wide)
 }
 
-function renderAt(path = '/book', wide = true) {
+function renderAt(path = '/accounts', wide = true) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Wired wide={wide} />
@@ -112,7 +112,7 @@ describe('the help button', () => {
   })
 
   test('narrow: the open default still opens the sheet, and offers no pin', async () => {
-    renderAt('/book', false)
+    renderAt('/accounts', false)
     fireEvent.click(screen.getByRole('button', { name: de.helpPanel.button }))
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: de.helpPanel.pin })).not.toBeInTheDocument()
