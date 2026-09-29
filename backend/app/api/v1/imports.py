@@ -37,6 +37,7 @@ from app.schemas.imported_entry import (
     ImportSummary,
     Suggestion,
 )
+from app.services.plan_month import month_of, month_of_position
 from app.services.statements import StatementError, read_upload
 
 router = APIRouter()
@@ -957,9 +958,18 @@ async def book(
     if counter_account_id is not None and entry.incoming:
         source, target = counter_account_id, entry.account_id
 
+    # With a position the booking counts in that position's plan, otherwise in the
+    # month of its date — an import has nobody to ask which month was meant.
+    if entry.position_id is not None:
+        plan_year, plan_month = await month_of_position(session, entry.position_id)
+    else:
+        plan_year, plan_month = month_of(entry.occurred_on)
+
     session.add(
         Transaction(
             owner_id=entry.owner_id,
+            plan_year=plan_year,
+            plan_month=plan_month,
             account_id=source,
             counter_account_id=target,
             occurred_on=entry.occurred_on,

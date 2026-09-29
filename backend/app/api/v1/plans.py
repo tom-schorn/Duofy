@@ -652,7 +652,7 @@ async def _sources(
         ).scalars()
     }
     position_ids = [p.id for _, positions in rows for p in positions]
-    first, last = date(year, month, 1), date(year, month, monthrange(year, month)[1])
+    first = date(year, month, 1)
 
     # A carry-over states the balance the month starts with. It is the curve's
     # start, never a movement in it, so it is read on its own below.
@@ -662,7 +662,8 @@ async def _sources(
         conditions.append(
             (Transaction.position_id.is_(None))
             & Transaction.owner_id.in_(owner_ids)
-            & Transaction.occurred_on.between(first, last)
+            & (Transaction.plan_year == year)
+            & (Transaction.plan_month == month)
             & (
                 Transaction.account_id.in_(default_ids)
                 | Transaction.counter_account_id.in_(default_ids)

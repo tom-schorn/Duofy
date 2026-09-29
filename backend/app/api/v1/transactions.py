@@ -13,7 +13,7 @@ from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, extract, func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,6 +36,7 @@ from app.schemas.transaction import (
     TransactionRead,
     TransactionUpdate,
 )
+from app.services import plan_month
 
 router = APIRouter()
 
@@ -197,19 +198,20 @@ async def list_transactions(
 ) -> list[TransactionRead]:
     """Buchungen, neueste zuerst. Ohne Zeitraum alle.
 
-    Welcher Monat, entscheidet der **Posten** — nicht das Datum:
-
-    * mit Posten  → der Monat des Plans, zu dem der Posten gehört
-    * ohne Posten → der Monat, in dem das Geld floss
+    Welcher Monat, entscheidet der **Plan-Monat** der Buchung (`plan_year`,
+    `plan_month`) — nicht das Datum. Mit Posten ist das der Monat des Posten-Plans,
+    ohne Posten der gewählte (Vormonat, Monat des Datums, Folgemonat; siehe
+    `services/plan_month.py`).
 
     Wohngeld für August wird am 31. Juli überwiesen, ALG1 ebenso. Sie gehören
     in den August und tauchen dort auf, mit ihrem echten Juli-Datum. Genau das
     machen die meisten Haushaltsbücher falsch: sie legen eine Buchung nach
     ihrem Datum ab, und damit ist Wohngeld für immer ein Juli-Vorgang.
 
-    Die Regel schließt aus, statt zu ergänzen — eine zugeordnete Buchung steht
-    in **einem** Monat, nicht in zweien. Sonst zählte sie doppelt, sobald man
-    Summen über das Buch bildet.
+    Eine Buchung steht in **einem** Monat, nicht in zweien. Sonst zählte sie
+    doppelt, sobald man Summen über das Buch bildet. Der Monat muss keinen Plan
+    haben: die Buchung erscheint dort, sobald er angelegt ist — und bis dahin im
+    Buch.
     """
     # Whose book: your own, one person, or the household. Bookings are private —
     # they only become visible once the owner granted at least level `view`. The
@@ -229,24 +231,10 @@ async def list_transactions(
         User, User.id == Transaction.owner_id
     ).where(Transaction.owner_id.in_(owner_ids))
 
-    if year is not None and month is not None:
-        in_month = and_(
-            extract("year", Transaction.occurred_on) == year,
-            extract("month", Transaction.occurred_on) == month,
-        )
-        belongs_to_plan = Transaction.position_id.in_(
-            select(PlanPosition.id)
-            .join(Plan, Plan.id == PlanPosition.plan_id)
-            .where(Plan.user_id.in_(owner_ids), Plan.year == year, Plan.month == month)
-        )
-        # Without a position the date decides, with one the plan does. Never both.
-        query = query.where(
-            or_(and_(Transaction.position_id.is_(None), in_month), belongs_to_plan)
-        )
-    elif year is not None:
-        query = query.where(extract("year", Transaction.occurred_on) == year)
-    elif month is not None:
-        query = query.where(extract("month", Transaction.occurred_on) == month)
+    if year is not None:
+        query = query.where(Transaction.plan_year == year)
+    if month is not None:
+        query = query.where(Transaction.plan_month == month)
 
     result = await session.execute(
         query.order_by(
@@ -290,7 +278,23 @@ async def create_transaction(
     if payload.kind is TransactionKind.CARRY_OVER:
         await _require_free_month(session, payload.account_id, payload.occurred_on)
 
-    transaction = Transaction(owner_id=booking_owner, **payload.model_dump())
+    chosen = (
+        (payload.plan_year, payload.plan_month) if payload.plan_year is not None else None
+    )
+    year, month = await plan_month.resolve(
+        session,
+        kind=payload.kind,
+        occurred_on=payload.occurred_on,
+        position_id=payload.position_id,
+        is_transfer=payload.counter_account_id is not None,
+        chosen=chosen,
+    )
+    transaction = Transaction(
+        owner_id=booking_owner,
+        plan_year=year,
+        plan_month=month,
+        **payload.model_dump(exclude={"plan_year", "plan_month"}),
+    )
     session.add(transaction)
     try:
         await session.flush()
@@ -373,8 +377,34 @@ async def update_transaction(
     # — the old one loses it, the new one gains it.
     previous_position = transaction.position_id
 
+    # The plan month follows what the booking becomes: its position, or the choice
+    # made now, or — for a change of date alone — the choice it already had.
+    chosen = None
+    if changes.get("plan_year") is not None:
+        chosen = (changes["plan_year"], changes["plan_month"])
+    new_day = changes.get("occurred_on", transaction.occurred_on)
+    new_position = changes["position_id"] if "position_id" in changes else transaction.position_id
+    new_counter = (
+        changes["counter_account_id"]
+        if "counter_account_id" in changes
+        else transaction.counter_account_id
+    )
+    year, month = await plan_month.resolve(
+        session,
+        kind=transaction.kind,
+        occurred_on=new_day,
+        position_id=new_position,
+        is_transfer=new_counter is not None,
+        chosen=chosen,
+        fallback_offset=plan_month.offset_from(
+            transaction.occurred_on, (transaction.plan_year, transaction.plan_month)
+        ),
+    )
+    changes = {k: v for k, v in changes.items() if k not in ("plan_year", "plan_month")}
+
     for field, value in changes.items():
         setattr(transaction, field, value)
+    transaction.plan_year, transaction.plan_month = year, month
 
     await session.flush()
     await _recalc_position(session, previous_position)

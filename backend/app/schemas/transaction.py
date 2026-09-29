@@ -32,11 +32,25 @@ class TransactionBase(Schema):
     external_ref: str | None = Field(default=None, max_length=200)
 
 
+def check_plan_month_pair(year: int | None, month: int | None) -> None:
+    """Year and month are one choice — one of them alone says nothing."""
+    if (year is None) != (month is None):
+        raise ValueError("plan_month_incomplete")
+
+
 class TransactionCreate(TransactionBase):
+    #: The plan month, only for a booking without a position (#239). Left out it is
+    #: derived: the position's plan, otherwise the month of `occurred_on`. Whether
+    #: a chosen month is allowed is decided in the endpoint, where the position
+    #: and the date are known.
+    plan_year: int | None = Field(default=None, ge=2000, le=2101)
+    plan_month: int | None = Field(default=None, ge=1, le=12)
+
     @model_validator(mode="after")
     def check_shape(self) -> "TransactionCreate":
         """The same rules as the CHECK constraints, only earlier and with an error
         **code** the frontend can translate."""
+        check_plan_month_pair(self.plan_year, self.plan_month)
         if self.kind is TransactionKind.CARRY_OVER:
             if (
                 self.category is not None
@@ -78,11 +92,23 @@ class TransactionUpdate(Schema):
     budget: Budget | None = None
     position_id: uuid.UUID | None = None
     external_ref: str | None = Field(default=None, max_length=200)
+    #: Choosing a plan month, see `TransactionCreate`.
+    plan_year: int | None = Field(default=None, ge=2000, le=2101)
+    plan_month: int | None = Field(default=None, ge=1, le=12)
+
+    @model_validator(mode="after")
+    def check_plan_month(self) -> "TransactionUpdate":
+        check_plan_month_pair(self.plan_year, self.plan_month)
+        return self
 
 
 class TransactionRead(TransactionBase):
     id: uuid.UUID
     owner_id: uuid.UUID
+    #: The month of the plan this booking counts in (#239), which can differ from
+    #: the month of `occurred_on`.
+    plan_year: int
+    plan_month: int
     #: Only set in the household view: who booked it. In your own book the
     #: information would be redundant.
     owner_name: str | None = None
