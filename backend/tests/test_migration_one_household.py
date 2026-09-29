@@ -28,7 +28,7 @@ from tests.test_migrations import (
     columns,
 )
 
-BEFORE = "48618ba806e8"
+BEFORE = "c5a8e2f7d941"
 PRIVATE_FLAG = "a5c9d2e7f104"
 MEMBERSHIPS = "b6d0e3f8a215"
 DROP_HOUSEHOLD = "c7e1f4a9b326"

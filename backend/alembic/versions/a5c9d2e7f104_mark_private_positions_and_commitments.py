@@ -1,7 +1,7 @@
 """mark private positions and commitments
 
 Revision ID: a5c9d2e7f104
-Revises: 48618ba806e8
+Revises: c5a8e2f7d941
 Create Date: 2026-09-29 10:00:00.000000
 
 First of three steps that give every person exactly one household (#242).
@@ -24,7 +24,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "a5c9d2e7f104"
-down_revision: Union[str, Sequence[str], None] = "48618ba806e8"
+down_revision: Union[str, Sequence[str], None] = "c5a8e2f7d941"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
