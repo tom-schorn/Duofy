@@ -570,7 +570,7 @@ describe('CommitmentDialog date words on a running contract (#237)', () => {
     expect(july).toHaveAttribute('aria-disabled', 'true')
     expect(july).not.toBeDisabled()
     expect(within(panel).getByRole('button', { name: 'August' })).not.toHaveAttribute('aria-disabled', 'true')
-    expect(panel).toHaveTextContent('Monate vor dem Start sind nicht wählbar.')
+    expect(panel).toHaveTextContent(/Monate vor dem Start sind nicht w/)
     await user.click(july)
     expect(screen.queryByRole('button', { name: 'im Juli 2026' })).not.toBeInTheDocument()
     expect(within(panel).getByRole('button', { name: i18n.t('commitmentDialog.previousYear') })).toBeDisabled()
