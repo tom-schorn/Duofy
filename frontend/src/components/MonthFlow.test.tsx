@@ -1,4 +1,4 @@
-import '@/lib/i18n'
+import { i18n } from '@/lib/i18n'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
 import { render, screen } from '@testing-library/react'
@@ -83,7 +83,9 @@ describe('FlowView', () => {
 
   test('without a hint the month is called self-carrying', () => {
     renderView()
-    expect(screen.getByText(/^Der Monat tr.gt sich durchgehend selbst/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/^Der Monat tr.gt sich durchgehend selbst/)
+    ).toBeInTheDocument()
   })
 
   test('the household heading speaks for the household, not for a person', () => {
@@ -94,7 +96,9 @@ describe('FlowView', () => {
 
   test('a curve from zero is a change, never called a balance', () => {
     renderView()
-    expect(screen.getAllByText(/^Ver.nderung seit Monatsanfang/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/^Ver.nderung seit Monatsanfang/).length).toBeGreaterThan(
+      0
+    )
     expect(screen.queryByText('Kontostand')).not.toBeInTheDocument()
   })
 
@@ -113,10 +117,9 @@ describe('FlowView', () => {
   test('the flow names the setting it follows and links to the settings, no switch', () => {
     renderView({ flow: { ...flow, flowLimitsBy: 'bookings' } })
     expect(screen.getByText(/^Limits zählen hier nach Buchungen\./)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'In den Einstellungen ändern' })).toHaveAttribute(
-      'href',
-      '/settings'
-    )
+    expect(
+      screen.getByRole('link', { name: i18n.t('monthFlow.limitsChange') })
+    ).toHaveAttribute('href', '/settings')
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
   })
 
@@ -127,7 +130,9 @@ describe('FlowView', () => {
 
   test('a foreign plan speaks about that person, not about you', () => {
     renderView({ ownerName: 'Ida', flow: { ...flow, hints: [shortfall] } })
-    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(/^Ida braucht am 1\./)
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(
+      /^Ida braucht am 1\./
+    )
     expect(screen.getByText(/^Standardkonto von Ida/)).toBeInTheDocument()
   })
 
@@ -146,6 +151,8 @@ describe('FlowView', () => {
     renderView({ flow: { ...flow, hints: [shortfall] } })
     expect(screen.getByRole('heading', { level: 2 })).toBeInTheDocument()
     expect(screen.getByRole('img', { name: /^Verlauf des Monats/ })).toBeInTheDocument()
-    expect(screen.getByRole('table', { name: /^Eintr.ge des Verlaufs/ })).toBeInTheDocument()
+    expect(
+      screen.getByRole('table', { name: /^Eintr.ge des Verlaufs/ })
+    ).toBeInTheDocument()
   })
 })
