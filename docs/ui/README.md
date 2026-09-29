@@ -159,13 +159,13 @@ Hauptknopf der Seite.
 ## Navigation
 
 **18. Alles Ansehbare hat eine Adresse.**
-Monat (zweistellig, `/plan/2026/09`), Reiter (`?tab=`), Filter (`?status=`), Person (`?member=`),
-Buchmonat (`/book?month=2026-09`). Dialoge und Seitenblätter haben keine. Eine ungültige Adresse zeigt
+Monat (zweistellig, `/plan/2026/09`), Reiter (`?tab=`, auch das Buch: `?tab=book`), Filter (`?status=`,
+im Buch `?filter=unplanned`), Person (`?member=`). Dialoge und Seitenblätter haben keine. Eine ungültige Adresse zeigt
 die Nicht-gefunden-Seite; ein gültiger Monat ohne Plan zeigt „Monat anlegen“ mit genau diesem Monat
 vorbelegt.
 Ein Eintrag der Seitenleiste ist ein Element: der Link ist der Knopf, nicht ein Knopf im Link.
 *Warum:* Eine Adresse ist Gedächtnis: Lesezeichen, Zurück-Taste und Neuladen funktionieren.
-*So:* Buchmonat im Lesezeichen. *Nicht so:* Neuladen springt zurück auf heute.
+*So:* Buch-Reiter eines Monats im Lesezeichen. *Nicht so:* Neuladen springt zurück auf heute.
 
 **19. Zurück ist sichtbar, Monate wechselt man überall gleich.**
 Der Rückweg heißt wie das Ziel („← Alle Pläne“). Monate wechselt man mit ‹ Monat Jahr › in der
