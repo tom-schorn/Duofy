@@ -132,6 +132,8 @@ async def test_the_database_refuses_two_carry_overs_on_one_day(session: AsyncSes
                 account_id=account.id,
                 kind=TransactionKind.CARRY_OVER,
                 occurred_on=date(2026, 10, 1),
+                plan_year=2026,
+                plan_month=10,
                 amount=Decimal("10.00"),
             )
         )
@@ -148,6 +150,8 @@ async def test_the_database_refuses_a_carry_over_with_a_purpose(session: AsyncSe
             account_id=account.id,
             kind=TransactionKind.CARRY_OVER,
             occurred_on=date(2026, 10, 1),
+            plan_year=2026,
+            plan_month=10,
             amount=Decimal("10.00"),
             category=Category("household.groceries"),
             budget=Budget.NEEDS,
@@ -262,6 +266,8 @@ async def test_moving_a_carry_over_to_a_stranger_account_is_refused_before_taken
             account_id=theirs_id,
             kind=TransactionKind.CARRY_OVER,
             occurred_on=date(2026, 10, 1),
+            plan_year=2026,
+            plan_month=10,
             amount=Decimal("1.00"),
         )
     )

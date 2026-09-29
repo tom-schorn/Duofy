@@ -3,27 +3,12 @@ from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import CheckConstraint, Date, ForeignKey, Index, Numeric, String, text
-from sqlalchemy.engine.default import DefaultExecutionContext
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.db.types import enum_column
 from app.models.enums import CATEGORY_LENGTH, Budget, Category, TransactionKind
 from app.models.mixins import TimestampMixin, UUIDMixin
-
-
-def _month_of_date(part: str):
-    """Column default: the year or month of `occurred_on`.
-
-    The API sets the plan month explicitly (`app/services/plan_month.py`). This
-    default is the rule that holds when nobody says otherwise — and the fixed one
-    for a carry-over and a pure transfer.
-    """
-
-    def default(context: DefaultExecutionContext) -> int:
-        return getattr(context.get_current_parameters()["occurred_on"], part)
-
-    return default
 
 
 class Transaction(Base, UUIDMixin, TimestampMixin):
@@ -134,8 +119,8 @@ class Transaction(Base, UUIDMixin, TimestampMixin):
     #:
     #: Not a foreign key to `plans`: the month may not have been created yet, and
     #: the booking counts there all the same once it is.
-    plan_year: Mapped[int] = mapped_column(default=_month_of_date("year"))
-    plan_month: Mapped[int] = mapped_column(default=_month_of_date("month"))
+    plan_year: Mapped[int]
+    plan_month: Mapped[int]
 
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     note: Mapped[str | None] = mapped_column(String(200), nullable=True)
