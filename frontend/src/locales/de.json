@@ -6,7 +6,6 @@
     "REGISTER_USER_ALREADY_EXISTS": "Diese E-Mail ist schon vergeben.",
     "REGISTER_INVALID_PASSWORD": "Das Passwort erfüllt die Anforderungen nicht.",
     "not_allowed": "Dazu fehlt dir die Berechtigung.",
-    "not_plan_owner": "Dieser Plan gehört jemand anderem.",
     "not_commitment_owner": "Dieser Vertrag gehört jemand anderem.",
     "not_household_owner": "Das darf nur der Besitzer des Haushalts.",
     "not_household_member": "Du bist kein Mitglied dieses Haushalts.",
