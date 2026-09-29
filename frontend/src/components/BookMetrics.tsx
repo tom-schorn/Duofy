@@ -99,6 +99,11 @@ export function BookMetrics({
     0
   )
 
+  // The household book shows what everybody spent, but the balances come from the
+  // accounts the viewer may see. Putting the two side by side would not add up, so
+  // there only the two figures of the list itself are shown.
+  const household = scope.kind === 'household'
+
   const due = positions.reduce((total, position) => total + stillDue(position), 0)
   const leftover = available - due
 
@@ -112,7 +117,9 @@ export function BookMetrics({
       }}
       rows={1}
     >
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section
+        className={`grid gap-3 sm:grid-cols-2 ${household ? '' : 'lg:grid-cols-4'}`}
+      >
         <Metric
           label={t('bookMetrics.income')}
           value={income}
@@ -123,6 +130,8 @@ export function BookMetrics({
           value={spending}
           hint={t('bookMetrics.spendingHint')}
         />
+        {!household && (
+          <>
         {/* Die Kopfzahl des Buchs — das Gegenstück zu „Verplanbar" im Plan.
             Wird sie negativ, ist mehr rausgegangen als hereingekommen. */}
         <Metric
@@ -142,6 +151,8 @@ export function BookMetrics({
           strong
           tone={leftover < 0 ? 'over' : 'neutral'}
         />
+          </>
+        )}
       </section>
     </QueryState>
   )

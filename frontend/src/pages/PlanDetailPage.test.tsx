@@ -561,7 +561,11 @@ describe('PlanDetailPage — the book as a tab (#241)', () => {
     ]
   }
 
-  function stub(accountsLevel = 'none', bookError: string | null = null) {
+  function stub(
+    accountsLevel = 'none',
+    bookError: string | null = null,
+    householdPositions: unknown[] = [{ ...rent, ownerId: 'u2', ownerName: 'Ida' }]
+  ) {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string) => {
@@ -605,7 +609,7 @@ describe('PlanDetailPage — the book as a tab (#241)', () => {
               unpaid: '0.00',
               householdIds: [],
               hints: [],
-              positions: [{ ...rent, ownerId: 'u2', ownerName: 'Ida' }],
+              positions: householdPositions,
               unplanned: { income: '0.00', needs: '0.00', wants: '0.00', savings: '0.00' },
               missingMembers: [],
             }),
@@ -725,5 +729,44 @@ describe('PlanDetailPage — the book as a tab (#241)', () => {
     expect(await screen.findByText('Kino')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Kino/ })).not.toBeInTheDocument()
     expect(add()).not.toBeInTheDocument()
+  })
+
+  test('the household book does not claim that somebody shares no numbers (it shows everybody)', async () => {
+    stub('plan')
+    renderAt('/plan/2026/11?household=h1&tab=book')
+    await screen.findByText('Kino')
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByText(/teilt noch keine Zahlen|teilen noch keine Zahlen/)).not.toBeInTheDocument()
+  })
+
+  test('the household book leaves out the balance figures: they come from grant-limited accounts', async () => {
+    stub('view')
+    renderAt('/plan/2026/11?household=h1&tab=book')
+    await screen.findByText('Kino')
+    expect(screen.queryByText(i18n.t('bookMetrics.available'))).not.toBeInTheDocument()
+    expect(screen.queryByText(i18n.t('bookMetrics.leftover'))).not.toBeInTheDocument()
+    expect(screen.getByText(i18n.t('bookMetrics.spending'))).toBeInTheDocument()
+  })
+
+  test('the own book keeps the balance figures', async () => {
+    stub()
+    renderAt('/plan/2026/11?tab=book')
+    await screen.findByText('Kino')
+    expect(screen.getByText(i18n.t('bookMetrics.available'))).toBeInTheDocument()
+    expect(screen.getByText(i18n.t('bookMetrics.leftover'))).toBeInTheDocument()
+  })
+
+  test('a household month without shared positions still has its tabs and its book', async () => {
+    stub('view', null, [])
+    renderAt('/plan/2026/11?household=h1&tab=book')
+    expect(await screen.findByText('Kino')).toBeInTheDocument()
+    expect(screen.getAllByRole('tab')).toHaveLength(3)
+  })
+
+  test('a household month without shared positions says so on the plan tab', async () => {
+    stub('view', null, [])
+    renderAt('/plan/2026/11?household=h1')
+    expect(await screen.findByText(i18n.t('plan.nothingShared'))).toBeInTheDocument()
+    expect(screen.getAllByRole('tab')).toHaveLength(3)
   })
 })

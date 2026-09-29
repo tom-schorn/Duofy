@@ -1099,7 +1099,7 @@ function MemberPlanBody({
                 target={group.target}
                 positions={group.rows}
                 hints={plan.hints}
-                      onEdit={openEditor}
+                onEdit={openEditor}
                 onTogglePaid={toggle}
                 readOnly={!mayEdit}
               />
@@ -1182,12 +1182,6 @@ function HouseholdPlanBody({
   const noPositions = plan.positions.length === 0
 
   const scope: BookScope = { kind: 'household', householdId: plan.householdId }
-  // Anybody sharing only the joint positions is missing from every book total.
-  // The book hangs on the accounts grant, not on the plan one — somebody can show
-  // their whole month and still keep their bookings to themselves.
-  const stillPrivate = members
-    .filter((member) => member.grantsAccounts === 'plan')
-    .map((member) => member.firstName)
 
   // #218: a position is one's own, or somebody else's shared into the household.
   // Own positions behave exactly like the private plan (rule 4 of the UI
@@ -1267,167 +1261,138 @@ function HouseholdPlanBody({
         </Button>
       </div>
 
-      {noPositions ? (
-        <Empty className="border-border rounded-xl border border-dashed">
-          <EmptyHeader>
-            <EmptyTitle>{t('plan.nothingShared')}</EmptyTitle>
-            <EmptyDescription>
-              {t('plan.nothingSharedHint')}
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+      {tab === 'book' ? (
+        <BookMetrics
+          year={plan.year}
+          month={plan.month}
+          positions={plan.positions}
+          scope={scope}
+        />
       ) : (
-        <>
-          {tab === 'book' ? (
-            <BookMetrics
+        <section className="grid gap-3 sm:grid-cols-3">
+          <Metric label={t('plan.income')} value={Number(plan.income)} />
+          <Metric
+            label={t('plans.allocatable')}
+            value={free}
+            hint={t('plan.notDistributed')}
+            strong
+            tone={free < 0 ? 'over' : 'neutral'}
+          />
+          <Metric
+            label={t('plans.open')}
+            value={unpaid}
+            hint={t('plan.notPaid')}
+          />
+        </section>
+      )}
+      {tab !== 'book' && <MonthHints hints={plan.hints} />}
+
+      <Tabs value={tab} onValueChange={onTab} className="gap-6">
+        <TabsList data-print="hide">
+          <TabsTrigger value="plan">{t('plan.tabPlan')}</TabsTrigger>
+          <BookTabTrigger year={plan.year} month={plan.month} scope={scope} />
+          <TabsTrigger value="flow">{t('plan.tabFlow')}</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="book">
+          <PlanBook
+            year={plan.year}
+            month={plan.month}
+            positions={plan.positions}
+            scope={scope}
+            readOnly
+          />
+        </TabsContent>
+
+
+        <TabsContent value="flow">
+          <MonthFlow
+            year={plan.year}
+            month={plan.month}
+            householdId={plan.householdId}
+          />
+        </TabsContent>
+
+        <TabsContent value="plan" className="flex flex-col gap-8">
+          {noPositions && (
+            <Empty className="border-border rounded-xl border border-dashed">
+              <EmptyHeader>
+                <EmptyTitle>{t('plan.nothingShared')}</EmptyTitle>
+                <EmptyDescription>{t('plan.nothingSharedHint')}</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
+          {/* Paper version of the charts.
+           *
+           *  **Permanently mounted**, only parked outside the picture. It used to be
+           *  narrowed on clicking Print — anyone using Ctrl+P bypassed that, and the
+           *  charts then went onto the paper at screen width and were cut off.
+           *
+           *  Absolutely positioned rather than `hidden`: `display: none` would give a
+           *  width of 0, and Recharts then draws nothing. This way it measures 672px
+           *  once — A4 minus the margins — and keeps it.
+           */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -left-[9999px] top-0 w-[672px] print:static print:left-auto print:flex print:flex-col print:gap-4"
+          >
+            <MonthFlow
               year={plan.year}
               month={plan.month}
-              positions={plan.positions}
-              scope={scope}
+              householdId={plan.householdId}
+              height="h-32"
+              print
             />
-          ) : (
-            <section className="grid gap-3 sm:grid-cols-3">
-              <Metric label={t('plan.income')} value={Number(plan.income)} />
-              <Metric
-                label={t('plans.allocatable')}
-                value={free}
-                hint={t('plan.notDistributed')}
-                strong
-                tone={free < 0 ? 'over' : 'neutral'}
+            <PlanSankey
+              positions={plan.positions}
+              distributable={plan.distributable}
+              height="h-56"
+              threshold={0.05}
+            />
+          </div>
+
+          <div className="print:hidden">
+            <PlanSankey positions={plan.positions} distributable={plan.distributable} />
+          </div>
+
+          {/* Auf Papier ersetzt `PlanPrintout` diese Liste. */}
+          <div className="flex flex-col gap-8 print:hidden">
+            <BudgetSection
+              budget="income"
+              unplanned={Number(plan.unplanned.income)}
+              onOpenUnplanned={onOpenUnplanned}
+              target={null}
+              positions={incomeRows}
+              hints={plan.hints}
+              onEdit={openEditor}
+              onTogglePaid={toggle}
+              readOnly={(position) => !mayEdit(position as HouseholdPosition)}
+              ownerName={ownerName}
+            />
+
+            {groups.map((group) => (
+              <BudgetSection
+                key={group.budget}
+                budget={group.budget}
+                unplanned={Number(plan.unplanned[group.budget])}
+                onOpenUnplanned={onOpenUnplanned}
+                target={group.target}
+                positions={group.rows}
+                hints={plan.hints}
+                onEdit={openEditor}
+                onTogglePaid={toggle}
+                readOnly={(position) => !mayEdit(position as HouseholdPosition)}
+                ownerName={ownerName}
               />
-              <Metric
-                label={t('plans.open')}
-                value={unpaid}
-                hint={t('plan.notPaid')}
-              />
-            </section>
-          )}
-          {tab !== 'book' && <MonthHints hints={plan.hints} />}
+            ))}
+          </div>
+        </TabsContent>
+      </Tabs>
 
-          {/* Fehlt jemand, sind alle Summen im Buch unvollständig. Das muss
-              dastehen — eine Zahl, der jemand fehlt, ohne dass man es sieht,
-              wäre schlimmer als keine. */}
-          {tab === 'book' && stillPrivate.length > 0 && (
-            <p
-              role="status"
-              className="border-border bg-muted/40 rounded-lg border p-3 text-sm"
-            >
-              {t(
-                stillPrivate.length === 1
-                  ? 'plan.stillPrivateOne'
-                  : 'plan.stillPrivateMany',
-                { names: stillPrivate.join(` ${t('common.and')} `) }
-              )}
-            </p>
-          )}
+      {/* Seite 2 des Ausdrucks. `ownerName` schaltet die Spalte „Wer" ein —
+          beim gemeinsamen Plan ist genau das die Information. */}
+      <PlanPrintout plan={plan} ownerName={ownerName} />
 
-          <Tabs value={tab} onValueChange={onTab} className="gap-6">
-            <TabsList data-print="hide">
-              <TabsTrigger value="plan">{t('plan.tabPlan')}</TabsTrigger>
-              <BookTabTrigger year={plan.year} month={plan.month} scope={scope} />
-              <TabsTrigger value="flow">{t('plan.tabFlow')}</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="book">
-
-              <PlanBook
-
-                        year={plan.year}
-
-                        month={plan.month}
-
-                        positions={plan.positions}
-
-                        scope={scope}
-
-                        readOnly
-
-                      />
-
-            </TabsContent>
-
-
-            <TabsContent value="flow">
-              <MonthFlow
-                year={plan.year}
-                month={plan.month}
-                householdId={plan.householdId}
-              />
-            </TabsContent>
-
-            <TabsContent value="plan" className="flex flex-col gap-8">
-              {/* Paper version of the charts.
-               *
-               *  **Permanently mounted**, only parked outside the picture. It used to be
-               *  narrowed on clicking Print — anyone using Ctrl+P bypassed that, and the
-               *  charts then went onto the paper at screen width and were cut off.
-               *
-               *  Absolutely positioned rather than `hidden`: `display: none` would give a
-               *  width of 0, and Recharts then draws nothing. This way it measures 672px
-               *  once — A4 minus the margins — and keeps it.
-               */}
-              <div
-                aria-hidden
-                className="pointer-events-none absolute -left-[9999px] top-0 w-[672px] print:static print:left-auto print:flex print:flex-col print:gap-4"
-              >
-                <MonthFlow
-                  year={plan.year}
-                  month={plan.month}
-                  householdId={plan.householdId}
-                  height="h-32"
-                  print
-                />
-                <PlanSankey
-                  positions={plan.positions}
-                  distributable={plan.distributable}
-                  height="h-56"
-                  threshold={0.05}
-                />
-              </div>
-
-              <div className="print:hidden">
-                <PlanSankey positions={plan.positions} distributable={plan.distributable} />
-              </div>
-
-              {/* Auf Papier ersetzt `PlanPrintout` diese Liste. */}
-              <div className="flex flex-col gap-8 print:hidden">
-                <BudgetSection
-                  budget="income"
-                  unplanned={Number(plan.unplanned.income)}
-                  onOpenUnplanned={onOpenUnplanned}
-                  target={null}
-                  positions={incomeRows}
-                  hints={plan.hints}
-                          onEdit={openEditor}
-                  onTogglePaid={toggle}
-                  readOnly={(position) => !mayEdit(position as HouseholdPosition)}
-                  ownerName={ownerName}
-                />
-
-                {groups.map((group) => (
-                  <BudgetSection
-                    key={group.budget}
-                    budget={group.budget}
-                    unplanned={Number(plan.unplanned[group.budget])}
-                    onOpenUnplanned={onOpenUnplanned}
-                    target={group.target}
-                    positions={group.rows}
-                    hints={plan.hints}
-                              onEdit={openEditor}
-                    onTogglePaid={toggle}
-                    readOnly={(position) => !mayEdit(position as HouseholdPosition)}
-                    ownerName={ownerName}
-                  />
-                ))}
-              </div>
-            </TabsContent>
-          </Tabs>
-
-          {/* Seite 2 des Ausdrucks. `ownerName` schaltet die Spalte „Wer" ein —
-              beim gemeinsamen Plan ist genau das die Information. */}
-          <PlanPrintout plan={plan} ownerName={ownerName} />
-        </>
-      )}
 
       {/* Kein „Anlegen" hier: der Haushalt besitzt nichts, ein Posten entsteht
           immer im eigenen Plan (#218 Nicht im Umfang). `planId` bleibt leer —
