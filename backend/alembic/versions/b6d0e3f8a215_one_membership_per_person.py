@@ -6,8 +6,9 @@ Create Date: 2026-09-29 10:10:00.000000
 
 Second of three steps that give every person exactly one household (#242).
 
-**Upgrade.** Per person the oldest membership stays (`created_at`, ties broken by
-`id`); the others are removed. What a person had shared into a household they
+**Upgrade.** Per person one membership stays: the one in the household with the most members,
+so that an empty household of their own never beats a shared one; among equals
+the oldest (`created_at`, ties broken by `id`). The others are removed. What a person had shared into a household they
 lose becomes private. Households left without members are deleted, together with
 their invitations. A household that lost its owner gets the oldest remaining
 member as owner. Every person without a household gets one of their own
@@ -30,13 +31,18 @@ down_revision: Union[str, Sequence[str], None] = "a5c9d2e7f104"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-#: The membership of each person that stays: the oldest one.
+#: The membership of each person that stays: in the household with the most
+#: members, then the oldest one.
 KEPT = """
     SELECT id FROM (
         SELECT id, row_number() OVER (
-            PARTITION BY user_id ORDER BY created_at, id
+            PARTITION BY user_id ORDER BY size DESC, created_at, id
         ) AS rank
-        FROM household_members
+        FROM (
+            SELECT id, user_id, created_at,
+                   count(*) OVER (PARTITION BY household_id) AS size
+            FROM household_members
+        ) AS sized
     ) AS ranked
     WHERE rank = 1
 """
