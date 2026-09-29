@@ -13,7 +13,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.account import Account
-from app.models.enums import AccessLevel, AccountType, Budget, Category
+from app.models.enums import AccessLevel, AccountType, Budget, Category, TransactionKind
 from app.models.household import Household
 from app.models.plan import Plan, PlanPosition
 from app.models.transaction import Transaction
@@ -69,18 +69,18 @@ async def position_of(session: AsyncSession, user: User, *, private: bool) -> Pl
 
 
 def booking(user: User, account: Account, note: str, **kwargs) -> Transaction:
-    return Transaction(
-        owner_id=user.id,
-        account_id=account.id,
-        occurred_on=date(2026, 9, 12),
-        plan_year=2026,
-        plan_month=9,
-        amount=Decimal("10.00"),
-        category=Category.HOUSEHOLD_GROCERIES,
-        budget=Budget.NEEDS,
-        note=note,
-        **kwargs,
-    )
+    fields = {
+        "owner_id": user.id,
+        "account_id": account.id,
+        "occurred_on": date(2026, 9, 12),
+        "plan_year": 2026,
+        "plan_month": 9,
+        "amount": Decimal("10.00"),
+        "category": Category.HOUSEHOLD_GROCERIES,
+        "budget": Budget.NEEDS,
+        "note": note,
+    }
+    return Transaction(**{**fields, **kwargs})
 
 
 async def notes(client: AsyncClient, household: Household) -> set[str]:
@@ -147,3 +147,55 @@ async def test_the_household_book_is_refused_to_an_outsider(
     response = await client.get(f"/api/v1/transactions?household={household.id}")
 
     assert response.status_code == 403
+
+
+async def test_the_household_book_leaves_out_account_mechanics_of_other_members(
+    client: AsyncClient, session: AsyncSession, couple
+):
+    """It shows spending: another member's carry-over and pure transfers stay out, a
+    transfer that fills a position (saving) stays in. One's own remain visible."""
+    me, partner, household = couple
+    mine = await account_of(session, me)
+    theirs = await account_of(session, partner)
+    theirs_two = Account(
+        owner_id=partner.id,
+        name="Tagesgeld",
+        type=AccountType.CHECKING,
+        opening_balance=Decimal("0.00"),
+        opening_date=date(2026, 1, 1),
+        is_default=False,
+        counts_as_available=False,
+    )
+    mine_two = Account(
+        owner_id=me.id,
+        name="Sparen",
+        type=AccountType.CHECKING,
+        opening_balance=Decimal("0.00"),
+        opening_date=date(2026, 1, 1),
+        is_default=False,
+        counts_as_available=False,
+    )
+    session.add_all([theirs_two, mine_two])
+    await session.flush()
+    saving = await position_of(session, partner, private=False)
+    session.add_all(
+        [
+            booking(partner, theirs, "their pure transfer", counter_account_id=theirs_two.id,
+                    category=None, budget=None),
+            booking(partner, theirs, "their saving", counter_account_id=theirs_two.id,
+                    position_id=saving.id),
+            booking(partner, theirs, "their carry-over", kind=TransactionKind.CARRY_OVER,
+                    occurred_on=date(2026, 9, 1),
+                    category=None, budget=None),
+            booking(me, mine, "my pure transfer", counter_account_id=mine_two.id,
+                    category=None, budget=None),
+            booking(partner, theirs, "their spending"),
+        ]
+    )
+    await session.commit()
+
+    assert await notes(client, household) == {
+        "their saving",
+        "their spending",
+        "my pure transfer",
+    }

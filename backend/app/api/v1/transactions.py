@@ -239,6 +239,19 @@ async def list_transactions(
         query = query.where(
             Transaction.position_id.is_(None) | Transaction.position_id.not_in(private)
         )
+        # The household book shows spending, not account mechanics: another member's
+        # carry-over and pure transfers (no position) stay with them. One's own
+        # remain visible to oneself.
+        query = query.where(
+            (Transaction.owner_id == user.id)
+            | (
+                (Transaction.kind != TransactionKind.CARRY_OVER)
+                & (
+                    Transaction.counter_account_id.is_(None)
+                    | Transaction.position_id.is_not(None)
+                )
+            )
+        )
 
     if year is not None:
         query = query.where(Transaction.plan_year == year)
