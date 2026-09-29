@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { DialogFrame } from '@/components/DialogFrame'
 import { QuotaDialog } from '@/components/QuotaDialog'
+import { ListRow } from '@/components/ListRow'
+import { MemberDialog } from '@/components/MemberDialog'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,6 +50,7 @@ import {
   lowestLevel,
   type AccessLevel,
   type Household,
+  type Member,
   type Role,
 } from '@/lib/domain'
 import { shortDate } from '@/lib/dates'
@@ -62,8 +65,9 @@ import { shortDate } from '@/lib/dates'
  * Everybody belongs to exactly one household, their own or the one they were
  * invited into. The list keeps its shape, but holds one entry.
  *
- * Every member may change the household's quotas (#84): the household belongs
- * to nobody, so no role decides for the others.
+ * Admins (several possible) invite, remove members, hand the admin role on and
+ * set the household's quotas (decisions 58, 60). Rights on somebody's data stay
+ * with that person — an admin sets none for others.
  */
 
 /** Catalog keys of the roles. */
@@ -82,6 +86,13 @@ export function HouseholdPage() {
   const currentUserId = me.data?.id ?? ''
   // After leaving, the card is gone; the focus goes to the page heading (rule 13).
   const heading = useRef<HTMLHeadingElement>(null)
+  const [openMember, setOpenMember] = useState<{ householdId: string; member: Member } | null>(
+    null
+  )
+  const isAdminOf = (household: Household) =>
+    household.members.some(
+      (member) => member.userId === currentUserId && member.role === 'admin'
+    )
 
   return (
     <div className="flex flex-col gap-6">
@@ -111,6 +122,7 @@ export function HouseholdPage() {
           >
             <HouseholdHeader
               household={household}
+              isAdmin={isAdminOf(household)}
               onInvite={() => setInvitingTo(household)}
               onLeft={() => heading.current?.focus()}
               isLastAdmin={
@@ -124,55 +136,78 @@ export function HouseholdPage() {
             <ul className="flex flex-col">
               {household.members.map((member) => {
                 const isMe = member.userId === currentUserId
+                const roleBadge = (
+                  <Badge
+                    variant={member.role === 'admin' ? 'secondary' : 'outline'}
+                    className="font-normal"
+                  >
+                    {t(ROLE_LABEL[member.role])}
+                  </Badge>
+                )
+                if (!isMe) {
+                  // An admin opens the others for their role and to remove them;
+                  // everybody else only reads the row (rule 3).
+                  return (
+                    <ListRow
+                      key={member.userId}
+                      onOpen={
+                        isAdminOf(household)
+                          ? () => setOpenMember({ householdId: household.id, member })
+                          : undefined
+                      }
+                      trailing={roleBadge}
+                    >
+                      <span className="flex items-center gap-3">
+                        <Initials member={member} />
+                        <span className="flex min-w-0 flex-col">
+                          <span className="font-medium">
+                            {member.firstName} {member.lastName}
+                          </span>
+                          <span className="text-muted-foreground truncate text-xs">
+                            {member.email}
+                          </span>
+                        </span>
+                      </span>
+                      {/* What I see of them, as text: only they set it. */}
+                      <span className="text-muted-foreground flex flex-col gap-0.5 pl-11 text-xs">
+                        {AREA_ORDER.map((area) => (
+                          <span key={area}>
+                            {areaLabel(area)}:{' '}
+                            {accessLabel(area, member.grantsToMe[area]).toLowerCase()}
+                          </span>
+                        ))}
+                      </span>
+                    </ListRow>
+                  )
+                }
                 return (
                   <li
                     key={member.userId}
                     className="border-border/60 flex flex-wrap items-center gap-3 border-b py-2.5 last:border-b-0"
                   >
-                    <span className="bg-muted text-muted-foreground flex size-8 items-center justify-center rounded-full text-xs font-semibold">
-                      {member.firstName[0]}
-                      {member.lastName[0]}
-                    </span>
+                    <Initials member={member} />
 
                     <span className="flex min-w-0 flex-col">
                       <span className="flex flex-wrap items-center gap-2">
                         <span className="font-medium">
                           {member.firstName} {member.lastName}
                         </span>
-                        {isMe && (
-                          <Badge variant="outline" className="font-normal">
-                            {t('household.you')}
-                          </Badge>
-                        )}
+                        <Badge variant="outline" className="font-normal">
+                          {t('household.you')}
+                        </Badge>
                       </span>
                       <span className="text-muted-foreground truncate text-xs">
                         {member.email}
                       </span>
                     </span>
 
-                    <Badge
-                      variant={member.role === 'admin' ? 'secondary' : 'outline'}
-                      className="ml-auto font-normal"
-                    >
-                      {t(ROLE_LABEL[member.role])}
-                    </Badge>
+                    <span className="ml-auto">{roleBadge}</span>
 
                     {/* Die Freigabe steht bei der eigenen Zeile, weil man nur
                         die eigene setzen kann. Bei den anderen steht sie als
                         Text da — man soll sehen, was man von ihnen sieht. */}
                     <span className="w-full pl-11">
-                      {isMe ? (
-                        <AccessChoice household={household} myId={member.userId} />
-                      ) : (
-                        <span className="text-muted-foreground flex flex-col gap-0.5 text-xs">
-                          {AREA_ORDER.map((area) => (
-                            <span key={area}>
-                              {areaLabel(area)}:{' '}
-                              {accessLabel(area, member.grantsToMe[area]).toLowerCase()}
-                            </span>
-                          ))}
-                        </span>
-                      )}
+                      <AccessChoice household={household} myId={member.userId} />
                     </span>
                   </li>
                 )
@@ -192,17 +227,37 @@ export function HouseholdPage() {
         household={invitingTo}
         onOpenChange={(open) => !open && setInvitingTo(null)}
       />
+
+      <MemberDialog
+        householdId={openMember?.householdId ?? ''}
+        member={openMember?.member ?? null}
+        onOpenChange={(open) => !open && setOpenMember(null)}
+        // A removed member's row is gone; the heading takes the focus (rule 13).
+        returnFocus={() => heading.current}
+      />
     </div>
+  )
+}
+
+function Initials({ member }: { member: Member }) {
+  return (
+    <span className="bg-muted text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold">
+      {member.firstName[0]}
+      {member.lastName[0]}
+    </span>
   )
 }
 
 function HouseholdHeader({
   household,
+  isAdmin,
   onInvite,
   onLeft,
   isLastAdmin,
 }: {
   household: Household
+  /** Quotas and inviting are the admins' (decisions 58, 60); the others do not see them. */
+  isAdmin: boolean
   onInvite: () => void
   onLeft: () => void
   /** The only admin cannot leave; the dialog says so instead of offering it. */
@@ -234,31 +289,35 @@ function HouseholdHeader({
       </div>
 
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={() => setQuotaOpen(true)}>
-          <Percent className="size-4" />
-          {t('quota.change')}
-        </Button>
+        {isAdmin && (
+          <>
+            <Button variant="outline" size="sm" onClick={() => setQuotaOpen(true)}>
+              <Percent className="size-4" />
+              {t('quota.change')}
+            </Button>
 
-        <QuotaDialog
-          open={quotaOpen}
-          onOpenChange={setQuotaOpen}
-          title={t('quota.householdTitle')}
-          description={t('quota.householdDescription')}
-          initial={household}
-          pending={update.isPending}
-          error={update.isError ? update.error : null}
-          onSave={(values) =>
-            update.mutate(
-              { id: household.id, ...values },
-              { onSuccess: () => setQuotaOpen(false) }
-            )
-          }
-        />
+            <QuotaDialog
+              open={quotaOpen}
+              onOpenChange={setQuotaOpen}
+              title={t('quota.householdTitle')}
+              description={t('quota.householdDescription')}
+              initial={household}
+              pending={update.isPending}
+              error={update.isError ? update.error : null}
+              onSave={(values) =>
+                update.mutate(
+                  { id: household.id, ...values },
+                  { onSuccess: () => setQuotaOpen(false) }
+                )
+              }
+            />
 
-        <Button variant="outline" size="sm" onClick={onInvite}>
-          <UserPlus className="size-4" />
-          {t('household.invite')}
-        </Button>
+            <Button variant="outline" size="sm" onClick={onInvite}>
+              <UserPlus className="size-4" />
+              {t('household.invite')}
+            </Button>
+          </>
+        )}
 
         {/* Wer austritt, sieht die gemeinsamen Pläne nicht mehr, und die anderen
             sehen seine Posten dort in keinem Monat mehr, auch nicht in

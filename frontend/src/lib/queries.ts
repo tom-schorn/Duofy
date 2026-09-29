@@ -33,6 +33,7 @@ import type {
   PlanDetail,
   PlanPosition,
   PlanSummary,
+  Role,
   Transaction,
 } from '@/lib/domain'
 
@@ -180,6 +181,30 @@ export function useLeaveHousehold() {
     [keys.households],
     'toast.householdLeft',
     // The confirmation dialog shows the error (a last owner cannot leave).
+    INLINE_ERROR
+  )
+}
+
+/** Remove somebody from the household — admins only; they get a household of their own. */
+export function useRemoveMember(householdId: string) {
+  return useInvalidating<void, Member>(
+    (member) => api.delete(`/households/${householdId}/members/${member.userId}`),
+    // What the removed person shared leaves the plans and books with them.
+    [keys.households, keys.plans, keys.accounts, keys.commitments],
+    (_, member) => i18n.t('toast.memberRemoved', { name: member.firstName }),
+    INLINE_ERROR
+  )
+}
+
+/** Make somebody admin or take the role away — admins only; the last one stays. */
+export function useSetMemberRole(householdId: string) {
+  return useInvalidating<Member, { userId: string; role: Role }>(
+    ({ userId, role }) => api.patch(`/households/${householdId}/members/${userId}`, { role }),
+    [keys.households],
+    (member) =>
+      i18n.t(member.role === 'admin' ? 'toast.madeAdmin' : 'toast.madeMember', {
+        name: member.firstName,
+      }),
     INLINE_ERROR
   )
 }
