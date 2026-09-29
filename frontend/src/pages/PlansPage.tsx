@@ -7,7 +7,6 @@ import { CreatePlanDialog } from '@/components/CreatePlanDialog'
 import { EmptyState } from '@/components/EmptyState'
 import { QueryState } from '@/components/QueryState'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { useActiveMember } from '@/hooks/use-active-member'
 import { useHouseholds, useHouseholdPlans, usePlans } from '@/lib/queries'
 import {

@@ -30,7 +30,6 @@ import { useActiveMember } from '@/hooks/use-active-member'
 import {
   useCommitments,
   useDeleteCommitment,
-  useHouseholds,
   useSaveCommitment,
 } from '@/lib/queries'
 import {
@@ -129,7 +128,6 @@ export function CommitmentsPage() {
   const isCommitmentsViewOnly = isViewOnly(commitmentsLevel)
   // Your own you may always delete — as long as it is unused; another's needs `delete`.
   const mayDelete = active.member === null || atLeast(commitmentsLevel, 'delete')
-  const households = useHouseholds()
   const save = useSaveCommitment()
   const remove = useDeleteCommitment()
 

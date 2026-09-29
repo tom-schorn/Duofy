@@ -30,7 +30,6 @@ function renderSection(props: Partial<React.ComponentProps<typeof BudgetSection>
       budget="needs"
       target={1000}
       positions={[position]}
-      householdNames={{}}
       {...handlers}
       {...props}
     />
