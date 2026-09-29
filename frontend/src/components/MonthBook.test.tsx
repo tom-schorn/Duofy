@@ -2,9 +2,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
+import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
-import { MonthBook } from '@/components/MonthBook'
+import { MonthBook, type BookFilter } from '@/components/MonthBook'
 import { i18n } from '@/lib/i18n'
 import { flushPendingDelete } from '@/lib/undo-delete'
 
@@ -32,12 +33,35 @@ const account = {
   balance: '0.00',
 }
 
-function renderBook(readOnly: boolean) {
+/** Holds the filter like the plan page does, in its address. */
+function Book({
+  readOnly,
+  positions,
+  initial,
+}: {
+  readOnly: boolean
+  positions: unknown[]
+  initial: BookFilter
+}) {
+  const [filter, setFilter] = useState<BookFilter>(initial)
+  return (
+    <MonthBook
+      positions={positions as never}
+      year={2026}
+      month={9}
+      readOnly={readOnly}
+      filter={filter}
+      onFilterChange={setFilter}
+    />
+  )
+}
+
+function renderBook(readOnly: boolean, positions: unknown[] = [], initial: BookFilter = 'all') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
-        <MonthBook positions={[]} year={2026} month={9} readOnly={readOnly} />
+        <Book readOnly={readOnly} positions={positions} initial={initial} />
       </MemoryRouter>
     </QueryClientProvider>
   )
@@ -89,19 +113,10 @@ describe('MonthBook rows', () => {
     await waitFor(() => expect(deleted()).toBe(true))
   })
 
-  test('the quick entry counts an unplanned booking in the month of today unless another is chosen', async () => {
-    const user = userEvent.setup()
+  test('the book is a list only: the quick entry now lives in the add dialog', async () => {
     renderBook(false)
-    await user.type(await screen.findByLabelText(i18n.t('common.amount')), '12,50')
-    await user.click(screen.getByRole('button', { name: i18n.t('monthBook.book') }))
-    const post = await waitFor(() => {
-      const call = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST')
-      expect(call).toBeDefined()
-      return JSON.parse(String(call![1].body))
-    })
-    const now = new Date()
-    expect(post.planYear).toBe(now.getFullYear())
-    expect(post.planMonth).toBe(now.getMonth() + 1)
+    await screen.findByRole('button', { name: /Streaming/ })
+    expect(screen.queryByLabelText(i18n.t('common.amount'))).not.toBeInTheDocument()
   })
 
   test('a read-only row is not a button and its book cannot delete', async () => {
@@ -143,5 +158,151 @@ describe('MonthBook carry-over row', () => {
 
     await user.click(screen.getByText(i18n.t('monthBook.carryOverName')))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+})
+
+describe('MonthBook list and filter (#241)', () => {
+  const account2 = { ...account, id: 'a2', name: 'Kreditkarte', isDefault: false }
+  const rent = { id: 'p1', label: 'Miete', category: 'housing.rent', budget: 'needs' }
+  const planned = {
+    ...booking,
+    id: 't-rent',
+    occurredOn: '2026-09-01',
+    note: 'Miete Sept',
+    amount: '950.00',
+    category: 'housing.rent',
+    budget: 'needs',
+    positionId: 'p1',
+  }
+  const unplannedLate = {
+    ...booking,
+    id: 't-late',
+    occurredOn: '2026-09-20',
+    note: 'Kino',
+    amount: '35.00',
+  }
+  const unplannedEarly = {
+    ...booking,
+    id: 't-early',
+    occurredOn: '2026-09-03',
+    note: 'Apotheke',
+    amount: '18.90',
+    accountId: 'a2',
+  }
+  const salary = {
+    ...booking,
+    id: 't-salary',
+    occurredOn: '2026-08-25',
+    note: 'Gehalt',
+    amount: '3200.00',
+    category: 'income.earned',
+    budget: 'income',
+    planMonth: 9,
+  }
+  const transfer = {
+    ...booking,
+    id: 't-transfer',
+    occurredOn: '2026-09-10',
+    note: 'Tagesgeld',
+    counterAccountId: 'a2',
+    category: null,
+    budget: null,
+  }
+
+  beforeEach(() => {
+    fetchMock = vi.fn(async (url: string) => {
+      const rows = [unplannedLate, planned, transfer, unplannedEarly, salary]
+      return new Response(
+        JSON.stringify(String(url).includes('/accounts') ? [account, account2] : rows),
+        { status: 200 }
+      )
+    })
+    vi.stubGlobal('fetch', fetchMock)
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  const NAMES = /Gehalt|Miete Sept|Apotheke|Tagesgeld|Kino/
+  const names = () =>
+    screen
+      .getAllByRole('button', { name: NAMES })
+      .filter((row) => row.hasAttribute('data-row-open'))
+      .map((row) => NAMES.exec(row.textContent ?? '')![0])
+
+  test('rows come by date, oldest first, by their own date not the plan month', async () => {
+    renderBook(false, [rent])
+    await screen.findByRole('button', { name: /Kino/ })
+    expect(names()).toEqual(['Gehalt', 'Miete Sept', 'Apotheke', 'Tagesgeld', 'Kino'])
+  })
+
+  test('a booking dated in another month than it counts in says which month it counts in', async () => {
+    renderBook(false, [rent])
+    const row = await screen.findByRole('button', { name: /Gehalt/ })
+    expect(row).toHaveTextContent(/für Sep/)
+    expect(screen.getByRole('button', { name: /Kino/ })).not.toHaveTextContent(/für /)
+  })
+
+  test('the filter offers Alle and Ungeplant with the number of unplanned bookings', async () => {
+    renderBook(false, [rent])
+    await screen.findByRole('button', { name: /Kino/ })
+    expect(screen.getByRole('button', { name: 'Alle' })).toHaveAttribute('aria-pressed', 'true')
+    // Salary, Apotheke and Kino hang on no position; the transfer is no spending.
+    expect(screen.getByRole('button', { name: 'Ungeplant · 3' })).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    )
+  })
+
+  test('Ungeplant shows only the bookings without a position and no transfer', async () => {
+    const user = userEvent.setup()
+    renderBook(false, [rent])
+    await screen.findByRole('button', { name: /Kino/ })
+    await user.click(screen.getByRole('button', { name: 'Ungeplant · 3' }))
+    expect(names()).toEqual(['Gehalt', 'Apotheke', 'Kino'])
+    await user.click(screen.getByRole('button', { name: 'Alle' }))
+    expect(names()).toHaveLength(5)
+  })
+
+  test('the address can ask for the unplanned filter at once', async () => {
+    renderBook(false, [rent], 'unplanned')
+    await screen.findByRole('button', { name: /Kino/ })
+    expect(screen.queryByRole('button', { name: /Miete Sept/ })).not.toBeInTheDocument()
+  })
+
+  test('an unplanned row offers zuordnen, which opens the booking at its position', async () => {
+    const user = userEvent.setup()
+    renderBook(false, [rent])
+    await screen.findByRole('button', { name: /Kino/ })
+    const assign = screen.getAllByRole('button', { name: /zuordnen/ })
+    expect(assign).toHaveLength(3)
+    await user.click(assign[2])
+    const dialog = await screen.findByRole('dialog')
+    expect(
+      within(dialog).getByRole('combobox', { name: i18n.t('monthBook.positionLabel') })
+    ).toBeInTheDocument()
+  })
+
+  test('a read-only book offers no zuordnen', async () => {
+    renderBook(true, [rent])
+    await screen.findByText('Kino')
+    expect(screen.queryByRole('button', { name: /zuordnen/ })).not.toBeInTheDocument()
+  })
+
+  test('the row shows account and position', async () => {
+    renderBook(false, [rent])
+    const row = await screen.findByRole('button', { name: /Miete Sept/ })
+    expect(row).toHaveTextContent('Giro')
+    expect(row).toHaveTextContent('Miete')
+    expect(screen.getByRole('button', { name: /Apotheke/ })).toHaveTextContent('Kreditkarte')
+  })
+
+  test('a filter that leaves nothing says so instead of showing an empty list', async () => {
+    fetchMock.mockImplementation(
+      async (url: string) =>
+        new Response(JSON.stringify(String(url).includes('/accounts') ? [account] : [planned]), {
+          status: 200,
+        })
+    )
+    renderBook(false, [rent], 'unplanned')
+    expect(await screen.findByText(i18n.t('monthBook.noUnplanned'))).toBeInTheDocument()
   })
 })
