@@ -804,8 +804,8 @@ async def _household_positions(
 async def _plan_read(session: AsyncSession, plan: Plan, viewer: User) -> PlanRead:
     used = await _used_position_ids(session, [position.id for position in plan.positions])
     # Unplanned bookings are the owner's book, not the plan: somebody else sees them
-    # only with their own grant on the accounts, like the flow's manual bookings.
-    sees_bookings = await may_see(session, plan.user_id, viewer, Area.ACCOUNTS)
+    # only with their own grant on the book, like the flow's manual bookings.
+    sees_bookings = await may_see(session, plan.user_id, viewer, Area.BOOK)
     return PlanRead(
         id=plan.id,
         hints=plan_hints(plan.year, plan.month, plan.positions),
