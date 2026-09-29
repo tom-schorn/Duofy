@@ -328,10 +328,10 @@ async def test_the_household_flow_is_one_curve_and_follows_the_viewers_switch(
     ada_plan = await make_plan(session, ada)
     bob_plan = await make_plan(session, bob)
     groceries = position(
-        ada_plan, "Groceries", "300.00", 1, is_limit=True, household_id=household.id
+        ada_plan, "Groceries", "300.00", 1, is_limit=True
     )
-    rent = position(bob_plan, "Rent", "700.00", 2, household_id=household.id)
-    private = position(bob_plan, "Private", "50.00", 3)
+    rent = position(bob_plan, "Rent", "700.00", 2)
+    private = position(bob_plan, "Private", "50.00", 3, is_private=True)
     session.add_all([groceries, rent, private])
     await session.flush()
     session.add(booking(ada, ada_account, "80.00", date(2026, 9, 5), position_id=groceries.id))
@@ -578,7 +578,7 @@ async def test_the_household_flow_ignores_carry_overs_because_the_household_owns
     plan = await make_plan(session, ada)
     session.add_all(
         [
-            position(plan, "Rent", "700.00", 2, household_id=household.id),
+            position(plan, "Rent", "700.00", 2),
             carry_over(ada, account, "500.00"),
         ]
     )
@@ -606,7 +606,7 @@ async def test_the_household_flow_is_empty_with_missing_members_until_complete(
     await add_member(session, household, ada)
     await add_member(session, household, bob)
     ada_plan = await make_plan(session, ada)
-    session.add(position(ada_plan, "Groceries", "300.00", 1, household_id=household.id))
+    session.add(position(ada_plan, "Groceries", "300.00", 1))
     await session.commit()
     await session.refresh(ada)
     sign_in(ada)
@@ -628,8 +628,8 @@ async def test_the_household_flow_shows_the_curve_once_everybody_has_planned(
     await add_member(session, household, bob)
     ada_plan = await make_plan(session, ada)
     bob_plan = await make_plan(session, bob)
-    session.add(position(ada_plan, "Groceries", "300.00", 1, household_id=household.id))
-    session.add(position(bob_plan, "Rent", "700.00", 2, household_id=household.id))
+    session.add(position(ada_plan, "Groceries", "300.00", 1))
+    session.add(position(bob_plan, "Rent", "700.00", 2))
     await session.commit()
     await session.refresh(ada)
     sign_in(ada)

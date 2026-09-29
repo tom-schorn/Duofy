@@ -8,21 +8,18 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select, update
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.auth import current_active_user
 from app.core.permissions import is_household_owner, is_member, require
 from app.db.session import get_session
-from app.models.commitment import Commitment
 from app.models.enums import InvitationStatus, Role
 from app.models.household import Household, HouseholdInvitation, HouseholdMember
-from app.models.plan import Plan, PlanPosition
 from app.models.user import User
 from app.schemas.household import (
     AccessUpdate,
-    HouseholdCreate,
     HouseholdRead,
     HouseholdUpdate,
     InvitationCreate,
@@ -31,6 +28,7 @@ from app.schemas.household import (
     MemberRead,
     MyInvitationRead,
 )
+from app.services.households import create_own_household
 
 router = APIRouter()
 
@@ -40,6 +38,8 @@ async def _load(session: AsyncSession, household_id: uuid.UUID) -> Household:
         Household,
         household_id,
         options=[selectinload(Household.members)],
+        # A membership may have just changed in this session; read the row again.
+        populate_existing=True,
     )
     if household is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "household_not_found"})
@@ -82,9 +82,9 @@ async def list_households(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> list[HouseholdRead]:
-    """Every household the user is a member of.
+    """The household the user is a member of.
 
-    Several at once are expected, not an exception.
+    A list for the frontend's sake; it holds exactly one household.
     """
     result = await session.execute(
         select(Household)
@@ -94,23 +94,6 @@ async def list_households(
         .order_by(Household.created_at)
     )
     return [await _to_read(session, household) for household in result.scalars().unique()]
-
-
-@router.post("", response_model=HouseholdRead, status_code=status.HTTP_201_CREATED)
-async def create_household(
-    payload: HouseholdCreate,
-    session: AsyncSession = Depends(get_session),
-    user: User = Depends(current_active_user),
-) -> HouseholdRead:
-    """Whoever creates the household becomes its owner."""
-    household = Household(name=payload.name)
-    household.members.append(HouseholdMember(user_id=user.id, role=Role.OWNER))
-
-    session.add(household)
-    await session.commit()
-    await session.refresh(household, ["members"])
-
-    return await _to_read(session, household)
 
 
 @router.patch("/{household_id}", response_model=HouseholdRead)
@@ -194,11 +177,9 @@ async def leave_household(
     zusammengesetzt. Gelöscht wird nichts. Die eigenen Pläne, Konten und Verträge
     bleiben bei der Person.
 
-    `ON DELETE SET NULL` an `plan_positions.household_id` greift hier nicht — es
-    hängt am Haushalt, nicht an der Mitgliedschaft. Deshalb löst diese Route die
-    Posten der Person selbst aus dem Haushalt (#54): in allen Monaten, in
-    derselben Transaktion wie die Mitgliedschaft. Sie bleiben als private Posten
-    im eigenen Plan und kommen bei einem Wiedereintritt nicht von selbst zurück.
+    Wer austritt, bekommt sofort einen neuen, eigenen Haushalt: jede Person gehört zu
+    genau einem. Posten und Verträge bleiben unverändert; weil sie am Haushalt der
+    Person hängen, sehen die bisherigen Mitglieder sie nicht mehr.
     """
     result = await session.execute(
         select(HouseholdMember).where(
@@ -223,22 +204,9 @@ async def leave_household(
                 status.HTTP_409_CONFLICT, detail={"code": "last_owner_cannot_leave"}
             )
 
-    await session.execute(
-        update(PlanPosition)
-        .where(
-            PlanPosition.household_id == household_id,
-            PlanPosition.plan_id.in_(select(Plan.id).where(Plan.user_id == user.id)),
-        )
-        .values(household_id=None)
-    )
-    # The commitments too, or the next month built from them would put the positions
-    # straight back into the household.
-    await session.execute(
-        update(Commitment)
-        .where(Commitment.household_id == household_id, Commitment.owner_id == user.id)
-        .values(household_id=None)
-    )
     await session.delete(member)
+    await session.flush()
+    await create_own_household(session, user)
     await session.commit()
 
 
@@ -411,6 +379,34 @@ async def accept_invitation(
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail={"code": "invitation_email_mismatch"})
 
     if not await is_member(session, user.id, invitation.household_id):
+        # Everybody is in exactly one household. Moving is fine while the own one
+        # is empty apart from oneself — it goes away. With other people in it
+        # somebody would be left behind, so that is a refusal, not a merge.
+        own = await session.scalar(
+            select(HouseholdMember).where(HouseholdMember.user_id == user.id)
+        )
+        if own is not None:
+            others = await session.scalar(
+                select(func.count())
+                .select_from(HouseholdMember)
+                .where(
+                    HouseholdMember.household_id == own.household_id,
+                    HouseholdMember.user_id != user.id,
+                )
+            )
+            if others:
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT, detail={"code": "household_not_empty"}
+                )
+            # Members and invitations are loaded up front: the ORM cascade cannot
+            # lazy-load them inside an async session.
+            own_household = await session.get(
+                Household,
+                own.household_id,
+                options=[selectinload(Household.members), selectinload(Household.invitations)],
+            )
+            await session.delete(own_household)
+            await session.flush()
         session.add(
             HouseholdMember(
                 household_id=invitation.household_id,

@@ -49,7 +49,7 @@ async def make_account(session: AsyncSession, owner: User, name: str = "Girokont
 
 
 async def make_shared_position(
-    session: AsyncSession, owner: User, household_id, label: str
+    session: AsyncSession, owner: User, label: str
 ) -> PlanPosition:
     plan = await session.scalar(select(Plan).where(Plan.user_id == owner.id))
     if plan is None:
@@ -58,7 +58,6 @@ async def make_shared_position(
         await session.flush()
     position = PlanPosition(
         plan_id=plan.id,
-        household_id=household_id,
         label=label,
         amount_planned=Decimal("30.00"),
         category=Category.LEISURE_SUBSCRIPTIONS,
@@ -111,10 +110,8 @@ async def test_deletes_everything_and_hands_household_ownership_to_the_partner(
             first_due_date=date(2026, 1, 1),
         )
     )
-    owners_position = await make_shared_position(session, owner, household_id, "Owner position")
-    partners_position = await make_shared_position(
-        session, partner, household_id, "Partner position"
-    )
+    owners_position = await make_shared_position(session, owner, "Owner position")
+    partners_position = await make_shared_position(session, partner, "Partner position")
     session.add(
         PlanPositionChange(
             position_id=partners_position.id,

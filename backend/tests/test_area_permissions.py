@@ -6,7 +6,6 @@ that make that split worth having:
 
 * the areas do not leak into one another
 * the level comes from the **owner**, never from whoever is asking
-* sharing several households takes the highest grant, not the nearest one
 * you are never restricted towards yourself
 """
 
@@ -90,20 +89,6 @@ async def test_the_owner_grants_not_the_asker(session: AsyncSession) -> None:
     await add_member(session, household, viewer, commitments=AccessLevel.EDIT)
 
     assert await granted_level(session, owner.id, viewer.id, Area.COMMITMENTS) is AccessLevel.VIEW
-
-
-async def test_the_highest_grant_wins_across_households(session: AsyncSession) -> None:
-    """Otherwise the right would depend on which household one looks through."""
-    owner = await make_user(session, "Owner")
-    viewer = await make_user(session, "Viewer")
-    flat = await make_household(session, "Flat")
-    club = await make_household(session, "Club")
-    await add_member(session, flat, owner, accounts=AccessLevel.VIEW)
-    await add_member(session, flat, viewer)
-    await add_member(session, club, owner, accounts=AccessLevel.EDIT)
-    await add_member(session, club, viewer)
-
-    assert await granted_level(session, owner.id, viewer.id, Area.ACCOUNTS) is AccessLevel.EDIT
 
 
 async def test_strangers_get_nothing(session: AsyncSession) -> None:

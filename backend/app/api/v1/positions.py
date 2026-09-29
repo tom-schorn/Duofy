@@ -17,7 +17,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import current_active_user
 from app.core.permissions import (
     Area,
-    can_assign_to_household,
     granted_level,
     owns_plan,
     require,
@@ -70,9 +69,7 @@ async def _load(
     return position, plan
 
 
-async def _check_accounts(
-    session: AsyncSession, plan: Plan, changes: dict
-) -> None:
+async def _check_accounts(session: AsyncSession, plan: Plan, changes: dict) -> None:
     """Accounts on a position have to belong to the **plan owner**.
 
     Without this check a position could be pointed at somebody else account — as a
@@ -117,16 +114,9 @@ async def update_position(
     changes = payload.model_dump(exclude_unset=True)
     merged = {
         "account_id": changes.get("account_id", position.account_id),
-        "counter_account_id": changes.get(
-            "counter_account_id", position.counter_account_id
-        ),
+        "counter_account_id": changes.get("counter_account_id", position.counter_account_id),
     }
     await _check_accounts(session, plan, merged)
-    if "household_id" in changes:
-        require(
-            await can_assign_to_household(session, plan.user_id, changes["household_id"]),
-            "not_household_member",
-        )
 
     touched = False
     for field, value in changes.items():
@@ -199,9 +189,7 @@ async def mark_paid(
     payload = payload or PositionPaid()
 
     already = await session.scalar(
-        select(func.count())
-        .select_from(Transaction)
-        .where(Transaction.position_id == position.id)
+        select(func.count()).select_from(Transaction).where(Transaction.position_id == position.id)
     )
 
     if not already:
