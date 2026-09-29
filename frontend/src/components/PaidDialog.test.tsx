@@ -1,9 +1,10 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
 
 import { PaidDialog } from '@/components/PaidDialog'
 import type { PlanPosition } from '@/lib/domain'
+import { today } from '@/lib/dates'
 import { i18n } from '@/lib/i18n'
 
 const position = { id: 'x', label: 'Miete', amountPlanned: '500.00' } as PlanPosition
@@ -74,5 +75,16 @@ describe('PaidDialog', () => {
       />
     )
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  test('the date word sets the day of payment and leaves the amount alone (#237)', async () => {
+    const user = userEvent.setup()
+    const onConfirm = vi.fn()
+    render(<PaidDialog position={position} onClose={() => {}} onConfirm={onConfirm} pending={false} />)
+    await user.click(screen.getByRole('button', { name: /2026/ }))
+    const panel = screen.getByRole('group', { name: i18n.t('paidDialog.dateLabel') })
+    await user.click(within(panel).getByRole('button', { name: /(^|\s)15\. / }))
+    await user.click(screen.getByRole('button', { name: 'Abhaken' }))
+    expect(onConfirm).toHaveBeenCalledWith({ occurredOn: `${today().slice(0, 8)}15`, amount: '500.00' })
   })
 })

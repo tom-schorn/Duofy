@@ -112,6 +112,15 @@ describe('EditBookingDialog sentence', () => {
     renderDialog({ ...booking, note: null })
     expect(screen.getByRole('button', { name: i18n.t('monthBook.noNote') })).toBeInTheDocument()
   })
+
+  test('the date word changes only the day of the booking (#237)', async () => {
+    const user = userEvent.setup()
+    const onSave = renderDialog(booking)
+    await user.click(screen.getByRole('button', { name: /05\. September 2026/ }))
+    await user.click(within(screen.getByRole('group', { name: i18n.t('monthBook.dateLabel') })).getByRole('button', { name: /15\. September 2026/ }))
+    await user.click(screen.getByRole('button', { name: 'Speichern' }))
+    expect(onSave).toHaveBeenCalledWith({ id: 't1', occurredOn: '2026-09-15' })
+  })
 })
 
 describe('EditBookingDialog plan month', () => {
