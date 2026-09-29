@@ -18,15 +18,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
-from app.core.permissions import (
-    Area,
-    household_member_ids,
-    is_member,
-    load_owned,
-    load_position,
-    require,
-    require_level,
-)
+from app.core.permissions import Area, load_owned, load_position, require
+from app.core.scope import HouseholdMembers, Lens, resolve_scope
 from app.db.session import get_session
 from app.models.account import Account
 from app.models.enums import AccessLevel, TransactionKind
@@ -199,21 +192,22 @@ async def list_transactions(
     # The household book shows every member's bookings except those on a private
     # position, whatever the accounts grant says: the same rule as the household
     # plan, so book and plan add up to the same thing (decision 48, #242).
-    if household is not None:
-        require(await is_member(session, user.id, household), "not_household_member")
-        owner_ids = await household_member_ids(session, household)
-    elif owner is not None and owner != user.id:
-        await require_level(session, owner, user, Area.ACCOUNTS, AccessLevel.VIEW)
-        owner_ids = [owner]
-    else:
-        owner_ids = [user.id]
+    scope = await resolve_scope(
+        session,
+        user,
+        Area.ACCOUNTS,
+        owner=owner,
+        household=household,
+        members=HouseholdMembers.ALL,
+    )
+    owner_ids = scope.owner_ids
 
-    shared = household is not None
+    shared = scope.lens is Lens.HOUSEHOLD
     query = select(Transaction, User.first_name).join(
         User, User.id == Transaction.owner_id
     ).where(Transaction.owner_id.in_(owner_ids))
 
-    if household is not None:
+    if shared:
         private = select(PlanPosition.id).where(PlanPosition.is_private.is_(True))
         query = query.where(
             Transaction.position_id.is_(None) | Transaction.position_id.not_in(private)

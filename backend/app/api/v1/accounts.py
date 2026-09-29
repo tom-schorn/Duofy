@@ -19,14 +19,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
-from app.core.permissions import (
-    Area,
-    is_member,
-    load_owned,
-    require,
-    require_level,
-    viewable_members,
-)
+from app.core.permissions import Area, load_owned, require_level
+from app.core.scope import HouseholdMembers, resolve_scope
 from app.db.session import get_session
 from app.models.account import Account
 from app.models.enums import AccessLevel, Budget, TransactionKind
@@ -80,7 +74,7 @@ async def _load(
     )
 
 
-async def _scope(
+async def _owner_ids(
     session: AsyncSession,
     owner: uuid.UUID | None,
     household: uuid.UUID | None,
@@ -88,29 +82,19 @@ async def _scope(
 ) -> list[uuid.UUID]:
     """Whose accounts are meant — one person, or everyone in a household.
 
-    `household` wins if both are given. Inside a household only members who granted
-    insight count, see `viewable_members`.
+    In a household only members who granted insight on their accounts count, unlike
+    the household plan and book (decision 48): accounts are no shared positions, and
+    the household owns none (decision 54).
     """
-    if household is not None:
-        require(await is_member(session, user.id, household), "not_household_member")
-        return await viewable_members(session, household, user.id, Area.ACCOUNTS)
-    return [await _target_owner(session, owner, user)]
-
-
-async def _target_owner(
-    session: AsyncSession, owner: uuid.UUID | None, user: User
-) -> uuid.UUID:
-    """Whose accounts are meant — and whether the asker may see them.
-
-    Without `owner`, your own. With `owner`, those of a household member who granted
-    at least level `view`. The level is set by the owner themselves, see
-    `AccessLevel`.
-    """
-    if owner is None or owner == user.id:
-        return user.id
-
-    await require_level(session, owner, user, Area.ACCOUNTS, AccessLevel.VIEW)
-    return owner
+    scope = await resolve_scope(
+        session,
+        user,
+        Area.ACCOUNTS,
+        owner=owner,
+        household=household,
+        members=HouseholdMembers.GRANTED,
+    )
+    return scope.owner_ids
 
 
 async def _balances(
@@ -217,7 +201,7 @@ async def list_accounts(
     With neither parameter, your own. With `owner`, those of one member; with
     `household`, those of every member who granted insight.
     """
-    owner_ids = await _scope(session, owner, household, user)
+    owner_ids = await _owner_ids(session, owner, household, user)
     geteilt = household is not None
 
     result = await session.execute(
@@ -308,7 +292,7 @@ async def balance_history(
     Must be declared **before** `/{account_id}`, otherwise FastAPI tries to read
     "history" as a UUID.
     """
-    owner_ids = await _scope(session, owner, household, user)
+    owner_ids = await _owner_ids(session, owner, household, user)
     first = date(year, month, 1)
     last = date(year, month, monthrange(year, month)[1])
 

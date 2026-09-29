@@ -10,7 +10,10 @@ No role framework — a handful of rules the endpoints call into.
                  write: the owner role only
 
 The predicates return `bool`. `require()` turns that into an HTTP error carrying
-a **code** which the frontend translates.
+a **code** which the frontend translates. `require_level()` and `load_owned()` are
+the one path every endpoint takes for somebody else's data.
+
+Whose data a list or a household view covers is the other half, in `scope.py`.
 """
 
 import uuid
@@ -41,7 +44,7 @@ class Area(StrEnum):
 
 
 #: Which column answers for which area.
-_GRANT_COLUMN = {
+GRANT_COLUMN = {
     Area.PLAN: HouseholdMember.grants_plan,
     Area.COMMITMENTS: HouseholdMember.grants_commitments,
     Area.ACCOUNTS: HouseholdMember.grants_accounts,
@@ -89,7 +92,7 @@ async def granted_level(
 
     gemeinsam = select(HouseholdMember.household_id).where(HouseholdMember.user_id == viewer_id)
     result = await session.execute(
-        select(_GRANT_COLUMN[area]).where(
+        select(GRANT_COLUMN[area]).where(
             HouseholdMember.user_id == owner_id,
             HouseholdMember.household_id.in_(gemeinsam),
         )
@@ -175,45 +178,6 @@ async def load_position(
         owner_attr="user_id",
     )
     return position, plan
-
-
-async def household_member_ids(
-    session: AsyncSession, household_id: uuid.UUID
-) -> list[uuid.UUID]:
-    """Every member of a household. The household plan and book show everything of
-    everybody except what sits on a private position, so no grant narrows this list
-    (decision 48, #242)."""
-    result = await session.execute(
-        select(HouseholdMember.user_id).where(HouseholdMember.household_id == household_id)
-    )
-    return list(result.scalars())
-
-
-async def viewable_members(
-    session: AsyncSession, household_id: uuid.UUID, viewer_id: uuid.UUID, area: Area
-) -> list[uuid.UUID]:
-    """Whose figures may be added up for a household view of one area.
-
-    Always oneself, plus every member who granted at least `view` in that area.
-    Anyone below that is missing from the list — the totals are then incomplete and
-    the frontend says so. A number silently missing a person would be worse than no
-    number at all.
-
-    The area matters: a household book adds up accounts, so somebody who shares
-    their month but not their bookings does not belong in that total.
-
-    Assumes the asker is a member; the caller checks that.
-    """
-    result = await session.execute(
-        select(HouseholdMember.user_id, _GRANT_COLUMN[area]).where(
-            HouseholdMember.household_id == household_id
-        )
-    )
-    return [
-        user_id
-        for user_id, level in result.all()
-        if user_id == viewer_id or AccessLevel(level).rank >= AccessLevel.VIEW.rank
-    ]
 
 
 async def is_household_owner(
