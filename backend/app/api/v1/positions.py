@@ -34,7 +34,7 @@ async def _load(
     *,
     needs: AccessLevel = AccessLevel.EDIT,
 ) -> tuple[PlanPosition, Plan]:
-    # Your own position is always allowed. Somebody else position only from the
+    # Your own position is always allowed. Somebody else's position only from the
     # level the owner granted in `Area.PLAN`, and only the owner can grant it.
     # Without it everyone carries their own part and books on their own positions.
     #
