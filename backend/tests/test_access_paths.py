@@ -8,7 +8,7 @@ loader cannot quietly change an answer:
 * an unknown id is a 404 with the resource's own code
 * a stranger, and a member below `edit`, get `no_edit_granted`
 * `edit` changes but does not delete; deleting asks for `delete`
-* the import entry is the exception: discarding it needs `edit`, not `delete`
+* discarding an import entry counts as deleting it (decision 65, since step 3)
 
 Plus the lists by person and by household, where the accounts count only members
 who granted insight while the book counts everybody (decision 48 vs. 54).
