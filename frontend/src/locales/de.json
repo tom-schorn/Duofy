@@ -933,8 +933,11 @@
     "standIn": "Vertretung",
     "viewOnly": "{{name}} hat den Plan nicht zum Bearbeiten freigegeben.",
     "notShared": "{{name}} hat dir den Plan nicht freigegeben.",
-    "mayDelete": "Du darfst abhaken, ändern, dazuschreiben und löschen; jede Änderung wird protokolliert.",
-    "mayEdit": "Du darfst abhaken, ändern und Posten dazuschreiben; jede Änderung wird protokolliert. Löschen bleibt beim Besitzer.",
+    "mayDo": "Du darfst {{actions, list}}; jede Änderung wird protokolliert.",
+    "mayDoTick": "abhaken",
+    "mayDoAdd": "Posten dazuschreiben",
+    "mayDoEdit": "ändern",
+    "mayDoDelete": "löschen",
     "householdLead": "Alle Posten, die ihr gemeinsam tragt. Zusammengesetzt aus den Plänen aller Mitglieder — geändert wird im eigenen Plan.",
     "nothingShared": "Noch nichts Gemeinsames",
     "nothingSharedHint": "Setz im eigenen Plan bei einem Posten den Haushalt — dann taucht er hier auf."
