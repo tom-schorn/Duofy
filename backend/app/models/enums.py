@@ -15,25 +15,41 @@ class InvitationStatus(StrEnum):
     REVOKED = "revoked"
 
 
+class Area(StrEnum):
+    """Which kind of data a grant is about (decision 63).
+
+    The book and the import are areas of their own rather than riding on the
+    accounts: looking at somebody's balances and writing into their book are
+    different degrees of trust, and so is clearing their bank statement.
+    """
+
+    PLAN = "plan"
+    BOOK = "book"
+    ACCOUNTS = "accounts"
+    COMMITMENTS = "commitments"
+    IMPORT = "import"
+
+
 class AccessLevel(StrEnum):
-    """What a member allows the **others** to see about themselves.
+    """What one person allows one other person to do with their data, per area.
 
-    The level sits on the member's own membership, not on the other person's:
-    whoever owns the data decides. Nobody can grant themselves the right to look
-    into somebody else's book.
+    Whoever owns the data decides, for each other member separately (decision 57).
+    Nobody can grant themselves the right to look into somebody else's book.
 
-    The levels build on each other:
+    The levels build on each other (decision 63):
 
-        plan   only the shared positions, as they appear in the household plan
-        view   plus the own book, the accounts and the private positions
-        edit   plus the right to change, add and tick off
-        delete plus the right to remove things for good
+        none   nothing beyond what the household view shows everybody anyway
+        view   see the person's own pages in that area
+        create plus add new things
+        edit   plus change what is there
+        delete plus remove things for good
 
     `delete` is a step of its own rather than part of `edit` because the two
     differ in what they cost when they go wrong. A wrong change is visible in
     `plan_position_changes` and can be changed back; a deletion is neither
-    recorded nor reversible. Somebody helping to fill things in needs `edit`,
-    almost never `delete`.
+    recorded nor reversible.
+
+    `none` is never stored: no row in `grants` means none.
 
     **Always compare with `rank`, never with `is`.** A check written as
     `level is AccessLevel.EDIT` stops being true the moment a higher level
@@ -41,15 +57,19 @@ class AccessLevel(StrEnum):
     trusted most.
     """
 
-    PLAN = "plan"
+    NONE = "none"
     VIEW = "view"
+    CREATE = "create"
     EDIT = "edit"
     DELETE = "delete"
 
     @property
     def rank(self) -> int:
         """For comparisons — `level.rank >= AccessLevel.VIEW.rank`."""
-        return {"plan": 0, "view": 1, "edit": 2, "delete": 3}[self.value]
+        return _ACCESS_RANK[self.value]
+
+
+_ACCESS_RANK = {"none": 0, "view": 1, "create": 2, "edit": 3, "delete": 4}
 
 
 class CommitmentType(StrEnum):

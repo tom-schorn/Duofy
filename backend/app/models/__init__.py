@@ -1,5 +1,6 @@
 from app.models.account import Account
 from app.models.commitment import Commitment
+from app.models.grant import Grant
 from app.models.household import Household, HouseholdInvitation, HouseholdMember
 from app.models.imported_entry import ImportedEntry
 from app.models.instance_invitation import InstanceInvitation
@@ -11,6 +12,7 @@ from app.models.user import User
 __all__ = [
     "Account",
     "Commitment",
+    "Grant",
     "Household",
     "HouseholdInvitation",
     "HouseholdMember",

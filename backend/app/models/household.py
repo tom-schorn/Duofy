@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.types import enum_column
-from app.models.enums import AccessLevel, InvitationStatus, Role
+from app.models.enums import InvitationStatus, Role
 from app.models.mixins import TimestampMixin, UUIDMixin
 
 #: How long an invitation stays valid.
@@ -48,7 +48,8 @@ class HouseholdMember(UUIDMixin, TimestampMixin, Base):
     """Links a user to a household.
 
     Created either when the household is created — the creator becomes `owner` —
-    or when a `HouseholdInvitation` is accepted.
+    or when a `HouseholdInvitation` is accepted. What one member may do with
+    another's data is not here but in `Grant`, per person and area.
     """
 
     __tablename__ = "household_members"
@@ -57,27 +58,6 @@ class HouseholdMember(UUIDMixin, TimestampMixin, Base):
     household_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("households.id", ondelete="CASCADE"))
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     role: Mapped[Role] = mapped_column(enum_column(Role))
-
-    #: What this person allows the other members to see about themselves — one
-    #: level per kind of data, because the three answers genuinely differ. Sharing
-    #: the month you are planning is a small step; handing over the contracts
-    #: behind it is a much larger one.
-    #:
-    #: All three default to `plan`: the others see the shared positions and nothing
-    #: else — no book, no accounts, no contracts, no private positions. Only the
-    #: person themselves can raise them, see `AccessLevel`.
-    grants_plan: Mapped[AccessLevel] = mapped_column(
-        enum_column(AccessLevel), default=AccessLevel.PLAN
-    )
-    grants_commitments: Mapped[AccessLevel] = mapped_column(
-        enum_column(AccessLevel), default=AccessLevel.PLAN
-    )
-    #: Covers the book as well. An account you may look at comes with its bookings —
-    #: a level that shows the balance but hides how it got there would be a riddle,
-    #: not a permission.
-    grants_accounts: Mapped[AccessLevel] = mapped_column(
-        enum_column(AccessLevel), default=AccessLevel.PLAN
-    )
 
     household: Mapped[Household] = relationship(back_populates="members")
 
