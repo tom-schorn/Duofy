@@ -26,6 +26,7 @@ function ownPlan(overrides: Record<string, unknown> = {}) {
     deletable: true,
     hints: [],
     positions: [],
+    unplanned: { income: '0.00', needs: '0.00', wants: '0.00', savings: '0.00' },
     ...overrides,
   }
 }
@@ -270,6 +271,7 @@ describe('PlanDetailPage — household month not everyone has planned yet (#214)
               householdIds: [],
               hints: [],
               positions: [],
+              unplanned: { income: '0.00', needs: '0.00', wants: '0.00', savings: '0.00' },
               missingMembers: ['Ida'],
             }),
             { status: 200 }
@@ -374,6 +376,7 @@ describe('PlanDetailPage — household plan positions clickable by rights (#218)
                   ownerName: 'Ida',
                 }),
               ],
+              unplanned: { income: '0.00', needs: '25.00', wants: '0.00', savings: '0.00' },
               missingMembers: [],
             }),
             { status: 200 }
@@ -392,6 +395,14 @@ describe('PlanDetailPage — household plan positions clickable by rights (#218)
     fireEvent.click(await screen.findByRole('button', { name: /^Miete(?!:)/ }))
     expect(
       await screen.findByRole('dialog', { name: i18n.t('positionDialog.kinds.obligation.editTitle') })
+    ).toBeInTheDocument()
+  })
+
+  test('the household plan shows the unplanned sum of its members too (#240)', async () => {
+    mockFetch('view')
+    renderAt('/plan/2026/11?household=h1')
+    expect(
+      await screen.findByRole('button', { name: new RegExp(`^${i18n.t('budget.unplanned')}`) })
     ).toBeInTheDocument()
   })
 
@@ -415,5 +426,69 @@ describe('PlanDetailPage — household plan positions clickable by rights (#218)
       screen.queryByRole('button', { name: i18n.t('common.save') })
     ).not.toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: i18n.t('ui.close') })).toHaveLength(2)
+  })
+})
+
+describe('PlanDetailPage — the Ungeplant row (#240)', () => {
+  function stub(plan: Record<string, unknown>) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        const target = String(url)
+        if (target.includes('/flow')) {
+          return new Response(
+            JSON.stringify({
+              year: 2026,
+              month: 11,
+              flowLimitsBy: 'plan',
+              start: '0.00',
+              entries: [],
+              days: [],
+              hints: [],
+            }),
+            { status: 200 }
+          )
+        }
+        if (target.includes('/plans/2026/11')) {
+          return new Response(JSON.stringify(plan), { status: 200 })
+        }
+        if (target.endsWith('/households')) return new Response('[]', { status: 200 })
+        return new Response('[]', { status: 200 })
+      })
+    )
+  }
+  afterEach(() => vi.unstubAllGlobals())
+
+  test('a budget with unplanned bookings shows the row, another without does not', async () => {
+    stub(
+      ownPlan({ unplanned: { income: '0.00', needs: '40.00', wants: '0.00', savings: '0.00' } })
+    )
+    renderAt('/plan/2026/11')
+    expect(await screen.findAllByText(i18n.t('budget.unplanned'))).toHaveLength(1)
+  })
+
+  test('unplanned income shows on the income side, not in a budget', async () => {
+    stub(
+      ownPlan({ unplanned: { income: '80.00', needs: '0.00', wants: '0.00', savings: '0.00' } })
+    )
+    renderAt('/plan/2026/11')
+    const row = await screen.findByRole('button', { name: new RegExp(`^${i18n.t('budget.unplanned')}`) })
+    const income = screen.getByRole('heading', { name: i18n.t('enums.budget.income') })
+    expect(income.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const needs = screen.getByRole('heading', { name: i18n.t('enums.budget.needs') })
+    expect(needs.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
+  })
+
+  test('a click opens the book of the month, filtered to the unplanned', async () => {
+    stub(
+      ownPlan({ unplanned: { income: '0.00', needs: '40.00', wants: '0.00', savings: '0.00' } })
+    )
+    const router = renderAt('/plan/2026/11')
+    fireEvent.click(
+      await screen.findByRole('button', { name: new RegExp(`^${i18n.t('budget.unplanned')}`) })
+    )
+    expect(router.state.location.pathname).toBe('/plan/2026/11')
+    expect(new URLSearchParams(router.state.location.search).get('tab')).toBe('book')
+    expect(new URLSearchParams(router.state.location.search).get('filter')).toBe('unplanned')
   })
 })

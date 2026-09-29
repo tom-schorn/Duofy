@@ -79,6 +79,7 @@ const ENTRIES: Record<HelpKey, string[]> = {
     ...PLAN_BUDGETS,
     'plan.entries.tick',
     'plan.entries.limit',
+    'plan.entries.unplanned',
     'plan.entries.carry-over',
     'plan.entries.quota',
     'plan.entries.flow',

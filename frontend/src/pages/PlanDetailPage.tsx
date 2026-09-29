@@ -173,6 +173,15 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
       { replace: true }
     )
 
+  // The "Ungeplant" rows lead into the book, already filtered to what hangs on no
+  // position (#240). Pushed, not replaced: this is a step to go back from.
+  const openUnplanned = () =>
+    setParams((current: URLSearchParams) => {
+      current.set('tab', 'book')
+      current.set('filter', 'unplanned')
+      return current
+    })
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -261,6 +270,7 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
                 }
                 tab={TABS.has(params.get('tab') ?? '') ? params.get('tab')! : 'plan'}
                 onTab={setTab}
+                onOpenUnplanned={openUnplanned}
               />
             )
           : foreign
@@ -274,11 +284,17 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
                   householdNames={names}
                   tab={TABS.has(params.get('tab') ?? '') ? params.get('tab')! : 'plan'}
                   onTab={setTab}
+                  onOpenUnplanned={openUnplanned}
                   onDeleteMonth={handleDeleteMonth}
                 />
               )
             : ownPlan.data && (
-              <PlanBody plan={ownPlan.data} householdNames={names} onDeleteMonth={handleDeleteMonth} />
+              <PlanBody
+                plan={ownPlan.data}
+                householdNames={names}
+                onOpenUnplanned={openUnplanned}
+                onDeleteMonth={handleDeleteMonth}
+              />
             )}
       </QueryState>
       )}
@@ -298,10 +314,12 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
 function PlanBody({
   plan,
   householdNames,
+  onOpenUnplanned,
   onDeleteMonth,
 }: {
   plan: PlanDetail
   householdNames: Record<string, string>
+  onOpenUnplanned: () => void
   onDeleteMonth: () => void
 }) {
   const { t } = useTranslation()
@@ -623,6 +641,8 @@ function PlanBody({
             target={null}, weil es für Einnahmen keine Quote gibt. */}
         <BudgetSection
           budget="income"
+          unplanned={Number(plan.unplanned.income)}
+          onOpenUnplanned={onOpenUnplanned}
           target={null}
           positions={incomeRows}
           hints={plan.hints}
@@ -638,6 +658,8 @@ function PlanBody({
           <BudgetSection
             key={group.budget}
             budget={group.budget}
+            unplanned={Number(plan.unplanned[group.budget])}
+            onOpenUnplanned={onOpenUnplanned}
             target={group.target}
             positions={group.rows}
             hints={plan.hints}
@@ -775,6 +797,7 @@ function MemberPlanBody({
   householdNames,
   tab,
   onTab,
+  onOpenUnplanned,
   onDeleteMonth,
 }: {
   plan: PlanDetail
@@ -787,6 +810,7 @@ function MemberPlanBody({
   householdNames: Record<string, string>
   tab: string
   onTab: (value: string) => void
+  onOpenUnplanned: () => void
   onDeleteMonth: () => void
 }) {
   const { t } = useTranslation()
@@ -941,6 +965,8 @@ function MemberPlanBody({
           <div className="flex flex-col gap-8">
             <BudgetSection
               budget="income"
+              unplanned={Number(plan.unplanned.income)}
+              onOpenUnplanned={onOpenUnplanned}
               target={null}
               positions={incomeRows}
               hints={plan.hints}
@@ -954,6 +980,8 @@ function MemberPlanBody({
               <BudgetSection
                 key={group.budget}
                 budget={group.budget}
+                unplanned={Number(plan.unplanned[group.budget])}
+                onOpenUnplanned={onOpenUnplanned}
                 target={group.target}
                 positions={group.rows}
                 hints={plan.hints}
@@ -998,6 +1026,7 @@ function HouseholdPlanBody({
   members,
   tab,
   onTab,
+  onOpenUnplanned,
 }: {
   plan: HouseholdPlanDetail
   householdNames: Record<string, string>
@@ -1005,6 +1034,7 @@ function HouseholdPlanBody({
   members: Member[]
   tab: string
   onTab: (value: string) => void
+  onOpenUnplanned: () => void
 }) {
   const { t } = useTranslation()
   const groups = BUDGETS.map((budget) => {
@@ -1232,6 +1262,8 @@ function HouseholdPlanBody({
               <div className="flex flex-col gap-8 print:hidden">
                 <BudgetSection
                   budget="income"
+                  unplanned={Number(plan.unplanned.income)}
+                  onOpenUnplanned={onOpenUnplanned}
                   target={null}
                   positions={incomeRows}
                   hints={plan.hints}
@@ -1246,6 +1278,8 @@ function HouseholdPlanBody({
                   <BudgetSection
                     key={group.budget}
                     budget={group.budget}
+                    unplanned={Number(plan.unplanned[group.budget])}
+                    onOpenUnplanned={onOpenUnplanned}
                     target={group.target}
                     positions={group.rows}
                     hints={plan.hints}
