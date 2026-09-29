@@ -115,35 +115,6 @@ async def test_quotas_not_adding_up_to_100_are_rejected(
         assert code in response.text, url
 
 
-async def test_any_member_sets_the_household_quota_but_only_the_owner_renames(
-    client: AsyncClient, session: AsyncSession
-):
-    from app.models.enums import Role
-    from app.models.household import HouseholdMember
-
-    owner = await make_user(session, "Owner")
-    member = await make_user(session, "Member")
-    household = await make_household(session, "Shared")
-    await add_member(session, household, owner)
-    await add_member(session, household, member)
-    row = await session.scalar(
-        select(HouseholdMember).where(
-            HouseholdMember.household_id == household.id, HouseholdMember.user_id == owner.id
-        )
-    )
-    row.role = Role.ADMIN
-    await session.commit()
-    sign_in(member)
-
-    ok = await client.patch(f"/api/v1/households/{household.id}", json=QUOTAS)
-    assert ok.status_code == 200
-    assert Decimal(ok.json()["targetNeeds"]) == 65
-
-    renamed = await client.patch(f"/api/v1/households/{household.id}", json={"name": "New"})
-    assert renamed.status_code == 403
-    assert renamed.json()["detail"] == {"code": "not_household_admin"}
-
-
 async def test_more_than_two_decimals_are_rejected_not_a_server_error(
     client: AsyncClient, session: AsyncSession
 ):
