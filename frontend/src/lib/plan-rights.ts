@@ -17,8 +17,10 @@ export type PlanRights = {
   deleteMonth: boolean
   /** Change a position in its dialog. */
   editPosition: (position: PlanPosition) => boolean
-  /** Tick a position off or take the tick back: a booking in the owner's book. */
+  /** Tick a position off: a new booking in the owner's book. */
   tickPosition: (position: PlanPosition) => boolean
+  /** Take the tick back: deletes that booking, so it asks for more than ticking. */
+  untickPosition: (position: PlanPosition) => boolean
   /** Delete a position. */
   deletePosition: (position: PlanPosition) => boolean
 }
@@ -30,6 +32,7 @@ export const OWN_RIGHTS: PlanRights = {
   deleteMonth: true,
   editPosition: () => true,
   tickPosition: () => true,
+  untickPosition: () => true,
   deletePosition: () => true,
 }
 

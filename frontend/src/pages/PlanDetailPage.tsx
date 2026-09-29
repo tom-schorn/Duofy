@@ -145,7 +145,8 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
     // #218: a position is one's own, or somebody else's shared into the household.
     // Somebody else's only open with the grant they gave the viewer — never set by
     // the viewer; below it the row has no control at all. Ticking asks the book
-    // (decision 61), changing and deleting the plan.
+    // (decision 61), taking the tick back deletes the booking (decision 67), changing
+    // and deleting ask the plan.
     const levelOf = (ownerId: string, area: Area): AccessLevel =>
       householdMembers.find((member) => member.userId === ownerId)?.grantsToMe[area] ?? 'none'
     const ownerOf = (position: PlanPosition) => (position as HouseholdPosition).ownerId
@@ -162,6 +163,8 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
           ownerOf(position) === myId || atLeast(levelOf(ownerOf(position), 'plan'), 'edit'),
         tickPosition: (position) =>
           ownerOf(position) === myId || atLeast(levelOf(ownerOf(position), 'book'), 'create'),
+        untickPosition: (position) =>
+          ownerOf(position) === myId || atLeast(levelOf(ownerOf(position), 'book'), 'delete'),
         deletePosition: (position) =>
           ownerOf(position) === myId || atLeast(levelOf(ownerOf(position), 'plan'), 'delete'),
       },
@@ -176,6 +179,7 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
     const mayEdit = atLeast(active.levelFor('plan'), 'edit')
     const mayDelete = atLeast(active.levelFor('plan'), 'delete')
     const mayTick = atLeast(active.levelFor('book'), 'create')
+    const mayUntick = atLeast(active.levelFor('book'), 'delete')
     view = {
       plan: memberPlan.data,
       scope: { kind: 'member', ownerId: memberId ?? '' },
@@ -185,6 +189,7 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
         deleteMonth: mayDelete,
         editPosition: () => mayEdit,
         tickPosition: () => mayTick,
+        untickPosition: () => mayUntick,
         deletePosition: () => mayDelete,
       },
       lead: `${t('plan.memberLead', { name })} ${

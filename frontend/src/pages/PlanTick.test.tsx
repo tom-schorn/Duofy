@@ -103,15 +103,16 @@ describe('ticking off, one operation in every plan (#251)', () => {
     ).not.toBeInTheDocument()
   })
 
+  // Taking a tick back deletes the booking: it asks for book `delete` (decision 67).
   test.each([
     ['own plan', '/plan/2026/11', 'none', 'Miete', 'p1'],
-    ['another person plan', '/plan/2026/11?member=u2', 'edit', 'Miete', 'p1'],
-    ['household plan', '/plan/2026/11?household=h1', 'edit', 'Strom', 'p2'],
+    ['another person plan', '/plan/2026/11?member=u2', 'delete', 'Miete', 'p1'],
+    ['household plan', '/plan/2026/11?household=h1', 'delete', 'Strom', 'p2'],
   ])(
     '%s: unticking asks with the amount, confirming sends the DELETE',
     async (_n, path, level, label, id) => {
       const deletes: string[] = []
-      stub(level, [], { transactions: [booking(id)], paidAt: TICKED, deletes })
+      stub('edit', [], { transactions: [booking(id)], paidAt: TICKED, deletes, bookLevel: level })
       renderAt(path)
       const dialog = await untickAndConfirm(label)
       await waitFor(() => expect(dialog).toHaveTextContent('42,00'))
@@ -125,9 +126,25 @@ describe('ticking off, one operation in every plan (#251)', () => {
     }
   )
 
+  test.each([
+    ['another person plan', '/plan/2026/11?member=u2', 'Miete'],
+    ['household plan', '/plan/2026/11?household=h1', 'Strom'],
+  ])(
+    '%s: book edit ticks off, but a ticked box stays a plain symbol below book delete',
+    async (_n, path, label) => {
+      stub('edit', [], { transactions: [booking('p1')], paidAt: TICKED, bookLevel: 'edit' })
+      renderAt(path)
+      await screen.findAllByText(label)
+      expect(
+        screen.queryByRole('checkbox', { name: i18n.t('budget.reopen', { label }) })
+      ).not.toBeInTheDocument()
+      expect(screen.getAllByRole('img', { name: i18n.t('budget.statusPaid') }).length).toBeGreaterThan(0)
+    }
+  )
+
   test('bookings not loadable: unticking still asks, without an amount', async () => {
     const deletes: string[] = []
-    stub('edit', [], { transactions: null, paidAt: TICKED, deletes })
+    stub('edit', [], { transactions: null, paidAt: TICKED, deletes, bookLevel: 'delete' })
     renderAt('/plan/2026/11?member=u2')
     const dialog = await untickAndConfirm('Miete')
     expect(dialog).toHaveTextContent(i18n.t('plan.untickTextUnknown'))
