@@ -216,6 +216,10 @@ async def list_transactions(
     # Whose book: your own, one person, or the household. Bookings are private —
     # they only become visible once the owner granted at least level `view`. The
     # owner decides, not the reader.
+    # TODO(#242): the household book should show every member's bookings except
+    # those on private positions, regardless of the accounts grant (decision 48),
+    # like the household plan. Until #242 lands it follows the accounts grant.
+    # `plans._unplanned` for the household plan has to follow the same rule.
     if household is not None:
         require(await is_member(session, user.id, household), "not_household_member")
         owner_ids = await viewable_members(session, household, user.id, Area.ACCOUNTS)
