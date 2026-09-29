@@ -12,10 +12,11 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.enums import InvitationStatus, Role
+from app.models.enums import AccessLevel, Area, InvitationStatus, Role
+from app.models.grant import Grant
 from app.models.household import Household, HouseholdInvitation, HouseholdMember
 from app.models.user import User
-from tests.test_area_permissions import add_member, make_household, make_user
+from tests.test_area_permissions import add_member, grant_to_all, make_household, make_user
 from tests.test_delegation import sign_in
 
 QUOTAS = {"targetNeeds": "65", "targetWants": "20", "targetSavings": "15"}
@@ -144,3 +145,83 @@ async def test_an_admin_of_another_household_is_a_stranger_here(
     response = await client.patch(f"/api/v1/households/{household.id}", json=QUOTAS)
 
     assert refused(response)
+
+
+# --- remove a member ---------------------------------------------------------
+
+
+async def membership_of(session: AsyncSession, user_id) -> HouseholdMember:
+    session.expire_all()
+    return await session.scalar(select(HouseholdMember).where(HouseholdMember.user_id == user_id))
+
+
+async def test_an_admin_removes_a_member_who_gets_a_household_of_their_own(
+    client: AsyncClient, session: AsyncSession, home
+):
+    admin, member, _, household = home
+    household_id, member_id = household.id, member.id
+    await grant_to_all(session, household, member, {Area.PLAN: AccessLevel.VIEW})
+    await grant_to_all(session, household, admin, {Area.PLAN: AccessLevel.VIEW})
+    await session.commit()
+    sign_in(admin)
+
+    response = await client.delete(f"/api/v1/households/{household_id}/members/{member_id}")
+
+    assert response.status_code == 204
+    moved = await membership_of(session, member_id)
+    assert moved.household_id != household_id
+    assert moved.role is Role.ADMIN
+    left = await session.scalars(
+        select(Grant).where((Grant.granter_id == member_id) | (Grant.grantee_id == member_id))
+    )
+    assert list(left) == []
+
+
+async def test_an_admin_removes_another_admin(client: AsyncClient, session: AsyncSession, home):
+    admin, member, _, household = home
+    household_id, member_id = household.id, member.id
+    await make_admin(session, household, member)
+    await session.commit()
+    sign_in(admin)
+
+    response = await client.delete(f"/api/v1/households/{household_id}/members/{member_id}")
+
+    assert response.status_code == 204
+    assert (await membership_of(session, member_id)).household_id != household_id
+
+
+async def test_a_member_may_not_remove_anybody(client: AsyncClient, session: AsyncSession, home):
+    _, member, other, household = home
+    household_id, other_id = household.id, other.id
+    sign_in(member)
+
+    response = await client.delete(f"/api/v1/households/{household_id}/members/{other_id}")
+
+    assert refused(response)
+    assert (await membership_of(session, other_id)).household_id == household_id
+
+
+async def test_an_admin_leaves_instead_of_removing_themselves(
+    client: AsyncClient, session: AsyncSession, home
+):
+    admin, _, _, household = home
+    sign_in(admin)
+
+    response = await client.delete(f"/api/v1/households/{household.id}/members/{admin.id}")
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == {"code": "cannot_remove_self"}
+
+
+async def test_removing_somebody_outside_the_household_is_not_found(
+    client: AsyncClient, session: AsyncSession, home
+):
+    admin, _, _, household = home
+    stranger = await make_user(session, "Stranger")
+    await session.commit()
+    sign_in(admin)
+
+    response = await client.delete(f"/api/v1/households/{household.id}/members/{stranger.id}")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == {"code": "not_a_member"}
