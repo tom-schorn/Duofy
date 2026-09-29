@@ -23,7 +23,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import (
-    GRANT_COLUMN,
     Area,
     granted_level,
     is_member,
@@ -31,6 +30,7 @@ from app.core.permissions import (
     require_level,
 )
 from app.models.enums import AccessLevel
+from app.models.grant import Grant
 from app.models.household import HouseholdMember
 from app.models.user import User
 
@@ -113,7 +113,8 @@ async def viewable_members(
 ) -> list[uuid.UUID]:
     """Whose figures may be added up for a household view of one area.
 
-    Always oneself, plus every member who granted at least `view` in that area.
+    Always oneself, plus every member who granted the viewer at least `view` in
+    that area.
     Anyone below that is missing from the list — the totals are then incomplete and
     the frontend says so. A number silently missing a person would be worse than no
     number at all.
@@ -123,16 +124,18 @@ async def viewable_members(
 
     Assumes the asker is a member; the caller checks that.
     """
+    granted = select(Grant.granter_id).where(
+        Grant.grantee_id == viewer_id,
+        Grant.area == area,
+        Grant.level.in_([level for level in AccessLevel if level.rank >= AccessLevel.VIEW.rank]),
+    )
     result = await session.execute(
-        select(HouseholdMember.user_id, GRANT_COLUMN[area]).where(
-            HouseholdMember.household_id == household_id
+        select(HouseholdMember.user_id).where(
+            HouseholdMember.household_id == household_id,
+            (HouseholdMember.user_id == viewer_id) | HouseholdMember.user_id.in_(granted),
         )
     )
-    return [
-        user_id
-        for user_id, level in result.all()
-        if user_id == viewer_id or AccessLevel(level).rank >= AccessLevel.VIEW.rank
-    ]
+    return list(result.scalars())
 
 
 def eligible_member_ids(
