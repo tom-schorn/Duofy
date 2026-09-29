@@ -11,6 +11,7 @@
     "not_household_member": "Du bist kein Mitglied dieses Haushalts.",
     "household_not_empty": "In deinem Haushalt sind noch andere Personen. Die anderen Personen müssen den Haushalt zuerst selbst verlassen, dann kannst du der Einladung folgen.",
     "not_a_member": "Du bist kein Mitglied dieses Haushalts.",
+    "member_not_found": "Diese Person ist nicht mehr im Haushalt.",
     "not_account_owner": "Dieses Konto gehört jemand anderem.",
     "no_insight_granted": "Diese Person teilt diesen Bereich nicht mit dir.",
     "no_create_granted": "Du darfst hier zusehen, aber nichts anlegen.",
