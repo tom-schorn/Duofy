@@ -29,7 +29,7 @@ from app.schemas.household import (
     MyInvitationRead,
 )
 from app.services.grants import drop_all_of, levels_with, no_levels, set_levels
-from app.services.households import create_own_household
+from app.services.households import create_own_household, lock_household_members
 
 router = APIRouter()
 
@@ -45,18 +45,6 @@ async def _load(session: AsyncSession, household_id: uuid.UUID) -> Household:
     if household is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "household_not_found"})
     return household
-
-
-async def _lock_members(session: AsyncSession, household_id: uuid.UUID) -> None:
-    """Serialise changes to who is in a household and who is admin.
-
-    Two admins demoting or removing each other at the same moment would each
-    still count the other and leave the household without one. Locking the
-    household row first makes the second request wait and then see the first.
-    """
-    await session.execute(
-        select(Household.id).where(Household.id == household_id).with_for_update()
-    )
 
 
 async def _admin_count(session: AsyncSession, household_id: uuid.UUID) -> int:
@@ -211,7 +199,7 @@ async def leave_household(
     genau einem. Posten und Verträge bleiben unverändert; weil sie am Haushalt der
     Person hängen, sehen die bisherigen Mitglieder sie nicht mehr.
     """
-    await _lock_members(session, household_id)
+    await lock_household_members(session, household_id)
     result = await session.execute(
         select(HouseholdMember).where(
             HouseholdMember.household_id == household_id,
@@ -260,7 +248,7 @@ async def remove_member(
     their own, keep all their data, and every grant from and to them is gone.
     Another admin may be removed too (decision 68); removing oneself is leaving.
     """
-    await _lock_members(session, household_id)
+    await lock_household_members(session, household_id)
     require(await is_household_admin(session, user.id, household_id), "not_household_admin")
     if user_id == user.id:
         raise HTTPException(
@@ -290,7 +278,7 @@ async def set_role(
     role: without one nobody could invite or remove anymore. Handing the household
     on (#249) is two steps: make the other admin, then step down or leave.
     """
-    await _lock_members(session, household_id)
+    await lock_household_members(session, household_id)
     require(await is_household_admin(session, user.id, household_id), "not_household_admin")
     member = await _member_of(session, household_id, user_id)
     if (

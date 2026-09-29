@@ -9,6 +9,7 @@ from app.models.enums import Role
 from app.models.household import Household, HouseholdMember
 from app.models.transaction import Transaction
 from app.models.user import User
+from app.services.households import lock_household_members
 
 
 async def delete_own_account(session: AsyncSession, user: User) -> None:
@@ -39,10 +40,23 @@ async def delete_own_account(session: AsyncSession, user: User) -> None:
         if not other_admins:
             raise HTTPException(status.HTTP_409_CONFLICT, detail={"code": "last_admin"})
 
-    owned = await session.scalars(
-        select(HouseholdMember).where(
-            HouseholdMember.user_id == user.id, HouseholdMember.role == Role.ADMIN
+    # Lock every household this person is in before choosing a successor, the same
+    # lock leaving, removing and changing roles take (decision 68). All of them, not
+    # only those they are admin of: a promotion may land before the lock. Then read
+    # the memberships again, another request may have changed them meanwhile.
+    households = list(
+        await session.scalars(
+            select(HouseholdMember.household_id)
+            .where(HouseholdMember.user_id == user.id)
+            .order_by(HouseholdMember.household_id)
         )
+    )
+    for household_id in households:
+        await lock_household_members(session, household_id)
+    owned = await session.scalars(
+        select(HouseholdMember)
+        .where(HouseholdMember.user_id == user.id, HouseholdMember.role == Role.ADMIN)
+        .execution_options(populate_existing=True)
     )
     for membership in owned:
         successor = await session.scalar(
@@ -54,6 +68,7 @@ async def delete_own_account(session: AsyncSession, user: User) -> None:
             # Another admin keeps the household as it is; otherwise the earliest member.
             .order_by((HouseholdMember.role == Role.ADMIN).desc(), HouseholdMember.created_at)
             .limit(1)
+            .execution_options(populate_existing=True)
         )
         if successor is not None:
             successor.role = Role.ADMIN
