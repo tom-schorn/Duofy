@@ -292,3 +292,24 @@ async def test_the_household_plan_leaves_out_a_member_who_keeps_the_accounts_pri
     figures = await unplanned(client, f"/api/v1/plans/household/{household.id}/2026/9")
 
     assert figures["needs"] == ZERO
+
+
+async def test_a_half_household_plan_shows_no_unplanned_at_all(
+    client: AsyncClient, session: AsyncSession, owner: User
+):
+    """A member has not planned the month yet: the household plan is not shown, so
+    its sums are not either — not even the bookings of the members who did."""
+    partner = await make_user(session, "Partner")
+    household = await make_household(session, "Shared")
+    await add_member(session, household, owner, accounts=AccessLevel.VIEW)
+    await add_member(session, household, partner, accounts=AccessLevel.VIEW)
+    account = await make_account(session, owner)
+    await make_plan(session, owner)
+    session.add(book(owner, account, "20.00", Budget.NEEDS))
+    await session.commit()
+
+    response = await client.get(f"/api/v1/plans/household/{household.id}/2026/9")
+
+    assert response.status_code == 200
+    assert response.json()["missingMembers"] == ["Partner"]
+    assert set(Decimal(value) for value in response.json()["unplanned"].values()) == {ZERO}

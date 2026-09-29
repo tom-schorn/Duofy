@@ -170,6 +170,16 @@ def _summarize(
     }
 
 
+async def _may_see_bookings(session: AsyncSession, owner_id: uuid.UUID, viewer: User) -> bool:
+    """Whether `viewer` may see the bookings of `owner_id`: one's own always, another
+    person's from the level `view` they granted on the accounts. The household form
+    of this rule is `viewable_members`."""
+    if owner_id == viewer.id:
+        return True
+    level = await granted_level(session, owner_id, viewer.id, Area.ACCOUNTS)
+    return level.rank >= AccessLevel.VIEW.rank
+
+
 async def _unplanned(
     session: AsyncSession, owner_ids: list[uuid.UUID], year: int, month: int
 ) -> UnplannedTotals:
@@ -634,9 +644,12 @@ async def get_household_plan(
         household_name=household.name,
         hints=plan_hints(year, month, positions),
         positions=household_positions,
+        # A half plan shows nothing, and that goes for its sums too.
         unplanned=await _unplanned(
             session,
-            await viewable_members(session, household_id, user.id, Area.ACCOUNTS),
+            []
+            if missing_members
+            else await viewable_members(session, household_id, user.id, Area.ACCOUNTS),
             year,
             month,
         ),
@@ -761,12 +774,10 @@ async def get_flow(
     owner_id = owner or user.id
     # Manual bookings and the account name belong to the accounts area, not to the
     # plan: for somebody else's plan they need their own grant.
-    sees_accounts = True
     if owner_id != user.id:
         level = await granted_level(session, owner_id, user.id, Area.PLAN)
         require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
-        accounts_level = await granted_level(session, owner_id, user.id, Area.ACCOUNTS)
-        sees_accounts = accounts_level.rank >= AccessLevel.VIEW.rank
+    sees_accounts = await _may_see_bookings(session, owner_id, user)
 
     result = await session.execute(
         select(Plan)
@@ -850,10 +861,7 @@ async def _plan_read(session: AsyncSession, plan: Plan, viewer: User) -> PlanRea
     used = await _used_position_ids(session, [position.id for position in plan.positions])
     # Unplanned bookings are the owner's book, not the plan: somebody else sees them
     # only with their own grant on the accounts, like the flow's manual bookings.
-    sees_bookings = plan.user_id == viewer.id
-    if not sees_bookings:
-        level = await granted_level(session, plan.user_id, viewer.id, Area.ACCOUNTS)
-        sees_bookings = level.rank >= AccessLevel.VIEW.rank
+    sees_bookings = await _may_see_bookings(session, plan.user_id, viewer)
     return PlanRead(
         id=plan.id,
         hints=plan_hints(plan.year, plan.month, plan.positions),
