@@ -605,6 +605,8 @@
     "filterAll": "Alle",
     "filterUnplanned": "Ungeplant · {{count}}",
     "assign": "Ungeplant · zuordnen",
+    "onlyUnplanned": "Nur ungeplante Buchungen.",
+    "clearFilter": "Filter aufheben",
     "forMonth": "für {{month}}",
     "carryOver": "Übertrag",
     "carryOverName": "Übertrag in den Monat",

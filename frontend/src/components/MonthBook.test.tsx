@@ -305,4 +305,43 @@ describe('MonthBook list and filter (#241)', () => {
     renderBook(false, [rent], 'unplanned')
     expect(await screen.findByText(i18n.t('monthBook.noUnplanned'))).toBeInTheDocument()
   })
+
+  test('the unplanned filter says so in words and offers to lift it', async () => {
+    const user = userEvent.setup()
+    renderBook(false, [rent], 'unplanned')
+    await screen.findByRole('button', { name: /Kino/ })
+    expect(screen.getByRole('status')).toHaveTextContent(i18n.t('monthBook.onlyUnplanned'))
+    await user.click(screen.getByRole('button', { name: i18n.t('monthBook.clearFilter') }))
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(names()).toHaveLength(5)
+  })
+
+  test('no hint while everything is shown', async () => {
+    renderBook(false, [rent])
+    await screen.findByRole('button', { name: /Kino/ })
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  test('the unplanned filter leaves out planned bookings, transfers and carry-overs', async () => {
+    fetchMock.mockImplementation(
+      async (url: string) =>
+        new Response(
+          JSON.stringify(
+            String(url).includes('/accounts')
+              ? [account, account2]
+              : [
+                  unplannedLate,
+                  planned,
+                  transfer,
+                  { ...booking, id: 't-co', kind: 'carry_over', note: null, category: null, budget: null },
+                ]
+          ),
+          { status: 200 }
+        )
+    )
+    renderBook(false, [rent], 'unplanned')
+    await screen.findByRole('button', { name: /Kino/ })
+    expect(names()).toEqual(['Kino'])
+    expect(screen.queryByText(i18n.t('monthBook.carryOverName'))).not.toBeInTheDocument()
+  })
 })
