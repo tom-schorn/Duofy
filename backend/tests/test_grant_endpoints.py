@@ -66,7 +66,11 @@ async def test_there_is_no_way_to_set_the_grants_of_another_member(
     session: AsyncSession,
     pair,  # noqa: F811
 ) -> None:
-    """The granter is always whoever is signed in; the old `/members/me` is gone."""
+    """The granter is always whoever is signed in; the old `/members/me` is gone.
+
+    `PATCH /members/{id}` exists for the admin role only; a grant body there is
+    not a role and is refused before anything is written.
+    """
     owner, helper, household = pair
     owner_id, household_id = owner.id, household.id
     sign_in(helper)
@@ -77,7 +81,7 @@ async def test_there_is_no_way_to_set_the_grants_of_another_member(
     ):
         for method in ("patch", "put", "post"):
             response = await getattr(client, method)(url, json={"plan": "edit"})
-            assert response.status_code in (404, 405)
+            assert response.status_code in (404, 405, 422)
 
     assert await rows(session) == set()
 
