@@ -26,7 +26,6 @@ class CommitmentBase(Schema):
     amount: Decimal = Field(ge=0, max_digits=12, decimal_places=2)
     category: Category
     budget: Budget
-    household_id: uuid.UUID | None = None
     #: Every how many months it falls due, 1 to 120. Checked in the validators.
     interval_months: int
     #: The start of the cadence and, through its day, the due day.
@@ -80,7 +79,6 @@ class CommitmentUpdate(Schema):
     amount: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     category: Category | None = None
     budget: Budget | None = None
-    household_id: uuid.UUID | None = None
     interval_months: int | None = None
     first_due_date: date | None = None
     ends_on: date | None = None
@@ -105,6 +103,7 @@ class CommitmentRead(CommitmentBase):
     id: uuid.UUID
     type: CommitmentType
     owner_id: uuid.UUID
+    #: Kept out of the household plan. Read only until #243 brings the switch.
+    is_private: bool
     #: No month position refers to it yet, so it may still be deleted. Computed.
     deletable: bool = False
-

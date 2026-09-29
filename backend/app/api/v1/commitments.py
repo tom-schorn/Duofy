@@ -5,10 +5,10 @@ One table for all of them — `type` only says whether the thing has an end, and
 the month. A commitment can sit in any budget: rent in needs, streaming in
 wants, a savings plan in savings.
 
-Commitments are **private by default**, even inside a shared household. A member
+Commitments are shared with the household by default, unless marked private. A member
 sees another member's contract only if that member granted `Area.COMMITMENTS`
-insight; without it they see the position it produces, and only if the owner
-attached that position to the household.
+insight; without it they see the position it produces in the household plan — unless
+the contract is private.
 """
 
 import uuid
@@ -19,7 +19,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_active_user
-from app.core.permissions import Area, can_assign_to_household, granted_level, require
+from app.core.permissions import Area, granted_level, require
 from app.db.session import get_session
 from app.models.commitment import Commitment
 from app.models.enums import AccessLevel, CommitmentType, resolve_budget
@@ -110,9 +110,7 @@ async def _mark_deletable(session: AsyncSession, commitments: list[Commitment]) 
     used: set[uuid.UUID] = set()
     if ids:
         rows = await session.execute(
-            select(PlanPosition.commitment_id)
-            .where(PlanPosition.commitment_id.in_(ids))
-            .distinct()
+            select(PlanPosition.commitment_id).where(PlanPosition.commitment_id.in_(ids)).distinct()
         )
         used = set(rows.scalars())
     for commitment in commitments:
@@ -159,9 +157,7 @@ async def list_commitments(
     elif status_filter == "ended":
         query = query.where(~running)
 
-    result = await session.execute(
-        query.order_by(Commitment.budget, Commitment.amount.desc())
-    )
+    result = await session.execute(query.order_by(Commitment.budget, Commitment.amount.desc()))
     commitments = list(result.scalars())
     await _mark_deletable(session, commitments)
     return commitments
@@ -176,18 +172,12 @@ async def create_commitment(
 ) -> Commitment:
     """Create a commitment — your own, or that of a member who granted `edit`.
 
-    The household check runs against the **owner**: a contract may only go into a
-    household its owner belongs to, and that stays true no matter who types it in.
+    The contract belongs to the **owner** and, through them, to their one household.
     """
     owner_id = owner or user.id
     if owner_id != user.id:
         level = await granted_level(session, owner_id, user.id, Area.COMMITMENTS)
         require(level.rank >= AccessLevel.EDIT.rank, "no_edit_granted")
-
-    require(
-        await can_assign_to_household(session, owner_id, payload.household_id),
-        "not_household_member",
-    )
 
     # A limit only means something on a contract — see `_check_limit`.
     _check_limit(payload.type, payload.is_limit)
@@ -230,12 +220,6 @@ async def update_commitment(
         _check_ends_on(
             changes.get("first_due_date", commitment.first_due_date),
             changes["ends_on"] if "ends_on" in changes else commitment.ends_on,
-        )
-
-    if "household_id" in changes:
-        require(
-            await can_assign_to_household(session, user.id, changes["household_id"]),
-            "not_household_member",
         )
 
     for field, value in changes.items():

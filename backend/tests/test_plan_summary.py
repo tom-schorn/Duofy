@@ -173,7 +173,7 @@ async def test_a_month_where_only_one_member_has_planned_does_not_appear(
     await add_member(session, household, owner)
     await add_member(session, household, partner)
     partner_plan = await make_plan(session, partner)
-    session.add(position(partner_plan, "Rent", "700.00", household_id=household.id))
+    session.add(position(partner_plan, "Rent", "700.00"))
     await session.commit()
 
     response = await client.get(f"/api/v1/plans/household/{household.id}")
@@ -232,7 +232,7 @@ async def test_the_household_month_is_whole_once_everybody_has_planned(
     await add_member(session, household, partner)
     await make_plan(session, owner)
     partner_plan = await make_plan(session, partner)
-    session.add(position(partner_plan, "Rent", "700.00", household_id=household.id))
+    session.add(position(partner_plan, "Rent", "700.00"))
     await session.commit()
 
     response = await client.get(f"/api/v1/plans/household/{household.id}/2026/9")

@@ -2,7 +2,15 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Numeric, String, UniqueConstraint
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Numeric,
+    String,
+    UniqueConstraint,
+    false,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -15,8 +23,8 @@ class Plan(UUIDMixin, TimestampMixin, Base):
     """One person's plan for one month.
 
     Always belongs to a person, never to a household. The household plan is not a
-    table of its own — it is the composition of every member's positions that have
-    `household_id` set.
+    table of its own — it is the composition of every member's positions that are
+    not private.
 
     The quotas are **guidelines**, not rules: there is a target, the actual figure
     stands next to it, and the household decides whether that is acceptable.
@@ -67,8 +75,8 @@ class PlanPosition(UUIDMixin, TimestampMixin, Base):
     the commitment and is independent afterwards. Changing the contract does not
     rewrite months that already exist.
 
-    `household_id` decides whether it stays private or appears in a household plan
-    — in **exactly one**.
+    `is_private` decides whether it stays with its owner or appears in the plan of
+    their household — the one household every person belongs to.
     """
 
     __tablename__ = "plan_positions"
@@ -81,10 +89,9 @@ class PlanPosition(UUIDMixin, TimestampMixin, Base):
         ForeignKey("commitments.id", ondelete="SET NULL"), nullable=True
     )
 
-    #: NULL means private. Set means it appears in that household plan.
-    household_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("households.id", ondelete="SET NULL"), nullable=True
-    )
+    #: Hidden from the household plan. Shared is the normal case; the switch in the
+    #: interface comes with #243.
+    is_private: Mapped[bool] = mapped_column(default=False, server_default=false())
 
     label: Mapped[str] = mapped_column(String(200))
     amount_planned: Mapped[Decimal] = mapped_column(Numeric(12, 2))

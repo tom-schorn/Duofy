@@ -40,7 +40,6 @@ class PositionBase(Schema):
     #: Copied from the commitment, overridable per month. Empty means the default.
     account_id: uuid.UUID | None = None
     payment_method: PaymentMethod | None = None
-    household_id: uuid.UUID | None = None
     #: A limit: fills up from bookings instead of being ticked off.
     is_limit: bool = False
     #: Where the money is saved to. Set means ticking off books a transfer.
@@ -64,7 +63,6 @@ class PositionUpdate(Schema):
     due_day: int | None = Field(default=None, ge=1, le=31)
     account_id: uuid.UUID | None = None
     payment_method: PaymentMethod | None = None
-    household_id: uuid.UUID | None = None
     is_limit: bool | None = None
     counter_account_id: uuid.UUID | None = None
     pass_through: bool | None = None
@@ -89,6 +87,8 @@ class PositionRead(PositionBase):
     commitment_id: uuid.UUID | None
     #: NULL means still open.
     paid_at: datetime | None
+    #: Kept out of the household plan. Read only until #243 brings the switch.
+    is_private: bool
 
 
 class PlanBase(Schema):
@@ -146,8 +146,6 @@ class PlanSummary(PlanBase):
     spent: BudgetTotals
     #: Sum of the positions that are not ticked off yet.
     unpaid: Decimal
-    #: Households that positions of this plan feed into. Empty means fully private.
-    household_ids: list[uuid.UUID]
     #: No booking hangs on any of its positions yet, so it may still be deleted
     #: (#219, same rule as commitments and accounts, #139). False on the
     #: composed household plan, which is never deletable itself.
@@ -175,7 +173,7 @@ class HouseholdPositionRead(PositionRead):
 
 class HouseholdPlanRead(PlanSummary):
     """The shared plan. Composed, not stored — hence no `id`: there is no row behind
-    it, only the positions of every member that carry this `household_id`."""
+    it, only the positions of every member that are not private."""
 
     household_id: uuid.UUID
     household_name: str

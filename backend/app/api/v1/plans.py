@@ -2,7 +2,7 @@
 
 A plan **always belongs to one person**, never to a household. The household plan
 is not a table of its own — it is the composition of every member position that
-has `household_id` set. Hence two routes to the same presentation: `/plans/...`
+is not private. Hence two routes to the same presentation: `/plans/...`
 for your own plan, `/plans/household/...` for the shared view. Individual positions
 live under `/positions`, otherwise `positions` would collide with the year.
 """
@@ -21,7 +21,6 @@ from sqlalchemy.orm import selectinload
 from app.core.auth import current_active_user
 from app.core.permissions import (
     Area,
-    can_assign_to_household,
     granted_level,
     is_member,
     owns_plan,
@@ -152,11 +151,6 @@ def _summarize(
 
     unpaid = sum((remaining(p) for p in positions), ZERO)
 
-    household_ids = sorted(
-        {p.household_id for p in positions if p.household_id is not None},
-        key=str,
-    )
-
     return {
         "year": year,
         "month": month,
@@ -171,7 +165,6 @@ def _summarize(
             savings=total(Budget.SAVINGS),
         ),
         "unpaid": unpaid,
-        "household_ids": household_ids,
     }
 
 
@@ -310,7 +303,7 @@ async def list_household_plans(
         select(PlanPosition, Plan.year, Plan.month)
         .join(Plan, Plan.id == PlanPosition.plan_id)
         .where(
-            PlanPosition.household_id == household_id,
+            PlanPosition.is_private.is_(False),
             Plan.user_id.in_(member_ids),
         )
     )
@@ -394,7 +387,7 @@ async def create_plan(
         plan.positions.append(
             PlanPosition(
                 commitment_id=commitment.id,
-                household_id=commitment.household_id,
+                is_private=commitment.is_private,
                 label=commitment.name,
                 amount_planned=amount,
                 category=commitment.category,
@@ -436,8 +429,8 @@ async def get_plan(
     hides a position would not be a degree of trust but a gap — the booking would
     stand in the book anyway.
 
-    Not the same as the household plan: that one shows only positions with a
-    `household_id` and merges every member.
+    Not the same as the household plan: that one shows only positions that
+    are not private and merges every member.
     """
     owner_id = owner or user.id
     if owner_id != user.id:
@@ -533,11 +526,6 @@ async def create_position(
     positions. Editing and deleting run through `/positions/{id}`.
     """
     plan = await _load_plan(session, plan_id, user)
-    require(
-        await can_assign_to_household(session, plan.user_id, payload.household_id),
-        "not_household_member",
-    )
-
     position = PlanPosition(plan_id=plan.id, **payload.model_dump())
     session.add(position)
     await session.commit()
@@ -558,7 +546,7 @@ async def get_household_plan(
 ) -> PlanSummary:
     """The shared plan — composed, not stored.
 
-    It is built from every member position carrying this `household_id`. The quotas
+    It is built from every non-private position of every member. The quotas
     come from the household, not from any single plan.
 
     Shown whole only once **every member already part of the household this
@@ -588,7 +576,7 @@ async def get_household_plan(
             .join(User, User.id == Plan.user_id)
             .join(HouseholdMember, HouseholdMember.user_id == Plan.user_id)
             .where(
-                PlanPosition.household_id == household_id,
+                PlanPosition.is_private.is_(False),
                 HouseholdMember.household_id == household_id,
                 Plan.year == year,
                 Plan.month == month,
@@ -799,7 +787,7 @@ async def get_household_flow(
         .join(Plan, Plan.id == PlanPosition.plan_id)
         .join(HouseholdMember, HouseholdMember.user_id == Plan.user_id)
         .where(
-            PlanPosition.household_id == household_id,
+            PlanPosition.is_private.is_(False),
             HouseholdMember.household_id == household_id,
             Plan.year == year,
             Plan.month == month,

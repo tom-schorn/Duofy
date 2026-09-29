@@ -32,10 +32,6 @@ class HouseholdRead(Schema):
     members: list[MemberRead]
 
 
-class HouseholdCreate(Schema):
-    name: str = Field(min_length=1, max_length=100)
-
-
 class HouseholdUpdate(Schema):
     """Everything optional — whatever is not sent stays as it was."""
 

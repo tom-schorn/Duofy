@@ -168,8 +168,8 @@ async def test_the_household_plan_carries_the_hints_of_the_positions_it_shows(
     household = await make_household(session, "Shared")
     await add_member(session, household, owner)
     plan = await make_plan(session, owner)
-    shared = position(plan, 1, household_id=household.id)
-    private = position(plan, 2)
+    shared = position(plan, 1)
+    private = position(plan, 2, is_private=True)
     session.add_all([shared, private])
     await session.commit()
 
@@ -295,9 +295,9 @@ async def test_nothing_free_hint_on_the_household_plan_path(
     plan = await make_plan(session, owner)
     income = position(
         plan, 30, budget=Budget.INCOME, category=Category.INCOME_EARNED,
-        amount_planned=Decimal("890.00"), household_id=household.id,
+        amount_planned=Decimal("890.00"),
     )
-    committed = position(plan, 30, household_id=household.id)
+    committed = position(plan, 30)
     session.add_all([income, committed])
     await session.commit()
 

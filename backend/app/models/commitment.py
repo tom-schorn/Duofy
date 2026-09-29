@@ -3,7 +3,7 @@ from calendar import monthrange
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, Date, ForeignKey, Numeric, String
+from sqlalchemy import CheckConstraint, Date, ForeignKey, Numeric, String, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -54,11 +54,9 @@ class Commitment(UUIDMixin, TimestampMixin, Base):
     category: Mapped[Category] = mapped_column(enum_column(Category, length=CATEGORY_LENGTH))
     budget: Mapped[Budget] = mapped_column(enum_column(Budget))
 
-    #: NULL means private. Set means generated positions appear in that household
-    #: plan. Decided once, it applies to every future month.
-    household_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("households.id", ondelete="SET NULL"), nullable=True
-    )
+    #: Hidden from the household plan. Decided once, it applies to every future
+    #: month: generated positions copy it.
+    is_private: Mapped[bool] = mapped_column(default=False, server_default=false())
 
     #: **Where** the money goes when it moves to another own account.
     #:

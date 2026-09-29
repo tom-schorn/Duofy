@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.db.session import get_session
 from app.models.instance_invitation import InstanceInvitation
 from app.models.user import User
+from app.services.households import create_own_household
 
 
 class RegistrationUserDatabase(SQLAlchemyUserDatabase):
@@ -35,6 +36,7 @@ class RegistrationUserDatabase(SQLAlchemyUserDatabase):
         user = self.user_table(**create_dict)
         self.session.add(user)
         await self.session.flush()
+        await create_own_household(self.session, user)
         if self.invitation is not None:
             self.invitation.used_at = datetime.now(UTC)
             self.invitation.used_by_id = user.id

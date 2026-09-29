@@ -19,8 +19,8 @@ class Household(UUIDMixin, TimestampMixin, Base):
     """The planning layer for several people.
 
     A household **owns nothing** — no accounts, no commitments, no positions. It
-    only says who plans together. A user can belong to several households at once;
-    that is the normal case, not an exception.
+    only says who plans together. A user belongs to exactly one household: their
+    own, or the one they were invited into.
 
     The quotas exist here in addition to the ones on `Plan`: the household plan is
     not a table of its own, but it has its own 50/30/20. A personal plan and the
@@ -52,7 +52,7 @@ class HouseholdMember(UUIDMixin, TimestampMixin, Base):
     """
 
     __tablename__ = "household_members"
-    __table_args__ = (UniqueConstraint("household_id", "user_id", name="uq_household_member"),)
+    __table_args__ = (UniqueConstraint("user_id", name="uq_household_member_user"),)
 
     household_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("households.id", ondelete="CASCADE"))
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))

@@ -87,9 +87,7 @@ async def granted_level(
     if owner_id == viewer_id:
         return AccessLevel.EDIT
 
-    gemeinsam = select(HouseholdMember.household_id).where(
-        HouseholdMember.user_id == viewer_id
-    )
+    gemeinsam = select(HouseholdMember.household_id).where(HouseholdMember.user_id == viewer_id)
     result = await session.execute(
         select(_GRANT_COLUMN[area]).where(
             HouseholdMember.user_id == owner_id,
@@ -142,15 +140,3 @@ async def is_household_owner(
 
 def owns_plan(user: User, plan: Plan) -> bool:
     return plan.user_id == user.id
-
-
-async def can_assign_to_household(
-    session: AsyncSession, plan_owner_id: uuid.UUID, household_id: uuid.UUID | None
-) -> bool:
-    """A position may only go into a household its owner belongs to.
-
-    Without this check, positions could be pushed into other people\'s households.
-    """
-    if household_id is None:
-        return True
-    return await is_member(session, plan_owner_id, household_id)
