@@ -456,6 +456,8 @@
     "limit": "Limit",
     "passThrough": "durchlaufend",
     "transfer": "Umbuchung",
+    "unplanned": "Ungeplant",
+    "unplannedHint": "Buchungen ohne Posten",
     "fillLabel": "{{label}}: {{actual}} von {{planned}}",
     "actual": "ist {{amount}}"
   },

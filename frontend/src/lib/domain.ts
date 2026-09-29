@@ -1057,6 +1057,13 @@ export type PlanFlow = {
   missingMembers: string[]
 }
 
+/**
+ * Mirror of `UnplannedTotals` — what was booked in the month without a position,
+ * by the booking's own budget. Income is apart: it raises what is left, never a
+ * budget.
+ */
+export type UnplannedTotals = Record<Budget, string>
+
 /** A plan together with its positions. */
 
 export type PlanDetail = PlanSummary & {
@@ -1064,6 +1071,8 @@ export type PlanDetail = PlanSummary & {
   /** Derived by the backend on every read; the frontend never computes one. */
   hints: PlanHint[]
   positions: PlanPosition[]
+  /** Bookings of this month on no position; all zero where they are not visible. */
+  unplanned: UnplannedTotals
 }
 
 /**
@@ -1075,6 +1084,8 @@ export type HouseholdPlanDetail = PlanSummary & {
   householdName: string
   hints: PlanHint[]
   positions: HouseholdPosition[]
+  /** The unplanned bookings of every member whose accounts the viewer may see. */
+  unplanned: UnplannedTotals
   /**
    * First names of current members who have not created this month yet. Empty
    * means every member has — the usual case. Set means `positions` and `hints`

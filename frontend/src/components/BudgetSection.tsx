@@ -67,6 +67,14 @@ type Props = {
   readOnly?: boolean | ((position: PlanPosition) => boolean)
   /** Returns the first name of the person behind the position, otherwise null. */
   ownerName?: (position: PlanPosition) => string | null
+  /**
+   * Sum of the bookings of this budget that hang on no position (#240). It counts
+   * against the budget, but stays out of "Verplanbar": that is planning, this is
+   * what happened. The row appears only when it is not zero.
+   */
+  unplanned?: number
+  /** Opens the book filtered to the unplanned. Absent: the row is only a figure. */
+  onOpenUnplanned?: () => void
 }
 
 export function BudgetSection({
@@ -79,15 +87,18 @@ export function BudgetSection({
   onTogglePaid,
   readOnly = false,
   ownerName,
+  unplanned = 0,
+  onOpenUnplanned,
 }: Props) {
   const { t } = useTranslation()
   // Pass-through positions appear in the list but not in the total: they are not
   // part of the budget, so the quota must not see them.
-  const total = positions.reduce(
-    (sum, position) =>
-      position.passThrough ? sum : sum + Number(position.amountPlanned),
-    0
-  )
+  const total =
+    positions.reduce(
+      (sum, position) =>
+        position.passThrough ? sum : sum + Number(position.amountPlanned),
+      0
+    ) + unplanned
   const percent = target && target > 0 ? (total / target) * 100 : 0
   const isOver = percent > OVER_QUOTA
 
@@ -144,6 +155,17 @@ export function BudgetSection({
             ownerName={ownerName?.(position) ?? null}
           />
         ))}
+        {unplanned !== 0 && (
+          <ListRow
+            onOpen={onOpenUnplanned}
+            trailing={<span className="font-medium">{euro.format(unplanned)}</span>}
+          >
+            <span className="font-medium">{t('budget.unplanned')}</span>
+            <span className="text-muted-foreground text-xs">
+              {t('budget.unplannedHint')}
+            </span>
+          </ListRow>
+        )}
       </ul>
     </section>
   )
