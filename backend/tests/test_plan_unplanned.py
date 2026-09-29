@@ -250,13 +250,15 @@ async def test_another_persons_plan_shows_their_unplanned_only_with_the_accounts
     assert (await unplanned(client, url))["wants"] == Decimal("33.00")
 
 
-async def test_the_household_plan_adds_up_the_unplanned_of_every_visible_member(
+async def test_the_household_plan_adds_up_the_unplanned_of_every_member(
     client: AsyncClient, session: AsyncSession, owner: User
 ):
+    """Decision 48: the household sees everything of everybody, except what is on a
+    private position — an unplanned booking has none, so it always counts."""
     partner = await make_user(session, "Partner")
     household = await make_household(session, "Shared")
-    await add_member(session, household, owner, accounts=AccessLevel.VIEW)
-    await add_member(session, household, partner, accounts=AccessLevel.VIEW)
+    await add_member(session, household, owner)
+    await add_member(session, household, partner, accounts=AccessLevel.PLAN)
     owner_account = await make_account(session, owner)
     partner_account = await make_account(session, partner)
     await make_plan(session, owner)
@@ -274,24 +276,6 @@ async def test_the_household_plan_adds_up_the_unplanned_of_every_visible_member(
 
     assert figures["needs"] == Decimal("35.00")
     assert figures["income"] == Decimal("60.00")
-
-
-async def test_the_household_plan_leaves_out_a_member_who_keeps_the_accounts_private(
-    client: AsyncClient, session: AsyncSession, owner: User
-):
-    partner = await make_user(session, "Partner")
-    household = await make_household(session, "Shared")
-    await add_member(session, household, owner)
-    await add_member(session, household, partner, accounts=AccessLevel.PLAN)
-    partner_account = await make_account(session, partner)
-    await make_plan(session, owner)
-    await make_plan(session, partner)
-    session.add(book(partner, partner_account, "15.00", Budget.NEEDS))
-    await session.commit()
-
-    figures = await unplanned(client, f"/api/v1/plans/household/{household.id}/2026/9")
-
-    assert figures["needs"] == ZERO
 
 
 async def test_a_half_household_plan_shows_no_unplanned_at_all(
