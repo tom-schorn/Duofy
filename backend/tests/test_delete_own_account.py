@@ -7,12 +7,13 @@ owns — ownership has to land somewhere, or the household is left with nobody w
 can rename it, invite anyone or change its quotas.
 """
 
+import asyncio
 from datetime import date
 from decimal import Decimal
 
 from httpx import AsyncClient
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.models.account import Account
 from app.models.commitment import Commitment
@@ -22,6 +23,8 @@ from app.models.imported_entry import ImportedEntry
 from app.models.plan import Plan, PlanPosition, PlanPositionChange
 from app.models.transaction import Transaction
 from app.models.user import User
+from app.services.account_deletion import delete_own_account
+from app.services.households import lock_household_members
 from tests.test_area_permissions import make_household, make_user
 from tests.test_delegation import sign_in
 from tests.test_refresh_tokens import PASSWORD, register_and_login
@@ -217,6 +220,67 @@ async def test_a_second_admin_stays_and_nobody_else_is_promoted(
         )
     )
     assert dict(roles.all())[partner_id] is Role.MEMBER
+
+
+async def _until_done_or_waiting_for_a_lock(observer: AsyncSession, task: asyncio.Task) -> None:
+    """Wait until `task` has finished or another connection waits on a row lock."""
+    for _ in range(100):
+        if task.done():
+            return
+        waiting = await observer.scalar(
+            text(
+                "SELECT count(*) FROM pg_stat_activity "
+                "WHERE datname = current_database() AND wait_event_type = 'Lock' "
+                "AND pid <> pg_backend_pid()"
+            )
+        )
+        if waiting:
+            return
+        await asyncio.sleep(0.1)
+
+
+async def test_a_deletion_waits_for_an_admin_stepping_down_at_the_same_time(
+    engine, session: AsyncSession
+) -> None:
+    """Decision 68 on every path: the household keeps an admin.
+
+    Admin A deletes their account while admin B steps down in another request.
+    Without the household lock A still sees B as admin, promotes nobody, and once
+    both commit the household has no admin left.
+    """
+    first = await make_user(session, "First")
+    second = await make_user(session, "Second")
+    partner = await make_user(session, "Partner")
+    household = await make_owned_household(session, first, partner)
+    session.add(HouseholdMember(household_id=household.id, user_id=second.id, role=Role.ADMIN))
+    await session.commit()
+    household_id, second_id = household.id, second.id
+
+    other_request = async_sessionmaker(engine, expire_on_commit=False)()
+    async with other_request:
+        await lock_household_members(other_request, household_id)
+        stepping_down = await other_request.scalar(
+            select(HouseholdMember).where(
+                HouseholdMember.household_id == household_id,
+                HouseholdMember.user_id == second_id,
+            )
+        )
+        stepping_down.role = Role.MEMBER
+        await other_request.flush()
+
+        deletion = asyncio.create_task(delete_own_account(session, first))
+        await _until_done_or_waiting_for_a_lock(other_request, deletion)
+        assert not deletion.done()
+        await other_request.commit()
+        await deletion
+
+    session.expire_all()
+    admins = await session.scalars(
+        select(HouseholdMember.user_id).where(
+            HouseholdMember.household_id == household_id, HouseholdMember.role == Role.ADMIN
+        )
+    )
+    assert list(admins) != []
 
 
 async def test_the_last_admin_cannot_delete_their_own_account(
