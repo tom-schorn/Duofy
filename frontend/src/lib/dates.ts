@@ -71,3 +71,18 @@ export function parseMonth(
   const m = Number(month)
   return m >= 1 && m <= 12 ? { year: Number(year), month: m } : null
 }
+
+export type YearMonth = { year: number; month: number }
+
+/** The month `offset` months away from the month of an ISO day (negative: earlier). */
+export function shiftMonth(day: string, offset: number): YearMonth {
+  const [year, month] = day.split('-').map(Number)
+  const index = year * 12 + (month - 1) + offset
+  return { year: Math.floor(index / 12), month: (index % 12) + 1 }
+}
+
+/** How many months `target` lies after the month of an ISO day. */
+export function monthOffset(day: string, target: YearMonth): number {
+  const [year, month] = day.split('-').map(Number)
+  return target.year * 12 + target.month - (year * 12 + month)
+}

@@ -618,7 +618,13 @@
     "hint": "Datum ist heute. Eine Umbuchung mit Posten füllt zugleich das Budget — so wird aus „aufs Tagesgeld gelegt\" eine erfüllte Sparquote.",
     "noNote": "Ohne Notiz",
     "autoBooked": "vom Haken",
-    "sentence": "Gebucht am {date} vom {account}, verplant auf {position}.",
+    "sentence": "Gebucht am {date} vom {account}, verplant auf {position}, zählt im Plan {planMonth}.",
+    "planMonthLabel": "In welchem Plan zählt sie?",
+    "planMonthOption": {
+      "previous": "{{month}} (Vormonat)",
+      "same": "{{month}} (Monat des Datums)",
+      "next": "{{month}} (Folgemonat)"
+    },
     "dateLabel": "Wann gebucht?",
     "accountLabel": "Von welchem Konto?",
     "positionLabel": "Welcher Posten?",

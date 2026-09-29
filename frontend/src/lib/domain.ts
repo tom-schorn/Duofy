@@ -302,6 +302,13 @@ export function monthLabel(month: number): string {
   )
 }
 
+/** The month's name, with the year only when it is not the year of the booking date. */
+export function monthText(target: { year: number; month: number }, day: string): string {
+  return target.year === Number(day.slice(0, 4))
+    ? monthLabel(target.month)
+    : `${monthLabel(target.month)} ${target.year}`
+}
+
 /**
  * Is a commitment due in this month? Mirrors `Commitment.is_due_in()`.
  *
@@ -653,6 +660,13 @@ export type Transaction = {
   category: Category | null
   budget: Budget | null
   positionId: string | null
+  /**
+   * The month of the plan this booking counts in (#239) — not always the month of
+   * `occurredOn`. With a position it is that position's plan; without one it is
+   * chosen: previous, own or next month of the date.
+   */
+  planYear: number
+  planMonth: number
   /** Only set in the household view: who booked it. */
   ownerName?: string | null
   /** Created by ticking off — un-ticking removes exactly these again. */

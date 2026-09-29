@@ -16,6 +16,8 @@ const booking = {
   category: 'leisure.subscriptions',
   budget: 'wants',
   positionId: null,
+  planYear: 2026,
+  planMonth: 9,
   autoBooked: false,
   externalRef: null,
 } as Transaction
@@ -33,6 +35,7 @@ function renderDialog(
       transaction={transaction}
       accounts={accounts}
       positions={positions}
+      viewedMonth={{ year: 2026, month: 9 }}
       open
       onOpenChange={extra.onOpenChange ?? (() => {})}
       onSave={onSave}
@@ -108,5 +111,42 @@ describe('EditBookingDialog sentence', () => {
   test('the note is named as unset by default', () => {
     renderDialog({ ...booking, note: null })
     expect(screen.getByRole('button', { name: i18n.t('monthBook.noNote') })).toBeInTheDocument()
+  })
+})
+
+describe('EditBookingDialog plan month', () => {
+  test('names the plan month as a clickable word when there is no position', () => {
+    renderDialog(booking)
+    expect(screen.getByRole('button', { name: 'September' })).toBeInTheDocument()
+  })
+
+  test('picking the next month sends it with the year', async () => {
+    const onSave = renderDialog(booking)
+    await userEvent.click(screen.getByRole('button', { name: 'September' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Oktober (Folgemonat)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }))
+    expect(onSave).toHaveBeenCalledWith({ id: 't1', planYear: 2026, planMonth: 10 })
+  })
+
+  test('the choice crosses the turn of the year', async () => {
+    const december = { ...booking, occurredOn: '2026-12-29', planYear: 2026, planMonth: 12 }
+    const onSave = renderDialog(december)
+    await userEvent.click(screen.getByRole('button', { name: 'Dezember' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Januar 2027 (Folgemonat)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }))
+    expect(onSave).toHaveBeenCalledWith({ id: 't1', planYear: 2027, planMonth: 1 })
+  })
+
+  test('with a position the month is the position plan and cannot be picked', () => {
+    renderDialog({ ...booking, autoBooked: true, positionId: 'p1', planMonth: 10 })
+    expect(screen.getByText('September')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'September' })).not.toBeInTheDocument()
+  })
+
+  test('a change of amount alone leaves the plan month out of the request', () => {
+    const onSave = renderDialog({ ...booking, planMonth: 10 })
+    fireEvent.change(screen.getByLabelText('Betrag'), { target: { value: '80.00' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }))
+    expect(onSave).toHaveBeenCalledWith({ id: 't1', amount: '80.00' })
   })
 })

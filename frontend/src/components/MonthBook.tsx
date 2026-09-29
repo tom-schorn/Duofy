@@ -21,12 +21,13 @@ import { ListRow } from '@/components/ListRow'
 import { EmptyState } from '@/components/EmptyState'
 import { QueryState } from '@/components/QueryState'
 import { errorText } from '@/lib/api'
-import { today } from '@/lib/dates'
+import { shiftMonth, today } from '@/lib/dates'
 import {
   OWN_SCOPE,
   BUDGET_SUGGESTION,
   categoryLabel,
   euro,
+  monthText,
   type Account,
   type Category,
   type PlanPosition,
@@ -165,6 +166,7 @@ export function MonthBook({
           transaction={editing}
           accounts={accounts}
           positions={positions}
+          viewedMonth={{ year, month }}
           open
           onOpenChange={(open) => !open && setEditing(null)}
           onSave={(draft) =>
@@ -210,16 +212,20 @@ function QuickEntry({
   const [category, setCategory] = useState<Category>('household.groceries')
   const [accountId, setAccountId] = useState(fallbackAccountId)
   const [counterAccountId, setCounterAccountId] = useState('none')
+  // Offset of the plan month to the month of today, see the choice below (#239).
+  const [planOffset, setPlanOffset] = useState('0')
 
   const chosen = positions.find((position) => position.id === positionId)
   const isTransfer = counterAccountId !== 'none'
+  const bookedOn = today()
+  const planMonth = shiftMonth(bookedOn, Number(planOffset))
 
   function submit(event: React.FormEvent) {
     event.preventDefault()
     onSave({
       accountId,
       counterAccountId: isTransfer ? counterAccountId : null,
-      occurredOn: today(),
+      occurredOn: bookedOn,
       amount,
       note: note || null,
       // Inherited from the position, otherwise taken from the picker. A pure
@@ -228,6 +234,11 @@ function QuickEntry({
       category: chosen ? chosen.category : isTransfer ? null : category,
       budget: chosen ? chosen.budget : isTransfer ? null : BUDGET_SUGGESTION[category],
       positionId: chosen ? chosen.id : null,
+      // Only without a position and outside a transfer can the month be chosen;
+      // the server rejects a choice next to either.
+      ...(chosen || isTransfer
+        ? {}
+        : { planYear: planMonth.year, planMonth: planMonth.month }),
     })
     setAmount('')
     setNote('')
@@ -281,6 +292,29 @@ function QuickEntry({
           <div className="flex min-w-40 flex-col gap-1.5">
             <Label className="text-xs">{t('common.category')}</Label>
             <CategoryPicker value={category} onChange={setCategory} />
+          </div>
+        )}
+
+        {/* Mit Posten zählt die Buchung im Plan des Postens, eine reine Umbuchung
+            im Monat des Datums — dort gibt es nichts zu wählen. */}
+        {!chosen && !isTransfer && (
+          <div className="flex min-w-40 flex-col gap-1.5">
+            <Label className="text-xs">{t('monthBook.planMonthLabel')}</Label>
+            <Select value={planOffset} onValueChange={setPlanOffset}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {([-1, 0, 1] as const).map((offset) => (
+                  <SelectItem key={offset} value={String(offset)}>
+                    {t(
+                      `monthBook.planMonthOption.${offset < 0 ? 'previous' : offset > 0 ? 'next' : 'same'}`,
+                      { month: monthText(shiftMonth(bookedOn, offset), bookedOn) }
+                    )}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
 
