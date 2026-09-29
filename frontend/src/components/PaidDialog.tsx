@@ -35,6 +35,8 @@ type Props = {
    * and amount would be ignored — the fields are disabled and say so.
    */
   hasBookings?: boolean
+  /** The bookings could not be loaded, so nobody knows whether date and amount count. */
+  bookingsUnknown?: boolean
   /** The plan month, to say when the booking date falls outside it. */
   planMonth?: { year: number; month: number }
   /** The sentence for a rejected tick; the dialog stays open and shows it. */
@@ -47,6 +49,7 @@ export function PaidDialog({
   onConfirm,
   pending,
   hasBookings = false,
+  bookingsUnknown = false,
   planMonth,
   error = null,
 }: Props) {
@@ -166,6 +169,12 @@ export function PaidDialog({
           role="status"
         >
           {t('paidDialog.hasBookings')}
+        </p>
+      )}
+
+      {bookingsUnknown && (
+        <p className="text-muted-foreground text-sm" role="status">
+          {t('paidDialog.bookingsUnknown')}
         </p>
       )}
 

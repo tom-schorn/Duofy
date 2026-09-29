@@ -47,6 +47,8 @@ export function usePaidFlow(
   // For the confirmation when un-ticking: which booking hangs off which position.
   const transactions = useTransactions(year, month, scope)
 
+  const bookingsUnknown = transactions.isError
+
   const autoBookedOf = (position: PlanPosition) =>
     transactions.data?.find(
       (entry) => entry.positionId === position.id && entry.autoBooked
@@ -61,7 +63,10 @@ export function usePaidFlow(
    */
   function toggle(position: PlanPosition) {
     if (isPaid(position)) {
-      if (autoBookedOf(position)) {
+      // Bookings that are not there (yet) or cannot be read (no view on the
+      // accounts) may still hang off the tick, so the question comes anyway, just
+      // without an amount.
+      if (transactions.data === undefined || autoBookedOf(position)) {
         setConfirming(position)
         return
       }
@@ -102,6 +107,7 @@ export function usePaidFlow(
         hasBookings={
           booking ? positionHasBookings(booking.id, transactions.data) : false
         }
+        bookingsUnknown={bookingsUnknown}
         error={togglePaid.isError ? errorText(togglePaid.error) : null}
       />
 
@@ -116,7 +122,10 @@ export function usePaidFlow(
           <AlertDialogHeader>
             <AlertDialogTitle>{t('plan.untickTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {confirming && (
+              {confirming &&
+                !autoBookedOf(confirming) &&
+                t('plan.untickTextUnknown')}
+              {confirming && autoBookedOf(confirming) && (
                 <Trans
                   i18nKey="plan.untickText"
                   values={{
