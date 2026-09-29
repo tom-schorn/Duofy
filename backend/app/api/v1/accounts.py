@@ -421,13 +421,13 @@ async def create_account(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> AccountRead:
-    """Create an account — your own, or that of a member who granted `edit`.
+    """Create an account — your own, or that of a member who granted `create`.
 
     Helping somebody set Duofy up starts here: without their accounts there is
     nothing to book on.
     """
     owner_id = owner or user.id
-    await require_level(session, owner_id, user, Area.ACCOUNTS, AccessLevel.EDIT)
+    await require_level(session, owner_id, user, Area.ACCOUNTS, AccessLevel.CREATE)
 
     if payload.is_default:
         await _clear_other_defaults(session, owner_id)
