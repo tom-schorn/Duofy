@@ -28,7 +28,7 @@ const household = {
       firstName: 'Max',
       lastName: 'Test',
       email: 'max@example.org',
-      role: 'owner',
+      role: 'admin',
       grantsToMe: { plan: 'none', book: 'none', accounts: 'none', commitments: 'none', import: 'none' },
       myGrants: { plan: 'none', book: 'none', accounts: 'none', commitments: 'none', import: 'none' },
     },

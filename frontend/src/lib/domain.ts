@@ -842,7 +842,7 @@ export type ImportSummary = {
   unknownIban: string | null
 }
 
-export type Role = 'owner' | 'member'
+export type Role = 'admin' | 'member'
 
 /**
  * What one person allows one other person to do with their data, per area.

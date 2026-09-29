@@ -55,7 +55,7 @@ async def test_leaving_gives_the_leaver_a_new_household_of_their_own(
     assert response.status_code == 204
     [membership] = await memberships_of(session, helper_id)
     assert membership.household_id != household_id
-    assert membership.role is Role.OWNER
+    assert membership.role is Role.ADMIN
     own = await session.get(Household, membership.household_id)
     assert own.name == "Haushalt von Helper"
 
@@ -133,14 +133,14 @@ async def test_the_only_owner_cannot_leave_and_stays_a_member(
             HouseholdMember.user_id == owner.id,
         )
     )
-    member.role = Role.OWNER
+    member.role = Role.ADMIN
     await session.commit()
     sign_in(owner)
 
     response = await client.delete(f"/api/v1/households/{household_id}/members/me")
 
     assert response.status_code == 409
-    assert response.json()["detail"]["code"] == "last_owner_cannot_leave"
+    assert response.json()["detail"]["code"] == "last_admin_cannot_leave"
     [membership] = await memberships_of(session, owner_id)
     assert membership.household_id == household_id
 

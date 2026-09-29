@@ -69,7 +69,7 @@ async def test_registering_gives_the_new_person_a_household_of_their_own(
 
     session.expire_all()
     [membership] = (await session.scalars(select(HouseholdMember))).all()
-    assert membership.role is Role.OWNER
+    assert membership.role is Role.ADMIN
     household = await session.get(Household, membership.household_id)
     assert household.name.startswith("Haushalt von ")
 

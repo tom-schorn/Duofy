@@ -169,14 +169,14 @@ async def load_position(
     return position, plan
 
 
-async def is_household_owner(
+async def is_household_admin(
     session: AsyncSession, user_id: uuid.UUID, household_id: uuid.UUID
 ) -> bool:
     result = await session.execute(
         select(HouseholdMember.id).where(
             HouseholdMember.user_id == user_id,
             HouseholdMember.household_id == household_id,
-            HouseholdMember.role == Role.OWNER,
+            HouseholdMember.role == Role.ADMIN,
         )
     )
     return result.scalar_one_or_none() is not None

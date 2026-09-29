@@ -7,7 +7,7 @@
     "REGISTER_INVALID_PASSWORD": "Das Passwort erfüllt die Anforderungen nicht.",
     "not_allowed": "Dazu fehlt dir die Berechtigung.",
     "not_commitment_owner": "Dieser Vertrag gehört jemand anderem.",
-    "not_household_owner": "Das darf nur der Besitzer des Haushalts.",
+    "not_household_admin": "Das dürfen nur Admins des Haushalts.",
     "not_household_member": "Du bist kein Mitglied dieses Haushalts.",
     "household_not_empty": "In deinem Haushalt sind noch andere Personen. Die anderen Personen müssen den Haushalt zuerst selbst verlassen, dann kannst du der Einladung folgen.",
     "not_a_member": "Du bist kein Mitglied dieses Haushalts.",
@@ -24,7 +24,7 @@
     "commitment_not_found": "Der Vertrag existiert nicht mehr.",
     "position_not_found": "Der Posten existiert nicht mehr.",
     "household_not_found": "Der Haushalt existiert nicht mehr.",
-    "last_owner_cannot_leave": "Du bist der letzte Besitzer — übergib den Haushalt, bevor du austrittst.",
+    "last_admin_cannot_leave": "Du bist der letzte Admin — mach erst jemand anderen zum Admin, bevor du austrittst.",
     "last_admin": "Du bist die letzte Person, die diese Instanz verwaltet — das Konto lässt sich nicht löschen, solange niemand sonst das kann. Wer die Instanz selbst hostet, ändert das über ADMIN_EMAIL in der Konfiguration.",
     "already_a_member": "Diese Person ist schon im Haushalt.",
     "registration_closed": "Auf dieser Duofy-Instanz kann man sich gerade nicht registrieren.",
@@ -839,7 +839,7 @@
   },
   "household": {
     "roles": {
-      "owner": "Besitzer",
+      "admin": "Admin",
       "member": "Mitglied"
     },
     "memberCount": "{{number}} Mitglieder",

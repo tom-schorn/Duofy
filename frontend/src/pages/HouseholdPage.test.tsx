@@ -19,7 +19,7 @@ const household = {
       firstName: 'Ida',
       lastName: 'Test',
       email: 'ida@example.org',
-      role: 'owner',
+      role: 'admin',
       grantsToMe: {
         plan: 'view',
         book: 'none',
@@ -77,7 +77,7 @@ describe('HouseholdPage', () => {
       const path = String(url)
       if (init?.method === 'DELETE') {
         if (deleteStatus !== 204) {
-          return new Response(JSON.stringify({ detail: { code: 'last_owner_cannot_leave' } }), {
+          return new Response(JSON.stringify({ detail: { code: 'last_admin_cannot_leave' } }), {
             status: deleteStatus,
           })
         }
@@ -143,7 +143,7 @@ describe('HouseholdPage', () => {
     renderPage()
     await user.click(await leaveButton())
     const dialog = screen.getByRole('alertdialog')
-    expect(within(dialog).getByText(i18n.t('errors.last_owner_cannot_leave'))).toBeInTheDocument()
+    expect(within(dialog).getByText(i18n.t('errors.last_admin_cannot_leave'))).toBeInTheDocument()
     expect(within(dialog).queryByRole('button', { name: i18n.t('household.leave') })).not.toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: i18n.t('common.cancel') })).toBeInTheDocument()
   })
@@ -157,10 +157,10 @@ describe('HouseholdPage', () => {
     await user.click(within(dialog).getByRole('button', { name: i18n.t('household.leave') }))
     await waitFor(() =>
       expect(within(dialog).getByRole('alert')).toHaveTextContent(
-        i18n.t('errors.last_owner_cannot_leave')
+        i18n.t('errors.last_admin_cannot_leave')
       )
     )
     expect(screen.getByRole('alertdialog')).toBeInTheDocument()
-    expect(screen.getAllByText(i18n.t('errors.last_owner_cannot_leave'))).toHaveLength(1)
+    expect(screen.getAllByText(i18n.t('errors.last_admin_cannot_leave'))).toHaveLength(1)
   })
 })
