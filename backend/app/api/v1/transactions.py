@@ -20,15 +20,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import current_active_user
 from app.core.permissions import (
     Area,
-    granted_level,
     household_member_ids,
     is_member,
+    load_owned,
+    load_position,
     require,
+    require_level,
 )
 from app.db.session import get_session
 from app.models.account import Account
 from app.models.enums import AccessLevel, TransactionKind
-from app.models.plan import Plan, PlanPosition
+from app.models.plan import PlanPosition
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.schemas.transaction import (
@@ -44,32 +46,6 @@ ZERO = Decimal("0.00")
 
 #: Cannot be cleared on a change.
 NOT_NULLABLE = ("account_id", "occurred_on", "amount")
-
-
-async def _may_book_for(
-    session: AsyncSession,
-    booking_owner: uuid.UUID,
-    user: User,
-    *,
-    needs: AccessLevel = AccessLevel.EDIT,
-) -> None:
-    """May `user` act on bookings of `booking_owner`?
-
-    Your own always. Somebody else from the level the owner granted. This puts
-    bookings under the same rule as positions — the two used to disagree: a
-    delegate could **tick off** a position, which creates a booking on the other
-    account, but could not book directly.
-
-    `needs` separates changing from deleting: a wrong booking can be corrected,
-    a deleted one leaves a gap in a balance that nothing explains.
-    """
-    if booking_owner == user.id:
-        return
-    level = await granted_level(session, booking_owner, user.id, Area.ACCOUNTS)
-    require(
-        level.rank >= needs.rank,
-        "no_delete_granted" if needs is AccessLevel.DELETE else "no_edit_granted",
-    )
 
 
 async def _require_free_month(
@@ -96,10 +72,9 @@ async def _account_owner(
     session: AsyncSession, account_id: uuid.UUID, user: User
 ) -> uuid.UUID:
     """Who owns the account — and whether `user` may book on it."""
-    account = await session.get(Account, account_id)
-    if account is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "account_not_found"})
-    await _may_book_for(session, account.owner_id, user)
+    account = await load_owned(
+        session, Account, account_id, user, Area.ACCOUNTS, not_found="account_not_found"
+    )
     return account.owner_id
 
 
@@ -108,17 +83,12 @@ async def _position_owner(
 ) -> uuid.UUID:
     """A position belongs to the owner of its plan, shared ones included.
 
-    Without this check, bookings could be attached to other people positions and
-    change their actual amounts.
+    Booking onto it is a question of the accounts, not the plan: bookings are under
+    the same rule as ticking a position off, which creates a booking in the owner's
+    book. Without this check, bookings could be attached to other people positions
+    and change their actual amounts.
     """
-    position = await session.get(PlanPosition, position_id)
-    if position is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "position_not_found"})
-
-    plan = await session.get(Plan, position.plan_id)
-    if plan is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "plan_not_found"})
-    await _may_book_for(session, plan.user_id, user)
+    _, plan = await load_position(session, position_id, user, Area.ACCOUNTS)
     return plan.user_id
 
 
@@ -151,11 +121,21 @@ async def _load(
     *,
     needs: AccessLevel = AccessLevel.EDIT,
 ) -> Transaction:
-    transaction = await session.get(Transaction, transaction_id)
-    if transaction is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "transaction_not_found"})
-    await _may_book_for(session, transaction.owner_id, user, needs=needs)
-    return transaction
+    """A booking the user may act on: their own always, somebody else's from the
+    level the owner granted in `Area.ACCOUNTS`.
+
+    `needs` separates changing from deleting: a wrong booking can be corrected,
+    a deleted one leaves a gap in a balance that nothing explains.
+    """
+    return await load_owned(
+        session,
+        Transaction,
+        transaction_id,
+        user,
+        Area.ACCOUNTS,
+        needs,
+        not_found="transaction_not_found",
+    )
 
 
 async def _check_carry_over_change(
@@ -223,8 +203,7 @@ async def list_transactions(
         require(await is_member(session, user.id, household), "not_household_member")
         owner_ids = await household_member_ids(session, household)
     elif owner is not None and owner != user.id:
-        level = await granted_level(session, owner, user.id, Area.ACCOUNTS)
-        require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
+        await require_level(session, owner, user, Area.ACCOUNTS, AccessLevel.VIEW)
         owner_ids = [owner]
     else:
         owner_ids = [user.id]

@@ -21,9 +21,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import current_active_user
 from app.core.permissions import (
     Area,
-    granted_level,
     is_member,
+    load_owned,
     require,
+    require_level,
     viewable_members,
 )
 from app.db.session import get_session
@@ -71,27 +72,12 @@ async def _load(
     *,
     needs: AccessLevel = AccessLevel.EDIT,
 ) -> Account:
-    """An account the user may act on.
-
-    Their own always, somebody else's from the level the owner granted in
-    `Area.ACCOUNTS`. Until now this checked ownership alone, which made the
-    accounts the one thing a delegate could not touch — while `transactions.py`
-    happily let them book on that same account. `needs` separates changing from
-    deleting.
-    """
-    account = await session.get(Account, account_id)
-    if account is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "account_not_found"})
-
-    if account.owner_id == user.id:
-        return account
-
-    level = await granted_level(session, account.owner_id, user.id, Area.ACCOUNTS)
-    require(
-        level.rank >= needs.rank,
-        "no_delete_granted" if needs is AccessLevel.DELETE else "no_edit_granted",
+    """An account the user may act on: their own always, somebody else's from the
+    level the owner granted in `Area.ACCOUNTS`. `needs` separates seeing, changing
+    and deleting."""
+    return await load_owned(
+        session, Account, account_id, user, Area.ACCOUNTS, needs, not_found="account_not_found"
     )
-    return account
 
 
 async def _scope(
@@ -123,8 +109,7 @@ async def _target_owner(
     if owner is None or owner == user.id:
         return user.id
 
-    level = await granted_level(session, owner, user.id, Area.ACCOUNTS)
-    require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
+    await require_level(session, owner, user, Area.ACCOUNTS, AccessLevel.VIEW)
     return owner
 
 
@@ -417,12 +402,7 @@ async def carry_over_suggestion(
     its own: somebody who does not track will find it differs from the bank, and
     types in the statement balance instead.
     """
-    account = await session.get(Account, account_id)
-    if account is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "account_not_found"})
-    if account.owner_id != user.id:
-        level = await granted_level(session, account.owner_id, user.id, Area.ACCOUNTS)
-        require(level.rank >= AccessLevel.VIEW.rank, "no_insight_granted")
+    account = await _load(session, account_id, user, needs=AccessLevel.VIEW)
 
     first = date(year, month, 1)
     before = and_(
@@ -463,9 +443,7 @@ async def create_account(
     nothing to book on.
     """
     owner_id = owner or user.id
-    if owner_id != user.id:
-        level = await granted_level(session, owner_id, user.id, Area.ACCOUNTS)
-        require(level.rank >= AccessLevel.EDIT.rank, "no_edit_granted")
+    await require_level(session, owner_id, user, Area.ACCOUNTS, AccessLevel.EDIT)
 
     if payload.is_default:
         await _clear_other_defaults(session, owner_id)
