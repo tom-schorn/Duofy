@@ -101,8 +101,12 @@ async def granted_level(
     return max(stufen, key=lambda s: s.rank) if stufen else AccessLevel.PLAN
 
 
-#: Which code a refusal carries, by the level that was missing.
+#: Which code a refusal carries, by the level that was missing. Every level has
+#: an entry — even `plan`, though the check itself never fires below it: Python
+#: evaluates the lookup before `require` looks at the condition, and a missing
+#: entry would turn any `needs=plan` call into a 500 the moment one is added.
 _REFUSAL = {
+    AccessLevel.PLAN: "no_insight_granted",
     AccessLevel.VIEW: "no_insight_granted",
     AccessLevel.EDIT: "no_edit_granted",
     AccessLevel.DELETE: "no_delete_granted",

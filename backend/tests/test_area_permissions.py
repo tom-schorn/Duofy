@@ -14,7 +14,7 @@ from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.permissions import Area, granted_level
+from app.core.permissions import Area, granted_level, require_level
 from app.models.enums import AccessLevel, Role
 from app.models.household import Household, HouseholdMember
 from app.models.user import User
@@ -109,3 +109,22 @@ async def test_no_restriction_towards_yourself(session: AsyncSession) -> None:
 
     for area in Area:
         assert await granted_level(session, owner.id, owner.id, area) is AccessLevel.EDIT
+
+
+async def test_require_level_plan_does_not_crash(session: AsyncSession) -> None:
+    """`require_level` looks the refusal code up eagerly, so every level needs one.
+
+    A missing entry would raise `KeyError` before `require` ever looks at the
+    condition and turn the refusal into a 500. `plan` is the level that has no
+    call site today — the very reason a missing entry stays unseen until it
+    hits production.
+    """
+    owner = await make_user(session, "Owner")
+    viewer = await make_user(session, "Viewer")
+    household = await make_household(session, "WG")
+    await add_member(session, household, owner)
+    await add_member(session, household, viewer)
+
+    # `plan` is the lowest level: every viewer already meets it, so no refusal
+    # is raised. The point is that the lookup itself does not blow up.
+    await require_level(session, owner.id, viewer, Area.PLAN, AccessLevel.PLAN)
