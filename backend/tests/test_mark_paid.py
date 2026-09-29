@@ -349,19 +349,22 @@ async def test_mark_paid_on_a_position_with_bookings_ticks_without_a_new_booking
     assert position.paid_at is not None
 
 
-async def test_stand_in_with_edit_books_the_chosen_date_and_amount_for_the_owner(
+async def test_stand_in_with_book_create_books_the_chosen_date_and_amount_for_the_owner(
     client: AsyncClient, session: AsyncSession
 ):
     """#251: the tick dialog sends date and amount for a member's position too. The
-    booking lands with the owner, on the owner's account, not with the one ticking."""
+    booking lands with the owner, on the owner's account, not with the one ticking.
+    Ticking asks for `book: create` (decision 61)."""
+    from app.core.permissions import Area
     from app.models.enums import AccessLevel
-    from tests.test_area_permissions import add_member, make_household
+    from tests.test_area_permissions import add_member, grant_to_all, make_household
 
     owner = await make_user(session, "Owner")
     helper = await make_user(session, "Helper")
     household = await make_household(session, "Home")
-    await add_member(session, household, owner, plan=AccessLevel.EDIT)
+    await add_member(session, household, owner)
     await add_member(session, household, helper)
+    await grant_to_all(session, household, owner, {Area.BOOK: AccessLevel.CREATE})
     giro = await make_account(session, owner, "Giro", is_default=True)
     position = await make_position(session, owner, account_id=giro.id)
     await session.commit()
@@ -384,7 +387,7 @@ async def test_stand_in_with_edit_books_the_chosen_date_and_amount_for_the_owner
     assert booking.amount == Decimal("42.00")
 
 
-async def test_household_member_without_plan_edit_cannot_tick_anothers_position(
+async def test_household_member_without_book_create_cannot_tick_anothers_position(
     client: AsyncClient, session: AsyncSession
 ):
     """#251: a view grant lets one see the position, not tick it off. The refusal

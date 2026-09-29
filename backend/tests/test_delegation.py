@@ -25,12 +25,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.auth import current_active_user
+from app.core.permissions import Area
 from app.main import app
 from app.models.commitment import Commitment
 from app.models.enums import AccessLevel, Budget, Category, CommitmentType
 from app.models.plan import Plan
 from app.models.user import User
-from tests.test_area_permissions import add_member, make_household, make_user
+from tests.test_area_permissions import add_member, grant_to_all, make_household, make_user
 
 
 def sign_in(user: User) -> None:
@@ -79,17 +80,13 @@ async def pair(session: AsyncSession):
 async def grant_area(
     session: AsyncSession, household, user: User, area: str, level: AccessLevel
 ) -> None:
-    """What `user` hands out about themselves in one area."""
-    from app.models.household import HouseholdMember
+    """What `user` hands out about themselves in one area, to everybody.
 
-    row = await session.execute(
-        select(HouseholdMember).where(
-            HouseholdMember.household_id == household.id,
-            HouseholdMember.user_id == user.id,
-        )
-    )
-    member = row.scalar_one()
-    setattr(member, f"grants_{area}", level)
+    `accounts` carries the book and the import along, the way the migration maps
+    the old accounts level; name `book` or `import` to set one of them alone.
+    """
+    areas = [Area.ACCOUNTS, Area.BOOK, Area.IMPORT] if area == "accounts" else [Area(area)]
+    await grant_to_all(session, household, user, {each: level for each in areas})
     await session.commit()
 
 
@@ -128,7 +125,7 @@ async def test_create_month_for_another_member(
     assert labels == {"Owner contract"}
 
 
-async def test_create_month_for_another_member_needs_edit(
+async def test_create_month_for_another_member_needs_create(
     client: AsyncClient, session: AsyncSession, pair
 ):
     """`view` is enough to look, never enough to create."""
@@ -140,7 +137,7 @@ async def test_create_month_for_another_member_needs_edit(
         f"/api/v1/plans?owner={owner.id}", json={"year": 2026, "month": 9}
     )
     assert response.status_code == 403
-    assert response.json()["detail"]["code"] == "no_edit_granted"
+    assert response.json()["detail"]["code"] == "no_create_granted"
 
     assert (await session.execute(select(Plan))).scalars().first() is None
 
@@ -204,7 +201,7 @@ async def test_add_position_to_another_members_month(
     assert [position.label for position in plan.positions] == ["Added by the helper"]
 
 
-async def test_add_position_to_another_members_month_needs_edit(
+async def test_add_position_to_another_members_month_needs_create(
     client: AsyncClient, session: AsyncSession, pair
 ):
     owner, helper, household = pair
@@ -216,7 +213,7 @@ async def test_add_position_to_another_members_month_needs_edit(
         f"/api/v1/plans/{plan.id}/positions", json=position_payload()
     )
     assert response.status_code == 403
-    assert response.json()["detail"]["code"] == "no_edit_granted"
+    assert response.json()["detail"]["code"] == "no_create_granted"
 
 
 async def test_a_stranger_gets_nothing(client: AsyncClient, session: AsyncSession, pair):
@@ -342,7 +339,7 @@ async def test_create_and_change_an_account_for_another_member(
     assert deleted.json()["detail"]["code"] == "no_delete_granted"
 
 
-async def test_create_an_account_for_another_member_needs_edit(
+async def test_create_an_account_for_another_member_needs_create(
     client: AsyncClient, session: AsyncSession, pair
 ):
     """`view` on accounts is enough to look, never enough to create one."""
@@ -356,7 +353,7 @@ async def test_create_an_account_for_another_member_needs_edit(
         f"/api/v1/accounts?owner={owner.id}", json=account_payload()
     )
     assert response.status_code == 403
-    assert response.json()["detail"]["code"] == "no_edit_granted"
+    assert response.json()["detail"]["code"] == "no_create_granted"
 
     assert (await session.execute(select(Account))).scalars().first() is None
 
@@ -386,7 +383,7 @@ async def test_create_a_commitment_for_another_member(
     assert response.json()["ownerId"] == str(owner.id)
 
 
-async def test_create_a_commitment_for_another_member_needs_edit(
+async def test_create_a_commitment_for_another_member_needs_create(
     client: AsyncClient, session: AsyncSession, pair
 ):
     """`view` on contracts is enough to look, never enough to create one."""
@@ -408,7 +405,7 @@ async def test_create_a_commitment_for_another_member_needs_edit(
         },
     )
     assert response.status_code == 403
-    assert response.json()["detail"]["code"] == "no_edit_granted"
+    assert response.json()["detail"]["code"] == "no_create_granted"
 
     rows = await session.execute(
         select(Commitment).where(Commitment.name == "Should not be created")

@@ -29,7 +29,7 @@ async def couple(session: AsyncSession) -> tuple[User, User, Household]:
     partner = await make_user(session, "Partner")
     household = await make_household(session, "Shared")
     await add_member(session, household, me)
-    await add_member(session, household, partner, accounts=AccessLevel.PLAN)
+    await add_member(session, household, partner, accounts=AccessLevel.NONE)
     await session.commit()
     sign_in(me)
     return me, partner, household

@@ -448,7 +448,7 @@ async def test_a_foreign_plan_without_the_accounts_grant_shows_no_manual_booking
     client: AsyncClient, session: AsyncSession
 ):
     ada = await foreign_flow_setup(
-        session, plan_level=AccessLevel.VIEW, accounts_level=AccessLevel.PLAN
+        session, plan_level=AccessLevel.VIEW, accounts_level=AccessLevel.NONE
     )
 
     body = await flow(client, f"/api/v1/plans/2026/9/flow?owner={ada.id}")
@@ -476,7 +476,7 @@ async def test_a_foreign_flow_without_any_plan_grant_is_refused(
     client: AsyncClient, session: AsyncSession
 ):
     ada = await foreign_flow_setup(
-        session, plan_level=AccessLevel.PLAN, accounts_level=AccessLevel.VIEW
+        session, plan_level=AccessLevel.NONE, accounts_level=AccessLevel.VIEW
     )
 
     response = await client.get(f"/api/v1/plans/2026/9/flow?owner={ada.id}")
@@ -551,7 +551,7 @@ async def test_a_foreign_carry_over_starts_the_curve_only_with_the_accounts_gran
     client: AsyncClient, session: AsyncSession
 ):
     ada = await foreign_flow_setup(
-        session, plan_level=AccessLevel.VIEW, accounts_level=AccessLevel.PLAN
+        session, plan_level=AccessLevel.VIEW, accounts_level=AccessLevel.NONE
     )
     account = (
         await session.execute(select(Account).where(Account.owner_id == ada.id))

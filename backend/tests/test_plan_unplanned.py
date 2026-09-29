@@ -15,9 +15,9 @@ from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.permissions import Area
 from app.models.account import Account
 from app.models.enums import (
     AccessLevel,
@@ -26,10 +26,10 @@ from app.models.enums import (
     Category,
     TransactionKind,
 )
-from app.models.household import HouseholdMember
 from app.models.plan import Plan, PlanPosition
 from app.models.transaction import Transaction
 from app.models.user import User
+from app.services.grants import set_levels
 from tests.test_area_permissions import add_member, make_household, make_user
 from tests.test_delegation import sign_in
 
@@ -224,14 +224,14 @@ async def test_a_month_without_bookings_reports_zeros(
     assert set((await unplanned(client)).values()) == {ZERO}
 
 
-async def test_another_persons_plan_shows_their_unplanned_only_with_the_accounts_grant(
+async def test_another_persons_plan_shows_their_unplanned_only_with_the_book_grant(
     client: AsyncClient, session: AsyncSession, owner: User
 ):
     partner = await make_user(session, "Partner")
     household = await make_household(session, "Shared")
     await add_member(session, household, owner)
-    partner_member = await add_member(
-        session, household, partner, plan=AccessLevel.VIEW, accounts=AccessLevel.PLAN
+    await add_member(
+        session, household, partner, plan=AccessLevel.VIEW, accounts=AccessLevel.NONE
     )
     account = await make_account(session, partner)
     await make_plan(session, partner)
@@ -241,11 +241,7 @@ async def test_another_persons_plan_shows_their_unplanned_only_with_the_accounts
 
     assert (await unplanned(client, url))["wants"] == ZERO
 
-    member = await session.scalar(
-        select(HouseholdMember).where(HouseholdMember.id == partner_member.id)
-    )
-    assert member is not None
-    member.grants_accounts = AccessLevel.VIEW
+    await set_levels(session, partner.id, owner.id, {Area.BOOK: AccessLevel.VIEW})
     await session.commit()
     assert (await unplanned(client, url))["wants"] == Decimal("33.00")
 
@@ -258,7 +254,7 @@ async def test_the_household_plan_adds_up_the_unplanned_of_every_member(
     partner = await make_user(session, "Partner")
     household = await make_household(session, "Shared")
     await add_member(session, household, owner)
-    await add_member(session, household, partner, accounts=AccessLevel.PLAN)
+    await add_member(session, household, partner, accounts=AccessLevel.NONE)
     owner_account = await make_account(session, owner)
     partner_account = await make_account(session, partner)
     await make_plan(session, owner)

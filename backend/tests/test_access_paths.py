@@ -128,11 +128,11 @@ RESOURCES = {
     "transaction": (
         "transactions",
         _transaction,
-        "accounts",
+        "book",
         "transaction_not_found",
         {"note": "X"},
     ),
-    "imported_entry": ("imports", _entry, "accounts", "imported_entry_not_found", {}),
+    "imported_entry": ("imports", _entry, "import", "imported_entry_not_found", {}),
 }
 
 
@@ -169,8 +169,7 @@ async def test_a_stranger_may_neither_change_nor_delete(
     deleted = await client.delete(f"/api/v1/{path}/{thing.id}")
 
     assert (changed.status_code, _code(changed)) == (403, "no_edit_granted")
-    expected = "no_edit_granted" if kind == "imported_entry" else "no_delete_granted"
-    assert (deleted.status_code, _code(deleted)) == (403, expected)
+    assert (deleted.status_code, _code(deleted)) == (403, "no_delete_granted")
 
 
 @pytest.mark.parametrize("kind", RESOURCES)
@@ -190,7 +189,7 @@ async def test_view_is_not_enough_to_change(
 
 
 @pytest.mark.parametrize("kind", RESOURCES)
-async def test_edit_changes_but_only_the_import_entry_may_also_be_discarded(
+async def test_edit_changes_but_does_not_delete(
     client: AsyncClient, session: AsyncSession, people, kind: str
 ) -> None:
     path, make, area, _, change = RESOURCES[kind]
@@ -204,13 +203,11 @@ async def test_edit_changes_but_only_the_import_entry_may_also_be_discarded(
     deleted = await client.delete(f"/api/v1/{path}/{thing.id}")
 
     assert changed.status_code == 200, changed.json()
-    if kind == "imported_entry":
-        assert deleted.status_code == 200, deleted.json()
-    else:
-        assert (deleted.status_code, _code(deleted)) == (403, "no_delete_granted")
+    # Discarding an imported entry counts as deleting it (decision 65).
+    assert (deleted.status_code, _code(deleted)) == (403, "no_delete_granted")
 
 
-@pytest.mark.parametrize("kind", [k for k in RESOURCES if k != "imported_entry"])
+@pytest.mark.parametrize("kind", RESOURCES)
 async def test_delete_level_deletes(
     client: AsyncClient, session: AsyncSession, people, kind: str
 ) -> None:
@@ -223,7 +220,7 @@ async def test_delete_level_deletes(
 
     deleted = await client.delete(f"/api/v1/{path}/{thing.id}")
 
-    assert deleted.status_code == 204, deleted.text
+    assert deleted.status_code in (200, 204), deleted.text
 
 
 @pytest.mark.parametrize("kind", RESOURCES)
@@ -246,22 +243,46 @@ async def test_the_owner_changes_and_deletes_without_any_grant(
 # --- Ticking off a position ------------------------------------------------
 
 
-async def test_ticking_off_somebody_elses_position_needs_edit_on_the_plan(
+async def test_ticking_off_somebody_elses_position_asks_the_book_not_the_plan(
     client: AsyncClient, session: AsyncSession, people
 ) -> None:
+    """Decision 61: a tick writes into the owner's book. Even `delete` on the plan
+    does not open it; `view` on the book is not enough."""
     owner, helper, _, household = people
     position = await _position(session, owner)
     await session.commit()
-    await grant_area(session, household, owner, "plan", AccessLevel.VIEW)
+    await grant_area(session, household, owner, "plan", AccessLevel.DELETE)
+    await grant_area(session, household, owner, "book", AccessLevel.VIEW)
     sign_in(helper)
 
     ticked = await client.post(f"/api/v1/positions/{position.id}/paid", json={})
     unticked = await client.delete(f"/api/v1/positions/{position.id}/paid")
     missing = await client.post(f"/api/v1/positions/{uuid.uuid4()}/paid", json={})
 
-    assert (ticked.status_code, _code(ticked)) == (403, "no_edit_granted")
-    assert (unticked.status_code, _code(unticked)) == (403, "no_edit_granted")
+    assert (ticked.status_code, _code(ticked)) == (403, "no_create_granted")
+    assert (unticked.status_code, _code(unticked)) == (403, "no_delete_granted")
     assert (missing.status_code, _code(missing)) == (404, "position_not_found")
+
+
+async def test_book_create_ticks_but_only_book_delete_takes_the_tick_back(
+    client: AsyncClient, session: AsyncSession, people
+) -> None:
+    owner, helper, _, household = people
+    position = await _position(session, owner)
+    account = await _account(session, owner)
+    account.is_default = True
+    await session.commit()
+    await grant_area(session, household, owner, "book", AccessLevel.CREATE)
+    sign_in(helper)
+
+    ticked = await client.post(f"/api/v1/positions/{position.id}/paid", json={})
+    refused = await client.delete(f"/api/v1/positions/{position.id}/paid")
+    await grant_area(session, household, owner, "book", AccessLevel.DELETE)
+    unticked = await client.delete(f"/api/v1/positions/{position.id}/paid")
+
+    assert ticked.status_code == 200, ticked.json()
+    assert (refused.status_code, _code(refused)) == (403, "no_delete_granted")
+    assert unticked.status_code == 200, unticked.json()
 
 
 # --- Booking on what the booking points at ---------------------------------
@@ -275,7 +296,7 @@ async def test_creating_a_booking_checks_account_counter_account_and_position(
     foreign = await _account(session, owner, "Foreign")
     foreign_position = await _position(session, owner)
     await session.commit()
-    await grant_area(session, household, owner, "accounts", AccessLevel.VIEW)
+    await grant_area(session, household, owner, "book", AccessLevel.VIEW)
     sign_in(helper)
     base = {
         "occurredOn": "2026-09-01",
@@ -286,7 +307,7 @@ async def test_creating_a_booking_checks_account_counter_account_and_position(
 
     cases = [
         ({"accountId": str(uuid.uuid4())}, 404, "account_not_found"),
-        ({"accountId": str(foreign.id)}, 403, "no_edit_granted"),
+        ({"accountId": str(foreign.id)}, 403, "no_create_granted"),
         (
             {"accountId": str(own.id), "counterAccountId": str(uuid.uuid4())},
             404,
@@ -295,7 +316,7 @@ async def test_creating_a_booking_checks_account_counter_account_and_position(
         (
             {"accountId": str(own.id), "counterAccountId": str(foreign.id)},
             403,
-            "no_edit_granted",
+            "no_create_granted",
         ),
         (
             {"accountId": str(own.id), "positionId": str(uuid.uuid4())},
@@ -305,7 +326,7 @@ async def test_creating_a_booking_checks_account_counter_account_and_position(
         (
             {"accountId": str(own.id), "positionId": str(foreign_position.id)},
             403,
-            "no_edit_granted",
+            "no_create_granted",
         ),
     ]
     for extra, status_code, code in cases:
@@ -392,7 +413,7 @@ async def test_the_household_accounts_count_only_members_who_granted_insight(
 # --- Acting for somebody else without an id --------------------------------
 
 
-async def test_creating_for_somebody_else_needs_edit_in_the_matching_area(
+async def test_creating_for_somebody_else_needs_create_in_the_matching_area(
     client: AsyncClient, session: AsyncSession, people
 ) -> None:
     owner, helper, _, household = people
@@ -413,8 +434,8 @@ async def test_creating_for_somebody_else_needs_edit_in_the_matching_area(
     plan = await client.post(f"/api/v1/plans?owner={owner.id}", json={"year": 2026, "month": 9})
     deleted_plan = await client.delete(f"/api/v1/plans/2026/9?owner={owner.id}")
 
-    assert (account.status_code, _code(account)) == (403, "no_edit_granted")
-    assert (plan.status_code, _code(plan)) == (403, "no_edit_granted")
+    assert (account.status_code, _code(account)) == (403, "no_create_granted")
+    assert (plan.status_code, _code(plan)) == (403, "no_create_granted")
     assert (deleted_plan.status_code, _code(deleted_plan)) == (403, "no_delete_granted")
 
 
@@ -444,7 +465,7 @@ async def test_importing_and_reading_imports_of_somebody_else(
     client: AsyncClient, session: AsyncSession, people
 ) -> None:
     owner, helper, _, household = people
-    await grant_area(session, household, owner, "accounts", AccessLevel.VIEW)
+    await grant_area(session, household, owner, "import", AccessLevel.VIEW)
     sign_in(helper)
 
     listed = await client.get(f"/api/v1/imports?owner={owner.id}")
@@ -454,4 +475,4 @@ async def test_importing_and_reading_imports_of_somebody_else(
     )
 
     assert listed.status_code == 200
-    assert (uploaded.status_code, _code(uploaded)) == (403, "no_edit_granted")
+    assert (uploaded.status_code, _code(uploaded)) == (403, "no_create_granted")
