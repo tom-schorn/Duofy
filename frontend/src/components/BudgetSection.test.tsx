@@ -130,3 +130,36 @@ describe('BudgetSection rows', () => {
     expect(screen.queryByRole('button', { name: /schließen|ausblenden|verwerfen/i })).not.toBeInTheDocument()
   })
 })
+
+describe('BudgetSection unplanned row (#240)', () => {
+  test('shows an Ungeplant row with the sum when bookings hang on no position', () => {
+    renderSection({ unplanned: 42.5, onOpenUnplanned: vi.fn() })
+    expect(screen.getByRole('button', { name: /^Ungeplant/ })).toBeInTheDocument()
+    expect(screen.getByText(/^42,50/)).toBeInTheDocument()
+  })
+
+  test('shows no row when nothing is unplanned', () => {
+    renderSection({ unplanned: 0, onOpenUnplanned: vi.fn() })
+    expect(screen.queryByText(/Ungeplant/)).not.toBeInTheDocument()
+  })
+
+  test('a click on the row opens the book filtered to the unplanned', async () => {
+    const user = userEvent.setup()
+    const onOpenUnplanned = vi.fn()
+    renderSection({ unplanned: 42.5, onOpenUnplanned })
+    await user.click(screen.getByRole('button', { name: /^Ungeplant/ }))
+    expect(onOpenUnplanned).toHaveBeenCalledTimes(1)
+  })
+
+  test('counts against the budget: the header total includes it', () => {
+    renderSection({ unplanned: 40 })
+    // 500 planned + 40 unplanned of a 1000 target
+    expect(screen.getByText(/540,00/)).toBeInTheDocument()
+  })
+
+  test('is a plain row without a link when nobody can open the book', () => {
+    renderSection({ unplanned: 42.5 })
+    expect(screen.getByText(/^Ungeplant/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Ungeplant/ })).not.toBeInTheDocument()
+  })
+})
