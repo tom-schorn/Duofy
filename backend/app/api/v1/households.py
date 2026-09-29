@@ -219,6 +219,48 @@ async def leave_household(
     await session.commit()
 
 
+async def _member_of(
+    session: AsyncSession, household_id: uuid.UUID, user_id: uuid.UUID
+) -> HouseholdMember:
+    member = await session.scalar(
+        select(HouseholdMember).where(
+            HouseholdMember.household_id == household_id,
+            HouseholdMember.user_id == user_id,
+        )
+    )
+    if member is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "not_a_member"})
+    return member
+
+
+@router.delete("/{household_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_member(
+    household_id: uuid.UUID,
+    user_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_active_user),
+) -> None:
+    """Remove somebody from the household — admins only (decision 58).
+
+    For the removed person it is the same as leaving: they get a household of
+    their own, keep all their data, and every grant from and to them is gone.
+    Another admin may be removed too (decision 68); removing oneself is leaving.
+    """
+    require(await is_household_admin(session, user.id, household_id), "not_household_admin")
+    if user_id == user.id:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, detail={"code": "cannot_remove_self"}
+        )
+    member = await _member_of(session, household_id, user_id)
+    removed = await session.get(User, user_id)
+
+    await session.delete(member)
+    await drop_all_of(session, user_id)
+    await session.flush()
+    await create_own_household(session, removed)
+    await session.commit()
+
+
 # --- Einladungen ----------------------------------------------------------
 
 
