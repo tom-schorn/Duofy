@@ -97,6 +97,7 @@ export function SettingsPage() {
 
             <section className="flex flex-col gap-3">
               <h2 className="font-medium">{t('settings.flowTitle')}</h2>
+              <p className="text-muted-foreground text-sm">{t('settings.flowLead')}</p>
               <LimitsSwitch value={me.data.flowLimitsBy} />
             </section>
 
