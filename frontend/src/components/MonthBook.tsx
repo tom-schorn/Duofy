@@ -132,6 +132,22 @@ export function MonthBook({
         </FilterChip>
       </div>
 
+      {/* Said in words, so nobody wonders where the rest of the book went. */}
+      {filter === 'unplanned' && (
+        <p role="status" className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
+          {t('monthBook.onlyUnplanned')}
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            className="h-auto p-0"
+            onClick={() => onFilterChange('all')}
+          >
+            {t('monthBook.clearFilter')}
+          </Button>
+        </p>
+      )}
+
       <QueryState
         isPending={transactions.isPending}
         error={transactions.error}
