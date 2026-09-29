@@ -56,7 +56,7 @@ export function PlansPage() {
   // Haushalt gibt es gar kein Anlegen — der Haushaltsplan wird zusammengesetzt,
   // nie selbst erzeugt.
   const planLevel = active.levelFor('plan')
-  const mayEdit = !inHousehold && atLeast(planLevel, 'edit')
+  const mayEdit = !inHousehold && atLeast(planLevel, 'create')
   const isPlanViewOnly = !inHousehold && isViewOnly(planLevel)
   const ownPlans = usePlans(active.id, !inHousehold)
   const householdPlans = useHouseholdPlans(inHousehold ? householdId : null)

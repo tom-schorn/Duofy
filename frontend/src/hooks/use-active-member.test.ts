@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Household, Member } from '@/lib/domain'
+import { areaLevels } from '@/test/levels'
 
-import { highestLevel } from './use-active-member'
+import { grantedToMe } from './use-active-member'
 
 function member(overrides: Partial<Member>): Member {
   return {
@@ -11,9 +12,8 @@ function member(overrides: Partial<Member>): Member {
     lastName: 'Muster',
     email: 'alex@example.org',
     role: 'member',
-    grantsPlan: 'plan',
-    grantsCommitments: 'plan',
-    grantsAccounts: 'plan',
+    grantsToMe: areaLevels(),
+    myGrants: areaLevels(),
     ...overrides,
   }
 }
@@ -29,24 +29,21 @@ function household(id: string, members: Member[]): Household {
   }
 }
 
-describe('highestLevel', () => {
-  it('takes the higher grant when two households differ, like the backend', () => {
-    const households = [
-      household('flat', [member({ grantsCommitments: 'view' })]),
-      household('club', [member({ grantsCommitments: 'edit' })]),
-    ]
+describe('grantedToMe', () => {
+  it('reads what the member grants me, area by area', () => {
+    const households = [household('flat', [member({ grantsToMe: areaLevels({ plan: 'edit' }) })])]
 
-    expect(highestLevel(households, 'alex', 'commitments')).toBe('edit')
+    expect(grantedToMe(households, 'alex', 'plan')).toBe('edit')
+    expect(grantedToMe(households, 'alex', 'accounts')).toBe('none')
   })
 
-  it('keeps the areas apart', () => {
-    const households = [household('flat', [member({ grantsPlan: 'edit' })])]
+  it('ignores what I grant the member', () => {
+    const households = [household('flat', [member({ myGrants: areaLevels({ book: 'delete' }) })])]
 
-    expect(highestLevel(households, 'alex', 'plan')).toBe('edit')
-    expect(highestLevel(households, 'alex', 'accounts')).toBe('plan')
+    expect(grantedToMe(households, 'alex', 'book')).toBe('none')
   })
 
-  it('answers plan for someone who shares no household', () => {
-    expect(highestLevel([household('flat', [member({})])], 'stranger', 'plan')).toBe('plan')
+  it('answers none for someone who shares no household', () => {
+    expect(grantedToMe([household('flat', [member({})])], 'stranger', 'plan')).toBe('none')
   })
 })

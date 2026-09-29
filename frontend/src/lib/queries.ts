@@ -12,9 +12,8 @@ import { reportMutationError, showsErrorInline } from '@/lib/mutation-error'
 import { OWN_SCOPE, euro, monthLabel, scopeKey, scopeQuery, type QuotaValues } from '@/lib/domain'
 import { announce, deleteWithUndo } from '@/lib/undo-delete'
 import type {
-  AccessLevel,
   Account,
-  AreaField,
+  AreaLevels,
   BookScope,
   Category,
   Commitment,
@@ -186,15 +185,21 @@ export function useLeaveHousehold() {
 }
 
 /**
- * Change your own access levels in a household.
+ * Set what the other members may do with your data, the same for each of them.
  *
- * Your own only, hence no member in the call. One area at a time: the endpoint
- * leaves out what the call does not mention, so the other two keep their level.
- * Afterwards what the others see changes, so everything shared is reloaded.
+ * The server keeps a level per person (`PUT /grants/{grantee}`); this card still
+ * offers one level for everybody, so the call goes out once per other member.
+ * Only the areas given change. Afterwards what the others see changes, so
+ * everything shared is reloaded.
  */
-export function useSetMyAccess(householdId: string) {
-  return useInvalidating<Member, Partial<Record<AreaField, AccessLevel>>>(
-    (grants) => api.patch(`/households/${householdId}/members/me`, grants),
+export function useSetMyAccess(householdId: string, granteeIds: string[]) {
+  return useInvalidating<Member[], Partial<AreaLevels>>(
+    (levels) =>
+      Promise.all(
+        granteeIds.map((granteeId) =>
+          api.put<Member>(`/households/${householdId}/grants/${granteeId}`, levels)
+        )
+      ),
     [keys.households, keys.plans, keys.accounts, keys.commitments],
     'toast.grantUpdated',
     INLINE_ERROR

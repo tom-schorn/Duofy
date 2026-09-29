@@ -11,12 +11,14 @@ import type { PlanPosition } from '@/lib/domain'
 export type PlanRights = {
   /** Add a position to this plan. */
   addPosition: boolean
-  /** Add a booking: the accounts grant reaches `edit`. */
+  /** Add a booking: the book grant reaches `create`. */
   addBooking: boolean
   /** Delete the whole month. */
   deleteMonth: boolean
-  /** Change, tick off and open a position for editing. */
+  /** Change a position in its dialog. */
   editPosition: (position: PlanPosition) => boolean
+  /** Tick a position off or take the tick back: a booking in the owner's book. */
+  tickPosition: (position: PlanPosition) => boolean
   /** Delete a position. */
   deletePosition: (position: PlanPosition) => boolean
 }
@@ -27,6 +29,7 @@ export const OWN_RIGHTS: PlanRights = {
   addBooking: true,
   deleteMonth: true,
   editPosition: () => true,
+  tickPosition: () => true,
   deletePosition: () => true,
 }
 

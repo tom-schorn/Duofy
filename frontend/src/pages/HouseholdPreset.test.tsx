@@ -19,18 +19,26 @@ const household = {
       firstName: 'Ida',
       lastName: 'Test',
       email: 'ida@example.org',
+      role: 'member',
+      grantsToMe: { plan: 'none', book: 'none', accounts: 'none', commitments: 'none', import: 'none' },
+      myGrants: { plan: 'none', book: 'none', accounts: 'none', commitments: 'none', import: 'none' },
+    },
+    {
+      userId: 'u2',
+      firstName: 'Max',
+      lastName: 'Test',
+      email: 'max@example.org',
       role: 'owner',
-      grantsPlan: 'plan',
-      grantsCommitments: 'plan',
-      grantsAccounts: 'plan',
+      grantsToMe: { plan: 'none', book: 'none', accounts: 'none', commitments: 'none', import: 'none' },
+      myGrants: { plan: 'none', book: 'none', accounts: 'none', commitments: 'none', import: 'none' },
     },
   ],
 }
 
 let fetchMock: ReturnType<typeof vi.fn>
 
-const patchCalls = () =>
-  fetchMock.mock.calls.filter(([, init]) => init?.method === 'PATCH')
+const grantCalls = () =>
+  fetchMock.mock.calls.filter(([, init]) => init?.method === 'PUT')
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -49,7 +57,7 @@ describe('sharing preset after joining', () => {
       if (init?.method === 'POST' && path.endsWith('/accept')) {
         return new Response(JSON.stringify(household), { status: 200 })
       }
-      if (init?.method === 'PATCH') return new Response(JSON.stringify({}), { status: 200 })
+      if (init?.method === 'PUT') return new Response(JSON.stringify({}), { status: 200 })
       if (path.endsWith('/users/me')) {
         return new Response(JSON.stringify({ id: 'u1', firstName: 'Ida' }), { status: 200 })
       }
@@ -81,13 +89,16 @@ describe('sharing preset after joining', () => {
     await user.click(await screen.findByRole('button', { name: i18n.t('household.join') }))
     await user.click(await screen.findByRole('button', { name: i18n.t('household.presetApply') }))
 
-    await waitFor(() => expect(patchCalls()).toHaveLength(1))
-    const [url, init] = patchCalls()[0]
-    expect(String(url)).toMatch(/\/households\/h1\/members\/me$/)
+    // One call per other member, granting from me — never for somebody else.
+    await waitFor(() => expect(grantCalls()).toHaveLength(1))
+    const [url, init] = grantCalls()[0]
+    expect(String(url)).toMatch(/\/households\/h1\/grants\/u2$/)
     expect(JSON.parse(init.body as string)).toEqual({
-      grantsPlan: 'edit',
-      grantsCommitments: 'edit',
-      grantsAccounts: 'edit',
+      plan: 'edit',
+      book: 'edit',
+      accounts: 'edit',
+      commitments: 'edit',
+      import: 'edit',
     })
   })
 
@@ -98,6 +109,6 @@ describe('sharing preset after joining', () => {
     await screen.findByRole('button', { name: i18n.t('household.presetApply') })
     await user.click(screen.getByRole('button', { name: i18n.t('common.cancel') }))
 
-    expect(patchCalls()).toHaveLength(0)
+    expect(grantCalls()).toHaveLength(0)
   })
 })

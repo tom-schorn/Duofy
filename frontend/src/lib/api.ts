@@ -202,6 +202,9 @@ export const api = {
   patch: <T>(path: string, body: unknown) =>
     request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
 
+  put: <T>(path: string, body: unknown) =>
+    request<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
+
   /** `keepalive` lets the request outlive the page (a delete held back by undo). */
   delete: <T>(path: string, { keepalive = false }: { keepalive?: boolean } = {}) =>
     request<T>(path, { method: 'DELETE', keepalive }),
