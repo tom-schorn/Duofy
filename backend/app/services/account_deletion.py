@@ -40,7 +40,7 @@ async def delete_own_account(session: AsyncSession, user: User) -> None:
 
     owned = await session.scalars(
         select(HouseholdMember).where(
-            HouseholdMember.user_id == user.id, HouseholdMember.role == Role.OWNER
+            HouseholdMember.user_id == user.id, HouseholdMember.role == Role.ADMIN
         )
     )
     for membership in owned:
@@ -54,7 +54,7 @@ async def delete_own_account(session: AsyncSession, user: User) -> None:
             .limit(1)
         )
         if successor is not None:
-            successor.role = Role.OWNER
+            successor.role = Role.ADMIN
         else:
             household = await session.get(Household, membership.household_id)
             if household is not None:

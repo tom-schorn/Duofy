@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.auth import current_active_user
-from app.core.permissions import is_household_owner, is_member, require
+from app.core.permissions import is_household_admin, is_member, require
 from app.db.session import get_session
 from app.models.enums import AccessLevel, Area, InvitationStatus, Role
 from app.models.household import Household, HouseholdInvitation, HouseholdMember
@@ -44,6 +44,15 @@ async def _load(session: AsyncSession, household_id: uuid.UUID) -> Household:
     if household is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "household_not_found"})
     return household
+
+
+async def _admin_count(session: AsyncSession, household_id: uuid.UUID) -> int:
+    """How many admins a household has. At least one must always stay (decision 68)."""
+    return await session.scalar(
+        select(func.count())
+        .select_from(HouseholdMember)
+        .where(HouseholdMember.household_id == household_id, HouseholdMember.role == Role.ADMIN)
+    )
 
 
 async def _to_read(
@@ -127,7 +136,7 @@ async def update_household(
     household = await _load(session, household_id)
     changes = payload.model_dump(exclude_unset=True)
     if "name" in changes:
-        require(await is_household_owner(session, user.id, household_id), "not_household_owner")
+        require(await is_household_admin(session, user.id, household_id), "not_household_admin")
     else:
         require(await is_member(session, user.id, household_id), "not_household_member")
 
@@ -203,18 +212,9 @@ async def leave_household(
     if member is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "not_a_member"})
 
-    # The last owner may not leave — the household would be orphaned.
-    if member.role is Role.OWNER:
-        owners = await session.execute(
-            select(HouseholdMember).where(
-                HouseholdMember.household_id == household_id,
-                HouseholdMember.role == Role.OWNER,
-            )
-        )
-        if len(owners.scalars().all()) == 1:
-            raise HTTPException(
-                status.HTTP_409_CONFLICT, detail={"code": "last_owner_cannot_leave"}
-            )
+    # The last admin may not leave — nobody could invite or remove anymore.
+    if member.role is Role.ADMIN and await _admin_count(session, household_id) == 1:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail={"code": "last_admin_cannot_leave"})
 
     await session.delete(member)
     await drop_all_of(session, user.id)
@@ -265,7 +265,7 @@ async def invite(
     link can be passed on by hand.
     """
     await _load(session, household_id)
-    require(await is_household_owner(session, user.id, household_id), "not_household_owner")
+    require(await is_household_admin(session, user.id, household_id), "not_household_admin")
 
     email = payload.email.lower()
 
@@ -308,7 +308,7 @@ async def revoke_invitation(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> None:
-    require(await is_household_owner(session, user.id, household_id), "not_household_owner")
+    require(await is_household_admin(session, user.id, household_id), "not_household_admin")
 
     invitation = await session.get(HouseholdInvitation, invitation_id)
     if invitation is None or invitation.household_id != household_id:

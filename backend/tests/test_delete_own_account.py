@@ -29,7 +29,7 @@ from tests.test_refresh_tokens import PASSWORD, register_and_login
 
 async def make_owned_household(session: AsyncSession, owner: User, partner: User) -> Household:
     household = await make_household(session, "Shared")
-    session.add(HouseholdMember(household_id=household.id, user_id=owner.id, role=Role.OWNER))
+    session.add(HouseholdMember(household_id=household.id, user_id=owner.id, role=Role.ADMIN))
     session.add(HouseholdMember(household_id=household.id, user_id=partner.id, role=Role.MEMBER))
     await session.flush()
     return household
@@ -154,7 +154,7 @@ async def test_deletes_everything_and_hands_household_ownership_to_the_partner(
         )
     )
     assert partner_membership is not None
-    assert partner_membership.role is Role.OWNER
+    assert partner_membership.role is Role.ADMIN
     assert await session.get(Household, household_id) is not None
 
     # The partner's own position is untouched, but the household plan the partner
@@ -183,7 +183,7 @@ async def test_deletes_a_household_left_with_no_members(
 ) -> None:
     owner = await make_user(session, "Solo")
     household = await make_household(session, "Alone")
-    session.add(HouseholdMember(household_id=household.id, user_id=owner.id, role=Role.OWNER))
+    session.add(HouseholdMember(household_id=household.id, user_id=owner.id, role=Role.ADMIN))
     await session.commit()
     household_id = household.id
     sign_in(owner)

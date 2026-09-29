@@ -131,7 +131,7 @@ async def test_any_member_sets_the_household_quota_but_only_the_owner_renames(
             HouseholdMember.household_id == household.id, HouseholdMember.user_id == owner.id
         )
     )
-    row.role = Role.OWNER
+    row.role = Role.ADMIN
     await session.commit()
     sign_in(member)
 
@@ -141,7 +141,7 @@ async def test_any_member_sets_the_household_quota_but_only_the_owner_renames(
 
     renamed = await client.patch(f"/api/v1/households/{household.id}", json={"name": "New"})
     assert renamed.status_code == 403
-    assert renamed.json()["detail"] == {"code": "not_household_owner"}
+    assert renamed.json()["detail"] == {"code": "not_household_admin"}
 
 
 async def test_more_than_two_decimals_are_rejected_not_a_server_error(

@@ -68,7 +68,7 @@ import { shortDate } from '@/lib/dates'
 
 /** Catalog keys of the roles. */
 const ROLE_LABEL: Record<Role, string> = {
-  owner: 'household.roles.owner',
+  admin: 'household.roles.admin',
   member: 'household.roles.member',
 }
 
@@ -113,10 +113,10 @@ export function HouseholdPage() {
               household={household}
               onInvite={() => setInvitingTo(household)}
               onLeft={() => heading.current?.focus()}
-              isLastOwner={
-                household.members.filter((member) => member.role === 'owner').length === 1 &&
+              isLastAdmin={
+                household.members.filter((member) => member.role === 'admin').length === 1 &&
                 household.members.some(
-                  (member) => member.role === 'owner' && member.userId === currentUserId
+                  (member) => member.role === 'admin' && member.userId === currentUserId
                 )
               }
             />
@@ -151,7 +151,7 @@ export function HouseholdPage() {
                     </span>
 
                     <Badge
-                      variant={member.role === 'owner' ? 'secondary' : 'outline'}
+                      variant={member.role === 'admin' ? 'secondary' : 'outline'}
                       className="ml-auto font-normal"
                     >
                       {t(ROLE_LABEL[member.role])}
@@ -200,13 +200,13 @@ function HouseholdHeader({
   household,
   onInvite,
   onLeft,
-  isLastOwner,
+  isLastAdmin,
 }: {
   household: Household
   onInvite: () => void
   onLeft: () => void
-  /** The only owner cannot leave; the dialog says so instead of offering it. */
-  isLastOwner: boolean
+  /** The only admin cannot leave; the dialog says so instead of offering it. */
+  isLastAdmin: boolean
 }) {
   const leave = useLeaveHousehold()
   const update = useUpdateHousehold()
@@ -289,13 +289,13 @@ function HouseholdHeader({
                 {t('household.leaveTitle', { name: household.name })}
               </AlertDialogTitle>
               <AlertDialogDescription>
-                {isLastOwner ? t('errors.last_owner_cannot_leave') : t('household.leaveText')}
+                {isLastAdmin ? t('errors.last_admin_cannot_leave') : t('household.leaveText')}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               {/* Focus starts on the safe button (rule 13). */}
               <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-              {!isLastOwner && (
+              {!isLastAdmin && (
               <AlertDialogAction
                 disabled={leave.isPending}
                 onClick={(event) => {

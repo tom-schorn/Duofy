@@ -17,10 +17,10 @@ def household_name_for(user: User) -> str:
 
 
 async def create_own_household(session: AsyncSession, user: User) -> Household:
-    """A household with `user` as its only member and owner. Flushes, does not commit,
+    """A household with `user` as its only member and admin. Flushes, does not commit,
     so the caller decides what else belongs in the same transaction."""
     household = Household(name=household_name_for(user))
-    household.members.append(HouseholdMember(user_id=user.id, role=Role.OWNER))
+    household.members.append(HouseholdMember(user_id=user.id, role=Role.ADMIN))
     session.add(household)
     await session.flush()
     return household
