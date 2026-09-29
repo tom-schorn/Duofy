@@ -200,20 +200,19 @@ async def _load_plan(
     session: AsyncSession,
     plan_id: uuid.UUID,
     user: User,
+    needs: AccessLevel = AccessLevel.EDIT,
 ) -> Plan:
     """A month, either your own or one you stand in for.
 
-    Same ladder as `positions.py::_load`: your own always, somebody else only at
-    level `edit` in `Area.PLAN`, and only the owner can grant that. Standing in
-    for someone means being able to do the same things they can — a delegate who
-    may correct a position but not add one would be stuck the moment something
-    is missing, which is the usual reason for helping in the first place.
+    Same ladder as `positions.py::_load`: your own always, somebody else at the
+    level in `Area.PLAN` the owner granted — `create` to add a position, `edit`
+    to change the month itself.
     """
     plan = await session.get(Plan, plan_id, options=[selectinload(Plan.positions)])
     if plan is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "plan_not_found"})
 
-    await require_level(session, plan.user_id, user, Area.PLAN, AccessLevel.EDIT)
+    await require_level(session, plan.user_id, user, Area.PLAN, needs)
     return plan
 
 
@@ -351,13 +350,13 @@ async def create_plan(
     commitments, one-off items are entered by hand.
 
     Without `owner` your own month, with `owner` that of a person who granted
-    `edit` in `Area.PLAN`. **Everything is read from the owner**, not from
+    `create` in `Area.PLAN`. **Everything is read from the owner**, not from
     whoever is calling: the plan, the commitments it grows from, the check for a
     month that already exists. Taking the caller for any one of those would
     quietly build the wrong person a month out of the wrong contracts.
     """
     owner_id = owner or user.id
-    await require_level(session, owner_id, user, Area.PLAN, AccessLevel.EDIT)
+    await require_level(session, owner_id, user, Area.PLAN, AccessLevel.CREATE)
 
     existing = await session.execute(
         select(Plan).where(
@@ -512,7 +511,7 @@ async def create_position(
     Anything recurring belongs to the commitments — they generate their own
     positions. Editing and deleting run through `/positions/{id}`.
     """
-    plan = await _load_plan(session, plan_id, user)
+    plan = await _load_plan(session, plan_id, user, AccessLevel.CREATE)
     position = PlanPosition(plan_id=plan.id, **payload.model_dump())
     session.add(position)
     await session.commit()
@@ -697,9 +696,11 @@ async def get_flow(
     owner: it is a question of the view, so whoever looks decides.
     """
     owner_id = owner or user.id
-    # Manual bookings and the account name belong to the accounts area, not to the
-    # plan: for somebody else's plan they need their own grant.
+    # Manual bookings belong to the book, the account name and its start balance
+    # to the accounts, not to the plan: for somebody else's plan each needs its
+    # own grant.
     await require_level(session, owner_id, user, Area.PLAN, AccessLevel.VIEW)
+    sees_book = await may_see(session, owner_id, user, Area.BOOK)
     sees_accounts = await may_see(session, owner_id, user, Area.ACCOUNTS)
 
     plan = await _month_of(session, owner_id, year, month)
@@ -709,7 +710,7 @@ async def get_flow(
         [(owner_id, list(plan.positions))],
         year,
         month,
-        with_manual=sees_accounts,
+        with_manual=sees_book,
         show_account=sees_accounts,
         with_carry_over=sees_accounts,
     )
