@@ -328,4 +328,21 @@ describe('PositionDialog rights (#218)', () => {
 })
 
 describe('PositionDialog server field errors', () => {
+  test('a rejected save opens the word it names, marks it invalid and shows the message in its panel (#203, review D-215-5)', () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <PositionDialog
+          position={existing}
+          budget="needs"
+          planId="p1"
+          open
+          onOpenChange={() => {}}
+          onSave={() => {}}
+          error={new ApiError('not_account_owner', 403)}
+        />
+      </QueryClientProvider>
+    )
+    const word = screen.getByRole('button', { name: 'Standardkonto', expanded: true })
+    expect(word).toHaveAccessibleDescription(/Dieses Konto gehört jemand anderem/)
+  })
 })
