@@ -164,12 +164,12 @@ async def create_commitment(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> Commitment:
-    """Create a commitment — your own, or that of a member who granted `edit`.
+    """Create a commitment — your own, or that of a member who granted `create`.
 
     The contract belongs to the **owner** and, through them, to their one household.
     """
     owner_id = owner or user.id
-    await require_level(session, owner_id, user, Area.COMMITMENTS, AccessLevel.EDIT)
+    await require_level(session, owner_id, user, Area.COMMITMENTS, AccessLevel.CREATE)
 
     # A limit only means something on a contract — see `_check_limit`.
     _check_limit(payload.type, payload.is_limit)
