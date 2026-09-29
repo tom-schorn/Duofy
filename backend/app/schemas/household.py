@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from pydantic import EmailStr, Field, model_validator
 
-from app.models.enums import AccessLevel, InvitationStatus, Role
+from app.models.enums import AccessLevel, Area, InvitationStatus, Role
 from app.schemas.base import Schema
 from app.schemas.quota import check_quotas
 
@@ -17,10 +17,12 @@ class MemberRead(Schema):
     last_name: str
     email: EmailStr
     role: Role
-    #: What this person allows the others to see about themselves, per area.
-    grants_plan: AccessLevel
-    grants_commitments: AccessLevel
-    grants_accounts: AccessLevel
+    #: What this member allows the one asking, per area — all five areas, `none`
+    #: where nothing was granted. For the asker's own entry everything is `none`:
+    #: there is nothing to grant oneself.
+    grants_to_me: dict[Area, AccessLevel]
+    #: What the one asking allows this member, same shape.
+    my_grants: dict[Area, AccessLevel]
 
 
 class HouseholdRead(Schema):
@@ -87,15 +89,3 @@ class InvitationPreview(Schema):
     household_name: str
     invited_by: str
     expires_at: datetime
-
-
-class AccessUpdate(Schema):
-    """Changes your own access levels. Only your own.
-
-    Every field optional, so the form can move one area without restating the
-    others — the same shape as `HouseholdUpdate`.
-    """
-
-    grants_plan: AccessLevel | None = None
-    grants_commitments: AccessLevel | None = None
-    grants_accounts: AccessLevel | None = None

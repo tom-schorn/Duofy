@@ -15,11 +15,10 @@ from sqlalchemy.orm import selectinload
 from app.core.auth import current_active_user
 from app.core.permissions import is_household_owner, is_member, require
 from app.db.session import get_session
-from app.models.enums import InvitationStatus, Role
+from app.models.enums import AccessLevel, Area, InvitationStatus, Role
 from app.models.household import Household, HouseholdInvitation, HouseholdMember
 from app.models.user import User
 from app.schemas.household import (
-    AccessUpdate,
     HouseholdRead,
     HouseholdUpdate,
     InvitationCreate,
@@ -28,6 +27,7 @@ from app.schemas.household import (
     MemberRead,
     MyInvitationRead,
 )
+from app.services.grants import drop_all_of, levels_with, no_levels, set_levels
 from app.services.households import create_own_household
 
 router = APIRouter()
@@ -46,13 +46,21 @@ async def _load(session: AsyncSession, household_id: uuid.UUID) -> Household:
     return household
 
 
-async def _to_read(session: AsyncSession, household: Household) -> HouseholdRead:
-    """Enrich members with their names — the list shows people, not IDs."""
+async def _to_read(
+    session: AsyncSession, household: Household, viewer_id: uuid.UUID
+) -> HouseholdRead:
+    """Enrich members with their names and the grants between them and the viewer.
+
+    Only the grants that touch the viewer: what they gave each member and what each
+    member gave them. How two other members trust each other is none of their
+    business.
+    """
     user_ids = [member.user_id for member in household.members]
     users = {}
     if user_ids:
         result = await session.execute(select(User).where(User.id.in_(user_ids)))
         users = {user.id: user for user in result.scalars()}
+    given, received = await levels_with(session, viewer_id, user_ids)
 
     return HouseholdRead(
         id=household.id,
@@ -61,19 +69,27 @@ async def _to_read(session: AsyncSession, household: Household) -> HouseholdRead
         target_wants=household.target_wants,
         target_savings=household.target_savings,
         members=[
-            MemberRead(
-                user_id=member.user_id,
-                first_name=users[member.user_id].first_name,
-                last_name=users[member.user_id].last_name,
-                email=users[member.user_id].email,
-                role=member.role,
-                grants_plan=member.grants_plan,
-                grants_commitments=member.grants_commitments,
-                grants_accounts=member.grants_accounts,
-            )
+            _member_read(member, users[member.user_id], given, received)
             for member in household.members
             if member.user_id in users
         ],
+    )
+
+
+def _member_read(
+    member: HouseholdMember,
+    user: User,
+    given: dict[uuid.UUID, dict[Area, AccessLevel]],
+    received: dict[uuid.UUID, dict[Area, AccessLevel]],
+) -> MemberRead:
+    return MemberRead(
+        user_id=member.user_id,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        email=user.email,
+        role=member.role,
+        grants_to_me=received.get(member.user_id, no_levels()),
+        my_grants=given.get(member.user_id, no_levels()),
     )
 
 
@@ -93,7 +109,7 @@ async def list_households(
         .options(selectinload(Household.members))
         .order_by(Household.created_at)
     )
-    return [await _to_read(session, household) for household in result.scalars().unique()]
+    return [await _to_read(session, household, user.id) for household in result.scalars().unique()]
 
 
 @router.patch("/{household_id}", response_model=HouseholdRead)
@@ -120,47 +136,43 @@ async def update_household(
 
     await session.commit()
     await session.refresh(household, ["members"])
-    return await _to_read(session, household)
+    return await _to_read(session, household, user.id)
 
 
-@router.patch("/{household_id}/members/me", response_model=MemberRead)
-async def set_my_access(
+@router.put("/{household_id}/grants/{grantee_id}", response_model=MemberRead)
+async def set_grants(
     household_id: uuid.UUID,
-    payload: AccessUpdate,
+    grantee_id: uuid.UUID,
+    payload: dict[Area, AccessLevel],
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> MemberRead:
-    """Set what the others may see and change about you.
+    """Set what `grantee` may do with **your** data, per area (decision 57).
 
-    Your **own** membership only, hence `/me`. Otherwise anyone could grant
-    themselves insight into other people accounts and the level would be worthless.
+    The granter is always the caller — there is no parameter for it, so nobody can
+    set rights on somebody else's data, not even an admin (decision 58). Only the
+    areas sent change; `none` takes a right away.
     """
+    require(await is_member(session, user.id, household_id), "not_household_member")
+    if grantee_id == user.id:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, detail={"code": "cannot_grant_self"}
+        )
     member = await session.scalar(
         select(HouseholdMember).where(
             HouseholdMember.household_id == household_id,
-            HouseholdMember.user_id == user.id,
+            HouseholdMember.user_id == grantee_id,
         )
     )
     if member is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "not_a_member"})
 
-    # Only what was sent. `exclude_unset` keeps an area that the form did not
-    # mention from being reset to its default.
-    for field, level in payload.model_dump(exclude_unset=True).items():
-        if level is not None:
-            setattr(member, field, level)
+    await set_levels(session, user.id, grantee_id, payload)
     await session.commit()
 
-    return MemberRead(
-        user_id=user.id,
-        first_name=user.first_name,
-        last_name=user.last_name,
-        email=user.email,
-        role=member.role,
-        grants_plan=member.grants_plan,
-        grants_commitments=member.grants_commitments,
-        grants_accounts=member.grants_accounts,
-    )
+    grantee = await session.get(User, grantee_id)
+    given, received = await levels_with(session, user.id, [grantee_id])
+    return _member_read(member, grantee, given, received)
 
 
 @router.delete("/{household_id}/members/me", status_code=status.HTTP_204_NO_CONTENT)
@@ -205,6 +217,7 @@ async def leave_household(
             )
 
     await session.delete(member)
+    await drop_all_of(session, user.id)
     await session.flush()
     await create_own_household(session, user)
     await session.commit()
@@ -419,7 +432,7 @@ async def accept_invitation(
     await session.commit()
 
     household = await _load(session, invitation.household_id)
-    return await _to_read(session, household)
+    return await _to_read(session, household, user.id)
 
 
 @router.post("/invitations/{token}/decline", status_code=status.HTTP_204_NO_CONTENT)
