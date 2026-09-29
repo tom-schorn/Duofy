@@ -14,8 +14,10 @@ export function SentenceChip({ selected, onClick, disabled = false, children }: 
     <button
       type="button"
       aria-pressed={selected}
-      onClick={onClick}
-      disabled={disabled}
+      // aria-disabled, not disabled: the chip stays reachable by keyboard and
+      // screen reader, so the hint next to it can explain why it does nothing.
+      aria-disabled={disabled || undefined}
+      onClick={disabled ? undefined : onClick}
       className={cn(
         'flex h-10 items-center gap-2 rounded-md border px-3.5 text-sm',
         selected

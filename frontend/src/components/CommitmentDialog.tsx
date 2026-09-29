@@ -429,7 +429,16 @@ export function CommitmentDialog({
   /** Day, month and year all fall out of the first due date — it is the one source. */
   function handleFirstDueDate(value: string) {
     // The field can be cleared; keep the last valid date so the draft stays complete.
-    if (value) setDraft((current) => ({ ...current, firstDueDate: value }))
+    // A start after the end would be a 422 on save; the end then reads "nicht
+    // festgelegt", which is the announcement.
+    if (value) {
+      setDraft((current) => ({
+        ...current,
+        firstDueDate: value,
+        endsOn: current.endsOn && current.endsOn.slice(0, 7) < value.slice(0, 7) ? null : current.endsOn,
+      }))
+      setEndsYear(null)
+    }
   }
 
   function handleSubmit(event: React.FormEvent) {
@@ -441,12 +450,15 @@ export function CommitmentDialog({
 
   function toggleWord(key: string) {
     setOpenWord((current) => (current === key ? null : key))
+    // Paging the end panel's year is forgotten whenever the panel opens or closes.
+    setEndsYear(null)
   }
 
   /** Closes whichever word is open and gives the focus back to its button (rule 13). */
   function closeWord() {
     const key = openWord
     setOpenWord(null)
+    setEndsYear(null)
     if (key) requestAnimationFrame(() => wordRefs.current[key]?.focus())
   }
 

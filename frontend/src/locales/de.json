@@ -576,7 +576,7 @@
     "previousYear": "Vorheriges Jahr",
     "nextYear": "Nächstes Jahr",
     "clearEnd": "Kein Ende",
-    "endsOnHint": "Der Monat der letzten Zahlung zählt noch, danach entstehen keine neuen Posten mehr. Offen lassen, wenn es unbegrenzt weiterläuft.",
+    "endsOnHint": "Der Monat der letzten Zahlung zählt noch, danach entstehen keine neuen Posten mehr. Offen lassen, wenn es unbegrenzt weiterläuft. Monate vor dem Start sind nicht wählbar.",
     "sentence": {
       "contract": "Geht {rhythm} ab dem {date} vom {account} ab und zählt zum Budget {budget}.",
       "contractDefaultAccount": "Geht {rhythm} ab dem {date} ab und zählt zum Budget {budget}.",
