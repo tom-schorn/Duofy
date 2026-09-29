@@ -275,11 +275,18 @@ export function PlanView({
         year: plan.year,
         date: longDate(today()),
       })
-    : t('plan.printHeader', {
-        month: monthLabel(plan.month),
-        year: plan.year,
-        date: longDate(today()),
-      })
+    : member && ownerName
+      ? t('plan.printHeaderMember', {
+          name: ownerName,
+          month: monthLabel(plan.month),
+          year: plan.year,
+          date: longDate(today()),
+        })
+      : t('plan.printHeader', {
+          month: monthLabel(plan.month),
+          year: plan.year,
+          date: longDate(today()),
+        })
 
   return (
     <>

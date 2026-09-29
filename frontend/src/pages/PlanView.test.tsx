@@ -92,3 +92,26 @@ describe('what the rights add to the shared view', () => {
     expect(remove()).not.toBeInTheDocument()
   })
 })
+
+describe('the print header names whose plan the sheet is', () => {
+  test("the own plan's header only names the month", async () => {
+    stub('none')
+    renderAt('/plan/2026/11')
+    await screen.findByRole('heading', { name: 'November 2026' })
+    expect(screen.getByText(/^Duofy . Monatsplan November 2026/)).toBeInTheDocument()
+  })
+
+  test("another person's plan names them so the sheet is not mistaken for one's own", async () => {
+    stub('edit')
+    renderAt('/plan/2026/11?member=u2')
+    await screen.findByRole('heading', { name: 'November 2026' })
+    expect(screen.getByText(/^Duofy . Plan von Ida . November 2026/)).toBeInTheDocument()
+  })
+
+  test('the household plan names the household', async () => {
+    stub('edit')
+    renderAt('/plan/2026/11?household=h1')
+    await screen.findByRole('heading', { name: 'November 2026' })
+    expect(screen.getByText(/^Duofy . Haushalt Zuhause/)).toBeInTheDocument()
+  })
+})
