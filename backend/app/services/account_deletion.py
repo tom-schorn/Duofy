@@ -21,8 +21,9 @@ async def delete_own_account(session: AsyncSession, user: User) -> None:
     keeps the two from racing: nothing still references an account by the time it
     is dropped.
 
-    **A household this person owns keeps its other members**: ownership passes to
-    whoever joined it earliest. A household with nobody left to own it goes too —
+    **A household this person is admin of keeps its other members**: if no other
+    admin is left, the role passes to whoever joined earliest. A household with
+    nobody left in it goes too —
     `HouseholdMember`'s cascade from `users` would otherwise leave it behind empty
     and unreachable, since there is no route that deletes a household directly.
 
@@ -50,7 +51,8 @@ async def delete_own_account(session: AsyncSession, user: User) -> None:
                 HouseholdMember.household_id == membership.household_id,
                 HouseholdMember.user_id != user.id,
             )
-            .order_by(HouseholdMember.created_at)
+            # Another admin keeps the household as it is; otherwise the earliest member.
+            .order_by((HouseholdMember.role == Role.ADMIN).desc(), HouseholdMember.created_at)
             .limit(1)
         )
         if successor is not None:

@@ -194,6 +194,31 @@ async def test_deletes_a_household_left_with_no_members(
     assert await session.get(Household, household_id) is None
 
 
+async def test_a_second_admin_stays_and_nobody_else_is_promoted(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    """With another admin left, the earliest member does not become admin as well."""
+    admin = await make_user(session, "Admin")
+    partner = await make_user(session, "Partner")
+    second = await make_user(session, "Second")
+    household = await make_owned_household(session, admin, partner)
+    session.add(HouseholdMember(household_id=household.id, user_id=second.id, role=Role.ADMIN))
+    await session.commit()
+    household_id, partner_id = household.id, partner.id
+    sign_in(admin)
+
+    response = await client.delete("/api/v1/users/me")
+
+    assert response.status_code == 204
+    session.expire_all()
+    roles = await session.execute(
+        select(HouseholdMember.user_id, HouseholdMember.role).where(
+            HouseholdMember.household_id == household_id
+        )
+    )
+    assert dict(roles.all())[partner_id] is Role.MEMBER
+
+
 async def test_the_last_admin_cannot_delete_their_own_account(
     client: AsyncClient, session: AsyncSession
 ) -> None:
