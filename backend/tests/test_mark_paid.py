@@ -347,3 +347,38 @@ async def test_mark_paid_on_a_position_with_bookings_ticks_without_a_new_booking
     assert [transaction.id for transaction in bookings] == [existing.id]
     await session.refresh(position)
     assert position.paid_at is not None
+
+
+async def test_stand_in_with_edit_books_the_chosen_date_and_amount_for_the_owner(
+    client: AsyncClient, session: AsyncSession
+):
+    """#251: the tick dialog sends date and amount for a member's position too. The
+    booking lands with the owner, on the owner's account, not with the one ticking."""
+    from app.models.enums import AccessLevel
+    from tests.test_area_permissions import add_member, make_household
+
+    owner = await make_user(session, "Owner")
+    helper = await make_user(session, "Helper")
+    household = await make_household(session, "Home")
+    await add_member(session, household, owner, plan=AccessLevel.EDIT)
+    await add_member(session, household, helper)
+    giro = await make_account(session, owner, "Giro", is_default=True)
+    position = await make_position(session, owner, account_id=giro.id)
+    await session.commit()
+    sign_in(helper)
+
+    response = await client.post(
+        f"/api/v1/positions/{position.id}/paid",
+        json={"occurred_on": "2026-09-10", "amount": "42.00"},
+    )
+
+    assert response.status_code == 200
+    booking = (
+        await session.execute(
+            select(Transaction).where(Transaction.position_id == position.id)
+        )
+    ).scalar_one()
+    assert booking.owner_id == owner.id
+    assert booking.account_id == giro.id
+    assert booking.occurred_on == date(2026, 9, 10)
+    assert booking.amount == Decimal("42.00")
