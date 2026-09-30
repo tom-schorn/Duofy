@@ -9,6 +9,7 @@ import { describe, expect, test } from 'vitest'
  */
 const INLINE_HOOKS = [
   'useAcceptInvitation',
+  'useBookImport',
   'useCreateInstanceInvitation',
   'useCreatePlan',
   'useDeclineInvitation',
