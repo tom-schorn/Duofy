@@ -3,7 +3,15 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
 
 import { BookingDialog, type PositionMonth } from '@/components/BookingDialog'
-import type { Account, ImportedEntry, PlanPosition, Transaction } from '@/lib/domain'
+import {
+  categoryGroupLabel,
+  categoryLabel,
+  type Account,
+  type Category,
+  type ImportedEntry,
+  type PlanPosition,
+  type Transaction,
+} from '@/lib/domain'
 import { today } from '@/lib/dates'
 import { i18n } from '@/lib/i18n'
 
@@ -359,6 +367,14 @@ function renderImport(entry: ImportedEntry = parked) {
   return onBook
 }
 
+/** Opens the category word and picks `category` through its group. */
+async function pickCategory(user: ReturnType<typeof userEvent.setup>, category: Category) {
+  await user.click(screen.getByRole('button', { name: i18n.t('monthBook.chooseCategory') }))
+  await user.click(screen.getByRole('button', { name: i18n.t('categoryPicker.placeholder') }))
+  await user.click(await screen.findByRole('button', { name: new RegExp(categoryGroupLabel(category.split('.')[0])) }))
+  await user.click(await screen.findByRole('button', { name: categoryLabel(category) }))
+}
+
 describe('BookingDialog import', () => {
   test('shows amount, date and account as the bank reported them, none of them editable', () => {
     renderImport()
@@ -381,9 +397,19 @@ describe('BookingDialog import', () => {
     expect(screen.queryByRole('button', { name: 'September' })).not.toBeInTheDocument()
   })
 
+  test('a line without an answer starts with no category and books nothing, not even on Enter', () => {
+    const onBook = renderImport()
+    expect(screen.getByRole('button', { name: i18n.t('monthBook.chooseCategory') })).toBeInTheDocument()
+    const book = screen.getByRole('button', { name: i18n.t('monthBook.book') })
+    expect(book).toBeDisabled()
+    fireEvent.submit(book.closest('form')!)
+    expect(onBook).not.toHaveBeenCalled()
+  })
+
   test('without a position it books the chosen category', async () => {
     const user = userEvent.setup()
     const onBook = renderImport()
+    await pickCategory(user, 'household.groceries')
     await user.click(screen.getByRole('button', { name: i18n.t('monthBook.book') }))
     expect(onBook).toHaveBeenCalledWith({
       positionId: null,
