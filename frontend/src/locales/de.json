@@ -376,11 +376,6 @@
   "dateField": {
     "placeholder": "Datum wählen"
   },
-  "accountCards": {
-    "label": "Kontostände",
-    "total": "Alle Konten",
-    "count": "{{number}} Konten"
-  },
   "bookMetrics": {
     "income": "Eingegangen",
     "incomeHint": "schon angekommen",

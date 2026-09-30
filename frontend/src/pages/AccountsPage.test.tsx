@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
-import { i18n } from '@/lib/i18n'
+import '@/lib/i18n'
 import { AccountsPage } from '@/pages/AccountsPage'
 
 const giro = {
@@ -34,8 +34,8 @@ describe('AccountsPage balances (#241)', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   // The book is no page of its own any more, so the balances of the accounts live
-  // where the accounts do.
-  test('the balance of every account is shown as a card above the list', async () => {
+  // where the accounts do: in the row, not in cards above it.
+  test('the balance of every account is shown in its row, without cards', async () => {
     render(
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <MemoryRouter>
@@ -43,7 +43,8 @@ describe('AccountsPage balances (#241)', () => {
         </MemoryRouter>
       </QueryClientProvider>
     )
-    const cards = await screen.findByRole('region', { name: i18n.t('accountCards.label') })
-    expect(cards).toHaveTextContent('120,50')
+    const row = (await screen.findByRole('button', { name: /^Giro/ })).closest('li')
+    expect(row).toHaveTextContent('120,50')
+    expect(screen.queryByRole('region')).not.toBeInTheDocument()
   })
 })

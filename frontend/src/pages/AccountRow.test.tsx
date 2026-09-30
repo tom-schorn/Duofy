@@ -12,6 +12,7 @@ const account = {
   name: 'Giro',
   type: 'checking',
   openingBalance: '0',
+  balance: '-15.00',
   openingDate: '2026-01-01',
   isDefault: false,
   active: true,
@@ -39,6 +40,12 @@ describe('AccountRow', () => {
     const onOpen = renderRow()
     await user.click(screen.getByRole('button', { name: /^Giro/ }))
     expect(onOpen).toHaveBeenCalledTimes(1)
+  })
+
+  test('the current balance sits in the row, red when overdrawn', () => {
+    renderRow()
+    const balance = screen.getByText(/15,00/)
+    expect(balance).toHaveClass('tabular-nums', 'text-destructive')
   })
 
   test('the row has no menu, however the account is', () => {
