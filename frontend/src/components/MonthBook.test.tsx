@@ -26,7 +26,6 @@ const booking = {
   // What the server says about it (#254): the page reads these, it does not work
   // them out.
   unplanned: true,
-  planMonthFixed: false,
   countsElsewhere: false,
 }
 const account = {
@@ -142,7 +141,6 @@ describe('MonthBook carry-over row', () => {
     category: null,
     budget: null,
     unplanned: false,
-    planMonthFixed: true,
   }
 
   beforeEach(() => {
@@ -181,7 +179,6 @@ describe('MonthBook list and filter (#241)', () => {
     budget: 'needs',
     positionId: 'p1',
     unplanned: false,
-    planMonthFixed: true,
   }
   const unplannedLate = {
     ...booking,
@@ -218,7 +215,6 @@ describe('MonthBook list and filter (#241)', () => {
     category: null,
     budget: null,
     unplanned: false,
-    planMonthFixed: true,
   }
 
   beforeEach(() => {
@@ -353,7 +349,6 @@ describe('MonthBook list and filter (#241)', () => {
                     category: null,
                     budget: null,
                     unplanned: false,
-                    planMonthFixed: true,
                   },
                 ]
           ),
