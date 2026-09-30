@@ -48,3 +48,32 @@ describe('AccountsPage balances (#241)', () => {
     expect(screen.queryByRole('region')).not.toBeInTheDocument()
   })
 })
+
+describe('AccountsPage for the person chosen in the sidebar (#254)', () => {
+  const partnerAccount = { ...giro, id: 'a2', name: 'Partnerkonto' }
+
+  beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        const target = String(url)
+        if (!target.includes('/accounts')) return new Response('[]', { status: 200 })
+        const rows = target.includes('owner=u2') ? [partnerAccount] : [giro]
+        return new Response(JSON.stringify(rows), { status: 200 })
+      })
+    )
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  test('?member= loads the accounts of that person, not your own', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter initialEntries={['/accounts?member=u2']}>
+          <AccountsPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+    expect(await screen.findByText('Partnerkonto')).toBeInTheDocument()
+    expect(screen.queryByText('Giro')).not.toBeInTheDocument()
+  })
+})
