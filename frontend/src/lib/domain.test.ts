@@ -21,7 +21,6 @@ import {
   intervalLabel,
   isValidInterval,
   isViewOnly,
-  lowestLevel,
   monthlyEquivalent,
   effectiveDueDay,
   isPaid,
@@ -339,13 +338,6 @@ describe('coupleQuotas', () => {
 
   test('clamps to 0..100', () => {
     expect(coupleQuotas([50, 30, 20], 0, 130)).toEqual([100, 0, 0])
-  })
-})
-
-describe('lowestLevel', () => {
-  test('takes the lowest step and answers none for nobody', () => {
-    expect(lowestLevel(['delete', 'create', 'edit'])).toBe('create')
-    expect(lowestLevel([])).toBe('none')
   })
 })
 
