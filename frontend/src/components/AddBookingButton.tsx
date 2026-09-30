@@ -7,7 +7,7 @@ import { OWN_SCOPE, type BookScope, type PlanPosition } from '@/lib/domain'
 import { useAccounts } from '@/lib/queries'
 
 /**
- * "Buchung hinzufügen" at the top of the plan page (#241).
+ * "Buchung anlegen" at the top of the plan page (#241).
  *
  * The book used to carry its own quick-entry form above the list. The book is now
  * one tab of the plan page, and adding a booking is something one does from any of

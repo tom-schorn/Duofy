@@ -610,7 +610,7 @@
     "noAccountText": "Noch kein Konto. Ohne Konto lässt sich nichts buchen — leg eins an, dann geht es hier weiter.",
     "empty": "Für diesen Monat ist noch nichts erfasst.",
     "noUnplanned": "Alles in diesem Monat hängt an einem Posten.",
-    "add": "Buchung hinzufügen",
+    "add": "Buchung anlegen",
     "what": "Wofür",
     "addHint": "Gibt es einen passenden Posten im Plan, wähle ihn im Satz statt „Ungeplant“.",
     "addSentence": "Bezahlt am {date} vom {account}, zählt im Plan {planMonth} auf {position}.",
