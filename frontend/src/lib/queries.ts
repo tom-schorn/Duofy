@@ -519,13 +519,14 @@ export function usePlans(ownerId: string | null = null, enabled = true) {
  * Every month that carries this household, across every member — newest first.
  *
  * Backs "Alle Pläne" reached from the household plan. The household owns no plan
- * of its own to read the months off of, so this is its own endpoint: filtering the
- * viewer's own plans by household would miss a month only a partner planned into.
+ * of its own to read the months off of, so the server reads them off every member
+ * (`?household=`): filtering the viewer's own plans by household would miss a
+ * month only a partner planned into.
  */
 export function useHouseholdPlans(householdId: string | null) {
   return useQuery({
     queryKey: keys.householdPlans(householdId ?? ''),
-    queryFn: () => api.get<PlanSummary[]>(`/plans/household/${householdId}`),
+    queryFn: () => api.get<PlanSummary[]>(`/plans?household=${householdId}`),
     enabled: householdId !== null,
   })
 }
@@ -566,7 +567,7 @@ export function useHouseholdPlan(
     queryKey: keys.householdPlan(householdId ?? '', year, month),
     queryFn: () =>
       api.get<HouseholdPlanDetail>(
-        `/plans/household/${householdId}/${year}/${month}`
+        `/plans/${year}/${month}?household=${householdId}`
       ),
     enabled: householdId !== null,
     retry: false,
@@ -585,7 +586,7 @@ export function useFlow(
   const { householdId = null, ownerId = null } = scope
   const path =
     householdId !== null
-      ? `/plans/household/${householdId}/${year}/${month}/flow`
+      ? `/plans/${year}/${month}/flow?household=${householdId}`
       : ownerId !== null
         ? `/plans/${year}/${month}/flow?owner=${ownerId}`
         : `/plans/${year}/${month}/flow`

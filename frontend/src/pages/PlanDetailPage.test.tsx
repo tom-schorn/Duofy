@@ -8,6 +8,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { i18n } from '@/lib/i18n'
 import { flushPendingDelete } from '@/lib/undo-delete'
 import { PlanDetailPage } from '@/pages/PlanDetailPage'
+import { isHouseholdMonth } from '@/test/plan-stub'
 
 /** A whole month, positions included — the shape `/plans/{year}/{month}` returns. */
 function ownPlan(overrides: Record<string, unknown> = {}) {
@@ -258,7 +259,7 @@ describe('PlanDetailPage — household month not everyone has planned yet (#214)
         if (String(url).endsWith('/households')) {
           return new Response(JSON.stringify(household('view')), { status: 200 })
         }
-        if (String(url).includes('/plans/household/')) {
+        if (isHouseholdMonth(String(url))) {
           return new Response(
             JSON.stringify({
               householdId: 'h1',
@@ -338,7 +339,7 @@ describe('PlanDetailPage — household plan positions clickable by rights (#218)
         }
         // The paper version of the charts is permanently mounted (also outside
         // the flow tab), so it always asks for this too.
-        if (path.endsWith('/flow')) {
+        if (path.includes('/flow')) {
           return new Response(
             JSON.stringify({
               year: 2026,
@@ -353,7 +354,7 @@ describe('PlanDetailPage — household plan positions clickable by rights (#218)
             { status: 200 }
           )
         }
-        if (path.includes('/plans/household/')) {
+        if (isHouseholdMonth(path)) {
           return new Response(
             JSON.stringify({
               householdId: 'h1',
@@ -603,7 +604,7 @@ describe('PlanDetailPage — the book as a tab (#241)', () => {
         if (target.includes('/accounts')) {
           return new Response(JSON.stringify([account]), { status: 200 })
         }
-        if (target.includes('/plans/household/')) {
+        if (isHouseholdMonth(target)) {
           return new Response(
             JSON.stringify({
               householdId: 'h1',

@@ -55,7 +55,7 @@ describe('PlansPage', () => {
             { status: 200 }
           )
         }
-        if (String(url).includes('/plans/household/')) {
+        if (String(url).includes('/plans?household=')) {
           return new Response(JSON.stringify(householdPlans), { status: 200 })
         }
         if (String(url).includes('/plans')) {

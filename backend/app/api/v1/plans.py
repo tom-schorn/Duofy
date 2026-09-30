@@ -2,9 +2,10 @@
 
 A plan **always belongs to one person**, never to a household. The household plan
 is not a table of its own — it is the composition of every member position that
-is not private. Hence two routes to the same presentation: `/plans/...`
-for your own plan, `/plans/household/...` for the shared view. Individual positions
-live under `/positions`, otherwise `positions` would collide with the year.
+is not private. Whose plan a read covers says the query, as for accounts and the
+book: nothing for your own, `?owner=` for another person's, `?household=` for the
+shared view (`resolve_scope`). Individual positions live under `/positions`,
+otherwise `positions` would collide with the year.
 """
 
 import uuid
@@ -17,8 +18,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.auth import current_active_user
-from app.core.permissions import Area, is_member, require, require_level
-from app.core.scope import eligible_member_ids, household_member_ids, may_see
+from app.core.permissions import Area, require_level
+from app.core.scope import (
+    HouseholdMembers,
+    Lens,
+    eligible_member_ids,
+    household_member_ids,
+    may_see,
+    resolve_scope,
+)
 from app.db.session import get_session
 from app.models.account import Account
 from app.models.commitment import Commitment
@@ -219,16 +227,23 @@ async def _load_plan(
 @router.get("", response_model=list[PlanSummary])
 async def list_plans(
     owner: uuid.UUID | None = None,
+    household: uuid.UUID | None = None,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> list[PlanSummary]:
     """Monatspläne, neueste zuerst.
 
     Ohne `owner` die eigenen, mit `owner` die einer Person, die mindestens `view`
-    auf `Area.PLAN` gegeben hat — dieselbe Regel wie beim einzelnen Monat.
+    auf `Area.PLAN` gegeben hat — dieselbe Regel wie beim einzelnen Monat. Mit
+    `household` die Monate des Haushalts (`_list_household_plans`).
     """
-    owner_id = owner or user.id
-    await require_level(session, owner_id, user, Area.PLAN, AccessLevel.VIEW)
+    scope = await resolve_scope(
+        session, user, Area.PLAN, owner=owner, household=household, members=HouseholdMembers.ALL
+    )
+    if scope.lens is Lens.HOUSEHOLD:
+        assert household is not None
+        return await _list_household_plans(session, household)
+    (owner_id,) = scope.owner_ids
 
     result = await session.execute(
         select(Plan)
@@ -254,11 +269,8 @@ async def list_plans(
     ]
 
 
-@router.get("/household/{household_id}", response_model=list[PlanSummary])
-async def list_household_plans(
-    household_id: uuid.UUID,
-    session: AsyncSession = Depends(get_session),
-    user: User = Depends(current_active_user),
+async def _list_household_plans(
+    session: AsyncSession, household_id: uuid.UUID
 ) -> list[PlanSummary]:
     """The months that carry this household, newest first.
 
@@ -266,17 +278,14 @@ async def list_household_plans(
     own to list, so this reads the months off every member's plans. A month
     belongs on this list only once **every member already part of the household
     that month** has created their own plan for it — even with zero shared
-    positions, since that is exactly the state `get_household_plan` shows in full
+    positions, since that is exactly the state `_household_plan` shows in full
     rather than behind a notice. A member who joins later does not make earlier
     months incomplete; they count from the month they join in. A month where an
     already-eligible member has not planned yet does not appear at all, no
     matter how many shared positions the others already carry.
 
-    Registered ahead of `get_plan` (`/{year}/{month}`) on purpose: that route has
-    no `int` converter in its path, so it would otherwise swallow this one first.
+    The caller has checked membership (`resolve_scope`).
     """
-    require(await is_member(session, user.id, household_id), "not_household_member")
-
     household = await session.get(Household, household_id)
     if household is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "household_not_found"})
@@ -416,14 +425,15 @@ async def create_plan(
     return await _plan_read(session, plan, user)
 
 
-@router.get("/{year}/{month}", response_model=PlanRead)
+@router.get("/{year}/{month}", response_model=PlanRead | HouseholdPlanRead)
 async def get_plan(
     year: int,
     month: int,
     owner: uuid.UUID | None = None,
+    household: uuid.UUID | None = None,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
-) -> PlanRead:
+) -> PlanRead | HouseholdPlanRead:
     """One month, whole — private positions included.
 
     Without `owner` your own month. With `owner` that person's, which needs at least
@@ -433,11 +443,16 @@ async def get_plan(
     hides a position would not be a degree of trust but a gap — the booking would
     stand in the book anyway.
 
-    Not the same as the household plan: that one shows only positions that
-    are not private and merges every member.
+    Not the same as the household plan (`household`): that one shows only
+    positions that are not private and merges every member.
     """
-    owner_id = owner or user.id
-    await require_level(session, owner_id, user, Area.PLAN, AccessLevel.VIEW)
+    scope = await resolve_scope(
+        session, user, Area.PLAN, owner=owner, household=household, members=HouseholdMembers.ALL
+    )
+    if scope.lens is Lens.HOUSEHOLD:
+        assert household is not None
+        return await _household_plan(session, household, year, month)
+    (owner_id,) = scope.owner_ids
 
     plan = await _month_of(session, owner_id, year, month)
     return await _plan_read(session, plan, user)
@@ -522,14 +537,9 @@ async def create_position(
 # --- Haushaltssicht -------------------------------------------------------
 
 
-@router.get("/household/{household_id}/{year}/{month}", response_model=HouseholdPlanRead)
-async def get_household_plan(
-    household_id: uuid.UUID,
-    year: int,
-    month: int,
-    session: AsyncSession = Depends(get_session),
-    user: User = Depends(current_active_user),
-) -> PlanSummary:
+async def _household_plan(
+    session: AsyncSession, household_id: uuid.UUID, year: int, month: int
+) -> HouseholdPlanRead:
     """The shared plan — composed, not stored.
 
     It is built from every non-private position of every member. The quotas
@@ -537,14 +547,14 @@ async def get_household_plan(
 
     Shown whole only once **every member already part of the household this
     month** has created their own plan for it — same rule as
-    `list_household_plans`. A member who joins later does not make earlier
+    `_list_household_plans`. A member who joins later does not make earlier
     months incomplete. Otherwise this is a half plan, not the household's plan:
     `positions` and `hints` come back empty and `missing_members` names who is
     still missing, so the frontend shows a calm notice instead of numbers nobody
     agreed to yet.
-    """
-    require(await is_member(session, user.id, household_id), "not_household_member")
 
+    The caller has checked membership (`resolve_scope`).
+    """
     household = await session.get(Household, household_id)
     if household is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "household_not_found"})
@@ -687,19 +697,26 @@ async def get_flow(
     year: int,
     month: int,
     owner: uuid.UUID | None = None,
+    household: uuid.UUID | None = None,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_active_user),
 ) -> FlowRead:
     """The flow of one month on the default account of the plan owner.
 
     Same access as `get_plan`. Limits follow the setting of **the viewer**, not the
-    owner: it is a question of the view, so whoever looks decides.
+    owner: it is a question of the view, so whoever looks decides. With `household`
+    the household's curve (`_household_flow`).
     """
-    owner_id = owner or user.id
+    scope = await resolve_scope(
+        session, user, Area.PLAN, owner=owner, household=household, members=HouseholdMembers.ALL
+    )
+    if scope.lens is Lens.HOUSEHOLD:
+        assert household is not None
+        return await _household_flow(session, user, household, year, month)
+    (owner_id,) = scope.owner_ids
     # Manual bookings belong to the book, the account name and its start balance
     # to the accounts, not to the plan: for somebody else's plan each needs its
     # own grant.
-    await require_level(session, owner_id, user, Area.PLAN, AccessLevel.VIEW)
     sees_book = await may_see(session, owner_id, user, Area.BOOK)
     sees_accounts = await may_see(session, owner_id, user, Area.ACCOUNTS)
 
@@ -717,13 +734,8 @@ async def get_flow(
     return build_flow(sources, year, month, user.flow_limits_by, merged=False)
 
 
-@router.get("/household/{household_id}/{year}/{month}/flow", response_model=FlowRead)
-async def get_household_flow(
-    household_id: uuid.UUID,
-    year: int,
-    month: int,
-    session: AsyncSession = Depends(get_session),
-    user: User = Depends(current_active_user),
+async def _household_flow(
+    session: AsyncSession, user: User, household_id: uuid.UUID, year: int, month: int
 ) -> FlowRead:
     """One curve over the household positions of every member, like the household
     plan itself: a lens, nothing stored. It answers whether it works out together,
@@ -733,11 +745,12 @@ async def get_household_flow(
     a member's balance is theirs to share, not the household's. It shows the change
     the shared positions bring.
 
-    Gated the same way as `get_household_plan`: once a member already part of the
+    Gated the same way as `_household_plan`: once a member already part of the
     household this month has not created their own plan yet, this is an empty
     curve with `missing_members` set, not a curve half the household agreed to.
+
+    The caller has checked membership (`resolve_scope`).
     """
-    require(await is_member(session, user.id, household_id), "not_household_member")
 
     missing_members = await _household_missing_members(session, household_id, year, month)
     if missing_members:

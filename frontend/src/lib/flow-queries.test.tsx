@@ -49,12 +49,12 @@ describe('useFlow', () => {
     expect(calls()[0][0]).toMatch(/\/plans\/2026\/9\/flow\?owner=u2$/)
   })
 
-  test('asks for the household flow on the household route', async () => {
+  test('asks for the household flow with ?household=', async () => {
     const { result } = renderHook(() => useFlow(2026, 9, { householdId: 'h1' }), {
       wrapper: wrapper(),
     })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(calls()[0][0]).toMatch(/\/plans\/household\/h1\/2026\/9\/flow$/)
+    expect(calls()[0][0]).toMatch(/\/plans\/2026\/9\/flow\?household=h1$/)
   })
 })
 

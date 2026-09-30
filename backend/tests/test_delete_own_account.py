@@ -163,7 +163,7 @@ async def test_deletes_everything_and_hands_household_ownership_to_the_partner(
     # The partner's own position is untouched, but the household plan the partner
     # sees no longer carries the deleted person's position — it is gone outright.
     sign_in(partner)
-    plan_response = await client.get(f"/api/v1/plans/household/{household_id}/2026/9")
+    plan_response = await client.get(f"/api/v1/plans/2026/9?household={household_id}")
     assert plan_response.status_code == 200
     labels = [position["label"] for position in plan_response.json()["positions"]]
     assert labels == ["Partner position"]

@@ -173,7 +173,7 @@ async def test_the_household_plan_carries_the_hints_of_the_positions_it_shows(
     session.add_all([shared, private])
     await session.commit()
 
-    response = await client.get(f"/api/v1/plans/household/{household.id}/2026/9")
+    response = await client.get(f"/api/v1/plans/2026/9?household={household.id}")
     assert response.status_code == 200
     assert [h["positionId"] for h in response.json()["hints"]] == [str(shared.id)]
 
@@ -301,7 +301,7 @@ async def test_nothing_free_hint_on_the_household_plan_path(
     session.add_all([income, committed])
     await session.commit()
 
-    response = await client.get(f"/api/v1/plans/household/{household.id}/2026/9")
+    response = await client.get(f"/api/v1/plans/2026/9?household={household.id}")
     assert response.status_code == 200
     hints = [h for h in response.json()["hints"] if h["code"] == "plan_nothing_free"]
     assert hints == [
