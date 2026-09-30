@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next'
 import { AmountField } from '@/components/AmountField'
 import { CategoryPicker } from '@/components/CategoryPicker'
 import { DialogFrame } from '@/components/DialogFrame'
-import type { PositionMonth } from '@/components/PositionPicker'
 import { SentenceChip } from '@/components/SentenceChip'
 import { SentencePanel } from '@/components/SentencePanel'
 import { SentenceWord } from '@/components/SentenceWord'
@@ -46,6 +45,17 @@ import {
 } from '@/lib/domain'
 import { useSaveTransaction } from '@/lib/queries'
 import { fillSentence } from '@/lib/sentence'
+
+/**
+ * One month's worth of positions a booking may hang on. A planning month is not a
+ * calendar month — rent paid on the 28th belongs to the next one — so the choice
+ * is grouped by the plan it comes from.
+ */
+export type PositionMonth = {
+  year: number
+  month: number
+  positions: PlanPosition[]
+}
 
 /**
  * How the booking dialog starts (#254). The fields are the same in every case —
