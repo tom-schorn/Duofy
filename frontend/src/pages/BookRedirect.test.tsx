@@ -32,6 +32,18 @@ describe('the old book address (#241)', () => {
     )
   })
 
+  test('the household being viewed stays in the address', () => {
+    expect(renderAt('/book?month=2026-09&household=h1')()).toBe(
+      '/plan/2026/09?household=h1&tab=book'
+    )
+  })
+
+  test('with both in the address the household wins, as in the sidebar', () => {
+    expect(renderAt('/book?month=2026-09&member=u2&household=h1')()).toBe(
+      '/plan/2026/09?household=h1&tab=book'
+    )
+  })
+
   test.each(['2026-13', 'abc', '2026-9', ''])(
     'an invalid month %j opens the current month',
     (value) => {
