@@ -49,6 +49,8 @@ function householdGranting(level: AccessLevel) {
 }
 
 let entry: Record<string, unknown> = baseEntry
+/** The September plan the dialog offers positions from; none by default. */
+let plan: Record<string, unknown> | null = null
 let importLevel: AccessLevel = 'delete'
 let fetchMock: ReturnType<typeof vi.fn>
 
@@ -75,6 +77,9 @@ describe('ImportPage', () => {
       if (String(url).endsWith('/households')) {
         return new Response(JSON.stringify(householdGranting(importLevel)), { status: 200 })
       }
+      if (plan && String(url).includes('/plans/2026/9')) {
+        return new Response(JSON.stringify(plan), { status: 200 })
+      }
       if (String(url).includes('/imports')) return new Response(JSON.stringify([entry]), { status: 200 })
       return new Response('[]', { status: 200 })
     })
@@ -82,6 +87,7 @@ describe('ImportPage', () => {
   })
   afterEach(() => {
     entry = baseEntry
+    plan = null
     act(() => flushPendingDelete())
     vi.unstubAllGlobals()
   })
@@ -131,6 +137,29 @@ describe('ImportPage', () => {
       'POST /imports/e1/book',
     ])
     expect(JSON.parse(String(writes[0][1]?.body))).toEqual({ positionId: null, category: 'household.groceries' })
+  })
+
+  test('a line parked on a position, switched to unplanned with a category, books without the position', async () => {
+    entry = { ...baseEntry, positionId: 'p1', category: 'housing.rent', budget: 'needs' }
+    const rent = { id: 'p1', label: 'Miete', amountPlanned: '500.00', category: 'housing.rent', budget: 'needs' }
+    plan = { year: 2026, month: 9, positions: [rent] }
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: i18n.t('monthBook.book') }))
+    const dialog = await screen.findByRole('dialog', { name: i18n.t('import.bookTitle') })
+    await user.click(await within(dialog).findByRole('button', { name: 'Miete' }))
+    await user.click(within(dialog).getByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: i18n.t('monthBook.unplanned') }))
+    await user.click(within(dialog).getByRole('button', { name: categoryLabel('housing.rent') }))
+    const categoryPanel = within(dialog).getByRole('group', { name: i18n.t('common.category') })
+    await user.click(within(categoryPanel).getByRole('button', { name: categoryLabel('housing.rent') }))
+    await user.click(await screen.findByRole('button', { name: new RegExp(categoryGroupLabel('household')) }))
+    await user.click(await screen.findByRole('button', { name: categoryLabel('household.groceries') }))
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('monthBook.book') }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    const patch = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH')
+    expect(JSON.parse(String(patch?.[1]?.body))).toEqual({ positionId: null, category: 'household.groceries' })
   })
 
   test('the table names the assignment as text and offers no pickers', async () => {
