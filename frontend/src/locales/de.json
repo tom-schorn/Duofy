@@ -615,7 +615,7 @@
     },
     "unplanned": "Ungeplant",
     "unplannedIn": "Ungeplant · {{budget}}",
-    "chooseCategory": "Kategorie wählen",
+    "chooseCategory": "(bitte wählen)",
     "transferWord": "Umbuchung nach {{account}}",
     "filterAll": "Alle",
     "filterUnplanned": "Ungeplant · {{count}}",
