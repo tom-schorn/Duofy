@@ -2,8 +2,8 @@ import { Fragment, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { AlertTriangle, ArrowLeftRight, Upload } from 'lucide-react'
 
-import { CategoryPicker } from '@/components/CategoryPicker'
-import { PositionPicker, type PositionMonth } from '@/components/PositionPicker'
+import { BookingDialog } from '@/components/BookingDialog'
+import type { PositionMonth } from '@/components/PositionPicker'
 import { ErrorBox } from '@/components/ErrorBox'
 import { EmptyState } from '@/components/EmptyState'
 import { QueryState } from '@/components/QueryState'
@@ -33,7 +33,7 @@ import {
   useAcceptSuggestion,
   useAccounts,
   useAssignEntry,
-  useBookEntry,
+  useBookImport,
   useDiscardEntry,
   useImportedEntries,
   usePlansForMonths,
@@ -321,8 +321,10 @@ function EntryTable({
   const assign = useAssignEntry()
   const { t } = useTranslation()
   const accept = useAcceptSuggestion()
-  const book = useBookEntry()
+  const book = useBookImport()
   const discard = useDiscardEntry()
+  // The line whose booking dialog is open. Booking is where it is assigned, too.
+  const [booking, setBooking] = useState<ImportedEntry | null>(null)
 
   let previousDay: string | null = null
 
@@ -388,23 +390,13 @@ function EntryTable({
                   {entry.incoming ? '' : '−'}
                   {euro.format(Number(entry.amount))}
                 </td>
-                <td className="px-3 py-2">
-                  {entry.counterAccountId === null ? (
-                    <PositionPicker
-                      months={choicesFor(entry, positionsByMonth)}
-                      value={entry.positionId}
-                      disabled={!mayEdit}
-                      className="h-8 max-w-[12rem]"
-                      onChange={(positionId) =>
-                        assign.mutate({ id: entry.id, positionId })
-                      }
-                    />
-                  ) : (
-                    // Eine Umbuchung füllt keinen Posten. Das Feld wegzulassen
-                    // ist die Aussage — ein leeres, das trotzdem anklickbar
-                    // wäre, lädt zu einer Zuordnung ein, die beim Buchen
-                    // wieder verschwindet.
-                    <span className="text-muted-foreground text-sm">—</span>
+                <td className="px-3 py-2 text-sm">
+                  {/* What is assigned, as text: choosing happens in the booking
+                      dialog. A transfer fills no position. */}
+                  {(entry.counterAccountId === null &&
+                    entry.positionId !== null &&
+                    namePosition(entry, positionsByMonth, entry.positionId)) || (
+                    <span className="text-muted-foreground">—</span>
                   )}
                 </td>
                 <td className="px-3 py-2">
@@ -439,40 +431,22 @@ function EntryTable({
                           </button>
                         )}
                       </span>
-                    ) : entry.positionId !== null ? (
-                      // The position carries the category, so it is a
-                      // consequence here and not a question.
+                    ) : entry.category ? (
+                      // With a position, the position carries the category.
                       <span
                         className="text-sm"
-                        title={t('import.fromPosition')}
+                        title={entry.positionId !== null ? t('import.fromPosition') : undefined}
                       >
-                        {entry.category ? categoryLabel(entry.category) : '—'}
+                        {categoryLabel(entry.category)}
                       </span>
                     ) : (
-                      <CategoryPicker
-                        value={entry.category}
-                        disabled={!mayEdit}
-                        placeholder={t('import.pick')}
-                        className="h-8 max-w-[13rem]"
-                        onChange={(category) =>
-                          assign.mutate({ id: entry.id, category })
-                        }
-                      />
+                      <span className="text-muted-foreground text-sm">—</span>
                     )}
                   </div>
                 </td>
                 <td className="px-3 py-2 text-right whitespace-nowrap">
                   {mayEdit && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={
-                        (entry.category === null &&
-                          entry.counterAccountId === null) ||
-                        book.isPending
-                      }
-                      onClick={() => book.mutate(entry.id)}
-                    >
+                    <Button size="sm" variant="ghost" onClick={() => setBooking(entry)}>
                       {t('monthBook.book')}
                     </Button>
                   )}
@@ -585,6 +559,33 @@ function EntryTable({
           })}
         </tbody>
       </table>
+      {booking && (
+        <BookingDialog
+          accounts={accounts}
+          positions={choicesFor(booking, positionsByMonth)}
+          viewedMonth={monthsFor(booking)[0]}
+          onClose={() => {
+            book.reset()
+            setBooking(null)
+          }}
+          start={{
+            kind: 'import',
+            entry: booking,
+            onBook: (answer) =>
+              book.mutate(
+                { id: booking.id, ...answer },
+                {
+                  onSuccess: () => {
+                    book.reset()
+                    setBooking(null)
+                  },
+                }
+              ),
+            pending: book.isPending,
+            error: book.error,
+          }}
+        />
+      )}
     </div>
   )
 }

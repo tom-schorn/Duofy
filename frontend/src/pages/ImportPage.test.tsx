@@ -1,18 +1,19 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { Toaster } from '@/components/ui/sonner'
-import type { AccessLevel } from '@/lib/domain'
+import { categoryLabel, type AccessLevel } from '@/lib/domain'
 import { i18n } from '@/lib/i18n'
 import { flushPendingDelete } from '@/lib/undo-delete'
 import { ImportPage } from '@/pages/ImportPage'
 import { areaLevels } from '@/test/levels'
 
-const entry = {
+const baseEntry = {
   id: 'e1',
+  accountId: 'a1',
   occurredOn: '2026-09-03',
   counterpartyName: 'Muster Markt',
   purpose: null,
@@ -47,6 +48,7 @@ function householdGranting(level: AccessLevel) {
   ]
 }
 
+let entry: Record<string, unknown> = baseEntry
 let importLevel: AccessLevel = 'delete'
 let fetchMock: ReturnType<typeof vi.fn>
 
@@ -67,6 +69,9 @@ describe('ImportPage', () => {
   beforeEach(() => {
     fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (init?.method === 'DELETE') return new Response(null, { status: 204 })
+      if (init?.method === 'PATCH' || init?.method === 'POST') {
+        return new Response(JSON.stringify(entry), { status: 200 })
+      }
       if (String(url).endsWith('/households')) {
         return new Response(JSON.stringify(householdGranting(importLevel)), { status: 200 })
       }
@@ -76,6 +81,7 @@ describe('ImportPage', () => {
     vi.stubGlobal('fetch', fetchMock)
   })
   afterEach(() => {
+    entry = baseEntry
     act(() => flushPendingDelete())
     vi.unstubAllGlobals()
   })
@@ -103,5 +109,31 @@ describe('ImportPage', () => {
     importLevel = 'delete'
     renderPage('/?member=u2')
     expect(await screen.findByRole('button', { name: i18n.t('import.discard') })).toBeInTheDocument()
+  })
+
+  test('Buchen opens the booking dialog even without a category, which assigns and then books', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    const book = await screen.findByRole('button', { name: i18n.t('monthBook.book') })
+    expect(book).toBeEnabled()
+    await user.click(book)
+    const dialog = await screen.findByRole('dialog', { name: i18n.t('import.bookTitle') })
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('monthBook.book') }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    const writes = fetchMock.mock.calls.filter(([, init]) => init?.method === 'PATCH' || init?.method === 'POST')
+    expect(writes.map(([url, init]) => `${init?.method} ${String(url).replace(/^.*\/imports/, '/imports')}`)).toEqual([
+      'PATCH /imports/e1',
+      'POST /imports/e1/book',
+    ])
+    expect(JSON.parse(String(writes[0][1]?.body))).toEqual({ category: 'household.groceries' })
+  })
+
+  test('the table names the assignment as text and offers no pickers', async () => {
+    entry = { ...baseEntry, category: 'household.groceries', budget: 'needs' }
+    renderPage()
+    const category = await screen.findByText(categoryLabel('household.groceries'))
+    expect(category.closest('button')).toBeNull()
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
   })
 })

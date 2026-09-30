@@ -735,46 +735,52 @@ export function useAssignEntry() {
   >(({ id, ...body }) => api.patch(`/imports/${id}`, body), [keys.imports])
 }
 
+type ImportAssignment = {
+  id: string
+  category?: Category | null
+  positionId?: string | null
+  counterAccountId?: string | null
+}
+
 /**
- * Take a suggestion and book it, in one go.
+ * Assign a parked entry and book it, in one go. The parked row is gone afterwards.
  *
  * Two requests rather than one endpoint: assigning and booking stay separate
  * everywhere else, and a combined one would be a third way to do the same
  * thing. The button is what joins them, not the API.
  */
+async function assignAndBook({ id, category, positionId, counterAccountId }: ImportAssignment) {
+  // One of the three, in the order that settles the most: an own account
+  // makes it a transfer and clears the rest, a position brings its own
+  // category, a category stands alone.
+  const body = counterAccountId
+    ? { counterAccountId }
+    : positionId
+      ? { positionId }
+      : { category }
+  await api.patch<ImportedEntry>(`/imports/${id}`, body)
+  return api.post<ImportedEntry>(`/imports/${id}/book`)
+}
+
+const importBooked = (entry: ImportedEntry) =>
+  i18n.t('toast.booked', { what: entryName(entry), amount: euro.format(Number(entry.amount)) })
+
+/** Take a suggestion and book it, straight from the row. */
 export function useAcceptSuggestion() {
-  return useInvalidating<
-    ImportedEntry,
-    {
-      id: string
-      category?: Category | null
-      positionId?: string | null
-      counterAccountId?: string | null
-    }
-  >(
-    async ({ id, category, positionId, counterAccountId }) => {
-      // One of the three, in the order that settles the most: an own account
-      // makes it a transfer and clears the rest, a position brings its own
-      // category, a category stands alone.
-      const body = counterAccountId
-        ? { counterAccountId }
-        : positionId
-          ? { positionId }
-          : { category }
-      await api.patch<ImportedEntry>(`/imports/${id}`, body)
-      return api.post<ImportedEntry>(`/imports/${id}/book`)
-    },
+  return useInvalidating<ImportedEntry, ImportAssignment>(
+    assignAndBook,
     [keys.imports, keys.accounts, keys.allTransactions, keys.plans],
-    (entry) => i18n.t('toast.booked', { what: entryName(entry), amount: euro.format(Number(entry.amount)) })
+    importBooked
   )
 }
 
-/** Turn a parked entry into a booking. The parked row is gone afterwards. */
-export function useBookEntry() {
-  return useInvalidating<ImportedEntry, string>(
-    (id) => api.post(`/imports/${id}/book`),
+/** Book a parked entry from the booking dialog, which shows a failure itself. */
+export function useBookImport() {
+  return useInvalidating<ImportedEntry, ImportAssignment>(
+    assignAndBook,
     [keys.imports, keys.accounts, keys.allTransactions, keys.plans],
-    (entry) => i18n.t('toast.booked', { what: entryName(entry), amount: euro.format(Number(entry.amount)) })
+    importBooked,
+    INLINE_ERROR
   )
 }
 
