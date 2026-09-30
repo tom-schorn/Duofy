@@ -23,6 +23,11 @@ const booking = {
   planMonth: 9,
   autoBooked: false,
   externalRef: null,
+  // What the server says about it (#254): the page reads these, it does not work
+  // them out.
+  unplanned: true,
+  planMonthFixed: false,
+  countsElsewhere: false,
 }
 const account = {
   id: 'a1',
@@ -136,6 +141,8 @@ describe('MonthBook carry-over row', () => {
     note: null,
     category: null,
     budget: null,
+    unplanned: false,
+    planMonthFixed: true,
   }
 
   beforeEach(() => {
@@ -173,6 +180,8 @@ describe('MonthBook list and filter (#241)', () => {
     category: 'housing.rent',
     budget: 'needs',
     positionId: 'p1',
+    unplanned: false,
+    planMonthFixed: true,
   }
   const unplannedLate = {
     ...booking,
@@ -198,6 +207,7 @@ describe('MonthBook list and filter (#241)', () => {
     category: 'income.earned',
     budget: 'income',
     planMonth: 9,
+    countsElsewhere: true,
   }
   const transfer = {
     ...booking,
@@ -207,6 +217,8 @@ describe('MonthBook list and filter (#241)', () => {
     counterAccountId: 'a2',
     category: null,
     budget: null,
+    unplanned: false,
+    planMonthFixed: true,
   }
 
   beforeEach(() => {
@@ -333,7 +345,16 @@ describe('MonthBook list and filter (#241)', () => {
                   unplannedLate,
                   planned,
                   transfer,
-                  { ...booking, id: 't-co', kind: 'carry_over', note: null, category: null, budget: null },
+                  {
+                    ...booking,
+                    id: 't-co',
+                    kind: 'carry_over',
+                    note: null,
+                    category: null,
+                    budget: null,
+                    unplanned: false,
+                    planMonthFixed: true,
+                  },
                 ]
           ),
           { status: 200 }
@@ -343,6 +364,40 @@ describe('MonthBook list and filter (#241)', () => {
     await screen.findByRole('button', { name: /Kino/ })
     expect(names()).toEqual(['Kino'])
     expect(screen.queryByText(i18n.t('monthBook.carryOverName'))).not.toBeInTheDocument()
+  })
+})
+
+describe('MonthBook reads the server flags (#254)', () => {
+  // Rows whose fields would say the opposite of their flags: only a page that reads
+  // the flags passes.
+  const heldBack = { ...booking, id: 't-held', note: 'Vorgemerkt', unplanned: false }
+  const movedHere = { ...booking, id: 't-moved', note: 'Zuschuss', countsElsewhere: true }
+
+  beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async (url: string) =>
+          new Response(
+            JSON.stringify(String(url).includes('/accounts') ? [account] : [heldBack, movedHere]),
+            { status: 200 }
+          )
+      )
+    )
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  test('Ungeplant counts and offers zuordnen only where the server says unplanned', async () => {
+    renderBook(false)
+    await screen.findByRole('button', { name: /Zuschuss/ })
+    expect(screen.getByRole('button', { name: 'Ungeplant · 1' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /zuordnen/ })).toHaveLength(1)
+  })
+
+  test('the month badge follows the server, not the date', async () => {
+    renderBook(false)
+    expect(await screen.findByRole('button', { name: /Zuschuss/ })).toHaveTextContent(/für Sep/)
+    expect(screen.getByRole('button', { name: /Vorgemerkt/ })).not.toHaveTextContent(/für /)
   })
 })
 
