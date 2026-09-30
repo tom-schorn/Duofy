@@ -465,11 +465,11 @@ function BookingForm({
   )
   const notePanel = stored && openWord === 'note' && (
     <SentencePanel label={t('monthBook.note')}>
-      <Label htmlFor="edit-note" className="sr-only">
+      <Label htmlFor="booking-note" className="sr-only">
         {t('monthBook.note')}
       </Label>
       <Input
-        id="edit-note"
+        id="booking-note"
         value={note}
         onChange={(event) => setNote(event.target.value)}
         placeholder={t('monthBook.notePlaceholder')}
