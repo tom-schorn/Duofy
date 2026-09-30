@@ -1,17 +1,17 @@
-import { Fragment } from 'react'
-import { Home } from 'lucide-react'
-import { NavLink, Outlet, useLocation, useSearchParams } from 'react-router'
-import { useTranslation } from 'react-i18next'
+import { Fragment } from "react";
+import { Home } from "lucide-react";
+import { NavLink, Outlet, useLocation, useSearchParams } from "react-router";
+import { useTranslation } from "react-i18next";
 
-import { HelpButton, HelpColumn } from '@/components/HelpPanel'
-import { MemberSwitcher } from '@/components/MemberSwitcher'
-import { useHelpPinned, useIsWide } from '@/lib/help-state'
-import { LegalLinks } from '@/components/LegalLinks'
-import { NAV, titleKeyFor } from '@/lib/nav'
-import { useHouseholds } from '@/lib/queries'
+import { HelpButton, HelpColumn } from "@/components/HelpPanel";
+import { MemberSwitcher } from "@/components/MemberSwitcher";
+import { useHelpPinned, useIsWide } from "@/lib/help-state";
+import { LegalLinks } from "@/components/LegalLinks";
+import { NAV, titleKeyFor } from "@/lib/nav";
+import { useHouseholds } from "@/lib/queries";
 
-import { ThemeToggle } from '@/components/ThemeToggle'
-import { UserMenu } from '@/components/UserMenu'
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { UserMenu } from "@/components/UserMenu";
 import {
   Sidebar,
   SidebarContent,
@@ -26,8 +26,8 @@ import {
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
-} from '@/components/ui/sidebar'
-import { Separator } from '@/components/ui/separator'
+} from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
 
 /**
  * The shell around everything behind the sign-in.
@@ -37,17 +37,23 @@ import { Separator } from '@/components/ui/separator'
  * plans with.
  */
 
+/** On the entry's page or below it — `/household/grants` keeps "Haushalt" lit,
+ *  `/household-x` and `/` do not (the match ends at a path segment). */
+function isWithin(pathname: string, to: string): boolean {
+  return pathname === to || pathname.startsWith(`${to}/`);
+}
+
 export function AppLayout() {
-  const { t } = useTranslation()
-  const { pathname } = useLocation()
-  const titleKey = titleKeyFor(pathname)
-  const help = useHelpPinned()
-  const wide = useIsWide()
-  const household = (useHouseholds().data ?? [])[0]
-  const [params] = useSearchParams()
-  const active = params.get('household')
-  const activeMember = params.get('member')
-  const navSearch = activeMember === null ? '' : `?member=${activeMember}`
+  const { t } = useTranslation();
+  const { pathname } = useLocation();
+  const titleKey = titleKeyFor(pathname);
+  const help = useHelpPinned();
+  const wide = useIsWide();
+  const household = (useHouseholds().data ?? [])[0];
+  const [params] = useSearchParams();
+  const active = params.get("household");
+  const activeMember = params.get("member");
+  const navSearch = activeMember === null ? "" : `?member=${activeMember}`;
 
   return (
     <SidebarProvider>
@@ -65,42 +71,48 @@ export function AppLayout() {
               <SidebarMenu>
                 {NAV.map((item) => (
                   <Fragment key={item.to}>
-                  <SidebarMenuItem>
-                    {/* Die gewählte Person reist mit. Ohne das fiele man beim
+                    <SidebarMenuItem>
+                      {/* Die gewählte Person reist mit. Ohne das fiele man beim
                         ersten Klick auf „Verträge" wieder auf sich selbst
                         zurück, ohne dass es jemand ansagt. */}
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname === item.to && (item.to !== '/plan' || active === null)}
-                      tooltip={t(item.label)}
-                    >
-                      <NavLink to={{ pathname: item.to, search: navSearch }} end>
-                        <item.icon className="size-4" />
-                        <span>{t(item.label)}</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={
+                          isWithin(pathname, item.to) &&
+                          (item.to !== "/plan" || active === null)
+                        }
+                        tooltip={t(item.label)}
+                      >
+                        <NavLink
+                          to={{ pathname: item.to, search: navSearch }}
+                          end
+                        >
+                          <item.icon className="size-4" />
+                          <span>{t(item.label)}</span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
 
-                  {/* Jede Person ist in genau einem Haushalt, also gibt es genau
+                    {/* Jede Person ist in genau einem Haushalt, also gibt es genau
                       einen Menüpunkt dafür. Ein Menüpunkt ist ein Ort, den man
                       ansteuert und verlinken kann — ein Umschalter änderte
                       unsichtbar, was alle Seiten zeigen. Er öffnet die
                       Monatsliste des Haushalts, wie „Meine Planung" die eigene
                       öffnet. */}
-                  {item.to === '/plan' && household !== undefined && (
-                    <SidebarMenuItem>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={active === household.id}
-                        tooltip={t('nav.ourHousehold')}
-                      >
-                        <NavLink to={`/plan?household=${household.id}`}>
-                          <Home className="size-4" />
-                          <span>{t('nav.ourHousehold')}</span>
-                        </NavLink>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  )}
+                    {item.to === "/plan" && household !== undefined && (
+                      <SidebarMenuItem>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={active === household.id}
+                          tooltip={t("nav.ourHousehold")}
+                        >
+                          <NavLink to={`/plan?household=${household.id}`}>
+                            <Home className="size-4" />
+                            <span>{t("nav.ourHousehold")}</span>
+                          </NavLink>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    )}
                   </Fragment>
                 ))}
               </SidebarMenu>
@@ -127,7 +139,7 @@ export function AppLayout() {
 
           {/* Der Seitentitel, aus dem Katalog — kein fester Platzhalter (Regel 20). */}
           <span className="font-heading text-lg font-semibold">
-            {titleKey === null ? '' : t(titleKey)}
+            {titleKey === null ? "" : t(titleKey)}
           </span>
           <span className="ml-auto" />
           <ThemeToggle />
@@ -146,5 +158,5 @@ export function AppLayout() {
         </div>
       </SidebarInset>
     </SidebarProvider>
-  )
+  );
 }

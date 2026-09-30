@@ -110,4 +110,16 @@ describe('AppLayout', () => {
       'true'
     )
   })
+
+  test('"Haushalt" stays active on a page below it, such as the grants page', () => {
+    renderAt('/household/grants')
+    expect(screen.getByRole('link', { name: de.nav.household })).toHaveAttribute(
+      'data-active',
+      'true'
+    )
+    expect(screen.getByRole('link', { name: de.nav.plan })).not.toHaveAttribute(
+      'data-active',
+      'true'
+    )
+  })
 })
