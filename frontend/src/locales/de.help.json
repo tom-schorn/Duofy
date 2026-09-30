@@ -113,7 +113,7 @@
     "entries": {
       "book": {
         "title": "Was das Buch ist",
-        "body": "<p>Das Buch ist ein Reiter des Monatsplans und listet die tatsächlichen Buchungen dieses Plan-Monats nach Datum. Der Plan beschreibt den Soll-Zustand, das Buch den Ist-Zustand; die Gegenüberstellung beider zeigt, wie tragfähig die Planung war.</p><pSpaced>Eine neue Buchung legst du mit „Buchung hinzufügen“ oben auf der Seite an, ein Klick auf eine Zeile öffnet sie zum Ändern. Die Kontostände stehen unter Konten.</pSpaced>"
+        "body": "<p>Das Buch ist ein Reiter des Monatsplans und listet die tatsächlichen Buchungen dieses Plan-Monats nach Datum. Der Plan beschreibt den Soll-Zustand, das Buch den Ist-Zustand; die Gegenüberstellung beider zeigt, wie tragfähig die Planung war.</p><pSpaced>Eine neue Buchung legst du mit „Buchung anlegen“ oben auf der Seite an, ein Klick auf eine Zeile öffnet sie zum Ändern. Die Kontostände stehen unter Konten.</pSpaced>"
       },
       "assignment": {
         "title": "Buchung mit und ohne Posten",
