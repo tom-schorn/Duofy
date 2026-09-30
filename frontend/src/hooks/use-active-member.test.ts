@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { Household, Member } from '@/lib/domain'
 import { areaLevels } from '@/test/levels'
 
-import { grantedToMe } from './use-active-member'
+import { grantedToMe, scopeSearch } from './use-active-member'
 
 function member(overrides: Partial<Member>): Member {
   return {
@@ -45,5 +45,20 @@ describe('grantedToMe', () => {
 
   it('answers none for someone who shares no household', () => {
     expect(grantedToMe([household('flat', [member({})])], 'stranger', 'plan')).toBe('none')
+  })
+})
+
+describe('scopeSearch', () => {
+  it('is empty for your own data', () => {
+    expect(scopeSearch({ id: null, householdId: null })).toBe('')
+  })
+
+  it('carries the chosen person', () => {
+    expect(scopeSearch({ id: 'u2', householdId: null })).toBe('?member=u2')
+  })
+
+  it('carries the household before a person', () => {
+    expect(scopeSearch({ id: null, householdId: 'h1' })).toBe('?household=h1')
+    expect(scopeSearch({ id: 'u2', householdId: 'h1' })).toBe('?household=h1')
   })
 })

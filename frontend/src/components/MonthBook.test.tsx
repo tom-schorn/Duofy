@@ -345,3 +345,29 @@ describe('MonthBook list and filter (#241)', () => {
     expect(screen.queryByText(i18n.t('monthBook.carryOverName'))).not.toBeInTheDocument()
   })
 })
+
+describe('MonthBook without an account', () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify([]), { status: 200 }))
+    )
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  test.each([
+    ['your own book', '/plan/2026/09', '/accounts'],
+    ['the book of the chosen person', '/plan/2026/09?member=u2', '/accounts?member=u2'],
+  ])('the link to the accounts keeps the person of %s', async (_name, path, expected) => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={[path]}>
+          <Book readOnly={false} positions={[]} initial="all" />
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+    const link = await screen.findByRole('link', { name: i18n.t('accounts.create') })
+    expect(link).toHaveAttribute('href', expected)
+  })
+})
