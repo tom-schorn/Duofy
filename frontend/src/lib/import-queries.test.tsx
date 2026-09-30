@@ -44,6 +44,16 @@ describe('assigning and booking a parked line', () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
+  test('a position wins over the category that comes with it', async () => {
+    await accept({ id: 'e1', positionId: 'p1', category: 'housing.rent' })
+    expect(patchBody()).toEqual({ positionId: 'p1' })
+  })
+
+  test('an own account wins over position and category', async () => {
+    await accept({ id: 'e1', positionId: 'p1', category: 'housing.rent', counterAccountId: 'a2' })
+    expect(patchBody()).toEqual({ counterAccountId: 'a2' })
+  })
+
   test('a category alone clears a parked position, so the line does not book on it', async () => {
     await accept({ id: 'e1', positionId: null, category: 'household.groceries' })
     expect(patchBody()).toEqual({ positionId: null, category: 'household.groceries' })
