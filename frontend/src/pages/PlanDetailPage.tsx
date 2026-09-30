@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { ArrowLeft, Plus } from 'lucide-react'
 
-import { useActiveMember } from '@/hooks/use-active-member'
+import { scopeSearch, useActiveMember } from '@/hooks/use-active-member'
 import { MonthSwitch } from '@/components/MonthSwitch'
 import { CreatePlanDialog } from '@/components/CreatePlanDialog'
 import { PlanView } from '@/components/PlanView'
@@ -71,24 +71,20 @@ export function PlanDetailPage() {
 function PlanMonthPage({ year, month }: { year: number; month: number }) {
   const { t } = useTranslation()
   const [creating, setCreating] = useState(false)
-  // The household lives in the URL, not in a global switcher. That makes the
-  // shared view a place one can link to and reload — and it is visible why the page
-  // looks different.
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
-  const householdId = params.get('household')
-  // `?member=` shows the plan of a person who granted insight. Same reasoning as
-  // for the household: a place in the URL, not global state.
-  const memberId = params.get('member')
+  // Whose plan — household, another person or your own — is chosen in the sidebar
+  // and read here. Name and level come from the member list the sidebar already
+  // loaded — the plan itself says nothing about whose it is, and it does not have to.
+  const active = useActiveMember()
+  const householdId = active.householdId
+  const memberId = active.id
   const shared = householdId !== null
-  const foreign = memberId !== null
+  const foreign = !shared && memberId !== null
 
   // All three hooks are always present — React does not allow conditional hooks.
   // The unused ones are switched off through `enabled` and load nothing.
   const ownPlan = usePlan(year, month, !shared && !foreign)
-  // Name and level come from the member list the sidebar already loaded — the plan
-  // itself says nothing about whose it is, and it does not have to.
-  const active = useActiveMember()
   const householdPlan = useHouseholdPlan(
     householdId,
     year,
@@ -243,14 +239,7 @@ function PlanMonthPage({ year, month }: { year: number; month: number }) {
           // The overview must open in the same scope: the household's months for
           // the household plan, the other person's months for their plan — a bare
           // `/plan` would silently drop back to your own.
-          to={{
-            pathname: '/plan',
-            search: shared
-              ? `?household=${householdId}`
-              : foreign
-                ? `?member=${memberId}`
-                : '',
-          }}
+          to={{ pathname: '/plan', search: scopeSearch(active) }}
           data-print="hide"
           className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1.5 text-sm"
         >
