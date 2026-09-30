@@ -2,10 +2,11 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
-from pydantic import Field, model_validator
+from pydantic import Field, computed_field, model_validator
 
 from app.models.enums import Budget, Category, TransactionKind
 from app.schemas.base import Schema
+from app.services.plan_month import is_fixed, is_unplanned, month_of
 
 
 class TransactionBase(Schema):
@@ -120,3 +121,28 @@ class TransactionRead(TransactionBase):
     #: nobody types this in, it is what the bank reported.
     counterparty_name: str | None = None
     counterparty_iban: str | None = None
+
+    # Derived, never stored: the frontend reads them instead of repeating the rules
+    # (#254).
+
+    @computed_field
+    @property
+    def unplanned(self) -> bool:
+        """Counts as "Ungeplant" in the plan and the book's filter."""
+        return is_unplanned(
+            self.kind, self.position_id, self.counter_account_id is not None
+        )
+
+    @computed_field
+    @property
+    def plan_month_fixed(self) -> bool:
+        """The plan month cannot be chosen (#239)."""
+        return is_fixed(
+            self.kind, self.position_id, self.counter_account_id is not None
+        )
+
+    @computed_field
+    @property
+    def counts_elsewhere(self) -> bool:
+        """Booked in one month, counting in another (a salary paid for the next)."""
+        return (self.plan_year, self.plan_month) != month_of(self.occurred_on)
