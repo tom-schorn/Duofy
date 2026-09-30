@@ -26,7 +26,7 @@ Name ist klickbar, der Betrag tut nichts, und bei Verträgen geht Bearbeiten nur
 
 **2. Was klickbar ist, sieht klickbar aus; was nicht, sieht nicht so aus.**
 Klickbare Zeilen haben Hand-Cursor, leichten Hintergrund beim Überfahren, sichtbaren Fokusring, sind
-mit Tab erreichbar und öffnen mit Enter. Nicht klickbare Karten (Kennzahlen, Kontostände im Buch)
+mit Tab erreichbar und öffnen mit Enter. Nicht klickbare Karten (Kennzahlen)
 haben weder Hover noch Ring oder Schatten, die wie eine Schaltfläche wirken.
 *Warum:* Wer Hover und Ring sieht, erwartet eine Wirkung; bleibt sie aus, verliert man Vertrauen.
 *So:* Eine Kennzahl ist flach. *Nicht so:* Eine Kennzahl mit Ring und Schatten, die nichts tut.
