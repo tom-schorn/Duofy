@@ -111,6 +111,18 @@ describe('AppLayout', () => {
     )
   })
 
+  test.each([
+    [de.nav.commitments, '/contracts'],
+    [de.nav.accounts, '/accounts'],
+    [de.nav.import, '/import'],
+  ])('%s keeps the person chosen in the sidebar (#254)', (name, pathname) => {
+    renderAt('/plan?member=u2')
+    expect(screen.getByRole('link', { name })).toHaveAttribute(
+      'href',
+      `${pathname}?member=u2`
+    )
+  })
+
   test('"Haushalt" stays active on a page below it, such as the grants page', () => {
     renderAt('/household/grants')
     expect(screen.getByRole('link', { name: de.nav.household })).toHaveAttribute(
