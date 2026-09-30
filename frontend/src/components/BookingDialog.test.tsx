@@ -2,8 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
 
-import { BookingDialog } from '@/components/BookingDialog'
-import type { PositionMonth } from '@/components/PositionPicker'
+import { BookingDialog, type PositionMonth } from '@/components/BookingDialog'
 import type { Account, ImportedEntry, PlanPosition, Transaction } from '@/lib/domain'
 import { today } from '@/lib/dates'
 import { i18n } from '@/lib/i18n'
