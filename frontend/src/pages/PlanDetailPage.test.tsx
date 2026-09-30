@@ -539,11 +539,21 @@ describe('PlanDetailPage — the book as a tab (#241)', () => {
     planMonth: 11,
     autoBooked: false,
     externalRef: null,
+    unplanned: true,
+    planMonthFixed: false,
+    countsElsewhere: false,
     ...overrides,
   })
   const rows = [
     booking({ id: 't1', note: 'Kino' }),
-    booking({ id: 't2', note: 'Miete Nov', positionId: 'p1', occurredOn: '2026-11-01' }),
+    booking({
+      id: 't2',
+      note: 'Miete Nov',
+      positionId: 'p1',
+      occurredOn: '2026-11-01',
+      unplanned: false,
+      planMonthFixed: true,
+    }),
   ]
 
   function members(accountsLevel: string) {

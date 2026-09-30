@@ -646,6 +646,16 @@ export type Transaction = {
   /** Created by ticking off — un-ticking removes exactly these again. */
   autoBooked: boolean
   externalRef: string | null
+  /**
+   * On no position, no transfer, no carry-over: the "Ungeplant" of the plan and of
+   * the book's filter. The server decides, with the rule of its sum per budget
+   * (#240, #254).
+   */
+  unplanned: boolean
+  /** Nobody chooses the plan month: a position, transfer or carry-over fixes it. */
+  planMonthFixed: boolean
+  /** The plan month is not the month of `occurredOn` (a salary paid for the next). */
+  countsElsewhere: boolean
 }
 
 export type PaymentMethod =
@@ -965,21 +975,6 @@ export type PlanSummary = Plan & {
   unpaid: string
   /** No booking hangs on any of its positions yet, so it may still be deleted. */
   deletable: boolean
-}
-
-/**
- * A booking that hangs on no position and is no transfer or carry-over: the
- * "Ungeplant" of the plan and of the book's filter. Mirrors what the backend sums
- * per budget (#240).
- */
-export function isUnplanned(
-  transaction: Pick<Transaction, 'positionId' | 'counterAccountId' | 'kind'>
-): boolean {
-  return (
-    transaction.positionId === null &&
-    transaction.counterAccountId === null &&
-    transaction.kind !== 'carry_over'
-  )
 }
 
 /** Mirror of `Hint` — something the backend wants the plan to point out. */

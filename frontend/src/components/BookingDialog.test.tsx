@@ -35,6 +35,9 @@ const booking = {
   planMonth: 9,
   autoBooked: false,
   externalRef: null,
+  unplanned: true,
+  planMonthFixed: false,
+  countsElsewhere: false,
 } as Transaction
 
 const accounts = [{ id: 'a1', name: 'Giro', active: true }] as Account[]

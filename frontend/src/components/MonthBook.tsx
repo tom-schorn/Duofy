@@ -14,7 +14,6 @@ import {
   OWN_SCOPE,
   categoryLabel,
   euro,
-  isUnplanned,
   monthShort,
   type Account,
   type PlanPosition,
@@ -112,8 +111,8 @@ export function MonthBook({
   const all = [...(transactions.data ?? [])].sort((a, b) =>
     a.occurredOn < b.occurredOn ? -1 : a.occurredOn > b.occurredOn ? 1 : 0
   )
-  const unplannedCount = all.filter(isUnplanned).length
-  const shown = filter === 'unplanned' ? all.filter(isUnplanned) : all
+  const unplanned = all.filter((transaction) => transaction.unplanned)
+  const shown = filter === 'unplanned' ? unplanned : all
 
   function open(transaction: Transaction, startWord: string | null) {
     saveEdit.reset()
@@ -138,7 +137,7 @@ export function MonthBook({
           pressed={filter === 'unplanned'}
           onClick={() => onFilterChange('unplanned')}
         >
-          {t('monthBook.filterUnplanned', { count: unplannedCount })}
+          {t('monthBook.filterUnplanned', { count: unplanned.length })}
         </FilterChip>
       </div>
 
@@ -181,7 +180,7 @@ export function MonthBook({
                   positions={positions}
                   onEdit={editable ? () => open(transaction, null) : null}
                   onAssign={
-                    editable && isUnplanned(transaction)
+                    editable && transaction.unplanned
                       ? () => open(transaction, 'position')
                       : null
                   }
@@ -267,11 +266,6 @@ function Row({
   const isTransfer = transaction.counterAccountId !== null
   const isCarryOver = transaction.kind === 'carry_over'
   const { t } = useTranslation()
-  // Booked in one month, counting in another: say which (a salary paid on the 25th
-  // for the month after).
-  const countsElsewhere =
-    transaction.planMonth !== Number(transaction.occurredOn.slice(5, 7)) ||
-    transaction.planYear !== Number(transaction.occurredOn.slice(0, 4))
 
   return (
     <ListRow
@@ -319,7 +313,9 @@ function Row({
                 {t('monthBook.autoBooked')}
               </Badge>
             )}
-            {!isCarryOver && countsElsewhere && (
+            {/* Booked in one month, counting in another: say which (a salary
+                paid on the 25th for the month after). */}
+            {transaction.countsElsewhere && (
               <Badge variant="secondary" className="font-normal">
                 {t('monthBook.forMonth', { month: monthShort(transaction.planMonth) })}
               </Badge>
