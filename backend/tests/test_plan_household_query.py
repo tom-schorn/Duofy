@@ -88,3 +88,23 @@ async def test_the_old_household_routes_are_gone(
     response = await client.get(path.format(id=household.id))
 
     assert response.status_code == 404
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["/api/v1/plans", "/api/v1/plans/2026/9", "/api/v1/plans/2026/9/flow"],
+)
+async def test_someone_outside_the_household_is_refused_on_every_household_route(
+    client: AsyncClient, session: AsyncSession, owner: User, path: str
+):
+    """The household month carries every shared position — a stranger must not
+    reach it by knowing the household id."""
+    household, _ = await shared_household(session, owner)
+    stranger = await make_user(session, "Stranger")
+    await session.commit()
+    sign_in(stranger)
+
+    response = await client.get(f"{path}?household={household.id}")
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "not_household_member"
