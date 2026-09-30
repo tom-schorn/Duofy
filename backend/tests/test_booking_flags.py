@@ -166,3 +166,32 @@ async def test_a_new_booking_answers_with_its_flags(
     assert response.status_code == 201, response.text
     body = response.json()
     assert (body["unplanned"], body["countsElsewhere"]) == (True, True)
+
+
+async def test_a_changed_booking_answers_with_its_new_flags(
+    client: AsyncClient, session: AsyncSession, couple
+):
+    me, _, _ = couple
+    giro = await account_of(session, me, "Giro")
+    await session.commit()
+    created = await client.post(
+        "/api/v1/transactions",
+        json={
+            "accountId": str(giro.id),
+            "occurredOn": "2026-09-28",
+            "amount": "12.00",
+            "category": "household.groceries",
+            "budget": "needs",
+            "planYear": 2026,
+            "planMonth": 10,
+        },
+    )
+    assert created.status_code == 201, created.text
+
+    response = await client.patch(
+        f"/api/v1/transactions/{created.json()['id']}",
+        json={"planYear": 2026, "planMonth": 9},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["countsElsewhere"] is False
