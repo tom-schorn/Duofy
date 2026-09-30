@@ -540,7 +540,6 @@ describe('PlanDetailPage — the book as a tab (#241)', () => {
     autoBooked: false,
     externalRef: null,
     unplanned: true,
-    planMonthFixed: false,
     countsElsewhere: false,
     ...overrides,
   })
@@ -552,7 +551,6 @@ describe('PlanDetailPage — the book as a tab (#241)', () => {
       positionId: 'p1',
       occurredOn: '2026-11-01',
       unplanned: false,
-      planMonthFixed: true,
     }),
   ]
 

@@ -6,7 +6,7 @@ from pydantic import Field, computed_field, model_validator
 
 from app.models.enums import Budget, Category, TransactionKind
 from app.schemas.base import Schema
-from app.services.plan_month import is_fixed, is_unplanned, month_of
+from app.services.plan_month import is_unplanned, month_of
 
 
 class TransactionBase(Schema):
@@ -130,14 +130,6 @@ class TransactionRead(TransactionBase):
     def unplanned(self) -> bool:
         """Counts as "Ungeplant" in the plan and the book's filter."""
         return is_unplanned(
-            self.kind, self.position_id, self.counter_account_id is not None
-        )
-
-    @computed_field
-    @property
-    def plan_month_fixed(self) -> bool:
-        """The plan month cannot be chosen (#239)."""
-        return is_fixed(
             self.kind, self.position_id, self.counter_account_id is not None
         )
 

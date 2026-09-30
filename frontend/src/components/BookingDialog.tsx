@@ -241,6 +241,8 @@ function BookingForm({
   // transfer or an imported line in the month of its date; otherwise the choice —
   // previous, own or next month.
   const planFixed = Boolean(chosen) || isTransfer || Boolean(imported)
+  // The clamp to +-1 mirrors the server's rule, see `fallback_offset` in
+  // backend/app/services/plan_month.py.
   const storedOffset = stored
     ? monthOffset(stored.occurredOn, { year: stored.planYear, month: stored.planMonth })
     : 0

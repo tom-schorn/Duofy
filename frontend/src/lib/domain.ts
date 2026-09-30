@@ -652,8 +652,6 @@ export type Transaction = {
    * (#240, #254).
    */
   unplanned: boolean
-  /** Nobody chooses the plan month: a position, transfer or carry-over fixes it. */
-  planMonthFixed: boolean
   /** The plan month is not the month of `occurredOn` (a salary paid for the next). */
   countsElsewhere: boolean
 }

@@ -36,7 +36,6 @@ const booking = {
   autoBooked: false,
   externalRef: null,
   unplanned: true,
-  planMonthFixed: false,
   countsElsewhere: false,
 } as Transaction
 

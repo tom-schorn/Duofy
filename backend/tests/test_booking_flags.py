@@ -1,9 +1,7 @@
-"""Three flags on every booking the book lists, computed by the server (#254).
+"""Two flags on every booking the book lists, computed by the server (#254).
 
 * `unplanned`: on no position, no transfer, no carry-over — the same rule the plan
   uses for its "Ungeplant" per budget (#240)
-* `planMonthFixed`: nobody can choose the plan month — it follows a position, or a
-  transfer or carry-over counts in the month of its date (#239)
 * `countsElsewhere`: the plan month is not the month of the date
 
 The frontend reads them and computes nothing itself; so they have to arrive the
@@ -74,14 +72,14 @@ async def flags(client: AsyncClient, query: str, month: int = 9) -> dict[str, di
     assert response.status_code == 200, response.text
     return {
         row["note"]: {
-            key: row[key] for key in ("unplanned", "planMonthFixed", "countsElsewhere")
+            key: row[key] for key in ("unplanned", "countsElsewhere")
         }
         for row in response.json()
     }
 
 
 @pytest.mark.parametrize("scope", SCOPES)
-async def test_the_book_says_which_booking_is_unplanned_and_whose_month_is_fixed(
+async def test_the_book_says_which_booking_is_unplanned(
     client: AsyncClient, session: AsyncSession, couple, scope: str
 ):
     owner, query = owner_and_query(scope, couple)
@@ -116,18 +114,10 @@ async def test_the_book_says_which_booking_is_unplanned_and_whose_month_is_fixed
     book = await flags(client, query)
 
     assert book == {
-        "free": {"unplanned": True, "planMonthFixed": False, "countsElsewhere": False},
-        "on position": {
-            "unplanned": False,
-            "planMonthFixed": True,
-            "countsElsewhere": False,
-        },
-        "transfer": {"unplanned": False, "planMonthFixed": True, "countsElsewhere": False},
-        "carry over": {
-            "unplanned": False,
-            "planMonthFixed": True,
-            "countsElsewhere": False,
-        },
+        "free": {"unplanned": True, "countsElsewhere": False},
+        "on position": {"unplanned": False, "countsElsewhere": False},
+        "transfer": {"unplanned": False, "countsElsewhere": False},
+        "carry over": {"unplanned": False, "countsElsewhere": False},
     }
 
 
@@ -175,8 +165,4 @@ async def test_a_new_booking_answers_with_its_flags(
 
     assert response.status_code == 201, response.text
     body = response.json()
-    assert (body["unplanned"], body["planMonthFixed"], body["countsElsewhere"]) == (
-        True,
-        False,
-        True,
-    )
+    assert (body["unplanned"], body["countsElsewhere"]) == (True, True)
