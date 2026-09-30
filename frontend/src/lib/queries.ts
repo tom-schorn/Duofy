@@ -210,6 +210,43 @@ export function useSetMemberRole(householdId: string) {
 }
 
 /**
+ * Set what one other member may do with **your** data (decision 57).
+ *
+ * Only the areas given change. What was sent goes into the cached household at
+ * once, so a select does not jump back while the reload runs. Afterwards what the
+ * other person sees changes, so everything shared is reloaded. A failure has no
+ * form to sit in: the shared net reports it and offers to try again (rule 16).
+ */
+export function useSetGrants(householdId: string) {
+  const client = useQueryClient()
+  return useInvalidating<Member, { member: Member; levels: Partial<AreaLevels> }>(
+    async ({ member, levels }) => {
+      const saved = await api.put<Member>(
+        `/households/${householdId}/grants/${member.userId}`,
+        levels
+      )
+      client.setQueryData<Household[]>(keys.households, (households) =>
+        households?.map((household) =>
+          household.id !== householdId
+            ? household
+            : {
+                ...household,
+                members: household.members.map((other) =>
+                  other.userId === member.userId
+                    ? { ...other, myGrants: { ...other.myGrants, ...levels } }
+                    : other
+                ),
+              }
+        )
+      )
+      return saved
+    },
+    [keys.households, keys.plans, keys.accounts, keys.commitments],
+    (_, { member }) => i18n.t('toast.grantUpdated', { name: member.firstName })
+  )
+}
+
+/**
  * Set what the other members may do with your data, the same for each of them.
  *
  * The server keeps a level per person (`PUT /grants/{grantee}`); this card still

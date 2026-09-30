@@ -258,7 +258,7 @@
     "memberRemoved": "{{name}} aus dem Haushalt entfernt",
     "madeAdmin": "{{name}} ist jetzt Admin",
     "madeMember": "{{name}} ist jetzt Mitglied",
-    "grantUpdated": "Freigabe geändert",
+    "grantUpdated": "Freigabe für {{name}} geändert",
     "invitationSent": "Einladung verschickt",
     "invitationRevoked": "Einladung zurückgezogen",
     "instanceInvitationCreated": "Einladungslink angelegt",
@@ -878,6 +878,25 @@
     "remove": "Entfernen",
     "removeTitle": "{{name}} aus dem Haushalt entfernen?",
     "removeText": "{{name}} bekommt sofort einen eigenen Haushalt und behält Pläne, Konten und Verträge. Alle Freigaben zwischen {{name}} und den anderen enden."
+  },
+  "grants": {
+    "title": "Freigaben",
+    "back": "Haushalt",
+    "lead": "Was die anderen im Haushalt mit deinen Daten tun dürfen, legst du für jede Person einzeln fest. Jede Änderung gilt sofort. Den Haushaltsplan sehen alle, unabhängig davon.",
+    "empty": "Außer dir ist noch niemand im Haushalt. Sobald jemand beitritt, legst du hier fest, was diese Person von dir sieht.",
+    "presetsFor": "Vorlage für {{name}}",
+    "ownChoice": "eigene Auswahl",
+    "presets": {
+      "partner": "Partner: alles",
+      "read": "Mitlesen",
+      "kid": "Kind",
+      "none": "Nichts"
+    },
+    "hints": {
+      "bookNeedsAccounts": "Buchen bei dir geht nur, wenn {{name}} auch deine Konten ansehen darf.",
+      "importNeedsAccounts": "Importieren braucht „Konten: Ansehen“, sonst kann {{name}} kein Konto wählen.",
+      "bookNeedsPlan": "Das Buch hängt am Plan: Ohne „Planung: Ansehen“ sieht {{name}} dein Buch nicht."
+    }
   },
   "import": {
     "leadMember": "Die Parkposition von {{name}}.",
