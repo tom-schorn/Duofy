@@ -752,12 +752,13 @@ type ImportAssignment = {
 async function assignAndBook({ id, category, positionId, counterAccountId }: ImportAssignment) {
   // One of the three, in the order that settles the most: an own account
   // makes it a transfer and clears the rest, a position brings its own
-  // category, a category stands alone.
+  // category, a category stands alone. A category also says "no position":
+  // the server keeps a parked position over any category sent next to it.
   const body = counterAccountId
     ? { counterAccountId }
     : positionId
       ? { positionId }
-      : { category }
+      : { positionId: null, category }
   await api.patch<ImportedEntry>(`/imports/${id}`, body)
   return api.post<ImportedEntry>(`/imports/${id}/book`)
 }

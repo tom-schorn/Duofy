@@ -130,7 +130,7 @@ describe('ImportPage', () => {
       'PATCH /imports/e1',
       'POST /imports/e1/book',
     ])
-    expect(JSON.parse(String(writes[0][1]?.body))).toEqual({ category: 'household.groceries' })
+    expect(JSON.parse(String(writes[0][1]?.body))).toEqual({ positionId: null, category: 'household.groceries' })
   })
 
   test('the table names the assignment as text and offers no pickers', async () => {
