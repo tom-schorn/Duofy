@@ -446,6 +446,18 @@ describe('BookingDialog import', () => {
     expect(onBook).toHaveBeenCalledWith({ positionId: null, category: null, counterAccountId: 'a2' })
   })
 
+  test('a line parked on a position that becomes a transfer drops the position', async () => {
+    const user = userEvent.setup()
+    const onBook = renderImport({ ...parked, positionId: 'p1', category: 'housing.rent', budget: 'needs' })
+    expect(screen.getByRole('button', { name: 'Miete' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: i18n.t('monthBook.noTransfer') }))
+    await user.click(screen.getByRole('button', { name: 'Sparen' }))
+    expect(screen.queryByText('Miete')).not.toBeInTheDocument()
+    expect(screen.getByText(i18n.t('monthBook.noPosition'))).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: i18n.t('monthBook.transfer') }))
+    expect(onBook).toHaveBeenCalledWith({ positionId: null, category: null, counterAccountId: 'a2' })
+  })
+
   test('an incoming line says where the money came from', async () => {
     const user = userEvent.setup()
     renderImport({ ...parked, incoming: true, counterAccountId: 'a2' })
