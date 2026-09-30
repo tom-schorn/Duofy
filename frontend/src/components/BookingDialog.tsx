@@ -198,9 +198,10 @@ function BookingForm({
         ? tick.position.accountId
         : (imported?.accountId ?? fallback?.id ?? null)
   )
-  // The value the picker shows, so what is shown is what is saved.
-  const [category, setCategory] = useState<Category>(
-    stored?.category ?? imported?.category ?? 'household.groceries'
+  // The value the picker shows, so what is shown is what is saved. An imported
+  // line starts without one: salary must not become groceries on a stray Enter.
+  const [category, setCategory] = useState<Category | null>(
+    imported ? imported.category : (stored?.category ?? 'household.groceries')
   )
   const [positionId, setPositionId] = useState(
     stored?.positionId ?? tick?.position.id ?? imported?.positionId ?? 'none'
@@ -269,7 +270,7 @@ function BookingForm({
       ? { category: chosen.category, budget: chosen.budget }
       : isTransfer
         ? null
-        : { category, budget: BUDGET_SUGGESTION[category] }
+        : category && { category, budget: BUDGET_SUGGESTION[category] }
     if (
       purpose &&
       (purpose.category !== transaction.category || purpose.budget !== transaction.budget)
@@ -293,7 +294,7 @@ function BookingForm({
       // transfer without a position needs no purpose — there the answer is "where
       // to", not "what for".
       category: chosen ? chosen.category : isTransfer ? null : category,
-      budget: chosen ? chosen.budget : isTransfer ? null : BUDGET_SUGGESTION[category],
+      budget: chosen ? chosen.budget : isTransfer || !category ? null : BUDGET_SUGGESTION[category],
       positionId: chosen ? chosen.id : null,
       // Only without a position and outside a transfer can the month be chosen;
       // the server rejects a choice next to either.
@@ -306,11 +307,18 @@ function BookingForm({
     category: chosen || isTransfer ? null : category,
     counterAccountId: isTransfer ? counterAccountId : null,
   }
+  // Nothing said yet what the line was for: there is nothing to book.
+  const answered = Boolean(
+    importAnswer.positionId || importAnswer.category || importAnswer.counterAccountId
+  )
 
   function submit(event: React.SyntheticEvent) {
     event.preventDefault()
     if (tick) return tick.onConfirm({ occurredOn, amount })
-    if (start.kind === 'import') return start.onBook(importAnswer)
+    if (start.kind === 'import') {
+      if (answered) start.onBook(importAnswer)
+      return
+    }
     if (edit && stored) {
       // Nothing changed: nothing to ask the server.
       if (Object.keys(diff).length === 0) return onClose()
@@ -425,9 +433,9 @@ function BookingForm({
   // An imported transfer is about where the money went, not what it was for.
   const positionFixed =
     Boolean(tick) || Boolean(stored?.autoBooked) || Boolean(imported && isTransfer)
-  const unplannedText = t('monthBook.unplannedIn', {
-    budget: budgetLabel(BUDGET_SUGGESTION[category]),
-  })
+  const unplannedText = category
+    ? t('monthBook.unplannedIn', { budget: budgetLabel(BUDGET_SUGGESTION[category]) })
+    : t('monthBook.unplanned')
   const positionText =
     chosen?.label ??
     (stored || isTransfer ? t('monthBook.noPosition') : unplannedText)
@@ -545,7 +553,11 @@ function BookingForm({
           `${stored ? 'monthBook.extrasSentence' : 'monthBook.addExtras'}.${categoryShown ? 'withCategory' : 'plain'}`
         ),
         {
-          category: word('category', extrasSentenceId, categoryLabel(category)),
+          category: word(
+            'category',
+            extrasSentenceId,
+            category ? categoryLabel(category) : t('monthBook.chooseCategory')
+          ),
           note: word(
             'note',
             extrasSentenceId,
@@ -594,6 +606,7 @@ function BookingForm({
             .filter(Boolean)
             .join(' · '),
           submitLabel: isTransfer ? t('monthBook.transfer') : t('monthBook.book'),
+          submitDisabled: !answered,
           dirty:
             importAnswer.positionId !== start.entry.positionId ||
             importAnswer.counterAccountId !== start.entry.counterAccountId ||

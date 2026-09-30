@@ -5,7 +5,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { Toaster } from '@/components/ui/sonner'
-import { categoryLabel, type AccessLevel } from '@/lib/domain'
+import { categoryGroupLabel, categoryLabel, type AccessLevel } from '@/lib/domain'
 import { i18n } from '@/lib/i18n'
 import { flushPendingDelete } from '@/lib/undo-delete'
 import { ImportPage } from '@/pages/ImportPage'
@@ -111,13 +111,17 @@ describe('ImportPage', () => {
     expect(await screen.findByRole('button', { name: i18n.t('import.discard') })).toBeInTheDocument()
   })
 
-  test('Buchen opens the booking dialog even without a category, which assigns and then books', async () => {
+  test('Buchen opens the booking dialog even without a category; picking one assigns and then books', async () => {
     const user = userEvent.setup()
     renderPage()
     const book = await screen.findByRole('button', { name: i18n.t('monthBook.book') })
     expect(book).toBeEnabled()
     await user.click(book)
     const dialog = await screen.findByRole('dialog', { name: i18n.t('import.bookTitle') })
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('monthBook.chooseCategory') }))
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('categoryPicker.placeholder') }))
+    await user.click(await screen.findByRole('button', { name: new RegExp(categoryGroupLabel('household')) }))
+    await user.click(await screen.findByRole('button', { name: categoryLabel('household.groceries') }))
     await user.click(within(dialog).getByRole('button', { name: i18n.t('monthBook.book') }))
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
