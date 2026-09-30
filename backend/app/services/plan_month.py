@@ -45,6 +45,20 @@ def shift(day: date, offset: int) -> PlanMonth:
     return _from_index(_index(month_of(day)) + offset)
 
 
+def is_fixed(kind: TransactionKind, position_id: uuid.UUID | None, is_transfer: bool) -> bool:
+    """Nobody chooses the plan month: a position decides it, or a transfer or
+    carry-over counts in the month of its date."""
+    return position_id is not None or is_transfer or kind is TransactionKind.CARRY_OVER
+
+
+def is_unplanned(
+    kind: TransactionKind, position_id: uuid.UUID | None, is_transfer: bool
+) -> bool:
+    """On no position, and neither a transfer nor a carry-over: the "Ungeplant" of
+    the plan, the same rule its sum per budget uses (#240)."""
+    return position_id is None and not is_transfer and kind is not TransactionKind.CARRY_OVER
+
+
 async def month_of_position(session: AsyncSession, position_id: uuid.UUID) -> PlanMonth:
     position = await session.get(PlanPosition, position_id)
     plan = await session.get(Plan, position.plan_id) if position is not None else None
