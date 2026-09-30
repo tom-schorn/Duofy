@@ -12,6 +12,7 @@ import { CommitmentsPage } from '@/pages/CommitmentsPage'
 import { AdminPage } from '@/pages/AdminPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { HouseholdPage } from '@/pages/HouseholdPage'
+import { GrantsPage } from '@/pages/GrantsPage'
 import { ImportPage } from '@/pages/ImportPage'
 import { LegalPage } from '@/pages/LegalPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
@@ -52,6 +53,7 @@ export const router = createBrowserRouter([
           { path: '/import', element: <ImportPage /> },
 
           { path: '/household', element: <HouseholdPage /> },
+          { path: '/household/grants', element: <GrantsPage /> },
 
           // Personal settings, reached from the user menu, not the sidebar.
           { path: '/einstellungen', element: <SettingsPage /> },

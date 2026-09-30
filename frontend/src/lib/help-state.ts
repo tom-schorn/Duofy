@@ -20,7 +20,7 @@ export function helpKeyFor(pathname: string, tab: string | null): HelpKey | null
   if (pathname === '/plan') return 'plans'
   if (pathname === '/contracts') return 'commitments'
   if (pathname === '/accounts') return 'accounts'
-  if (pathname === '/household') return 'household'
+  if (pathname === '/household' || pathname === '/household/grants') return 'household'
   if (pathname === '/admin') return 'admin'
   if (pathname === '/einstellungen') return 'settings'
   return null
