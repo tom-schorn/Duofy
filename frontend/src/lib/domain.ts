@@ -878,12 +878,6 @@ export function isViewOnly(level: AccessLevel): boolean {
   return atLeast(level, 'view') && !atLeast(level, 'create')
 }
 
-/** The lowest of several levels; `none` for no levels at all. */
-export function lowestLevel(levels: AccessLevel[]): AccessLevel {
-  if (levels.length === 0) return 'none'
-  return levels.reduce((low, level) => (ACCESS_RANK[level] < ACCESS_RANK[low] ? level : low))
-}
-
 /**
  * What a level means, per area — the same word promises different things.
  * "Sehen" on a month is the plan with the private positions; on a contract it
@@ -891,11 +885,6 @@ export function lowestLevel(levels: AccessLevel[]): AccessLevel {
  */
 export function accessLabel(area: Area, level: AccessLevel): string {
   return i18n.t(`enums.access.${area}.${level}`)
-}
-
-/** One sentence on what the level allows, per area. */
-export function accessHint(area: Area, level: AccessLevel): string {
-  return i18n.t(`enums.accessHint.${area}.${level}`)
 }
 
 export const ACCESS_ORDER: AccessLevel[] = ['none', 'view', 'create', 'edit', 'delete']

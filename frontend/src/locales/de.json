@@ -206,43 +206,6 @@
         "delete": "Alles, auch löschen"
       }
     },
-    "accessHint": {
-      "plan": {
-        "none": "Die anderen sehen deine Posten nur im Haushaltsplan, deine Monatsseite nicht.",
-        "view": "Die anderen sehen deinen ganzen Monat, auch die privaten Posten.",
-        "create": "Die anderen dürfen zusätzlich Monate anlegen und Posten dazuschreiben.",
-        "edit": "Die anderen dürfen deine Posten außerdem ändern. Änderungen stehen im Protokoll.",
-        "delete": "Die anderen dürfen Posten und Monate außerdem endgültig löschen. Löschungen stehen nicht im Protokoll."
-      },
-      "book": {
-        "none": "Dein Buch bleibt für sich. Im Haushaltsbuch stehen nur die Buchungen auf gemeinsamen Posten.",
-        "view": "Die anderen sehen jede Buchung in deinem Buch.",
-        "create": "Die anderen dürfen für dich buchen und deine Posten abhaken.",
-        "edit": "Die anderen dürfen deine Buchungen außerdem ändern.",
-        "delete": "Die anderen dürfen Buchungen außerdem löschen und Häkchen zurücknehmen."
-      },
-      "accounts": {
-        "none": "Deine Konten und Kontostände bleiben für sich.",
-        "view": "Die anderen sehen deine Konten und ihre Stände.",
-        "create": "Die anderen dürfen zusätzlich Konten für dich anlegen.",
-        "edit": "Die anderen dürfen deine Konten außerdem ändern.",
-        "delete": "Die anderen dürfen Konten außerdem löschen."
-      },
-      "commitments": {
-        "none": "Deine Verträge, Sparziele und Schulden bleiben für sich.",
-        "view": "Die anderen sehen, was bei dir fest läuft: Betrag, Abstand, Kategorie.",
-        "create": "Die anderen dürfen Verträge für dich anlegen, etwa beim Einrichten.",
-        "edit": "Die anderen dürfen deine Verträge außerdem ändern.",
-        "delete": "Die anderen dürfen Verträge außerdem löschen. Schon erzeugte Posten bleiben stehen."
-      },
-      "import": {
-        "none": "Deine Kontoauszüge und importierten Zeilen bleiben für sich.",
-        "view": "Die anderen sehen deine importierten Zeilen.",
-        "create": "Die anderen dürfen zusätzlich Kontoauszüge für dich hochladen.",
-        "edit": "Die anderen dürfen importierte Zeilen außerdem zuordnen und buchen.",
-        "delete": "Die anderen dürfen importierte Zeilen außerdem verwerfen."
-      }
-    },
     "area": {
       "plan": "Planung",
       "book": "Buch",
