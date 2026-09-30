@@ -4,13 +4,13 @@ import { describe, expect, test, vi } from 'vitest'
 
 import { BookingDialog } from '@/components/BookingDialog'
 import type { PositionMonth } from '@/components/PositionPicker'
-import type { Account, PlanPosition, Transaction } from '@/lib/domain'
+import type { Account, ImportedEntry, PlanPosition, Transaction } from '@/lib/domain'
 import { today } from '@/lib/dates'
 import { i18n } from '@/lib/i18n'
 
 /**
  * One dialog for every booking (#254): a new one, a changed one and the one a
- * tick creates. The new start is covered through its button in
+ * tick creates, and the one from an imported line. The new start is covered through its button in
  * `AddBookingButton.test.tsx`, where it saves for itself.
  */
 
@@ -320,5 +320,112 @@ describe('BookingDialog tick', () => {
     await user.click(within(panel).getByRole('button', { name: /(^|\s)15\. / }))
     await user.click(screen.getByRole('button', { name: 'Abhaken' }))
     expect(onConfirm).toHaveBeenCalledWith({ occurredOn: `${today().slice(0, 8)}15`, amount: '500.00' })
+  })
+})
+
+const parked = {
+  id: 'e1',
+  accountId: 'a1',
+  occurredOn: '2026-09-28',
+  amount: '12.50',
+  incoming: false,
+  counterpartyName: 'Muster Markt',
+  purpose: 'Einkauf',
+  positionId: null,
+  category: null,
+  budget: null,
+  counterAccountId: null,
+  suggestion: null,
+  discardedAt: null,
+} as ImportedEntry
+
+const twoAccounts = [...accounts, { id: 'a2', name: 'Sparen', active: true }] as Account[]
+const power = { ...rent, id: 'p2', label: 'Strom', category: 'housing.utilities', budget: 'needs' } as PlanPosition
+const septemberAndOctober: PositionMonth[] = [
+  { year: 2026, month: 9, positions: [rent] },
+  { year: 2026, month: 10, positions: [power] },
+]
+
+function renderImport(entry: ImportedEntry = parked) {
+  const onBook = vi.fn()
+  render(
+    <BookingDialog
+      accounts={twoAccounts}
+      positions={septemberAndOctober}
+      viewedMonth={{ year: 2026, month: 9 }}
+      onClose={() => {}}
+      start={{ kind: 'import', entry, onBook, pending: false, error: null }}
+    />
+  )
+  return onBook
+}
+
+describe('BookingDialog import', () => {
+  test('shows amount, date and account as the bank reported them, none of them editable', () => {
+    renderImport()
+    expect(screen.queryByLabelText('Betrag')).not.toBeInTheDocument()
+    expect(screen.getByText(/12,50/)).toBeInTheDocument()
+    expect(screen.getByText('28. September 2026')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /September 2026/ })).not.toBeInTheDocument()
+    expect(screen.getByText('Giro')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Giro' })).not.toBeInTheDocument()
+  })
+
+  test('names the counterparty and the purpose', () => {
+    renderImport()
+    expect(screen.getByText(/Muster Markt/)).toBeInTheDocument()
+  })
+
+  test('the plan month is the month of the date and cannot be picked', () => {
+    renderImport()
+    expect(screen.getByText('September')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'September' })).not.toBeInTheDocument()
+  })
+
+  test('without a position it books the chosen category', async () => {
+    const user = userEvent.setup()
+    const onBook = renderImport()
+    await user.click(screen.getByRole('button', { name: i18n.t('monthBook.book') }))
+    expect(onBook).toHaveBeenCalledWith({
+      positionId: null,
+      category: 'household.groceries',
+      counterAccountId: null,
+    })
+  })
+
+  test('starts on what was already assigned', async () => {
+    const user = userEvent.setup()
+    const onBook = renderImport({ ...parked, category: 'leisure.subscriptions', budget: 'wants' })
+    await user.click(screen.getByRole('button', { name: i18n.t('monthBook.book') }))
+    expect(onBook).toHaveBeenCalledWith(expect.objectContaining({ category: 'leisure.subscriptions' }))
+  })
+
+  test('offers the positions of the next month, and the plan month follows the position', async () => {
+    const user = userEvent.setup()
+    const onBook = renderImport()
+    await user.click(screen.getByRole('button', { name: /^Ungeplant/ }))
+    const panel = screen.getByRole('group', { name: i18n.t('monthBook.positionLabel') })
+    await user.click(within(panel).getByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: 'Strom' }))
+    expect(screen.getByText('Oktober')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: i18n.t('monthBook.book') }))
+    expect(onBook).toHaveBeenCalledWith({ positionId: 'p2', category: null, counterAccountId: null })
+  })
+
+  test('a transfer books the target account and nothing else', async () => {
+    const user = userEvent.setup()
+    const onBook = renderImport()
+    await user.click(screen.getByRole('button', { name: i18n.t('monthBook.noTransfer') }))
+    await user.click(screen.getByRole('button', { name: 'Sparen' }))
+    await user.click(screen.getByRole('button', { name: i18n.t('monthBook.transfer') }))
+    expect(onBook).toHaveBeenCalledWith({ positionId: null, category: null, counterAccountId: 'a2' })
+  })
+
+  test('an incoming line says where the money came from', async () => {
+    const user = userEvent.setup()
+    renderImport({ ...parked, incoming: true, counterAccountId: 'a2' })
+    expect(screen.getByRole('button', { name: i18n.t('import.transferFromWord', { account: 'Sparen' }) })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: i18n.t('import.transferFromWord', { account: 'Sparen' }) }))
+    expect(screen.getByRole('group', { name: i18n.t('import.transferFrom') })).toBeInTheDocument()
   })
 })

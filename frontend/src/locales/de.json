@@ -892,7 +892,14 @@
     "suggestion": "Vorschlag:",
     "transferGuess": "Umbuchung?",
     "bookAsTransfer": "Als Umbuchung buchen",
-    "accept": "Übernehmen"
+    "accept": "Übernehmen",
+    "bookTitle": "Aus dem Import buchen",
+    "sentence": {
+      "outgoing": "Abgebucht am {date} vom {account}, zählt im Plan {planMonth} auf {position}.",
+      "incoming": "Eingegangen am {date} auf {account}, zählt im Plan {planMonth} auf {position}."
+    },
+    "transferFrom": "Umbuchung von",
+    "transferFromWord": "Umbuchung von {{account}}"
   },
   "plan": {
     "printHeader": "Duofy · Monatsplan {{month}} {{year}} · gedruckt am {{date}}",
