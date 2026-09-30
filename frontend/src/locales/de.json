@@ -399,7 +399,8 @@
     "bookingsUnknown": "Ob dieser Posten schon Buchungen hat, siehst du hier nicht. Datum und Betrag gelten nur, wenn der Haken eine neue Buchung anlegt.",
     "hasBookings": "Dieser Posten hat schon Buchungen. Abhaken legt keine neue an, deshalb werden Datum und Betrag nicht verwendet.",
     "outsideMonth": "Das Datum liegt nicht im {{month}}. Die Buchung zählt trotzdem für diesen Plan.",
-    "sentence": "Bezahlt am {date}.",
+    "sentence": "Bezahlt am {date}, zählt im Plan {planMonth} auf {position}.",
+    "sentenceWithAccount": "Bezahlt am {date} vom {account}, zählt im Plan {planMonth} auf {position}.",
     "dateLabel": "Wann bezahlt?"
   },
   "common": {

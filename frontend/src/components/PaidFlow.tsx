@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 
-import { PaidDialog } from '@/components/PaidDialog'
+import { BookingDialog } from '@/components/BookingDialog'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,7 +21,7 @@ import {
   type PlanPosition,
 } from '@/lib/domain'
 import { positionHasBookings } from '@/lib/paid'
-import { useTogglePaid, useTransactions } from '@/lib/queries'
+import { useAccounts, useTogglePaid, useTransactions } from '@/lib/queries'
 
 /**
  * Ticking a position off, the same in every plan (#251).
@@ -46,6 +46,8 @@ export function usePaidFlow(
 
   // For the confirmation when un-ticking: which booking hangs off which position.
   const transactions = useTransactions(year, month, scope)
+  // To name the account the tick books on.
+  const accounts = useAccounts(scope).data ?? []
 
   const bookingsUnknown = transactions.isError
 
@@ -81,35 +83,38 @@ export function usePaidFlow(
 
   const dialogs = (
     <>
-      <PaidDialog
-        position={booking}
-        onClose={() => {
-          setBooking(null)
-          togglePaid.reset()
-        }}
-        onConfirm={({ occurredOn, amount }) => {
-          if (booking) {
-            togglePaid.mutate(
-              {
-                id: booking.id,
-                paid: true,
-                occurredOn,
-                amount,
-                inlineError: true,
-                hasBookings: positionHasBookings(booking.id, transactions.data),
-              },
-              { onSuccess: () => setBooking(null) }
-            )
-          }
-        }}
-        pending={togglePaid.isPending}
-        planMonth={{ year, month }}
-        hasBookings={
-          booking ? positionHasBookings(booking.id, transactions.data) : false
-        }
-        bookingsUnknown={bookingsUnknown}
-        error={togglePaid.isError ? errorText(togglePaid.error) : null}
-      />
+      {booking && (
+        <BookingDialog
+          key={booking.id}
+          accounts={accounts}
+          positions={[{ year, month, positions: [booking] }]}
+          viewedMonth={{ year, month }}
+          onClose={() => {
+            setBooking(null)
+            togglePaid.reset()
+          }}
+          start={{
+            kind: 'tick',
+            position: booking,
+            onConfirm: ({ occurredOn, amount }) =>
+              togglePaid.mutate(
+                {
+                  id: booking.id,
+                  paid: true,
+                  occurredOn,
+                  amount,
+                  inlineError: true,
+                  hasBookings: positionHasBookings(booking.id, transactions.data),
+                },
+                { onSuccess: () => setBooking(null) }
+              ),
+            pending: togglePaid.isPending,
+            hasBookings: positionHasBookings(booking.id, transactions.data),
+            bookingsUnknown,
+            error: togglePaid.isError ? errorText(togglePaid.error) : null,
+          }}
+        />
+      )}
 
       {/* Enthaken entfernt die vom Haken erzeugte Buchung. Der Betrag steht
           in der Frage, damit man sieht, was verloren geht — falls er nach dem

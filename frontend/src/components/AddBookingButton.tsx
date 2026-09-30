@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { AddBookingDialog } from '@/components/AddBookingDialog'
+import { BookingDialog } from '@/components/BookingDialog'
 import { Button } from '@/components/ui/button'
 import { OWN_SCOPE, type BookScope, type PlanPosition } from '@/lib/domain'
 import { useAccounts } from '@/lib/queries'
@@ -41,12 +41,12 @@ export function AddBookingButton({
     <>
       <Button onClick={() => setOpen(true)}>{t('monthBook.add')}</Button>
       {open && (
-        <AddBookingDialog
+        <BookingDialog
           accounts={usable}
-          positions={positions}
+          positions={[{ year, month, positions }]}
           viewedMonth={{ year, month }}
-          scope={scope}
           onClose={() => setOpen(false)}
+          start={{ kind: 'new', scope }}
         />
       )}
     </>

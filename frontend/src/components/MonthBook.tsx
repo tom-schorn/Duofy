@@ -5,7 +5,7 @@ import { Link } from 'react-router'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { EditBookingDialog } from '@/components/EditBookingDialog'
+import { BookingDialog } from '@/components/BookingDialog'
 import { ListRow } from '@/components/ListRow'
 import { EmptyState } from '@/components/EmptyState'
 import { QueryState } from '@/components/QueryState'
@@ -183,30 +183,28 @@ export function MonthBook({
       </QueryState>
 
       {editing !== null && (
-        <EditBookingDialog
+        <BookingDialog
           key={editing.transaction.id}
-          transaction={editing.transaction}
           accounts={accounts}
-          positions={positions}
+          positions={[{ year, month, positions }]}
           viewedMonth={{ year, month }}
-          startWord={editing.startWord}
-          open
-          onOpenChange={(open) => !open && setEditing(null)}
-          onSave={(draft) =>
-            saveEdit.mutate(draft, { onSuccess: () => setEditing(null) })
-          }
-          pending={saveEdit.isPending}
-          error={saveEdit.error}
-          onDelete={
-            readOnly
+          onClose={() => setEditing(null)}
+          start={{
+            kind: 'edit',
+            transaction: editing.transaction,
+            startWord: editing.startWord,
+            onSave: (draft) => saveEdit.mutate(draft, { onSuccess: () => setEditing(null) }),
+            pending: saveEdit.isPending,
+            error: saveEdit.error,
+            onDelete: readOnly
               ? null
               : () => {
                   deleted.current = true
                   remove(editing.transaction)
                   setEditing(null)
-                }
-          }
-          returnFocus={() => (deleted.current ? heading.current : null)}
+                },
+            returnFocus: () => (deleted.current ? heading.current : null),
+          }}
         />
       )}
     </section>
