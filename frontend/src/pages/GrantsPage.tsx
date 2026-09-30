@@ -82,6 +82,10 @@ function GrantCard({ householdId, member }: { householdId: string; member: Membe
   const current = presetOf(levels)
   const name = `${member.firstName} ${member.lastName}`
   const headingId = `grants-${member.userId}`
+  // Locked while a save runs (UI rule 17), so two quick choices cannot land in the
+  // wrong order. `aria-disabled` and not `disabled`: a disabled element drops
+  // focus, and the keyboard user would lose their place.
+  const locked = save.isPending
 
   return (
     <li>
@@ -112,7 +116,10 @@ function GrantCard({ householdId, member }: { householdId: string; member: Membe
               size="sm"
               variant={current === key ? 'secondary' : 'outline'}
               aria-pressed={current === key}
-              onClick={() => save.mutate({ member, levels: GRANT_PRESETS[key] })}
+              aria-disabled={locked || undefined}
+              onClick={() => {
+                if (!locked) save.mutate({ member, levels: GRANT_PRESETS[key] })
+              }}
             >
               {t(`grants.presets.${key}`)}
             </Button>
@@ -133,11 +140,11 @@ function GrantCard({ householdId, member }: { householdId: string; member: Membe
                 <Select
                   value={levels[area]}
                   // Only this area travels; the others keep their level.
-                  onValueChange={(next) =>
-                    save.mutate({ member, levels: { [area]: next as AccessLevel } })
-                  }
+                  onValueChange={(next) => {
+                    if (!locked) save.mutate({ member, levels: { [area]: next as AccessLevel } })
+                  }}
                 >
-                  <SelectTrigger id={id} className="w-full">
+                  <SelectTrigger id={id} className="w-full" aria-disabled={locked || undefined}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

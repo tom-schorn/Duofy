@@ -212,8 +212,8 @@ export function useSetMemberRole(householdId: string) {
 /**
  * Set what one other member may do with **your** data (decision 57).
  *
- * Only the areas given change. What was sent goes into the cached household at
- * once, so a select does not jump back while the reload runs. Afterwards what the
+ * Only the areas given change. What was sent goes into the cached household
+ * right away, so a select does not jump back while the reload runs. Afterwards what the
  * other person sees changes, so everything shared is reloaded. A failure has no
  * form to sit in: the shared net reports it and offers to try again (rule 16).
  */

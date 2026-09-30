@@ -24,6 +24,7 @@ function member(userId: string, firstName: string, role: string, myGrants = NONE
 
 let members: ReturnType<typeof member>[]
 let putStatus: number
+let putGate: Promise<void> | null
 let fetchMock: ReturnType<typeof vi.fn>
 
 const puts = () =>
@@ -46,6 +47,7 @@ const card = async (name: string) => screen.findByRole('region', { name: `${name
 
 beforeEach(() => {
   putStatus = 200
+  putGate = null
   members = [
     member('u1', 'Ida', 'member'),
     member('u2', 'Max', 'admin', {
@@ -60,6 +62,7 @@ beforeEach(() => {
   fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     const path = String(url)
     if (init?.method === 'PUT') {
+      await putGate
       if (putStatus !== 200) {
         return new Response(JSON.stringify({ detail: { code: 'not_a_member' } }), {
           status: putStatus,
@@ -148,6 +151,28 @@ describe('grants page', () => {
     expect(accounts).toHaveTextContent(i18n.t('enums.access.accounts.view'))
     expect(await within(max).findByText(i18n.t('grants.ownChoice'))).toBeInTheDocument()
     await waitFor(() => expect(accounts).toHaveFocus())
+  })
+
+  test('locks the presets and selects of a card while its save runs, keeping focus', async () => {
+    let release!: () => void
+    putGate = new Promise((resolve) => (release = resolve))
+    const user = userEvent.setup()
+    renderPage()
+    const max = await card('Max')
+    const read = within(max).getByRole('button', { name: i18n.t('grants.presets.read') })
+    const none = within(max).getByRole('button', { name: i18n.t('grants.presets.none') })
+    const accounts = within(max).getByRole('combobox', { name: i18n.t('enums.area.accounts') })
+    await user.click(read)
+
+    await waitFor(() => expect(none).toHaveAttribute('aria-disabled', 'true'))
+    expect(accounts).toHaveAttribute('aria-disabled', 'true')
+    expect(read).toHaveFocus()
+    await user.click(none)
+    expect(puts()).toHaveLength(1)
+
+    release()
+    await waitFor(() => expect(none).not.toHaveAttribute('aria-disabled'))
+    expect(puts()).toHaveLength(1)
   })
 
   test('points out dependent rights without changing them', async () => {
