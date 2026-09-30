@@ -40,6 +40,7 @@ function renderEdit(
     pending?: boolean
     onClose?: () => void
     positions?: PositionMonth[]
+    onDelete?: () => void
   } = {}
 ) {
   const onSave = vi.fn()
@@ -55,6 +56,7 @@ function renderEdit(
         onSave,
         pending: extra.pending ?? false,
         error: null,
+        onDelete: extra.onDelete,
       }}
     />
   )
@@ -131,6 +133,13 @@ describe('BookingDialog edit', () => {
   test('offers delete only when the caller passes it', () => {
     renderEdit(booking)
     expect(screen.queryByRole('button', { name: i18n.t('common.delete') })).not.toBeInTheDocument()
+  })
+
+  test('with onDelete it offers delete, and the button calls it', () => {
+    const onDelete = vi.fn()
+    renderEdit(booking, { onDelete })
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('common.delete') }))
+    expect(onDelete).toHaveBeenCalledTimes(1)
   })
 })
 
