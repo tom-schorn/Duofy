@@ -45,11 +45,6 @@ def shift(day: date, offset: int) -> PlanMonth:
     return _from_index(_index(month_of(day)) + offset)
 
 
-def is_fixed(kind: TransactionKind, position_id: uuid.UUID | None, is_transfer: bool) -> bool:
-    """Nobody chooses the plan month: a position decides it, or a transfer or
-    carry-over counts in the month of its date."""
-    return position_id is not None or is_transfer or kind is TransactionKind.CARRY_OVER
-
 
 def is_unplanned(
     kind: TransactionKind, position_id: uuid.UUID | None, is_transfer: bool
