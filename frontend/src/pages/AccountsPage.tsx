@@ -35,7 +35,6 @@ import {
   type Account,
   ACCOUNT_TYPES,
 } from '@/lib/domain'
-import { AccountCards } from '@/components/AccountCards'
 import { useActiveMember } from '@/hooks/use-active-member'
 import { OWN_SCOPE, type BookScope } from '@/lib/domain'
 import { useAccounts, useDeleteAccount, useSaveAccount } from '@/lib/queries'
@@ -128,10 +127,6 @@ export function AccountsPage() {
         )}
       </header>
 
-      {/* The balances used to sit in the book; the book is a tab of the plan now
-          (#241), so they live with the accounts. */}
-      {list.length > 0 && <AccountCards scope={scope} />}
-
       <QueryState
         isPending={accounts.isPending}
         error={accounts.error}
@@ -207,8 +202,14 @@ export function AccountRow({
       onOpen={mayEdit ? onOpen : undefined}
       className={account.active ? undefined : 'opacity-60'}
       trailing={
-        <span className="font-mono font-medium">
-          {euro.format(Number(account.openingBalance))}
+        // A minus means overdrawn, not "expense" — hence red. The balance is not tied
+        // to a month; it is opening balance plus bookings.
+        <span
+          className={`font-mono font-medium tabular-nums ${
+            Number(account.balance) < 0 ? 'text-destructive' : ''
+          }`}
+        >
+          {euro.format(Number(account.balance))}
         </span>
       }
     >
