@@ -102,6 +102,28 @@ describe('CommitmentsPage', () => {
   })
 })
 
+describe('CommitmentsPage for the person chosen in the sidebar (#254)', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  test('?member= loads the contracts of that person, not your own', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        const target = String(url)
+        if (!target.includes('/commitments')) return new Response('[]', { status: 200 })
+        const own = [commitment('c1', 'Miete', true)]
+        const partner = [commitment('c7', 'Fitnessstudio', true)]
+        return new Response(JSON.stringify(target.includes('owner=u2') ? partner : own), {
+          status: 200,
+        })
+      })
+    )
+    renderPage('/?member=u2')
+    expect(await screen.findByText('Fitnessstudio')).toBeInTheDocument()
+    expect(screen.queryByText('Miete')).not.toBeInTheDocument()
+  })
+})
+
 describe('CommitmentsPage ending a running contract (#237)', () => {
   test('the end chosen in the dialog reaches the server as endsOn, the start stays', async () => {
     const running = { ...commitment('c9', 'Streaming', true), firstDueDate: '2026-08-05' }
