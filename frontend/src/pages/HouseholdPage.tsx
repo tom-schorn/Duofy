@@ -30,6 +30,7 @@ import {
   useHouseholds,
   useInvite,
   useLeaveHousehold,
+  useSetMemberRole,
   useUpdateHousehold,
   useMe,
   useMyInvitations,
@@ -188,7 +189,14 @@ export function HouseholdPage() {
                       </span>
                     </span>
 
-                    <span className="ml-auto">{roleBadge}</span>
+                    <span className="ml-auto flex items-center gap-2">
+                      {/* The last admin keeps the role (decision 68), so the way
+                          out only exists while another admin is there. */}
+                      {member.role === 'admin' &&
+                        household.members.filter((other) => other.role === 'admin').length >
+                          1 && <StepDown householdId={household.id} me={member} />}
+                      {roleBadge}
+                    </span>
 
                     {/* Der Weg zu den eigenen Freigaben steht bei der eigenen
                         Zeile, weil man nur die eigenen setzen kann. Bei den
@@ -490,6 +498,59 @@ function PendingInvitations() {
         </li>
       )}
     </ul>
+  )
+}
+
+/**
+ * Give up my own admin role while another admin stays (#249: hand the household
+ * on in two steps). Nobody can give it back to themselves, so it asks once.
+ */
+function StepDown({ householdId, me }: { householdId: string; me: Member }) {
+  const { t } = useTranslation()
+  const setRole = useSetMemberRole(householdId)
+  const [confirming, setConfirming] = useState(false)
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => {
+          setRole.reset()
+          setConfirming(true)
+        }}
+      >
+        {t('household.stepDown')}
+      </Button>
+      <AlertDialog open={confirming} onOpenChange={setConfirming}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-heading">
+              {t('household.stepDownTitle')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>{t('household.stepDownText')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            {/* Focus starts on the safe button (rule 13). */}
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={setRole.isPending}
+              onClick={(event) => {
+                // Stays open until the server has said yes.
+                event.preventDefault()
+                setRole.mutate(
+                  { userId: me.userId, role: 'member' },
+                  { onSuccess: () => setConfirming(false) }
+                )
+              }}
+            >
+              {t('household.stepDown')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+          {setRole.isError && <FormError error={setRole.error} />}
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
 
