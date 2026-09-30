@@ -116,7 +116,7 @@ async def test_the_household_no_longer_shows_the_leavers_positions_in_any_month(
     await client.delete(f"/api/v1/households/{household_id}/members/me")
 
     sign_in(owner)
-    response = await client.get(f"/api/v1/plans/household/{household_id}/2026/9")
+    response = await client.get(f"/api/v1/plans/2026/9?household={household_id}")
 
     assert response.status_code == 200
     assert [p["label"] for p in response.json()["positions"]] == ["Position 9"]

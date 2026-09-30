@@ -341,7 +341,7 @@ async def test_the_household_flow_is_one_curve_and_follows_the_viewers_switch(
     await session.refresh(ada)
     await session.refresh(bob)
 
-    url = f"/api/v1/plans/household/{household.id}/2026/9/flow"
+    url = f"/api/v1/plans/2026/9/flow?household={household.id}"
 
     sign_in(ada)
     assert steps(await flow(client, url)) == [(1, "-300.00"), (2, "-700.00")]
@@ -494,7 +494,7 @@ async def test_the_household_flow_is_refused_to_a_non_member(
     await session.refresh(outsider)
     sign_in(outsider)
 
-    response = await client.get(f"/api/v1/plans/household/{household.id}/2026/9/flow")
+    response = await client.get(f"/api/v1/plans/2026/9/flow?household={household.id}")
 
     assert response.status_code == 403
     assert "not_household_member" in response.text
@@ -590,7 +590,7 @@ async def test_the_household_flow_ignores_carry_overs_because_the_household_owns
     await session.refresh(ada)
     sign_in(ada)
 
-    body = await flow(client, f"/api/v1/plans/household/{household.id}/2026/9/flow")
+    body = await flow(client, f"/api/v1/plans/2026/9/flow?household={household.id}")
 
     assert Decimal(body["start"]) == 0
     assert steps(body) == [(2, "-700.00")]
@@ -615,7 +615,7 @@ async def test_the_household_flow_is_empty_with_missing_members_until_complete(
     await session.refresh(ada)
     sign_in(ada)
 
-    body = await flow(client, f"/api/v1/plans/household/{household.id}/2026/9/flow")
+    body = await flow(client, f"/api/v1/plans/2026/9/flow?household={household.id}")
 
     assert body["entries"] == []
     assert body["days"] == []
@@ -638,7 +638,7 @@ async def test_the_household_flow_shows_the_curve_once_everybody_has_planned(
     await session.refresh(ada)
     sign_in(ada)
 
-    body = await flow(client, f"/api/v1/plans/household/{household.id}/2026/9/flow")
+    body = await flow(client, f"/api/v1/plans/2026/9/flow?household={household.id}")
 
     assert body["missingMembers"] == []
     assert steps(body) == [(1, "-300.00"), (2, "-700.00")]

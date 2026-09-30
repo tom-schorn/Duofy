@@ -13,6 +13,11 @@ import { PlanDetailPage } from '@/pages/PlanDetailPage'
 
 export type Tick = { url: string; body: Record<string, unknown> }
 
+/** Whether a request asks for one month of the household plan (`/plans/2026/11?household=h1`). */
+export function isHouseholdMonth(url: string) {
+  return /\/plans\/\d+\/\d+\?household=/.test(url)
+}
+
 export function position(overrides: Record<string, unknown> = {}) {
   return {
     id: 'p1',
@@ -130,7 +135,7 @@ export function stub(level: string, ticks: Tick[] = [], options: Options = {}) {
           missingMembers: [],
         })
       }
-      if (path.includes('/plans/household/')) {
+      if (isHouseholdMonth(path)) {
         return json({
           ...planBase,
           householdId: 'h1',

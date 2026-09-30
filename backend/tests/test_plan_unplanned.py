@@ -268,7 +268,7 @@ async def test_the_household_plan_adds_up_the_unplanned_of_every_member(
     )
     await session.commit()
 
-    figures = await unplanned(client, f"/api/v1/plans/household/{household.id}/2026/9")
+    figures = await unplanned(client, f"/api/v1/plans/2026/9?household={household.id}")
 
     assert figures["needs"] == Decimal("35.00")
     assert figures["income"] == Decimal("60.00")
@@ -288,7 +288,7 @@ async def test_a_half_household_plan_shows_no_unplanned_at_all(
     session.add(book(owner, account, "20.00", Budget.NEEDS))
     await session.commit()
 
-    response = await client.get(f"/api/v1/plans/household/{household.id}/2026/9")
+    response = await client.get(f"/api/v1/plans/2026/9?household={household.id}")
 
     assert response.status_code == 200
     assert response.json()["missingMembers"] == ["Partner"]

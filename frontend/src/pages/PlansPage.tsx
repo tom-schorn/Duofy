@@ -46,7 +46,7 @@ export function PlansPage() {
   const active = useActiveMember()
   // `?household=` shows the months of the household plan — reached from "Alle
   // Pläne" on that plan. The household owns nothing, so there is no month to list
-  // for it directly; its own endpoint reads the months off every member's
+  // for it directly; the server reads the months off every member's
   // positions, not just the viewer's — a month only a partner planned into still
   // belongs on this list. Both are chosen in the sidebar, never on this page.
   const householdId = active.householdId

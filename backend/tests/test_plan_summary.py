@@ -156,7 +156,7 @@ async def test_a_month_appears_once_every_current_member_has_planned_it(
     await make_plan(session, partner)
     await session.commit()
 
-    response = await client.get(f"/api/v1/plans/household/{household.id}")
+    response = await client.get(f"/api/v1/plans?household={household.id}")
 
     assert response.status_code == 200
     rows = response.json()
@@ -176,7 +176,7 @@ async def test_a_month_where_only_one_member_has_planned_does_not_appear(
     session.add(position(partner_plan, "Rent", "700.00"))
     await session.commit()
 
-    response = await client.get(f"/api/v1/plans/household/{household.id}")
+    response = await client.get(f"/api/v1/plans?household={household.id}")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -191,7 +191,7 @@ async def test_the_household_month_list_is_refused_to_a_non_member(
     await session.refresh(outsider)
     sign_in(outsider)
 
-    response = await client.get(f"/api/v1/plans/household/{household.id}")
+    response = await client.get(f"/api/v1/plans?household={household.id}")
 
     assert response.status_code == 403
     assert "not_household_member" in response.text
@@ -212,7 +212,7 @@ async def test_the_household_month_names_who_has_not_planned_yet(
     await add_member(session, household, partner)
     await session.commit()
 
-    response = await client.get(f"/api/v1/plans/household/{household.id}/2026/9")
+    response = await client.get(f"/api/v1/plans/2026/9?household={household.id}")
 
     assert response.status_code == 200
     body = response.json()
@@ -235,7 +235,7 @@ async def test_the_household_month_is_whole_once_everybody_has_planned(
     session.add(position(partner_plan, "Rent", "700.00"))
     await session.commit()
 
-    response = await client.get(f"/api/v1/plans/household/{household.id}/2026/9")
+    response = await client.get(f"/api/v1/plans/2026/9?household={household.id}")
 
     assert response.status_code == 200
     body = response.json()
@@ -258,7 +258,7 @@ async def test_a_member_who_joins_later_does_not_make_earlier_months_incomplete(
     await make_plan(session, owner)
     await session.commit()
 
-    response = await client.get(f"/api/v1/plans/household/{household.id}/2026/9")
+    response = await client.get(f"/api/v1/plans/2026/9?household={household.id}")
 
     assert response.status_code == 200
     assert response.json()["missingMembers"] == []
@@ -275,7 +275,7 @@ async def test_a_member_counts_from_the_month_they_join_in(
     session.add(Plan(user_id=owner.id, year=2026, month=10))
     await session.commit()
 
-    response = await client.get(f"/api/v1/plans/household/{household.id}/2026/10")
+    response = await client.get(f"/api/v1/plans/2026/10?household={household.id}")
 
     assert response.status_code == 200
     assert response.json()["missingMembers"] == ["Partner"]
@@ -294,7 +294,7 @@ async def test_the_household_month_list_skips_a_month_before_a_member_joined(
     session.add(Plan(user_id=owner.id, year=2026, month=10))
     await session.commit()
 
-    response = await client.get(f"/api/v1/plans/household/{household.id}")
+    response = await client.get(f"/api/v1/plans?household={household.id}")
 
     assert response.status_code == 200
     rows = response.json()

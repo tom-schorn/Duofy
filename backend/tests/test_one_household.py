@@ -146,7 +146,7 @@ async def test_the_household_plan_shows_every_shared_position_whatever_the_grant
     await session.commit()
     sign_in(bob)
 
-    response = await client.get(f"/api/v1/plans/household/{household.id}/2026/9")
+    response = await client.get(f"/api/v1/plans/2026/9?household={household.id}")
 
     assert response.status_code == 200
     labels = sorted(p["label"] for p in response.json()["positions"])
@@ -205,7 +205,7 @@ async def test_the_household_flow_leaves_out_private_positions(
     await session.commit()
     sign_in(ada)
 
-    response = await client.get(f"/api/v1/plans/household/{household.id}/2026/9/flow")
+    response = await client.get(f"/api/v1/plans/2026/9/flow?household={household.id}")
 
     assert response.status_code == 200
     assert [entry["amount"] for entry in response.json()["entries"]] == ["-10.00"]
@@ -224,7 +224,7 @@ async def test_the_household_month_list_leaves_out_private_positions(
     await session.commit()
     sign_in(ada)
 
-    response = await client.get(f"/api/v1/plans/household/{household.id}")
+    response = await client.get(f"/api/v1/plans?household={household.id}")
 
     assert response.status_code == 200
     (month,) = response.json()
