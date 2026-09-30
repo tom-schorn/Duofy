@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useSearchParams } from 'react-router'
+import { Link } from 'react-router'
 import { ChevronRight, Plus } from 'lucide-react'
 
 import { CreatePlanDialog } from '@/components/CreatePlanDialog'
 import { EmptyState } from '@/components/EmptyState'
 import { QueryState } from '@/components/QueryState'
 import { Button } from '@/components/ui/button'
-import { useActiveMember } from '@/hooks/use-active-member'
+import { scopeSearch, useActiveMember } from '@/hooks/use-active-member'
 import { useHouseholds, useHouseholdPlans, usePlans } from '@/lib/queries'
 import {
   BUDGET_DOT,
@@ -48,9 +48,8 @@ export function PlansPage() {
   // Pläne" on that plan. The household owns nothing, so there is no month to list
   // for it directly; its own endpoint reads the months off every member's
   // positions, not just the viewer's — a month only a partner planned into still
-  // belongs on this list.
-  const [params] = useSearchParams()
-  const householdId = params.get('household')
+  // belongs on this list. Both are chosen in the sidebar, never on this page.
+  const householdId = active.householdId
   const inHousehold = householdId !== null
   // Kein `mayDelete` hier: einen ganzen Monat löschen gibt es nicht. Für den
   // Haushalt gibt es gar kein Anlegen — der Haushaltsplan wird zusammengesetzt,
@@ -131,7 +130,7 @@ export function PlansPage() {
               <li key={`${plan.year}-${plan.month}`}>
                 <PlanCard
                   plan={plan}
-                  search={inHousehold ? `?household=${householdId}` : active.id === null ? '' : `?member=${active.id}`}
+                  search={scopeSearch(active)}
                 />
               </li>
             ))}
