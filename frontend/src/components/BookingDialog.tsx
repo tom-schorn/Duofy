@@ -34,11 +34,13 @@ import {
   BUDGET_SUGGESTION,
   budgetLabel,
   categoryLabel,
+  euro,
   monthLabel,
   monthText,
   type Account,
   type BookScope,
   type Category,
+  type ImportedEntry,
   type PlanPosition,
   type Transaction,
 } from '@/lib/domain'
@@ -91,6 +93,26 @@ export type BookingStart =
       /** The bookings could not be loaded, so nobody knows whether date and amount count. */
       bookingsUnknown: boolean
     }
+  /**
+   * A line from the bank file. Amount, date and account are what the bank
+   * reported and stay fixed; the dialog only asks what it was for — a position,
+   * a category or a transfer. The plan month follows: the position's, otherwise
+   * the month of the date, as the server books it.
+   */
+  | {
+      kind: 'import'
+      entry: ImportedEntry
+      onBook: (answer: ImportAnswer) => void
+      pending: boolean
+      error: unknown
+    }
+
+/** What an imported line was for: exactly one of the three, the others null. */
+export type ImportAnswer = {
+  positionId: string | null
+  category: Category | null
+  counterAccountId: string | null
+}
 
 type Props = {
   accounts: Account[]
@@ -148,25 +170,34 @@ function BookingForm({
   const { t } = useTranslation()
   const edit = start.kind === 'edit' ? start : null
   const tick = start.kind === 'tick' ? start : null
+  const imported = start.kind === 'import' ? start.entry : null
   const stored = edit?.transaction ?? null
   const fallback = accounts.find((account) => account.isDefault) ?? accounts[0]
 
   const [amount, setAmount] = useState(
-    stored?.amount ?? tick?.position.amountPlanned ?? ''
+    stored?.amount ?? tick?.position.amountPlanned ?? imported?.amount ?? ''
   )
   const [note, setNote] = useState(stored?.note ?? '')
-  const [occurredOn, setOccurredOn] = useState(stored?.occurredOn ?? today())
+  const [occurredOn, setOccurredOn] = useState(
+    stored?.occurredOn ?? imported?.occurredOn ?? today()
+  )
   const [accountId, setAccountId] = useState<string | null>(
-    stored ? stored.accountId : tick ? tick.position.accountId : (fallback?.id ?? null)
+    stored
+      ? stored.accountId
+      : tick
+        ? tick.position.accountId
+        : (imported?.accountId ?? fallback?.id ?? null)
   )
   // The value the picker shows, so what is shown is what is saved.
   const [category, setCategory] = useState<Category>(
-    stored?.category ?? 'household.groceries'
+    stored?.category ?? imported?.category ?? 'household.groceries'
   )
   const [positionId, setPositionId] = useState(
-    stored?.positionId ?? tick?.position.id ?? 'none'
+    stored?.positionId ?? tick?.position.id ?? imported?.positionId ?? 'none'
   )
-  const [counterAccountId, setCounterAccountId] = useState('none')
+  const [counterAccountId, setCounterAccountId] = useState(
+    imported?.counterAccountId ?? 'none'
+  )
   // Null until the person picks a month: then it is the month of the date, or for
   // a stored booking the distance it had to its date (#239).
   const [planChoice, setPlanChoice] = useState<YearMonth | null>(null)
@@ -179,22 +210,26 @@ function BookingForm({
   const sentenceId = useId()
   const extrasSentenceId = useId()
 
+  // A stored transfer stays one; only a new booking can become one.
+  const isTransfer = stored ? stored.counterAccountId !== null : counterAccountId !== 'none'
+
   const allPositions = positions.flatMap((entry) => entry.positions)
+  // An imported transfer fills no position: the server clears it with the target.
   const chosen = tick
     ? tick.position
-    : allPositions.find((position) => position.id === positionId)
+    : imported && isTransfer
+      ? undefined
+      : allPositions.find((position) => position.id === positionId)
   /** The plan a position belongs to — the viewed one unless it came from another month. */
   const monthOf = (position: PlanPosition): YearMonth => {
     const entry = positions.find((month) => month.positions.some((p) => p.id === position.id))
     return entry ? { year: entry.year, month: entry.month } : viewedMonth
   }
 
-  // A stored transfer stays one; only a new booking can become one.
-  const isTransfer = stored ? stored.counterAccountId !== null : counterAccountId !== 'none'
   // Where the booking counts: with a position, in that position's plan; a pure
-  // transfer in the month of its date; otherwise the choice — previous, own or next
-  // month.
-  const planFixed = Boolean(chosen) || isTransfer
+  // transfer or an imported line in the month of its date; otherwise the choice —
+  // previous, own or next month.
+  const planFixed = Boolean(chosen) || isTransfer || Boolean(imported)
   const storedOffset = stored
     ? monthOffset(stored.occurredOn, { year: stored.planYear, month: stored.planMonth })
     : 0
@@ -256,9 +291,16 @@ function BookingForm({
     }
   }
 
+  const importAnswer: ImportAnswer = {
+    positionId: chosen?.id ?? null,
+    category: chosen || isTransfer ? null : category,
+    counterAccountId: isTransfer ? counterAccountId : null,
+  }
+
   function submit(event: React.SyntheticEvent) {
     event.preventDefault()
     if (tick) return tick.onConfirm({ occurredOn, amount })
+    if (start.kind === 'import') return start.onBook(importAnswer)
     if (edit && stored) {
       // Nothing changed: nothing to ask the server.
       if (Object.keys(diff).length === 0) return onClose()
@@ -297,8 +339,10 @@ function BookingForm({
 
   // Ticking a position that already has bookings uses neither date nor amount.
   const locked = tick?.hasBookings ?? false
+  // The bank has said when; nobody here knows better.
+  const dateFixed = locked || Boolean(imported)
 
-  const datePanel = !locked && openWord === 'date' && (
+  const datePanel = !dateFixed && openWord === 'date' && (
     <SentencePanel label={t(tick ? 'paidDialog.dateLabel' : 'monthBook.dateLabel')}>
       <Calendar
         mode="single"
@@ -318,7 +362,8 @@ function BookingForm({
   // The tick books on the position's account; without one the backend picks the
   // default, so there is nothing to name.
   const account = accounts.find((entry) => entry.id === accountId)
-  const accountPanel = !tick && openWord === 'account' && (
+  const accountFixed = Boolean(tick) || Boolean(imported)
+  const accountPanel = !accountFixed && openWord === 'account' && (
     <SentencePanel label={t('monthBook.accountLabel')}>
       <div className="flex flex-wrap gap-2">
         {accounts.map((entry) => (
@@ -367,7 +412,9 @@ function BookingForm({
 
   // A booking made by ticking off cannot be moved off its position (the tick is
   // where that happens), and the tick itself is about one position.
-  const positionFixed = Boolean(tick) || Boolean(stored?.autoBooked)
+  // An imported transfer is about where the money went, not what it was for.
+  const positionFixed =
+    Boolean(tick) || Boolean(stored?.autoBooked) || Boolean(imported && isTransfer)
   const unplannedText = t('monthBook.unplannedIn', {
     budget: budgetLabel(BUDGET_SUGGESTION[category]),
   })
@@ -414,10 +461,12 @@ function BookingForm({
       : 'paidDialog.sentence'
     : stored
       ? 'monthBook.sentence'
-      : 'monthBook.addSentence'
+      : imported
+        ? `import.sentence.${imported.incoming ? 'incoming' : 'outgoing'}`
+        : 'monthBook.addSentence'
   const sentence = fillSentence(t(sentenceKey), {
-    date: word('date', sentenceId, longDate(occurredOn), locked),
-    account: word('account', sentenceId, account?.name ?? '', Boolean(tick)),
+    date: word('date', sentenceId, longDate(occurredOn), dateFixed),
+    account: word('account', sentenceId, account?.name ?? '', accountFixed),
     planMonth: word('planMonth', sentenceId, planMonthText, planFixed),
     position: word('position', sentenceId, positionText, positionFixed),
   })
@@ -434,8 +483,10 @@ function BookingForm({
   // A transfer moves money between two of one's own accounts: neither income nor
   // spending, unless a position is chosen — putting money on the savings account
   // then fulfils the savings quota.
+  // Money that came in came from the other account, not went to it.
+  const incoming = imported?.incoming ?? false
   const transferPanel = !stored && openWord === 'transfer' && (
-    <SentencePanel label={t('monthBook.transferTo')}>
+    <SentencePanel label={t(incoming ? 'import.transferFrom' : 'monthBook.transferTo')}>
       <div className="flex flex-wrap gap-2">
         <SentenceChip
           selected={counterAccountId === 'none'}
@@ -494,7 +545,9 @@ function BookingForm({
             'transfer',
             extrasSentenceId,
             counter
-              ? t('monthBook.transferWord', { account: counter.name })
+              ? t(incoming ? 'import.transferFromWord' : 'monthBook.transferWord', {
+                  account: counter.name,
+                })
               : t('monthBook.noTransfer')
           ),
         }
@@ -524,6 +577,20 @@ function BookingForm({
         pending: tick.pending,
         error: tick.error,
       }
+    : start.kind === 'import'
+      ? {
+          title: t('import.bookTitle'),
+          description: [start.entry.counterpartyName, start.entry.purpose]
+            .filter(Boolean)
+            .join(' · '),
+          submitLabel: isTransfer ? t('monthBook.transfer') : t('monthBook.book'),
+          dirty:
+            importAnswer.positionId !== start.entry.positionId ||
+            importAnswer.counterAccountId !== start.entry.counterAccountId ||
+            importAnswer.category !== start.entry.category,
+          pending: start.pending,
+          error: start.error,
+        }
     : edit
       ? {
           title: t('monthBook.editTitle'),
@@ -568,7 +635,7 @@ function BookingForm({
     >
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-3">
-          {!stored && !tick && (
+          {!stored && !tick && !imported && (
             <>
               <Label htmlFor="booking-note" className="sr-only">
                 {t('monthBook.what')}
@@ -582,6 +649,15 @@ function BookingForm({
               />
             </>
           )}
+          {imported ? (
+            <div className="flex flex-col gap-2">
+              <span className="text-muted-foreground text-sm">{t('common.amount')}</span>
+              <span className="text-xl font-semibold tabular-nums">
+                {imported.incoming ? '' : '−'}
+                {euro.format(Number(imported.amount))}
+              </span>
+            </div>
+          ) : (
           <div className="flex flex-col gap-2">
             <Label htmlFor="booking-amount" className="text-muted-foreground text-sm">
               {t('common.amount')}
@@ -596,6 +672,7 @@ function BookingForm({
               inputClassName={amountClass}
             />
           </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-3" onKeyDownCapture={escapeWord}>
