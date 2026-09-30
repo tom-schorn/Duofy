@@ -9,6 +9,7 @@ import { BookingDialog } from '@/components/BookingDialog'
 import { ListRow } from '@/components/ListRow'
 import { EmptyState } from '@/components/EmptyState'
 import { QueryState } from '@/components/QueryState'
+import { scopeSearch, useActiveMember } from '@/hooks/use-active-member'
 import {
   OWN_SCOPE,
   categoryLabel,
@@ -71,6 +72,7 @@ export function MonthBook({
   const { t } = useTranslation()
   const transactions = useTransactions(year, month, scope)
   const accounts = useAccounts(scope).data ?? []
+  const active = useActiveMember()
   const saveEdit = useSaveTransaction(year, month, scope)
   const remove = useDeleteTransaction(year, month, scope)
   const [editing, setEditing] = useState<{
@@ -88,7 +90,15 @@ export function MonthBook({
       <EmptyState
         action={
           <Button asChild>
-            <Link to="/accounts">{t('accounts.create')}</Link>
+            {/* The accounts page knows no household: only the person travels. */}
+            <Link
+              to={{
+                pathname: '/accounts',
+                search: scopeSearch({ id: active.id, householdId: null }),
+              }}
+            >
+              {t('accounts.create')}
+            </Link>
           </Button>
         }
       >

@@ -12,9 +12,21 @@ export function grantedToMe(households: Household[], userId: string, area: Area)
 }
 
 /**
+ * The address part that keeps whose data a link shows: `?household=`, `?member=`
+ * or nothing for your own. The household wins — the sidebar never sets both.
+ */
+export function scopeSearch(scope: { id: string | null; householdId: string | null }): string {
+  if (scope.householdId !== null) return `?household=${scope.householdId}`
+  if (scope.id !== null) return `?member=${scope.id}`
+  return ''
+}
+
+/**
  * Who the app is currently showing, and what may be done with their data.
  *
- * The person comes from `?member=<uuid>`, the levels come from the member list
+ * The person comes from `?member=<uuid>`, the household plan from
+ * `?household=<uuid>` — both set only by the sidebar. Pages read them here and
+ * never from the address themselves. The levels come from the member list
  * that `useHouseholds` already carries — each member says what they grant me.
  * No extra request for a question the frontend can answer from what it has.
  *
@@ -26,11 +38,13 @@ export function grantedToMe(households: Household[], userId: string, area: Area)
 export function useActiveMember(): {
   id: string | null
   member: Member | null
+  householdId: string | null
   levelFor: (area: Area) => AccessLevel
 } {
   const [params] = useSearchParams()
   const households = useHouseholds().data ?? []
   const id = params.get('member')
+  const householdId = params.get('household')
 
   const member =
     id === null
@@ -42,6 +56,7 @@ export function useActiveMember(): {
   return {
     id,
     member,
+    householdId,
     levelFor: (area) => (id === null ? 'delete' : grantedToMe(households, id, area)),
   }
 }
