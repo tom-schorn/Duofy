@@ -22,7 +22,6 @@ const INLINE_HOOKS = [
   'useSaveTransaction',
   'useSetDefaultQuota',
   'useSetMemberRole',
-  'useSetMyAccess',
   'useTogglePaid',
   'useUpdateHousehold',
   'useUploadStatement',

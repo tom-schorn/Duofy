@@ -246,28 +246,6 @@ export function useSetGrants(householdId: string) {
   )
 }
 
-/**
- * Set what the other members may do with your data, the same for each of them.
- *
- * The server keeps a level per person (`PUT /grants/{grantee}`); this card still
- * offers one level for everybody, so the call goes out once per other member.
- * Only the areas given change. Afterwards what the others see changes, so
- * everything shared is reloaded.
- */
-export function useSetMyAccess(householdId: string, granteeIds: string[]) {
-  return useInvalidating<Member[], Partial<AreaLevels>>(
-    (levels) =>
-      Promise.all(
-        granteeIds.map((granteeId) =>
-          api.put<Member>(`/households/${householdId}/grants/${granteeId}`, levels)
-        )
-      ),
-    [keys.households, keys.plans, keys.accounts, keys.commitments],
-    'toast.grantUpdated',
-    INLINE_ERROR
-  )
-}
-
 export function useInvitations(householdId: string | null) {
   return useQuery({
     queryKey: keys.invitations(householdId ?? ''),

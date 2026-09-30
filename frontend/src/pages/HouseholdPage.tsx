@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LogOut, Percent, UserPlus } from 'lucide-react'
+import { Link } from 'react-router'
+import { KeyRound, LogOut, Percent, UserPlus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -21,13 +22,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { FormError } from '@/components/FormError'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { QueryState } from '@/components/QueryState'
 import { errorText } from '@/lib/api'
 import {
@@ -39,16 +33,11 @@ import {
   useUpdateHousehold,
   useMe,
   useMyInvitations,
-  useSetMyAccess,
 } from '@/lib/queries'
 import {
-  accessHint,
   accessLabel,
-  ACCESS_ORDER,
   areaLabel,
   AREA_ORDER,
-  lowestLevel,
-  type AccessLevel,
   type Household,
   type Member,
   type Role,
@@ -81,8 +70,6 @@ export function HouseholdPage() {
   const households = useHouseholds()
   const me = useMe()
   const [invitingTo, setInvitingTo] = useState<Household | null>(null)
-  // The household a preset is currently offered for: right after joining.
-  const [presetFor, setPresetFor] = useState<Household | null>(null)
   const currentUserId = me.data?.id ?? ''
   // After leaving, the card is gone; the focus goes to the page heading (rule 13).
   const heading = useRef<HTMLHeadingElement>(null)
@@ -111,7 +98,7 @@ export function HouseholdPage() {
         </div>
       </header>
 
-      <PendingInvitations onJoined={setPresetFor} />
+      <PendingInvitations />
 
       <QueryState isPending={households.isPending} error={households.error} onRetry={() => void households.refetch()}>
       <ul className="flex flex-col gap-4">
@@ -203,11 +190,11 @@ export function HouseholdPage() {
 
                     <span className="ml-auto">{roleBadge}</span>
 
-                    {/* Die Freigabe steht bei der eigenen Zeile, weil man nur
-                        die eigene setzen kann. Bei den anderen steht sie als
-                        Text da — man soll sehen, was man von ihnen sieht. */}
+                    {/* Der Weg zu den eigenen Freigaben steht bei der eigenen
+                        Zeile, weil man nur die eigenen setzen kann. Bei den
+                        anderen steht als Text, was man von ihnen sieht. */}
                     <span className="w-full pl-11">
-                      <AccessChoice household={household} myId={member.userId} />
+                      <GrantsLink household={household} myId={member.userId} />
                     </span>
                   </li>
                 )
@@ -217,11 +204,6 @@ export function HouseholdPage() {
         ))}
       </ul>
       </QueryState>
-
-      <SharingPresetDialog
-        household={presetFor}
-        onOpenChange={(open) => !open && setPresetFor(null)}
-      />
 
       <InviteDialog
         household={invitingTo}
@@ -450,7 +432,7 @@ function InviteDialog({
  * There is no email and no link anybody has to forward: whoever signs in with the
  * invited address finds the invitation here. Shows nothing while none is pending.
  */
-function PendingInvitations({ onJoined }: { onJoined: (household: Household) => void }) {
+function PendingInvitations() {
   const invitations = useMyInvitations()
   const { t } = useTranslation()
   const accept = useAcceptInvitation()
@@ -491,7 +473,7 @@ function PendingInvitations({ onJoined }: { onJoined: (household: Household) => 
             </Button>
             <Button
               size="sm"
-              onClick={() => accept.mutate(invitation.token, { onSuccess: onJoined })}
+              onClick={() => accept.mutate(invitation.token)}
               disabled={accept.isPending || decline.isPending}
             >
               {t('household.join')}
@@ -511,104 +493,38 @@ function PendingInvitations({ onJoined }: { onJoined: (household: Household) => 
   )
 }
 
-function SharingPresetDialog({
-  household,
-  onOpenChange,
-}: {
-  household: Household | null
-  onOpenChange: (open: boolean) => void
-}) {
-  const { t } = useTranslation()
-  const me = useMe().data
-  const save = useSetMyAccess(
-    household?.id ?? '',
-    (household?.members ?? [])
-      .map((member) => member.userId)
-      .filter((userId) => userId !== me?.id)
-  )
-
-  return (
-    <DialogFrame
-      open={household !== null}
-      onOpenChange={onOpenChange}
-      title={t('household.presetTitle', { name: household?.name })}
-      description={t('household.presetDescription')}
-      submitLabel={t('household.presetApply')}
-      onSubmit={(event) => {
-        event.preventDefault()
-        save.mutate(
-          Object.fromEntries(AREA_ORDER.map((area) => [area, 'edit'])),
-          { onSuccess: () => onOpenChange(false) }
-        )
-      }}
-      pending={save.isPending}
-      error={save.isError ? save.error : null}
-    >
-      <p className="text-sm font-medium">{t('household.presetCouple')}</p>
-      <p className="text-muted-foreground text-xs">{t('household.presetHint')}</p>
-    </DialogFrame>
-  )
-}
-
 /**
- * What I release to the others about myself.
+ * The way to my grants, and who has none from me yet.
  *
- * Deliberately here and not in the settings: the decision concerns exactly the
- * people listed next to it. Whoever makes it has to see who they are giving it to.
- *
- * The server keeps a level per person; until the grants page lets me choose per
- * person, this card sets the same level for everybody and shows the lowest one I
- * gave anybody — never more than everybody has.
+ * Somebody new starts with nothing (decision 57). The sentence says so where the
+ * newcomer appears, for them and for everybody already there, next to the way to
+ * change it.
  */
-function AccessChoice({ household, myId }: { household: Household; myId: string }) {
-  const others = household.members.filter((member) => member.userId !== myId)
-  const save = useSetMyAccess(
-    household.id,
-    others.map((member) => member.userId)
+function GrantsLink({ household, myId }: { household: Household; myId: string }) {
+  const { t, i18n } = useTranslation()
+  const without = household.members.filter(
+    (member) =>
+      member.userId !== myId && AREA_ORDER.every((area) => member.myGrants[area] === 'none')
   )
-  const { t } = useTranslation()
+  const names = new Intl.ListFormat(i18n.language, { type: 'conjunction' }).format(
+    without.map((member) => member.firstName)
+  )
 
   return (
-    <span className="flex flex-col gap-3">
-      <span className="text-muted-foreground text-xs">{t('household.youShare')}</span>
-
-      {AREA_ORDER.map((area) => {
-        const level = lowestLevel(others.map((member) => member.myGrants[area]))
-        return (
-          <span key={area} className="flex flex-col gap-1">
-            <span className="flex flex-wrap items-center gap-2">
-              <span className="w-32 text-xs font-medium">{areaLabel(area)}</span>
-              <Select
-                value={level}
-                // Only this area travels. What the call leaves out keeps its
-                // level, so the other areas are not touched.
-                onValueChange={(next) => save.mutate({ [area]: next as AccessLevel })}
-                disabled={save.isPending || others.length === 0}
-              >
-                <SelectTrigger className="h-8 w-64 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ACCESS_ORDER.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {accessLabel(area, option)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </span>
-            <span className="text-muted-foreground pl-34 text-xs">
-              {accessHint(area, level)}
-            </span>
-          </span>
-        )
-      })}
-
-      {save.isError && (
-        <span role="alert" className="text-destructive text-xs">
-          {errorText(save.error)}
+    <span className="flex flex-wrap items-center gap-3">
+      {without.length > 0 && (
+        <span className="text-muted-foreground text-xs">
+          {t(without.length === 1 ? 'household.noGrantYetOne' : 'household.noGrantYetMany', {
+            names,
+          })}
         </span>
       )}
+      <Button asChild variant="outline" size="sm">
+        <Link to="/household/grants">
+          <KeyRound className="size-4" />
+          {t('household.grants')}
+        </Link>
+      </Button>
     </span>
   )
 }

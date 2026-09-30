@@ -191,8 +191,8 @@
         "body": "<p>Was die anderen von dir sehen, entscheidest du getrennt für drei Bereiche. Die Stufe vergibst nur du selbst und nur für dich; zurücknehmen kannst du sie jederzeit, ohne jemanden zu fragen.</p><p>Jeder Bereich hat dieselben vier Stufen, und sie bauen aufeinander auf — wer ändern darf, darf auch sehen.</p>"
       },
       "preset": {
-        "title": "Voreinstellung beim Beitritt",
-        "body": "<p>Trittst du einem Haushalt bei, fragt Duofy einmal, was du teilst. Ohne Freigabe sehen die anderen im Haushaltsplan deine Posten, aber nicht deine Verträge, Konten oder deinen Import. Beitreten geht nur, wenn in deinem bisherigen Haushalt sonst niemand ist. Mit <strong>Paar übernehmen</strong> dürfen die anderen alles von dir sehen und bearbeiten; du kannst es aber auch so lassen.</p><pSpaced>Die Voreinstellung gilt nur für dich und setzt nur deine Freigaben. Danach änderst du jeden Bereich einzeln, und zurücknehmen kannst du sie jederzeit.</pSpaced>"
+        "title": "Vorlagen und neue Mitglieder",
+        "body": "<p>Unter <strong>Freigaben festlegen</strong> bestimmst du für jede Person einzeln, was sie von dir sieht und tun darf. Wer neu beitritt, bekommt von dir erst einmal nichts und sieht nur, was im Haushaltsplan steht. Die Haushaltsseite sagt dir, wem du noch nichts freigegeben hast.</p><pSpaced>Die Vorlagen <strong>Partner: alles</strong>, <strong>Mitlesen</strong>, <strong>Kind</strong> und <strong>Nichts</strong> setzen alle Bereiche auf einmal. Änderst du danach einen Bereich, steht dort „eigene Auswahl“. Jede Änderung gilt sofort, und zurücknehmen kannst du sie jederzeit.</pSpaced>"
       },
       "areas": {
         "title": "Die drei Bereiche",
