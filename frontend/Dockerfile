@@ -6,7 +6,7 @@
 # Herkunft, also auch kein CORS, und der Nutzer muss nirgends eintragen, wo sein
 # Backend liegt.
 
-FROM node:22-alpine AS builder
+FROM node:26-alpine AS builder
 
 WORKDIR /app
 
@@ -25,7 +25,7 @@ ENV VITE_API_URL=/api/v1
 RUN npm run build
 
 
-FROM nginx:1.30-alpine
+FROM nginx:1.31-alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
