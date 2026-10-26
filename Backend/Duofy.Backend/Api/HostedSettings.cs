@@ -19,6 +19,7 @@ internal sealed class HostedSettings(IConfiguration configuration, PublicLinks l
     public const string UserKey = "Duofy:Mail:User";
     public const string PasswordKey = "Duofy:Mail:Password";
     public const string FromKey = "Duofy:Mail:From";
+    public const string FromNameKey = "Duofy:Mail:FromName";
     public const string UseTlsKey = "Duofy:Mail:UseTls";
 
     /// <summary>True auf der gehosteten Version; ohne Einstellung false.</summary>
@@ -38,6 +39,9 @@ internal sealed class HostedSettings(IConfiguration configuration, PublicLinks l
 
     /// <summary>Die Absenderadresse der Mails.</summary>
     public string From => Text(FromKey) ?? "";
+
+    /// <summary>Der Name, der neben der Absenderadresse steht; ohne Einstellung "Plagevo".</summary>
+    public string FromName => Text(FromNameKey) ?? "Plagevo";
 
     /// <summary>True (der Standard): Die Verbindung zum Mailserver ist verschlüsselt.</summary>
     public bool UseTls => configuration.GetValue(UseTlsKey, true);

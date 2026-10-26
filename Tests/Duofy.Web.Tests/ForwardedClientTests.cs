@@ -13,7 +13,7 @@ namespace Duofy.Web.Tests;
 /// </summary>
 public class ForwardedClientTests : IClassFixture<WebApplicationFactory<Program>>
 {
-    private const string Tunnel = "172.30.79.2";
+    private const string Tunnel = "172.30.10.2";
 
     private readonly WebApplicationFactory<Program> factory;
 
@@ -26,7 +26,7 @@ public class ForwardedClientTests : IClassFixture<WebApplicationFactory<Program>
     [Fact]
     public async Task Behind_the_tunnel_the_web_sees_the_client_address_and_https()
     {
-        var seen = await SeenAsync(trustedProxies: "172.30.79.0/24", from: Tunnel);
+        var seen = await SeenAsync(trustedProxies: "172.30.10.2/32", from: Tunnel);
 
         Assert.Equal("203.0.113.1 https", seen);
     }
@@ -35,7 +35,7 @@ public class ForwardedClientTests : IClassFixture<WebApplicationFactory<Program>
     [Fact]
     public async Task A_forged_header_from_outside_the_trusted_network_is_ignored()
     {
-        var seen = await SeenAsync(trustedProxies: "172.30.79.0/24", from: "198.51.100.7");
+        var seen = await SeenAsync(trustedProxies: "172.30.10.2/32", from: "198.51.100.7");
 
         Assert.Equal("198.51.100.7 http", seen);
     }

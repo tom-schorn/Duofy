@@ -67,9 +67,11 @@ Umgebungsvariablen stehen in `.env.example`.
 ## Plagevo betreiben
 
 Plagevo ist die gehostete Version von Duofy ("Plagevo by Duofy"). Sie läuft auf einem eigenen Server hinter einem
-Cloudflare Tunnel, ohne offenen Port: `app.plagevo.de` ist die Web-Variante, `api.plagevo.de` die API. Alles dafür liegt
-in `deploy/`: Die Compose-Datei startet API, Web-Variante, PostgreSQL und eine tägliche Sicherung; die Images bauen aus
-`Backend/Duofy.Backend/Dockerfile` und `Web/Duofy.Web/Dockerfile`.
+Cloudflare Tunnel, ohne offenen Port: `portal.plagevo.de` ist die Web-Variante, `api.plagevo.de` die API. Alles dafür
+liegt in `deploy/`: Die Compose-Datei startet API, Web-Variante und eine tägliche Sicherung im eigenen Netz `plagevo`
+mit festen Adressen; die Datenbank ist ein PostgreSQL-Server, den `ConnectionStrings__Duofy` nennt (bei Plagevo über
+Tailscale), oder die eigene aus `deploy/own-db.yml`. Die Images bauen aus `Backend/Duofy.Backend/Dockerfile` und
+`Web/Duofy.Web/Dockerfile`.
 
 ```bash
 cd deploy
@@ -77,8 +79,8 @@ cp .env.example .env      # ausfüllen, nie einchecken
 docker compose --env-file .env up -d --build
 ```
 
-Die ganze Einrichtung Schritt für Schritt (Cloudflare, Umgebungsdatei, Mail über `noreply@example.org`, erster Start mit
-dem Einrichtungscode, Update, Sicherung und Wiederherstellung) steht in [docs/betrieb.md](docs/betrieb.md).
+Die ganze Einrichtung Schritt für Schritt (Cloudflare und Tunnel, Datenbank über Tailscale, Umgebungsdatei, Mail über
+`noreply@example.org`, erster Start mit dem Einrichtungscode, Update, Sicherung und Wiederherstellung) steht in [docs/betrieb.md](docs/betrieb.md).
 
 ## Regeln
 

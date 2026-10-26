@@ -58,7 +58,8 @@ public class ProjectStructureTests
             var relative = Path.GetRelativePath(root, file).Replace(Path.DirectorySeparatorChar, '/');
             var parts = relative.Split('/');
             // Die Ablage von Git, fremde Worktrees und Build-Ausgaben zählen nicht; die Spec 77 beschreibt die Umbenennung.
-            if (parts.Any(part => part is ".git" or ".worktrees" or "bin" or "obj" or "node_modules")
+            // Die Aufzeichnungen des Teams (.workday) erzählen die Geschichte und gehören nicht ins öffentliche Repository.
+            if (parts.Any(part => part is ".git" or ".worktrees" or ".workday" or "bin" or "obj" or "node_modules")
                 || relative.StartsWith("docs/specs/77-project-structure/", StringComparison.Ordinal))
             {
                 continue;

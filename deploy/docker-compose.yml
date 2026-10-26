@@ -4,12 +4,18 @@
 #   cp .env.example .env      # ausfüllen, nie einchecken
 #   docker compose --env-file .env up -d --build
 #
-# Kein Dienst veröffentlicht einen Port: Von außen kommt man nur über den Tunnel herein. Der Tunnel läuft schon auf dem
-# Server (Container cloudflared im Netz aus CLOUDFLARED_NETWORK); web und api treten diesem Netz bei, und der Tunnel
-# leitet app.plagevo.de an http://web:8080 und api.plagevo.de an http://api:8080 (eingestellt im Cloudflare-Dashboard).
+# Die Datenbank gehört nicht dazu: Die API und die Sicherung erreichen den PostgreSQL-Server, den
+# ConnectionStrings__Duofy in der .env nennt (bei Plagevo zu Hause, über Tailscale). Wer keinen eigenen Server hat,
+# startet die Datenbank mit der zweiten Datei own-db.yml dazu (docs/betrieb.md, "Eigene Datenbank im Compose").
+#
+# Kein Dienst veröffentlicht einen Port: Von außen kommt man nur über den Tunnel herein. Alle Dienste hängen mit fester
+# Adresse im eigenen Netz plagevo (172.30.10.0/24), das diese Datei anlegt. Der Tunnel läuft auf dem Server in einem
+# eigenen Compose-Projekt (/root/infrastructure); sein Container cloudflared tritt dem Netz plagevo als externem Netz mit
+# der Adresse 172.30.10.2 bei. Deshalb startet Plagevo zuerst, danach das Projekt des Tunnels. Der Tunnel leitet
+# portal.plagevo.de an http://172.30.10.12:8080 (web) und api.plagevo.de an http://172.30.10.11:8080 (api).
 # Auf einem frischen Server ohne Tunnel startet der Dienst tunnel mit: docker compose --profile own-tunnel ...
 #
-# Der Server hat knapp 3 GB Arbeitsspeicher; jeder Dienst hat deshalb eine feste Grenze (zusammen etwa 1,6 GB).
+# Der Server hat knapp 3 GB Arbeitsspeicher; jeder Dienst hat deshalb eine feste Grenze (zusammen etwa 1,1 GB).
 
 name: plagevo
 
@@ -22,38 +28,6 @@ x-dotnet-env: &dotnet-env
   DOTNET_gcServer: "0"
 
 services:
-  db:
-    image: postgres:18.6-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-duofy}
-      POSTGRES_USER: ${POSTGRES_USER:-duofy}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD?POSTGRES_PASSWORD fehlt in .env}
-    # Klein eingestellt für einen Server mit knapp 3 GB; Duofy braucht wenige Verbindungen.
-    command:
-      - postgres
-      - -c
-      - shared_buffers=128MB
-      - -c
-      - effective_cache_size=384MB
-      - -c
-      - work_mem=4MB
-      - -c
-      - maintenance_work_mem=64MB
-      - -c
-      - max_connections=30
-    mem_limit: 512m
-    volumes:
-      # PostgreSQL 18 legt seine Daten unter /var/lib/postgresql/18/docker ab.
-      - db-data:/var/lib/postgresql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready --username=$${POSTGRES_USER} --dbname=$${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - backend
-
   api:
     build:
       context: ..
@@ -61,43 +35,40 @@ services:
       args: *build-args
     image: plagevo-api:${PLAGEVO_VERSION:-dev}
     restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
     mem_limit: 384m
+    # Jede Einstellung gilt in der Schreibweise von .NET (Duofy__Mail__Host) oder unter dem alten Namen
+    # (DUOFY_MAIL_HOST); stehen beide in der .env, gewinnt die Schreibweise von .NET, sonst gilt der Standard dahinter.
     environment:
       <<: *dotnet-env
-      ConnectionStrings__Duofy: Host=db;Port=5432;Database=${POSTGRES_DB:-duofy};Username=${POSTGRES_USER:-duofy};Password=${POSTGRES_PASSWORD}
-      Duofy__Hosted: ${DUOFY_HOSTED:-true}
-      Duofy__PublicUrl: ${DUOFY_PUBLIC_URL:-https://app.plagevo.de}
-      Duofy__RegistrationMode: ${DUOFY_REGISTRATION_MODE:-invite}
-      Duofy__SetupCode: ${DUOFY_SETUP_CODE:-}
-      Duofy__ImprintFile: ${DUOFY_IMPRINT_FILE:-}
-      Duofy__PrivacyFile: ${DUOFY_PRIVACY_FILE:-}
-      Duofy__TermsFile: ${DUOFY_TERMS_FILE:-}
-      Duofy__Mail__Host: ${DUOFY_MAIL_HOST:-}
-      Duofy__Mail__Port: ${DUOFY_MAIL_PORT:-587}
-      Duofy__Mail__User: ${DUOFY_MAIL_USER:-}
-      Duofy__Mail__Password: ${DUOFY_MAIL_PASSWORD:-}
-      Duofy__Mail__From: ${DUOFY_MAIL_FROM:noreply@example.org}
-      Duofy__Mail__UseTls: ${DUOFY_MAIL_USE_TLS:-true}
-      # Nur aus dem Netz des Tunnels darf jemand die Adresse der Person nennen (CF-Connecting-IP).
-      Duofy__TrustedProxies: ${TRUSTED_PROXIES?TRUSTED_PROXIES fehlt in .env}
+      # Die Verbindung zur Datenbank, zum Beispiel Host=100.x.y.z;Port=5432;Database=plagevo;Username=plagevo;Password=...
+      ConnectionStrings__Duofy: ${ConnectionStrings__Duofy:?ConnectionStrings__Duofy fehlt in .env (Verbindung zur Datenbank, siehe docs/betrieb.md)}
+      Duofy__Hosted: ${Duofy__Hosted:-${DUOFY_HOSTED:-true}}
+      Duofy__PublicUrl: ${Duofy__PublicUrl:-${DUOFY_PUBLIC_URL:-https://portal.plagevo.de}}
+      Duofy__RegistrationMode: ${Duofy__RegistrationMode:-${DUOFY_REGISTRATION_MODE:-invite}}
+      Duofy__SetupCode: ${Duofy__SetupCode:-${DUOFY_SETUP_CODE:-}}
+      Duofy__ImprintFile: ${Duofy__ImprintFile:-${DUOFY_IMPRINT_FILE:-}}
+      Duofy__PrivacyFile: ${Duofy__PrivacyFile:-${DUOFY_PRIVACY_FILE:-}}
+      Duofy__TermsFile: ${Duofy__TermsFile:-${DUOFY_TERMS_FILE:-}}
+      Duofy__Mail__Host: ${Duofy__Mail__Host:-${DUOFY_MAIL_HOST:-}}
+      Duofy__Mail__Port: ${Duofy__Mail__Port:-${DUOFY_MAIL_PORT:-587}}
+      Duofy__Mail__User: ${Duofy__Mail__User:-${DUOFY_MAIL_USER:-}}
+      Duofy__Mail__Password: ${Duofy__Mail__Password:-${DUOFY_MAIL_PASSWORD:-}}
+      Duofy__Mail__From: ${Duofy__Mail__From:-${DUOFY_MAIL_FROM:noreply@example.org}}
+      Duofy__Mail__FromName: ${Duofy__Mail__FromName:-${Duofy__Mail__From__Name:-${DUOFY_MAIL_FROM_NAME:-Plagevo}}}
+      Duofy__Mail__UseTls: ${Duofy__Mail__UseTls:-${DUOFY_MAIL_USE_TLS:-true}}
+      # Nur der Tunnel an seiner festen Adresse darf die Adresse der Person nennen (CF-Connecting-IP).
+      Duofy__TrustedProxies: ${Duofy__TrustedProxies:-${TRUSTED_PROXIES:-172.30.10.2/32}}
       # Die Web-Variante ruft die API für alle Web-Nutzer; sie ist von der Bremse ausgenommen, vor ihr bremst Cloudflare.
-      RateLimiting__AuthPermitLimit: ${RATE_LIMIT_AUTH_PERMIT_LIMIT:-10}
-      RateLimiting__ExemptAddresses: 172.30.79.3
+      RateLimiting__AuthPermitLimit: ${RateLimiting__AuthPermitLimit:-${RATE_LIMIT_AUTH_PERMIT_LIMIT:-10}}
+      RateLimiting__ExemptAddresses: 172.30.10.12
       Duofy__KeysDirectory: /keys
     volumes:
       - keys:/keys
       # Rechtstexte (Impressum, Datenschutz, Nutzungsbedingungen), nur lesbar.
       - ./legal:/legal:ro
     networks:
-      backend:
-      app:
-        # Unter diesem Namen ruft die Web-Variante die API, nur im eigenen Netz app.
-        aliases:
-          - api-internal
-      tunnel:
+      plagevo:
+        ipv4_address: 172.30.10.11
 
   web:
     build:
@@ -112,14 +83,13 @@ services:
     mem_limit: 512m
     environment:
       <<: *dotnet-env
-      # Über das eigene Netz app, damit die API die Web-Variante an ihrer festen Adresse erkennt.
-      Duofy__ApiBaseAddress: http://api-internal:8080/
-      Duofy__TrustedProxies: ${TRUSTED_PROXIES?TRUSTED_PROXIES fehlt in .env}
-      Duofy__Analytics__Token: ${CLOUDFLARE_ANALYTICS_TOKEN:-}
+      # An der festen Adresse der API; die API erkennt die Web-Variante an deren fester Adresse 172.30.10.12.
+      Duofy__ApiBaseAddress: http://172.30.10.11:8080/
+      Duofy__TrustedProxies: ${Duofy__TrustedProxies:-${TRUSTED_PROXIES:-172.30.10.2/32}}
+      Duofy__Analytics__Token: ${Duofy__Analytics__Token:-${CLOUDFLARE_ANALYTICS_TOKEN:-}}
     networks:
-      app:
-        ipv4_address: 172.30.79.3
-      tunnel:
+      plagevo:
+        ipv4_address: 172.30.10.12
 
   # Nur für einen frischen Server ohne eigenen Tunnel-Container: docker compose --profile own-tunnel ...
   tunnel:
@@ -131,48 +101,39 @@ services:
     environment:
       TUNNEL_TOKEN: ${TUNNEL_TOKEN?TUNNEL_TOKEN fehlt in .env}
     networks:
-      - tunnel
+      plagevo:
+        ipv4_address: 172.30.10.2
 
   backup:
     image: postgres:18.6-alpine
     restart: unless-stopped
     # Nicht als root: als der Benutzer des Servers, dem der Ordner ./backups gehört.
     user: "${BACKUP_UID:-1000}:${BACKUP_GID:-1000}"
-    depends_on:
-      db:
-        condition: service_healthy
     entrypoint: ["/bin/sh", "/usr/local/bin/backup.sh"]
     mem_limit: 128m
     environment:
-      PGHOST: db
-      PGDATABASE: ${POSTGRES_DB:-duofy}
-      PGUSER: ${POSTGRES_USER:-duofy}
-      PGPASSWORD: ${POSTGRES_PASSWORD}
+      # Dieselbe Verbindung wie die API; backup.sh liest Host, Port, Datenbank, Benutzer und Passwort daraus.
+      DUOFY_CONNECTION_STRING: ${ConnectionStrings__Duofy:?ConnectionStrings__Duofy fehlt in .env (Verbindung zur Datenbank, siehe docs/betrieb.md)}
       BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
       BACKUP_TIME: ${BACKUP_TIME:-03:00}
       TZ: Europe/Berlin
     volumes:
       - ./backup.sh:/usr/local/bin/backup.sh:ro
       - ./backups:/backups
+    # Im Netz plagevo, weil die Sicherung nach draußen muss: zur Datenbank über Tailscale.
     networks:
-      - backend
+      plagevo:
+        ipv4_address: 172.30.10.13
 
 volumes:
-  db-data:
   keys:
 
 networks:
-  # Datenbank, API und Sicherung; ohne Weg nach draußen.
-  backend:
-    internal: true
-  # Web und API untereinander; mit fester Adresse der Web-Variante (172.30.79.3), die die API von ihrer Bremse ausnimmt.
-  app:
-    internal: true
+  # Das eigene Netz von Plagevo mit festem Namen, damit das Compose-Projekt des Tunnels es als externes Netz findet.
+  # Feste Adressen: Gateway .1, Tunnel .2, api .11, web .12, backup .13.
+  plagevo:
+    name: ${PLAGEVO_NETWORK:-plagevo}
     ipam:
       config:
-        - subnet: 172.30.79.0/24
-  # Das Netz des Tunnel-Containers auf dem Server; es gibt es schon, Compose legt es nicht an.
-  # Auf einem frischen Server einmal anlegen: docker network create infrastructure_cloudflared_network
-  tunnel:
-    name: ${CLOUDFLARED_NETWORK:-infrastructure_cloudflared_network}
-    external: true
+        - subnet: 172.30.10.0/24
+          gateway: 172.30.10.1

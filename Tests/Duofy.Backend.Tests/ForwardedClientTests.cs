@@ -16,15 +16,15 @@ namespace Duofy.Api.Tests;
 [Collection(ApiCollection.Name)]
 public sealed class ForwardedClientTests(ApiFixture fixture)
 {
-    private const string Tunnel = "172.30.79.2";
-    private const string Web = "172.30.79.3";
+    private const string Tunnel = "172.30.10.2";
+    private const string Web = "172.30.10.12";
     private const string Outside = "198.51.100.7";
 
     // A2
     [Fact]
     public async Task Two_clients_behind_the_tunnel_have_separate_budgets()
     {
-        await using var api = new ProxiedApiFactory(fixture.ConnectionString, trustedProxies: "172.30.79.0/24");
+        await using var api = new ProxiedApiFactory(fixture.ConnectionString, trustedProxies: "172.30.10.2/32");
         var client = api.CreateClient();
 
         Assert.NotEqual(HttpStatusCode.TooManyRequests, (await LoginAsync(client, Tunnel, "203.0.113.1")).StatusCode);
@@ -40,7 +40,7 @@ public sealed class ForwardedClientTests(ApiFixture fixture)
     [Fact]
     public async Task A_forged_header_from_outside_the_trusted_network_is_ignored()
     {
-        await using var api = new ProxiedApiFactory(fixture.ConnectionString, trustedProxies: "172.30.79.0/24");
+        await using var api = new ProxiedApiFactory(fixture.ConnectionString, trustedProxies: "172.30.10.2/32");
         var client = api.CreateClient();
 
         await LoginAsync(client, Outside, "203.0.113.1");
@@ -69,7 +69,7 @@ public sealed class ForwardedClientTests(ApiFixture fixture)
     [Fact]
     public async Task Requests_from_the_exempt_web_container_are_not_limited()
     {
-        await using var api = new ProxiedApiFactory(fixture.ConnectionString, trustedProxies: "172.30.79.0/24", exempt: Web);
+        await using var api = new ProxiedApiFactory(fixture.ConnectionString, trustedProxies: "172.30.10.2/32", exempt: Web);
         var client = api.CreateClient();
 
         for (var request = 0; request < 3; request++)
@@ -83,7 +83,7 @@ public sealed class ForwardedClientTests(ApiFixture fixture)
     [Fact]
     public async Task A_client_claiming_the_web_container_address_through_the_tunnel_is_still_limited()
     {
-        await using var api = new ProxiedApiFactory(fixture.ConnectionString, trustedProxies: "172.30.79.0/24", exempt: Web);
+        await using var api = new ProxiedApiFactory(fixture.ConnectionString, trustedProxies: "172.30.10.2/32", exempt: Web);
         var client = api.CreateClient();
 
         await LoginAsync(client, Tunnel, Web);
@@ -96,7 +96,7 @@ public sealed class ForwardedClientTests(ApiFixture fixture)
     [Fact]
     public async Task Without_exempt_addresses_the_web_container_is_limited_like_everybody()
     {
-        await using var api = new ProxiedApiFactory(fixture.ConnectionString, trustedProxies: "172.30.79.0/24");
+        await using var api = new ProxiedApiFactory(fixture.ConnectionString, trustedProxies: "172.30.10.2/32");
         var client = api.CreateClient();
 
         await LoginAsync(client, Web, clientAddress: null);

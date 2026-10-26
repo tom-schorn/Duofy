@@ -1,47 +1,60 @@
 # Plagevo betreiben
 
 Diese Anleitung beschreibt Schritt für Schritt, wie Plagevo auf dem eigenen Server läuft: hinter einem Cloudflare
-Tunnel, ohne einen offenen Port außer SSH. Plagevo ist die gehostete Version von Duofy ("Plagevo by Duofy"); der Code
-heißt weiter Duofy. Die Anforderungen stehen in [docs/specs/79-operations](specs/79-operations).
+Tunnel, ohne einen offenen Port außer SSH, mit der Datenbank bei dir zu Hause, erreichbar über Tailscale. Plagevo ist
+die gehostete Version von Duofy ("Plagevo by Duofy"); der Code heißt weiter Duofy. Die Anforderungen stehen in
+[docs/specs/79-operations](specs/79-operations).
 
 Du brauchst diese Anleitung selten, deshalb steht jeder Schritt ausgeschrieben da, auch die Befehle.
 
 ## Überblick
 
-Auf dem Server laufen fünf Container, alle aus `deploy/docker-compose.yml`:
+Auf dem Server laufen diese Container:
 
 | Dienst | Aufgabe | Speichergrenze |
 | --- | --- | --- |
-| `db` | PostgreSQL 18 mit den Daten, auf dem Volume `db-data` | 512 MB |
 | `api` | Die Duofy-API, erreichbar als `api.plagevo.de` | 384 MB |
-| `web` | Die Web-Variante, erreichbar als `app.plagevo.de` | 512 MB |
+| `web` | Die Web-Variante, erreichbar als `portal.plagevo.de` | 512 MB |
 | `backup` | Sichert die Datenbank jeden Tag nach `deploy/backups` | 128 MB |
-| `cloudflared` | Der Tunnel zu Cloudflare; läuft schon auf dem Server, gehört nicht zu diesem Compose | – |
+| `cloudflared` | Der Tunnel zu Cloudflare; ein eigenes Compose-Projekt in `/root/infrastructure` | – |
+
+`api`, `web` und `backup` kommen aus `deploy/docker-compose.yml`. Die Datenbank gehört nicht dazu: Es ist dein
+PostgreSQL-Server zu Hause, den der Server über Tailscale erreicht (Schritt 3). Wer keinen eigenen PostgreSQL-Server
+hat, startet die Datenbank mit der zweiten Datei `deploy/own-db.yml` dazu (Schritt 12).
+
+Alle Container hängen im eigenen Docker-Netz `plagevo`, das `deploy/docker-compose.yml` anlegt, mit festen Adressen:
+
+| Adresse | Wer |
+| --- | --- |
+| `172.30.10.1` | das Gateway des Netzes (Docker) |
+| `172.30.10.2` | der Tunnel (`cloudflared`) |
+| `172.30.10.11` | `api` |
+| `172.30.10.12` | `web` |
+| `172.30.10.13` | `backup` |
 
 Der Weg einer Anfrage: Der Browser oder die App spricht https mit Cloudflare. Cloudflare schickt die Anfrage durch den
-Tunnel zum Container `cloudflared` auf dem Server. Der leitet `app.plagevo.de` an `http://web:8080` und `api.plagevo.de`
-an `http://api:8080` weiter. Dafür treten `web` und `api` dem Docker-Netz des Tunnels bei
-(`infrastructure_cloudflared_network`). Die Datenbank hängt nur in einem internen Netz und ist von außen nicht erreichbar.
+Tunnel zum Container `cloudflared`. Der leitet `portal.plagevo.de` an `http://172.30.10.12:8080` (web) und
+`api.plagevo.de` an `http://172.30.10.11:8080` (api) weiter. Die Web-Variante fragt die API unter
+`http://172.30.10.11:8080/`. Kein Container veröffentlicht einen Port; von außen kommt man nur über den Tunnel herein.
 
-Die Web-Variante fragt die API intern über ein eigenes Netz (`app`) unter der festen Adresse `172.30.79.3`. Die API nimmt
-diese Adresse von ihrer eigenen Bremse für Anmeldungen aus, denn sonst teilten sich alle Web-Nutzer ein Budget. Vor der
-Web-Variante bremst deshalb die Regel bei Cloudflare (Schritt 2.3).
+Die API glaubt nur dem Tunnel an `172.30.10.2`, von welcher Adresse eine Person kommt (`CF-Connecting-IP`). Die
+Web-Variante an `172.30.10.12` nimmt sie von ihrer eigenen Bremse für Anmeldungen aus, denn sonst teilten sich alle
+Web-Nutzer ein Budget. Vor der Web-Variante bremst deshalb die Regel bei Cloudflare (Schritt 2.3).
 
 ## 1. Was du brauchst
 
-- den Server mit Docker und dem Compose-Plugin (`docker compose version` zeigt eine Version 2)
-- den laufenden Container `cloudflared` im Netz `infrastructure_cloudflared_network`, oder einen frischen Server (siehe
-  Schritt 2.2, Fall B)
+- den Server mit Docker und dem Compose-Plugin (`docker compose version` zeigt eine Version 2.24 oder neuer)
+- Tailscale auf dem Server und auf deinem PostgreSQL-Server zu Hause, beide im selben Tailnet
 - die Domain `plagevo.de` in Cloudflare (kostenloser Plan reicht)
 - das Postfach `noreply@example.org` mit seinen SMTP-Zugangsdaten
-- dieses Repository auf dem Server, zum Beispiel unter `/opt/plagevo`:
+- dieses Repository auf dem Server unter `/root/duofy_rework`:
 
   ```bash
-  git clone https://github.com/tom-schorn/Duofy.git /opt/plagevo
-  cd /opt/plagevo/deploy
+  git clone https://github.com/tom-schorn/duofy-dotnet.git /root/duofy_rework
+  cd /root/duofy_rework/deploy
   ```
 
-Alle weiteren Befehle laufen im Ordner `deploy`.
+Alle weiteren Befehle auf dem Server laufen im Ordner `deploy`, außer denen für den Tunnel in `/root/infrastructure`.
 
 ## 2. Cloudflare einrichten
 
@@ -51,39 +64,63 @@ kostenlosen Plan.
 ### 2.1 Domain
 
 `plagevo.de` muss in Cloudflare als Domain eingetragen sein, und beim Registrar müssen die Nameserver von Cloudflare
-stehen. Das Dashboard zeigt dann bei der Domain den Status "Active". Die Einträge für `app` und `api` legt der Tunnel im
-nächsten Schritt selbst an.
+stehen. Das Dashboard zeigt dann bei der Domain den Status "Active". Die Einträge für `portal` und `api` legt der Tunnel
+im nächsten Schritt selbst an.
 
 ### 2.2 Tunnel
 
-**Fall A: Der Tunnel läuft schon (so ist es auf dem Server).** Im Dashboard unter Zero Trust, Networks, Tunnels den
-vorhandenen Tunnel öffnen, dann den Reiter "Public Hostname" (je nach Version "Published application routes"). Zwei
-Einträge anlegen:
+Im Dashboard unter Zero Trust, Networks, Tunnels den Tunnel öffnen (Fall B: erst anlegen, siehe unten), dann den Reiter
+"Public Hostname" (je nach Version "Published application routes"). Zwei Einträge anlegen:
 
 | Subdomain | Domain | Typ | URL |
 | --- | --- | --- | --- |
-| `app` | `plagevo.de` | HTTP | `web:8080` |
-| `api` | `plagevo.de` | HTTP | `api:8080` |
+| `portal` | `plagevo.de` | HTTP | `172.30.10.12:8080` |
+| `api` | `plagevo.de` | HTTP | `172.30.10.11:8080` |
 
-Cloudflare legt dazu die DNS-Einträge `app.plagevo.de` und `api.plagevo.de` an. Der Typ ist HTTP, nicht HTTPS: Die
-Verschlüsselung macht Cloudflare, im Tunnel ist die Verbindung ohnehin geschützt.
+Cloudflare legt dazu die DNS-Einträge `portal.plagevo.de` und `api.plagevo.de` an. Der Typ ist HTTP, nicht HTTPS: Die
+Verschlüsselung macht Cloudflare, im Tunnel ist die Verbindung ohnehin geschützt. `app` statt `portal` geht genauso;
+dann überall `app.plagevo.de` statt `portal.plagevo.de` einsetzen, auch in `DUOFY_PUBLIC_URL`.
 
-Dann das Subnetz des Tunnel-Netzes nachsehen; es kommt in Schritt 3 in die Umgebungsdatei:
+**Fall A: Der Tunnel läuft in seinem eigenen Compose-Projekt (so ist es auf dem Server).** Der Container `cloudflared`
+gehört zum Projekt in `/root/infrastructure`. Er tritt dem Netz `plagevo` als externem Netz bei und bekommt dort die
+feste Adresse `172.30.10.2`. In `/root/infrastructure/docker-compose.yml` sieht das so aus:
+
+```yaml
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.0
+    container_name: cloudflared
+    restart: unless-stopped
+    command: ["tunnel", "--no-autoupdate", "run"]
+    # Die .env neben dieser Datei enthält nur TUNNEL_TOKEN=<Token des Tunnels>.
+    env_file: .env
+    networks:
+      plagevo:
+        ipv4_address: 172.30.10.2
+
+networks:
+  # Legt Plagevo an (deploy/docker-compose.yml); hier nur benutzt.
+  plagevo:
+    external: true
+```
+
+Hängt `cloudflared` noch in weiteren Netzen für andere Anwendungen, bleiben die dort einfach stehen; nur `plagevo` kommt
+dazu. Die Reihenfolge beim Start: erst Plagevo (das legt das Netz an, Schritt 7), dann das Projekt des Tunnels:
 
 ```bash
-docker network inspect infrastructure_cloudflared_network --format '{{(index .IPAM.Config 0).Subnet}}'
+cd /root/infrastructure
+docker compose up -d
 ```
+
+Fehlt das Netz, weil Plagevo noch nicht lief, bricht dieser Befehl mit "network plagevo declared as external, but could
+not be found" ab. Dann erst Plagevo starten. Wird `cloudflared` neu erstellt, bekommt er wieder dieselbe Adresse, denn
+sie steht in seiner Compose-Datei.
 
 **Fall B: Ein frischer Server ohne Tunnel.** Im Dashboard unter Zero Trust, Networks, Tunnels einen neuen Tunnel vom Typ
 "Cloudflared" anlegen. Bei "Install connector" steht ein Befehl mit einem langen Token nach `--token`; nur dieses Token
-kommt als `TUNNEL_TOKEN` in die Umgebungsdatei. Die beiden Einträge `app` und `api` wie in Fall A anlegen. Auf dem
-Server einmal das Netz anlegen, das der Tunnel und Plagevo teilen:
-
-```bash
-docker network create infrastructure_cloudflared_network
-```
-
-Beim Start (Schritt 6) kommt dann `--profile own-tunnel` dazu; das startet den Dienst `tunnel` aus der Compose-Datei.
+kommt als `TUNNEL_TOKEN` in `deploy/.env`. Die beiden Einträge wie oben anlegen. Beim Start (Schritt 7) kommt dann
+`--profile own-tunnel` dazu; das startet den Dienst `tunnel` aus `deploy/docker-compose.yml` mit der Adresse
+`172.30.10.2` im selben Netz. Ein eigenes Projekt in `/root/infrastructure` gibt es dann nicht.
 
 ### 2.3 Die eine Regel gegen zu viele Anfragen
 
@@ -94,7 +131,7 @@ eine Regel anlegen:
 - Wenn eingehende Anfragen passen, als Ausdruck ("Edit expression"):
 
   ```text
-  (starts_with(http.request.uri.path, "/api/v1/auth/")) or (http.host eq "app.plagevo.de" and starts_with(http.request.uri.path, "/_blazor"))
+  (starts_with(http.request.uri.path, "/api/v1/auth/")) or (http.host eq "portal.plagevo.de" and starts_with(http.request.uri.path, "/_blazor"))
   ```
 
 - Mit denselben Eigenschaften: IP (beim kostenlosen Plan fest)
@@ -103,7 +140,7 @@ eine Regel anlegen:
 
 Der erste Teil bremst die App, die direkt mit `api.plagevo.de` spricht. Der zweite Teil bremst, wie oft jemand eine
 Verbindung zur Web-Variante aufbaut. Wichtig: Die Web-Variante ist von der Bremse der API ausgenommen, diese Regel ist für
-sie also die einzige Grenze vor dem Server, und sie muss `app.plagevo.de` abdecken. Was innerhalb einer schon offenen
+sie also die einzige Grenze vor dem Server, und sie muss `portal.plagevo.de` abdecken. Was innerhalb einer schon offenen
 Verbindung der Web-Variante passiert, zum Beispiel mehrere Anmeldeversuche nacheinander, sieht Cloudflare nicht. Dann
 greift nur noch die Sperre eines Kontos nach fünf falschen Passwörtern für fünf Minuten.
 
@@ -115,12 +152,96 @@ Turnstile (der Schutz der Formulare vor Bots) ist auf Version 2 verschoben: Die 
 ### 2.5 Web Analytics
 
 Web Analytics zählt Seitenaufrufe ohne Cookies, deshalb braucht es keinen Cookie-Hinweis. Im Dashboard unter Analytics
-& Logs, Web Analytics, "Add a site": als Hostname `app.plagevo.de` eintragen und die automatische Einrichtung
-ausschalten, falls sie angeboten wird. Cloudflare zeigt dann einen Schnipsel mit `data-cf-beacon='{"token": "..."}'`;
-nur den Wert hinter `token` in die Umgebungsdatei als `CLOUDFLARE_ANALYTICS_TOKEN` übernehmen. Ohne Token gibt es keine
-Zählung.
+& Logs, Web Analytics, "Add a site": als Hostname `portal.plagevo.de` eintragen und die automatische Einrichtung
+eingeschaltet lassen. Weil der Hostname über Cloudflare läuft, fügt Cloudflare das kleine Skript (den "Beacon") dann
+selbst in jede Seite ein, die durch den Tunnel geht. `CLOUDFLARE_ANALYTICS_TOKEN` bleibt dabei leer; stünde es auch
+drin, zählte jeder Seitenaufruf doppelt.
 
-## 3. Die Umgebungsdatei
+Das Token ist nur der Notweg, falls die automatische Einrichtung nicht geht oder ausgeschaltet ist: Dann zeigt
+Cloudflare einen Schnipsel mit `data-cf-beacon='{"token": "..."}'`, und nur den Wert hinter `token` trägst du als
+`CLOUDFLARE_ANALYTICS_TOKEN` ein. Die Web-Variante fügt das Skript dann selbst ein.
+
+## 3. Datenbank bei dir zu Hause über Tailscale
+
+Die Daten von Plagevo liegen in deinem PostgreSQL-Server zu Hause. Der Server erreicht ihn über Tailscale, also durch
+ein verschlüsseltes WireGuard-Netz; im Internet ist der Port der Datenbank nie offen. Die Adresse des Servers im
+Tailnet ist `100.x.y.z`, die deines PostgreSQL-Servers siehst du dort mit `tailscale ip -4` (unten `100.x.y.z`).
+
+Alles in diesem Schritt machst du auf deinem PostgreSQL-Server zu Hause, nicht auf dem Server.
+
+1. Benutzer und Datenbank anlegen. Das Passwort ist ein langes Zufallspasswort, zum Beispiel aus
+   `openssl rand -base64 32`; es kommt später in die Verbindung in `deploy/.env`:
+
+   ```bash
+   sudo -u postgres psql
+   ```
+
+   ```sql
+   CREATE ROLE plagevo LOGIN PASSWORD '<das Passwort>';
+   CREATE DATABASE plagevo OWNER plagevo;
+   \q
+   ```
+
+   Die Tabellen legt die API beim ersten Start selbst an (Migrationen); dafür reicht es, dass ihr die Datenbank gehört.
+
+2. PostgreSQL auch an der Tailscale-Adresse lauschen lassen. In `postgresql.conf` (meist
+   `/etc/postgresql/<Version>/main/postgresql.conf`):
+
+   ```text
+   listen_addresses = 'localhost,100.x.y.z'
+   ```
+
+   Startet PostgreSQL beim Hochfahren vor Tailscale, gibt es die Adresse noch nicht, und PostgreSQL lauscht dort nicht.
+   Dann stattdessen `listen_addresses = '*'` setzen; die Firewall aus Punkt 4 hält den Port trotzdem für alle anderen
+   zu.
+
+3. Nur den Server hereinlassen. In `pg_hba.conf` (im selben Ordner) eine Zeile anfügen:
+
+   ```text
+   host    plagevo    plagevo    100.x.y.z/32    scram-sha-256
+   ```
+
+   Danach PostgreSQL neu starten, denn `listen_addresses` gilt erst dann: `sudo systemctl restart postgresql`.
+
+4. Die Firewall: Port 5432 nur über Tailscale und nur für den Server öffnen, zum Beispiel mit ufw:
+
+   ```bash
+   sudo ufw allow in on tailscale0 from 100.x.y.z to any port 5432 proto tcp
+   ```
+
+   Aus dem Heimnetz und aus dem Internet bleibt der Port zu. Wer Tailscale-ACLs benutzt, erlaubt dort ebenso nur den
+   Server auf `100.x.y.z:5432`.
+
+5. Die Verbindung kommt als `ConnectionStrings__Duofy` in `deploy/.env` auf dem Server (Schritt 4):
+
+   ```text
+   ConnectionStrings__Duofy=Host=100.x.y.z;Port=5432;Database=plagevo;Username=plagevo;Password=<das Passwort>
+   ```
+
+   Kein Wert darf ein Semikolon enthalten, auch das Passwort nicht. Die API und die Sicherung nutzen dieselbe
+   Verbindung.
+
+Zur Verschlüsselung: Die Verbindung läuft ganz innerhalb von Tailscale, also schon verschlüsselt. Npgsql (der Treiber der
+API) nimmt TLS, wenn PostgreSQL es anbietet, sonst nicht (`SSL Mode=Prefer`, der Standard). Bietet dein Server TLS an,
+kannst du es mit `;SSL Mode=Require` am Ende der Verbindung erzwingen; dann lehnt die API eine unverschlüsselte Verbindung
+ab. Die Sicherung übernimmt diese Einstellung.
+
+Ob der Server die Datenbank erreicht, prüfst du auf dem Server, sobald `deploy/.env` ausgefüllt ist:
+
+```bash
+docker compose --env-file .env run --rm backup check
+```
+
+Die Ausgabe nennt Host, Port, Datenbank und Benutzer, nie das Passwort, und dann `accepting connections`. Steht dort
+`no response`, kommt der Container nicht durch. Dann der Reihe nach prüfen: Antwortet die Datenbank vom Server selbst
+aus (`nc -zv 100.x.y.z 5432`)? Wenn ja, läuft Tailscale auf dem Server vielleicht ohne eigenes Netzgerät
+(`tailscale status` und `ip addr show tailscale0`; mit `--tun=userspace-networking` erreichen Container das Tailnet
+nicht). Wenn nein, liegt es an Punkt 2 bis 4 auf deinem PostgreSQL-Server.
+
+Die Sicherung braucht ein `pg_dump`, das mindestens so neu ist wie dein PostgreSQL-Server; im Container ist es Version
+18. Ist dein Server älter, ist das kein Problem.
+
+## 4. Die Umgebungsdatei
 
 Alle Einstellungen und Geheimnisse stehen in `deploy/.env` auf dem Server, und nur dort. Die Datei kommt nie ins
 Repository (`deploy/.gitignore` schließt sie aus).
@@ -131,49 +252,61 @@ chmod 600 .env
 nano .env
 ```
 
+Jede Einstellung geht in zwei Schreibweisen: in der von .NET, wie sie auch in `appsettings` steht
+(`Duofy__Mail__Host`, `Duofy__PublicUrl`, `Duofy__SetupCode`, `Duofy__Mail__Password`, `Duofy__TrustedProxies` und so
+weiter), oder unter dem alten Namen aus `.env.example` (`DUOFY_MAIL_HOST`, `DUOFY_PUBLIC_URL`, ...). Die Reihenfolge ist
+fest: Steht die Schreibweise von .NET in der `.env`, gilt sie; sonst der alte Name; sonst der Standard aus
+`deploy/docker-compose.yml`. Den Absendernamen nimmt Compose auch als `Duofy__Mail__From__Name`. Jeder Container bekommt
+nur seine eigenen Einstellungen, nicht die ganze `.env`.
+
 Was hinein muss:
 
 | Einstellung | Wert |
 | --- | --- |
 | `PLAGEVO_VERSION`, `PLAGEVO_BUILD_DATE` | die Version, die du baust, und die Zeit des Baus; landen als Labels im Image |
-| `POSTGRES_PASSWORD` | ein langes Zufallspasswort, zum Beispiel aus `openssl rand -base64 32` |
+| `ConnectionStrings__Duofy` | die Verbindung zur Datenbank aus Schritt 3; ohne sie bricht Compose mit einer Meldung ab |
 | `DUOFY_HOSTED` | `true`; dann gibt es Mails, und die API verlangt https und Mails mit TLS |
-| `DUOFY_PUBLIC_URL` | `https://app.plagevo.de`; dahin zeigen die Links in Mails und Einladungen |
+| `DUOFY_PUBLIC_URL` | `https://portal.plagevo.de`; dahin zeigen die Links in Mails und Einladungen |
 | `DUOFY_REGISTRATION_MODE` | `invite` für die erste Version mit Testern |
-| `DUOFY_SETUP_CODE` | nur für den ersten Start, siehe Schritt 6 |
-| `DUOFY_IMPRINT_FILE` und so weiter | die Rechtstexte, siehe Schritt 5 |
-| `DUOFY_MAIL_*` | die Mail, siehe Schritt 4 |
-| `CLOUDFLARED_NETWORK` | das Netz des Tunnels, `infrastructure_cloudflared_network` |
-| `TRUSTED_PROXIES` | das Subnetz aus Schritt 2.2, zum Beispiel `172.18.0.0/16` |
+| `DUOFY_SETUP_CODE` | nur für den ersten Start, siehe Schritt 7 |
+| `DUOFY_IMPRINT_FILE` und so weiter | die Rechtstexte, siehe Schritt 6 |
+| `DUOFY_MAIL_*` | die Mail, siehe Schritt 5 |
+| `PLAGEVO_NETWORK` | der Name des eigenen Netzes, `plagevo`; nur ändern, wenn der Name schon vergeben ist, dann auch beim Tunnel |
+| `TRUSTED_PROXIES` | `172.30.10.2/32`, die Adresse des Tunnels; so steht es schon im Beispiel |
 | `TUNNEL_TOKEN` | nur in Fall B |
-| `CLOUDFLARE_ANALYTICS_TOKEN` | aus Schritt 2.5, oder leer |
+| `CLOUDFLARE_ANALYTICS_TOKEN` | leer, wenn Cloudflare das Skript selbst einfügt (Schritt 2.5) |
 | `BACKUP_UID`, `BACKUP_GID` | dein Benutzer auf dem Server (`id -u`, `id -g`); ihm gehört der Ordner der Sicherungen |
 
-`TRUSTED_PROXIES` ist wichtig: Nur aus diesem Netz darf eine Anfrage sagen, von welcher Adresse die Person kommt
-(`CF-Connecting-IP`). Fehlt es, sieht die API alle App-Nutzer als eine Adresse, und zehn Anmeldungen pro Minute gelten
-für alle zusammen. Das ganze Subnetz zu nennen ist nur sicher, solange in diesem Netz nichts außer dem Tunnel und
-Plagevo hängt. Kommt ein weiterer Container dazu, dem Tunnel eine feste Adresse geben und nur diese nennen, zum Beispiel
-`172.18.0.2/32`.
+`TRUSTED_PROXIES` ist wichtig: Nur von dieser Adresse darf eine Anfrage sagen, von welcher Adresse die Person kommt
+(`CF-Connecting-IP`). Passt sie nicht zum Tunnel, sieht die API alle App-Nutzer als eine Adresse, und zehn Anmeldungen
+pro Minute gelten für alle zusammen.
 
-## 4. Mails über noreply@example.org
+`docker compose config` zeigt die ganze Einstellung mit allen Passwörtern im Klartext; die Ausgabe nie weitergeben.
+`docker compose config --quiet` prüft nur und zeigt nichts.
+
+## 5. Mails über noreply@example.org
 
 Plagevo verschickt Mails (Adresse bestätigen, Passwort vergessen, Einladungen) über das Postfach `noreply@example.org`.
-Host und Port stehen in den Zugangsdaten des Anbieters für SMTP:
+Das Postfach liegt bei netcup; so sieht es dann in der `.env` aus:
 
 ```text
-DUOFY_MAIL_HOST=<SMTP-Server laut Anbieter>
-DUOFY_MAIL_PORT=587
+DUOFY_MAIL_HOST=mx2f38.netcup.net
+DUOFY_MAIL_PORT=465
 DUOFY_MAIL_USER=noreply@example.org
 DUOFY_MAIL_PASSWORD=<das Passwort des Postfachs>
 DUOFY_MAIL_FROM=noreply@example.org
+DUOFY_MAIL_FROM_NAME=Plagevo
 DUOFY_MAIL_USE_TLS=true
 ```
 
-Port 465 verschlüsselt von Anfang an, jeder andere Port (meist 587) mit STARTTLS. `DUOFY_MAIL_USE_TLS` bleibt `true`:
-Mit `false` startet die gehostete Version nicht, und das Log nennt die Einstellung. Das Passwort steht nur in der
-`.env` auf dem Server.
+Oder in der Schreibweise von .NET: `Duofy__Mail__Host=mx2f38.netcup.net`, `Duofy__Mail__Port=465` und so weiter.
 
-## 5. Rechtstexte
+Port 465 verschlüsselt von Anfang an (SSL/TLS), jeder andere Port (meist 587) mit STARTTLS. `DUOFY_MAIL_USE_TLS` bleibt
+`true`: Mit `false` startet die gehostete Version nicht, und das Log nennt die Einstellung. `DUOFY_MAIL_FROM_NAME` ist
+der Name, den Mailprogramme neben der Adresse zeigen; ohne ihn steht dort "Plagevo". Das Passwort steht nur in der `.env`
+auf dem Server.
+
+## 6. Rechtstexte
 
 Impressum, Datenschutzerklärung und Nutzungsbedingungen sind einfache Textdateien im Ordner `deploy/legal` auf dem
 Server; die API sieht ihn als `/legal`, nur lesend. Der Ordner kommt nicht ins Repository.
@@ -188,18 +321,25 @@ nano legal/nutzungsbedingungen.txt
 Die Namen müssen zu `DUOFY_IMPRINT_FILE`, `DUOFY_PRIVACY_FILE` und `DUOFY_TERMS_FILE` passen. Ein Text, der fehlt, leer
 oder größer als 200 KB ist, gilt als nicht vorhanden; das Log nennt dann seinen Namen.
 
-## 6. Erster Start mit dem Einrichtungscode
+## 7. Erster Start mit dem Einrichtungscode
 
 Beim ersten Start gibt es noch keinen Administrator. Den macht der Einrichtungscode.
 
-1. Einen Code erzeugen und als `DUOFY_SETUP_CODE` in die `.env` schreiben (mindestens 16 Zeichen):
+1. Einen Code erzeugen und als `DUOFY_SETUP_CODE` in die `.env` schreiben (mindestens 16 Zeichen), dazu den Ordner der
+   Sicherungen anlegen:
 
    ```bash
    openssl rand -base64 24
    mkdir -p backups && chmod 700 backups
    ```
 
-2. Bauen und starten. Das erste Bauen dauert einige Minuten:
+2. Prüfen, ob die Datenbank erreichbar ist (Schritt 3):
+
+   ```bash
+   docker compose --env-file .env run --rm backup check
+   ```
+
+3. Bauen und starten. Das erste Bauen dauert einige Minuten. Das legt auch das Netz `plagevo` an:
 
    ```bash
    docker compose --env-file .env up -d --build
@@ -208,17 +348,23 @@ Beim ersten Start gibt es noch keinen Administrator. Den macht der Einrichtungsc
    In Fall B (eigener Tunnel) zusätzlich mit `--profile own-tunnel`, hier und bei jedem späteren Befehl, der alle
    Dienste anfasst.
 
-3. Warten, bis alles gesund ist; `docker compose ps` zeigt bei `db`, `api` und `web` "healthy":
+4. In Fall A danach den Tunnel starten, damit er dem Netz beitritt (Schritt 2.2):
+
+   ```bash
+   cd /root/infrastructure && docker compose up -d && cd /root/duofy_rework/deploy
+   ```
+
+5. Warten, bis alles gesund ist; `docker compose ps` zeigt bei `api` und `web` "healthy":
 
    ```bash
    docker compose --env-file .env ps
    ```
 
-4. Im Browser `https://app.plagevo.de/registrieren` öffnen. Solange es keinen Administrator gibt, zeigt die Seite das Feld
-   "Einrichtungscode". Mit dem Code registrieren; dann kommt eine Mail an die eigene Adresse, und der Link darin bestätigt
-   sie. Danach anmelden: Das Konto ist Administrator.
+6. Im Browser `https://portal.plagevo.de/registrieren` öffnen. Solange es keinen Administrator gibt, zeigt die Seite das
+   Feld "Einrichtungscode". Mit dem Code registrieren; dann kommt eine Mail an die eigene Adresse, und der Link darin
+   bestätigt sie. Danach anmelden: Das Konto ist Administrator.
 
-5. Den Code aus der `.env` löschen (`DUOFY_SETUP_CODE=`) und die API neu starten, damit er nicht mehr gilt:
+7. Den Code aus der `.env` löschen (`DUOFY_SETUP_CODE=`) und die API neu starten, damit er nicht mehr gilt:
 
    ```bash
    docker compose --env-file .env up -d api
@@ -227,23 +373,25 @@ Beim ersten Start gibt es noch keinen Administrator. Den macht der Einrichtungsc
 Testerinnen und Tester lädt der Administrator danach auf der Seite "Administration" ein; ohne Einladung kann sich im
 Modus `invite` niemand registrieren.
 
-## 7. Prüfen, ob alles läuft
+## 8. Prüfen, ob alles läuft
 
 ```bash
 docker compose --env-file .env ps
 docker compose --env-file .env logs --tail=50 api
+docker network inspect plagevo --format '{{range .Containers}}{{.Name}} {{.IPv4Address}}{{"\n"}}{{end}}'
 curl -s https://api.plagevo.de/api/v1/health
 ```
 
-Der letzte Befehl antwortet mit `Healthy`. Bricht die API beim Start ab, steht im Log, welche Einstellung fehlt oder
-unsicher ist, zum Beispiel "Gehosteter Server ohne Einstellung Duofy:Mail:Host" oder "Gehosteter Server mit
+Der dritte Befehl listet die Container im Netz `plagevo` mit ihren Adressen; `cloudflared` muss mit `172.30.10.2/24`
+dabei sein. Der letzte Befehl antwortet mit `Healthy`. Bricht die API beim Start ab, steht im Log, welche Einstellung
+fehlt oder unsicher ist, zum Beispiel "Gehosteter Server ohne Einstellung Duofy:Mail:Host" oder "Gehosteter Server mit
 unverschlüsselter Einstellung Duofy:PublicUrl".
 
-Der Speicher: `docker stats --no-stream` zeigt, was jeder Container braucht. Im Leerlauf sind es zusammen gut 150 MB.
+Der Speicher: `docker stats --no-stream` zeigt, was jeder Container braucht.
 
-## 8. Update
+## 9. Update
 
-1. Vorher sichern (siehe Schritt 9):
+1. Vorher sichern (siehe Schritt 10):
 
    ```bash
    docker compose --env-file .env run --rm backup once
@@ -275,10 +423,16 @@ lesen kann, kann Tokens fälschen; es bleibt auf dem Server und kommt in keine S
 Reicht der Arbeitsspeicher beim Bauen nicht (der Bau bricht mit "Killed" ab), vorher die Web-Variante anhalten:
 `docker compose --env-file .env stop web`, dann wie oben bauen und starten.
 
-## 9. Sicherung
+`docker compose down` will auch das Netz `plagevo` entfernen. Solange `cloudflared` daran hängt, geht das nicht, und
+Compose meldet "network plagevo has active endpoints"; das schadet nicht, das Netz bleibt einfach stehen. Muss das Netz
+wirklich neu entstehen, erst den Tunnel anhalten (`cd /root/infrastructure && docker compose down`), dann Plagevo
+`down` und `up`, dann den Tunnel wieder `up -d`.
 
-Der Dienst `backup` sichert die Datenbank jeden Tag um `BACKUP_TIME` (Standard 03:00, deutsche Zeit) als
-`deploy/backups/duofy-JJJJ-MM-TT.sql.gz`. Beim Start sichert er sofort, wenn es für heute noch keine Sicherung gibt.
+## 10. Sicherung
+
+Der Dienst `backup` sichert die Datenbank, die `ConnectionStrings__Duofy` nennt, jeden Tag um `BACKUP_TIME` (Standard
+03:00, deutsche Zeit) als `deploy/backups/duofy-JJJJ-MM-TT.sql.gz` auf dem Server. Er holt die Daten über das Netz, also
+über Tailscale von deinem PostgreSQL-Server. Beim Start sichert er sofort, wenn es für heute noch keine Sicherung gibt.
 Er hebt 14 Tage auf (`BACKUP_KEEP_DAYS`): heute und die 13 Tage davor; ältere Dateien löscht er nach dem Datum im Namen.
 
 ```bash
@@ -295,54 +449,95 @@ Eine Sicherung sofort, zum Beispiel vor einem Update:
 docker compose --env-file .env run --rm backup once
 ```
 
-Die Sicherungen liegen auf demselben Server wie die Datenbank. Gegen einen Ausfall des ganzen Servers hilft nur eine
-Kopie woanders hin, zum Beispiel ab und zu mit `scp` auf den eigenen Rechner:
+So liegen Datenbank und Sicherungen an zwei Orten: die Daten bei dir zu Hause, die Sicherungen auf dem Server. Eine
+Kopie zu dir holst du zum Beispiel mit `scp` über Tailscale:
 
 ```bash
-scp benutzer@server:/opt/plagevo/deploy/backups/duofy-2026-10-26.sql.gz .
+scp root@100.x.y.z:/root/duofy_rework/deploy/backups/duofy-2026-10-26.sql.gz .
 ```
 
-## 10. Wiederherstellen
+## 11. Wiederherstellen
 
 So spielst du eine Sicherung zurück. Alles, was seit der Sicherung geschah, geht dabei verloren.
 
+Auf dem Server Web-Variante und API anhalten, damit niemand schreibt:
+
 ```bash
-# 1. Web-Variante und API anhalten, damit niemand schreibt
 docker compose --env-file .env stop web api
-
-# 2. Die Datenbank leeren: löschen und leer neu anlegen
-docker compose --env-file .env exec -T db dropdb -U duofy duofy
-docker compose --env-file .env exec -T db createdb -U duofy duofy
-
-# 3. Die Sicherung einspielen (Datum anpassen)
-gunzip -c backups/duofy-2026-10-26.sql.gz | docker compose --env-file .env exec -T db psql -U duofy -d duofy --quiet --set ON_ERROR_STOP=1
-
-# 4. Wieder starten
-docker compose --env-file .env start api web
 ```
 
-Heißen Datenbank oder Benutzer anders (`POSTGRES_DB`, `POSTGRES_USER`), diese Namen statt `duofy` einsetzen.
+Auf deinem PostgreSQL-Server zu Hause die Sicherung holen, die Datenbank leer neu anlegen und die Sicherung einspielen
+(Datum anpassen):
 
-Getestet am 26.10.2026 von Hand, mit einer lokalen Kopie dieses Aufbaus: Sicherung geschrieben, in eine leere
-Datenbank eingespielt (dieselben Konten und alle 14 Migrationen da), dann der ganze Ablauf oben mit Leeren und
-Einspielen der echten Datenbank; danach meldete sich das Konto aus der Sicherung wieder an.
+```bash
+scp root@100.x.y.z:/root/duofy_rework/deploy/backups/duofy-2026-10-26.sql.gz .
+sudo -u postgres dropdb plagevo
+sudo -u postgres createdb --owner=plagevo plagevo
+gunzip -c duofy-2026-10-26.sql.gz | psql -h localhost -U plagevo -d plagevo --quiet --set ON_ERROR_STOP=1
+```
+
+Die Sicherung enthält keine Besitzer und Rechte (`--no-owner --no-privileges`); alles gehört danach dem Benutzer, der
+einspielt, also `plagevo`. Dann auf dem Server wieder starten:
+
+```bash
+docker compose --env-file .env start api web
+```
 
 Zum Üben ohne Risiko lässt sich eine Sicherung auch in eine zweite, leere Datenbank einspielen und dort ansehen:
 
 ```bash
-docker compose --env-file .env exec -T db createdb -U duofy probe
-gunzip -c backups/duofy-2026-10-26.sql.gz | docker compose --env-file .env exec -T db psql -U duofy -d probe --quiet --set ON_ERROR_STOP=1
-docker compose --env-file .env exec -T db psql -U duofy -d probe -c "select count(*) from users"
-docker compose --env-file .env exec -T db dropdb -U duofy probe
+sudo -u postgres createdb --owner=plagevo probe
+gunzip -c duofy-2026-10-26.sql.gz | psql -h localhost -U plagevo -d probe --quiet --set ON_ERROR_STOP=1
+psql -h localhost -U plagevo -d probe -c "select count(*) from users"
+sudo -u postgres dropdb probe
 ```
 
-## 11. Wenn etwas nicht geht
+Mit der eigenen Datenbank aus `own-db.yml` (Schritt 12) läuft dasselbe im Container `db`, mit den Namen aus
+`POSTGRES_DB` und `POSTGRES_USER` statt `plagevo`:
+
+```bash
+docker compose --env-file .env stop web api
+docker compose --env-file .env exec -T db dropdb -U duofy duofy
+docker compose --env-file .env exec -T db createdb -U duofy duofy
+gunzip -c backups/duofy-2026-10-26.sql.gz | docker compose --env-file .env exec -T db psql -U duofy -d duofy --quiet --set ON_ERROR_STOP=1
+docker compose --env-file .env start api web
+```
+
+Getestet am 26.10.2026 von Hand, mit einer lokalen Kopie des Aufbaus mit eigener Datenbank: Sicherung geschrieben, in
+eine leere Datenbank eingespielt (dieselben Konten und alle 14 Migrationen da), dann der ganze Ablauf oben mit Leeren
+und Einspielen der echten Datenbank; danach meldete sich das Konto aus der Sicherung wieder an.
+
+## 12. Eigene Datenbank im Compose
+
+Wer keinen eigenen PostgreSQL-Server hat, zum Beispiel auf einem frischen Server oder beim Selbstbetrieb von Duofy,
+startet die Datenbank mit `deploy/own-db.yml` dazu. Die Datenbank (PostgreSQL 18, Volume `db-data`, 512 MB) hängt dann
+nur im internen Netz `plagevo-backend` (`172.30.11.0/24`) ohne Weg nach draußen: `db` an `172.30.11.10`, dazu `api` an
+`172.30.11.11` und `backup` an `172.30.11.13`. Der Tunnel tritt diesem Netz nie bei und sieht die Datenbank nicht.
+
+In der `.env`:
+
+```text
+POSTGRES_DB=duofy
+POSTGRES_USER=duofy
+POSTGRES_PASSWORD=<langes Zufallspasswort>
+ConnectionStrings__Duofy=Host=172.30.11.10;Port=5432;Database=duofy;Username=duofy;Password=<dasselbe Passwort>
+COMPOSE_FILE=docker-compose.yml:own-db.yml
+```
+
+Mit `COMPOSE_FILE` nimmt jeder `docker compose`-Befehl in diesem Ordner beide Dateien, auch alle Befehle dieser
+Anleitung. Ohne diese Zeile gehört zu jedem Befehl `-f docker-compose.yml -f own-db.yml`. Die Variablen `POSTGRES_*`
+gelten nur für diese eigene Datenbank.
+
+## 13. Wenn etwas nicht geht
 
 | Zeichen | Ursache und Abhilfe |
 | --- | --- |
-| `network infrastructure_cloudflared_network declared as external, but could not be found` | Das Netz des Tunnels fehlt oder heißt anders: `docker network ls`, dann `CLOUDFLARED_NETWORK` anpassen; in Fall B das Netz anlegen (Schritt 2.2). |
-| Cloudflare zeigt "Bad gateway" (502) | Der Tunnel erreicht `web` oder `api` nicht: Sind beide "healthy", und hängen sie im Netz des Tunnels? `docker network inspect infrastructure_cloudflared_network` listet die Container. |
-| Die API startet nicht | `docker compose --env-file .env logs api`; die letzte Zeile nennt die fehlende oder unsichere Einstellung. |
-| Viele Anmeldungen der App enden mit 429 | `TRUSTED_PROXIES` fehlt oder passt nicht zum Netz des Tunnels (Schritt 3). |
+| `required variable ConnectionStrings__Duofy is missing a value` | Die Verbindung zur Datenbank fehlt in `.env` (Schritt 3 und 4). |
+| `backup check` zeigt `no response` | Der Server erreicht die Datenbank nicht: Tailscale, `listen_addresses`, `pg_hba.conf` und Firewall prüfen (Schritt 3). |
+| Die API startet nicht | `docker compose --env-file .env logs api`; die letzte Zeile nennt die fehlende oder unsichere Einstellung. Bei "password authentication failed" passt das Passwort in der Verbindung nicht, bei "no pg_hba.conf entry" fehlt die Zeile aus Schritt 3. |
+| `network plagevo declared as external, but could not be found` (beim Tunnel) | Plagevo lief noch nicht; erst Plagevo starten, dann den Tunnel (Schritt 2.2). |
+| Cloudflare zeigt "Bad gateway" (502) | Der Tunnel erreicht `web` oder `api` nicht: Sind beide "healthy", hängt `cloudflared` mit `172.30.10.2` im Netz `plagevo` (Schritt 8), und zeigen die Einträge im Dashboard auf `172.30.10.12:8080` und `172.30.10.11:8080`? |
+| `Pool overlaps with other one on this address space` | Das Subnetz `172.30.10.0/24` ist auf diesem Server schon vergeben: `docker network ls` und `docker network inspect` zeigen, von wem. |
+| Viele Anmeldungen der App enden mit 429 | `TRUSTED_PROXIES` passt nicht zur Adresse des Tunnels (Schritt 4), oder der Tunnel hat nicht `172.30.10.2`. |
 | `backup` schreibt nichts, "Permission denied" | Der Ordner `backups` gehört nicht `BACKUP_UID`: `sudo chown "$(id -u):$(id -g)" backups`. |
-| Nach einem Update ist jeder abgemeldet | Das Volume `keys` ist verloren gegangen, zum Beispiel durch `docker compose down -v`. Dann einmal neu anmelden; `-v` nie benutzen, es löscht auch die Datenbank. |
+| Nach einem Update ist jeder abgemeldet | Das Volume `keys` ist verloren gegangen, zum Beispiel durch `docker compose down -v`. Dann einmal neu anmelden; `-v` nie benutzen, mit `own-db.yml` löscht es auch die Datenbank. |

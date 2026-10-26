@@ -7,7 +7,7 @@ namespace Duofy.Api;
 /// Tunnel-Container; die Adresse der Person steht im Kopf CF-Connecting-IP, das Schema (https) in X-Forwarded-Proto.
 ///
 /// Beides gilt nur, wenn die Anfrage aus einem vertrauten Netz kommt: Duofy:TrustedProxies (Umgebungsvariable
-/// Duofy__TrustedProxies), Netze in CIDR-Schreibweise, durch Komma getrennt, zum Beispiel 172.30.79.0/24. Ohne
+/// Duofy__TrustedProxies), Netze in CIDR-Schreibweise, durch Komma getrennt, zum Beispiel 172.30.10.2/32. Ohne
 /// Einstellung vertraut die API niemandem, wie bisher; sonst könnte sich jeder mit einem gefälschten Kopf ein neues
 /// Budget der Bremse holen.
 /// </summary>

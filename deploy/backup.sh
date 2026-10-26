@@ -8,8 +8,12 @@
 #
 #   backup.sh          läuft dauerhaft (so startet es der Dienst)
 #   backup.sh once     sichert einmal und räumt auf, zum Beispiel: docker compose run --rm backup once
+#   backup.sh check    zeigt, wohin die Sicherung verbindet (ohne Passwort), und prüft, ob die Datenbank antwortet
 #
-# Die Verbindung kommt aus PGHOST, PGDATABASE, PGUSER und PGPASSWORD. Fehler stehen im Log (docker compose logs backup).
+# Die Verbindung kommt aus DUOFY_CONNECTION_STRING, derselben Verbindung wie die der API (ConnectionStrings__Duofy,
+# Schreibweise von Npgsql: Host=...;Port=...;Database=...;Username=...;Password=...;SSL Mode=...). Ein Wert darf kein
+# Semikolon enthalten. Ohne sie gelten PGHOST, PGPORT, PGDATABASE, PGUSER und PGPASSWORD direkt. Fehler stehen im Log
+# (docker compose logs backup); das Passwort nie.
 
 set -eu
 # Scheitert pg_dump, soll die ganze Kette scheitern, nicht nur gzip zählen.
@@ -24,6 +28,30 @@ BACKUP_TIME="${BACKUP_TIME:-03:00}"
 log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') backup: $*"
 }
+
+# Übersetzt die Verbindung der API in die Variablen von pg_dump. Unbekannte Schlüssel bleiben unbeachtet.
+use_connection_string() {
+    rest="$1;"
+    while [ -n "$rest" ]; do
+        part="${rest%%;*}"
+        rest="${rest#*;}"
+        case "$part" in *=*) ;; *) continue ;; esac
+        key="$(printf '%s' "${part%%=*}" | tr -d ' ' | tr '[:upper:]' '[:lower:]')"
+        value="${part#*=}"
+        case "$key" in
+            host|server) export PGHOST="$value" ;;
+            port) export PGPORT="$value" ;;
+            database|db) export PGDATABASE="$value" ;;
+            username|userid|user|uid) export PGUSER="$value" ;;
+            password|pwd) export PGPASSWORD="$value" ;;
+            sslmode) export PGSSLMODE="$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]')" ;;
+        esac
+    done
+}
+
+if [ -n "${DUOFY_CONNECTION_STRING:-}" ]; then
+    use_connection_string "$DUOFY_CONNECTION_STRING"
+fi
 
 # Eine Sicherung; erst unter einem vorläufigen Namen, damit nie eine halbe Datei als fertig gilt.
 backup() {
@@ -67,6 +95,12 @@ run_once() {
     backup || return 1
     prune
 }
+
+if [ "${1:-}" = "check" ]; then
+    log "Verbindung: Host ${PGHOST:-?}, Port ${PGPORT:-5432}, Datenbank ${PGDATABASE:-?}, Benutzer ${PGUSER:-?}, SSL ${PGSSLMODE:-prefer}"
+    pg_isready --timeout=10
+    exit $?
+fi
 
 if [ "${1:-}" = "once" ]; then
     run_once

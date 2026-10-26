@@ -124,6 +124,29 @@ public sealed class MailDeliveryTests(ApiFixture fixture)
         Assert.Equal(expected, SmtpMailSender.SocketOptions(useTls, port));
     }
 
+    // Spec 79, Nachtrag 2026-10-26: Der Name des Absenders ist einstellbar (Duofy:Mail:FromName, sonst "Plagevo"); die
+    // Adresse bleibt die eingestellte, auch wenn der Name selbst wie eine Adresse aussieht.
+    [Theory]
+    [InlineData("Plagevo Team", "Plagevo Team")]
+    [InlineData(null, "Plagevo")]
+    [InlineData("Plagevo <fremd@example.org>", "Plagevo <fremd@example.org>")]
+    public async Task The_sender_shows_the_configured_name_and_keeps_the_plain_address(string? configured, string shown)
+    {
+        var settings = MailServer.HostedSettings();
+        if (configured is not null)
+        {
+            settings[HostedSettings.FromNameKey] = configured;
+        }
+        await using var server = MailServer.Start(fixture, settings);
+        var sender = new SmtpMailSender(server.Factory.Services.GetRequiredService<HostedSettings>());
+
+        var message = sender.Message(MailTexts.PasswordReset("anna@example.de", "https://duofy.example.de/x"));
+
+        var from = Assert.IsType<MailboxAddress>(Assert.Single(message.From));
+        Assert.Equal(shown, from.Name);
+        Assert.Equal(MailServer.From, from.Address);
+    }
+
     [Fact]
     public void Mails_to_unconfirmed_addresses_carry_no_name_typed_at_registration()
     {

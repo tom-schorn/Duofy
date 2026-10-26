@@ -34,13 +34,23 @@ internal sealed class SmtpMailSender(HostedSettings settings) : IMailSender
         : port == 465 ? SecureSocketOptions.SslOnConnect
         : SecureSocketOptions.StartTls;
 
-    public async Task SendAsync(OutgoingMail mail, CancellationToken cancellationToken)
+    /// <summary>
+    /// Die Mail, wie sie hinausgeht: als Absender der eingestellte Name (Duofy:Mail:FromName) mit der eingestellten
+    /// Adresse. Der Name ist nur Anzeige; MimeKit setzt ihn in Anführungszeichen, eine Adresse darin zählt nicht.
+    /// </summary>
+    public MimeMessage Message(OutgoingMail mail)
     {
         var message = new MimeMessage();
-        message.From.Add(new MailboxAddress("Duofy", settings.From));
+        message.From.Add(new MailboxAddress(settings.FromName, settings.From));
         message.To.Add(MailboxAddress.Parse(mail.To));
         message.Subject = mail.Subject;
         message.Body = new BodyBuilder { TextBody = mail.Text, HtmlBody = mail.Html }.ToMessageBody();
+        return message;
+    }
+
+    public async Task SendAsync(OutgoingMail mail, CancellationToken cancellationToken)
+    {
+        var message = Message(mail);
 
         using var client = new SmtpClient();
         await client.ConnectAsync(settings.Host, settings.Port, SocketOptions(settings.UseTls, settings.Port), cancellationToken);
