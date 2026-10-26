@@ -1,0 +1,30 @@
+@using Duofy.ApiClient
+@inject ILegalApi LegalApi
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Links zu den Rechtstexten unter Anmelden und Registrieren (Spec 70, R8): nur zu den Texten, die dieser
+   Server anbietet. Solange die Liste lädt, der Server nicht antwortet oder es keinen Text gibt, steht hier
+   nichts; die Seiten funktionieren auch so. *@
+
+@if (documents.Count > 0)
+{
+    <nav class="auth-legal" aria-label="@L["Legal_Footer"]" data-testid="legal-links">
+        @foreach (var name in documents)
+        {
+            <a href="@LegalPages.PathOf(name)" data-testid="@($"legal-link-{name}")">@L[LegalPages.LabelKeyOf(name)]</a>
+        }
+    </nav>
+}
+
+@code {
+    private IReadOnlyList<string> documents = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await LegalApi.ListAsync();
+        if (result.Succeeded)
+        {
+            documents = LegalPages.Known(result.Value!.Documents);
+        }
+    }
+}

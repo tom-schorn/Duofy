@@ -1,0 +1,136 @@
+@using System.Globalization
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@inject IAccountApi AccountApi
+@inject ActiveMember Member
+@inject IStringLocalizer<SharedResources> L
+@inject IAppHost Host
+
+@* Der Dialog zum Anlegen und Ändern eines Kontos.
+
+   Alle Eingaben stehen in `draft`, einem AccountDraft. Dort steht auch die eine Regel des
+   Dialogs: Die Art stellt den Schalter "zählt als verfügbar" vor, solange die Person ihn nicht
+   selbst gestellt hat. Geprüft wird beim Speichern von der API; ihre Fehler stehen oben im Dialog. *@
+
+<MudDialog>
+    <DialogContent>
+        @* In der App füllt der Dialog den Bildschirm und bringt Schließen und Speichern in seiner Kopfzeile mit. *@
+        @if (Host.IsApp)
+        {
+            <FullScreenFormHeader Title="@MudDialog.Title" SaveText="@L["AccountDialog_Save"]" SaveTestId="account-save"
+                                  Busy="busy" OnClose="Cancel" OnSave="SaveAsync" />
+        }
+        <MudStack Spacing="3">
+
+            @if (error is not null)
+            {
+                <MudAlert Severity="Severity.Error" data-testid="account-error">@error</MudAlert>
+            }
+
+            <MudTextField T="string" @bind-Value="draft.Name" Label="@L["Field_AccountName"]"
+                          MaxLength="MoneyAccountRules.NameMaxLength" data-testid="account-name" />
+
+            <NativeSelect Value="@draft.Type" ValueChanged="OnTypeChanged" Label="@L["Field_AccountType"]"
+                          data-testid="account-type">
+                @foreach (var type in AccountTypes.All)
+                {
+                    <option value="@type">@L[$"AccountType_{type}"]</option>
+                }
+            </NativeSelect>
+
+            @* Startbetrag und Starttag gehören zusammen: der Stand am Ende dieses Tages. *@
+            <MudNumericField T="decimal?" @bind-Value="draft.OpeningBalance" Culture="German" Format="0.00"
+                             HideSpinButtons="true" Label="@L["Field_OpeningBalance"]"
+                             HelperText="@L["Field_OpeningBalanceHint"]" data-testid="account-opening-balance" />
+            <MudTextField T="string" Value="@dateText" ValueChanged="OnDateChanged" InputType="InputType.Date"
+                          Label="@L["Field_OpeningDate"]" data-testid="account-opening-date" />
+
+            <MudSwitch T="bool" Value="draft.CountsAsAvailable" ValueChanged="OnCountsAsAvailableChanged"
+                       Color="Color.Primary" Label="@L["Field_CountsAsAvailable"]"
+                       data-testid="account-counts-as-available" />
+
+            <MudTextField T="string" @bind-Value="draft.Iban" Label="@L["Field_Iban"]"
+                          MaxLength="42" data-testid="account-iban" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        @if (!Host.IsApp)
+        {
+            <MudButton OnClick="Cancel">@L["AccountDialog_Cancel"]</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="busy" OnClick="SaveAsync"
+                       data-testid="account-save">@L["AccountDialog_Save"]</MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+
+    private static readonly CultureInfo German = new("de-DE");
+
+    // Der Dialog selbst, über den er sich schließen kann.
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    /// <summary>Das Konto, das geändert wird; null beim Anlegen.</summary>
+    [Parameter]
+    public AccountResponse? Existing { get; set; }
+
+    /// <summary>Das Datum von heute; so ist der Starttag beim Anlegen vorbelegt.</summary>
+    [Parameter]
+    public DateOnly Today { get; set; }
+
+    private AccountDraft draft = default!;
+    private string dateText = "";
+    private string? error;
+    private bool busy;
+
+    // Die Person, für die der Dialog geöffnet wurde; sie bleibt, auch wenn der Umschalter inzwischen woanders steht (Spec 68, A15).
+    private Guid? owner;
+
+    protected override void OnInitialized()
+    {
+        owner = Member.Owner;
+        draft = Existing is null ? AccountDraft.ForNew(Today) : AccountDraft.From(Existing);
+        dateText = draft.OpeningDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    }
+
+    private void OnTypeChanged(string type) => draft.SetType(type);
+
+    private void OnCountsAsAvailableChanged(bool value) => draft.SetCountsAsAvailable(value);
+
+    private void OnDateChanged(string value)
+    {
+        dateText = value;
+        if (DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+        {
+            draft.OpeningDate = date;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SaveAsync()
+    {
+        error = null;
+        busy = true;
+        try
+        {
+            var result = Existing is null
+                ? await AccountApi.CreateAsync(draft.ToCreateRequest() with { OwnerId = owner })
+                : await AccountApi.UpdateAsync(Existing.Id, draft.ToUpdateRequest());
+
+            if (result.Succeeded)
+            {
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                error = ErrorTexts.For(L, result.ErrorCode);
+            }
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

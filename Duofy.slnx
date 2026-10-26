@@ -1,0 +1,23 @@
+<Solution>
+  <Folder Name="/Backend/">
+    <Project Path="Backend/Duofy.Backend/Duofy.Backend.csproj" />
+    <Project Path="Backend/Duofy.Schemas/Duofy.Schemas.csproj" />
+  </Folder>
+  <Folder Name="/Shared/">
+    <Project Path="Shared/Duofy.ApiClient/Duofy.ApiClient.csproj" />
+    <Project Path="Shared/Duofy.Shared/Duofy.Shared.csproj" />
+  </Folder>
+  <Folder Name="/Web/">
+    <Project Path="Web/Duofy.Web/Duofy.Web.csproj" />
+  </Folder>
+  <Folder Name="/Mobile/">
+    <Project Path="Mobile/Duofy/Duofy.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="Tests/Duofy.ApiClient.Tests/Duofy.ApiClient.Tests.csproj" />
+    <Project Path="Tests/Duofy.App.Tests/Duofy.App.Tests.csproj" />
+    <Project Path="Tests/Duofy.Backend.Tests/Duofy.Backend.Tests.csproj" />
+    <Project Path="Tests/Duofy.Shared.Tests/Duofy.Shared.Tests.csproj" />
+    <Project Path="Tests/Duofy.Web.Tests/Duofy.Web.Tests.csproj" />
+  </Folder>
+</Solution>

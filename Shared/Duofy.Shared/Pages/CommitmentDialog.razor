@@ -1,0 +1,278 @@
+@using System.Globalization
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@inject ICommitmentApi CommitmentApi
+@inject ActiveMember Member
+@inject IStringLocalizer<SharedResources> L
+@inject IAppHost Host
+
+@* Der Dialog zum Anlegen und Ändern eines Vertrags.
+
+   Alle Eingaben stehen in `draft`, einem CommitmentDraft. Dort stehen auch die Regeln, was zu
+   welcher Art gehört: fester Topf bei Sparziel, Schuld und Einnahme, Zielbetrag und Zieldatum nur
+   beim Sparziel, kein Zielkonto bei einer Einnahme. Der Dialog zeigt nur an, was der Entwurf sagt.
+   Geprüft wird beim Speichern von der API; ihre Fehler stehen oben im Dialog. *@
+
+<MudDialog>
+    <DialogContent>
+        @* In der App füllt der Dialog den Bildschirm und bringt Schließen und Speichern in seiner Kopfzeile mit. *@
+        @if (Host.IsApp)
+        {
+            <FullScreenFormHeader Title="@MudDialog.Title" SaveText="@L["CommitmentDialog_Save"]" SaveTestId="commitment-save"
+                                  Busy="busy" OnClose="Cancel" OnSave="SaveAsync" />
+        }
+        <MudStack Spacing="3">
+
+            @if (error is not null)
+            {
+                <MudAlert Severity="Severity.Error" data-testid="commitment-error">@error</MudAlert>
+            }
+
+            <NativeSelect Value="@draft.Type" ValueChanged="OnTypeChanged" Label="@L["Field_CommitmentType"]"
+                          data-testid="commitment-type">
+                @foreach (var type in CommitmentTypes.All)
+                {
+                    <option value="@type">@L[$"CommitmentType_{type}"]</option>
+                }
+            </NativeSelect>
+
+            <MudTextField T="string" @bind-Value="draft.Name" Label="@L["Field_CommitmentName"]"
+                          MaxLength="CommitmentRules.NameMaxLength" data-testid="commitment-name" />
+
+            <MudNumericField T="decimal?" @bind-Value="draft.Amount" Culture="German" Format="0.00" Min="0"
+                             HideSpinButtons="true" Label="@L["Field_CommitmentAmount"]" data-testid="commitment-amount" />
+
+            <MudNumericField T="int?" @bind-Value="draft.IntervalMonths" Min="1" Max="CommitmentRules.MaxIntervalMonths"
+                             Label="@L["Field_IntervalMonths"]" HelperText="@L["Field_IntervalMonthsHint"]"
+                             data-testid="commitment-interval" />
+
+            @* Die erste Zahlung legt auch den Zahltag fest; die letzte ist freiwillig. *@
+            <MudTextField T="string" Value="@DateText(draft.FirstDueDate)" ValueChanged="OnFirstDueDateChanged"
+                          InputType="InputType.Date" Label="@L["Field_FirstDueDate"]" data-testid="commitment-first-due" />
+            @* Die letzte Zahlung eines bestehenden Vertrags zu setzen oder zu leeren, beendet ihn oder holt ihn zurück;
+               das braucht die Freigabe Löschen (Spec 68, A17). Ohne sie ist das Feld nur lesbar und nennt den Grund. *@
+            <MudTextField T="string" Value="@DateText(draft.LastDueDate)" ValueChanged="OnLastDueDateChanged"
+                          InputType="InputType.Date" Label="@L["Field_LastDueDate"]" HelperText="@L["Field_LastDueDateHint"]"
+                          ReadOnly="endLocked" Class="@GrantLock.Class(!endLocked)"
+                          @attributes="LastDueReason" data-testid="commitment-last-due" />
+            @if (endLocked)
+            {
+                <MudText Typo="Typo.caption" Color="Color.Secondary" id="@LastDueReasonId"
+                         data-testid="commitment-last-due-reason">@L["Grant_NotGranted", ownerName ?? ""]</MudText>
+            }
+
+            <NativeSelect Value="@Key(draft.CategoryId)" ValueChanged="OnCategoryChanged" Label="@L["Field_Category"]"
+                          data-testid="commitment-category">
+                <option value="">@L["CommitmentDialog_Choose"]</option>
+                @foreach (var group in OfferedCategories())
+                {
+                    <optgroup label="@L[$"CategoryGroup_{group.Key}"]">
+                        @foreach (var category in group)
+                        {
+                            <option value="@category.Id">@category.Name</option>
+                        }
+                    </optgroup>
+                }
+            </NativeSelect>
+
+            @if (draft.PotIsFixed)
+            {
+                @* Sparziel, Schuld und Einnahme haben ihren Topf fest; er steht nur zur Ansicht da. *@
+                <MudTextField T="string" Value="@L[$"Pot_{draft.Pot}"]" ReadOnly="true" Label="@L["Field_Pot"]"
+                              HelperText="@L["Field_PotFixedHint"]" data-testid="commitment-pot-fixed" />
+            }
+            else
+            {
+                <NativeSelect Value="@draft.Pot" ValueChanged="OnPotChanged" Label="@L["Field_Pot"]" data-testid="commitment-pot">
+                    @foreach (var pot in draft.OfferedPots)
+                    {
+                        <option value="@pot">@L[$"Pot_{pot}"]</option>
+                    }
+                </NativeSelect>
+            }
+
+            @* Leer heißt: das Standardkonto, und zwar das, das am Tag der Zahlung Standard ist. *@
+            <NativeSelect Value="@Key(draft.AccountId)" ValueChanged="OnAccountChanged"
+                          Label="@L[draft.WantsIncomeCategories ? "Field_IncomingAccount" : "Field_PayingAccount"]"
+                          data-testid="commitment-account">
+                <option value="">@L["CommitmentDialog_DefaultAccount"]</option>
+                @foreach (var account in Accounts.Where(a => a.Active || a.Id == draft.AccountId))
+                {
+                    <option value="@account.Id">@account.Name</option>
+                }
+            </NativeSelect>
+
+            @if (draft.OffersTargetAccount)
+            {
+                <NativeSelect Value="@Key(draft.CounterAccountId)" ValueChanged="OnCounterAccountChanged"
+                              Label="@L["Field_TargetAccount"]" data-testid="commitment-counter-account">
+                    <option value="">@L["CommitmentDialog_NoTargetAccount"]</option>
+                    @foreach (var account in Accounts.Where(a => a.Active || a.Id == draft.CounterAccountId))
+                    {
+                        <option value="@account.Id">@account.Name</option>
+                    }
+                </NativeSelect>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Field_TargetAccountHint"]</MudText>
+            }
+
+            <NativeSelect @bind-Value="draft.PaymentMethod" Label="@L["Field_PaymentMethod"]" data-testid="commitment-payment-method">
+                <option value="">@L["CommitmentDialog_Choose"]</option>
+                @foreach (var method in PaymentMethods.All)
+                {
+                    <option value="@method">@L[$"PaymentMethod_{method}"]</option>
+                }
+            </NativeSelect>
+
+            <MudSwitch T="bool" @bind-Value="draft.PassThrough" Color="Color.Primary" Label="@L["Field_PassThrough"]"
+                       data-testid="commitment-pass-through" />
+
+            @if (draft.ShowsTarget)
+            {
+                <MudNumericField T="decimal?" @bind-Value="draft.TargetAmount" Culture="German" Format="0.00" Min="0"
+                                 HideSpinButtons="true" Label="@L["Field_TargetAmount"]" data-testid="commitment-target-amount" />
+                <MudTextField T="string" Value="@DateText(draft.TargetDate)" ValueChanged="OnTargetDateChanged"
+                              InputType="InputType.Date" Label="@L["Field_TargetDate"]" data-testid="commitment-target-date" />
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        @if (!Host.IsApp)
+        {
+            <MudButton OnClick="Cancel">@L["CommitmentDialog_Cancel"]</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="busy" OnClick="SaveAsync"
+                       data-testid="commitment-save">@L["CommitmentDialog_Save"]</MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+
+    private static readonly CultureInfo German = new("de-DE");
+
+    // Der Dialog selbst, über den er sich schließen kann.
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    /// <summary>Der Vertrag, der geändert wird; null beim Anlegen.</summary>
+    [Parameter]
+    public CommitmentResponse? Existing { get; set; }
+
+    /// <summary>Alle Kategorien der Person, eingebaute und eigene, nach Gruppen geordnet.</summary>
+    [Parameter]
+    public IReadOnlyList<CategoryResponse> Categories { get; set; } = [];
+
+    /// <summary>Alle Konten der Person. Aufgelöste werden nicht zur Wahl angeboten.</summary>
+    [Parameter]
+    public IReadOnlyList<AccountChoice> Accounts { get; set; } = [];
+
+    /// <summary>Das Datum von heute; so ist die erste Zahlung beim Anlegen vorbelegt.</summary>
+    [Parameter]
+    public DateOnly Today { get; set; }
+
+    private CommitmentDraft draft = default!;
+    private string? error;
+    private bool busy;
+
+    // Die Person, für die der Dialog geöffnet wurde; sie bleibt, auch wenn der Umschalter inzwischen woanders steht (Spec 68, A15).
+    private Guid? owner;
+    private string? ownerName;
+
+    // True, wenn die letzte Zahlung nicht geändert werden darf: ein bestehender Vertrag ohne die Freigabe Löschen.
+    private bool endLocked;
+
+    // Eine eigene Kennung für den Grund, weil die Vertragsseite unter dem Dialog ihren Grund mit der Kennung von GrantLock zeigt.
+    private const string LastDueReasonId = "commitment-last-due-reason";
+
+    private IReadOnlyDictionary<string, object> LastDueReason => endLocked
+        ? new Dictionary<string, object> { ["aria-describedby"] = LastDueReasonId }
+        : new Dictionary<string, object>();
+
+    protected override void OnInitialized()
+    {
+        owner = Member.Owner;
+        ownerName = Member.Name;
+        endLocked = Existing is not null && !Member.Allows(GrantAreas.Commitments, AccessLevelKeys.Delete);
+        draft = Existing is null ? CommitmentDraft.ForNew(Today) : CommitmentDraft.From(Existing);
+    }
+
+    // Leere Auswahl heißt "", sonst die Kennung als Text. So lassen sich Auswahlfelder an Guid? binden.
+    private static string Key(Guid? id) => id?.ToString() ?? "";
+
+    private static Guid? ParseId(string? text) => Guid.TryParse(text, out var id) ? id : null;
+
+    private static string DateText(DateOnly? date) => date?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "";
+
+    // Ein leeres oder unvollständiges Datumsfeld ergibt null.
+    private static DateOnly? ParseDate(string? value) =>
+        DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date) ? date : null;
+
+    private void OnTypeChanged(string type) => draft.SetType(type);
+
+    private void OnPotChanged(string pot) => draft.SetPot(pot);
+
+    private void OnCategoryChanged(string value) =>
+        draft.ChooseCategory(Categories.FirstOrDefault(c => c.Id == ParseId(value)));
+
+    private void OnAccountChanged(string value) => draft.AccountId = ParseId(value);
+
+    private void OnCounterAccountChanged(string value) => draft.CounterAccountId = ParseId(value);
+
+    // Die erste Zahlung ist Pflicht; ein halb getipptes Datum lässt den alten Wert stehen.
+    private void OnFirstDueDateChanged(string value)
+    {
+        if (ParseDate(value) is { } date)
+        {
+            draft.FirstDueDate = date;
+        }
+    }
+
+    private void OnLastDueDateChanged(string value)
+    {
+        if (!endLocked)
+        {
+            draft.LastDueDate = ParseDate(value);
+        }
+    }
+
+    private void OnTargetDateChanged(string value) => draft.TargetDate = ParseDate(value);
+
+    // Einnahmen bieten nur Einnahme-Kategorien an, alle anderen Arten die übrigen.
+    // Die Kategorien kommen von der API schon nach Gruppen geordnet; GroupBy behält die Reihenfolge.
+    private IEnumerable<IGrouping<string, CategoryResponse>> OfferedCategories() => Categories
+        .Where(c => (c.Group == CategoryGroupKeys.Income) == draft.WantsIncomeCategories)
+        .GroupBy(c => c.Group);
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SaveAsync()
+    {
+        error = null;
+        // Ohne Kategorie antwortet die API mit dem Text der Buchungen ("für jede Zeile"); hier passt ein eigener Satz.
+        if (draft.CategoryId is null)
+        {
+            error = L["CommitmentDialog_CategoryRequired"];
+            return;
+        }
+
+        busy = true;
+        try
+        {
+            var result = Existing is null
+                ? await CommitmentApi.CreateAsync(draft.ToCreateRequest() with { OwnerId = owner })
+                : await CommitmentApi.UpdateAsync(Existing.Id, draft.ToUpdateRequest(Existing));
+
+            if (result.Succeeded)
+            {
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                error = ErrorTexts.For(L, result.ErrorCode);
+            }
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

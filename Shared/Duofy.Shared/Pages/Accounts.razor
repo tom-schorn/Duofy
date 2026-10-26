@@ -1,0 +1,242 @@
+@page "/konten"
+@attribute [Authorize]
+@using System.Globalization
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@inject IAccountApi AccountApi
+@implements IDisposable
+@inject IDialogService DialogService
+@inject FormDialogs Forms
+@inject IAppHost Host
+@inject AppChrome Chrome
+@inject ActiveMember Member
+@inject TimeProvider Time
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Kontenseite: alle Konten mit ihrem heutigen Stand, das Standardkonto mit Stern.
+   Aufgelöste Konten sind eingeklappt; ein Knopf klappt sie auf.
+
+   Die Seite rechnet nichts selbst. Den Stand rechnet die API aus Startbetrag und Buchungen;
+   nach jeder Änderung holt die Seite die Liste neu.
+
+   Mit dem Umschalter zeigt die Seite die Konten eines anderen Mitglieds (Spec 68); Standardkonto, Auflösen und
+   wieder Öffnen sind Ändern. *@
+
+<PageTitle>@L["Accounts_Title"]</PageTitle>
+
+@* In der App steht der Titel in der oberen Leiste und das Plus im Layout (AppChrome). *@
+@if (!Host.IsApp)
+{
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+        <MudText Typo="Typo.h4">@L["Accounts_Title"]</MudText>
+        @if (Sees)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="AddAsync" Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)"
+                       data-testid="accounts-add">@L["Accounts_Add"]</MudButton>
+        }
+    </MudStack>
+}
+
+<Notice Message="message" />
+
+@if (!Sees)
+{
+    <NotShared />
+}
+else
+{
+<GrantReason Show="@(!(CanAdd && CanEdit))" />
+
+@if (loaded && open.Count == 0)
+{
+    <MudText Color="Color.Secondary" Class="mb-2">@L["Accounts_Empty"]</MudText>
+}
+
+<MudStack Spacing="2">
+    @foreach (var account in open)
+    {
+        <MudPaper Class="pa-3" Outlined="true" data-testid="@($"account-{account.Id}")">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                @* Der Stern: gefüllt beim Standardkonto. Ein Klick auf einen leeren Stern macht dieses Konto zum Standardkonto. *@
+                <MudIconButton Icon="@(account.IsDefault ? Icons.Material.Filled.Star : Icons.Material.Filled.StarBorder)"
+                               Color="@(account.IsDefault ? Color.Warning : Color.Default)"
+                               OnClick="() => MakeDefaultAsync(account)"
+                               Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
+                               aria-pressed="@(account.IsDefault ? "true" : "false")"
+                               aria-label="@L[account.IsDefault ? "Accounts_IsDefault" : "Accounts_MakeDefault"]"
+                               data-testid="@($"account-default-{account.Id}")" />
+                <MudStack Spacing="0" Class="flex-grow-1">
+                    <MudText>@account.Name</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L[$"AccountType_{account.Type}"]</MudText>
+                </MudStack>
+                <MudText Typo="Typo.subtitle1" Color="@(account.Balance < 0 ? Color.Error : Color.Default)">@Money(account.Balance)</MudText>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditAsync(account)"
+                               Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
+                               aria-label="@L["Accounts_Edit"]" data-testid="@($"account-edit-{account.Id}")" />
+                <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => SetActiveAsync(account, false)"
+                           Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
+                           data-testid="@($"account-close-{account.Id}")">@L["Accounts_Close"]</MudButton>
+            </MudStack>
+        </MudPaper>
+    }
+</MudStack>
+
+@* Aufgelöste Konten: Ihre Buchungen bleiben erhalten, deshalb stehen sie hier und lassen sich wieder öffnen. *@
+@if (closed.Count > 0)
+{
+    <MudButton Variant="Variant.Text" Class="mt-4"
+               StartIcon="@(showClosed ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+               OnClick="() => showClosed = !showClosed" aria-expanded="@(showClosed ? "true" : "false")"
+               data-testid="accounts-show-closed">@L["Accounts_ShowClosed", closed.Count]</MudButton>
+
+    @if (showClosed)
+    {
+        <MudStack Spacing="2" Class="mt-2">
+            @foreach (var account in closed)
+            {
+                <MudPaper Class="pa-3" Outlined="true" data-testid="@($"account-{account.Id}")">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudStack Spacing="0" Class="flex-grow-1">
+                            <MudText Color="Color.Secondary">@account.Name</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Accounts_ClosedMark", L[$"AccountType_{account.Type}"]]</MudText>
+                        </MudStack>
+                        <MudText Typo="Typo.subtitle1" Color="Color.Secondary">@Money(account.Balance)</MudText>
+                        <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => SetActiveAsync(account, true)"
+                                   Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
+                                   data-testid="@($"account-reopen-{account.Id}")">@L["Accounts_Reopen"]</MudButton>
+                    </MudStack>
+                </MudPaper>
+            }
+        </MudStack>
+    }
+}
+
+}
+
+@code {
+
+    // Deutsche Schreibweise für Beträge (1.234,50), auch wenn das Gerät anders eingestellt ist.
+    private static readonly CultureInfo German = new("de-DE");
+
+    private List<AccountResponse> open = [];
+    private List<AccountResponse> closed = [];
+    private bool showClosed;
+    private bool loaded;
+    private NoticeMessage? message;
+
+    private DateOnly Today => DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
+
+    // Was die Freigabe des gewählten Mitglieds erlaubt (Spec 68); bei "Ich" alles.
+    private bool Sees => Member.Allows(GrantAreas.Accounts, AccessLevelKeys.View);
+    private bool CanAdd => Member.Allows(GrantAreas.Accounts, AccessLevelKeys.Create);
+    private bool CanEdit => Member.Allows(GrantAreas.Accounts, AccessLevelKeys.Edit);
+
+    protected override async Task OnInitializedAsync()
+    {
+        Chrome.Set(this, L["Accounts_Title"], AddAsync, L["Accounts_Add"]);
+        // Erst nach dem ersten Laden zuhören: Das Laden selbst meldet sich auch als Änderung.
+        await Member.LoadAsync();
+        Member.Changed += OnMemberChanged;
+        await LoadAsync();
+    }
+
+    public void Dispose()
+    {
+        Member.Changed -= OnMemberChanged;
+        Chrome.Release(this);
+    }
+
+    private void OnMemberChanged() => _ = InvokeAsync(async () =>
+    {
+        message = null;
+        await LoadAsync();
+        StateHasChanged();
+    });
+
+    // Alle Konten holen, offene und aufgelöste. Die API liefert das Standardkonto zuerst.
+    private async Task LoadAsync()
+    {
+        Chrome.LockPlus(this, Sees && !CanAdd ? GrantLock.ReasonId : null);
+        open = [];
+        closed = [];
+        loaded = false;
+        if (!Sees)
+        {
+            return;
+        }
+        var result = await AccountApi.ListAsync(owner: Member.Owner);
+        if (result.Succeeded)
+        {
+            open = result.Value!.Where(a => a.Active).ToList();
+            closed = result.Value!.Where(a => !a.Active).ToList();
+        }
+        else
+        {
+            message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+        }
+        loaded = true;
+    }
+
+    private async Task AddAsync()
+    {
+        if (CanAdd)
+        {
+            await ShowDialogAsync(existing: null, L["AccountDialog_TitleNew"]);
+        }
+    }
+
+    private async Task EditAsync(AccountResponse account)
+    {
+        if (CanEdit)
+        {
+            await ShowDialogAsync(account, L["AccountDialog_TitleEdit"]);
+        }
+    }
+
+    private async Task ShowDialogAsync(AccountResponse? existing, string title)
+    {
+        var parameters = new DialogParameters<AccountDialog>
+        {
+            { x => x.Existing, existing },
+            { x => x.Today, Today },
+        };
+
+        var dialog = await DialogService.ShowAsync<AccountDialog>(title, parameters, Forms.Options());
+        var result = await dialog.Result;
+
+        if (result is { Canceled: false })
+        {
+            message = new NoticeMessage(L["Accounts_Saved"], Severity.Success);
+            await LoadAsync();
+        }
+    }
+
+    private async Task MakeDefaultAsync(AccountResponse account)
+    {
+        if (account.IsDefault)
+        {
+            return;
+        }
+        await UpdateAsync(account, new UpdateAccountRequest(IsDefault: true), L["Accounts_DefaultSet", account.Name]);
+    }
+
+    // Auflösen und wieder öffnen. Auflösen nimmt dem Konto auch die Markierung als Standardkonto.
+    private async Task SetActiveAsync(AccountResponse account, bool active) =>
+        await UpdateAsync(account, new UpdateAccountRequest(Active: active), L[active ? "Accounts_Reopened" : "Accounts_Closed"]);
+
+    private async Task UpdateAsync(AccountResponse account, UpdateAccountRequest request, string success)
+    {
+        if (!CanEdit)
+        {
+            return;
+        }
+        var result = await AccountApi.UpdateAsync(account.Id, request);
+        message = result.Succeeded
+            ? new NoticeMessage(success, Severity.Success)
+            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+        await LoadAsync();
+    }
+
+    private static string Money(decimal amount) => amount.ToString("N2", German) + " €";
+}

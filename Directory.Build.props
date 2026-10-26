@@ -1,0 +1,10 @@
+<Project>
+
+  <!-- Findet das Android-SDK und das JDK im Benutzerordner, wenn sie dort installiert sind
+       und nichts anderes eingestellt ist (zum Beispiel per Umgebungsvariable oder Befehlszeile). -->
+  <PropertyGroup>
+    <AndroidSdkDirectory Condition="'$(AndroidSdkDirectory)' == '' And Exists('$(LOCALAPPDATA)\Android\Sdk')">$(LOCALAPPDATA)\Android\Sdk</AndroidSdkDirectory>
+    <JavaSdkDirectory Condition="'$(JavaSdkDirectory)' == '' And Exists('$(LOCALAPPDATA)\Android\openjdk')">$(LOCALAPPDATA)\Android\openjdk</JavaSdkDirectory>
+  </PropertyGroup>
+
+</Project>

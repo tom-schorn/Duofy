@@ -1,0 +1,228 @@
+@page "/registrieren"
+@layout AuthLayout
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@inject IAuthApi AuthApi
+@inject IInstanceApi InstanceApi
+@inject NavigationManager Navigation
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Registrierung. Ablauf: Eingaben prüfen, Konto bei der API anlegen, gleich
+   anmelden und zur Startseite gehen, oder mit returnUrl zur Seite, von der die Person kam.
+
+   Neu in diesem Beispiel:
+   - @page legt die Adresse der Seite fest.
+   - @layout wählt das Layout: Anmelden und Registrieren haben keine App-Leiste.
+   - @inject holt einen Dienst (hier die Verbindung zur API) in die Seite.
+   - @bind-Value verbindet ein Eingabefeld mit einer Variablen in beide Richtungen.
+
+   Wer sich registrieren darf, entscheidet der Server (Spec 70): Die Seite fragt ihn nach dem Modus und sagt ihn,
+   nimmt das Token einer Einladung aus ?einladung= und zeigt das Feld Einrichtungscode, solange der Server noch
+   keinen Admin hat. Geht die Registrierung nach dem Modus nicht, ist der Knopf ausgegraut, und der Hinweis sagt
+   warum. Antwortet der Server nicht, entscheidet er beim Abschicken selbst.
+
+   Auf der gehosteten Version (Spec 53) gilt das Konto erst mit bestätigter Adresse: Die Anmeldung gleich nach der
+   Registrierung antwortet dann email_not_confirmed, und die Seite sagt, dass eine Mail mit dem Link unterwegs ist. *@
+
+<PageTitle>@L["Register_Title"]</PageTitle>
+
+<div class="auth-header">
+    <MudText Typo="Typo.h2" HtmlTag="h1">@L["Register_Title"]</MudText>
+    <p class="auth-lead">@L["Register_Lead"]</p>
+</div>
+
+@if (error is not null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@error</MudAlert>
+}
+
+@if (confirmTo is not null)
+{
+    <MudAlert Severity="Severity.Success" Class="mb-4" data-testid="register-confirm-notice">@L["Register_ConfirmNotice", confirmTo]</MudAlert>
+    <MudButton Href="@ReturnAddress.With("/anmelden", ReturnUrl)" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+               data-testid="register-to-sign-in">@L["Auth_ToSignIn"]</MudButton>
+}
+else
+{
+
+@if (ModeNotice is { } notice)
+{
+    <MudAlert Severity="Severity.Info" Class="mb-4" id="register-mode-notice" data-testid="register-mode-notice">@notice</MudAlert>
+}
+
+<MudForm @ref="form">
+    <div class="field-stack">
+        <div class="field-pair">
+            <div class="field">
+                <FieldLabel For="register-first-name-input" Text="@L["Field_FirstName"]" />
+                <MudTextField @bind-Value="firstName" Variant="Variant.Outlined" InputId="register-first-name-input"
+                              MaxLength="AccountRules.NameMaxLength"
+                              Validation="@((Func<string, string?>)ValidateFirstName)" autocomplete="given-name"
+                              data-testid="register-first-name" />
+            </div>
+            <div class="field">
+                <FieldLabel For="register-last-name-input" Text="@L["Field_LastName"]" />
+                <MudTextField @bind-Value="lastName" Variant="Variant.Outlined" InputId="register-last-name-input"
+                              MaxLength="AccountRules.NameMaxLength"
+                              Validation="@((Func<string, string?>)ValidateLastName)" autocomplete="family-name"
+                              data-testid="register-last-name" />
+            </div>
+        </div>
+        <div class="field">
+            <FieldLabel For="register-email-input" Text="@L["Field_Email"]" />
+            <MudTextField @bind-Value="email" Variant="Variant.Outlined" InputId="register-email-input"
+                          InputType="InputType.Email" Placeholder="@L["Auth_EmailPlaceholder"]"
+                          Validation="@((Func<string, string?>)ValidateEmail)" autocomplete="email"
+                          data-testid="register-email" />
+        </div>
+        <div class="field">
+            <FieldLabel For="register-password-input" Text="@L["Field_Password"]" />
+            <MudTextField @bind-Value="password" Variant="Variant.Outlined" InputId="register-password-input"
+                          InputType="InputType.Password" HelperText="@L["Field_PasswordHint"]"
+                          Validation="@((Func<string, string?>)ValidatePassword)" autocomplete="new-password"
+                          data-testid="register-password" />
+        </div>
+        @if (instance?.SetupPending == true)
+        {
+            <div class="field">
+                <FieldLabel For="register-setup-code-input" Text="@L["Field_SetupCode"]" />
+                <MudTextField @bind-Value="setupCode" Variant="Variant.Outlined" InputId="register-setup-code-input"
+                              Immediate="true" HelperText="@L["Register_SetupCodeHint"]" autocomplete="off"
+                              data-testid="register-setup-code" />
+            </div>
+        }
+    </div>
+</MudForm>
+
+<MudCheckBox @bind-Value="acceptedTerms" Label="@L["Register_AcceptTerms"]" data-testid="register-terms" />
+@if (termsError is not null)
+{
+    <MudText Color="Color.Error" Typo="Typo.caption">@termsError</MudText>
+}
+
+@if (Blocked)
+{
+    @* Der Modus lässt diese Registrierung nicht zu. Der Knopf ist ausgegraut und tut nichts, bleibt aber erreichbar:
+       aria-disabled statt disabled, damit ein Screenreader ihn findet und den Hinweis oben vorliest. *@
+    <MudButton Variant="Variant.Filled" FullWidth="true" Class="mt-4" Ripple="false" DropShadow="false"
+               Style="background: var(--mud-palette-action-disabled-background); color: var(--mud-palette-action-disabled); cursor: default;"
+               aria-disabled="true" aria-describedby="register-mode-notice" data-testid="register-submit">
+        @L["Register_Submit"]
+    </MudButton>
+}
+else
+{
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-4"
+               Disabled="busy" OnClick="SubmitAsync" data-testid="register-submit">
+        @(busy ? L["Register_Pending"] : L["Register_Submit"])
+    </MudButton>
+}
+
+<p class="auth-switch">
+    @L["Register_HaveAccount"]
+    <a href="@ReturnAddress.With("/anmelden", ReturnUrl)">@L["Register_LoginLink"]</a>
+</p>
+}
+
+@code {
+    // Kommt aus der Adresse: /registrieren?returnUrl=/einladung/abc
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    [Parameter]
+    public string? ReturnUrl { get; set; }
+
+    // Das Token einer Einladung zur Registrierung: /registrieren?einladung=abc (Spec 70, R4).
+    [SupplyParameterFromQuery(Name = "einladung")]
+    [Parameter]
+    public string? Invitation { get; set; }
+
+    // Was der Server anbietet; null, solange er nicht geantwortet hat oder nicht erreichbar ist.
+    private InstanceResponse? instance;
+    private string setupCode = "";
+
+    private MudForm form = default!;
+    private string firstName = "";
+    private string lastName = "";
+    private string email = "";
+    private string password = "";
+    private bool acceptedTerms;
+    private bool busy;
+    private string? error;
+    private string? termsError;
+
+    // Die Adresse, an die die Mail zum Bestätigen ging; gesetzt, sobald das Konto auf Bestätigung wartet.
+    private string? confirmTo;
+
+    private bool HasInvitation => !string.IsNullOrWhiteSpace(Invitation);
+
+    private bool HasSetupCode => instance?.SetupPending == true && !string.IsNullOrWhiteSpace(setupCode);
+
+    // Der Hinweis zum Modus; ohne Einladung im Modus invite und immer im Modus closed.
+    private string? ModeNotice => instance?.RegistrationMode switch
+    {
+        RegistrationModes.Invite when !HasInvitation => L["Register_InviteOnly"],
+        RegistrationModes.Closed => L["Register_Closed"],
+        _ => null,
+    };
+
+    // Nur der Einrichtungscode kommt am Modus vorbei, solange der Server keinen Admin hat.
+    private bool Blocked => ModeNotice is not null && !HasSetupCode;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await InstanceApi.GetAsync();
+        instance = result.Succeeded ? result.Value : null;
+    }
+
+    // Jede Prüfung liefert null, wenn alles passt, sonst den Text, der unter dem Feld steht.
+    // Die Texte kommen über den Fehlercode aus der Ressourcendatei (siehe ErrorTexts).
+    private string? ValidateFirstName(string value) =>
+        string.IsNullOrWhiteSpace(value) ? ErrorTexts.For(L, ErrorCodes.FirstNameRequired) : null;
+
+    private string? ValidateLastName(string value) =>
+        string.IsNullOrWhiteSpace(value) ? ErrorTexts.For(L, ErrorCodes.LastNameRequired) : null;
+
+    private string? ValidateEmail(string value) =>
+        value.Contains('@') && value.Contains('.') ? null : ErrorTexts.For(L, ErrorCodes.EmailInvalid);
+
+    private string? ValidatePassword(string value) =>
+        value.Length >= AccountRules.PasswordMinLength ? null : ErrorTexts.For(L, ErrorCodes.PasswordTooShort);
+
+    private async Task SubmitAsync()
+    {
+        if (Blocked) return;
+        error = null;
+        termsError = acceptedTerms ? null : ErrorTexts.For(L, ErrorCodes.TermsNotAccepted);
+
+        await form.ValidateAsync();
+        if (!form.IsValid || !acceptedTerms) return;
+
+        busy = true;
+        try
+        {
+            var registered = await AuthApi.RegisterAsync(new RegisterRequest(
+                firstName.Trim(), lastName.Trim(), email.Trim(), password, acceptedTerms,
+                HasSetupCode ? setupCode.Trim() : null,
+                HasInvitation ? Invitation!.Trim() : null));
+            if (!registered.Succeeded)
+            {
+                error = ErrorTexts.For(L, registered.ErrorCode);
+                return;
+            }
+
+            // Die API meldet nach dem Registrieren nicht selbst an; das tun wir gleich hinterher.
+            var signedIn = await AuthApi.LoginAsync(new LoginRequest(email.Trim(), password));
+            if (signedIn.ErrorCode == ErrorCodes.EmailNotConfirmed)
+            {
+                confirmTo = email.Trim();
+                return;
+            }
+            // Mit returnUrl geht es danach dorthin zurück, zum Beispiel zur Einladung, von der die Person kam.
+            var target = ReturnAddress.IsLocalPath(ReturnUrl) ? ReturnUrl! : "/";
+            Navigation.NavigateTo(signedIn.Succeeded ? target : ReturnAddress.With("/anmelden", ReturnUrl));
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

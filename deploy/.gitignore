@@ -1,0 +1,4 @@
+# Settings with secrets, and what the server writes; never into the repository.
+.env
+backups/
+legal/

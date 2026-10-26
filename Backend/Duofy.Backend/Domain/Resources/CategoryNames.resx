@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+              <xsd:attribute name="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="household.groceries" xml:space="preserve">
+    <value>Lebensmittel</value>
+  </data>
+  <data name="household.clothing" xml:space="preserve">
+    <value>Kleidung</value>
+  </data>
+  <data name="household.healthcare" xml:space="preserve">
+    <value>Gesundheit</value>
+  </data>
+  <data name="household.personal_care" xml:space="preserve">
+    <value>Körperpflege</value>
+  </data>
+  <data name="household.cleaning" xml:space="preserve">
+    <value>Reinigung</value>
+  </data>
+  <data name="household.pets" xml:space="preserve">
+    <value>Haustiere</value>
+  </data>
+  <data name="housing.rent" xml:space="preserve">
+    <value>Miete</value>
+  </data>
+  <data name="housing.utilities" xml:space="preserve">
+    <value>Nebenkosten</value>
+  </data>
+  <data name="housing.repairs" xml:space="preserve">
+    <value>Renovierung &amp; Reparatur</value>
+  </data>
+  <data name="housing.interior" xml:space="preserve">
+    <value>Einrichtung</value>
+  </data>
+  <data name="housing.outdoor" xml:space="preserve">
+    <value>Außenbereich</value>
+  </data>
+  <data name="housing.insurance" xml:space="preserve">
+    <value>Versicherung &amp; Steuern</value>
+  </data>
+  <data name="transport.public" xml:space="preserve">
+    <value>Öffentlicher Verkehr</value>
+  </data>
+  <data name="transport.fuel" xml:space="preserve">
+    <value>Kraftstoff</value>
+  </data>
+  <data name="transport.repairs" xml:space="preserve">
+    <value>Reparaturen</value>
+  </data>
+  <data name="transport.fines" xml:space="preserve">
+    <value>Bußgelder &amp; Gebühren</value>
+  </data>
+  <data name="transport.purchase" xml:space="preserve">
+    <value>Fahrzeugkauf</value>
+  </data>
+  <data name="transport.insurance" xml:space="preserve">
+    <value>Versicherung &amp; Steuern</value>
+  </data>
+  <data name="children.care" xml:space="preserve">
+    <value>Betreuung</value>
+  </data>
+  <data name="children.school" xml:space="preserve">
+    <value>Schulbedarf</value>
+  </data>
+  <data name="children.allowance" xml:space="preserve">
+    <value>Taschengeld</value>
+  </data>
+  <data name="leisure.vacation" xml:space="preserve">
+    <value>Urlaub</value>
+  </data>
+  <data name="leisure.hobbies" xml:space="preserve">
+    <value>Hobbys</value>
+  </data>
+  <data name="leisure.entertainment" xml:space="preserve">
+    <value>Unterhaltung &amp; Spiele</value>
+  </data>
+  <data name="leisure.memberships" xml:space="preserve">
+    <value>Mitgliedschaften</value>
+  </data>
+  <data name="leisure.dining" xml:space="preserve">
+    <value>Essen gehen</value>
+  </data>
+  <data name="leisure.subscriptions" xml:space="preserve">
+    <value>Abos</value>
+  </data>
+  <data name="leisure.indulgences" xml:space="preserve">
+    <value>Genussmittel</value>
+  </data>
+  <data name="personal.insurance" xml:space="preserve">
+    <value>Versicherung</value>
+  </data>
+  <data name="personal.communication" xml:space="preserve">
+    <value>Kommunikation</value>
+  </data>
+  <data name="personal.work" xml:space="preserve">
+    <value>Beruf</value>
+  </data>
+  <data name="personal.legal" xml:space="preserve">
+    <value>Rechtliches</value>
+  </data>
+  <data name="personal.gifts" xml:space="preserve">
+    <value>Geschenke &amp; Feiern</value>
+  </data>
+  <data name="personal.donations" xml:space="preserve">
+    <value>Spenden</value>
+  </data>
+  <data name="personal.education" xml:space="preserve">
+    <value>Bildung</value>
+  </data>
+  <data name="personal.taxes" xml:space="preserve">
+    <value>Steuern</value>
+  </data>
+  <data name="income.earned" xml:space="preserve">
+    <value>Gehalt &amp; Lohn</value>
+  </data>
+  <data name="income.benefits" xml:space="preserve">
+    <value>Transferleistungen</value>
+  </data>
+  <data name="income.interest" xml:space="preserve">
+    <value>Zinsen</value>
+  </data>
+  <data name="income.other" xml:space="preserve">
+    <value>Sonstige Einnahmen</value>
+  </data>
+  <data name="finance.savings" xml:space="preserve">
+    <value>Rücklagen</value>
+  </data>
+  <data name="finance.debt" xml:space="preserve">
+    <value>Tilgung</value>
+  </data>
+  <data name="finance.investment" xml:space="preserve">
+    <value>Investition</value>
+  </data>
+  <data name="finance.fees" xml:space="preserve">
+    <value>Gebühren</value>
+  </data>
+  <data name="finance.settlement" xml:space="preserve">
+    <value>Ausgleich</value>
+  </data>
+</root>

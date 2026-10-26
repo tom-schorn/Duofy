@@ -1,0 +1,74 @@
+using Bunit;
+using Duofy.Schemas;
+using Duofy.Shared.Pages;
+using Duofy.Shared.Services;
+using MudBlazor;
+
+namespace Duofy.Shared.Tests;
+
+/// <summary>Planmonat und Posten je Zeile im Buchungsdialog (Spec 66, R6, R7). "Heute" ist der 21. Oktober 2026.</summary>
+public class BookingDialogPlanTests : PageTestContext
+{
+    private readonly IRenderedComponent<MudDialogProvider> dialogs;
+
+    public BookingDialogPlanTests()
+    {
+        Render<MudPopoverProvider>();
+        dialogs = Render<MudDialogProvider>();
+        Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true));
+    }
+
+    private void OpenDialog()
+    {
+        var cut = Render<Bookings>();
+        cut.WaitForAssertion(() => Assert.NotEmpty(BookingApiFake.ListCalls));
+        cut.Find("[data-testid='bookings-add']").Click();
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-line-position-0']")));
+    }
+
+    [Fact]
+    public void A_line_offers_the_open_positions_of_the_plan_month_and_sends_the_chosen_one()
+    {
+        var groceries = FakePlanApi.Position("Lebensmittel", 600m);
+        var rent = FakePlanApi.Position("Miete", 890m, booked: 890m, done: true);
+        var salary = FakePlanApi.Position("Gehalt", 2400m, PotKeys.Income);
+        PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10) with { Positions = [rent, groceries, salary] };
+        OpenDialog();
+
+        var options = dialogs.Find("[data-testid='booking-line-position-0']").TextContent;
+        Assert.Contains("Lebensmittel", options);
+        Assert.DoesNotContain("Miete", options);
+        Assert.DoesNotContain("Gehalt", options);
+
+        Field(dialogs, "booking-amount").Change("42");
+        dialogs.Find("[data-testid='booking-line-position-0']").Change(groceries.Id.ToString());
+        dialogs.Find("[data-testid='booking-save']").Click();
+
+        dialogs.WaitForAssertion(() => Assert.Single(BookingApiFake.Created));
+        var request = BookingApiFake.Created[0];
+        Assert.Equal((2026, 10), (request.PlanYear, request.PlanMonth));
+        var line = Assert.Single(request.Lines!);
+        Assert.Equal(groceries.Id, line.PositionId);
+        // Die Zeile hatte noch keine Kategorie; sie kommt vom Posten.
+        Assert.Equal(groceries.CategoryId, line.CategoryId);
+    }
+
+    [Fact]
+    public void Choosing_the_next_month_loads_its_positions_and_sends_it_as_plan_month()
+    {
+        var rentNovember = FakePlanApi.Position("Miete November", 890m);
+        PlanApiFake.Plans[(2026, 11)] = FakePlanApi.Empty(2026, 11) with { Positions = [rentNovember] };
+        OpenDialog();
+
+        dialogs.Find("[data-testid='booking-plan-month']").Change("2026-11");
+
+        dialogs.WaitForAssertion(() =>
+            Assert.Contains("Miete November", dialogs.Find("[data-testid='booking-line-position-0']").TextContent));
+        Assert.Contains((2026, 11), PlanApiFake.GetCalls);
+        Field(dialogs, "booking-amount").Change("890");
+        dialogs.Find("[data-testid='booking-line-category-0']").Change(FakeCategoryApi.Groceries.Id.ToString());
+        dialogs.Find("[data-testid='booking-save']").Click();
+
+        dialogs.WaitForAssertion(() => Assert.Equal((2026, 11), (BookingApiFake.Created.Single().PlanYear, BookingApiFake.Created.Single().PlanMonth)));
+    }
+}

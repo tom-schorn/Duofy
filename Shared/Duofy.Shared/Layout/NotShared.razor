@@ -1,0 +1,7 @@
+@inject ActiveMember Member
+@inject IStringLocalizer<SharedResources> L
+
+@* Der Satz, wenn eine Seite für die gewählte Sicht nichts zeigt: Eine Person teilt den Bereich nicht
+   (Spec 68), und für den Haushalt gibt es nur im Plan eine gemeinsame Sicht (Spec 69, R9). *@
+
+<MudText Color="Color.Secondary" data-testid="not-shared">@L[Member.IsHousehold ? "Household_NoJointView" : "Grant_NotShared"]</MudText>

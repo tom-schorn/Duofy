@@ -1,0 +1,175 @@
+@using System.Globalization
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@implements IDisposable
+@inject IHouseholdApi HouseholdApi
+@inject IAppHost Host
+@inject ActiveMember Member
+@inject TimeProvider Time
+@inject IStringLocalizer<SharedResources> L
+
+@* Der Haushaltsplan eines Monats (Spec 69), nur zum Lesen: der Name des Haushalts, die Posten aller Mitglieder nach
+   Topf mit dem Vornamen dessen, der sie trägt, geplant und gebucht, die Summen und Quoten des Haushalts und die
+   Konten der Mitglieder, die sie freigegeben haben. Es gibt keinen Knopf zum Anlegen, Abhaken oder Ändern: Das geht
+   im Plan der jeweiligen Person, mit deren Freigaben (Spec 68).
+
+   Die Seite rechnet nichts; die API setzt den Plan bei jedem Öffnen aus den Monaten der Mitglieder zusammen. *@
+
+@if (!Host.IsApp)
+{
+    <MudText Typo="Typo.h4" Class="mb-2">@L["Nav_Plan"]</MudText>
+}
+
+<MudText Typo="Typo.h6" data-testid="household-name">@(plan?.HouseholdName ?? Member.Household?.Name)</MudText>
+<MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mb-2" data-testid="household-read-only">@L["HouseholdPlan_ReadOnly"]</MudText>
+
+@* Blättern zwischen den Monaten. *@
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+    <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" OnClick="() => MoveAsync(-1)"
+                   aria-label="@L["Plan_PreviousMonth"]" data-testid="plan-previous" />
+    <MudText Typo="Typo.h6" data-testid="plan-month">@MonthTitle</MudText>
+    <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" OnClick="() => MoveAsync(1)"
+                   aria-label="@L["Plan_NextMonth"]" data-testid="plan-next" />
+</MudStack>
+
+<Notice Message="message" />
+
+@if (plan is not null)
+{
+    @* Summen und Quoten. *@
+    <MudPaper Outlined="true" Class="pa-3 mb-4" data-testid="plan-sums">
+        <MudText>@L["HouseholdPlan_SumsIncome", Money(plan.Income)]</MudText>
+        @foreach (var pot in plan.Pots)
+        {
+            <MudText>@L["HouseholdPlan_SumsPot", L[$"Pot_{pot.Pot}"], Money(pot.Planned), Money(pot.Booked)]</MudText>
+        }
+        <MudText>@L["HouseholdPlan_SumsUnpaid", Money(plan.Unpaid)]</MudText>
+        @foreach (var quota in plan.Quotas)
+        {
+            <MudText Typo="Typo.caption" Class="d-block" data-testid="@($"plan-quota-{quota.Pot}")">@L["Plan_Quota", L[$"Pot_{quota.Pot}"], quota.Target, quota.Actual.ToString("0.#", German)]</MudText>
+        }
+        <MudText Typo="Typo.caption" Class="d-block" data-testid="household-unplanned">
+            @L["HouseholdPlan_Unplanned", Money(plan.Unplanned.Income), Money(plan.Unplanned.Needs), Money(plan.Unplanned.Wants), Money(plan.Unplanned.Savings)]
+        </MudText>
+    </MudPaper>
+
+    @if (plan.Positions.Count == 0)
+    {
+        <MudText Color="Color.Secondary" Class="mb-2" data-testid="plan-empty">@L["HouseholdPlan_Empty"]</MudText>
+    }
+
+    @* Die Posten nach Topf, jeder mit dem Vornamen seiner Person. *@
+    @foreach (var group in Groups(plan))
+    {
+        <MudText Typo="Typo.subtitle1" Class="mt-3 mb-1" data-testid="@($"plan-group-{group.Pot}")">@L[$"Pot_{group.Pot}"]</MudText>
+        <MudStack Spacing="2">
+            @foreach (var position in group.Positions)
+            {
+                var done = position.DoneAt is not null;
+                <MudPaper Class="pa-3" Outlined="true" data-testid="@($"household-position-{position.Id}")">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudStack Spacing="0" Class="flex-grow-1">
+                            <MudText Color="@(done ? Color.Secondary : Color.Default)">@position.Label</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" data-testid="@($"household-owner-{position.Id}")">@Caption(position)</MudText>
+                        </MudStack>
+                        <MudText Typo="Typo.body2">@L["Plan_Amounts", Money(position.AmountPlanned), Money(position.Booked)]</MudText>
+                    </MudStack>
+                </MudPaper>
+            }
+        </MudStack>
+    }
+
+    @* Die Konten der Mitglieder, die sie freigegeben haben (R8); wer fehlt, steht mit Namen darunter. *@
+    @if (plan.Accounts.Count > 0)
+    {
+        <MudPaper Outlined="true" Class="pa-3 mt-4" data-testid="household-accounts">
+            <MudText Typo="Typo.subtitle1" Class="mb-1">@L["HouseholdPlan_Accounts"]</MudText>
+            @foreach (var account in plan.Accounts)
+            {
+                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                    <MudText>@account.Name <MudText Typo="Typo.caption" Color="Color.Secondary" Inline="true">(@account.OwnerFirstName)</MudText></MudText>
+                    <MudText>@Money(account.Balance)</MudText>
+                </MudStack>
+            }
+        </MudPaper>
+    }
+    @if (plan.AccountsMissing.Count > 0)
+    {
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-2" data-testid="household-accounts-missing">
+            @L["HouseholdPlan_AccountsMissing", string.Join(", ", plan.AccountsMissing)]
+        </MudText>
+    }
+}
+
+@code {
+
+    private static readonly CultureInfo German = new("de-DE");
+
+    private int year;
+    private int month;
+    private HouseholdPlanResponse? plan;
+    private NoticeMessage? message;
+
+    private string MonthTitle => new DateOnly(year, month, 1).ToString("MMMM yyyy", German);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var today = DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
+        (year, month) = (today.Year, today.Month);
+        await Member.LoadAsync();
+        // Geht ein Mitglied, während die Sicht offen ist, endet sie; die Planseite zeichnet dann den eigenen Plan.
+        Member.Changed += OnMemberChanged;
+        await LoadAsync();
+    }
+
+    public void Dispose() => Member.Changed -= OnMemberChanged;
+
+    private void OnMemberChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private async Task LoadAsync()
+    {
+        if (Member.Household is not { } household)
+        {
+            plan = null;
+            return;
+        }
+        var result = await HouseholdApi.GetPlanAsync(household.Id, year, month);
+        if (result.Succeeded)
+        {
+            plan = result.Value;
+            message = null;
+        }
+        else
+        {
+            plan = null;
+            message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+        }
+    }
+
+    private async Task MoveAsync(int by)
+    {
+        (year, month) = PlanView.Shift(year, month, by);
+        message = null;
+        await LoadAsync();
+    }
+
+    /// <summary>Die Posten je Topf in der Reihenfolge der API (Topf, Fälligkeitstag, Name); leere Töpfe fehlen.</summary>
+    private static IReadOnlyList<(string Pot, IReadOnlyList<HouseholdPlanPositionResponse> Positions)> Groups(HouseholdPlanResponse plan) =>
+        PlanView.PotOrder
+            .Select(pot => (pot, (IReadOnlyList<HouseholdPlanPositionResponse>)plan.Positions.Where(p => p.Pot == pot).ToList()))
+            .Where(group => group.Item2.Count > 0)
+            .ToList();
+
+    // Unter der Bezeichnung: wer den Posten trägt und der Tag.
+    private string Caption(HouseholdPlanPositionResponse position)
+    {
+        var parts = new List<string> { position.OwnerFirstName, L["Plan_DueDay", position.DueDay] };
+        if (position.PassThrough)
+        {
+            parts.Add(L["Plan_PassThrough"]);
+        }
+        return string.Join(" · ", parts);
+    }
+
+    private static string Money(decimal amount) => amount.ToString("N2", German) + " €";
+}

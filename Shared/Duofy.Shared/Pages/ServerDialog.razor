@@ -1,0 +1,104 @@
+@using Duofy.ApiClient
+@inject IServerStore Servers
+@inject IServerSelector Selector
+@inject IStringLocalizer<SharedResources> L
+
+@* Der Dialog zur Wahl des Servers: der gehostete Dienst oder ein eigener Server mit Adresse.
+   Beim Übernehmen prüft der IServerSelector die Adresse; antwortet dort kein Duofy-Server
+   oder fehlt https, steht der Grund oben im Dialog und der bisherige Server bleibt. Der
+   Dialog läuft nur in der App und hat deshalb immer die Vollbild-Kopfzeile. *@
+
+<MudDialog>
+    <DialogContent>
+        <FullScreenFormHeader Title="@MudDialog.Title" SaveText="@L["Server_Save"]" SaveTestId="server-save"
+                              Busy="busy" OnClose="Cancel" OnSave="SaveAsync" />
+        <MudStack Spacing="3">
+
+            @if (error is not null)
+            {
+                <MudAlert Severity="Severity.Error" data-testid="server-error">@error</MudAlert>
+            }
+
+            <NativeSelect Value="@choice" ValueChanged="OnChoiceChanged" Label="@L["Server_Choice"]"
+                          data-testid="server-choice">
+                <option value="@Hosted">@L["Server_ChoiceHosted"]</option>
+                <option value="@Own">@L["Server_ChoiceOwn"]</option>
+            </NativeSelect>
+
+            @if (choice == Own)
+            {
+                <div class="field">
+                    <FieldLabel For="server-address-input" Text="@L["Server_Address"]" />
+                    <MudTextField @bind-Value="address" Variant="Variant.Outlined" InputId="server-address-input"
+                                  InputType="InputType.Url" Placeholder="@L["Server_AddressPlaceholder"]"
+                                  autocomplete="url" data-testid="server-address" />
+                </div>
+            }
+        </MudStack>
+    </DialogContent>
+</MudDialog>
+
+@code {
+
+    private const string Hosted = "hosted";
+    private const string Own = "own";
+
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private string choice = Hosted;
+    private string address = "";
+    private string? error;
+    private bool busy;
+
+    // Vorbelegt ist, was gerade gilt (R2): bei einem eigenen Server mit dessen Adresse.
+    protected override void OnInitialized()
+    {
+        if (!Servers.IsHosted)
+        {
+            choice = Own;
+            address = Servers.CurrentAddress.AbsoluteUri;
+        }
+    }
+
+    private void OnChoiceChanged(string value)
+    {
+        choice = value;
+        error = null;
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SaveAsync()
+    {
+        error = null;
+        busy = true;
+        try
+        {
+            if (choice == Hosted)
+            {
+                await Selector.UseHostedAsync();
+                MudDialog.Close(DialogResult.Ok(true));
+                return;
+            }
+
+            var outcome = await Selector.TryUseAsync(address);
+            switch (outcome)
+            {
+                case ServerChoiceOutcome.Taken:
+                    MudDialog.Close(DialogResult.Ok(true));
+                    break;
+                case ServerChoiceOutcome.NeedsHttps:
+                    error = L["Server_NeedsHttps"];
+                    break;
+                default:
+                    error = L["Server_NoServer"];
+                    break;
+            }
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

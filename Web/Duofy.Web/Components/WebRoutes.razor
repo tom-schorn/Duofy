@@ -1,0 +1,23 @@
+@* Der Router der Web-Anwendung: Er entscheidet, welche Seite zu einer Adresse
+   gehört.
+
+   Er sucht Seiten an zwei Orten: in Duofy.Shared (die Seiten, die auch die App
+   benutzt) und in Duofy.Web (Seiten, die es nur im Browser gibt).
+
+   Öffnet jemand ohne Anmeldung eine Seite, die mit [Authorize] geschützt ist,
+   wird er zur Anmeldeseite geschickt. Beim ersten Aufruf einer Adresse erledigt
+   das schon der Server (Session/SessionAuthentication.cs), beim Wechsel innerhalb
+   der laufenden Seite RedirectToSignIn aus Duofy.Shared. *@
+
+<Router AppAssembly="typeof(MainLayout).Assembly"
+        AdditionalAssemblies="[typeof(App).Assembly]"
+        NotFoundPage="typeof(Duofy.Shared.Pages.NotFound)">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)">
+            <NotAuthorized>
+                <RedirectToSignIn />
+            </NotAuthorized>
+        </AuthorizeRouteView>
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+</Router>

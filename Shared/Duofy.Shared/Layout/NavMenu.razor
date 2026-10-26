@@ -1,0 +1,26 @@
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Navigation. Wer angemeldet ist, sieht Start, Plan, Konten, Buchungen, Verträge und Konto, alle anderen
+   Anmelden und Registrieren. AuthorizeView ist eine Komponente, die ihren Inhalt
+   je nach Anmeldung zeigt oder versteckt. Ganz oben steht im Browser der Umschalter "wessen Zahlen"
+   (Spec 68), sobald jemand etwas mit mir teilt. *@
+
+<MudNavMenu>
+    <AuthorizeView>
+        <Authorized>
+            <div class="px-4 pb-2">
+                <MemberSwitch />
+            </div>
+            <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">@L["Nav_Start"]</MudNavLink>
+            <MudNavLink Href="/plan" Icon="@Icons.Material.Filled.CalendarMonth">@L["Nav_Plan"]</MudNavLink>
+            <MudNavLink Href="/konten" Icon="@Icons.Material.Filled.AccountBalance">@L["Nav_Accounts"]</MudNavLink>
+            <MudNavLink Href="/buchungen" Icon="@Icons.Material.Filled.Receipt">@L["Nav_Bookings"]</MudNavLink>
+            <MudNavLink Href="/vertraege" Icon="@Icons.Material.Filled.EventRepeat">@L["Nav_Commitments"]</MudNavLink>
+            <MudNavLink Href="/konto" Icon="@Icons.Material.Filled.Person">@L["Nav_Account"]</MudNavLink>
+        </Authorized>
+        <NotAuthorized>
+            <MudNavLink Href="/anmelden" Icon="@Icons.Material.Filled.Login">@L["Nav_SignIn"]</MudNavLink>
+            <MudNavLink Href="/registrieren" Icon="@Icons.Material.Filled.PersonAdd">@L["Nav_Register"]</MudNavLink>
+        </NotAuthorized>
+    </AuthorizeView>
+</MudNavMenu>

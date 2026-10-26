@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug: Beim Testen auf dem eigenen Telefon spricht die App ohne Verschlüsselung
+     (HTTP) mit der API auf dem Entwicklungsrechner im WLAN. Diese Datei ersetzt in
+     Debug-Builds die gleichnamige Datei aus Resources/xml; Release bekommt sie nie. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

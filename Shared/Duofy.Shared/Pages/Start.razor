@@ -1,0 +1,82 @@
+@page "/"
+@attribute [Authorize]
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@implements IDisposable
+@inject IUserApi UserApi
+@inject IAppHost Host
+@inject AppChrome Chrome
+@inject ActiveMember Member
+@inject BookingDialogLauncher Launcher
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Startseite. Vorerst begrüßt sie nur die Person mit dem Vornamen.
+   [Authorize] heißt: Nur wer angemeldet ist, sieht die Seite; alle anderen
+   schickt der Router zur Anmeldung. Das Plus der App bucht für die Person, deren Zahlen gerade offen sind
+   (Spec 68); ohne deren Freigabe ist es ausgegraut. *@
+
+<PageTitle>@L["App_Name"]</PageTitle>
+
+<Notice Message="message" />
+
+<GrantReason Show="!CanBook" />
+
+@if (error is not null)
+{
+    <MudAlert Severity="Severity.Error">@error</MudAlert>
+}
+else if (firstName is not null)
+{
+    <MudText Typo="Typo.h4" Class="mb-2">@L["Start_Greeting", firstName]</MudText>
+    <MudText>@L["Start_Text"]</MudText>
+}
+
+@code {
+    private string? firstName;
+    private string? error;
+    private NoticeMessage? message;
+
+    // Buchen braucht die Freigabe Anlegen der Buchungen und die Konten (Spec 68); bei "Ich" geht es immer.
+    private bool CanBook =>
+        Member.Allows(GrantAreas.Book, AccessLevelKeys.Create) && Member.Allows(GrantAreas.Accounts, AccessLevelKeys.View);
+
+    // In der App ist das Plus der Startseite die neue Buchung. Im Browser sieht niemand den Dienst.
+    protected override void OnInitialized() => Chrome.Set(this, L["Nav_Start"], AddBookingAsync, L["Bookings_Add"]);
+
+    private async Task AddBookingAsync()
+    {
+        if (CanBook)
+        {
+            message = await Launcher.OpenAsync() ?? message;
+        }
+    }
+
+    public void Dispose()
+    {
+        Member.Changed -= OnMemberChanged;
+        Chrome.Release(this);
+    }
+
+    private void OnMemberChanged() => _ = InvokeAsync(() =>
+    {
+        Chrome.LockPlus(this, CanBook ? null : GrantLock.ReasonId);
+        StateHasChanged();
+    });
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Member.LoadAsync();
+        Member.Changed += OnMemberChanged;
+        Chrome.LockPlus(this, CanBook ? null : GrantLock.ReasonId);
+
+        var me = await UserApi.GetMeAsync();
+        if (me.Succeeded)
+        {
+            firstName = me.Value!.FirstName;
+        }
+        else
+        {
+            error = ErrorTexts.For(L, me.ErrorCode);
+        }
+    }
+}

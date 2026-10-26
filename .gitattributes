@@ -1,0 +1,2 @@
+# workday-Skripte lesen diese Dateien mit bash und brauchen LF
+.workday/** text eol=lf

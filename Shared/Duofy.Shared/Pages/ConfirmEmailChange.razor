@@ -1,0 +1,75 @@
+@page "/email-bestaetigen"
+@layout AuthLayout
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@inject IAuthApi AuthApi
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Seite hinter dem Link, der an eine neue Adresse ging (Spec 53, R5):
+   /email-bestaetigen?id=<Konto>&email=<neue Adresse>&token=<Token>. Sie zeigt die neue Adresse und übernimmt sie erst
+   auf Knopfdruck. Danach meldet sich die Person mit der neuen Adresse an; die alte bekommt einen Hinweis per Mail. *@
+
+<PageTitle>@L["EmailConfirm_Title"]</PageTitle>
+
+<div class="auth-header">
+    <MudText Typo="Typo.h2" HtmlTag="h1">@L["EmailConfirm_Title"]</MudText>
+    @if (Complete)
+    {
+        <p class="auth-lead" data-testid="email-confirm-address">@L["EmailConfirm_Lead", NewEmail!]</p>
+    }
+</div>
+
+<Notice Message="message" />
+
+@if (done)
+{
+    <MudButton Href="/anmelden" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+               data-testid="email-confirm-sign-in">@L["Auth_ToSignIn"]</MudButton>
+}
+else if (!Complete)
+{
+    <MudAlert Severity="Severity.Warning" data-testid="email-confirm-incomplete">@L["Link_Incomplete"]</MudAlert>
+}
+else
+{
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Disabled="busy" OnClick="ConfirmAsync"
+               data-testid="email-confirm-submit">@L["EmailConfirm_Submit"]</MudButton>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "id")]
+    [Parameter]
+    public string? Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "email")]
+    [Parameter]
+    public string? NewEmail { get; set; }
+
+    [SupplyParameterFromQuery(Name = "token")]
+    [Parameter]
+    public string? Token { get; set; }
+
+    private bool busy;
+    private bool done;
+    private NoticeMessage? message;
+
+    private bool Complete => Guid.TryParse(Id, out _) && !string.IsNullOrWhiteSpace(NewEmail) && !string.IsNullOrEmpty(Token);
+
+    private async Task ConfirmAsync()
+    {
+        if (busy || !Complete) return;
+        busy = true;
+        try
+        {
+            var result = await AuthApi.ConfirmEmailChangeAsync(new ConfirmEmailChangeRequest(Guid.Parse(Id!), NewEmail!.Trim(), Token!));
+            done = result.Succeeded;
+            message = result.Succeeded
+                ? new NoticeMessage(L["EmailConfirm_Done"], Severity.Success)
+                : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

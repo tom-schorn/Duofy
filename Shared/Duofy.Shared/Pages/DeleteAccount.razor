@@ -1,0 +1,79 @@
+@page "/konto/loeschen"
+@attribute [Authorize]
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@inject IUserApi UserApi
+@inject NavigationManager Navigation
+@inject IStringLocalizer<SharedResources> L
+
+@* Konto löschen. Diese Adresse nennen wir Google Play als "Konto löschen"-Seite,
+   deshalb gibt es sie auch im Browser ohne die App. Wegen [Authorize] muss man dafür
+   angemeldet sein; sonst geht es zur Anmeldung und danach hierher zurück.
+   Zur Sicherheit fragen wir noch einmal nach dem Passwort. *@
+
+<PageTitle>@L["Delete_Title"]</PageTitle>
+
+<MudPaper Class="pa-6 mx-auto" MaxWidth="480px" Outlined="true">
+    <MudText Typo="Typo.h4" Class="mb-4">@L["Delete_Title"]</MudText>
+    <MudAlert Severity="Severity.Warning" Class="mb-4">@L["Delete_Warning"]</MudAlert>
+
+    @if (error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">@error</MudAlert>
+    }
+
+    <MudText Class="mb-2">@L["Delete_PasswordPrompt"]</MudText>
+    <div class="field">
+        <FieldLabel For="delete-password-input" Text="@L["Field_Password"]" />
+        <MudTextField @bind-Value="password" Variant="Variant.Outlined" InputId="delete-password-input"
+                      InputType="InputType.Password" autocomplete="current-password"
+                      OnKeyDown="OnPasswordKeyDown" data-testid="delete-password" />
+    </div>
+
+    <MudStack Row="true" Spacing="2" Class="mt-4">
+        <MudButton Variant="Variant.Filled" Color="Color.Error" Disabled="busy" OnClick="DeleteAsync"
+                   data-testid="delete-submit">@L["Delete_Submit"]</MudButton>
+        <MudButton Href="/konto" Variant="Variant.Text">@L["Delete_Cancel"]</MudButton>
+    </MudStack>
+</MudPaper>
+
+@code {
+    private string password = "";
+    private bool busy;
+    private string? error;
+
+    private async Task OnPasswordKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await DeleteAsync();
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (busy) return;
+        if (string.IsNullOrEmpty(password))
+        {
+            error = L["Validation_Required"];
+            return;
+        }
+
+        busy = true;
+        error = null;
+        try
+        {
+            var result = await UserApi.DeleteMeAsync(new DeleteMeRequest(password));
+            if (result.Succeeded)
+            {
+                // Der Client hat die Tokens schon gelöscht; es ist niemand mehr angemeldet.
+                Navigation.NavigateTo("/anmelden");
+            }
+            else
+            {
+                error = ErrorTexts.For(L, result.ErrorCode);
+            }
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

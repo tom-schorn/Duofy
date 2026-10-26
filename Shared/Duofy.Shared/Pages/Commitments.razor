@@ -1,0 +1,260 @@
+@page "/vertraege"
+@attribute [Authorize]
+@using System.Globalization
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@inject ICommitmentApi CommitmentApi
+@inject ICategoryApi CategoryApi
+@inject IAccountChoices AccountChoices
+@implements IDisposable
+@inject IDialogService DialogService
+@inject FormDialogs Forms
+@inject IAppHost Host
+@inject AppChrome Chrome
+@inject ActiveMember Member
+@inject TimeProvider Time
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Vertragsseite: alle laufenden Verträge mit Art, Betrag, Abstand und nächster Zahlung,
+   sortiert nach der nächsten Zahlung. Beendete Verträge kommen mit dem Schalter dazu.
+
+   Die Seite rechnet keine Fälligkeiten selbst. Die nächste Zahlung und ob ein Vertrag noch läuft,
+   schickt die API mit; nach jeder Änderung holt die Seite die Liste neu.
+
+   Mit dem Umschalter zeigt die Seite die Verträge eines anderen Mitglieds (Spec 68); Beenden zählt als Löschen. *@
+
+<PageTitle>@L["Commitments_Title"]</PageTitle>
+
+@* In der App steht der Titel in der oberen Leiste und das Plus im Layout (AppChrome). *@
+@if (!Host.IsApp)
+{
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+        <MudText Typo="Typo.h4">@L["Commitments_Title"]</MudText>
+        @if (Sees)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="AddAsync" Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)"
+                       data-testid="commitments-add">@L["Commitments_Add"]</MudButton>
+        }
+    </MudStack>
+}
+
+<Notice Message="message" />
+
+@if (!Sees)
+{
+    <NotShared />
+}
+else
+{
+<GrantReason Show="@(!(CanAdd && CanEdit && CanEnd))" />
+
+<MudSwitch T="bool" @bind-Value="showEnded" Color="Color.Primary" Label="@L["Commitments_ShowEnded"]"
+           data-testid="commitments-show-ended" />
+
+@if (loaded && all.Count == 0)
+{
+    <MudText Color="Color.Secondary" Class="mb-2">@L["Commitments_Empty"]</MudText>
+}
+else if (loaded && !Shown.Any())
+{
+    @* Es gibt nur beendete Verträge und der Schalter ist aus: sonst sähe die Seite leer aus. *@
+    <MudText Color="Color.Secondary" Class="mb-2" data-testid="commitments-ended-hidden">@L["Commitments_EndedHidden"]</MudText>
+}
+
+<MudStack Spacing="2" Class="mt-2">
+    @foreach (var commitment in Shown)
+    {
+        <MudPaper Class="pa-3" Outlined="true" data-testid="@($"commitment-{commitment.Id}")">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudStack Spacing="0" Class="flex-grow-1">
+                    <MudText Color="@(commitment.Running ? Color.Default : Color.Secondary)">@commitment.Name</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@Caption(commitment)</MudText>
+                </MudStack>
+                <MudText Typo="Typo.subtitle1" Color="@(commitment.Running ? Color.Default : Color.Secondary)">@Money(commitment.Amount)</MudText>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditAsync(commitment)"
+                               Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
+                               aria-label="@L["Commitments_Edit"]" data-testid="@($"commitment-edit-{commitment.Id}")" />
+                @if (commitment.Running)
+                {
+                    <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => EndAsync(commitment)"
+                               Class="@GrantLock.Class(CanEnd)" @attributes="GrantLock.Attributes(CanEnd)"
+                               data-testid="@($"commitment-end-{commitment.Id}")">@L["Commitments_End"]</MudButton>
+                }
+            </MudStack>
+        </MudPaper>
+    }
+</MudStack>
+}
+
+@code {
+
+    // Deutsche Schreibweise für Beträge (1.234,50) und Daten (01.11.2026), auch wenn das Gerät anders eingestellt ist.
+    private static readonly CultureInfo German = new("de-DE");
+
+    private List<CommitmentResponse> all = [];
+    private List<CategoryResponse> categories = [];
+    private IReadOnlyList<AccountChoice> accounts = [];
+    private bool showEnded;
+    private bool loaded;
+    private NoticeMessage? message;
+
+    private DateOnly Today => DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
+
+    // Die API liefert schon in der richtigen Reihenfolge; der Schalter blendet nur aus oder ein.
+    private IEnumerable<CommitmentResponse> Shown => all.Where(c => showEnded || c.Running);
+
+    // Was die Freigabe des gewählten Mitglieds erlaubt (Spec 68); bei "Ich" alles.
+    private bool Sees => Member.Allows(GrantAreas.Commitments, AccessLevelKeys.View);
+    private bool CanAdd => Member.Allows(GrantAreas.Commitments, AccessLevelKeys.Create);
+    private bool CanEdit => Member.Allows(GrantAreas.Commitments, AccessLevelKeys.Edit);
+    private bool CanEnd => Member.Allows(GrantAreas.Commitments, AccessLevelKeys.Delete);
+
+    protected override async Task OnInitializedAsync()
+    {
+        Chrome.Set(this, L["Commitments_Title"], AddAsync, L["Commitments_Add"]);
+        // Erst nach dem ersten Laden zuhören: Das Laden selbst meldet sich auch als Änderung.
+        await Member.LoadAsync();
+        Member.Changed += OnMemberChanged;
+        await LoadAllAsync();
+    }
+
+    public void Dispose()
+    {
+        Member.Changed -= OnMemberChanged;
+        Chrome.Release(this);
+    }
+
+    private void OnMemberChanged() => _ = InvokeAsync(async () =>
+    {
+        message = null;
+        await LoadAllAsync();
+        StateHasChanged();
+    });
+
+    /// <summary>Kategorien, Konten und Verträge der gewählten Person; was sie nicht teilt, bleibt leer.</summary>
+    private async Task LoadAllAsync()
+    {
+        Chrome.LockPlus(this, Sees && !CanAdd ? GrantLock.ReasonId : null);
+        all = [];
+        loaded = false;
+        if (!Sees)
+        {
+            return;
+        }
+
+        // Kategorien und Konten braucht der Dialog; die Seite holt sie einmal mit.
+        var categoryResult = await CategoryApi.ListAsync(Member.Owner);
+        categories = categoryResult.Succeeded ? categoryResult.Value!.ToList() : [];
+        var accountResult = Member.Allows(GrantAreas.Accounts, AccessLevelKeys.View)
+            ? await AccountChoices.ListAsync(Member.Owner)
+            : ApiResult<IReadOnlyList<AccountChoice>>.Success([]);
+        accounts = accountResult.Succeeded ? accountResult.Value! : [];
+        if (!categoryResult.Succeeded || !accountResult.Succeeded)
+        {
+            message = new NoticeMessage(ErrorTexts.For(L, categoryResult.ErrorCode ?? accountResult.ErrorCode), Severity.Error);
+        }
+        await LoadAsync();
+    }
+
+    // Alle Verträge holen, laufende und beendete. Ein- und ausgeblendet wird ohne neue Anfrage.
+    private async Task LoadAsync()
+    {
+        var result = await CommitmentApi.ListAsync(includeEnded: true, Member.Owner);
+        if (result.Succeeded)
+        {
+            all = result.Value!.ToList();
+        }
+        else
+        {
+            message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+        }
+        loaded = true;
+    }
+
+    private async Task AddAsync()
+    {
+        if (CanAdd)
+        {
+            await ShowDialogAsync(existing: null, L["CommitmentDialog_TitleNew"]);
+        }
+    }
+
+    private async Task EditAsync(CommitmentResponse commitment)
+    {
+        if (CanEdit)
+        {
+            await ShowDialogAsync(commitment, L["CommitmentDialog_TitleEdit"]);
+        }
+    }
+
+    private async Task ShowDialogAsync(CommitmentResponse? existing, string title)
+    {
+        var parameters = new DialogParameters<CommitmentDialog>
+        {
+            { x => x.Existing, existing },
+            { x => x.Categories, categories },
+            { x => x.Accounts, accounts },
+            { x => x.Today, Today },
+        };
+
+        var dialog = await DialogService.ShowAsync<CommitmentDialog>(title, parameters, Forms.Options());
+        var result = await dialog.Result;
+
+        if (result is { Canceled: false })
+        {
+            message = new NoticeMessage(L["Commitments_Saved"], Severity.Success);
+            await LoadAsync();
+        }
+    }
+
+    // Beenden setzt die letzte Zahlung auf die letzte bis heute; der Vertrag verschwindet dann aus den laufenden.
+    private async Task EndAsync(CommitmentResponse commitment)
+    {
+        if (!CanEnd)
+        {
+            return;
+        }
+        // Beenden fragt einmal nach (A16); Abbrechen lässt den Vertrag laufen.
+        var confirmed = await DialogService.ShowMessageBoxAsync(new MessageBoxOptions
+        {
+            Title = L["Commitments_EndTitle"],
+            Message = L["Commitments_EndText", commitment.Name],
+            YesText = L["Commitments_EndConfirm"],
+            CancelText = L["Commitments_EndCancel"],
+        });
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        var result = await CommitmentApi.EndAsync(commitment.Id);
+        message = result.Succeeded
+            ? new NoticeMessage(L["Commitments_Ended"], Severity.Success)
+            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+        await LoadAsync();
+    }
+
+    // Unter dem Namen: Art, Abstand in Worten und nächste Zahlung, bei beendeten der Hinweis darauf.
+    private string Caption(CommitmentResponse commitment)
+    {
+        var type = L[$"CommitmentType_{commitment.Type}"];
+        var parts = new List<string> { $"{type} · {IntervalText(commitment.IntervalMonths)}" };
+        if (!commitment.Running)
+        {
+            return L["Commitments_EndedMark", parts[0]];
+        }
+        if (commitment.NextDueDate is { } next)
+        {
+            parts.Add(L["Commitments_NextDue", next.ToString("dd.MM.yyyy", German)]);
+        }
+        return string.Join(" · ", parts);
+    }
+
+    // Die üblichen Abstände haben ein eigenes Wort, alle anderen heißen "alle n Monate".
+    private string IntervalText(int months) => months is 1 or 3 or 6 or 12
+        ? L[$"Interval_{months}"]
+        : L["Interval_Other", months];
+
+    private static string Money(decimal amount) => amount.ToString("N2", German) + " €";
+}

@@ -1,0 +1,9 @@
+@* Die Beschriftung über einem Eingabefeld, wie in der ursprünglichen Oberfläche.
+   For ist die Id des Feldes (InputId am MudTextField), damit ein Klick auf den Text
+   das Feld fokussiert und Vorlese-Programme die beiden verbinden. *@
+<label class="field-label" for="@For">@Text</label>
+
+@code {
+    [Parameter, EditorRequired] public string For { get; set; } = "";
+    [Parameter, EditorRequired] public string Text { get; set; } = "";
+}

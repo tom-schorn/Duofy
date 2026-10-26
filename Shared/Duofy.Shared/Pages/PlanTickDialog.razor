@@ -1,0 +1,92 @@
+@using System.Globalization
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@inject IPlanApi PlanApi
+@inject ActiveMember Member
+@inject IStringLocalizer<SharedResources> L
+@inject IAppHost Host
+
+@* Abhaken eines Postens, auf dem schon Buchungen liegen (R5): Der Dialog bietet einen Ausgleich für
+   den Unterschied an, vorbelegt mit dem offenen Rest. 0 hakt ab, ohne etwas zu buchen; ein
+   Unterschied zwischen geplant und gebucht darf bleiben. *@
+
+<MudDialog>
+    <DialogContent>
+        @if (Host.IsApp)
+        {
+            <FullScreenFormHeader Title="@MudDialog.Title" SaveText="@L["PlanTickDialog_Save"]" SaveTestId="tick-save"
+                                  Busy="busy" OnClose="Cancel" OnSave="SaveAsync" />
+        }
+        <MudStack Spacing="3">
+            @if (error is not null)
+            {
+                <MudAlert Severity="Severity.Error" data-testid="tick-error">@error</MudAlert>
+            }
+            <MudText data-testid="tick-summary">@L["PlanTickDialog_Summary", Position.Label, Money(Position.AmountPlanned), Money(Position.Booked)]</MudText>
+            <MudNumericField T="decimal?" @bind-Value="amount" Culture="German" Format="0.00" Min="0"
+                             HideSpinButtons="true" Label="@L["Field_BalancingAmount"]"
+                             HelperText="@L["PlanTickDialog_Hint"]" data-testid="tick-amount" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        @if (!Host.IsApp)
+        {
+            <MudButton OnClick="Cancel">@L["PlanDialog_Cancel"]</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="busy" OnClick="SaveAsync"
+                       data-testid="tick-save">@L["PlanTickDialog_Save"]</MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+
+    private static readonly CultureInfo German = new("de-DE");
+
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public int Year { get; set; }
+
+    [Parameter] public int Month { get; set; }
+
+    [Parameter] public PlanPositionResponse Position { get; set; } = default!;
+
+    private decimal? amount;
+    private string? error;
+    private bool busy;
+
+    // Die Person, für die der Dialog geöffnet wurde; sie bleibt, auch wenn der Umschalter inzwischen woanders steht (Spec 68, A15).
+    private Guid? owner;
+
+    protected override void OnInitialized()
+    {
+        owner = Member.Owner;
+        amount = PlanView.OpenAmount(Position);
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SaveAsync()
+    {
+        error = null;
+        busy = true;
+        try
+        {
+            var result = await PlanApi.TickAsync(Year, Month, Position.Id, new TickPositionRequest(Amount: amount ?? 0m), owner);
+            if (result.Succeeded)
+            {
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                error = ErrorTexts.For(L, result.ErrorCode);
+            }
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private static string Money(decimal value) => value.ToString("N2", German) + " €";
+}

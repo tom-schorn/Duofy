@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Die Anfragen und Antworten der API. API, Web, App und Tests benutzen
+       dieselben Typen, damit sie sich nie über ein Feld uneinig sind.
+       Absichtlich ohne Pakete und ohne Verweise auf andere Projekte. -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

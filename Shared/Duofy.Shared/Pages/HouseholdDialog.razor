@@ -1,0 +1,88 @@
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@inject IHouseholdApi HouseholdApi
+@inject IStringLocalizer<SharedResources> L
+@inject IAppHost Host
+
+@* Name und Richtwerte des Haushalts (R7), nur für den Gründer. Die Richtwerte sind ganze Prozent für
+   Grundbedarf, Wünsche und Sparen und ergeben zusammen 100; ob das stimmt, prüft die API (quota_invalid).
+   Jede Person behält daneben ihre eigenen Quoten. *@
+
+<MudDialog>
+    <DialogContent>
+        @if (Host.IsApp)
+        {
+            <FullScreenFormHeader Title="@MudDialog.Title" SaveText="@L["HouseholdDialog_Save"]" SaveTestId="household-dialog-save"
+                                  Busy="busy" OnClose="Cancel" OnSave="SaveAsync" />
+        }
+        <MudStack Spacing="3">
+            @if (error is not null)
+            {
+                <MudAlert Severity="Severity.Error" data-testid="household-dialog-error">@error</MudAlert>
+            }
+            <MudTextField @bind-Value="name" Label="@L["HouseholdDialog_Name"]" Variant="Variant.Outlined" MaxLength="100"
+                          data-testid="household-dialog-name" />
+            <MudText Typo="Typo.body2">@L["HouseholdDialog_QuotasHint"]</MudText>
+            @foreach (var pot in Pots)
+            {
+                var key = pot;
+                <MudNumericField T="int" Value="quotas[key]" ValueChanged="v => quotas[key] = v" Min="0" Max="100"
+                                 Variant="Variant.Outlined" Label="@L["Account_QuotaField", L[$"Pot_{key}"]]"
+                                 data-testid="@($"household-dialog-quota-{key}")" />
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        @if (!Host.IsApp)
+        {
+            <MudButton OnClick="Cancel">@L["Household_Cancel"]</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="busy" OnClick="SaveAsync"
+                       data-testid="household-dialog-save">@L["HouseholdDialog_Save"]</MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private static readonly string[] Pots = [PotKeys.Needs, PotKeys.Wants, PotKeys.Savings];
+
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public HouseholdResponse Household { get; set; } = default!;
+
+    private string name = "";
+    private readonly Dictionary<string, int> quotas = [];
+    private string? error;
+    private bool busy;
+
+    protected override void OnInitialized()
+    {
+        name = Household.Name;
+        quotas[PotKeys.Needs] = Household.QuotaNeeds;
+        quotas[PotKeys.Wants] = Household.QuotaWants;
+        quotas[PotKeys.Savings] = Household.QuotaSavings;
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SaveAsync()
+    {
+        busy = true;
+        error = null;
+        try
+        {
+            var result = await HouseholdApi.UpdateAsync(Household.Id,
+                new UpdateHouseholdRequest(name, quotas[PotKeys.Needs], quotas[PotKeys.Wants], quotas[PotKeys.Savings]));
+            if (!result.Succeeded)
+            {
+                error = ErrorTexts.For(L, result.ErrorCode);
+                return;
+            }
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

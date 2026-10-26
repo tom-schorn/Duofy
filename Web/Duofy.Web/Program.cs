@@ -1,0 +1,78 @@
+using Duofy.Shared.Services;
+using Duofy.Web.Components;
+using Duofy.Web.Services;
+using Duofy.Web.Session;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
+
+// Add device-specific services used by the Duofy.Shared project
+builder.Services.AddSingleton<IFormFactor, FormFactor>();
+
+// --- Gemeinsame Oberfläche -------------------------------------------------
+// MudBlazor, Texte und Hell/Dunkel aus Duofy.Shared.
+builder.Services.AddDuofyUi();
+builder.Services.AddScoped<IShareService, ClipboardShareService>();
+// ---------------------------------------------------------------------------
+
+// --- Duofy-API -------------------------------------------------------------
+// Die Web-Variante hat keine Datenbank; alles geht über die API. Die Adresse
+// kommt aus appsettings.json oder der Umgebungsvariable Duofy__ApiBaseAddress.
+var apiBaseAddress = builder.Configuration["Duofy:ApiBaseAddress"];
+if (!Uri.TryCreate(apiBaseAddress, UriKind.Absolute, out var apiUri))
+{
+    throw new InvalidOperationException(
+        $"Duofy:ApiBaseAddress ist keine gültige Adresse: '{apiBaseAddress}'. Siehe .env.example.");
+}
+builder.Services.AddDuofyApiClient(apiUri);
+
+// --- Anmeldung -------------------------------------------------------------
+// Die Tokens der API liegen in der Sitzung auf diesem Server, der Browser hält
+// nur ein HttpOnly-Cookie mit der Kennung der Sitzung (siehe Session/).
+builder.Services.AddWebSession();
+builder.Services.AddCascadingAuthenticationState();
+// ---------------------------------------------------------------------------
+
+// --- Hinter dem Cloudflare Tunnel ------------------------------------------
+// Adresse der Person und https aus den Köpfen des Tunnels, nur aus vertrauten Netzen (Spec 79).
+builder.Services.AddForwardedClients();
+// Für den HEALTHCHECK des Containers: /health antwortet ohne Anmeldung.
+builder.Services.AddHealthChecks();
+// ---------------------------------------------------------------------------
+
+var app = builder.Build();
+
+// Zuerst: Alles danach (HTTPS-Umleitung, Cookies, Log) sieht die Person und https statt des Tunnels.
+app.UseForwardedHeaders();
+
+// Configure the HTTP request pipeline.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
+    app.UseHsts();
+}
+app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+app.UseHttpsRedirection();
+
+app.UseWebSessionCookie();
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.UseAntiforgery();
+
+app.MapStaticAssets();
+app.MapHealthChecks("/health");
+
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode()
+    .AddAdditionalAssemblies(
+        typeof(Duofy.Shared._Imports).Assembly);
+
+app.Run();
+
+/// <summary>Macht die Klasse für die Tests sichtbar (WebApplicationFactory).</summary>
+public partial class Program;

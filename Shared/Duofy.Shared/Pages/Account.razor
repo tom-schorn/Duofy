@@ -1,0 +1,349 @@
+@page "/konto"
+@attribute [Authorize]
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@implements IDisposable
+@inject IAuthApi AuthApi
+@inject IAppHost Host
+@inject AppChrome Chrome
+@inject IUserApi UserApi
+@inject IInstanceApi InstanceApi
+@inject NavigationManager Navigation
+@inject IStringLocalizer<SharedResources> L
+
+@* Das Konto: Name ändern, Adresse ändern, Passwort ändern, abmelden, Konto löschen.
+   Jeder Abschnitt ist eine eigene Karte mit eigener Meldung (Erfolg oder Fehler).
+
+   Solange der Server keinen Admin hat und ein Einrichtungscode eingestellt ist, kann ein bestehendes Konto mit
+   dem Code Admin werden (Spec 70, R1). Der einzige Admin kann sein Konto nicht löschen (R5); der Knopf ist dann
+   ausgegraut, und darunter steht warum.
+
+   Eine neue Adresse braucht das aktuelle Passwort (Spec 53, R5). Auf der gehosteten Version gilt sie erst, wenn die
+   Person den Link aus der Mail an die neue Adresse öffnet; bis dahin zeigt die Seite die alte. Auf einem selbst
+   betriebenen Server gilt sie sofort. *@
+
+<PageTitle>@L["Account_Title"]</PageTitle>
+
+@if (!Host.IsApp)
+{
+    <MudText Typo="Typo.h4" Class="mb-1">@L["Account_Title"]</MudText>
+}
+@if (email is not null)
+{
+    <MudText Class="mb-4" Color="Color.Secondary">@L["Account_Email", email]</MudText>
+}
+
+<MudStack Spacing="4">
+
+    <MudPaper Class="pa-4" Outlined="true" data-testid="account-names">
+        <MudText Typo="Typo.h6" Class="mb-2">@L["Account_NamesHeading"]</MudText>
+        <Notice Message="namesMessage" />
+        <div class="field">
+            <FieldLabel For="account-first-name-input" Text="@L["Field_FirstName"]" />
+            <MudTextField @bind-Value="firstName" Variant="Variant.Outlined" InputId="account-first-name-input"
+                          MaxLength="AccountRules.NameMaxLength" data-testid="account-first-name" />
+        </div>
+        <div class="field">
+            <FieldLabel For="account-last-name-input" Text="@L["Field_LastName"]" />
+            <MudTextField @bind-Value="lastName" Variant="Variant.Outlined" InputId="account-last-name-input"
+                          MaxLength="AccountRules.NameMaxLength" data-testid="account-last-name" />
+        </div>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" OnClick="SaveNamesAsync"
+                   data-testid="account-names-save">@L["Account_NamesSave"]</MudButton>
+    </MudPaper>
+
+    <MudPaper Class="pa-4" Outlined="true" data-testid="account-email">
+        <MudText Typo="Typo.h6" Class="mb-1">@L["Account_EmailHeading"]</MudText>
+        <MudText Typo="Typo.body2" Class="mb-2">@(hosted ? L["Account_EmailHintHosted"] : L["Account_EmailHintSelfHosted"])</MudText>
+        <Notice Message="emailMessage" />
+        <div class="field">
+            <FieldLabel For="account-new-email-input" Text="@L["Field_NewEmail"]" />
+            <MudTextField @bind-Value="newEmail" Variant="Variant.Outlined" InputId="account-new-email-input"
+                          InputType="InputType.Email" Placeholder="@L["Auth_EmailPlaceholder"]" autocomplete="email"
+                          data-testid="account-new-email" />
+        </div>
+        <div class="field">
+            <FieldLabel For="account-email-password-input" Text="@L["Field_CurrentPassword"]" />
+            <MudTextField @bind-Value="emailPassword" Variant="Variant.Outlined" InputId="account-email-password-input"
+                          InputType="InputType.Password" autocomplete="current-password"
+                          data-testid="account-email-password" />
+        </div>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" Disabled="changingEmail" OnClick="ChangeEmailAsync"
+                   data-testid="account-email-save">@L["Account_EmailSave"]</MudButton>
+    </MudPaper>
+
+    @* Die Zielquoten (Spec 66, R8): ganze Prozent, zusammen 100. Neue Monate übernehmen sie. *@
+    <MudPaper Class="pa-4" Outlined="true" data-testid="account-quotas">
+        <MudText Typo="Typo.h6" Class="mb-1">@L["Account_QuotasHeading"]</MudText>
+        <MudText Typo="Typo.body2" Class="mb-2">@L["Account_QuotasHint"]</MudText>
+        <Notice Message="quotasMessage" />
+        @foreach (var pot in QuotaPots)
+        {
+            var key = pot;
+            <div class="field">
+                <FieldLabel For="@($"account-quota-{key}-input")" Text="@L["Account_QuotaField", L[$"Pot_{key}"]]" />
+                <MudNumericField T="int" Value="quotas[key]" ValueChanged="v => quotas[key] = v" Min="0" Max="100"
+                                 Variant="Variant.Outlined" InputId="@($"account-quota-{key}-input")"
+                                 data-testid="@($"account-quota-{key}")" />
+            </div>
+        }
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" OnClick="SaveQuotasAsync"
+                   data-testid="account-quotas-save">@L["Account_QuotasSave"]</MudButton>
+    </MudPaper>
+
+    <MudPaper Class="pa-4" Outlined="true">
+        <MudText Typo="Typo.h6" Class="mb-2">@L["Account_PasswordHeading"]</MudText>
+        <Notice Message="passwordMessage" />
+        <div class="field">
+            <FieldLabel For="account-current-password-input" Text="@L["Field_CurrentPassword"]" />
+            <MudTextField @bind-Value="currentPassword" Variant="Variant.Outlined" InputId="account-current-password-input"
+                          InputType="InputType.Password" autocomplete="current-password"
+                          data-testid="account-current-password" />
+        </div>
+        <div class="field">
+            <FieldLabel For="account-new-password-input" Text="@L["Field_NewPassword"]" />
+            <MudTextField @bind-Value="newPassword" Variant="Variant.Outlined" InputId="account-new-password-input"
+                          InputType="InputType.Password" HelperText="@L["Field_PasswordHint"]"
+                          autocomplete="new-password" data-testid="account-new-password" />
+        </div>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" OnClick="ChangePasswordAsync"
+                   data-testid="account-password-save">@L["Account_PasswordSave"]</MudButton>
+    </MudPaper>
+
+    <MudPaper Class="pa-4" Outlined="true" data-testid="account-sessions">
+        <MudText Typo="Typo.h6" Class="mb-2">@L["Account_SessionsHeading"]</MudText>
+        <Notice Message="sessionsMessage" />
+        <MudStack Row="true" Spacing="2">
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="SignOutAsync"
+                       data-testid="account-sign-out">@L["Account_SignOut"]</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="SignOutEverywhereAsync"
+                       data-testid="account-sign-out-everywhere">@L["Account_SignOutEverywhere"]</MudButton>
+        </MudStack>
+        <MudText Typo="Typo.caption" Class="mt-2">@L["Account_SignOutEverywhereHint"]</MudText>
+    </MudPaper>
+
+    @if (setupPending && !isAdmin)
+    {
+        <MudPaper Class="pa-4" Outlined="true" data-testid="account-admin">
+            <MudText Typo="Typo.h6" Class="mb-1">@L["Account_AdminHeading"]</MudText>
+            <MudText Typo="Typo.body2" Class="mb-2">@L["Account_AdminText"]</MudText>
+            <Notice Message="adminMessage" />
+            <div class="field">
+                <FieldLabel For="account-setup-code-input" Text="@L["Field_SetupCode"]" />
+                <MudTextField @bind-Value="setupCode" Variant="Variant.Outlined" InputId="account-setup-code-input"
+                              Immediate="true" autocomplete="off" data-testid="account-setup-code" />
+            </div>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" Disabled="claiming" OnClick="ClaimAdminAsync"
+                       data-testid="account-claim-admin">@L["Account_ClaimAdmin"]</MudButton>
+        </MudPaper>
+    }
+    else if (adminMessage is not null)
+    {
+        <Notice Message="adminMessage" />
+    }
+
+    <MudPaper Class="pa-4" Outlined="true">
+        <MudText Typo="Typo.h6" Class="mb-2">@L["Account_DangerHeading"]</MudText>
+        <MudText Class="mb-2">@L["Account_DangerText"]</MudText>
+        @if (isAdmin)
+        {
+            @* Die API antwortet last_admin. Ausgegraut statt angeboten und abgelehnt; aria-disabled statt disabled,
+               damit ein Screenreader den Knopf findet und den Grund darunter vorliest. *@
+            <MudButton Variant="Variant.Outlined" Ripple="false"
+                       Style="color: var(--mud-palette-action-disabled); border-color: var(--mud-palette-action-disabled); cursor: default;"
+                       aria-disabled="true" aria-describedby="account-delete-reason"
+                       data-testid="account-delete-link">@L["Account_DeleteLink"]</MudButton>
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-1" id="account-delete-reason"
+                     data-testid="account-delete-reason">@L["Account_DeleteLastAdminReason"]</MudText>
+        }
+        else
+        {
+            <MudButton Href="/konto/loeschen" Variant="Variant.Outlined" Color="Color.Error"
+                       data-testid="account-delete-link">@L["Account_DeleteLink"]</MudButton>
+        }
+    </MudPaper>
+
+</MudStack>
+
+@code {
+
+    private string? email;
+    private string firstName = "";
+    private string lastName = "";
+    private string currentPassword = "";
+    private string newPassword = "";
+    private NoticeMessage? namesMessage;
+    private NoticeMessage? passwordMessage;
+    private NoticeMessage? sessionsMessage;
+    private NoticeMessage? quotasMessage;
+    private NoticeMessage? adminMessage;
+    private NoticeMessage? emailMessage;
+    private string newEmail = "";
+    private string emailPassword = "";
+    private bool changingEmail;
+    private bool hosted;
+    private bool isAdmin;
+    private bool setupPending;
+    private bool claiming;
+    private string setupCode = "";
+
+    private static readonly string[] QuotaPots = [PotKeys.Needs, PotKeys.Wants, PotKeys.Savings];
+
+    // Bis die API antwortet, stehen die Startwerte 50/30/20 in den Feldern.
+    private readonly Dictionary<string, int> quotas = new() { [PotKeys.Needs] = 50, [PotKeys.Wants] = 30, [PotKeys.Savings] = 20 };
+
+    // Beim Öffnen der Seite den Titel für die App-Leiste setzen (ohne Plus-Knopf), dann die
+    // aktuellen Daten von der API holen und in die Felder schreiben.
+    protected override async Task OnInitializedAsync()
+    {
+        Chrome.Set(this, L["Account_Title"]);
+        var me = await UserApi.GetMeAsync();
+        if (me.Succeeded)
+        {
+            email = me.Value!.Email;
+            firstName = me.Value.FirstName;
+            lastName = me.Value.LastName;
+            isAdmin = me.Value.IsInstanceAdmin;
+        }
+        else
+        {
+            namesMessage = new NoticeMessage(ErrorTexts.For(L, me.ErrorCode), Severity.Error);
+        }
+
+        // Ohne Antwort des Servers gibt es kein Angebot, Admin zu werden.
+        var instance = await InstanceApi.GetAsync();
+        setupPending = instance.Succeeded && instance.Value!.SetupPending;
+        hosted = instance.Succeeded && instance.Value!.Hosted;
+
+        var stored = await UserApi.GetQuotasAsync();
+        if (stored.Succeeded)
+        {
+            ShowQuotas(stored.Value!);
+        }
+        else
+        {
+            quotasMessage = new NoticeMessage(ErrorTexts.For(L, stored.ErrorCode), Severity.Error);
+        }
+    }
+
+    private void ShowQuotas(QuotaSettings settings)
+    {
+        quotas[PotKeys.Needs] = settings.Needs;
+        quotas[PotKeys.Wants] = settings.Wants;
+        quotas[PotKeys.Savings] = settings.Savings;
+    }
+
+    // Ob die drei Werte zusammen 100 ergeben, prüft die API (quota_invalid); der Text sagt dann, was gilt.
+    private async Task SaveQuotasAsync()
+    {
+        var result = await UserApi.UpdateQuotasAsync(new QuotaSettings(quotas[PotKeys.Needs], quotas[PotKeys.Wants], quotas[PotKeys.Savings]));
+        if (result.Succeeded)
+        {
+            ShowQuotas(result.Value!);
+            quotasMessage = new NoticeMessage(L["Account_QuotasSaved"], Severity.Success);
+        }
+        else
+        {
+            quotasMessage = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+        }
+    }
+
+    private async Task ClaimAdminAsync()
+    {
+        claiming = true;
+        try
+        {
+            var result = await UserApi.ClaimAdminAsync(new ClaimAdminRequest(setupCode.Trim()));
+            if (result.Succeeded)
+            {
+                isAdmin = result.Value!.IsInstanceAdmin;
+                setupPending = false;
+                setupCode = "";
+                adminMessage = new NoticeMessage(L["Account_AdminClaimed"], Severity.Success);
+            }
+            else
+            {
+                adminMessage = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+            }
+        }
+        finally
+        {
+            claiming = false;
+        }
+    }
+
+    private async Task SaveNamesAsync()
+    {
+        var result = await UserApi.UpdateMeAsync(new UpdateMeRequest(firstName.Trim(), lastName.Trim()));
+        namesMessage = result.Succeeded
+            ? new NoticeMessage(L["Account_NamesSaved"], Severity.Success)
+            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+    }
+
+    // Die API prüft Adresse, Passwort und ob die Adresse frei ist; die Seite zeigt nur das Ergebnis.
+    private async Task ChangeEmailAsync()
+    {
+        changingEmail = true;
+        try
+        {
+            var requested = newEmail.Trim();
+            var result = await UserApi.ChangeEmailAsync(new ChangeEmailRequest(requested, emailPassword));
+            if (!result.Succeeded)
+            {
+                emailMessage = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+                return;
+            }
+            newEmail = "";
+            emailPassword = "";
+            if (result.Value is { } me)
+            {
+                email = me.Email;
+                emailMessage = new NoticeMessage(L["Account_EmailChanged"], Severity.Success);
+            }
+            else
+            {
+                emailMessage = new NoticeMessage(L["Account_EmailPending", requested], Severity.Success);
+            }
+        }
+        finally
+        {
+            changingEmail = false;
+        }
+    }
+
+    private async Task ChangePasswordAsync()
+    {
+        var result = await UserApi.ChangePasswordAsync(new ChangePasswordRequest(currentPassword, newPassword));
+        if (result.Succeeded)
+        {
+            currentPassword = "";
+            newPassword = "";
+            passwordMessage = new NoticeMessage(L["Account_PasswordChanged"], Severity.Success);
+        }
+        else
+        {
+            passwordMessage = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+        }
+    }
+
+    public void Dispose() => Chrome.Release(this);
+
+    private async Task SignOutAsync()
+    {
+        await AuthApi.LogoutAsync();
+        Navigation.NavigateTo("/anmelden");
+    }
+
+    private async Task SignOutEverywhereAsync()
+    {
+        var result = await AuthApi.LogoutEverywhereAsync();
+        if (result.Succeeded)
+        {
+            Navigation.NavigateTo("/anmelden");
+        }
+        else
+        {
+            sessionsMessage = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+        }
+    }
+}

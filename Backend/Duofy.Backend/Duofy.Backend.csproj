@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!-- Das Backend: die API samt Datenbank (Data) und Fachregeln (Domain), je in einem Unterordner.
+       Nur die API kennt die Datenbank; Web und App fragen dort an. Die Namensräume
+       (Duofy.Api, Duofy.Data, Duofy.Domain) bleiben, wie sie waren. -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Die Texte ohne Sprachzusatz (CategoryNames.resx) sind Deutsch. -->
+    <NeutralLanguage>de</NeutralLanguage>
+    <!-- Dieselbe Kennung wie bisher Duofy.Web, damit die lokal hinterlegte
+         Verbindungszeichenfolge (dotnet user-secrets) weiter gefunden wird. -->
+    <UserSecretsId>455156b6-36bf-413a-9fcf-fc1e9da5cbb6</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="EFCore.NamingConventions" Version="10.0.1" />
+    <!-- Mailversand über SMTP, nur auf dem gehosteten Server (Spec 53); MimeKit kommt mit. -->
+    <PackageReference Include="MailKit" Version="[4.18.1]" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.12" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <!-- MimeKit bringt Pkcs 10.0.0 mit; bis 10.0.12 gibt es bekannte Lücken (GHSA-846f-f764-76mx,
+         GHSA-2fmv-rv2c-59x7), 10.0.13 ist die erste Version mit der Korrektur. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Der Test der Antwort auf ein abgelehntes Speichern (Spec 56) ruft den Filter direkt auf. -->
+    <InternalsVisibleTo Include="Duofy.Backend.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Der Name der Ressource bleibt Duofy.Domain.Resources.CategoryNames (so lädt ihn CategoryCatalog),
+         auch wenn die Datei jetzt im Unterordner Domain liegt. -->
+    <EmbeddedResource Update="Domain\Resources\CategoryNames.resx">
+      <LogicalName>Duofy.Domain.Resources.CategoryNames.resources</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Duofy.Schemas\Duofy.Schemas.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,54 @@
+@implements IDisposable
+@inject ActiveMember Member
+@inject IStringLocalizer<SharedResources> L
+
+@* Der Umschalter "wessen Zahlen" (Spec 68, R8): "Ich" und jedes Mitglied, das mir in irgendeinem Bereich
+   mindestens Ansehen freigegeben hat. Er steht in der oberen Leiste der App und in der Navigation im Browser,
+   damit von jeder Seite aus zu sehen ist, wessen Monat gerade offen ist. Gibt es nur "Ich", fehlt er ganz.
+
+   Neben den Mitgliedern bietet er "Haushalt", solange der Haushalt mehr als ein Mitglied hat (Spec 69, R9): Dann zeigt
+   die Planseite den Haushaltsplan, nur zum Lesen.
+
+   Eine Auswahl des Geräts statt eines Popups, wie NativeSelect: auf dem Handy das Auswahlfenster des Systems. *@
+
+@if (Member.HasSwitch)
+{
+    <select class="member-switch" value="@Selected" @onchange="OnChange"
+            aria-label="@L["MemberSwitch_Label"]" data-testid="member-switch">
+        <option value="">@L["MemberSwitch_Me"]</option>
+        @foreach (var member in Member.Sharing)
+        {
+            <option value="@member.UserId">@member.FirstName</option>
+        }
+        @if (Member.CanShowHousehold)
+        {
+            <option value="@HouseholdValue">@L["MemberSwitch_Household"]</option>
+        }
+    </select>
+}
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        Member.Changed += OnMemberChanged;
+        await Member.LoadAsync();
+    }
+
+    private const string HouseholdValue = "household";
+
+    private string Selected => Member.IsHousehold ? HouseholdValue : Member.Owner?.ToString() ?? "";
+
+    private void OnChange(ChangeEventArgs e)
+    {
+        if (e.Value?.ToString() == HouseholdValue)
+        {
+            Member.ChooseHousehold();
+            return;
+        }
+        Member.Choose(Guid.TryParse(e.Value?.ToString(), out var id) ? id : null);
+    }
+
+    private void OnMemberChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Member.Changed -= OnMemberChanged;
+}

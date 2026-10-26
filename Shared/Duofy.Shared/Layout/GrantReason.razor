@@ -1,0 +1,18 @@
+@inject ActiveMember Member
+@inject IStringLocalizer<SharedResources> L
+
+@* Der Grund an ausgegrauten Knöpfen (Spec 68): "Dafür hat dir Anna keine Freigabe gegeben." Steht einmal auf
+   der Seite, solange die Zahlen eines anderen Mitglieds offen sind und mindestens ein Knopf nicht gehen darf;
+   die Knöpfe verweisen mit aria-describedby darauf. *@
+
+@if (Member.Name is { } name && Show)
+{
+    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mb-2" id="@GrantLock.ReasonId"
+             data-testid="grant-reason">@L["Grant_NotGranted", name]</MudText>
+}
+
+@code {
+    /// <summary>True, wenn auf der Seite mindestens ein Knopf ausgegraut ist.</summary>
+    [Parameter]
+    public bool Show { get; set; }
+}

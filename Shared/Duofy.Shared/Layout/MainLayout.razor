@@ -1,0 +1,47 @@
+﻿@inherits ThemedLayoutBase
+@inject IStringLocalizer<SharedResources> L
+
+@* Das gemeinsame Layout für Browser und App: App-Leiste oben, Navigation links
+   (auf dem Handy ausklappbar), der Seiteninhalt in der Mitte.
+
+   Die vier "Provider" oben braucht MudBlazor einmal pro Anwendung: Sie bringen
+   Farben, Popups, Dialoge und Meldungen auf den Bildschirm. *@
+
+<MudThemeProvider @ref="ThemeProvider" Theme="DuofyTheme.Instance" @bind-IsDarkMode="IsDarkMode" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="0">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+                       OnClick="ToggleDrawer" aria-label="@L["Layout_MenuToggle"]" />
+        <MudText Typo="Typo.h6">@L["App_Name"]</MudText>
+        <MudSpacer />
+        <MudIconButton Class="mode-switch" Color="Color.Inherit" OnClick="ToggleModeAsync"
+                       Icon="@(IsDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                       aria-label="@(IsDarkMode ? L["Layout_ToLightMode"] : L["Layout_ToDarkMode"])" />
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="drawerOpen" Breakpoint="Breakpoint.Md" Variant="DrawerVariant.Responsive" Elevation="0">
+        <NavMenu />
+    </MudDrawer>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.Large" Class="my-4">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+<div id="blazor-error-ui" data-nosnippet>
+    @L["Layout_ErrorMessage"]
+    <a href="." class="reload">@L["Layout_Reload"]</a>
+    <span class="dismiss">&#10005;</span>
+</div>
+
+@code {
+    private bool drawerOpen = true;
+
+    private void ToggleDrawer() => drawerOpen = !drawerOpen;
+}

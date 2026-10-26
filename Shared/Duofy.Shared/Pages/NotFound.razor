@@ -1,0 +1,12 @@
+﻿@page "/not-found"
+@layout MainLayout
+@inject IStringLocalizer<SharedResources> L
+
+@* Wird gezeigt, wenn eine Adresse zu keiner Seite passt. Alle Texte kommen aus
+   SharedResources.resx; im Markup steht nur der Schlüssel. *@
+
+<PageTitle>@L["NotFound_Title"]</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-2">@L["NotFound_Title"]</MudText>
+<MudText Class="mb-4">@L["NotFound_Text"]</MudText>
+<MudButton Href="/" Variant="Variant.Filled" Color="Color.Primary">@L["NotFound_BackToStart"]</MudButton>

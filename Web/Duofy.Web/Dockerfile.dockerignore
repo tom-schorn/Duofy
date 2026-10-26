@@ -1,0 +1,12 @@
+# Was nicht ins Image der Web-Variante gehört (Docker liest diese Datei neben dem Dockerfile).
+**/bin/
+**/obj/
+.git/
+.worktrees/
+.workday/
+deploy/
+docs/
+Mobile/
+Tests/
+**/.env
+**/appsettings.Development.json

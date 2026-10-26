@@ -1,0 +1,13 @@
+@* Eine kleine Meldung (Erfolg oder Fehler) über den Feldern eines Abschnitts.
+   Eine eigene Komponente, damit die Kontoseite nicht dreimal dasselbe aufschreibt.
+   [Parameter] sind die Werte, die der Aufrufer hineinreicht: <Notice Message="..." /> *@
+
+@if (Message is not null)
+{
+    <MudAlert Severity="Message.Severity" Class="mb-2">@Message.Text</MudAlert>
+}
+
+@code {
+    [Parameter]
+    public NoticeMessage? Message { get; set; }
+}

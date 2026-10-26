@@ -1,0 +1,65 @@
+@inherits ThemedLayoutBase
+@implements IDisposable
+@inject AppChrome Chrome
+@inject IStringLocalizer<SharedResources> L
+
+@* Das Layout der Android-App: obere Leiste mit dem Titel der Seite, der Inhalt, unten die
+   Navigationsleiste und darüber der runde Plus-Knopf der Seite. Der Browser benutzt weiter
+   MainLayout.
+
+   Titel und Plus-Knopf kommen von der Seite über AppChrome. Rechts in der oberen Leiste steht der Umschalter
+   "wessen Zahlen" (Spec 68), sobald jemand etwas mit mir teilt. Die vier "Provider" braucht MudBlazor
+   einmal pro Anwendung (Farben, Popups, Dialoge, Meldungen), wie in MainLayout. *@
+
+<MudThemeProvider @ref="ThemeProvider" Theme="DuofyTheme.Instance" @bind-IsDarkMode="IsDarkMode" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="0">
+        <MudText Typo="Typo.h6" HtmlTag="h1" data-testid="app-title">@(Chrome.Title ?? L["App_Name"])</MudText>
+        <MudSpacer />
+        <AuthorizeView>
+            <Authorized>
+                <MemberSwitch />
+            </Authorized>
+        </AuthorizeView>
+    </MudAppBar>
+
+    <MudMainContent Class="app-main">
+        <MudContainer MaxWidth="MaxWidth.Large" Class="my-4">
+            <CascadingValue Value="@(new ModeSwitch(IsDarkMode, ToggleModeAsync))">
+                @Body
+            </CascadingValue>
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@if (Chrome.PlusAction is not null && Chrome.PlusLockedBy is not null)
+{
+    @* Ohne Freigabe zum Anlegen (Spec 68): ausgegraut und ohne Wirkung, aber erreichbar, mit dem Grund auf der Seite. *@
+    <MudFab StartIcon="@Icons.Material.Filled.Add" Ripple="false" Class="app-fab grant-locked"
+            aria-label="@Chrome.PlusLabel" aria-disabled="true" aria-describedby="@Chrome.PlusLockedBy" data-testid="app-plus" />
+}
+else if (Chrome.PlusAction is not null)
+{
+    <MudFab Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Disabled="Chrome.PlusDisabled"
+            OnClick="@(() => Chrome.PlusAction!())" Class="app-fab" aria-label="@Chrome.PlusLabel" data-testid="app-plus" />
+}
+
+<BottomNavigation />
+
+<div id="blazor-error-ui" data-nosnippet>
+    @L["Layout_ErrorMessage"]
+    <a href="." class="reload">@L["Layout_Reload"]</a>
+    <span class="dismiss">&#10005;</span>
+</div>
+
+@code {
+    protected override void OnInitialized() => Chrome.Changed += OnChromeChanged;
+
+    private void OnChromeChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Chrome.Changed -= OnChromeChanged;
+}

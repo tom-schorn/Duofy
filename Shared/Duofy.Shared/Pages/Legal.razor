@@ -1,0 +1,75 @@
+@page "/rechtliches/{Slug}"
+@using Duofy.ApiClient
+@implements IDisposable
+@inject IAppHost Host
+@inject AppChrome Chrome
+@inject ILegalApi LegalApi
+@inject IStringLocalizer<SharedResources> L
+
+@* Ein Rechtstext des Servers (Impressum, Datenschutz, Nutzungsbedingungen, Spec 70, R7). Ohne Anmeldung
+   lesbar. Der Text ist reiner Text mit Zeilenumbrüchen: Blazor schreibt ihn mit @text immer maskiert in die
+   Seite, "<b>x</b>" erscheint also als Buchstaben und wird nie ausgeführt. Die Zeilenumbrüche kommen von
+   white-space: pre-wrap. Die Seite fragt die API nur nach einem der drei bekannten Namen. *@
+
+<PageTitle>@Title</PageTitle>
+
+@if (!Host.IsApp)
+{
+    <MudText Typo="Typo.h4" Class="mb-2">@Title</MudText>
+}
+
+@if (error is not null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@error</MudAlert>
+}
+else if (missing)
+{
+    <MudText data-testid="legal-missing">@L["Legal_Missing"]</MudText>
+}
+else if (text is not null)
+{
+    <div data-testid="legal-text" style="white-space: pre-wrap; overflow-wrap: anywhere;">@text</div>
+}
+
+@code {
+    [Parameter]
+    public string? Slug { get; set; }
+
+    private string? text;
+    private string? error;
+    private bool missing;
+
+    private string Title => LegalPages.NameOf(Slug) is { } name
+        ? L[LegalPages.LabelKeyOf(name)]
+        : L["Legal_Footer"];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        text = null;
+        error = null;
+        missing = false;
+        Chrome.Set(this, Title);
+
+        if (LegalPages.NameOf(Slug) is not { } name)
+        {
+            missing = true;
+            return;
+        }
+
+        var result = await LegalApi.GetAsync(name);
+        if (result.Succeeded)
+        {
+            text = result.Value!.Text;
+        }
+        else if (result.ErrorCode == ClientErrorCodes.NotFound)
+        {
+            missing = true;
+        }
+        else
+        {
+            error = ErrorTexts.For(L, result.ErrorCode);
+        }
+    }
+
+    public void Dispose() => Chrome.Release(this);
+}

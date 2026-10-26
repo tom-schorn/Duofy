@@ -1,0 +1,118 @@
+@page "/einladung/{Token}"
+@layout AuthLayout
+@using System.Globalization
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@inject IHouseholdApi HouseholdApi
+@inject ActiveMember Member
+@inject AuthenticationStateProvider Authentication
+@inject NavigationManager Navigation
+@inject IStringLocalizer<SharedResources> L
+
+@* Ein Einladungslink (R5, R6). Die Seite geht auch ohne Anmeldung: Sie zeigt, welcher Haushalt einlädt,
+   wer einlädt und bis wann, aber nie die Mitglieder. Wer nicht angemeldet ist, meldet sich an oder
+   registriert sich und kommt danach hierher zurück (returnUrl); wer angemeldet ist, tritt bei.
+
+   Wer schon in einem Haushalt ist, sieht Beitreten ausgegraut mit dem Grund (A21), statt angeboten und dann
+   abgelehnt zu werden; das already_in_household der API bleibt das Netz darunter. Nach dem Beitreten frischt
+   die Seite den Umschalter auf (Spec 69, A12), damit er "Haushalt" ohne Neustart anbietet. *@
+
+<PageTitle>@L["Invitation_Title"]</PageTitle>
+
+<div class="auth-header">
+    <MudText Typo="Typo.h2" HtmlTag="h1">@L["Invitation_Title"]</MudText>
+</div>
+
+@if (error is not null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4" data-testid="invitation-error">@error</MudAlert>
+}
+
+@if (preview is not null)
+{
+    <MudStack Spacing="3">
+        <MudText>@L["Invitation_Text", preview.InvitedBy, preview.HouseholdName]</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            @L["Invitation_Until", preview.ExpiresAt.ToLocalTime().ToString("dd.MM.yyyy", German)]
+        </MudText>
+
+        <AuthorizeView>
+            <Authorized>
+                @if (inHousehold)
+                {
+                    @* aria-disabled statt disabled, damit ein Screenreader den Knopf findet und den Grund vorliest. *@
+                    <MudText Typo="Typo.body2" id="invitation-join-reason" data-testid="invitation-join-reason">@L["Error_already_in_household"]</MudText>
+                    <MudButton Variant="Variant.Filled" FullWidth="true" Ripple="false" DropShadow="false"
+                               Style="background-color: var(--mud-palette-action-disabled-background); color: var(--mud-palette-action-disabled); cursor: default;"
+                               aria-disabled="true" aria-describedby="invitation-join-reason"
+                               data-testid="invitation-join">@L["Invitation_Join"]</MudButton>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2">@L["Invitation_JoinHint"]</MudText>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Disabled="busy"
+                               OnClick="JoinAsync" data-testid="invitation-join">@L["Invitation_Join"]</MudButton>
+                }
+            </Authorized>
+            <NotAuthorized>
+                <MudText Typo="Typo.body2">@L["Invitation_SignInHint"]</MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                           Href="@ReturnAddress.With("/anmelden", Here)" data-testid="invitation-sign-in">@L["Invitation_SignIn"]</MudButton>
+                <MudButton Variant="Variant.Outlined" FullWidth="true"
+                           Href="@ReturnAddress.With("/registrieren", Here)" data-testid="invitation-register">@L["Invitation_Register"]</MudButton>
+            </NotAuthorized>
+        </AuthorizeView>
+    </MudStack>
+}
+
+@code {
+    private static readonly CultureInfo German = new("de-DE");
+
+    [Parameter] public string Token { get; set; } = "";
+
+    private InvitationPreview? preview;
+    private string? error;
+    private bool busy;
+
+    // True, wenn die angemeldete Person schon in einem Haushalt ist; dann ist Beitreten ausgegraut.
+    private bool inHousehold;
+
+    private string Here => $"/einladung/{Token}";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var result = await HouseholdApi.PreviewInvitationAsync(Token);
+        preview = result.Succeeded ? result.Value : null;
+        error = result.Succeeded ? null : ErrorTexts.For(L, result.ErrorCode);
+
+        // Ohne Anmeldung gibt es keinen eigenen Haushalt. Angemeldet fragt die Seite über den Umschalter, der den
+        // Haushalt ohnehin kennt. Scheitert das Laden, bleibt Beitreten angeboten und die API entscheidet.
+        var state = await Authentication.GetAuthenticationStateAsync();
+        inHousehold = false;
+        if (state.User.Identity?.IsAuthenticated == true)
+        {
+            await Member.RefreshAsync();
+            inHousehold = Member.Household is not null;
+        }
+    }
+
+    private async Task JoinAsync()
+    {
+        busy = true;
+        try
+        {
+            var joined = await HouseholdApi.AcceptInvitationAsync(Token);
+            if (!joined.Succeeded)
+            {
+                error = ErrorTexts.For(L, joined.ErrorCode);
+                return;
+            }
+            await Member.RefreshAsync();
+            Navigation.NavigateTo("/haushalt");
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

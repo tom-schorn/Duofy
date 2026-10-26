@@ -1,0 +1,186 @@
+namespace Duofy.Schemas;
+
+/// <summary>Welche Art von Unterschied zwischen Monat und Verträgen die API meldet.</summary>
+public static class PlanChangeKinds
+{
+    /// <summary>Der Vertrag hat andere Werte als sein Posten.</summary>
+    public const string Changed = "changed";
+
+    /// <summary>Der Vertrag ist in diesem Monat fällig, hat aber noch keinen Posten.</summary>
+    public const string New = "new";
+
+    /// <summary>Der Vertrag des Postens ist in diesem Monat nicht mehr fällig.</summary>
+    public const string NoLongerDue = "no_longer_due";
+}
+
+/// <summary>
+/// Die Felder eines Postens, die aus dem Vertrag stammen. Die Werte vorher und nachher stehen als
+/// Text in der Antwort: Beträge mit Punkt ("890.00"), Kennungen, Schlüssel von Topf, Art und
+/// Zahlungsart, Wahrheitswerte als "true" oder "false"; null heißt leer.
+/// </summary>
+public static class PlanFields
+{
+    public const string Label = "label";
+    public const string Amount = "amount";
+    public const string DueDay = "due_day";
+    public const string Type = "type";
+    public const string Category = "category";
+    public const string Pot = "pot";
+    public const string Account = "account";
+    public const string CounterAccount = "counter_account";
+    public const string PassThrough = "pass_through";
+    public const string PaymentMethod = "payment_method";
+}
+
+/// <summary>Ein Posten in der Antwort der API.</summary>
+/// <param name="CommitmentId">Der Vertrag, aus dem der Posten stammt; null bei einem einmaligen Posten.</param>
+/// <param name="Type">Die Art wie beim Vertrag, siehe <see cref="CommitmentTypes"/>.</param>
+/// <param name="AccountId">Das zahlende Konto; null heißt Standardkonto.</param>
+/// <param name="Booked">Die Summe der Buchungszeilen, die dem Posten zugeordnet sind; größer als 0 heißt: er hat Buchungen.</param>
+/// <param name="DoneAt">Wann der Posten abgehakt wurde; null, solange er offen ist.</param>
+/// <param name="ChangedByHand">True, wenn der Posten im Monat von Hand geändert wurde.</param>
+/// <param name="TickBookingId">Die Buchung, die beim Abhaken entstanden ist.</param>
+public sealed record PlanPositionResponse(
+    Guid Id,
+    Guid? CommitmentId,
+    string Label,
+    decimal AmountPlanned,
+    int DueDay,
+    string Type,
+    Guid CategoryId,
+    string Pot,
+    Guid? AccountId,
+    Guid? CounterAccountId,
+    bool PassThrough,
+    string PaymentMethod,
+    decimal Booked,
+    DateTimeOffset? DoneAt,
+    bool ChangedByHand,
+    Guid? TickBookingId);
+
+/// <summary>Ein Feld eines Unterschieds mit dem Wert im Posten (vorher) und im Vertrag (nachher).</summary>
+/// <param name="Field">Siehe <see cref="PlanFields"/>.</param>
+public sealed record PlanFieldChangeResponse(string Field, string? Before, string? After);
+
+/// <summary>Ein Unterschied zwischen dem Monat und den Verträgen von heute.</summary>
+/// <param name="Kind">Siehe <see cref="PlanChangeKinds"/>.</param>
+/// <param name="PositionId">Der Posten; null bei einem neuen Vertrag.</param>
+/// <param name="Label">Die Bezeichnung zum Anzeigen: die des Postens oder, bei einem neuen Vertrag, dessen Name.</param>
+/// <param name="Protected">True bei einem abgehakten oder von Hand geänderten Posten; "alle übernehmen" lässt ihn aus.</param>
+public sealed record PlanChangeResponse(
+    string Kind,
+    Guid? PositionId,
+    Guid CommitmentId,
+    string Label,
+    IReadOnlyList<PlanFieldChangeResponse> Fields,
+    bool Protected);
+
+/// <summary>Ziel und Ist der Quote eines Topfs.</summary>
+/// <param name="Pot">"needs", "wants" oder "savings".</param>
+/// <param name="Target">Die Zielquote des Monats in ganzen Prozent.</param>
+/// <param name="Actual">Das Ist in Prozent mit einer Nachkommastelle.</param>
+public sealed record PlanQuotaResponse(string Pot, int Target, decimal Actual);
+
+/// <summary>Der gerechnete Stand eines Kontos am letzten Tag des Vormonats, für den Übertrag.</summary>
+public sealed record PlanAccountBalanceResponse(Guid AccountId, decimal Balance);
+
+/// <summary>Was der Dialog "Übertrag" braucht.</summary>
+/// <param name="Suggested">Einnahmen minus Ausgaben des Vormonats nach Planmonat.</param>
+/// <param name="Exists">True, wenn es für diesen Monat schon einen Übertrag gibt.</param>
+/// <param name="Amount">Der Betrag des vorhandenen Übertrags; null ohne Übertrag.</param>
+/// <param name="Balances">Die offenen Konten mit ihrem gerechneten Stand am letzten Tag des Vormonats.</param>
+public sealed record PlanCarryOverResponse(
+    decimal Suggested,
+    bool Exists,
+    decimal? Amount,
+    IReadOnlyList<PlanAccountBalanceResponse> Balances);
+
+/// <summary>
+/// Ein Monat (GET /api/v1/plans/{year}/{month}): die Posten nach Fälligkeitstag und Name, die
+/// Summen, die Quoten, die Unterschiede zu den Verträgen und der Übertrag.
+/// </summary>
+/// <param name="PlannedIncome">Die geplanten Einnahmen (Posten im Topf Einnahmen).</param>
+/// <param name="PlannedExpenses">Die geplanten Ausgaben (alle anderen Posten).</param>
+/// <param name="BookedIncome">Die Einnahmen aller Buchungen mit diesem Planmonat.</param>
+/// <param name="BookedExpenses">Die Ausgaben aller Buchungen mit diesem Planmonat; Umbuchungen zählen nicht.</param>
+public sealed record PlanResponse(
+    Guid Id,
+    int Year,
+    int Month,
+    IReadOnlyList<PlanPositionResponse> Positions,
+    decimal PlannedIncome,
+    decimal PlannedExpenses,
+    decimal BookedIncome,
+    decimal BookedExpenses,
+    IReadOnlyList<PlanQuotaResponse> Quotas,
+    IReadOnlyList<PlanChangeResponse> Changes,
+    PlanCarryOverResponse CarryOver);
+
+/// <summary>Ein einmaliger Posten (POST /api/v1/plans/{year}/{month}/positions).</summary>
+/// <param name="Label">Die Bezeichnung, 1 bis <see cref="PlanRules.LabelMaxLength"/> Zeichen.</param>
+/// <param name="Amount">Der geplante Betrag in Euro, größer als null.</param>
+/// <param name="DueDay">Der Tag im Monat, 1 bis zum letzten Tag des Monats.</param>
+/// <param name="CategoryId">Eine eingebaute oder eigene Kategorie, passend zum Topf.</param>
+/// <param name="Pot">Der Topf, siehe <see cref="PotKeys"/>; Einnahmen nur mit Einnahme-Kategorien.</param>
+/// <param name="AccountId">Das zahlende Konto; leer heißt: das Standardkonto.</param>
+public sealed record CreatePositionRequest(
+    string? Label,
+    decimal Amount,
+    int DueDay,
+    Guid? CategoryId,
+    string? Pot,
+    Guid? AccountId = null);
+
+/// <summary>
+/// Eine Änderung an einem Posten (PATCH .../positions/{id}). Was fehlt, bleibt; das Konto wird mit
+/// <paramref name="ClearAccountId"/> geleert. Ein Posten aus einem Vertrag gilt danach als von Hand geändert.
+/// </summary>
+public sealed record UpdatePositionRequest(
+    string? Label = null,
+    decimal? Amount = null,
+    int? DueDay = null,
+    Guid? CategoryId = null,
+    string? Pot = null,
+    Guid? AccountId = null,
+    bool? ClearAccountId = null);
+
+/// <summary>
+/// Das Abhaken eines Postens (POST .../positions/{id}/tick). Alles ist freiwillig: Ohne Buchungen
+/// am Posten entsteht eine Buchung über den geplanten Betrag; mit Buchungen nur, wenn ein Betrag
+/// über 0 geschickt wird (der Ausgleich). 0 hakt ohne Buchung ab.
+/// </summary>
+/// <param name="Date">Der Tag der Buchung; ohne Angabe heute oder der Fälligkeitstag, wenn er schon vorbei ist.</param>
+/// <param name="AccountId">Das Konto der Buchung; ohne Angabe das des Postens, sonst das Standardkonto.</param>
+public sealed record TickPositionRequest(decimal? Amount = null, DateOnly? Date = null, Guid? AccountId = null);
+
+/// <summary>Ein Unterschied, den die Person übernehmen will: über den Posten, bei einem neuen Vertrag über den Vertrag.</summary>
+public sealed record PlanChangeItem(Guid? PositionId, Guid? CommitmentId);
+
+/// <summary>
+/// Unterschiede übernehmen (POST .../changes/apply). Ohne Liste alle, die nicht geschützt sind;
+/// mit Liste genau diese, auch geschützte.
+/// </summary>
+public sealed record ApplyPlanChangesRequest(IReadOnlyList<PlanChangeItem>? Items = null);
+
+/// <summary>Der echte Stand eines Kontos am letzten Tag des Vormonats.</summary>
+public sealed record RealBalance(Guid AccountId, decimal Balance);
+
+/// <summary>
+/// Der Übertrag in einen Monat (POST .../carry-over): der Betrag, der wirklich übrig ist, und
+/// freiwillig die echten Kontostände; jeder Unterschied zum gerechneten Stand wird eine Ausgleichsbuchung.
+/// </summary>
+public sealed record CreateCarryOverRequest(decimal Amount, IReadOnlyList<RealBalance>? Balances = null);
+
+/// <summary>Die Zielquoten einer Person (GET und PUT /api/v1/users/me/quotas), ganze Prozent mit Summe 100.</summary>
+public sealed record QuotaSettings(int Needs, int Wants, int Savings);
+
+/// <summary>Die Regeln für Pläne. Die API prüft sie, die Oberfläche kann sie schon beim Tippen anzeigen.</summary>
+public static class PlanRules
+{
+    /// <summary>Die größte erlaubte Länge der Bezeichnung eines einmaligen Postens.</summary>
+    public const int LabelMaxLength = 100;
+
+    /// <summary>Der erste und der letzte Monat, den die API anlegt.</summary>
+    public const int FirstYear = 2000;
+    public const int LastYear = 2100;
+}

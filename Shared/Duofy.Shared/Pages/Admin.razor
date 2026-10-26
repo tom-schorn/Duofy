@@ -1,0 +1,260 @@
+@page "/admin"
+@attribute [Authorize]
+@using System.Globalization
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@implements IDisposable
+@inject IUserApi UserApi
+@inject IInstanceApi InstanceApi
+@inject IAdminApi AdminApi
+@inject IShareService Share
+@inject IDialogService DialogService
+@inject IAppHost Host
+@inject AppChrome Chrome
+@inject IStringLocalizer<SharedResources> L
+
+@* Admin (Spec 70, R4 und R6): wer auf diesen Server kommen darf. Hier legt der Admin Einladungen zur Registrierung
+   an, auf Wunsch nur für eine Adresse, und sieht die offenen mit Link, QR-Code, Teilen und Zurückziehen. Den Link
+   baut die API mit der öffentlichen Adresse des Servers.
+
+   Nur für Admins; unter "Mehr" sehen alle anderen den Eintrag gar nicht. Wer die Adresse trotzdem aufruft, sieht
+   nur einen Hinweis; die API lehnt ohnehin ab. Nichts hier zeigt Pläne, Buchungen oder Konten anderer: Ein Admin
+   betreibt den Server, er schaut nicht hinein.
+
+   Auf einem selbst betriebenen Server gibt es keine Mails (Spec 53, R4): Wer sein Passwort vergessen hat, bekommt vom
+   Admin einen Link, 24 Stunden gültig und einmal, mit QR-Code und Teilen. Auf der gehosteten Version fehlt dieser
+   Abschnitt, dort geht "Passwort vergessen" per Mail; dafür geht eine Einladung mit Adresse auch per Mail hinaus. *@
+
+<PageTitle>@L["Admin_Title"]</PageTitle>
+
+@if (!Host.IsApp)
+{
+    <MudText Typo="Typo.h4" Class="mb-2">@L["Admin_Title"]</MudText>
+}
+
+<Notice Message="message" />
+
+@if (loaded && !isAdmin)
+{
+    <MudAlert Severity="Severity.Info" data-testid="admin-not-allowed">@L["Admin_NotAllowed"]</MudAlert>
+}
+
+@if (isAdmin)
+{
+    <MudText Typo="Typo.body2" Class="mb-1">@L["Admin_Lead"]</MudText>
+    @if (mode is not null)
+    {
+        <MudText Typo="Typo.body2" Class="mb-4" data-testid="admin-mode">@L[$"Admin_Mode_{mode}"]</MudText>
+    }
+
+    <MudPaper Class="pa-4 mb-4" Outlined="true">
+        <MudText Typo="Typo.h6" Class="mb-2">@L["Admin_CreateHeading"]</MudText>
+        <div class="field">
+            <FieldLabel For="admin-email-input" Text="@L["Admin_Email"]" />
+            <MudTextField @bind-Value="email" Variant="Variant.Outlined" InputId="admin-email-input" Immediate="true"
+                          InputType="InputType.Email" Placeholder="@L["Auth_EmailPlaceholder"]" HelperText="@L["Admin_EmailHint"]"
+                          data-testid="admin-email" />
+        </div>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd" Class="mt-3"
+                   Disabled="busy" OnClick="CreateAsync" data-testid="admin-create">@L["Admin_Create"]</MudButton>
+    </MudPaper>
+
+    @if (!hosted)
+    {
+        <MudPaper Class="pa-4 mb-4" Outlined="true" data-testid="admin-reset">
+            <MudText Typo="Typo.h6" Class="mb-1">@L["Admin_ResetHeading"]</MudText>
+            <MudText Typo="Typo.body2" Class="mb-2">@L["Admin_ResetText"]</MudText>
+            <Notice Message="resetMessage" />
+            <div class="field">
+                <FieldLabel For="admin-reset-email-input" Text="@L["Admin_ResetEmail"]" />
+                <MudTextField @bind-Value="resetEmail" Variant="Variant.Outlined" InputId="admin-reset-email-input"
+                              InputType="InputType.Email" Placeholder="@L["Auth_EmailPlaceholder"]" autocomplete="off"
+                              data-testid="admin-reset-email" />
+            </div>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.LockReset" Class="mt-3"
+                       Disabled="resetBusy" OnClick="CreateResetLinkAsync" data-testid="admin-reset-create">@L["Admin_ResetCreate"]</MudButton>
+            @if (resetLink is { } reset)
+            {
+                <MudStack Spacing="2" Class="mt-3">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Admin_ResetValidUntil", Moment(reset.ExpiresAt)]</MudText>
+                    <div role="img" aria-label="@L["Admin_ResetQr"]" style="width: 160px; max-width: 100%; background: #ffffff;"
+                         data-testid="admin-reset-qr">@((MarkupString)InvitationQr.Svg(reset.Url))</div>
+                    <MudText Typo="Typo.body2" Style="word-break: break-all;" data-testid="admin-reset-link">@reset.Url</MudText>
+                    <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.Share" Class="align-self-start"
+                               OnClick="() => ShareResetAsync(reset.Url)"
+                               data-testid="admin-reset-share">@L["InviteDialog_Share"]</MudButton>
+                </MudStack>
+            }
+        </MudPaper>
+    }
+
+    <MudText Typo="Typo.h6" Class="mb-2">@L["Admin_OpenHeading"]</MudText>
+    @if (invitations.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary">@L["Admin_Empty"]</MudText>
+    }
+    <MudStack Spacing="2" Class="mb-4">
+        @foreach (var invitation in invitations)
+        {
+            <MudPaper Class="pa-3" Outlined="true" data-testid="@($"admin-invitation-{invitation.Id}")">
+                <MudStack Spacing="2">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudStack Spacing="0" Class="flex-grow-1">
+                            <MudText>@(invitation.Email ?? L["Admin_Anyone"])</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Admin_ValidUntil", Day(invitation.ExpiresAt)]</MudText>
+                        </MudStack>
+                        <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Error" OnClick="() => RevokeAsync(invitation)"
+                                   data-testid="@($"admin-invitation-revoke-{invitation.Id}")">@L["Admin_Revoke"]</MudButton>
+                    </MudStack>
+                    @if (invitation.Url is { } link)
+                    {
+                        <div role="img" aria-label="@L["InviteDialog_Qr"]" style="width: 160px; max-width: 100%; background: #ffffff;"
+                             data-testid="@($"admin-invitation-qr-{invitation.Id}")">@((MarkupString)InvitationQr.Svg(link))</div>
+                        <MudText Typo="Typo.body2" Style="word-break: break-all;"
+                                 data-testid="@($"admin-invitation-link-{invitation.Id}")">@link</MudText>
+                        <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.Share" Class="align-self-start"
+                                   OnClick="() => ShareAsync(link)"
+                                   data-testid="@($"admin-invitation-share-{invitation.Id}")">@L["InviteDialog_Share"]</MudButton>
+                    }
+                </MudStack>
+            </MudPaper>
+        }
+    </MudStack>
+}
+
+@code {
+    private static readonly CultureInfo German = new("de-DE");
+
+    private bool loaded;
+    private bool isAdmin;
+    private string? mode;
+    private List<RegistrationInvitationResponse> invitations = [];
+    private string email = "";
+    private bool busy;
+    private NoticeMessage? message;
+
+    // Spec 53: gehostet oder selbst betrieben; ohne Antwort des Servers gilt selbst betrieben.
+    private bool hosted;
+    private string resetEmail = "";
+    private bool resetBusy;
+    private PasswordResetLinkResponse? resetLink;
+    private NoticeMessage? resetMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Chrome.Set(this, L["Admin_Title"]);
+        var me = await UserApi.GetMeAsync();
+        isAdmin = me.Succeeded && me.Value!.IsInstanceAdmin;
+        loaded = me.Succeeded;
+        if (!me.Succeeded)
+        {
+            message = new NoticeMessage(ErrorTexts.For(L, me.ErrorCode), Severity.Error);
+            return;
+        }
+        if (!isAdmin)
+        {
+            return;
+        }
+
+        var instance = await InstanceApi.GetAsync();
+        mode = instance.Succeeded && instance.Value!.RegistrationMode is { } known && RegistrationModes.All.Contains(known) ? known : null;
+        hosted = instance.Succeeded && instance.Value!.Hosted;
+        await LoadAsync();
+    }
+
+    public void Dispose() => Chrome.Release(this);
+
+    private async Task LoadAsync()
+    {
+        var open = await AdminApi.ListInvitationsAsync();
+        if (open.Succeeded)
+        {
+            invitations = open.Value!.ToList();
+        }
+        else
+        {
+            message = new NoticeMessage(ErrorTexts.For(L, open.ErrorCode), Severity.Error);
+        }
+    }
+
+    private string Day(DateTimeOffset moment) => moment.ToLocalTime().ToString("dd.MM.yyyy", German);
+
+    private string Moment(DateTimeOffset moment) => moment.ToLocalTime().ToString("dd.MM.yyyy, HH:mm", German);
+
+    // Ob es zur Adresse ein Konto gibt, erfährt nur der Admin (user_not_found).
+    private async Task CreateResetLinkAsync()
+    {
+        if (string.IsNullOrWhiteSpace(resetEmail))
+        {
+            resetMessage = new NoticeMessage(ErrorTexts.For(L, ErrorCodes.EmailInvalid), Severity.Error);
+            return;
+        }
+        resetBusy = true;
+        resetLink = null;
+        try
+        {
+            var created = await AdminApi.CreatePasswordResetLinkAsync(resetEmail.Trim());
+            if (!created.Succeeded)
+            {
+                resetMessage = new NoticeMessage(ErrorTexts.For(L, created.ErrorCode), Severity.Error);
+                return;
+            }
+            resetLink = created.Value;
+            resetMessage = null;
+            resetEmail = "";
+        }
+        finally
+        {
+            resetBusy = false;
+        }
+    }
+
+    // Ein leeres Feld heißt: für jede Adresse. Ob die Adresse gültig ist, prüft die API (email_invalid).
+    private async Task CreateAsync()
+    {
+        busy = true;
+        try
+        {
+            var address = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
+            var created = await AdminApi.CreateInvitationAsync(address);
+            if (!created.Succeeded)
+            {
+                message = new NoticeMessage(ErrorTexts.For(L, created.ErrorCode), Severity.Error);
+                return;
+            }
+            email = "";
+            message = new NoticeMessage(hosted && address is not null ? L["Admin_CreatedMailed"] : L["Admin_Created"], Severity.Success);
+            await LoadAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private Task ShareAsync(string link) => Share.ShareAsync(L["Admin_ShareTitle"], link);
+
+    private Task ShareResetAsync(string link) => Share.ShareAsync(L["Admin_ResetShareTitle"], link);
+
+    // Folgenreiches fragt einmal nach; erst die Bestätigung führt es aus.
+    private async Task RevokeAsync(RegistrationInvitationResponse invitation)
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(new MessageBoxOptions
+        {
+            Title = L["Admin_RevokeTitle"],
+            Message = L["Admin_RevokeText"],
+            YesText = L["Admin_Revoke"],
+            CancelText = L["Admin_Cancel"],
+        }) == true;
+        if (!confirmed)
+        {
+            return;
+        }
+
+        var result = await AdminApi.RevokeInvitationAsync(invitation.Id);
+        message = result.Succeeded
+            ? new NoticeMessage(L["Admin_Revoked"], Severity.Success)
+            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+        await LoadAsync();
+    }
+}

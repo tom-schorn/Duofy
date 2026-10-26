@@ -1,0 +1,2 @@
+# Das Backup-Skript läuft mit sh in Linux; Windows-Zeilenenden würden es zerbrechen.
+*.sh text eol=lf

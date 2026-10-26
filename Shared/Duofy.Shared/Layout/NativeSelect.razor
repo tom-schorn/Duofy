@@ -1,0 +1,43 @@
+@* Ein Auswahlfeld mit der Auswahl des Geräts: Auf dem Handy öffnet sich das Auswahlfenster des
+   Systems, im Browser die gewohnte Liste. MudBlazor hat in dieser Version kein solches Feld, und
+   das eigene MudSelect öffnet ein Fenster im Fenster, das auf dem Handy umständlich ist.
+
+   So benutzt man es, genau wie ein MudTextField:
+
+       <NativeSelect Label="Konto" @bind-Value="kontoId">
+           <option value="a">Girokonto</option>
+       </NativeSelect>
+
+   Die Auswahl ist immer ein Text; leer ist "". Weitere Attribute (zum Beispiel data-testid)
+   landen am <select>-Element selbst. *@
+
+<div class="mb-2">
+    <MudText Typo="Typo.caption" Color="Color.Secondary">@Label</MudText>
+    <select value="@Value" @onchange="OnChangeAsync" @attributes="AdditionalAttributes"
+            style="width: 100%; padding: 12px; border: 1px solid var(--mud-palette-lines-inputs); border-radius: var(--mud-default-borderradius); background: transparent; color: inherit; font: inherit;">
+        @ChildContent
+    </select>
+</div>
+
+@code {
+
+    /// <summary>Die Beschriftung über dem Feld.</summary>
+    [Parameter]
+    public string? Label { get; set; }
+
+    /// <summary>Der Wert der gewählten Option, "" wenn nichts gewählt ist.</summary>
+    [Parameter]
+    public string Value { get; set; } = "";
+
+    [Parameter]
+    public EventCallback<string> ValueChanged { get; set; }
+
+    /// <summary>Die Optionen: <c>&lt;option value="..."&gt;</c> oder Gruppen mit <c>&lt;optgroup&gt;</c>.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private Task OnChangeAsync(ChangeEventArgs e) => ValueChanged.InvokeAsync(e.Value?.ToString() ?? "");
+}

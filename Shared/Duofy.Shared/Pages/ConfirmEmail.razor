@@ -1,0 +1,68 @@
+@page "/bestaetigen"
+@layout AuthLayout
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@inject IAuthApi AuthApi
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Seite hinter dem Link aus der Mail nach der Registrierung (Spec 53, R2): /bestaetigen?id=<Konto>&token=<Token>.
+   Sie bestätigt erst auf Knopfdruck, nicht schon beim Öffnen: Manche Mailprogramme öffnen Links vorab, um sie zu
+   prüfen. Keine Anmeldung nötig. *@
+
+<PageTitle>@L["Confirm_Title"]</PageTitle>
+
+<div class="auth-header">
+    <MudText Typo="Typo.h2" HtmlTag="h1">@L["Confirm_Title"]</MudText>
+    <p class="auth-lead">@L["Confirm_Lead"]</p>
+</div>
+
+<Notice Message="message" />
+
+@if (done)
+{
+    <MudButton Href="/anmelden" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+               data-testid="confirm-sign-in">@L["Auth_ToSignIn"]</MudButton>
+}
+else if (!Complete)
+{
+    <MudAlert Severity="Severity.Warning" data-testid="confirm-incomplete">@L["Link_Incomplete"]</MudAlert>
+}
+else
+{
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Disabled="busy" OnClick="ConfirmAsync"
+               data-testid="confirm-submit">@(busy ? L["Confirm_Pending"] : L["Confirm_Submit"])</MudButton>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "id")]
+    [Parameter]
+    public string? Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "token")]
+    [Parameter]
+    public string? Token { get; set; }
+
+    private bool busy;
+    private bool done;
+    private NoticeMessage? message;
+
+    private bool Complete => Guid.TryParse(Id, out _) && !string.IsNullOrEmpty(Token);
+
+    private async Task ConfirmAsync()
+    {
+        if (busy || !Complete) return;
+        busy = true;
+        try
+        {
+            var result = await AuthApi.ConfirmEmailAsync(new ConfirmEmailRequest(Guid.Parse(Id!), Token!));
+            done = result.Succeeded;
+            message = result.Succeeded
+                ? new NoticeMessage(L["Confirm_Done"], Severity.Success)
+                : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

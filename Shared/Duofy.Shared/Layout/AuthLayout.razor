@@ -1,0 +1,56 @@
+@inherits ThemedLayoutBase
+@inject IStringLocalizer<SharedResources> L
+@inject IAppHost Host
+
+@* Das Layout für Anmelden und Registrieren, nach dem Vorbild von AuthLayout.tsx im
+   ursprünglichen Duofy: ohne App-Leiste und ohne Navigation. Auf dem Handy nur das
+   Formular; ab 1024 px Breite links zusätzlich die dunkelblaue Markenfläche. Der
+   Schalter für hell/dunkel sitzt oben rechts, damit man auch vor der Anmeldung den
+   Modus wechseln kann. *@
+
+<MudThemeProvider @ref="ThemeProvider" Theme="DuofyTheme.Instance" @bind-IsDarkMode="IsDarkMode" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<div class="auth-layout">
+    <aside class="auth-brand" data-testid="auth-brand">
+        <span class="auth-brand-name">@L["App_Name"]</span>
+
+        <div class="auth-brand-middle">
+            <blockquote class="auth-claim">@L["Auth_Claim"]</blockquote>
+            <ul class="auth-pots">
+                <li><span class="auth-pot-square pot-needs"></span>@L["Auth_PotNeeds"]</li>
+                <li><span class="auth-pot-square pot-wants"></span>@L["Auth_PotWants"]</li>
+                <li><span class="auth-pot-square pot-savings"></span>@L["Auth_PotSavings"]</li>
+            </ul>
+        </div>
+
+        <p class="auth-tagline">@L["Auth_Tagline"]</p>
+    </aside>
+
+    <main class="auth-main">
+        <div class="auth-mode-switch">
+            <MudIconButton Class="mode-switch" OnClick="ToggleModeAsync"
+                           Icon="@(IsDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                           aria-label="@(IsDarkMode ? L["Layout_ToLightMode"] : L["Layout_ToDarkMode"])" />
+        </div>
+
+        <div class="auth-form">@Body</div>
+
+        @* Nur die Rechtstexte, die der Server anbietet (Spec 70, R8). *@
+        <LegalLinks />
+
+        @* Die Wahl des Servers gibt es nur in der App; die Web-Version spricht mit ihrem eigenen Server. *@
+        @if (Host.IsApp)
+        {
+            <ServerLine />
+        }
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    @L["Layout_ErrorMessage"]
+    <a href="." class="reload">@L["Layout_Reload"]</a>
+    <span class="dismiss">&#10005;</span>
+</div>

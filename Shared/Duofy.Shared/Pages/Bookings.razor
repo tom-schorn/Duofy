@@ -1,0 +1,349 @@
+@page "/buchungen"
+@attribute [Authorize]
+@using System.Globalization
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@inject IBookingApi BookingApi
+@inject ICategoryApi CategoryApi
+@inject IAccountChoices AccountChoices
+@implements IDisposable
+@inject IDialogService DialogService
+@inject IAppHost Host
+@inject AppChrome Chrome
+@inject ActiveMember Member
+@inject BookingDialogLauncher Launcher
+@inject TimeProvider Time
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Buchungsseite: ein Monat auf einmal, mit Pfeilen zum Blättern, einem Filter für das
+   Konto, den Summen oben und einem Plus-Knopf zum schnellen Eintragen.
+
+   Die Seite rechnet nichts selbst. Sie fragt die API nach Monat und Konto und zeigt die
+   Buchungen und Summen, die zurückkommen. Neue und geänderte Buchungen prüft ebenfalls die API;
+   die Seite zeigt deren Fehlertexte an.
+
+   Mit dem Umschalter zeigt die Seite die Buchungen eines anderen Mitglieds (Spec 68). Buchen und Ändern brauchen
+   dazu, dass es auch seine Konten zeigt. *@
+
+<PageTitle>@L["Bookings_Title"]</PageTitle>
+
+@* In der App steht der Titel in der oberen Leiste und das Plus im Layout (AppChrome). *@
+@if (!Host.IsApp)
+{
+    <MudText Typo="Typo.h4" Class="mb-2">@L["Bookings_Title"]</MudText>
+}
+
+<Notice Message="message" />
+
+@if (!Sees)
+{
+    <NotShared />
+}
+else
+{
+<GrantReason Show="@(!(CanAdd && CanEdit && CanDelete))" />
+
+@* Blättern: ein Pfeil zurück, der Monat, ein Pfeil vor. *@
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+    <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" OnClick="PreviousMonthAsync"
+                   aria-label="@L["Bookings_PreviousMonth"]" data-testid="bookings-previous-month" />
+    <MudText Typo="Typo.h6" data-testid="bookings-month">@MonthLabel</MudText>
+    <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" OnClick="NextMonthAsync"
+                   aria-label="@L["Bookings_NextMonth"]" data-testid="bookings-next-month" />
+</MudStack>
+
+@* Der Filter: alle Konten oder eines. Auch aufgelöste Konten stehen hier, ihre Buchungen bleiben ja erhalten. *@
+<NativeSelect Value="@(filterAccountId?.ToString() ?? "")" ValueChanged="OnFilterChangedAsync"
+                 Label="@L["Field_Account"]" data-testid="bookings-filter">
+    <option value="">@L["Bookings_AllAccounts"]</option>
+    @foreach (var account in accounts)
+    {
+        <option value="@account.Id">@account.Name</option>
+    }
+</NativeSelect>
+
+@* Die Summen des Monats (oder des gewählten Kontos). *@
+<MudStack Row="true" Spacing="4" Class="mb-2">
+    <MudPaper Class="pa-3 flex-grow-1" Outlined="true">
+        <MudText Typo="Typo.caption">@L["Bookings_Income"]</MudText>
+        <MudText Typo="Typo.h6" Color="Color.Success" data-testid="bookings-sum-income">@Money(monthData?.Income ?? 0m)</MudText>
+    </MudPaper>
+    <MudPaper Class="pa-3 flex-grow-1" Outlined="true">
+        <MudText Typo="Typo.caption">@L["Bookings_Expenses"]</MudText>
+        <MudText Typo="Typo.h6" data-testid="bookings-sum-expenses">@Money(monthData?.Expenses ?? 0m)</MudText>
+    </MudPaper>
+</MudStack>
+
+@if (accounts.Count == 0 && loaded && SeesAccounts && message?.Severity != Severity.Error)
+{
+    <MudAlert Severity="Severity.Info" Class="mb-2">@L["Bookings_NoAccounts"]</MudAlert>
+}
+
+@if (monthData is { Bookings.Count: 0 } && loaded)
+{
+    <MudText Color="Color.Secondary">@L["Bookings_Empty"]</MudText>
+}
+
+@* Die Buchungen, die neueste zuerst. Eine aufgeteilte Buchung steht einmal da, mit ihrer Summe. *@
+<MudStack Spacing="2">
+    @foreach (var booking in monthData?.Bookings ?? [])
+    {
+        <MudPaper Class="pa-3" Outlined="true" data-testid="@($"booking-{booking.Id}")">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudStack Spacing="0" Class="flex-grow-1">
+                    <MudText Typo="Typo.caption">@booking.Date.ToString("d", German)</MudText>
+                    <MudText>@Title(booking)</MudText>
+                    @if (booking.Note is { Length: > 0 })
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@booking.Note</MudText>
+                    }
+                </MudStack>
+                <MudText Typo="Typo.subtitle1" Color="@AmountColor(booking)">@SignedMoney(booking)</MudText>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditAsync(booking)"
+                               Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
+                               aria-label="@L["Bookings_Edit"]" data-testid="@($"booking-edit-{booking.Id}")" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => DeleteAsync(booking)"
+                               Class="@GrantLock.Class(CanDelete)" @attributes="GrantLock.Attributes(CanDelete)"
+                               aria-label="@L["Bookings_Delete"]" data-testid="@($"booking-delete-{booking.Id}")" />
+            </MudStack>
+        </MudPaper>
+    }
+</MudStack>
+
+@* Das Plus. Es bleibt unten rechts stehen, auch wenn die Liste lang ist. Ohne Konto gibt es nichts zu buchen. *@
+@if (!Host.IsApp)
+{
+    <MudFab Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Disabled="@(CanAdd && !HasActiveAccount)"
+            OnClick="AddAsync" aria-label="@L["Bookings_Add"]" data-testid="bookings-add"
+            Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)"
+            Style="position: fixed; right: 24px; bottom: 24px;" />
+}
+}
+
+@code {
+
+    // Deutsche Schreibweise für Datum und Beträge (21.10.2026, 1.234,50), auch wenn das Gerät anders eingestellt ist.
+    private static readonly CultureInfo German = new("de-DE");
+
+    private int year;
+    private int month;
+    private Guid? filterAccountId;
+    private IReadOnlyList<AccountChoice> accounts = [];
+    private List<CategoryResponse> categories = [];
+    private BookingMonthResponse? monthData;
+    private NoticeMessage? message;
+    private bool loaded;
+
+    private bool HasActiveAccount => accounts.Any(a => a.Active);
+
+    // Was die Freigabe des gewählten Mitglieds erlaubt (Spec 68); bei "Ich" alles. Wer bucht oder ändert, wählt
+    // ein Konto und muss die Konten deshalb sehen dürfen.
+    private bool Sees => Member.Allows(GrantAreas.Book, AccessLevelKeys.View);
+    private bool SeesAccounts => Member.Allows(GrantAreas.Accounts, AccessLevelKeys.View);
+    private bool CanAdd => Member.Allows(GrantAreas.Book, AccessLevelKeys.Create) && SeesAccounts;
+    private bool CanEdit => Member.Allows(GrantAreas.Book, AccessLevelKeys.Edit) && SeesAccounts;
+    private bool CanDelete => Member.Allows(GrantAreas.Book, AccessLevelKeys.Delete);
+
+    private string MonthLabel => new DateTime(year, month, 1).ToString("MMMM yyyy", German);
+
+    private DateOnly Today => DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
+
+    // Beim Öffnen: den heutigen Monat wählen, Konten und Kategorien holen, den Monat laden.
+    protected override async Task OnInitializedAsync()
+    {
+        PublishChrome();
+        year = Today.Year;
+        month = Today.Month;
+        // Erst nach dem ersten Laden zuhören: Das Laden selbst meldet sich auch als Änderung.
+        await Member.LoadAsync();
+        Member.Changed += OnMemberChanged;
+        await LoadAllAsync();
+    }
+
+    private void OnMemberChanged() => _ = InvokeAsync(async () =>
+    {
+        message = null;
+        filterAccountId = null;
+        await LoadAllAsync();
+        StateHasChanged();
+    });
+
+    /// <summary>Konten, Kategorien und der Monat der gewählten Person; was sie nicht teilt, bleibt leer.</summary>
+    private async Task LoadAllAsync()
+    {
+        accounts = [];
+        monthData = null;
+        loaded = false;
+        if (!Sees)
+        {
+            PublishChrome();
+            return;
+        }
+
+        if (SeesAccounts)
+        {
+            var accountResult = await AccountChoices.ListAsync(Member.Owner);
+            if (accountResult.Succeeded)
+            {
+                accounts = accountResult.Value!;
+            }
+            else
+            {
+                message = new NoticeMessage(ErrorTexts.For(L, accountResult.ErrorCode), Severity.Error);
+            }
+        }
+
+        var categoryResult = await CategoryApi.ListAsync(Member.Owner);
+        if (categoryResult.Succeeded)
+        {
+            categories = categoryResult.Value!.ToList();
+        }
+        else
+        {
+            message = new NoticeMessage(ErrorTexts.For(L, categoryResult.ErrorCode), Severity.Error);
+        }
+
+        PublishChrome();
+        await LoadAsync();
+    }
+
+    // Titel und Plus für die App. Das Plus geht erst, wenn ein offenes Konto da ist.
+    private void PublishChrome()
+    {
+        Chrome.Set(this, L["Bookings_Title"], AddAsync, L["Bookings_Add"], plusDisabled: CanAdd && !HasActiveAccount);
+        Chrome.LockPlus(this, Sees && !CanAdd ? GrantLock.ReasonId : null);
+    }
+
+    public void Dispose()
+    {
+        Member.Changed -= OnMemberChanged;
+        Chrome.Release(this);
+    }
+
+    private async Task LoadAsync()
+    {
+        var result = await BookingApi.ListMonthAsync(year, month, filterAccountId, Member.Owner);
+        if (result.Succeeded)
+        {
+            monthData = result.Value;
+        }
+        else
+        {
+            message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+        }
+        loaded = true;
+    }
+
+    private async Task PreviousMonthAsync() => await ShowMonthAsync(new DateTime(year, month, 1).AddMonths(-1));
+
+    private async Task NextMonthAsync() => await ShowMonthAsync(new DateTime(year, month, 1).AddMonths(1));
+
+    private async Task ShowMonthAsync(DateTime first)
+    {
+        year = first.Year;
+        month = first.Month;
+        await LoadAsync();
+    }
+
+    private async Task OnFilterChangedAsync(string value)
+    {
+        filterAccountId = Guid.TryParse(value, out var id) ? id : null;
+        await LoadAsync();
+    }
+
+    // Das Plus: ein leerer Dialog. Er ist mit Ausgabe, heute und dem Standardkonto vorbelegt.
+    private async Task AddAsync()
+    {
+        if (CanAdd)
+        {
+            await ShowDialogAsync(existing: null);
+        }
+    }
+
+    private async Task EditAsync(BookingResponse booking)
+    {
+        if (CanEdit)
+        {
+            await ShowDialogAsync(booking);
+        }
+    }
+
+    private async Task ShowDialogAsync(BookingResponse? existing)
+    {
+        // Der Dialog geht über den gemeinsamen Aufruf auf (im Browser als Fenster, in der App als Vollbild).
+        var outcome = await Launcher.OpenAsync(existing, accounts, categories);
+        if (outcome is null)
+        {
+            return;
+        }
+
+        message = outcome;
+        if (outcome.Severity == Severity.Success)
+        {
+            await LoadAsync();
+        }
+    }
+
+    // Löschen fragt immer nach (R7). Erst die Bestätigung löscht wirklich.
+    private async Task DeleteAsync(BookingResponse booking)
+    {
+        if (!CanDelete)
+        {
+            return;
+        }
+        var confirmed = await DialogService.ShowMessageBoxAsync(new MessageBoxOptions
+        {
+            Title = L["Bookings_DeleteTitle"],
+            Message = L["Bookings_DeleteText"],
+            YesText = L["Bookings_DeleteConfirm"],
+            CancelText = L["Bookings_DeleteCancel"],
+        });
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        var result = await BookingApi.DeleteAsync(booking.Id);
+        message = result.Succeeded
+            ? new NoticeMessage(L["Bookings_Deleted"], Severity.Success)
+            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+        await LoadAsync();
+    }
+
+    // Die Überschrift einer Buchung: bei einer Umbuchung "Umbuchung: Von → Nach", sonst die Kategorie,
+    // und bei mehreren Zeilen der Hinweis "aufgeteilt".
+    private string Title(BookingResponse booking)
+    {
+        if (booking.Kind == BookingKinds.Transfer)
+        {
+            return L["Bookings_Transfer", AccountName(booking.AccountId), AccountName(booking.CounterAccountId)];
+        }
+
+        var first = booking.Lines.FirstOrDefault();
+        var name = categories.FirstOrDefault(c => c.Id == first?.CategoryId)?.Name ?? "";
+        return booking.Lines.Count > 1 ? $"{name} · {L["Bookings_Split"]}" : name;
+    }
+
+    private string AccountName(Guid? id) => accounts.FirstOrDefault(a => a.Id == id)?.Name ?? "";
+
+    private string Money(decimal amount) => amount.ToString("N2", German) + " €";
+
+    // Einnahmen mit Plus, Ausgaben mit Minus. Eine Umbuchung hat nur beim Filter eine Richtung:
+    // Für das Zielkonto kommt Geld herein, für das Ausgangskonto geht es ab.
+    private string SignedMoney(BookingResponse booking) => Direction(booking) switch
+    {
+        1 => "+" + Money(booking.Amount),
+        -1 => "−" + Money(booking.Amount),
+        _ => Money(booking.Amount),
+    };
+
+    private Color AmountColor(BookingResponse booking) => Direction(booking) == 1 ? Color.Success : Color.Default;
+
+    private int Direction(BookingResponse booking) => booking.Kind switch
+    {
+        BookingKinds.Income => 1,
+        BookingKinds.Expense => -1,
+        _ when filterAccountId is null => 0,
+        _ => booking.CounterAccountId == filterAccountId ? 1 : -1,
+    };
+}

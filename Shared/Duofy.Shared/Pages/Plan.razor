@@ -1,0 +1,467 @@
+@page "/plan"
+@attribute [Authorize]
+@using System.Globalization
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@implements IDisposable
+@inject IPlanApi PlanApi
+@inject ICategoryApi CategoryApi
+@inject IAccountChoices AccountChoices
+@inject IDialogService DialogService
+@inject FormDialogs Forms
+@inject IAppHost Host
+@inject AppChrome Chrome
+@inject ActiveMember Member
+@inject TimeProvider Time
+@inject IStringLocalizer<SharedResources> L
+
+@* Der Monatsplan (Spec 66): ein Monat mit seinen Posten nach Topf, geplant und gebucht je Posten,
+   Ziel und Ist der Quoten, der Hinweis auf geänderte Verträge und der Übertrag.
+
+   Die Seite rechnet nichts selbst. Gebuchte Beträge, Quoten und Unterschiede schickt die API mit;
+   nach jeder Änderung holt die Seite den Monat neu. Der Plus-Knopf legt einen einmaligen Posten an.
+
+   Mit dem Umschalter zeigt die Seite den Monat eines anderen Mitglieds (Spec 68). Was dessen Freigabe nicht
+   erlaubt, ist ausgegraut, und der Grund steht einmal oben; ohne Planung Ansehen sagt die Seite nur, dass die
+   Person diesen Bereich nicht teilt. *@
+
+<PageTitle>@L["Nav_Plan"]</PageTitle>
+
+@* Mit "Haushalt" im Umschalter zeigt die Seite den Haushaltsplan (Spec 69), nur zum Lesen. *@
+@if (Member.IsHousehold)
+{
+    <HouseholdPlanView />
+}
+else
+{
+@if (!Host.IsApp)
+{
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+        <MudText Typo="Typo.h4">@L["Nav_Plan"]</MudText>
+        @if (SeesPlan)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="AddAsync" Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)"
+                       data-testid="plan-add">@L["Plan_AddPosition"]</MudButton>
+        }
+    </MudStack>
+}
+
+@if (!SeesPlan)
+{
+    <MudText Color="Color.Secondary" data-testid="not-shared">@L["Grant_NotShared"]</MudText>
+}
+else
+{
+<GrantReason Show="AnyLocked" />
+
+@* Blättern zwischen den Monaten. *@
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+    <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" OnClick="() => MoveAsync(-1)"
+                   aria-label="@L["Plan_PreviousMonth"]" data-testid="plan-previous" />
+    <MudText Typo="Typo.h6" data-testid="plan-month">@MonthTitle</MudText>
+    <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" OnClick="() => MoveAsync(1)"
+                   aria-label="@L["Plan_NextMonth"]" data-testid="plan-next" />
+</MudStack>
+
+<Notice Message="message" />
+
+@if (plan is not null)
+{
+    @* Geänderte Verträge: vorher und nachher je Unterschied, alle oder einzeln übernehmen (R2). *@
+    @if (plan.Changes.Count > 0)
+    {
+        <MudPaper Outlined="true" Class="pa-3 mb-4" data-testid="plan-changes">
+            <MudText Typo="Typo.subtitle1" Class="mb-1">@L["Plan_ChangesHeading"]</MudText>
+            <MudStack Spacing="2">
+                @foreach (var change in plan.Changes)
+                {
+                    var current = change;
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" data-testid="plan-change">
+                        <MudStack Spacing="0" Class="flex-grow-1">
+                            <MudText>@L[$"Plan_Change_{change.Kind}", change.Label]</MudText>
+                            @foreach (var field in change.Fields)
+                            {
+                                <MudText Typo="Typo.caption">@L["Plan_ChangeField", L[$"PlanField_{field.Field}"], FieldText(field.Field, field.Before), FieldText(field.Field, field.After)]</MudText>
+                            }
+                            @if (change.Protected)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Warning">@L["Plan_ChangeProtected"]</MudText>
+                            }
+                        </MudStack>
+                        <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => ApplyAsync(current)"
+                                   Class="@GrantLock.Class(CanApplyChange(current))" @attributes="GrantLock.Attributes(CanApplyChange(current))"
+                                   data-testid="plan-change-apply">@L["Plan_ChangeApply"]</MudButton>
+                    </MudStack>
+                }
+            </MudStack>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="@($"mt-2 {GrantLock.Class(CanApplyAll)}")" OnClick="() => ApplyAsync(null)"
+                       @attributes="GrantLock.Attributes(CanApplyAll)" data-testid="plan-changes-apply-all">@L["Plan_ChangesApplyAll"]</MudButton>
+        </MudPaper>
+    }
+
+    @* Summen und Quoten. *@
+    <MudPaper Outlined="true" Class="pa-3 mb-4" data-testid="plan-sums">
+        <MudText>@L["Plan_SumsIncome", Money(plan.PlannedIncome), Money(plan.BookedIncome)]</MudText>
+        <MudText>@L["Plan_SumsExpenses", Money(plan.PlannedExpenses), Money(plan.BookedExpenses)]</MudText>
+        @foreach (var quota in plan.Quotas)
+        {
+            <MudText Typo="Typo.caption" Class="d-block" data-testid="@($"plan-quota-{quota.Pot}")">@L["Plan_Quota", L[$"Pot_{quota.Pot}"], quota.Target, quota.Actual.ToString("0.#", German)]</MudText>
+        }
+    </MudPaper>
+
+    @if (plan.Positions.Count == 0)
+    {
+        <MudText Color="Color.Secondary" Class="mb-2" data-testid="plan-empty">@L["Plan_Empty"]</MudText>
+    }
+
+    @* Die Posten nach Topf. *@
+    @foreach (var group in PlanView.Groups(plan))
+    {
+        <MudText Typo="Typo.subtitle1" Class="mt-3 mb-1" data-testid="@($"plan-group-{group.Pot}")">@L[$"Pot_{group.Pot}"]</MudText>
+        <MudStack Spacing="2">
+            @foreach (var position in group.Positions)
+            {
+                var current = position;
+                var done = position.DoneAt is not null;
+                var toggle = CanToggle(position);
+                <MudPaper Class="pa-3" Outlined="true" data-testid="@($"plan-position-{position.Id}")">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudCheckBox T="bool" Value="done" ValueChanged="_ => ToggleAsync(current)" Color="Color.Primary"
+                                     ReadOnly="!toggle" Class="@GrantLock.Class(toggle)" @attributes="GrantLock.Attributes(toggle)"
+                                     aria-label="@L[done ? "Plan_Untick" : "Plan_Tick"]"
+                                     data-testid="@($"plan-tick-{position.Id}")" />
+                        <MudStack Spacing="0" Class="flex-grow-1">
+                            <MudText Color="@(done ? Color.Secondary : Color.Default)">@position.Label</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@Caption(position)</MudText>
+                        </MudStack>
+                        <MudText Typo="Typo.body2" data-testid="@($"plan-amounts-{position.Id}")">@L["Plan_Amounts", Money(position.AmountPlanned), Money(position.Booked)]</MudText>
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditAsync(current)"
+                                       Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
+                                       aria-label="@L["Plan_Edit"]" data-testid="@($"plan-edit-{position.Id}")" />
+                        @if (PlanView.CanDelete(position))
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => DeleteAsync(current)"
+                                           Class="@GrantLock.Class(CanDelete)" @attributes="GrantLock.Attributes(CanDelete)"
+                                           aria-label="@L["Plan_Delete"]" data-testid="@($"plan-delete-{position.Id}")" />
+                        }
+                    </MudStack>
+                </MudPaper>
+            }
+        </MudStack>
+    }
+
+    @* Der Übertrag in diesen Monat (R9). *@
+    <MudPaper Outlined="true" Class="pa-3 mt-4" data-testid="plan-carry-over">
+        @if (plan.CarryOver.Exists)
+        {
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudText Class="flex-grow-1">@L["Plan_CarryOverBooked", Money(plan.CarryOver.Amount ?? 0m)]</MudText>
+                <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="RemoveCarryOverAsync"
+                           Class="@GrantLock.Class(CanRemoveCarryOver)" @attributes="GrantLock.Attributes(CanRemoveCarryOver)"
+                           data-testid="plan-carry-over-remove">@L["Plan_CarryOverRemove"]</MudButton>
+            </MudStack>
+        }
+        else
+        {
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="CarryOverAsync"
+                       Class="@GrantLock.Class(CanCarryOver)" @attributes="GrantLock.Attributes(CanCarryOver)"
+                       data-testid="plan-carry-over-open">@L["Plan_CarryOver"]</MudButton>
+        }
+    </MudPaper>
+}
+}
+}
+
+@code {
+
+    private static readonly CultureInfo German = new("de-DE");
+
+    private int year;
+    private int month;
+    private PlanResponse? plan;
+    private List<CategoryResponse> categories = [];
+    private IReadOnlyList<AccountChoice> accounts = [];
+    private NoticeMessage? message;
+
+    private string MonthTitle => new DateOnly(year, month, 1).ToString("MMMM yyyy", German);
+
+    // Was die Freigabe des gewählten Mitglieds erlaubt (Spec 68); bei "Ich" alles. Abhaken und der Übertrag
+    // legen Buchungen auf Konten an, Haken zurück und Übertrag entfernen löschen sie.
+    private bool SeesPlan => Member.Allows(GrantAreas.Plan, AccessLevelKeys.View);
+    private bool CanAdd => Member.Allows(GrantAreas.Plan, AccessLevelKeys.Create);
+    private bool CanEdit => Member.Allows(GrantAreas.Plan, AccessLevelKeys.Edit);
+    private bool CanDelete => Member.Allows(GrantAreas.Plan, AccessLevelKeys.Delete);
+    private bool SeesAccounts => Member.Allows(GrantAreas.Accounts, AccessLevelKeys.View);
+    private bool CanTick => Member.Allows(GrantAreas.Book, AccessLevelKeys.Edit) && SeesAccounts;
+    private bool CanUntick => Member.Allows(GrantAreas.Book, AccessLevelKeys.Delete);
+    private bool CanApply => CanEdit && Member.Allows(GrantAreas.Commitments, AccessLevelKeys.View);
+
+    // Ein Unterschied, der einen Posten entfernt, ist Löschen (Spec 68, A18).
+    private bool CanApplyChange(PlanChangeResponse change) => CanApply && (CanDelete || change.Kind != PlanChangeKinds.NoLongerDue);
+
+    // "Alle übernehmen" entfernt jeden nicht geschützten Posten, der nicht mehr fällig ist. Ob einer davon Buchungen
+    // hat (die API lässt ihn dann stehen), weiß die Seite nicht; gesperrt ist deshalb schon, wenn einer in der Liste steht.
+    private bool CanApplyAll => CanApply && (CanDelete || plan?.Changes.Any(c => !c.Protected && c.Kind == PlanChangeKinds.NoLongerDue) != true);
+    private bool CanCarryOver => CanEdit && CanTick;
+    private bool CanRemoveCarryOver => CanDelete && CanUntick;
+    private bool AnyLocked => !(CanAdd && CanEdit && CanDelete && CanTick && CanUntick && CanApply);
+
+    private bool CanToggle(PlanPositionResponse position) => position.DoneAt is null ? CanTick : CanUntick;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Die Seite öffnet immer den laufenden Monat; der Plus-Knopf legt einen einmaligen Posten an.
+        var today = DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
+        (year, month) = (today.Year, today.Month);
+        Chrome.Set(this, L["Nav_Plan"], AddAsync, L["Plan_AddPosition"]);
+        // Erst nach dem ersten Laden zuhören: Das Laden selbst meldet sich auch als Änderung.
+        await Member.LoadAsync();
+        Member.Changed += OnMemberChanged;
+        await LoadAllAsync();
+    }
+
+    public void Dispose()
+    {
+        Member.Changed -= OnMemberChanged;
+        Chrome.Release(this);
+    }
+
+    // Ein anderes Mitglied gewählt: alles für dessen Monat neu holen.
+    private void OnMemberChanged() => _ = InvokeAsync(async () =>
+    {
+        message = null;
+        await LoadAllAsync();
+        StateHasChanged();
+    });
+
+    /// <summary>Kategorien, Konten und der Monat der gewählten Person; was sie nicht teilt, bleibt leer.</summary>
+    private async Task LoadAllAsync()
+    {
+        // Der Haushaltsplan hat keinen Plus-Knopf; zurück bei einer Person kommt er wieder.
+        Chrome.Set(this, L["Nav_Plan"], Member.IsHousehold ? null : AddAsync, Member.IsHousehold ? null : L["Plan_AddPosition"]);
+        Chrome.LockPlus(this, SeesPlan && !CanAdd ? GrantLock.ReasonId : null);
+        plan = null;
+        if (!SeesPlan)
+        {
+            return;
+        }
+
+        // Kategorien und Konten brauchen die Dialoge und der Hinweis auf geänderte Verträge.
+        var categoryResult = await CategoryApi.ListAsync(Member.Owner);
+        categories = categoryResult.Succeeded ? categoryResult.Value!.ToList() : [];
+        var accountResult = SeesAccounts
+            ? await AccountChoices.ListAsync(Member.Owner)
+            : ApiResult<IReadOnlyList<AccountChoice>>.Success([]);
+        accounts = accountResult.Succeeded ? accountResult.Value! : [];
+        if (!categoryResult.Succeeded || !accountResult.Succeeded)
+        {
+            message = new NoticeMessage(ErrorTexts.For(L, categoryResult.ErrorCode ?? accountResult.ErrorCode), Severity.Error);
+        }
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        var result = await PlanApi.GetAsync(year, month, Member.Owner);
+        if (result.Succeeded)
+        {
+            plan = result.Value;
+        }
+        else
+        {
+            plan = null;
+            message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+        }
+    }
+
+    private async Task MoveAsync(int by)
+    {
+        (year, month) = PlanView.Shift(year, month, by);
+        message = null;
+        await LoadAsync();
+    }
+
+    /// <summary>Zeigt das Ergebnis einer Änderung und holt den Monat neu.</summary>
+    private async Task AfterAsync(ApiResult result, string successKey)
+    {
+        message = result.Succeeded
+            ? new NoticeMessage(L[successKey], Severity.Success)
+            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+        await LoadAsync();
+    }
+
+    private async Task AddAsync()
+    {
+        if (CanAdd)
+        {
+            await ShowPositionDialogAsync(null, L["PlanPositionDialog_TitleNew"]);
+        }
+    }
+
+    private async Task EditAsync(PlanPositionResponse position)
+    {
+        if (CanEdit)
+        {
+            await ShowPositionDialogAsync(position, L["PlanPositionDialog_TitleEdit"]);
+        }
+    }
+
+    private async Task ShowPositionDialogAsync(PlanPositionResponse? existing, string title)
+    {
+        var parameters = new DialogParameters<PlanPositionDialog>
+        {
+            { x => x.Year, year },
+            { x => x.Month, month },
+            { x => x.Existing, existing },
+            { x => x.Categories, categories },
+            { x => x.Accounts, accounts },
+        };
+        var dialog = await DialogService.ShowAsync<PlanPositionDialog>(title, parameters, Forms.Options());
+        if (await dialog.Result is { Canceled: false })
+        {
+            message = new NoticeMessage(L["Plan_PositionSaved"], Severity.Success);
+            await LoadAsync();
+        }
+    }
+
+    /// <summary>
+    /// Abhaken oder den Haken zurücknehmen (R5). Ohne Buchungen bucht die API den Posten sofort;
+    /// mit Buchungen fragt ein Dialog nach dem Ausgleich, vorbelegt mit dem offenen Rest.
+    /// </summary>
+    private async Task ToggleAsync(PlanPositionResponse position)
+    {
+        if (!CanToggle(position))
+        {
+            return;
+        }
+        if (position.DoneAt is not null)
+        {
+            var untick = await PlanApi.UntickAsync(year, month, position.Id, Member.Owner);
+            await AfterAsync(untick.Succeeded ? ApiResult.Success() : ApiResult.Failure(untick.ErrorCode!), "Plan_Unticked");
+            return;
+        }
+
+        if (position.Booked == 0m)
+        {
+            var tick = await PlanApi.TickAsync(year, month, position.Id, new TickPositionRequest(), Member.Owner);
+            await AfterAsync(tick.Succeeded ? ApiResult.Success() : ApiResult.Failure(tick.ErrorCode!), "Plan_Ticked");
+            return;
+        }
+
+        var parameters = new DialogParameters<PlanTickDialog>
+        {
+            { x => x.Year, year },
+            { x => x.Month, month },
+            { x => x.Position, position },
+        };
+        var dialog = await DialogService.ShowAsync<PlanTickDialog>(L["PlanTickDialog_Title"], parameters, Forms.Options());
+        if (await dialog.Result is { Canceled: false })
+        {
+            message = new NoticeMessage(L["Plan_Ticked"], Severity.Success);
+        }
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(PlanPositionResponse position)
+    {
+        if (CanDelete)
+        {
+            await AfterAsync(await PlanApi.DeletePositionAsync(year, month, position.Id, Member.Owner), "Plan_PositionDeleted");
+        }
+    }
+
+    /// <summary>Einen Unterschied übernehmen, oder mit null alle, die nicht geschützt sind.</summary>
+    private async Task ApplyAsync(PlanChangeResponse? change)
+    {
+        if (change is null ? !CanApplyAll : !CanApplyChange(change))
+        {
+            return;
+        }
+        var request = change is null
+            ? new ApplyPlanChangesRequest()
+            : new ApplyPlanChangesRequest([new PlanChangeItem(change.PositionId, change.PositionId is null ? change.CommitmentId : null)]);
+        var result = await PlanApi.ApplyChangesAsync(year, month, request, Member.Owner);
+        if (result.Succeeded)
+        {
+            plan = result.Value;
+            message = new NoticeMessage(L["Plan_ChangesApplied"], Severity.Success);
+        }
+        else
+        {
+            message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+            await LoadAsync();
+        }
+    }
+
+    private async Task CarryOverAsync()
+    {
+        if (!CanCarryOver)
+        {
+            return;
+        }
+        var parameters = new DialogParameters<PlanCarryOverDialog>
+        {
+            { x => x.Year, year },
+            { x => x.Month, month },
+            { x => x.CarryOver, plan!.CarryOver },
+            { x => x.Accounts, accounts },
+        };
+        var dialog = await DialogService.ShowAsync<PlanCarryOverDialog>(L["PlanCarryOverDialog_Title"], parameters, Forms.Options());
+        if (await dialog.Result is { Canceled: false })
+        {
+            message = new NoticeMessage(L["Plan_CarryOverSaved"], Severity.Success);
+            await LoadAsync();
+        }
+    }
+
+    private async Task RemoveCarryOverAsync()
+    {
+        if (CanRemoveCarryOver)
+        {
+            await AfterAsync(await PlanApi.DeleteCarryOverAsync(year, month, Member.Owner), "Plan_CarryOverRemoved");
+        }
+    }
+
+    // Unter der Bezeichnung: der Tag, und ob der Posten einmalig, durchlaufend oder von Hand geändert ist.
+    private string Caption(PlanPositionResponse position)
+    {
+        var parts = new List<string> { L["Plan_DueDay", position.DueDay] };
+        if (position.CommitmentId is null)
+        {
+            parts.Add(L["Plan_OneOff"]);
+        }
+        if (position.PassThrough)
+        {
+            parts.Add(L["Plan_PassThrough"]);
+        }
+        if (position.ChangedByHand)
+        {
+            parts.Add(L["Plan_ChangedByHand"]);
+        }
+        return string.Join(" · ", parts);
+    }
+
+    // Ein Wert aus dem Hinweis auf geänderte Verträge, lesbar gemacht: Beträge mit Komma, Namen statt Kennungen.
+    private string FieldText(string field, string? value)
+    {
+        if (value is null)
+        {
+            return field is PlanFields.Account ? L["Plan_DefaultAccount"] : L["Plan_Empty_Value"];
+        }
+        return field switch
+        {
+            PlanFields.Amount => Money(decimal.Parse(value, CultureInfo.InvariantCulture)),
+            PlanFields.DueDay => L["Plan_DueDay", value],
+            PlanFields.Pot => L[$"Pot_{value}"],
+            PlanFields.Type => L[$"CommitmentType_{value}"],
+            PlanFields.PaymentMethod => L[$"PaymentMethod_{value}"],
+            PlanFields.PassThrough => L[value == "true" ? "Plan_Yes" : "Plan_No"],
+            PlanFields.Category => categories.FirstOrDefault(c => c.Id.ToString() == value)?.Name ?? L["Plan_Unknown"],
+            PlanFields.Account or PlanFields.CounterAccount => accounts.FirstOrDefault(a => a.Id.ToString() == value)?.Name ?? L["Plan_Unknown"],
+            _ => value,
+        };
+    }
+
+    private static string Money(decimal amount) => amount.ToString("N2", German) + " €";
+}

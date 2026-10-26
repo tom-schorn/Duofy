@@ -1,0 +1,399 @@
+@page "/haushalt"
+@attribute [Authorize]
+@using System.Globalization
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@implements IDisposable
+@inject IHouseholdApi HouseholdApi
+@inject ActiveMember Member
+@inject IInstanceApi InstanceApi
+@inject IDialogService DialogService
+@inject FormDialogs Forms
+@inject IAppHost Host
+@inject AppChrome Chrome
+@inject NavigationManager Navigation
+@inject IStringLocalizer<SharedResources> L
+
+@* Der Haushalt (Spec 67): wer zusammen plant. Ohne Haushalt bietet die Seite "Haushalt gründen" mit
+   einem Namensfeld an und darunter das Feld für einen Einladungslink, den jemand geschickt hat. Mit
+   Haushalt zeigt die Karte Name, Mitgliederzahl und Richtwerte, darunter stehen die Mitglieder. Nur der
+   Gründer sieht Einladen, Richtwerte, die offenen Einladungen und je Mitglied Entfernen; Mitglieder sehen
+   alles nur zum Lesen und können austreten. Der Gründer kann nur auflösen, solange er allein ist; solange
+   andere im Haushalt sind, sieht er Austreten ausgegraut mit dem Grund darunter. Ein Knopf, den jemand nicht
+   benutzen darf, fehlt oder ist so ausgegraut, statt angeboten und dann abgelehnt zu werden. Von hier geht es
+   für alle zu den Freigaben (Spec 68).
+
+   Folgenreiches (Austreten, Auflösen, Entfernen, Zurückziehen) fragt einmal nach. Nach jeder Änderung
+   holt die Seite den Haushalt neu; sie rechnet nichts selbst. Ändert sich, wer im Haushalt ist (Gründen,
+   Austreten, Auflösen, Entfernen), frischt sie auch den Umschalter auf (Spec 69, A12), damit er "Haushalt"
+   ohne Neustart anbietet oder nicht mehr anbietet. *@
+
+<PageTitle>@L["Household_Title"]</PageTitle>
+
+@if (!Host.IsApp)
+{
+    <MudText Typo="Typo.h4" Class="mb-2">@L["Household_Title"]</MudText>
+}
+
+<Notice Message="message" />
+
+@if (loaded && household is null)
+{
+    <MudPaper Class="pa-4 mb-4" Outlined="true" data-testid="household-none">
+        <MudText Typo="Typo.h6">@L["Household_NoneTitle"]</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">@L["Household_NoneText"]</MudText>
+        <MudTextField @bind-Value="newName" Label="@L["HouseholdDialog_Name"]" HelperText="@L["Household_FoundNameHint"]"
+                      Variant="Variant.Outlined" MaxLength="100" data-testid="household-found-name" />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Home" Class="mt-3"
+                   Disabled="busy" OnClick="FoundAsync" data-testid="household-found">@L["Household_Found"]</MudButton>
+    </MudPaper>
+
+    @* Ein Link, den jemand per Messenger geschickt hat: Einfügen öffnet die Seite der Einladung. *@
+    <MudStack Row="true" AlignItems="AlignItems.End" Spacing="2">
+        <MudTextField @bind-Value="pasted" Label="@L["Household_PasteLabel"]" Variant="Variant.Outlined" Class="flex-grow-1"
+                      data-testid="household-paste" />
+        <MudButton Variant="Variant.Outlined" OnClick="OpenPasted" data-testid="household-paste-open">@L["Household_PasteOpen"]</MudButton>
+    </MudStack>
+}
+
+@if (household is not null)
+{
+    <MudPaper Class="pa-4 mb-4" Outlined="true" data-testid="household-card">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+            <MudText Typo="Typo.h6" Class="flex-grow-1" data-testid="household-name">@household.Name</MudText>
+            @if (IsFounder)
+            {
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="EditAsync"
+                               aria-label="@L["Household_Edit"]" data-testid="household-edit" />
+            }
+        </MudStack>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            @(household.Members.Count == 1 ? L["Household_MemberCountOne"] : L["Household_MemberCount", household.Members.Count])
+        </MudText>
+        <MudText Typo="Typo.body2" Class="mt-1" data-testid="household-quota-line">@QuotaLine</MudText>
+        <MudStack Row="true" Spacing="2" Class="mt-3" Wrap="Wrap.Wrap">
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Lock" Href="/haushalt/freigaben"
+                       data-testid="household-grants">@L["Household_Grants"]</MudButton>
+            @if (IsFounder && InvitationsFull)
+            {
+                @* Bei 10 offenen Einladungen antwortet die API too_many_invitations (A23). Ausgegraut wie Austreten:
+                   aria-disabled statt disabled, damit ein Screenreader den Knopf findet und den Grund vorliest. *@
+                <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.PersonAdd" Ripple="false" DropShadow="false"
+                           Style="background-color: var(--mud-palette-action-disabled-background); color: var(--mud-palette-action-disabled); cursor: default;"
+                           aria-disabled="true" aria-describedby="household-invite-reason"
+                           data-testid="household-invite">@L["Household_Invite"]</MudButton>
+            }
+            else if (IsFounder)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd"
+                           OnClick="InviteAsync" data-testid="household-invite">@L["Household_Invite"]</MudButton>
+            }
+            @if (IsFounder)
+            {
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Tune"
+                           OnClick="EditAsync" data-testid="household-quotas">@L["Household_QuotasButton"]</MudButton>
+            }
+            @if (!IsFounder)
+            {
+                <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.Logout"
+                           OnClick="LeaveAsync" data-testid="household-leave">@L["Household_Leave"]</MudButton>
+            }
+            else if (household.Members.Count == 1)
+            {
+                <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.DeleteForever"
+                           OnClick="DissolveAsync" data-testid="household-dissolve">@L["Household_Dissolve"]</MudButton>
+            }
+            else
+            {
+                @* Mit anderen im Haushalt antwortet die API founder_cannot_leave. Der Knopf ist deshalb ausgegraut
+                   und tut nichts, bleibt aber erreichbar: aria-disabled statt disabled, damit ein Screenreader
+                   ihn findet und den Grund darunter vorliest. *@
+                <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Logout" Ripple="false"
+                           Style="color: var(--mud-palette-action-disabled); cursor: default;"
+                           aria-disabled="true" aria-describedby="household-leave-reason"
+                           data-testid="household-leave">@L["Household_Leave"]</MudButton>
+            }
+        </MudStack>
+        @if (IsFounder && InvitationsFull)
+        {
+            <MudText Typo="Typo.caption" Color="Color.Secondary" id="household-invite-reason" Class="d-block"
+                     data-testid="household-invite-reason">@L["Error_too_many_invitations"]</MudText>
+        }
+        @if (IsFounder && household.Members.Count > 1)
+        {
+            <MudText Typo="Typo.caption" Color="Color.Secondary" id="household-leave-reason"
+                     data-testid="household-leave-reason">@L["Household_FounderLeaveReason"]</MudText>
+        }
+        @if (IsFounder && hosted)
+        {
+            @* Spec 53, R6: Auf der gehosteten Version geht der Link auf Wunsch per Mail, aber nur an ein bestätigtes Konto. *@
+            <div class="field mt-3">
+                <FieldLabel For="household-invite-email-input" Text="@L["Household_InviteEmail"]" />
+                <MudTextField @bind-Value="inviteEmail" Variant="Variant.Outlined" InputId="household-invite-email-input"
+                              InputType="InputType.Email" Placeholder="@L["Auth_EmailPlaceholder"]" HelperText="@L["Household_InviteEmailHint"]"
+                              autocomplete="off" data-testid="household-invite-email" />
+            </div>
+        }
+    </MudPaper>
+
+    <MudText Typo="Typo.h6" Class="mb-2">@L["Household_MembersHeading"]</MudText>
+    <MudStack Spacing="2" Class="mb-4">
+        @foreach (var member in household.Members)
+        {
+            <MudPaper Class="pa-3" Outlined="true" data-testid="@($"household-member-{member.UserId}")">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudStack Spacing="0" Class="flex-grow-1">
+                        <MudText>@member.FirstName @member.LastName @(member.IsMe ? L["Household_Me"] : "")</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@member.Email</MudText>
+                    </MudStack>
+                    <MudChip T="string" Size="Size.Small" Color="@(member.Role == HouseholdRoles.Founder ? Color.Primary : Color.Default)">
+                        @L[$"HouseholdRole_{member.Role}"]
+                    </MudChip>
+                    @* Sich selbst entfernt man nicht (cannot_remove_self); der Gründer löst auf, wenn er allein ist. *@
+                    @if (IsFounder && !member.IsMe)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.PersonRemove" Size="Size.Small" Color="Color.Error"
+                                       OnClick="() => RemoveAsync(member)"
+                                       aria-label="@L["Household_RemoveMember", member.FirstName]"
+                                       data-testid="@($"household-member-remove-{member.UserId}")" />
+                    }
+                </MudStack>
+            </MudPaper>
+        }
+    </MudStack>
+
+    @if (IsFounder && invitations.Count > 0)
+    {
+        <MudText Typo="Typo.h6" Class="mb-2">@L["Household_InvitationsHeading"]</MudText>
+        <MudStack Spacing="2" Class="mb-4">
+            @foreach (var invitation in invitations)
+            {
+                <MudPaper Class="pa-3" Outlined="true" data-testid="@($"household-invitation-{invitation.Id}")">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudText Class="flex-grow-1">@L["Household_InvitationUntil", Day(invitation.ExpiresAt)]</MudText>
+                        <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Error" OnClick="() => RevokeAsync(invitation)"
+                                   data-testid="@($"household-invitation-revoke-{invitation.Id}")">@L["Household_Revoke"]</MudButton>
+                    </MudStack>
+                </MudPaper>
+            }
+        </MudStack>
+    }
+}
+
+@code {
+    private static readonly CultureInfo German = new("de-DE");
+
+    private HouseholdResponse? household;
+    private bool loaded;
+    private List<InvitationResponse> invitations = [];
+    private string pasted = "";
+    private string newName = "";
+    private bool busy;
+    private NoticeMessage? message;
+
+    // Spec 53: Nur die gehostete Version verschickt Einladungen auch per Mail.
+    private bool hosted;
+    private string inviteEmail = "";
+
+    // Wie HouseholdRules.MaxOpenInvitations in der API; die Seite kennt die Domäne nicht.
+    private const int MaxOpenInvitations = 10;
+
+    private bool IsFounder => household?.Members.Any(m => m.IsMe && m.Role == HouseholdRoles.Founder) == true;
+
+    private bool InvitationsFull => invitations.Count >= MaxOpenInvitations;
+
+    private string QuotaLine => household is null ? "" : string.Join(" · ",
+        L["Household_QuotaPart", L[$"Pot_{PotKeys.Needs}"], household.QuotaNeeds],
+        L["Household_QuotaPart", L[$"Pot_{PotKeys.Wants}"], household.QuotaWants],
+        L["Household_QuotaPart", L[$"Pot_{PotKeys.Savings}"], household.QuotaSavings]);
+
+    protected override async Task OnInitializedAsync()
+    {
+        Chrome.Set(this, L["Household_Title"]);
+        var instance = await InstanceApi.GetAsync();
+        hosted = instance.Succeeded && instance.Value!.Hosted;
+        await LoadAsync();
+    }
+
+    public void Dispose() => Chrome.Release(this);
+
+    private async Task LoadAsync()
+    {
+        var result = await HouseholdApi.GetMineAsync();
+        invitations = [];
+        if (!result.Succeeded)
+        {
+            household = null;
+            // Ohne Haushalt antwortet die API 404 (no_household); das ist kein Fehler, sondern das Angebot zu gründen.
+            loaded = result.ErrorCode == ClientErrorCodes.NotFound;
+            if (!loaded)
+            {
+                message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+            }
+            return;
+        }
+        household = result.Value!;
+        loaded = true;
+
+        // Die offenen Einladungen sieht nur der Gründer; für alle anderen fragt die Seite gar nicht erst.
+        if (IsFounder)
+        {
+            var open = await HouseholdApi.ListInvitationsAsync(household.Id);
+            if (open.Succeeded)
+            {
+                invitations = open.Value!.ToList();
+            }
+            else
+            {
+                message = new NoticeMessage(ErrorTexts.For(L, open.ErrorCode), Severity.Error);
+            }
+        }
+    }
+
+    // Ein leeres Feld schickt keinen Namen; die API nennt den Haushalt dann "Haushalt von Vorname".
+    private async Task FoundAsync()
+    {
+        busy = true;
+        try
+        {
+            var result = await HouseholdApi.CreateAsync(string.IsNullOrWhiteSpace(newName) ? null : newName.Trim());
+            if (!result.Succeeded)
+            {
+                message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+                return;
+            }
+            newName = "";
+            message = new NoticeMessage(L["Household_Founded"], Severity.Success);
+            await Member.RefreshAsync();
+            await LoadAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private string Day(DateTimeOffset moment) => moment.ToLocalTime().ToString("dd.MM.yyyy", German);
+
+    private async Task InviteAsync()
+    {
+        // Den Link baut die API mit der öffentlichen Adresse des Servers, nicht die Seite mit der Adresse,
+        // über die sie gerade verbunden ist. Ohne diese Adresse antwortet die API public_url_missing.
+        var address = hosted && !string.IsNullOrWhiteSpace(inviteEmail) ? inviteEmail.Trim() : null;
+        var created = await HouseholdApi.CreateInvitationAsync(household!.Id, address);
+        if (!created.Succeeded || created.Value!.Url is not { } link)
+        {
+            message = new NoticeMessage(ErrorTexts.For(L, created.Succeeded ? ErrorCodes.PublicUrlMissing : created.ErrorCode), Severity.Error);
+            return;
+        }
+
+        var parameters = new DialogParameters<InviteDialog>
+        {
+            { x => x.Link, link },
+            { x => x.ExpiresAt, created.Value!.ExpiresAt },
+            { x => x.HouseholdName, household.Name },
+            { x => x.Mailed, address is not null },
+        };
+        inviteEmail = "";
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var dialog = await DialogService.ShowAsync<InviteDialog>(L["InviteDialog_Title"], parameters, options);
+        await dialog.Result;
+        await LoadAsync();
+    }
+
+    private async Task RevokeAsync(InvitationResponse invitation)
+    {
+        if (!await ConfirmAsync(L["Household_RevokeTitle"], L["Household_RevokeText"], L["Household_Revoke"]))
+        {
+            return;
+        }
+        var result = await HouseholdApi.RevokeInvitationAsync(household!.Id, invitation.Id);
+        message = result.Succeeded
+            ? new NoticeMessage(L["Household_Revoked"], Severity.Success)
+            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+        await LoadAsync();
+    }
+
+    private void OpenPasted()
+    {
+        if (InvitationLink.TokenOf(pasted) is { } token)
+        {
+            Navigation.NavigateTo($"/einladung/{token}");
+            return;
+        }
+        message = new NoticeMessage(L["Household_PasteInvalid"], Severity.Warning);
+    }
+
+    // Folgenreiches fragt einmal nach; erst die Bestätigung führt es aus.
+    private async Task<bool> ConfirmAsync(string title, string text, string yes) =>
+        await DialogService.ShowMessageBoxAsync(new MessageBoxOptions
+        {
+            Title = title,
+            Message = text,
+            YesText = yes,
+            CancelText = L["Household_Cancel"],
+        }) == true;
+
+    private async Task EditAsync()
+    {
+        var parameters = new DialogParameters<HouseholdDialog> { { x => x.Household, household! } };
+        var dialog = await DialogService.ShowAsync<HouseholdDialog>(L["HouseholdDialog_Title"], parameters, Forms.Options());
+        if (await dialog.Result is { Canceled: false })
+        {
+            message = new NoticeMessage(L["Household_Saved"], Severity.Success);
+            await LoadAsync();
+        }
+    }
+
+    private async Task LeaveAsync()
+    {
+        if (!await ConfirmAsync(L["Household_LeaveTitle"], L["Household_LeaveText"], L["Household_Leave"]))
+        {
+            return;
+        }
+        var result = await HouseholdApi.LeaveAsync(household!.Id);
+        message = result.Succeeded
+            ? new NoticeMessage(L["Household_Left"], Severity.Success)
+            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+        await RefreshSwitchAsync(result);
+        await LoadAsync();
+    }
+
+    // Der Gründer allein tritt aus; die API löst den Haushalt dann mit seinen Einladungen auf.
+    private async Task DissolveAsync()
+    {
+        if (!await ConfirmAsync(L["Household_DissolveTitle"], L["Household_DissolveText"], L["Household_Dissolve"]))
+        {
+            return;
+        }
+        var result = await HouseholdApi.LeaveAsync(household!.Id);
+        message = result.Succeeded
+            ? new NoticeMessage(L["Household_Dissolved"], Severity.Success)
+            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+        await RefreshSwitchAsync(result);
+        await LoadAsync();
+    }
+
+    private async Task RemoveAsync(MemberResponse member)
+    {
+        if (!await ConfirmAsync(L["Household_RemoveTitle", member.FirstName], L["Household_RemoveText", member.FirstName], L["Household_RemoveConfirm"]))
+        {
+            return;
+        }
+        var result = await HouseholdApi.RemoveMemberAsync(household!.Id, member.UserId);
+        message = result.Succeeded
+            ? new NoticeMessage(L["Household_Removed", member.FirstName], Severity.Success)
+            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+        await RefreshSwitchAsync(result);
+        await LoadAsync();
+    }
+
+    // Nur eine gelungene Änderung der Mitglieder ändert, was der Umschalter anbietet.
+    private async Task RefreshSwitchAsync(ApiResult result)
+    {
+        if (result.Succeeded)
+        {
+            await Member.RefreshAsync();
+        }
+    }
+}

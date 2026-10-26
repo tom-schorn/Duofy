@@ -1,0 +1,111 @@
+@using System.Globalization
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@inject IPlanApi PlanApi
+@inject ActiveMember Member
+@inject IStringLocalizer<SharedResources> L
+@inject IAppHost Host
+
+@* Der Übertrag in diesen Monat (R9). Vorgeschlagen sind Einnahmen minus Ausgaben des Vormonats, auch
+   unter 0: Ein negativer Rest wird genauso übertragen.
+   Wer einen echten Kontostand einträgt, bekommt für den Unterschied zum gerechneten Stand eine
+   Ausgleichsbuchung am letzten Tag des Vormonats; leere Felder bleiben, wie sie sind. *@
+
+<MudDialog>
+    <DialogContent>
+        @if (Host.IsApp)
+        {
+            <FullScreenFormHeader Title="@MudDialog.Title" SaveText="@L["PlanCarryOverDialog_Save"]" SaveTestId="carry-over-save"
+                                  Busy="busy" OnClose="Cancel" OnSave="SaveAsync" />
+        }
+        <MudStack Spacing="3">
+            @if (error is not null)
+            {
+                <MudAlert Severity="Severity.Error" data-testid="carry-over-error">@error</MudAlert>
+            }
+            <MudText Typo="Typo.body2">@L["PlanCarryOverDialog_Lead"]</MudText>
+            <MudNumericField T="decimal?" @bind-Value="amount" Culture="German" Format="0.00"
+                             HideSpinButtons="true" Label="@L["Field_CarryOverAmount"]" data-testid="carry-over-amount" />
+
+            @foreach (var balance in CarryOver.Balances)
+            {
+                var accountId = balance.AccountId;
+                <MudNumericField T="decimal?" Value="@real.GetValueOrDefault(accountId)" ValueChanged="v => real[accountId] = v"
+                                 Culture="German" Format="0.00" HideSpinButtons="true"
+                                 Label="@L["Field_RealBalance", AccountName(accountId)]"
+                                 HelperText="@L["PlanCarryOverDialog_Computed", Money(balance.Balance)]"
+                                 data-testid="@($"carry-over-balance-{accountId}")" />
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        @if (!Host.IsApp)
+        {
+            <MudButton OnClick="Cancel">@L["PlanDialog_Cancel"]</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="busy" OnClick="SaveAsync"
+                       data-testid="carry-over-save">@L["PlanCarryOverDialog_Save"]</MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+
+    private static readonly CultureInfo German = new("de-DE");
+
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public int Year { get; set; }
+
+    [Parameter] public int Month { get; set; }
+
+    [Parameter] public PlanCarryOverResponse CarryOver { get; set; } = default!;
+
+    [Parameter] public IReadOnlyList<AccountChoice> Accounts { get; set; } = [];
+
+    private decimal? amount;
+    private readonly Dictionary<Guid, decimal?> real = [];
+    private string? error;
+    private bool busy;
+
+    // Die Person, für die der Dialog geöffnet wurde; sie bleibt, auch wenn der Umschalter inzwischen woanders steht (Spec 68, A15).
+    private Guid? owner;
+
+    protected override void OnInitialized()
+    {
+        owner = Member.Owner;
+        amount = CarryOver.Suggested;
+    }
+
+    private string AccountName(Guid id) => Accounts.FirstOrDefault(a => a.Id == id)?.Name ?? "";
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SaveAsync()
+    {
+        error = null;
+        busy = true;
+        try
+        {
+            var balances = real
+                .Where(entry => entry.Value is not null)
+                .Select(entry => new RealBalance(entry.Key, entry.Value!.Value))
+                .ToList();
+            var result = await PlanApi.CreateCarryOverAsync(Year, Month, new CreateCarryOverRequest(amount ?? 0m, balances), owner);
+            if (result.Succeeded)
+            {
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                error = ErrorTexts.For(L, result.ErrorCode);
+            }
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private static string Money(decimal value) => value.ToString("N2", German) + " €";
+}

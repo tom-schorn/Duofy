@@ -1,0 +1,33 @@
+@using Duofy.ApiClient
+@using Duofy.Shared.Pages
+@implements IDisposable
+@inject IServerStore Servers
+@inject IDialogService DialogService
+@inject FormDialogs Forms
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Zeile am Fuß von Anmelden und Registrieren, die den Server nennt (nur in der App).
+   Ein Tippen öffnet den Dialog, in dem man den gehosteten Dienst oder einen eigenen Server
+   wählt. Bei einem eigenen Server steht der Rechner da, bei einer anderen Schnittstelle
+   als der üblichen auch sie (192.168.2.67:5080). *@
+
+<button type="button" class="server-line" @onclick="OpenAsync" aria-label="@L["Server_LineChange", Label]"
+        data-testid="server-line">
+    @L["Server_Line", Label]
+</button>
+
+@code {
+
+    private string Label => Servers.IsHosted ? L["Server_Hosted"] : Servers.CurrentAddress.Authority;
+
+    protected override void OnInitialized() => Servers.Changed += OnServerChanged;
+
+    public void Dispose() => Servers.Changed -= OnServerChanged;
+
+    private void OnServerChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private async Task OpenAsync()
+    {
+        await DialogService.ShowAsync<ServerDialog>(L["Server_DialogTitle"], Forms.Options());
+    }
+}

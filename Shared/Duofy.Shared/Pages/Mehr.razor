@@ -1,0 +1,92 @@
+@page "/mehr"
+@attribute [Authorize]
+@implements IDisposable
+@inject IAppHost Host
+@inject AppChrome Chrome
+@inject IAuthApi AuthApi
+@inject NavigationManager Navigation
+@inject IStringLocalizer<SharedResources> L
+@inject ILegalApi LegalApi
+@inject IUserApi UserApi
+@using Duofy.ApiClient
+
+@* Mehr: alles, was man seltener braucht. Konten, Verträge, der Haushalt und das Benutzerkonto, der Schalter für
+   hell und dunkel (die obere Leiste der App hat keinen mehr) und das Abmelden. Wer den Server verwaltet, findet
+   hier auch Admin (Spec 70); alle anderen sehen den Eintrag nicht.
+
+   Den Schalter reicht das App-Layout als CascadingValue. Im Browser gibt es ihn nicht, dort
+   bleibt der Schalter in der oberen Leiste. *@
+
+<PageTitle>@L["Nav_More"]</PageTitle>
+
+@if (!Host.IsApp)
+{
+    <MudText Typo="Typo.h4" Class="mb-2">@L["Nav_More"]</MudText>
+}
+
+<MudPaper Outlined="true">
+    <MudStack Spacing="0">
+        <MudButton Href="/konten" Variant="Variant.Text" FullWidth="true" Class="more-item"
+                   StartIcon="@Icons.Material.Filled.AccountBalance" data-testid="more-accounts">@L["Nav_Accounts"]</MudButton>
+        <MudButton Href="/vertraege" Variant="Variant.Text" FullWidth="true" Class="more-item"
+                   StartIcon="@Icons.Material.Filled.Description" data-testid="more-contracts">@L["More_Contracts"]</MudButton>
+        <MudButton Href="/haushalt" Variant="Variant.Text" FullWidth="true" Class="more-item"
+                   StartIcon="@Icons.Material.Filled.Groups" data-testid="more-household">@L["More_Household"]</MudButton>
+        <MudButton Href="/konto" Variant="Variant.Text" FullWidth="true" Class="more-item"
+                   StartIcon="@Icons.Material.Filled.Person" data-testid="more-user-account">@L["More_UserAccount"]</MudButton>
+        @if (isAdmin)
+        {
+            <MudButton Href="/admin" Variant="Variant.Text" FullWidth="true" Class="more-item"
+                       StartIcon="@Icons.Material.Filled.AdminPanelSettings" data-testid="more-admin">@L["More_Admin"]</MudButton>
+        }
+        @if (Mode is not null)
+        {
+            <MudButton OnClick="Mode.Toggle" Variant="Variant.Text" FullWidth="true" Class="more-item" data-testid="more-mode"
+                       StartIcon="@(Mode.IsDark ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)">
+                @L[Mode.IsDark ? "Layout_ToLightMode" : "Layout_ToDarkMode"]
+            </MudButton>
+        }
+        <MudButton Href="/lizenzen" Variant="Variant.Text" FullWidth="true" Class="more-item"
+                   StartIcon="@Icons.Material.Filled.Gavel" data-testid="more-licenses">@L["More_Licenses"]</MudButton>
+        @foreach (var name in legalDocuments)
+        {
+            <MudButton Href="@LegalPages.PathOf(name)" Variant="Variant.Text" FullWidth="true" Class="more-item"
+                       StartIcon="@Icons.Material.Filled.Article" data-testid="@($"more-legal-{name}")">@L[LegalPages.LabelKeyOf(name)]</MudButton>
+        }
+        <MudButton OnClick="SignOutAsync" Variant="Variant.Text" FullWidth="true" Class="more-item" Color="Color.Error"
+                   StartIcon="@Icons.Material.Filled.Logout" data-testid="more-sign-out">@L["Account_SignOut"]</MudButton>
+    </MudStack>
+</MudPaper>
+
+@code {
+    [CascadingParameter]
+    private ModeSwitch? Mode { get; set; }
+
+    // Die Rechtstexte, die dieser Server anbietet (Spec 70, R8); ohne Antwort des Servers gibt es keine Links.
+    private IReadOnlyList<string> legalDocuments = [];
+
+    // Ob die Person den Server verwaltet; ohne Antwort des Servers nicht.
+    private bool isAdmin;
+
+    protected override void OnInitialized() => Chrome.Set(this, L["Nav_More"]);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await LegalApi.ListAsync();
+        if (result.Succeeded)
+        {
+            legalDocuments = LegalPages.Known(result.Value!.Documents);
+        }
+
+        var me = await UserApi.GetMeAsync();
+        isAdmin = me.Succeeded && me.Value!.IsInstanceAdmin;
+    }
+
+    private async Task SignOutAsync()
+    {
+        await AuthApi.LogoutAsync();
+        Navigation.NavigateTo("/anmelden");
+    }
+
+    public void Dispose() => Chrome.Release(this);
+}

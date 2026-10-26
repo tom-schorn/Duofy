@@ -1,0 +1,16 @@
+@inject NavigationManager Navigation
+
+@* Schickt jemanden ohne Anmeldung zur Anmeldeseite und merkt sich, wohin er wollte.
+   Nach dem Anmelden geht es dorthin zurück (siehe Login.razor, Parameter ReturnUrl). *@
+
+@code {
+    protected override void OnInitialized()
+    {
+        // Nur der Pfad ohne Rechnername, zum Beispiel "konto/loeschen".
+        var returnUrl = Navigation.ToBaseRelativePath(Navigation.Uri);
+        var target = string.IsNullOrEmpty(returnUrl)
+            ? "/anmelden"
+            : $"/anmelden?returnUrl={Uri.EscapeDataString("/" + returnUrl)}";
+        Navigation.NavigateTo(target, replace: true);
+    }
+}

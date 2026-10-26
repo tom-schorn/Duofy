@@ -1,0 +1,36 @@
+﻿<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <ResourcePreloader />
+    <link rel="stylesheet" href="_content/MudBlazor/MudBlazor.min.css" />
+    <link rel="stylesheet" href="_content/Duofy.Shared/app.css" />
+    <link rel="stylesheet" href="Duofy.Web.styles.css" />
+    <ImportMap />
+    <link rel="icon" type="image/png" href="_content/Duofy.Shared/favicon.png" />
+    <HeadOutlet @rendermode="PageRenderMode" />
+</head>
+
+<body>
+    <WebRoutes @rendermode="PageRenderMode" />
+    <ReconnectModal />
+    <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
+    <AnalyticsBeacon />
+</body>
+
+</html>
+
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    // Die Seiten laufen über die dauerhafte Verbindung zum Server (InteractiveServer),
+    // auch die Anmeldeseiten. Nur eine Seite mit [ExcludeFromInteractiveRouting] würde
+    // als gewöhnliche Webseite ausgeliefert.
+    private IComponentRenderMode? PageRenderMode =>
+        HttpContext.AcceptsInteractiveRouting() ? InteractiveServer : null;
+}

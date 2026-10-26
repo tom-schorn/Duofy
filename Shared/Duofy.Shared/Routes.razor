@@ -1,0 +1,17 @@
+﻿@* Der Router: Er entscheidet, welche Seite zu einer Adresse gehört. Die App benutzt
+   ihn direkt; die Web-Variante hat einen eigenen, der dieselben Seiten findet.
+   Die App zeigt die Seiten im AppLayout (untere Leiste), der Browser im MainLayout.
+
+   AuthorizeRouteView prüft bei Seiten mit [Authorize], ob jemand angemeldet ist.
+   Wenn nicht, schickt RedirectToSignIn die Person zur Anmeldung. *@
+
+<Router AppAssembly="typeof(Layout.MainLayout).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.AppLayout)">
+            <NotAuthorized>
+                <RedirectToSignIn />
+            </NotAuthorized>
+        </AuthorizeRouteView>
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+</Router>

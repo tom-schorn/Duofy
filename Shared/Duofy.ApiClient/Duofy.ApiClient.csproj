@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Die Clients, mit denen Web und App die Duofy-API ansprechen. Hier liegen
+       auch die Token-Ablage (ITokenStore) als Schnittstelle, die jeder Host
+       selbst ausfüllt, und der gemeinsame Handler, der das Access-Token an jede
+       Anfrage hängt und es bei Bedarf erneuert. -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Dieselbe Version wie in Duofy.Shared, sonst meldet NuGet dort eine Herabstufung. -->
+    <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Backend\Duofy.Schemas\Duofy.Schemas.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Duofy.ApiClient.Tests" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,208 @@
+@page "/anmelden"
+@layout AuthLayout
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@inject IAuthApi AuthApi
+@inject IInstanceApi InstanceApi
+@inject NavigationManager Navigation
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Anmeldung. Kam die Person von einer anderen Seite (zum Beispiel /konto/loeschen),
+   steht deren Adresse im Parameter returnUrl, und nach dem Anmelden geht es dorthin zurück.
+   Aufbau und Texte wie LoginPage.tsx im ursprünglichen Duofy.
+
+   "Passwort vergessen?" (Spec 53) klappt einen Abschnitt auf: Auf der gehosteten Version schickt er einen Link an die
+   Adresse, auf einem selbst betriebenen Server sagt er nur, an wen man sich wendet, und schickt nichts. Ist die
+   Adresse eines Kontos noch nicht bestätigt, sagt die Seite das und bietet an, den Link noch einmal zu schicken;
+   danach ist der Knopf fünf Minuten lang ausgegraut, mit dem Grund darunter. *@
+
+<PageTitle>@L["Login_Title"]</PageTitle>
+
+<div class="auth-header">
+    <MudText Typo="Typo.h2" HtmlTag="h1">@L["Login_Title"]</MudText>
+    <p class="auth-lead">@L["Login_Lead"]</p>
+</div>
+
+@if (error is not null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@error</MudAlert>
+}
+
+@if (unconfirmed)
+{
+    <div class="mb-4">
+        <Notice Message="resendMessage" />
+        @if (resent)
+        {
+            @* Ausgegraut statt angeboten und abgelehnt; aria-disabled statt disabled, damit ein Screenreader den Knopf
+               findet und den Grund darunter vorliest. *@
+            <MudButton Variant="Variant.Outlined" Ripple="false"
+                       Style="color: var(--mud-palette-action-disabled); border-color: var(--mud-palette-action-disabled); cursor: default;"
+                       aria-disabled="true" aria-describedby="login-resend-reason" data-testid="login-resend">@L["Login_Resend"]</MudButton>
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-1" id="login-resend-reason"
+                     data-testid="login-resend-reason">@L["Login_ResendWait"]</MudText>
+        }
+        else
+        {
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="ResendAsync"
+                       data-testid="login-resend">@L["Login_Resend"]</MudButton>
+        }
+    </div>
+}
+
+<div class="field-stack">
+    <div class="field">
+        <FieldLabel For="login-email-input" Text="@L["Field_Email"]" />
+        <MudTextField @bind-Value="email" Variant="Variant.Outlined" InputId="login-email-input"
+                      InputType="InputType.Email" Placeholder="@L["Auth_EmailPlaceholder"]"
+                      autocomplete="email" data-testid="login-email" />
+    </div>
+    <div class="field">
+        <FieldLabel For="login-password-input" Text="@L["Field_Password"]" />
+        <MudTextField @bind-Value="password" Variant="Variant.Outlined" InputId="login-password-input"
+                      InputType="InputType.Password" autocomplete="current-password"
+                      OnKeyDown="OnPasswordKeyDown" data-testid="login-password" />
+    </div>
+</div>
+
+<MudButton Variant="Variant.Text" Size="Size.Small" Class="mt-1 px-0" OnClick="ToggleForgot"
+           aria-expanded="@(forgotOpen ? "true" : "false")" data-testid="login-forgot">@L["Login_Forgot"]</MudButton>
+
+@if (forgotOpen)
+{
+    <MudPaper Class="pa-4 mt-2" Outlined="true" data-testid="login-forgot-panel">
+        @if (instance?.Hosted == true)
+        {
+            <MudText Typo="Typo.body2" Class="mb-2">@L["Login_ForgotLead"]</MudText>
+            <Notice Message="forgotMessage" />
+            <div class="field">
+                <FieldLabel For="login-forgot-email-input" Text="@L["Field_Email"]" />
+                <MudTextField @bind-Value="forgotEmail" Variant="Variant.Outlined" InputId="login-forgot-email-input"
+                              InputType="InputType.Email" Placeholder="@L["Auth_EmailPlaceholder"]" autocomplete="email"
+                              data-testid="login-forgot-email" />
+            </div>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="mt-2" Disabled="forgotBusy"
+                       OnClick="ForgotAsync" data-testid="login-forgot-submit">@L["Login_ForgotSubmit"]</MudButton>
+        }
+        else
+        {
+            <MudText Typo="Typo.body2" data-testid="login-forgot-note">@L["Login_ForgotSelfHosted"]</MudText>
+        }
+    </MudPaper>
+}
+
+<MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
+           Disabled="busy" OnClick="SubmitAsync" data-testid="login-submit">
+    @(busy ? L["Login_Pending"] : L["Login_Submit"])
+</MudButton>
+
+<p class="auth-switch">
+    @L["Login_NoAccount"]
+    <a href="@ReturnAddress.With("/registrieren", ReturnUrl)">@L["Login_RegisterLink"]</a>
+</p>
+
+@code {
+    // Kommt aus der Adresse: /anmelden?returnUrl=/konto
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    [Parameter]
+    public string? ReturnUrl { get; set; }
+
+    private string email = "";
+    private string password = "";
+    private bool busy;
+    private string? error;
+
+    // Was der Server anbietet; null, solange er nicht geantwortet hat. Ohne Antwort gilt er als selbst betrieben:
+    // Dann sagt "Passwort vergessen?" nur, an wen man sich wendet, und schickt nichts.
+    private InstanceResponse? instance;
+
+    private bool forgotOpen;
+    private string forgotEmail = "";
+    private bool forgotBusy;
+    private NoticeMessage? forgotMessage;
+
+    // Die Anmeldung kam mit email_not_confirmed zurück (nur auf der gehosteten Version).
+    private bool unconfirmed;
+    private bool resent;
+    private NoticeMessage? resendMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await InstanceApi.GetAsync();
+        instance = result.Succeeded ? result.Value : null;
+    }
+
+    private void ToggleForgot()
+    {
+        forgotOpen = !forgotOpen;
+        if (forgotOpen && forgotEmail.Length == 0)
+        {
+            forgotEmail = email.Trim();
+        }
+    }
+
+    // Die API antwortet immer gleich, ob es die Adresse gibt oder nicht; die Seite sagt deshalb "wenn".
+    private async Task ForgotAsync()
+    {
+        if (string.IsNullOrWhiteSpace(forgotEmail))
+        {
+            forgotMessage = new NoticeMessage(ErrorTexts.For(L, ErrorCodes.EmailInvalid), Severity.Error);
+            return;
+        }
+        forgotBusy = true;
+        try
+        {
+            var result = await AuthApi.ForgotPasswordAsync(new ForgotPasswordRequest(forgotEmail.Trim()));
+            forgotMessage = result.Succeeded
+                ? new NoticeMessage(L["Login_ForgotSent"], Severity.Success)
+                : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+        }
+        finally
+        {
+            forgotBusy = false;
+        }
+    }
+
+    private async Task ResendAsync()
+    {
+        if (resent) return;
+        var result = await AuthApi.ResendConfirmationAsync(new ResendConfirmationRequest(email.Trim()));
+        if (result.Succeeded)
+        {
+            resent = true;
+            resendMessage = new NoticeMessage(L["Login_ResendSent"], Severity.Success);
+        }
+        else
+        {
+            resendMessage = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+        }
+    }
+
+    private async Task OnPasswordKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await SubmitAsync();
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (busy) return;
+        busy = true;
+        error = null;
+        unconfirmed = false;
+        try
+        {
+            var result = await AuthApi.LoginAsync(new LoginRequest(email.Trim(), password));
+            if (!result.Succeeded)
+            {
+                error = ErrorTexts.For(L, result.ErrorCode);
+                unconfirmed = result.ErrorCode == ErrorCodes.EmailNotConfirmed;
+                return;
+            }
+            Navigation.NavigateTo(ReturnAddress.IsLocalPath(ReturnUrl) ? ReturnUrl! : "/");
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}
