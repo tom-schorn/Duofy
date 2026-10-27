@@ -56,12 +56,12 @@
 
   <!-- Serverwahl (nur in der App) -->
   <data name="Server_Line"><value>Server: {0}</value></data>
-  <data name="Server_Hosted"><value>Duofy (gehostet)</value></data>
+  <data name="Server_Hosted"><value>Plagevo (gehostet)</value></data>
   <data name="Server_Change"><value>Server ändern</value></data>
   <data name="Server_LineChange"><value>Server: {0}, ändern</value></data>
   <data name="Server_DialogTitle"><value>Server</value></data>
   <data name="Server_Choice"><value>Welchen Server möchtest du benutzen?</value></data>
-  <data name="Server_ChoiceHosted"><value>Gehosteter Dienst</value></data>
+  <data name="Server_ChoiceHosted"><value>Plagevo</value></data>
   <data name="Server_ChoiceOwn"><value>Eigener Server</value></data>
   <data name="Server_Address"><value>Adresse des Servers</value></data>
   <data name="Server_AddressPlaceholder"><value>https://duofy.example.org</value></data>

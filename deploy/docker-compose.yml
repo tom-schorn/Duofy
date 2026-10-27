@@ -98,8 +98,11 @@ services:
     restart: unless-stopped
     command: ["tunnel", "--no-autoupdate", "run"]
     mem_limit: 128m
+    # Leer als Standard: Compose prüft Pflichtvariablen in jedem Dienst, auch ohne sein Profil, und dann bräuchte
+    # jeder Start ein Token, das nur dieser Dienst kennt. Fehlt es mit dem Profil, endet cloudflared mit einem Fehler im
+    # Log (docs/betrieb.md, Schritt 13).
     environment:
-      TUNNEL_TOKEN: ${TUNNEL_TOKEN?TUNNEL_TOKEN fehlt in .env}
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
     networks:
       plagevo:
         ipv4_address: 172.30.10.2

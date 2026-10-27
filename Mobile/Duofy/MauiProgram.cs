@@ -37,8 +37,8 @@ namespace Duofy
             // Teilen öffnet in der App den Teilen-Dialog von Android, zum Beispiel für eine Einladung.
             builder.Services.AddSingleton<IShareService, MauiShareService>();
 
-            // Die Verbindung zur API. Die Adresse steht in appsettings.json (Release) oder
-            // appsettings.Debug.json (Debug).
+            // Die Verbindung zur API. Die Adresse steht in appsettings.json (Release: der gehostete
+            // Dienst Plagevo, https://api.plagevo.de/) oder appsettings.Debug.json (Debug: die API auf dem PC).
             var apiAddress = builder.Configuration["Api:BaseAddress"]
                 ?? throw new InvalidOperationException("Api:BaseAddress fehlt in appsettings.json.");
             var hostedAddress = new Uri(apiAddress);

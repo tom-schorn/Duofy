@@ -115,3 +115,15 @@ Amendment 2026-10-26 (human, emergency; approved by the lead on his behalf): for
 | Both env spellings | DeployFilesTests.cs (Every_setting_accepts_the_dotnet_name_before_the_old_name, The_sender_name_accepts_both_dotnet_spellings_and_the_old_name), plus `docker compose config` with both spellings set |
 | Sender name | Tests/Duofy.Backend.Tests/MailDeliveryTests.cs (The_sender_shows_the_configured_name_and_keeps_the_plain_address) |
 | Guide | docs/betrieb.md, steps 2.2, 2.5, 3, 4, 5 and 12 |
+
+Amendment 2026-10-27 (emergency, ordered by the lead): the web image on the server answered `_framework/blazor.web.js` with 404, so no page became interactive.
+
+- Web image: the SDK references the package with the Blazor script only when it sees `.razor` content during restore, and the Dockerfile restores with the project files alone; `Duofy.Web.csproj` sets `RequiresAspNetWebAssets` to true.
+- Check after start: `deploy/check-web.sh [address]` (default https://portal.plagevo.de) asks `/health` and `/_framework/blazor.web.js` and fails unless both answer 200; the guide runs it in step 8 and after each update.
+- Tunnel token (P-032): `TUNNEL_TOKEN` defaults to empty, because compose checks required variables in every service whatever its profile; a missing token with the `own-tunnel` profile shows in the tunnel's log (guide, step 13).
+
+| Change | Test |
+| --- | --- |
+| Blazor script in the image | DeployFilesTests.cs (The_web_project_always_restores_the_blazor_script), plus the two Dockerfile layers (restore with the project files only, publish `--no-restore`) run locally and as `docker build --target build`: `wwwroot/_framework/blazor.web.js` present and 20 manifest hits, before the fix 0 and 0 |
+| check-web.sh | DeployFilesTests.cs (The_web_check_asks_for_health_and_the_blazor_script), plus the script run against the published app before the fix (exit 1, 404) and after it (exit 0) |
+| Optional tunnel token | DeployFilesTests.cs (The_tunnel_token_is_optional_outside_the_own_tunnel_profile), plus `docker compose config --quiet` with an environment without `TUNNEL_TOKEN`, with and without `--profile own-tunnel` (before the fix: "required variable TUNNEL_TOKEN is missing a value") |

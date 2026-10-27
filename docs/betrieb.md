@@ -273,7 +273,7 @@ Was hinein muss:
 | `DUOFY_MAIL_*` | die Mail, siehe Schritt 5 |
 | `PLAGEVO_NETWORK` | der Name des eigenen Netzes, `plagevo`; nur ändern, wenn der Name schon vergeben ist, dann auch beim Tunnel |
 | `TRUSTED_PROXIES` | `172.30.10.2/32`, die Adresse des Tunnels; so steht es schon im Beispiel |
-| `TUNNEL_TOKEN` | nur in Fall B |
+| `TUNNEL_TOKEN` | nur in Fall B; in Fall A weglassen oder leer lassen |
 | `CLOUDFLARE_ANALYTICS_TOKEN` | leer, wenn Cloudflare das Skript selbst einfügt (Schritt 2.5) |
 | `BACKUP_UID`, `BACKUP_GID` | dein Benutzer auf dem Server (`id -u`, `id -g`); ihm gehört der Ordner der Sicherungen |
 
@@ -387,6 +387,17 @@ dabei sein. Der letzte Befehl antwortet mit `Healthy`. Bricht die API beim Start
 fehlt oder unsicher ist, zum Beispiel "Gehosteter Server ohne Einstellung Duofy:Mail:Host" oder "Gehosteter Server mit
 unverschlüsselter Einstellung Duofy:PublicUrl".
 
+Ob die Web-Variante auch wirklich benutzbar ist, prüft danach ein eigenes Skript, nach jedem Start und jedem Update:
+
+```bash
+sh check-web.sh
+```
+
+Es fragt `https://portal.plagevo.de/health` und `https://portal.plagevo.de/_framework/blazor.web.js` ab (eine andere
+Adresse als erstes Argument, zum Beispiel `sh check-web.sh http://172.30.10.12:8080` auf dem Server selbst) und endet
+mit "ist benutzbar". Fehlt das Skript `blazor.web.js`, lädt jede Seite, aber kein Knopf reagiert; der HEALTHCHECK des
+Containers merkt das nicht, darum diese zweite Prüfung.
+
 Der Speicher: `docker stats --no-stream` zeigt, was jeder Container braucht.
 
 ## 9. Update
@@ -410,7 +421,13 @@ Der Speicher: `docker stats --no-stream` zeigt, was jeder Container braucht.
    docker compose --env-file .env up -d --build
    ```
 
-4. Alte Images und den Cache des Bauens entfernen; die Platte des Servers ist klein:
+4. Prüfen, ob die Web-Variante benutzbar ist (Schritt 8); das Skript muss mit "ist benutzbar" enden:
+
+   ```bash
+   sh check-web.sh
+   ```
+
+5. Alte Images und den Cache des Bauens entfernen; die Platte des Servers ist klein:
 
    ```bash
    docker image prune -f
@@ -536,8 +553,10 @@ gelten nur für diese eigene Datenbank.
 | `backup check` zeigt `no response` | Der Server erreicht die Datenbank nicht: Tailscale, `listen_addresses`, `pg_hba.conf` und Firewall prüfen (Schritt 3). |
 | Die API startet nicht | `docker compose --env-file .env logs api`; die letzte Zeile nennt die fehlende oder unsichere Einstellung. Bei "password authentication failed" passt das Passwort in der Verbindung nicht, bei "no pg_hba.conf entry" fehlt die Zeile aus Schritt 3. |
 | `network plagevo declared as external, but could not be found` (beim Tunnel) | Plagevo lief noch nicht; erst Plagevo starten, dann den Tunnel (Schritt 2.2). |
+| Mit `--profile own-tunnel` startet der Dienst `tunnel` immer wieder neu | `TUNNEL_TOKEN` fehlt in `.env` oder ist falsch (Fall B in Schritt 2.2). Compose prüft das Token nicht, damit Fall A ohne auskommt; `docker compose --env-file .env --profile own-tunnel logs tunnel` nennt den Grund. |
 | Cloudflare zeigt "Bad gateway" (502) | Der Tunnel erreicht `web` oder `api` nicht: Sind beide "healthy", hängt `cloudflared` mit `172.30.10.2` im Netz `plagevo` (Schritt 8), und zeigen die Einträge im Dashboard auf `172.30.10.12:8080` und `172.30.10.11:8080`? |
 | `Pool overlaps with other one on this address space` | Das Subnetz `172.30.10.0/24` ist auf diesem Server schon vergeben: `docker network ls` und `docker network inspect` zeigen, von wem. |
+| Die Seiten laden, aber kein Knopf reagiert; `check-web.sh` meldet `/_framework/blazor.web.js` mit HTTP 404 | Dem Image fehlt das Skript von Blazor. Den neuesten Stand holen und `web` neu bauen: `docker compose --env-file .env build --no-cache web`, dann `up -d web` und `sh check-web.sh`. |
 | Viele Anmeldungen der App enden mit 429 | `TRUSTED_PROXIES` passt nicht zur Adresse des Tunnels (Schritt 4), oder der Tunnel hat nicht `172.30.10.2`. |
 | `backup` schreibt nichts, "Permission denied" | Der Ordner `backups` gehört nicht `BACKUP_UID`: `sudo chown "$(id -u):$(id -g)" backups`. |
 | Nach einem Update ist jeder abgemeldet | Das Volume `keys` ist verloren gegangen, zum Beispiel durch `docker compose down -v`. Dann einmal neu anmelden; `-v` nie benutzen, mit `own-db.yml` löscht es auch die Datenbank. |

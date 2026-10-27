@@ -12,7 +12,7 @@ namespace Duofy.Shared.Tests;
 /// </summary>
 public class ServerChoiceTests : PageTestContext
 {
-    private static readonly Uri Hosted = new("https://api.duofy.invalid/");
+    private static readonly Uri Hosted = new("https://api.plagevo.de/");
 
     private readonly ServerStore store = new(Hosted, new InMemoryServerPreference());
     private readonly FakeServerSelector selector;
@@ -57,7 +57,7 @@ public class ServerChoiceTests : PageTestContext
 
         var cut = Open(path);
 
-        Assert.Equal("Server: Duofy (gehostet)", LineOf(cut));
+        Assert.Equal("Server: Plagevo (gehostet)", LineOf(cut));
     }
 
     // Der vorgelesene Name enthält den sichtbaren Text, damit Sprachsteuerung und Vorlesen denselben Server nennen (WCAG 2.5.3).
@@ -120,7 +120,7 @@ public class ServerChoiceTests : PageTestContext
 
         cut.WaitForAssertion(() =>
             Assert.Equal("Unter dieser Adresse antwortet kein Duofy-Server.", cut.Find("[data-testid='server-error']").TextContent.Trim()));
-        Assert.Equal("Server: Duofy (gehostet)", LineOf(cut));
+        Assert.Equal("Server: Plagevo (gehostet)", LineOf(cut));
         Assert.NotEmpty(cut.FindAll("[data-testid='server-choice']"));
     }
 
@@ -151,6 +151,9 @@ public class ServerChoiceTests : PageTestContext
         OpenDialog(cut);
 
         Assert.Equal("hosted", cut.Find("[data-testid='server-choice']").GetAttribute("value"));
+        // Nachtrag 2026-10-27: Der gehostete Dienst heißt Plagevo; der eigene Server bleibt mit eigener Adresse.
+        Assert.Equal(["Plagevo", "Eigener Server"],
+            cut.FindAll("[data-testid='server-choice'] option").Select(o => o.TextContent.Trim()));
         Assert.Empty(cut.FindAll("[data-testid='server-address']"));
 
         cut.Find("[data-testid='server-save']").Click();

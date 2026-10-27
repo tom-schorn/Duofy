@@ -6,13 +6,20 @@ uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- The web image ships `_framework/blazor.web.js` again, so its pages become interactive: the Docker restore with only the project files skipped the package that carries the script (spec 79)
+- `docker compose` no longer demands `TUNNEL_TOKEN` when the `own-tunnel` profile is not used; it defaults to empty (spec 79, P-032)
+
 ### Changed
 
+- The app's default server is the hosted service Plagevo at `https://api.plagevo.de/`; the server line reads "Plagevo (gehostet)" and the dialog offers "Plagevo" or an own server (spec 61, amendment 2026-10-27)
 - A hosted server no longer starts with an http public address or with mail TLS switched off (spec 79)
 - Repository restructured without any change of behaviour: `Duofy.Api`, `Duofy.Data` and `Duofy.Domain` are one project `Backend/Duofy.Backend` (folders `Api`, `Data`, `Domain`), the data formats are called `Duofy.Schemas`, projects lie in the folders `Backend`, `Shared`, `Web`, `Mobile` and `Tests`, and the tests of the API and the domain are one project `Duofy.Backend.Tests` (spec 77)
 
 ### Added
 
+- `deploy/check-web.sh`: after every start or update it checks that the web version answers `/health` and serves `/_framework/blazor.web.js`, and fails otherwise (spec 79)
 - Plagevo runs in its own Docker network `plagevo` (172.30.10.0/24) with fixed addresses (tunnel .2, api .11, web .12, backup .13); the tunnel points at addresses, the API trusts only the tunnel (`172.30.10.2/32`) and exempts only the web container; the cloudflared of a separate compose project joins the network as an external one (spec 79, amendment 2026-10-26)
 - External database: `ConnectionStrings__Duofy` is required in `deploy/.env` (Plagevo uses a PostgreSQL server reached over Tailscale), the backup dumps that database and `backup.sh check` tests the connection; `deploy/own-db.yml` adds an own PostgreSQL in the internal network `plagevo-backend` for self-hosters
 - `deploy/.env` accepts every setting in .NET's notation (`Duofy__Mail__Host`) as well as the old names (`DUOFY_MAIL_HOST`); the .NET notation wins

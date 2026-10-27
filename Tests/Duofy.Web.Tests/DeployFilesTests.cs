@@ -47,6 +47,29 @@ public partial class DeployFilesTests
         Assert.All(Dockerfiles, path => Assert.Contains($"dockerfile: {path}", compose));
     }
 
+    // Nachtrag 2026-10-27: Das Dockerfile stellt die Pakete nur mit den Projektdateien wieder her. Ohne diesen Schalter
+    // sieht das SDK dabei keine .razor-Datei, lädt das Paket mit _framework/blazor.web.js nicht, und keine Seite des
+    // Images wird interaktiv.
+    [Fact]
+    public void The_web_project_always_restores_the_blazor_script()
+    {
+        var project = Read("Web/Duofy.Web/Duofy.Web.csproj");
+
+        Assert.Contains("<RequiresAspNetWebAssets>true</RequiresAspNetWebAssets>", project);
+    }
+
+    // Nachtrag 2026-10-27: Nach jedem Start prüft check-web.sh, ob die Web-Variante läuft und ihr Skript ausliefert.
+    [Fact]
+    public void The_web_check_asks_for_health_and_the_blazor_script()
+    {
+        var script = Read("deploy/check-web.sh");
+
+        Assert.StartsWith("#!/bin/sh\n", script);
+        Assert.Contains("check /health ", script);
+        Assert.Contains("check /_framework/blazor.web.js ", script);
+        Assert.Contains("exit 1", script);
+    }
+
     // Der Server hat knapp 3 GB Arbeitsspeicher: Jeder Dienst hat eine Grenze, auch die eigene Datenbank.
     [Theory]
     [InlineData("deploy/docker-compose.yml", 4)]
@@ -133,6 +156,18 @@ public partial class DeployFilesTests
         Assert.Contains($"      ConnectionStrings__Duofy: {Required}", compose);
         Assert.Contains($"      DUOFY_CONNECTION_STRING: {Required}", compose);
         Assert.DoesNotContain("POSTGRES_", compose);
+    }
+
+    // P-032 (2026-10-27): Compose prüft Pflichtvariablen auch in Diensten, deren Profil nicht aktiv ist. Ohne eigenen
+    // Tunnel darf TUNNEL_TOKEN darum ganz fehlen; ob die Compose-Datei dann gültig ist, zeigt
+    // docker compose config --quiet mit einer Umgebung ohne TUNNEL_TOKEN (Spec 79, Tracing).
+    [Fact]
+    public void The_tunnel_token_is_optional_outside_the_own_tunnel_profile()
+    {
+        var compose = Read("deploy/docker-compose.yml");
+
+        Assert.Contains("      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}\n", compose.ReplaceLineEndings("\n"));
+        Assert.DoesNotMatch(@"\$\{TUNNEL_TOKEN:?\?", compose);
     }
 
     [Fact]
