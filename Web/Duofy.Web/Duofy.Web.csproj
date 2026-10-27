@@ -8,6 +8,11 @@
          (NavigationException), an der der Debugger jedes Mal anhält, obwohl nichts
          kaputt ist. Mit diesem Schalter leitet Blazor ohne Ausnahme weiter. -->
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <!-- Das SDK lädt das Paket mit _framework/blazor.web.js nur, wenn es beim Restore
+         .razor-Dateien im Projekt sieht. Das Dockerfile stellt die Pakete aber nur mit den
+         Projektdateien wieder her; ohne diesen Schalter fehlt das Skript dann im Image
+         und keine Seite wird interaktiv. -->
+    <RequiresAspNetWebAssets>true</RequiresAspNetWebAssets>
   </PropertyGroup>
 
   <!-- Die Web-Variante kennt keine Datenbank. Alle Daten kommen über Duofy.ApiClient
