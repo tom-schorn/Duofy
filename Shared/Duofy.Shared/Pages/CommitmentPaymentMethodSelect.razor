@@ -1,0 +1,31 @@
+@using Duofy.Schemas
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Wahl der Zahlungsart im Vertragsdialog (Schritt 3, Spec 17). Vorerst ein Auswahlfeld; die
+   Symbol-Knöpfe (#15) ersetzen nur diese Datei, der Dialog gibt den Wert hinein und bekommt die Wahl
+   über ValueChanged zurück. Leer ("") heißt: noch nicht gewählt. *@
+
+<NativeSelect Value="@Value" ValueChanged="ValueChanged" id="@InputId" aria-describedby="@($"{InputId}-error")"
+              data-testid="@TestId">
+    <option value="">@L["CommitmentDialog_Choose"]</option>
+    @foreach (var method in PaymentMethods.All)
+    {
+        <option value="@method">@L[$"PaymentMethod_{method}"]</option>
+    }
+</NativeSelect>
+
+@code {
+    /// <summary>Die gewählte Zahlungsart, siehe <see cref="PaymentMethods"/>; "" solange keine gewählt ist.</summary>
+    [Parameter]
+    public string Value { get; set; } = "";
+
+    [Parameter]
+    public EventCallback<string> ValueChanged { get; set; }
+
+    /// <summary>Die Id des Felds; daran hängen Beschriftung und Fehler des StepField.</summary>
+    [Parameter, EditorRequired]
+    public string InputId { get; set; } = "";
+
+    [Parameter]
+    public string? TestId { get; set; }
+}

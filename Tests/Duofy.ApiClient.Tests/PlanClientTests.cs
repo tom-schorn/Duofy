@@ -39,6 +39,23 @@ public class PlanClientTests
     }
 
     [Fact]
+    public async Task ListMonths_reads_the_plans_path_and_names_the_owner_only_when_one_is_given()
+    {
+        var months = new[] { new PlanMonthResponse(2026, 11, 120m), new PlanMonthResponse(2026, 10, -5m) };
+        var (api, provider, scope) = Start(_ => FakeApi.Json(HttpStatusCode.OK, months));
+        using var _p = provider;
+        using var _s = scope;
+        var owner = Guid.NewGuid();
+
+        var own = await scope.ServiceProvider.GetRequiredService<IPlanApi>().ListMonthsAsync();
+        await scope.ServiceProvider.GetRequiredService<IPlanApi>().ListMonthsAsync(owner);
+
+        Assert.Equal(months, own.Value);
+        Assert.Equal([("/api/v1/plans", ""), ("/api/v1/plans", $"?owner={owner}")], api.Requests.Select(r => (r.Path, r.Query)));
+        Assert.All(api.Requests, r => Assert.Equal((HttpMethod.Get, "Bearer access"), (r.Method, r.Authorization)));
+    }
+
+    [Fact]
     public async Task Positions_ticks_changes_and_carry_over_go_to_their_addresses()
     {
         var (api, provider, scope) = Start(request => request.Method == HttpMethod.Delete && !request.Path.EndsWith("/tick")

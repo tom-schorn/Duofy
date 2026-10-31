@@ -72,7 +72,7 @@
 
             @if (draft.Kind == BookingKinds.Transfer)
             {
-                @* Bei einer Umbuchung gibt es keine Zeilen und keine Kategorie, nur ein zweites Konto. *@
+                @* Bei einer Umbuchung gibt es keine Kategorie und nur eine Zeile (den Quelltopf), dazu ein zweites Konto. *@
                 <NativeSelect Value="@Key(draft.CounterAccountId)" ValueChanged="OnCounterAccountChanged"
                                  Label="@L["Field_ToAccount"]" data-testid="booking-counter-account">
                     <option value="">@L["BookingDialog_ChooseAccount"]</option>
@@ -81,19 +81,31 @@
                         <option value="@account.Id">@account.Name</option>
                     }
                 </NativeSelect>
-                <MudCheckBox T="bool" Value="draft.TransferIsSavings" ValueChanged="OnSavingsChanged"
-                             Label="@L["BookingDialog_TransferIsSavings"]" data-testid="booking-transfer-savings" />
-                @if (draft.TransferIsSavings)
-                {
-                    <NativeSelect Value="@Key(draft.TransferPositionId)" ValueChanged="OnTransferPositionChanged"
-                                  Label="@L["Field_Position"]" data-testid="booking-transfer-position">
-                        <option value="">@L["BookingDialog_NoPosition"]</option>
-                        @foreach (var position in PlanView.OfferedPositions(plan, draft.Kind, draft.TransferPositionId))
-                        {
-                            <option value="@position.Id">@position.Label</option>
-                        }
-                    </NativeSelect>
-                }
+                @* Quelle und Ziel werden nur gemerkt (Spec 72, R9): Pflicht, ohne Vorauswahl, aus den drei Töpfen. *@
+                <NativeSelect Value="@draft.TransferSourcePot" ValueChanged="OnTransferSourcePotChanged"
+                              Label="@L["Field_TransferSourcePotRequired"]" aria-required="true" data-testid="booking-transfer-source-pot">
+                    <option value="">@L["BookingDialog_ChoosePot"]</option>
+                    @foreach (var pot in OfferedPots())
+                    {
+                        <option value="@pot">@L[$"Pot_{pot}"]</option>
+                    }
+                </NativeSelect>
+                <NativeSelect Value="@draft.TransferTargetPot" ValueChanged="OnTransferTargetPotChanged"
+                              Label="@L["Field_TransferTargetPotRequired"]" aria-required="true" data-testid="booking-transfer-target-pot">
+                    <option value="">@L["BookingDialog_ChoosePot"]</option>
+                    @foreach (var pot in OfferedPots())
+                    {
+                        <option value="@pot">@L[$"Pot_{pot}"]</option>
+                    }
+                </NativeSelect>
+                <NativeSelect Value="@Key(draft.TransferPositionId)" ValueChanged="OnTransferPositionChanged"
+                              Label="@L["Field_Position"]" data-testid="booking-transfer-position">
+                    <option value="">@L["BookingDialog_NoPosition"]</option>
+                    @foreach (var position in PlanView.OfferedPositions(plan, draft.Kind, draft.TransferPositionId))
+                    {
+                        <option value="@position.Id">@position.Label</option>
+                    }
+                </NativeSelect>
             }
             else
             {
@@ -131,7 +143,11 @@
                             </NativeSelect>
 
                             <NativeSelect Value="@line.Pot" ValueChanged="v => OnPotChanged(index, v)"
-                                             Label="@L["Field_Pot"]" data-testid="@($"booking-line-pot-{index}")">
+                                             Label="@L["Field_PotRequired"]" aria-required="true" data-testid="@($"booking-line-pot-{index}")">
+                                @if (draft.Kind != BookingKinds.Income)
+                                {
+                                    <option value="">@L["BookingDialog_ChoosePot"]</option>
+                                }
                                 @foreach (var pot in OfferedPots())
                                 {
                                     <option value="@pot">@L[$"Pot_{pot}"]</option>
@@ -243,6 +259,10 @@
     [Parameter]
     public DateOnly Today { get; set; }
 
+    /// <summary>Beim Anlegen: der Planmonat, in dem die Buchung zählen soll; ohne Angabe der Monat von heute.</summary>
+    [Parameter]
+    public DateOnly? PlanMonth { get; set; }
+
     private BookingDraft draft = default!;
 
     // Die Person, für die der Dialog geöffnet wurde; sie bleibt, auch wenn der Umschalter inzwischen woanders steht (Spec 68, A15).
@@ -266,7 +286,7 @@
         owner = Member.Owner;
         // Beim Anlegen: Ausgabe, heute, Standardkonto (R9). Beim Ändern: die gespeicherten Werte.
         draft = Existing is null
-            ? BookingDraft.ForNew(Today, Accounts.FirstOrDefault(a => a.IsDefault && a.Active)?.Id)
+            ? BookingDraft.ForNew(Today, Accounts.FirstOrDefault(a => a.IsDefault && a.Active)?.Id, PlanMonth)
             : BookingDraft.From(Existing);
         dateText = draft.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
     }
@@ -317,7 +337,9 @@
 
     private void OnCounterAccountChanged(string value) => draft.CounterAccountId = ParseId(value);
 
-    private void OnSavingsChanged(bool value) => draft.TransferIsSavings = value;
+    private void OnTransferSourcePotChanged(string pot) => draft.TransferSourcePot = pot;
+
+    private void OnTransferTargetPotChanged(string pot) => draft.TransferTargetPot = pot;
 
     private void OnPotChanged(int index, string pot) => draft.Lines[index].Pot = pot;
 

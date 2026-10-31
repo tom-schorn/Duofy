@@ -1,0 +1,146 @@
+@page "/plan"
+@attribute [Authorize]
+@using System.Globalization
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@using Duofy.Shared.Icons
+@implements IDisposable
+@inject IPlanApi PlanApi
+@inject IHouseholdApi HouseholdApi
+@inject IAppHost Host
+@inject AppChrome Chrome
+@inject ActiveMember Member
+@inject TimeProvider Time
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Plan-Übersicht (Spec 23): Wer auf Plan tippt, sieht zuerst die Monate, nicht gleich den laufenden. Die Liste hat
+   alle Monate mit Plan, den laufenden und die drei kommenden, den neuesten oben. Der laufende ist hervorgehoben und
+   beschriftet; jede Zeile zeigt den Frei-Betrag oder "noch nicht angelegt" und führt zu /plan/{Jahr}/{Monat}.
+
+   Die Seite rechnet nichts: Den Frei-Betrag schickt die API (PlanFigures.Free). Eine Zeile ist ein gewöhnlicher Link,
+   darum geht sie mit Tastatur, Vorlese-Programm und als Adresse zum Merken. Ein Monat ohne Plan wird erst beim Öffnen
+   angelegt, nicht beim Anschauen der Liste. Mit dem Umschalter zeigt die Seite die Monate eines anderen Mitglieds
+   (Spec 68) oder des Haushalts (Spec 69). *@
+
+<PageTitle>@L["Nav_Plan"]</PageTitle>
+
+@if (!Host.IsApp)
+{
+    <MudText Typo="Typo.h4" Class="mb-2">@L["Nav_Plan"]</MudText>
+}
+
+@if (Member.IsHousehold)
+{
+    <MudText Typo="Typo.h6" Class="mb-2" data-testid="household-name">@Member.Household?.Name</MudText>
+}
+
+<Notice Message="message" />
+
+@if (!SeesPlan)
+{
+    <MudText Color="Color.Secondary" data-testid="not-shared">@L["Grant_NotShared"]</MudText>
+}
+else if (rows is not null)
+{
+    <ul class="plan-months" aria-label="@L["PlanOverview_Months"]" data-testid="plan-months">
+        @foreach (var row in rows)
+        {
+            <li>
+                <a href="@row.Href" class="@RowClass(row)" aria-current="@(row.IsCurrent ? "date" : null)"
+                   data-testid="@($"plan-month-row-{row.Key}")">
+                    <span class="plan-month-name">
+                        @MonthTitle(row)
+                        @if (row.IsCurrent)
+                        {
+                            <span class="plan-month-badge">@L["PlanOverview_Current"]</span>
+                        }
+                    </span>
+                    @if (row.Free is { } free)
+                    {
+                        <span class="plan-month-free">
+                            <TablerIcon Name="coins" Size="20" />
+                            @L["PlanOverview_Free", MoneyText.Format(free)]
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="plan-month-free plan-month-free--none">@L["PlanOverview_NotCreated"]</span>
+                    }
+                </a>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+
+    private static readonly CultureInfo German = new("de-DE");
+
+    private IReadOnlyList<PlanOverviewRow>? rows;
+    private NoticeMessage? message;
+
+    // Beim Haushalt gibt es keine Freigabe zu prüfen: Er zeigt die Monate aller gezählten Mitglieder (Spec 69).
+    private bool SeesPlan => Member.IsHousehold || Member.Allows(GrantAreas.Plan, AccessLevelKeys.View);
+
+    protected override async Task OnInitializedAsync()
+    {
+        Chrome.Set(this, L["Nav_Plan"]);
+        // Erst nach dem ersten Laden zuhören: Das Laden selbst meldet sich auch als Änderung.
+        await Member.LoadAsync();
+        Member.Changed += OnMemberChanged;
+        await LoadAsync();
+    }
+
+    public void Dispose()
+    {
+        Member.Changed -= OnMemberChanged;
+        Chrome.Release(this);
+    }
+
+    // Ein anderes Mitglied oder der Haushalt gewählt: die Monate der neuen Sicht holen.
+    private void OnMemberChanged() => _ = InvokeAsync(async () =>
+    {
+        await LoadAsync();
+        StateHasChanged();
+    });
+
+    private async Task LoadAsync()
+    {
+        message = null;
+        rows = null;
+        if (!SeesPlan)
+        {
+            return;
+        }
+
+        var known = new List<(int Year, int Month, decimal Free)>();
+        string? errorCode = null;
+        if (Member.IsHousehold)
+        {
+            if (Member.Household is { } household)
+            {
+                var result = await HouseholdApi.ListPlansAsync(household.Id);
+                errorCode = result.ErrorCode;
+                known.AddRange(result.Succeeded ? result.Value!.Select(m => (m.Year, m.Month, m.Free)) : []);
+            }
+        }
+        else
+        {
+            var result = await PlanApi.ListMonthsAsync(Member.Owner);
+            errorCode = result.ErrorCode;
+            known.AddRange(result.Succeeded ? result.Value!.Select(m => (m.Year, m.Month, m.Free)) : []);
+        }
+
+        if (errorCode is not null)
+        {
+            message = new NoticeMessage(ErrorTexts.For(L, errorCode), Severity.Error);
+        }
+
+        // Auch ohne Liste bleiben der laufende und die kommenden Monate wählbar.
+        rows = PlanOverviewRows.Build(known, DateOnly.FromDateTime(Time.GetLocalNow().DateTime));
+    }
+
+    private string MonthTitle(PlanOverviewRow row) => new DateOnly(row.Year, row.Month, 1).ToString("MMMM yyyy", German);
+
+    private static string RowClass(PlanOverviewRow row) => row.IsCurrent ? "plan-month plan-month--current" : "plan-month";
+}

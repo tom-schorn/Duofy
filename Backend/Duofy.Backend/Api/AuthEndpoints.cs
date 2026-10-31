@@ -165,6 +165,28 @@ internal static class AuthEndpoints
             return Results.Problem(statusCode: StatusCodes.Status500InternalServerError);
         }
 
+        // Das erste Konto gehört immer der gerade angelegten Person, nie einer Kennung aus der Anfrage (Spec 13).
+        // Beim Registrieren ist noch niemand angemeldet, also gibt es keinen Besitzer zu prüfen: die eine enge
+        // Ausnahme vom Besitzer-Filter für genau dieses Hinzufügen und Speichern (Entscheidung P-041).
+        // Die Registrierung nutzt vorerst immer Deutsch; ein Sprachfeld gibt es nicht (Entscheidung P-040).
+        using (db.Owners.Bypass("Erstes Konto bei der Registrierung"))
+        {
+            db.Accounts.Add(new Account
+            {
+                Id = Guid.NewGuid(),
+                OwnerId = user.Id,
+                Name = DefaultAccountName.For("de"),
+                Type = AccountType.Checking,
+                OpeningBalance = 0m,
+                OpeningDate = Berlin.Today(time),
+                CountsAsAvailable = Account.CountsAsAvailableFor(AccountType.Checking),
+                IsDefault = true,
+                Active = true,
+                CreatedAt = now,
+                UpdatedAt = now,
+            });
+            await db.SaveChangesAsync(cancellationToken);
+        }
         if (invitation is not null)
         {
             invitation.Use(user.Id, now);

@@ -1,0 +1,30 @@
+@inherits DestinationNavigationBase
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Seitenleiste für große Bildschirme (Spec 10): dieselben Ziele wie die untere Leiste, links untereinander.
+   Ab 1280 px zeigt das Stylesheet diese Leiste und blendet die untere aus, darunter umgekehrt (siehe .app-side-nav
+   in app.css). Einfache Links statt MudBlazor-Knöpfen, damit Tab, Fokuskontur und aria-current ohne Umweg gelten.
+
+   Ganz unten kann das Layout einen Fuß einsetzen; dort steht der Profil-Knopf (Spec 44). *@
+
+<nav class="app-side-nav" aria-label="@L["AppLayout_Navigation"]" data-testid="side-nav">
+    @foreach (var item in Destinations)
+    {
+        var active = item.Destination == Current;
+        <a href="@item.Href" class="@(active ? "app-side-item app-side-item-active" : "app-side-item")"
+           aria-current="@(active ? "page" : null)" data-testid="@($"side-{item.Destination}".ToLowerInvariant())">
+            <MudIcon Icon="@item.Icon" />
+            <span class="app-side-label">@L[item.LabelKey]</span>
+        </a>
+    }
+    @if (Footer is not null)
+    {
+        <div class="app-side-footer">@Footer</div>
+    }
+</nav>
+
+@code {
+    /// <summary>Was ganz unten in der Leiste steht, zum Beispiel der Profil-Knopf; ohne Angabe nichts.</summary>
+    [Parameter]
+    public RenderFragment? Footer { get; set; }
+}

@@ -17,7 +17,7 @@ public sealed partial class FakeHouseholdApi
         [new HouseholdPotResponse(PotKeys.Needs, 0m, 0m), new HouseholdPotResponse(PotKeys.Wants, 0m, 0m), new HouseholdPotResponse(PotKeys.Savings, 0m, 0m)],
         0m,
         [new PlanQuotaResponse(PotKeys.Needs, 50, 0m), new PlanQuotaResponse(PotKeys.Wants, 30, 0m), new PlanQuotaResponse(PotKeys.Savings, 20, 0m)],
-        new HouseholdUnplannedResponse(0m, 0m, 0m, 0m), [], []);
+        new HouseholdUnplannedResponse(0m, 0m, 0m, 0m), [], [], []);
 
     public static HouseholdPlanPositionResponse OwnedPosition(
         string label, decimal planned, Guid ownerId, string ownerName, string pot = PotKeys.Needs, decimal booked = 0m, bool done = false) =>

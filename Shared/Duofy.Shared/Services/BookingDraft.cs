@@ -11,8 +11,8 @@ public sealed class LineDraft
     /// <summary>Der Betrag der Zeile; leer, solange nichts eingegeben ist.</summary>
     public decimal? Amount { get; set; }
 
-    /// <summary>Der gewählte Topf, siehe <see cref="PotKeys"/>.</summary>
-    public string Pot { get; set; } = PotKeys.Needs;
+    /// <summary>Der gewählte Topf, siehe <see cref="PotKeys"/>; leer, solange keiner gewählt ist (Spec 72).</summary>
+    public string Pot { get; set; } = "";
 
     /// <summary>Die gewählte Kategorie.</summary>
     public Guid? CategoryId { get; set; }
@@ -79,8 +79,11 @@ public sealed class BookingDraft
 
     public string Note { get; set; } = "";
 
-    /// <summary>Nur bei einer Umbuchung: Das Geld wird gespart (Topf Sparen).</summary>
-    public bool TransferIsSavings { get; set; }
+    /// <summary>Nur bei einer Umbuchung: der Quelltopf; leer, bis die Person ihn gewählt hat (Spec 72, R9).</summary>
+    public string TransferSourcePot { get; set; } = "";
+
+    /// <summary>Nur bei einer Umbuchung: der Zieltopf; leer, bis die Person ihn gewählt hat (Spec 72, R9).</summary>
+    public string TransferTargetPot { get; set; } = "";
 
     /// <summary>Die Zeilen; die erste ist immer da und lässt sich nicht entfernen.</summary>
     public List<LineDraft> Lines { get; } = [new LineDraft()];
@@ -90,14 +93,16 @@ public sealed class BookingDraft
 
     /// <summary>
     /// Der Entwurf für das Plus: Ausgabe, heutiges Datum, Standardkonto (R9). Gibt es kein
-    /// Standardkonto, bleibt das Konto leer und muss gewählt werden.
+    /// Standardkonto, bleibt das Konto leer und muss gewählt werden. Mit <paramref name="planMonth"/> zählt die
+    /// Buchung in diesem Monat, auch wenn er weiter als einen Monat neben dem Datum liegt: Die Monatsseite gibt den
+    /// Monat vor, den sie zeigt; ohne Posten in diesem Monat lehnt die API das Speichern dann ab (Spec 66, R7).
     /// </summary>
-    public static BookingDraft ForNew(DateOnly today, Guid? defaultAccountId)
+    public static BookingDraft ForNew(DateOnly today, Guid? defaultAccountId, DateOnly? planMonth = null) => new()
     {
-        var draft = new BookingDraft { AccountId = defaultAccountId, PlanMonth = MonthOf(today) };
-        draft.Date = today;
-        return draft;
-    }
+        AccountId = defaultAccountId,
+        PlanMonth = MonthOf(planMonth ?? today),
+        date = today,
+    };
 
     /// <summary>Der Entwurf zum Ändern einer gespeicherten Buchung.</summary>
     public static BookingDraft From(BookingResponse booking)
@@ -117,7 +122,9 @@ public sealed class BookingDraft
 
         if (booking.Kind == BookingKinds.Transfer)
         {
-            draft.TransferIsSavings = booking.Lines.Any(l => l.Pot == PotKeys.Savings);
+            // Ältere Umbuchungen haben keine Töpfe oder nur Sparen als Quelle; was fehlt, bleibt leer und muss gewählt werden.
+            draft.TransferSourcePot = booking.Lines.FirstOrDefault()?.Pot ?? "";
+            draft.TransferTargetPot = booking.TargetPot ?? "";
             draft.TransferPositionId = booking.Lines.FirstOrDefault()?.PositionId;
             return draft;
         }
@@ -145,7 +152,7 @@ public sealed class BookingDraft
         Kind = kind;
         foreach (var line in Lines)
         {
-            line.Pot = kind == BookingKinds.Income ? PotKeys.Income : PotKeys.Needs;
+            line.Pot = DefaultPot(kind);
             line.CategoryId = null;
             line.PositionId = null;
         }
@@ -153,8 +160,9 @@ public sealed class BookingDraft
         if (kind != BookingKinds.Transfer)
         {
             CounterAccountId = null;
-            TransferIsSavings = false;
         }
+        TransferSourcePot = "";
+        TransferTargetPot = "";
     }
 
     /// <summary>Setzt den Gesamtbetrag. Die erste Zeile passt sich an.</summary>
@@ -171,7 +179,7 @@ public sealed class BookingDraft
         {
             return;
         }
-        Lines.Add(new LineDraft { Pot = Kind == BookingKinds.Income ? PotKeys.Income : PotKeys.Needs });
+        Lines.Add(new LineDraft { Pot = DefaultPot(Kind) });
     }
 
     /// <summary>Entfernt eine Zeile außer der ersten. Ihr Betrag fällt an die erste Zeile zurück.</summary>
@@ -248,9 +256,10 @@ public sealed class BookingDraft
     public SaveBookingRequest ToRequest()
     {
         var total = Amount ?? 0m;
+        // Bei einer Umbuchung ist die eine Zeile der Quelltopf; ein leerer Topf geht als null, die API weist ihn ab.
         IReadOnlyList<SaveBookingLine> lines = Kind == BookingKinds.Transfer
-            ? (TransferIsSavings ? [new SaveBookingLine(total, PotKeys.Savings, null, TransferPositionId)] : [])
-            : Lines.Select(l => new SaveBookingLine(l.Amount ?? 0m, l.Pot, l.CategoryId, l.PositionId)).ToList();
+            ? [new SaveBookingLine(total, string.IsNullOrEmpty(TransferSourcePot) ? null : TransferSourcePot, null, TransferPositionId)]
+            : Lines.Select(l => new SaveBookingLine(l.Amount ?? 0m, string.IsNullOrEmpty(l.Pot) ? null : l.Pot, l.CategoryId, l.PositionId)).ToList();
 
         return new SaveBookingRequest(
             Kind,
@@ -261,10 +270,14 @@ public sealed class BookingDraft
             string.IsNullOrWhiteSpace(Note) ? null : Note.Trim(),
             lines,
             PlanMonth.Year,
-            PlanMonth.Month);
+            PlanMonth.Month,
+            TargetPot: Kind == BookingKinds.Transfer && !string.IsNullOrEmpty(TransferTargetPot) ? TransferTargetPot : null);
     }
 
     private static DateOnly MonthOf(DateOnly day) => new(day.Year, day.Month, 1);
+
+    // Eine Einnahme hat nur einen Topf; bei einer Ausgabe entscheidet die Person (Spec 72).
+    private static string DefaultPot(string kind) => kind == BookingKinds.Income ? PotKeys.Income : "";
 
     /// <summary>Die erste Zeile bekommt den Gesamtbetrag minus die Beträge der übrigen Zeilen.</summary>
     private void Rebalance()

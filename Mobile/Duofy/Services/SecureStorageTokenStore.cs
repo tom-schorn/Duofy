@@ -21,7 +21,11 @@ namespace Duofy.Services
                 var refresh = await SecureStorage.Default.GetAsync(RefreshKey);
                 return access is null || refresh is null ? null : new AuthTokens(access, refresh);
             }
+#if ANDROID
             catch (Exception ex) when (ex is System.Security.Cryptography.CryptographicException or Java.Security.GeneralSecurityException or InvalidOperationException)
+#else
+            catch (Exception ex) when (ex is System.Security.Cryptography.CryptographicException or InvalidOperationException)
+#endif
             {
                 // Passiert zum Beispiel, wenn Android den Schlüssel nach einer Wiederherstellung
                 // des Telefons nicht mehr kennt. Dann müssen sich die Leute neu anmelden.

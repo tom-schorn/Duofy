@@ -146,4 +146,63 @@ public class CommitmentDraftTests
         Assert.Equal("Miete", request.Name);
         Assert.Equal(PaymentMethods.StandingOrder, request.PaymentMethod);
     }
+
+    // Spec 17, A4 (Regel): Angeboten werden nur noch die klassischen Arten, Sparziel und Schuld nicht mehr.
+    [Fact]
+    public void Only_spending_and_income_are_offered()
+    {
+        Assert.Equal([CommitmentTypes.Contract, CommitmentTypes.Income], CommitmentDraft.OfferedTypes);
+        Assert.True(CommitmentDraft.ForNew(Today).IsOfferedType);
+        Assert.False(CommitmentDraft.From(Saved(CommitmentTypes.SavingsGoal, PotKeys.Savings)).IsOfferedType);
+    }
+
+    // Spec 17, A2 (Regel): Der nächste Termin richtet sich nach erster Zahlung, Abstand und heute.
+    [Theory]
+    [InlineData("2026-01-15", 1, null, "2026-11-15")]
+    [InlineData("2026-10-21", 1, null, "2026-10-21")]
+    [InlineData("2026-02-01", 3, null, "2026-11-01")]
+    [InlineData("2027-03-01", 12, null, "2027-03-01")]
+    [InlineData("2026-01-31", 1, null, "2026-10-31")]
+    [InlineData("2026-08-31", 6, null, "2027-02-28")]
+    [InlineData("2026-01-01", 1, "2026-10-01", null)]
+    [InlineData("2026-01-01", 1, "2026-11-01", "2026-11-01")]
+    public void The_next_due_date_follows_start_interval_and_end(string first, int interval, string? last, string? expected)
+    {
+        var draft = CommitmentDraft.ForNew(Today);
+        draft.FirstDueDate = DateOnly.Parse(first);
+        draft.IntervalMonths = interval;
+        draft.LastDueDate = last is null ? null : DateOnly.Parse(last);
+
+        Assert.Equal(expected is null ? null : DateOnly.Parse(expected), draft.NextDueDate(Today));
+    }
+
+    // Spec 17, A2 (Regel): Ohne gültigen Abstand gibt es keinen Termin.
+    [Theory]
+    [InlineData(null)]
+    [InlineData(0)]
+    [InlineData(121)]
+    public void Without_a_valid_interval_there_is_no_next_due_date(int? interval)
+    {
+        var draft = CommitmentDraft.ForNew(Today);
+        draft.IntervalMonths = interval;
+
+        Assert.Null(draft.NextDueDate(Today));
+        Assert.False(draft.HasValidInterval);
+    }
+
+    // Spec 17, A2 (Regel): Ein Ende vor dem Start ist ein Fehler, ein Ende am selben Tag nicht.
+    [Fact]
+    public void An_end_before_the_start_is_recognised()
+    {
+        var draft = CommitmentDraft.ForNew(Today);
+
+        draft.LastDueDate = Today.AddDays(-1);
+        Assert.True(draft.EndsBeforeStart);
+
+        draft.LastDueDate = Today;
+        Assert.False(draft.EndsBeforeStart);
+
+        draft.LastDueDate = null;
+        Assert.False(draft.EndsBeforeStart);
+    }
 }

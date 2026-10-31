@@ -1,3 +1,4 @@
+using Duofy.Shared.Blocks;
 using Duofy.Shared.Services;
 using Duofy.Web.Components;
 using Duofy.Web.Services;
@@ -15,6 +16,8 @@ builder.Services.AddSingleton<IFormFactor, FormFactor>();
 // --- Gemeinsame Oberfläche -------------------------------------------------
 // MudBlazor, Texte und Hell/Dunkel aus Duofy.Shared.
 builder.Services.AddDuofyUi();
+// Nur im Entwicklungsbetrieb ist die Testseite der Bausteine erreichbar (Spec 6).
+builder.Services.AddSingleton<IDevelopmentMode>(new DevelopmentMode(builder.Environment.IsDevelopment()));
 builder.Services.AddScoped<IShareService, ClipboardShareService>();
 // ---------------------------------------------------------------------------
 

@@ -131,13 +131,24 @@ public class AuthLayoutTests : PageTestContext
         Assert.Empty(none.FindAll(".auth-legal"));
     }
 
+    // Spec 5, A1: Die Anmeldeseiten haben dieselbe Auswahl aus drei Möglichkeiten, genau eine ist aktiv.
+    [Fact]
+    public void A1_the_auth_pages_offer_light_dark_and_device_with_exactly_one_active()
+    {
+        var cut = Open("/anmelden");
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".auth-mode-switch [role='radio']")));
+
+        Assert.Equal(3, cut.FindAll(".auth-mode-switch [role='radio']").Count);
+        Assert.Equal("theme-device", Assert.Single(cut.FindAll("[role='radio'][aria-checked='true']")).GetAttribute("data-testid"));
+    }
+
     [Fact]
     public void Theme_switch_on_the_auth_pages_turns_dark_mode_on()
     {
         var cut = Open("/anmelden");
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".mode-switch")));
 
-        cut.Find(".mode-switch").Click();
+        cut.Find("[data-testid='theme-dark']").Click();
 
         Assert.True(cut.FindComponent<MudThemeProvider>().Instance.IsDarkMode);
     }
@@ -169,19 +180,19 @@ public class AuthLayoutTests : PageTestContext
     }
 
     [Fact]
-    public void Theme_sets_buttons_in_normal_case_and_the_radius_of_the_original()
+    public void Theme_sets_buttons_in_normal_case_and_the_square_radius()
     {
         Assert.Equal("none", DuofyTheme.Instance.Typography.Button.TextTransform);
-        Assert.Equal("0.5rem", DuofyTheme.Instance.LayoutProperties.DefaultBorderRadius);
+        Assert.Equal("2px", DuofyTheme.Instance.LayoutProperties.DefaultBorderRadius);
 
         var cut = Render<MudThemeProvider>(p => p.Add(x => x.Theme, DuofyTheme.Instance));
         Assert.Contains("text-transform: none", cut.Markup);
-        Assert.Contains("--mud-default-borderradius: 0.5rem", cut.Markup);
+        Assert.Contains("--mud-default-borderradius: 2px", cut.Markup);
     }
 
     private sealed class NoThemeStore : IThemePreferenceStore
     {
-        public Task<bool?> LoadIsDarkAsync() => Task.FromResult<bool?>(null);
-        public Task SaveIsDarkAsync(bool isDark) => Task.CompletedTask;
+        public Task<ThemeChoice> LoadAsync() => Task.FromResult(ThemeChoice.Device);
+        public Task SaveAsync(ThemeChoice choice) => Task.CompletedTask;
     }
 }

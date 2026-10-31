@@ -41,6 +41,13 @@
     <EmbeddedResource Update="Domain\Resources\CategoryNames.resx">
       <LogicalName>Duofy.Domain.Resources.CategoryNames.resources</LogicalName>
     </EmbeddedResource>
+    <!-- Dasselbe für die Namen des ersten Kontos: deutsch ohne Zusatz, englisch mit ".en". -->
+    <EmbeddedResource Update="Domain\Resources\DefaultAccountNames.resx">
+      <LogicalName>Duofy.Domain.Resources.DefaultAccountNames.resources</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Domain\Resources\DefaultAccountNames.en.resx">
+      <LogicalName>Duofy.Domain.Resources.DefaultAccountNames.en.resources</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>

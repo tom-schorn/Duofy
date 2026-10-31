@@ -9,7 +9,8 @@ namespace Duofy.Domain;
 /// - Ausgabe: Geld verlässt ein Konto. Die Zeilen liegen in den Töpfen Grundbedarf, Wünsche oder Sparen.
 /// - Einnahme: Geld kommt auf ein Konto. Die Zeilen liegen im Topf Einnahmen.
 /// - Umbuchung: Geld wandert von einem eigenen Konto auf ein anderes
-///   (<see cref="CounterAccountId"/> ist gesetzt), ohne Kategorie.
+///   (<see cref="CounterAccountId"/> ist gesetzt), ohne Kategorie. Neue Umbuchungen merken sich Quell- und
+///   Zieltopf, siehe <see cref="TargetPot"/>; sie ändern keine Zahl im Plan.
 ///
 /// Aus den Buchungen ergibt sich der Kontostand, siehe <see cref="Account.Balance"/>.
 /// </summary>
@@ -39,10 +40,17 @@ public class Booking
     /// Betrag, Topf und Kategorie. Die Beträge der Zeilen ergeben zusammen den
     /// <see cref="Amount"/>.
     ///
-    /// Eine Ausgabe oder Einnahme hat 1 bis 20 Zeilen. Eine Umbuchung hat keine
-    /// Zeile oder genau eine mit dem Topf Sparen und ohne Kategorie.
+    /// Eine Ausgabe oder Einnahme hat 1 bis 20 Zeilen. Eine neue Umbuchung hat genau eine Zeile ohne
+    /// Kategorie; ihr Topf ist der Quelltopf. Ältere Umbuchungen haben keine Zeile oder eine im Topf Sparen.
     /// </summary>
     public List<BookingLine> Lines { get; set; } = [];
+
+    /// <summary>
+    /// Nur bei einer Umbuchung: der Zieltopf (Spec 72, R9). Der Quelltopf ist der Topf der Zeile. Beide werden nur
+    /// gemerkt; keine Zahl im Plan rechnet damit. Null bei Ausgabe, Einnahme und bei älteren Umbuchungen, die vor
+    /// dieser Regel gebucht wurden.
+    /// </summary>
+    public Pot? TargetPot { get; set; }
 
     /// <summary>Eine freie Notiz, höchstens 200 Zeichen.</summary>
     public string? Note { get; set; }

@@ -11,6 +11,13 @@ namespace Duofy.Shared.Services;
 /// </summary>
 public static class ErrorTexts
 {
+    /// <summary>
+    /// Wie <see cref="For"/>, aber für den Übertrag: Dort heißt "date_before_opening", dass das Zielkonto
+    /// erst am Zieltag startet. Alle anderen Codes behalten ihren Text.
+    /// </summary>
+    public static string ForCarryOver(IStringLocalizer<SharedResources> L, string? code) =>
+        code == ErrorCodes.DateBeforeOpening ? L["Error_carry_over_opening"] : For(L, code);
+
     public static string For(IStringLocalizer<SharedResources> L, string? code) => code switch
     {
         ErrorCodes.FirstNameRequired => L["Error_first_name_required"],
@@ -41,6 +48,7 @@ public static class ErrorTexts
         ErrorCodes.CounterAccountUnexpected => L["Error_counter_account_unexpected"],
         ErrorCodes.TransferSameAccount => L["Error_transfer_same_account"],
         ErrorCodes.TransferPotInvalid => L["Error_transfer_pot_invalid"],
+        ErrorCodes.TransferPotsRequired => L["Error_transfer_pots_required"],
         ErrorCodes.TransferCategoryInvalid => L["Error_transfer_category_invalid"],
         ErrorCodes.DateBeforeOpening => L["Error_date_before_opening"],
         ErrorCodes.DateInFuture => L["Error_date_in_future"],

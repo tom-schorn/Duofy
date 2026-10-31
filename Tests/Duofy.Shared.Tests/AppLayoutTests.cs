@@ -83,7 +83,7 @@ public class AppLayoutTests : PageTestContext
         Assert.Equal("/konten", cut.Find("[data-testid='more-accounts']").GetAttribute("href"));
         Assert.Equal("/vertraege", cut.Find("[data-testid='more-contracts']").GetAttribute("href"));
         Assert.Equal("/konto", cut.Find("[data-testid='more-user-account']").GetAttribute("href"));
-        Assert.Contains("Zum dunklen Modus wechseln", cut.Find("[data-testid='more-mode']").TextContent);
+        Assert.Equal(3, cut.FindAll("[data-testid='more-mode'] [role='radio']").Count);
         Assert.Contains("Abmelden", cut.Find("[data-testid='more-sign-out']").TextContent);
     }
 
@@ -93,9 +93,9 @@ public class AppLayoutTests : PageTestContext
         var cut = Open("/mehr");
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='more-mode']")));
 
-        cut.Find("[data-testid='more-mode']").Click();
+        cut.Find("[data-testid='more-mode'] [data-testid='theme-dark']").Click();
 
-        cut.WaitForAssertion(() => Assert.Contains("Zum hellen Modus wechseln", cut.Find("[data-testid='more-mode']").TextContent));
+        cut.WaitForAssertion(() => Assert.True(cut.FindComponent<MudThemeProvider>().Instance.IsDarkMode));
     }
 
     [Fact]
@@ -114,7 +114,7 @@ public class AppLayoutTests : PageTestContext
     [Fact]
     public void Plan_shows_the_month_and_its_plus_button_adds_a_position()
     {
-        var cut = Open("/plan");
+        var cut = Open("/plan/2026/10");
         WaitForPlus(cut);
 
         Assert.Empty(cut.FindAll("[data-testid='plan-note']"));
@@ -267,37 +267,40 @@ public class AppLayoutTests : PageTestContext
         Assert.Empty(cut.FindAll("[data-testid='commitments-add']"));
     }
 
+    // Spec 17: Der Vertragsdialog ist in der App der Schritt-Dialog (Spec 11). Auf dem Handy füllt er über das
+    // Stylesheet den Bildschirm (bis 599 px, siehe StepDialogTests); Abbrechen steht im Kopf, Weiter unten.
     [Fact]
-    public void In_the_app_the_contract_dialog_is_full_screen_with_close_and_save_in_its_header()
+    public void In_the_app_the_contract_dialog_is_the_step_dialog_with_cancel_on_top_and_next_below()
     {
         var cut = Open("/vertraege");
         WaitForPlus(cut);
 
         cut.Find("[data-testid='app-plus']").Click();
 
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".mud-dialog-fullscreen")));
-        var header = cut.Find("[data-testid='form-header']");
-        Assert.NotNull(header.QuerySelector("[data-testid='form-close']"));
-        Assert.Equal("Speichern", header.QuerySelector("[data-testid='commitment-save']")!.TextContent.Trim());
-        Assert.Contains("Neuer Vertrag", header.TextContent);
-        // Unten gibt es keine zweite Knopfleiste mehr.
-        Assert.Single(cut.FindAll("[data-testid='commitment-save']"));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".mud-dialog.step-dialog")));
+        Assert.Empty(cut.FindAll("[data-testid='form-header']"));
+        var head = cut.Find(".step-dialog .mud-dialog-title");
+        Assert.Contains("Neuer Vertrag", head.TextContent);
+        Assert.Equal("Schritt 1 von 3: Was", head.QuerySelector("[data-testid='step-dialog-progress']")!.TextContent.Trim());
+        Assert.Contains(head.QuerySelectorAll("button"), b => b.TextContent.Trim() == "Abbrechen");
+        Assert.Contains(cut.FindAll(".step-dialog .mud-dialog-actions button"), b => b.TextContent.Trim() == "Weiter");
     }
 
     [Fact]
-    public void In_the_app_the_contract_header_saves_with_the_same_checks_and_closing_cancels()
+    public void In_the_app_the_contract_dialog_checks_each_step_and_cancelling_closes_it()
     {
         var cut = Open("/vertraege");
         WaitForPlus(cut);
         cut.Find("[data-testid='app-plus']").Click();
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='form-header']")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".mud-dialog.step-dialog")));
 
-        // Speichern prüft wie im Browser: ohne Kategorie steht der Fehler im Dialog.
-        cut.Find("[data-testid='commitment-save']").Click();
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='commitment-error']")));
+        // Weiter prüft wie im Browser: ohne Name bleibt der Dialog in Schritt 1 und zeigt den Fehler am Feld.
+        cut.FindAll(".step-dialog .mud-dialog-actions button").Single(b => b.TextContent.Trim() == "Weiter").Click();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='commitment-name-field'] .step-field-error")));
 
-        cut.Find("[data-testid='form-close']").Click();
-        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[data-testid='form-header']")));
+        // Noch nichts eingegeben: Abbrechen schließt ohne Rückfrage.
+        cut.Find(".step-dialog .mud-dialog-title").QuerySelectorAll("button").Single(b => b.TextContent.Trim() == "Abbrechen").Click();
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll(".mud-dialog.step-dialog")));
     }
 
     [Fact]
@@ -314,7 +317,7 @@ public class AppLayoutTests : PageTestContext
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='commitment-name']")));
         Assert.Empty(dialogs.FindAll(".mud-dialog-fullscreen"));
         Assert.Empty(dialogs.FindAll("[data-testid='form-header']"));
-        Assert.NotEmpty(dialogs.FindAll("[data-testid='commitment-save']"));
+        Assert.NotEmpty(dialogs.FindAll(".mud-dialog.step-dialog"));
     }
 
     // A7
@@ -331,18 +334,19 @@ public class AppLayoutTests : PageTestContext
         Assert.Empty(cut.FindAll(".mud-typography-h4"));
     }
 
-    // A8
+    // A8 (seit Spec 10): Der Browser behält MainLayout, hat aber keine ausklappbare Seitenleiste mehr; die Navigation
+    // sind die Seitenleiste (ab 1280 px) und die untere Leiste, beide aus derselben Liste.
     [Fact]
-    public void The_browser_keeps_main_layout_with_drawer_and_no_bottom_bar()
+    public void The_browser_keeps_main_layout_with_side_bar_and_bottom_bar_and_no_drawer()
     {
         using var web = new WebContext();
         var layout = web.Render<MainLayout>(p => p.Add(l => l.Body, "<p>Seite</p>"));
 
-        Assert.NotEmpty(layout.FindComponents<MudDrawer>());
-        Assert.NotEmpty(layout.FindComponents<MudNavMenu>());
-        Assert.NotEmpty(layout.FindAll("button[aria-label='Menü öffnen oder schließen']"));
+        Assert.Empty(layout.FindComponents<MudDrawer>());
+        Assert.Empty(layout.FindAll("button[aria-label='Menü öffnen oder schließen']"));
+        Assert.NotEmpty(layout.FindAll("[data-testid='side-nav']"));
+        Assert.NotEmpty(layout.FindAll("[data-testid='bottom-bar']"));
         Assert.NotEmpty(layout.FindAll(".mode-switch"));
-        Assert.Empty(layout.FindAll("[data-testid='bottom-bar']"));
 
         // Der Router des Browsers (WebRoutes.razor) bleibt bei MainLayout und kennt AppLayout nicht.
         var webRoutes = File.ReadAllText(RepositoryFiles.Path("Web", "Duofy.Web", "Components", "WebRoutes.razor"));
@@ -385,9 +389,9 @@ public class AppLayoutTests : PageTestContext
 
     private sealed class MemoryThemeStore : IThemePreferenceStore
     {
-        public Task<bool?> LoadIsDarkAsync() => Task.FromResult<bool?>(null);
+        public Task<ThemeChoice> LoadAsync() => Task.FromResult(ThemeChoice.Device);
 
-        public Task SaveIsDarkAsync(bool isDark) => Task.CompletedTask;
+        public Task SaveAsync(ThemeChoice choice) => Task.CompletedTask;
     }
 
     // Ein zweiter Testunterbau ohne AppHost-Anmeldung: so läuft die Oberfläche im Browser.
@@ -400,12 +404,12 @@ public class AppLayoutTests : PageTestContext
         }
     }
 
-    // Spec 68, A13, A14: Der Umschalter steht in der oberen Leiste, aber nur, wenn jemand etwas teilt oder der
-    // Haushalt mehr als eine Person hat (Spec 69, R9); allein im Haushalt gibt es nichts umzuschalten.
+    // Spec 44, A1 und A6: Der Profil-Knopf steht in der oberen Leiste, auch wenn niemand etwas teilt und der
+    // Haushalt nur aus einer Person besteht; dieselbe Komponente wie in der Seitenleiste des Browsers.
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public void The_member_switch_sits_in_the_top_bar_only_while_somebody_shares(bool shares)
+    public void The_member_switch_sits_in_the_top_bar_whether_or_not_somebody_shares(bool shares)
     {
         HouseholdApiFake.Household = HouseholdApiFake.Household! with
         {
@@ -414,10 +418,11 @@ public class AppLayoutTests : PageTestContext
                 : [FakeHouseholdApi.Ben(isMe: true)],
         };
 
-        var cut = Open("/plan");
+        var cut = Open("/plan/2026/10");
 
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='plan-sums']")));
-        Assert.Equal(shares ? 1 : 0, cut.FindAll(".mud-appbar [data-testid='member-switch']").Count);
+        OpenPlanTab(cut);
+        Assert.Equal(1, cut.FindAll(".mud-appbar [data-testid='member-switch']").Count);
+        Assert.Single(cut.FindAll(".mud-appbar [data-testid='member-profile']"));
     }
 
     // Spec 68, R8: Das Plus der Startseite bucht für die gewählte Person; ohne deren Freigabe ist es ausgegraut.

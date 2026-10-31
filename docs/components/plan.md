@@ -30,6 +30,7 @@ What a person expects to pay and receive in one month, and how far it has happen
 - Ticking is manual; ticking without bookings creates one, with bookings it offers a balancing booking.
 - A position with bookings cannot be deleted.
 - Pass-through positions count in no quota.
+- Booked per pot is what is booked on its positions without pass-through plus the bookings of the plan month without a position, without transfers and the carry-over; the actual of a quota counts the same (spec 72).
 
 ## Interfaces
 

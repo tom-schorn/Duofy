@@ -498,6 +498,14 @@ public class DuofyDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Gui
         booking.Property(b => b.Amount).HasPrecision(12, 2);
         booking.Property(b => b.Note).HasMaxLength(200);
 
+        // Nur bei einer Umbuchung: der Zieltopf (Spec 72, R9); null bei allen anderen und bei älteren Umbuchungen.
+        booking.Property(b => b.TargetPot)
+            .HasColumnName("target_pot")
+            .HasMaxLength(20)
+            .HasConversion(
+                pot => pot == null ? null : pot.Value.ToString().ToLowerInvariant(),
+                key => key == null ? null : Enum.Parse<Pot>(key, true));
+
         // Die Bezeichnung stammt aus der Zeit vor den Kategorien und wird nicht gespeichert.
         booking.Ignore(b => b.Name);
 

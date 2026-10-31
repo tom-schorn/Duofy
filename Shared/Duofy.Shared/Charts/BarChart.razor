@@ -1,0 +1,59 @@
+@using Duofy.Shared.Charts
+@inject IStringLocalizer<SharedResources> L
+
+@* Das Balkendiagramm: je Eintrag Bezeichnung, Wert und ein Balken. Der größte Wert füllt die volle Breite,
+   die anderen anteilig. Die Farben kommen aus dem Theme (app.css, Abschnitt Diagramme); die Länge allein
+   trägt nichts: der Wert steht auch als Zahl da, und für Vorlese-Programme gibt es eine Tabelle mit allen
+   Werten, während der gemalte Teil verborgen bleibt. Mit ValueText schreibt der Aufrufer die Werte selbst (zum Beispiel als Euro). Ohne Einträge steht ein Hinweis statt eines leeren Bereichs. *@
+<figure class="chart">
+    <figcaption class="chart-caption">@Caption</figcaption>
+    @if (Items.Count == 0)
+    {
+        <p class="chart-empty" role="status">@L["Chart_Empty"]</p>
+    }
+    else
+    {
+        <div class="chart-bars" aria-hidden="true">
+            @foreach (var item in Items)
+            {
+                <div class="chart-bar-row">
+                    <span class="chart-bar-label">@item.Label</span>
+                    <span class="chart-bar-track"><span class="chart-bar-fill" style="@ChartMath.WidthStyle(ChartMath.ShareOfMax(item.Value, Max))"></span></span>
+                    <span class="chart-bar-value">@Text(item.Value)</span>
+                </div>
+            }
+        </div>
+        <div class="visually-hidden">
+            <table>
+                <caption>@Caption</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">@L["Chart_ColumnLabel"]</th>
+                        <th scope="col">@L["Chart_ColumnValue"]</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Items)
+                    {
+                        <tr>
+                            <th scope="row">@item.Label</th>
+                            <td>@Text(item.Value)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</figure>
+
+@code {
+    [Parameter, EditorRequired] public string Caption { get; set; } = "";
+    [Parameter, EditorRequired] public IReadOnlyList<ChartBar> Items { get; set; } = [];
+
+    /// <summary>Wie ein Wert als Text steht; ohne Angabe als Zahl ohne überflüssige Nachkommastellen.</summary>
+    [Parameter] public Func<decimal, string>? ValueText { get; set; }
+
+    private string Text(decimal value) => ValueText is null ? ChartMath.Number(value) : ValueText(value);
+
+    private decimal Max => Items.Count == 0 ? 0m : Items.Max(i => i.Value);
+}

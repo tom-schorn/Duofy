@@ -20,10 +20,12 @@ public class CommitmentTests : IDisposable
     private static readonly DateOnly October1 = new(2026, 10, 1);
 
     private readonly WebApplicationFactory<Program> api;
+    private readonly ApiFixture fixture;
     private readonly HttpClient client;
 
     public CommitmentTests(ApiFixture fixture)
     {
+        this.fixture = fixture;
         // 23. Oktober 2026, 10 Uhr in Berlin (Sommerzeit, also 8 Uhr UTC).
         var today = new FixedTime(new DateTimeOffset(2026, 10, 23, 8, 0, 0, TimeSpan.Zero));
         api = fixture.Factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(
@@ -42,7 +44,7 @@ public class CommitmentTests : IDisposable
 
     private async Task<Person> SignUpAsync()
     {
-        var (_, tokens) = await client.SignUpAsync();
+        var (_, tokens) = await client.SignUpAsync(fixture.Factory);
         var categories = await client.SendAsync(Authorized(HttpMethod.Get, "/api/v1/categories", tokens.AccessToken));
         var all = (await categories.Content.ReadFromJsonAsync<List<CategoryResponse>>())!;
         Guid Id(string key) => all.Single(c => c.Key == key).Id;

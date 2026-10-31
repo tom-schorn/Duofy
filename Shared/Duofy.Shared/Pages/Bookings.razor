@@ -93,6 +93,10 @@ else
                 <MudStack Spacing="0" Class="flex-grow-1">
                     <MudText Typo="Typo.caption">@booking.Date.ToString("d", German)</MudText>
                     <MudText>@Title(booking)</MudText>
+                    @if (TransferPots(booking) is { } pots)
+                    {
+                        <MudText Typo="Typo.caption" data-testid="@($"booking-transfer-pots-{booking.Id}")">@pots</MudText>
+                    }
                     @if (booking.Note is { Length: > 0 })
                     {
                         <MudText Typo="Typo.caption" Color="Color.Secondary">@booking.Note</MudText>
@@ -322,6 +326,19 @@ else
         var first = booking.Lines.FirstOrDefault();
         var name = categories.FirstOrDefault(c => c.Id == first?.CategoryId)?.Name ?? "";
         return booking.Lines.Count > 1 ? $"{name} · {L["Bookings_Split"]}" : name;
+    }
+
+    // Bei einer Umbuchung die Töpfe als Text, "Topf: Sparen → Wünsche" (Spec 72, R9); Farbe allein sagt es nicht.
+    // Eine ältere Umbuchung kennt nur ihre Zeile (Sparen) oder gar keinen Topf, dann steht dort weniger oder nichts.
+    private string? TransferPots(BookingResponse booking)
+    {
+        if (booking.Kind != BookingKinds.Transfer || booking.Lines.FirstOrDefault()?.Pot is not { } source)
+        {
+            return null;
+        }
+        return booking.TargetPot is { } target
+            ? L["Bookings_TransferPots", L[$"Pot_{source}"], L[$"Pot_{target}"]]
+            : L["Bookings_TransferPotSource", L[$"Pot_{source}"]];
     }
 
     private string AccountName(Guid? id) => accounts.FirstOrDefault(a => a.Id == id)?.Name ?? "";

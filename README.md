@@ -82,6 +82,14 @@ docker compose --env-file .env up -d --build
 Die ganze Einrichtung Schritt für Schritt (Cloudflare und Tunnel, Datenbank über Tailscale, Umgebungsdatei, Mail über
 `noreply@example.org`, erster Start mit dem Einrichtungscode, Update, Sicherung und Wiederherstellung) steht in [docs/betrieb.md](docs/betrieb.md).
 
+## Schrift
+
+Die Anwendung setzt die Schrift Inter 5.3.0 (Variable, Latin) in der Version aus dem npm-Paket `@fontsource-variable/inter`. Quelle: https://github.com/rsms/inter, Lizenz SIL Open Font License 1.1. Die Datei liegt in `Shared/Duofy.Shared/wwwroot/fonts/` und wird mit der Anwendung ausgeliefert, zusammen mit dem Lizenztext `LICENSE-Inter-OFL.txt`. Es gibt keinen Aufruf an einen Fremdserver.
+
+## Symbole
+
+Die Symbole sind Tabler Icons im Stil outline aus dem npm-Paket `@tabler/icons` 3.50.0 (MIT). Quelle: https://github.com/tabler/tabler-icons. Ausgeliefert werden nur die Symbole der Liste in `Shared/Duofy.Shared/Icons/TablerIcons.cs` (Dateien in `Icons/svg/`, eingebettet in das Assembly), zusammen mit dem Lizenztext `Icons/LICENSE-Tabler-MIT.txt`. Der Baustein `TablerIcon` gibt das SVG inline aus und erbt die Textfarbe. Es gibt keinen Aufruf an einen Fremdserver.
+
 ## Regeln
 
 - Beträge sind immer `decimal`, nie `double` oder `float`
@@ -136,7 +144,3 @@ Ein signiertes Release-Bundle für Google Play entsteht mit den Umgebungsvariabl
 ```bash
 dotnet publish Mobile/Duofy -f net10.0-android -c Release
 ```
-
-## Lizenz
-
-GNU Affero General Public License v3.0, siehe [LICENSE](LICENSE). Wer Duofy als Dienst für andere betreibt, stellt seine Änderungen ebenfalls unter diese Lizenz.

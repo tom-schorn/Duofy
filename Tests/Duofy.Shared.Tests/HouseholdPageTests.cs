@@ -415,7 +415,7 @@ public class HouseholdPageTests : PageTestContext
         };
         var cut = OpenPage();
         var switcher = Render<MemberSwitch>();
-        switcher.WaitForAssertion(() => Assert.NotEmpty(switcher.FindAll("[data-testid='member-switch']")));
+        switcher.WaitForAssertion(() => Assert.True(Member.CanShowHousehold));
         Member.ChooseHousehold();
         Assert.True(Member.IsHousehold);
 
@@ -426,7 +426,9 @@ public class HouseholdPageTests : PageTestContext
         cut.WaitForAssertion(() => Assert.Null(Member.Household));
         Assert.False(Member.CanShowHousehold);
         Assert.False(Member.IsHousehold);
-        switcher.WaitForAssertion(() => Assert.Empty(switcher.FindAll("[data-testid='member-switch']")));
+        switcher.Find("[data-testid='member-profile']").Click();
+        switcher.WaitForAssertion(() => Assert.Equal("true", switcher.Find("[data-testid='member-choice-household']").GetAttribute("aria-disabled")));
+        Assert.Equal("Ich", switcher.Find("[data-testid='member-profile']").TextContent.Trim());
     }
 
     // Spec 69, A12: Nach dem Auflösen gibt es für den Umschalter keinen Haushalt mehr.

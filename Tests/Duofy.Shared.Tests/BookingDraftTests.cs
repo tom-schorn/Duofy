@@ -21,7 +21,27 @@ public class BookingDraftTests
         Assert.Equal(Today, draft.Date);
         Assert.Equal(Giro, draft.AccountId);
         Assert.Single(draft.Lines);
-        Assert.Equal(PotKeys.Needs, draft.Lines[0].Pot);
+    }
+
+    // Spec 72, A6, A7: Niemand soll still im Grundbedarf landen; ohne Wahl geht kein Topf an die API.
+    [Fact]
+    public void A_new_expense_has_no_pot_until_one_is_chosen_and_sends_none()
+    {
+        var draft = NewDraft();
+        draft.SetAmount(80m);
+
+        Assert.Equal("", draft.Lines[0].Pot);
+        Assert.Null(draft.ToRequest().Lines![0].Pot);
+    }
+
+    [Fact]
+    public void A_split_line_of_an_expense_has_no_pot_either()
+    {
+        var draft = NewDraft();
+
+        draft.AddLine();
+
+        Assert.Equal("", draft.Lines[1].Pot);
     }
 
     // R9: ohne Standardkonto bleibt das Feld leer
@@ -159,14 +179,14 @@ public class BookingDraftTests
     }
 
     [Fact]
-    public void Switching_back_to_expense_resets_the_pot_to_needs()
+    public void Switching_back_to_expense_clears_the_pot()
     {
         var draft = NewDraft();
         draft.SetKind(BookingKinds.Income);
 
         draft.SetKind(BookingKinds.Expense);
 
-        Assert.Equal(PotKeys.Needs, draft.Lines[0].Pot);
+        Assert.Equal("", draft.Lines[0].Pot);
     }
 
     // R1: der Topf-Wechsel behält gültige Eingaben
@@ -193,6 +213,8 @@ public class BookingDraftTests
         draft.SetLineAmount(1, 20m);
         draft.Lines[0].CategoryId = groceries;
         draft.Lines[1].CategoryId = care;
+        draft.Lines[0].Pot = PotKeys.Needs;
+        draft.Lines[1].Pot = PotKeys.Needs;
 
         var request = draft.ToRequest();
 
@@ -206,18 +228,25 @@ public class BookingDraftTests
             request.Lines);
     }
 
+    // Spec 72, R9: Quelle und Ziel starten leer und gehen als Topf der Zeile und als Zieltopf an die API.
     [Fact]
-    public void Request_of_a_transfer_has_no_lines_unless_it_is_marked_as_savings()
+    public void A_new_transfer_has_no_pots_until_both_are_chosen_and_sends_them_as_line_and_target()
     {
         var draft = NewDraft();
         draft.SetKind(BookingKinds.Transfer);
         draft.CounterAccountId = Guid.NewGuid();
         draft.SetAmount(100m);
 
-        Assert.Empty(draft.ToRequest().Lines!);
+        Assert.Equal("", draft.TransferSourcePot);
+        Assert.Equal("", draft.TransferTargetPot);
+        Assert.Null(Assert.Single(draft.ToRequest().Lines!).Pot);
+        Assert.Null(draft.ToRequest().TargetPot);
 
-        draft.TransferIsSavings = true;
-        Assert.Equal([new SaveBookingLine(100m, PotKeys.Savings, null)], draft.ToRequest().Lines);
+        draft.TransferSourcePot = PotKeys.Savings;
+        draft.TransferTargetPot = PotKeys.Wants;
+        var request = draft.ToRequest();
+        Assert.Equal([new SaveBookingLine(100m, PotKeys.Savings, null)], request.Lines);
+        Assert.Equal(PotKeys.Wants, request.TargetPot);
     }
 
     [Fact]
@@ -249,12 +278,27 @@ public class BookingDraftTests
     }
 
     [Fact]
-    public void A_saved_savings_transfer_is_marked_as_savings()
+    public void A_saved_transfer_becomes_a_draft_with_both_pots()
     {
         var saved = new BookingResponse(
             Guid.NewGuid(), BookingKinds.Transfer, Giro, Guid.NewGuid(), Today, 100m, null,
-            [new BookingLineResponse(Guid.NewGuid(), 100m, PotKeys.Savings, null)]);
+            [new BookingLineResponse(Guid.NewGuid(), 100m, PotKeys.Savings, null)], TargetPot: PotKeys.Wants);
 
-        Assert.True(BookingDraft.From(saved).TransferIsSavings);
+        var draft = BookingDraft.From(saved);
+
+        Assert.Equal((PotKeys.Savings, PotKeys.Wants), (draft.TransferSourcePot, draft.TransferTargetPot));
+    }
+
+    // Spec 72, R9: Eine ältere Umbuchung ohne Zieltopf (oder ganz ohne Zeile) lässt sich öffnen; das Ziel muss gewählt werden.
+    [Fact]
+    public void An_older_transfer_without_pots_opens_with_empty_fields_for_what_is_missing()
+    {
+        var withLine = new BookingResponse(
+            Guid.NewGuid(), BookingKinds.Transfer, Giro, Guid.NewGuid(), Today, 100m, null,
+            [new BookingLineResponse(Guid.NewGuid(), 100m, PotKeys.Savings, null)]);
+        var withoutLine = withLine with { Lines = [] };
+
+        Assert.Equal((PotKeys.Savings, ""), (BookingDraft.From(withLine).TransferSourcePot, BookingDraft.From(withLine).TransferTargetPot));
+        Assert.Equal(("", ""), (BookingDraft.From(withoutLine).TransferSourcePot, BookingDraft.From(withoutLine).TransferTargetPot));
     }
 }

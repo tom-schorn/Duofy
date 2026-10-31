@@ -53,6 +53,38 @@ public class ErrorTextsTests
         Assert.Equal("Auf dem Posten liegen schon Buchungen. Deshalb lässt er sich weder löschen noch zwischen Einnahme und Ausgabe wechseln.", text);
     }
 
+    // Tom 31.10.: Im Übertrag erklärt die Meldung, dass das Zielkonto zu spät startet.
+    [Fact]
+    public void Carry_over_explains_a_target_account_that_opens_too_late()
+    {
+        var text = ErrorTexts.ForCarryOver(Localizer(), ErrorCodes.DateBeforeOpening);
+
+        Assert.Equal("Das Konto startet zu spät für diesen Übertrag. Bitte ein anderes Konto wählen.", text);
+    }
+
+    // Der allgemeine Text für normale Buchungen bleibt, wie er ist.
+    [Fact]
+    public void A_normal_booking_keeps_the_general_opening_text()
+    {
+        Assert.Equal("Das Datum muss nach dem Starttag des Kontos liegen.", ErrorTexts.For(Localizer(), ErrorCodes.DateBeforeOpening));
+    }
+
+    // Alle anderen Codes zeigen im Übertrag denselben Text wie überall.
+    [Theory]
+    [MemberData(nameof(AllCodes))]
+    public void Carry_over_changes_only_the_opening_code(string code)
+    {
+        var localizer = Localizer();
+        if (code == ErrorCodes.DateBeforeOpening)
+        {
+            Assert.NotEqual(ErrorTexts.For(localizer, code), ErrorTexts.ForCarryOver(localizer, code));
+        }
+        else
+        {
+            Assert.Equal(ErrorTexts.For(localizer, code), ErrorTexts.ForCarryOver(localizer, code));
+        }
+    }
+
     [Fact]
     public void Unknown_code_gets_the_general_text()
     {

@@ -18,7 +18,8 @@ public class HouseholdPlanClientTests
         [new PlanQuotaResponse(PotKeys.Needs, 50, 0m)],
         new HouseholdUnplannedResponse(0m, 0m, 40.00m, 0m),
         [],
-        ["Clara"]);
+        ["Clara"],
+        []);
 
     private static (FakeApi Api, ServiceProvider Provider, IServiceScope Scope) Start(Func<SeenRequest, HttpResponseMessage> respond)
     {
@@ -45,7 +46,7 @@ public class HouseholdPlanClientTests
     [Fact]
     public async Task The_months_are_read_from_the_plans_path()
     {
-        var months = new[] { new HouseholdPlanMonth(2026, 11), new HouseholdPlanMonth(2026, 10) };
+        var months = new[] { new HouseholdPlanMonth(2026, 11, 120m), new HouseholdPlanMonth(2026, 10, -5m) };
         var (api, provider, scope) = Start(_ => FakeApi.Json(HttpStatusCode.OK, months));
         using var _p = provider;
         using var _s = scope;

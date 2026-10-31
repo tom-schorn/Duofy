@@ -180,5 +180,6 @@ public sealed class FakeBookingApi : IBookingApi
         [new BookingLineResponse(Guid.NewGuid(), amount, PotKeys.Income, FakeCategoryApi.Salary.Id)]);
 
     public static BookingResponse Transfer(Guid from, Guid to, DateOnly date, decimal amount) => new(
-        Guid.NewGuid(), BookingKinds.Transfer, from, to, date, amount, null, []);
+        Guid.NewGuid(), BookingKinds.Transfer, from, to, date, amount, null,
+        [new BookingLineResponse(Guid.NewGuid(), amount, PotKeys.Savings, null)], TargetPot: PotKeys.Wants);
 }

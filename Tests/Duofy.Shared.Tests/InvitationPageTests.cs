@@ -113,7 +113,8 @@ public class InvitationPageTests : PageTestContext
         var member = Services.GetRequiredService<ActiveMember>();
         var switcher = Render<MemberSwitch>();
         switcher.WaitForAssertion(() => Assert.Equal(1, HouseholdApiFake.MineCalls));
-        Assert.Empty(switcher.FindAll("[data-testid='member-switch']"));
+        switcher.Find("[data-testid='member-profile']").Click();
+        Assert.Equal("true", switcher.Find("[data-testid='member-choice-household']").GetAttribute("aria-disabled"));
         var cut = Open();
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='invitation-join']")));
 
@@ -121,8 +122,7 @@ public class InvitationPageTests : PageTestContext
 
         cut.WaitForAssertion(() => Assert.Equal("/haushalt", CurrentPath));
         Assert.True(member.CanShowHousehold);
-        switcher.WaitForAssertion(() => Assert.Contains("Haushalt",
-            switcher.FindAll("[data-testid='member-switch'] option").Select(o => o.TextContent.Trim())));
+        switcher.WaitForAssertion(() => Assert.Equal("button", switcher.Find("[data-testid='member-choice-household']").TagName.ToLowerInvariant()));
     }
 
     // A8 (Seite): Trat Ben zur selben Zeit anderswo bei, lehnt die API trotzdem ab; die Seite sagt, warum.

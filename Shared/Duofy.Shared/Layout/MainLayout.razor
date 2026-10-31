@@ -1,47 +1,50 @@
 ﻿@inherits ThemedLayoutBase
 @inject IStringLocalizer<SharedResources> L
 
-@* Das gemeinsame Layout für Browser und App: App-Leiste oben, Navigation links
-   (auf dem Handy ausklappbar), der Seiteninhalt in der Mitte.
+@* Das Layout des Browsers: App-Leiste oben, der Seiteninhalt in der Mitte und die Navigation, je nach Breite
+   links als Seitenleiste (ab 1280 px) oder unten als Leiste (Spec 10).
 
    Die vier "Provider" oben braucht MudBlazor einmal pro Anwendung: Sie bringen
    Farben, Popups, Dialoge und Meldungen auf den Bildschirm. *@
 
-<MudThemeProvider @ref="ThemeProvider" Theme="DuofyTheme.Instance" @bind-IsDarkMode="IsDarkMode" />
+<MudThemeProvider @ref="ThemeProvider" Theme="DuofyTheme.Instance" @bind-IsDarkMode="IsDarkMode" ObserveSystemDarkModeChange="false" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
 <MudLayout>
     <MudAppBar Elevation="0">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
-                       OnClick="ToggleDrawer" aria-label="@L["Layout_MenuToggle"]" />
-        <MudText Typo="Typo.h6">@L["App_Name"]</MudText>
+        <MudText Typo="Typo.h6" Class="app-title">@L["App_Name"]</MudText>
         <MudSpacer />
-        <MudIconButton Class="mode-switch" Color="Color.Inherit" OnClick="ToggleModeAsync"
-                       Icon="@(IsDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
-                       aria-label="@(IsDarkMode ? L["Layout_ToLightMode"] : L["Layout_ToDarkMode"])" />
+        <AuthorizeView>
+            <Authorized>
+                <MemberSwitch />
+            </Authorized>
+        </AuthorizeView>
+        <ThemeChoiceSwitch Choice="Choice" ChoiceSelected="SelectChoiceAsync" />
     </MudAppBar>
 
-    <MudDrawer @bind-Open="drawerOpen" Breakpoint="Breakpoint.Md" Variant="DrawerVariant.Responsive" Elevation="0">
-        <NavMenu />
-    </MudDrawer>
+    <SideNavigation>
+        <Footer>
+            <AuthorizeView>
+                <Authorized>
+                    <MemberSwitch Up="true" />
+                </Authorized>
+            </AuthorizeView>
+        </Footer>
+    </SideNavigation>
 
-    <MudMainContent>
-        <MudContainer MaxWidth="MaxWidth.Large" Class="my-4">
+    <MudMainContent Class="app-main">
+        <div class="app-page">
             @Body
-        </MudContainer>
+        </div>
     </MudMainContent>
 </MudLayout>
+
+<BottomNavigation />
 
 <div id="blazor-error-ui" data-nosnippet>
     @L["Layout_ErrorMessage"]
     <a href="." class="reload">@L["Layout_Reload"]</a>
     <span class="dismiss">&#10005;</span>
 </div>
-
-@code {
-    private bool drawerOpen = true;
-
-    private void ToggleDrawer() => drawerOpen = !drawerOpen;
-}

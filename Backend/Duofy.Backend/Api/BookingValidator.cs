@@ -198,8 +198,9 @@ public static class BookingValidator
     }
 
     /// <summary>
-    /// Eine Umbuchung hat zwei verschiedene Konten und keine Zeile oder genau eine mit dem
-    /// Topf Sparen, ohne Kategorie und über den ganzen Betrag.
+    /// Eine Umbuchung hat zwei verschiedene Konten und genau eine Zeile ohne Kategorie über den ganzen Betrag.
+    /// Der Topf der Zeile ist der Quelltopf, dazu kommt der Zieltopf (Spec 72, R9). Beide sind Pflicht, jeder aus
+    /// Grundbedarf, Wünsche oder Sparen, und es darf derselbe sein. Sie werden nur gemerkt.
     /// </summary>
     private static string? CheckTransfer(SaveBookingRequest request)
     {
@@ -217,23 +218,22 @@ public static class BookingValidator
         {
             return ErrorCodes.LinesTooMany;
         }
-        if (lines.Count == 1)
+        if (lines.Count == 0 || lines[0].Pot is null || request.TargetPot is null)
         {
-            var line = lines[0];
-            if (line.Pot != PotKeys.Savings)
-            {
-                return ErrorCodes.TransferPotInvalid;
-            }
-            if (line.CategoryId is not null)
-            {
-                return ErrorCodes.TransferCategoryInvalid;
-            }
-            if (line.Amount != request.Amount)
-            {
-                return ErrorCodes.LinesSumMismatch;
-            }
+            return ErrorCodes.TransferPotsRequired;
         }
-        return null;
+
+        var line = lines[0];
+        if (!PotKey.TryParse(line.Pot, out var source) || source == Pot.Income
+            || !PotKey.TryParse(request.TargetPot, out var target) || target == Pot.Income)
+        {
+            return ErrorCodes.TransferPotInvalid;
+        }
+        if (line.CategoryId is not null)
+        {
+            return ErrorCodes.TransferCategoryInvalid;
+        }
+        return line.Amount == request.Amount ? null : ErrorCodes.LinesSumMismatch;
     }
 
     /// <summary>

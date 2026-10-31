@@ -52,6 +52,50 @@ public class GrantedPagesTests : PageTestContext
     private static void AssertFree<T>(IRenderedComponent<T> cut, string testId) where T : Microsoft.AspNetCore.Components.IComponent =>
         Assert.Null(cut.Find($"[data-testid='{testId}']").GetAttribute("aria-disabled"));
 
+    // Fund S3: Ohne Sicht auf die Buchungen kommt jeder gebuchte Betrag als 0 an. Lücke, Liste und offene Beträge wären
+    // falsch; die Übersicht sagt stattdessen, dass die Person das nicht teilt.
+    [Fact]
+    public async Task With_plan_view_only_the_overview_says_not_shared_instead_of_list_gap_and_open_amounts()
+    {
+        await ChooseAnnaAsync(GrantLevels.None with { Plan = AccessLevelKeys.View });
+        var rent = FakePlanApi.Position("Miete", 890m) with { DueDay = 1 };
+        PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10) with
+        {
+            Positions = [rent],
+            Overview = new PlanOverviewResponse(0m, 890m, -890m, [new PlanPotResponse(PotKeys.Needs, 890m, 0m)], []),
+        };
+
+        var cut = Render<Plan>();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-overview']")));
+
+        Assert.Contains(NotShared, cut.Find("[data-testid='month-recent']").TextContent);
+        Assert.Contains(NotShared, cut.Find("[data-testid='month-gap']").TextContent);
+        Assert.Contains(NotShared, cut.Find("[data-testid='month-due']").TextContent);
+        Assert.DoesNotContain("weniger als geplant", cut.Find("[data-testid='month-gap']").TextContent);
+        Assert.DoesNotContain("noch keine Buchungen", cut.Find("[data-testid='month-recent']").TextContent);
+        Assert.DoesNotContain("Miete", cut.Find("[data-testid='month-due']").TextContent);
+    }
+
+    // Gegenprobe zu S3: Mit Buchungen Ansehen bleibt die Übersicht vollständig.
+    [Fact]
+    public async Task With_bookings_view_the_overview_shows_the_gap_and_the_open_amounts()
+    {
+        await ChooseAnnaAsync(GrantLevels.None with { Plan = AccessLevelKeys.View, Book = AccessLevelKeys.View });
+        var rent = FakePlanApi.Position("Miete", 890m) with { DueDay = 1 };
+        PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10) with
+        {
+            Positions = [rent],
+            Overview = new PlanOverviewResponse(0m, 890m, -890m, [new PlanPotResponse(PotKeys.Needs, 890m, 0m)], []),
+        };
+
+        var cut = Render<Plan>();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-overview']")));
+
+        Assert.DoesNotContain(NotShared, cut.Find("[data-testid='month-overview']").TextContent);
+        Assert.Contains("weniger als geplant", cut.Find("[data-testid='month-gap']").TextContent);
+        Assert.Contains("Miete", cut.Find("[data-testid='month-due']").TextContent);
+    }
+
     // A13
     [Fact]
     public async Task With_plan_view_annas_month_shows_with_add_and_tick_greyed_out_and_the_reason()
@@ -61,7 +105,7 @@ public class GrantedPagesTests : PageTestContext
         PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10) with { Positions = [rent] };
 
         var cut = Render<Plan>();
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='plan-sums']")));
+        OpenPlanTab(cut);
 
         Assert.All(PlanApiFake.Owners, owner => Assert.Equal(Anna, owner));
         Assert.Equal(Anna, Assert.Single(Categories.Owners));
@@ -106,7 +150,7 @@ public class GrantedPagesTests : PageTestContext
         PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10) with { Positions = [gift] };
 
         var cut = Render<Plan>();
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='plan-sums']")));
+        OpenPlanTab(cut);
 
         AssertFree(cut, "plan-add");
         AssertFree(cut, $"plan-edit-{gift.Id}");
@@ -179,6 +223,9 @@ public class GrantedPagesTests : PageTestContext
         AssertLocked(cut, $"commitment-end-{rent.Id}");
     }
 
+    // Ein Knopf im offenen Dialog, gefunden an seinem Text (die Knöpfe des Schritt-Dialogs haben keine Test-Kennung).
+    private void ClickInDialog(string text) => dialogs.FindAll("button").Single(b => b.TextContent.Trim() == text).Click();
+
     // A15: Ein offener Dialog speichert für die Person, für die er geöffnet wurde, auch wenn der Umschalter
     // inzwischen woanders steht.
     [Fact]
@@ -186,7 +233,7 @@ public class GrantedPagesTests : PageTestContext
     {
         await ChooseAnnaAsync(GrantLevels.None with { Plan = AccessLevelKeys.Create });
         var cut = Render<Plan>();
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='plan-sums']")));
+        OpenPlanTab(cut);
         cut.Find("[data-testid='plan-add']").Click();
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='position-label']")));
 
@@ -208,7 +255,7 @@ public class GrantedPagesTests : PageTestContext
         var groceries = FakePlanApi.Position("Lebensmittel", 600m, booked: 550m);
         PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10) with { Positions = [groceries] };
         var cut = Render<Plan>();
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='plan-sums']")));
+        OpenPlanTab(cut);
         Field(cut, $"plan-tick-{groceries.Id}").Change(true);
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='tick-amount']")));
 
@@ -228,6 +275,7 @@ public class GrantedPagesTests : PageTestContext
             CarryOver = new PlanCarryOverResponse(230m, false, null, []),
         };
         var cut = Render<Plan>();
+        OpenPlanTab(cut);
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='plan-carry-over-open']")));
         cut.Find("[data-testid='plan-carry-over-open']").Click();
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='carry-over-amount']")));
@@ -266,14 +314,19 @@ public class GrantedPagesTests : PageTestContext
         var cut = Render<Commitments>();
         cut.WaitForAssertion(() => Assert.Equal(Anna, Assert.Single(CommitmentApiFake.ListOwners)));
         cut.Find("[data-testid='commitments-add']").Click();
-        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='commitment-save']")));
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='commitment-name']")));
 
         await cut.InvokeAsync(() => Member.Choose(null));
         Field(dialogs, "commitment-name").Change("Miete");
         Field(dialogs, "commitment-amount").Change("890");
         dialogs.Find("[data-testid='commitment-category']").Change(FakeCategoryApi.Groceries.Id.ToString());
+        // Der Vertragsdialog hat drei Schritte (Spec 17): zweimal Weiter, dann Speichern.
+        ClickInDialog("Weiter");
+        dialogs.WaitForAssertion(() => Assert.StartsWith("Schritt 2", dialogs.Find("[data-testid='step-dialog-progress']").TextContent));
+        ClickInDialog("Weiter");
+        dialogs.WaitForAssertion(() => Assert.StartsWith("Schritt 3", dialogs.Find("[data-testid='step-dialog-progress']").TextContent));
         dialogs.Find("[data-testid='commitment-payment-method']").Change(PaymentMethods.StandingOrder);
-        dialogs.Find("[data-testid='commitment-save']").Click();
+        ClickInDialog("Speichern");
 
         dialogs.WaitForAssertion(() => Assert.Equal(Anna, Assert.Single(CommitmentApiFake.Created).OwnerId));
     }
@@ -315,6 +368,7 @@ public class GrantedPagesTests : PageTestContext
         };
 
         var cut = Render<Plan>();
+        OpenPlanTab(cut);
         cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll("[data-testid='plan-change-apply']").Count));
 
         var applies = cut.FindAll("[data-testid='plan-change-apply']");
@@ -345,6 +399,7 @@ public class GrantedPagesTests : PageTestContext
         };
 
         var cut = Render<Plan>();
+        OpenPlanTab(cut);
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='plan-change-apply']")));
 
         AssertFree(cut, "plan-change-apply");
@@ -363,7 +418,7 @@ public class GrantedPagesTests : PageTestContext
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll($"[data-testid='commitment-edit-{rent.Id}']")));
 
         cut.Find($"[data-testid='commitment-edit-{rent.Id}']").Click();
-        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='commitment-save']")));
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='commitment-name']")));
 
         var lastDue = Field(dialogs, "commitment-last-due");
         Assert.NotNull(lastDue.GetAttribute("readonly"));
@@ -381,7 +436,7 @@ public class GrantedPagesTests : PageTestContext
         cut.WaitForAssertion(() => Assert.Equal(Anna, Assert.Single(CommitmentApiFake.ListOwners)));
 
         cut.Find("[data-testid='commitments-add']").Click();
-        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='commitment-save']")));
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='commitment-name']")));
 
         Assert.Null(Field(dialogs, "commitment-last-due").GetAttribute("readonly"));
         Assert.Empty(dialogs.FindAll("[data-testid='commitment-last-due-reason']"));
@@ -393,7 +448,7 @@ public class GrantedPagesTests : PageTestContext
     {
         await ChooseAnnaAsync(GrantLevels.None with { Plan = AccessLevelKeys.View });
         var cut = Render<Plan>();
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='plan-sums']")));
+        OpenPlanTab(cut);
 
         await cut.InvokeAsync(() => Member.Choose(null));
 

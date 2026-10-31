@@ -41,6 +41,24 @@ public sealed class FakePlanApi : IPlanApi
     public PlanResponse PlanFor(int year, int month) =>
         Plans.TryGetValue((year, month), out var plan) ? plan : Plans[(year, month)] = Empty(year, month);
 
+    /// <summary>Die Monate, die die Übersicht (Spec 23) vorfindet; null heißt: die Monate der gespeicherten Pläne.</summary>
+    public List<PlanMonthResponse>? Months { get; set; }
+
+    public int ListMonthsCalls { get; private set; }
+
+    public Task<ApiResult<IReadOnlyList<PlanMonthResponse>>> ListMonthsAsync(Guid? owner = null, CancellationToken cancellationToken = default)
+    {
+        Owners.Add(owner);
+        ListMonthsCalls++;
+        if (Error is not null)
+        {
+            return Task.FromResult(ApiResult<IReadOnlyList<PlanMonthResponse>>.Failure(Error));
+        }
+        IReadOnlyList<PlanMonthResponse> months = Months
+            ?? Plans.Keys.Select(k => new PlanMonthResponse(k.Year, k.Month, 0m)).OrderByDescending(m => m.Year).ThenByDescending(m => m.Month).ToList();
+        return Task.FromResult(ApiResult<IReadOnlyList<PlanMonthResponse>>.Success(months));
+    }
+
     public Task<ApiResult<PlanResponse>> GetAsync(int year, int month, Guid? owner = null, CancellationToken cancellationToken = default)
     {
         Owners.Add(owner);

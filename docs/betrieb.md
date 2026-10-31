@@ -165,7 +165,7 @@ Cloudflare einen Schnipsel mit `data-cf-beacon='{"token": "..."}'`, und nur den 
 
 Die Daten von Plagevo liegen in deinem PostgreSQL-Server zu Hause. Der Server erreicht ihn über Tailscale, also durch
 ein verschlüsseltes WireGuard-Netz; im Internet ist der Port der Datenbank nie offen. Die Adresse des Servers im
-Tailnet ist `100.x.y.z`, die deines PostgreSQL-Servers siehst du dort mit `tailscale ip -4` (unten `100.x.y.z`).
+Tailnet ist `100.72.244.19`, die deines PostgreSQL-Servers siehst du dort mit `tailscale ip -4` (unten `100.x.y.z`).
 
 Alles in diesem Schritt machst du auf deinem PostgreSQL-Server zu Hause, nicht auf dem Server.
 
@@ -198,7 +198,7 @@ Alles in diesem Schritt machst du auf deinem PostgreSQL-Server zu Hause, nicht a
 3. Nur den Server hereinlassen. In `pg_hba.conf` (im selben Ordner) eine Zeile anfügen:
 
    ```text
-   host    plagevo    plagevo    100.x.y.z/32    scram-sha-256
+   host    plagevo    plagevo    100.72.244.19/32    scram-sha-256
    ```
 
    Danach PostgreSQL neu starten, denn `listen_addresses` gilt erst dann: `sudo systemctl restart postgresql`.
@@ -206,7 +206,7 @@ Alles in diesem Schritt machst du auf deinem PostgreSQL-Server zu Hause, nicht a
 4. Die Firewall: Port 5432 nur über Tailscale und nur für den Server öffnen, zum Beispiel mit ufw:
 
    ```bash
-   sudo ufw allow in on tailscale0 from 100.x.y.z to any port 5432 proto tcp
+   sudo ufw allow in on tailscale0 from 100.72.244.19 to any port 5432 proto tcp
    ```
 
    Aus dem Heimnetz und aus dem Internet bleibt der Port zu. Wer Tailscale-ACLs benutzt, erlaubt dort ebenso nur den
@@ -470,7 +470,7 @@ So liegen Datenbank und Sicherungen an zwei Orten: die Daten bei dir zu Hause, d
 Kopie zu dir holst du zum Beispiel mit `scp` über Tailscale:
 
 ```bash
-scp root@100.x.y.z:/root/duofy_rework/deploy/backups/duofy-2026-10-26.sql.gz .
+scp root@100.72.244.19:/root/duofy_rework/deploy/backups/duofy-2026-10-26.sql.gz .
 ```
 
 ## 11. Wiederherstellen
@@ -487,7 +487,7 @@ Auf deinem PostgreSQL-Server zu Hause die Sicherung holen, die Datenbank leer ne
 (Datum anpassen):
 
 ```bash
-scp root@100.x.y.z:/root/duofy_rework/deploy/backups/duofy-2026-10-26.sql.gz .
+scp root@100.72.244.19:/root/duofy_rework/deploy/backups/duofy-2026-10-26.sql.gz .
 sudo -u postgres dropdb plagevo
 sudo -u postgres createdb --owner=plagevo plagevo
 gunzip -c duofy-2026-10-26.sql.gz | psql -h localhost -U plagevo -d plagevo --quiet --set ON_ERROR_STOP=1

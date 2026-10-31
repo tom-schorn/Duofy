@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
 
-  <!-- Die App gibt es vorerst nur für Android (iOS, Mac und Windows sind nicht geplant). -->
+  <!-- Ausgeliefert wird die App vorerst nur für Android (iOS und Mac sind nicht geplant).
+       Das Windows-Ziel gibt es nur zum Testen am PC, und nur auf Windows. -->
   <PropertyGroup>
     <TargetFrameworks>net10.0-android</TargetFrameworks>
 
@@ -32,6 +33,18 @@
 
     <!-- Mindestens Android 7.0 (API 24). Die Zielversion 36 steht im AndroidManifest.xml. -->
     <SupportedOSPlatformVersion>24.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <!-- Windows-Testziel: nur auf Windows, nur zum Testen am PC. Eigene Gruppen mit Bedingung, damit die
+       Android-Einstellungen oben unverändert bleiben. -->
+  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+    <TargetFrameworks>$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(TargetFramework.Contains('-windows'))">
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <!-- Ohne Paketierung: startet direkt aus dem Build-Ordner, ohne Installation. -->
+    <WindowsPackageType>None</WindowsPackageType>
   </PropertyGroup>
 
   <!-- Release: signiertes App-Bundle (AAB) für Google Play. Schlüsseldatei und Passwörter

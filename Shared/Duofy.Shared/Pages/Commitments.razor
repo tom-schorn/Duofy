@@ -3,12 +3,12 @@
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
+@using Duofy.Shared.Dialogs
 @inject ICommitmentApi CommitmentApi
 @inject ICategoryApi CategoryApi
 @inject IAccountChoices AccountChoices
 @implements IDisposable
 @inject IDialogService DialogService
-@inject FormDialogs Forms
 @inject IAppHost Host
 @inject AppChrome Chrome
 @inject ActiveMember Member
@@ -21,7 +21,10 @@
    Die Seite rechnet keine Fälligkeiten selbst. Die nächste Zahlung und ob ein Vertrag noch läuft,
    schickt die API mit; nach jeder Änderung holt die Seite die Liste neu.
 
-   Mit dem Umschalter zeigt die Seite die Verträge eines anderen Mitglieds (Spec 68); Beenden zählt als Löschen. *@
+   Mit dem Umschalter zeigt die Seite die Verträge eines anderen Mitglieds (Spec 68); Beenden zählt als Löschen.
+
+   Sparziele und Schulden stehen weiter in der Liste, lassen sich hier aber nicht mehr ändern (Spec 17, R4):
+   Der Vertragsdialog bietet nur Ausgabe und Einnahme an, für sie kommt ein eigener Bereich. *@
 
 <PageTitle>@L["Commitments_Title"]</PageTitle>
 
@@ -72,9 +75,12 @@ else if (loaded && !Shown.Any())
                     <MudText Typo="Typo.caption" Color="Color.Secondary">@Caption(commitment)</MudText>
                 </MudStack>
                 <MudText Typo="Typo.subtitle1" Color="@(commitment.Running ? Color.Default : Color.Secondary)">@Money(commitment.Amount)</MudText>
-                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditAsync(commitment)"
-                               Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
-                               aria-label="@L["Commitments_Edit"]" data-testid="@($"commitment-edit-{commitment.Id}")" />
+                @if (CommitmentDraft.OfferedTypes.Contains(commitment.Type))
+                {
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditAsync(commitment)"
+                                   Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
+                                   aria-label="@L["Commitments_Edit"]" data-testid="@($"commitment-edit-{commitment.Id}")" />
+                }
                 @if (commitment.Running)
                 {
                     <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => EndAsync(commitment)"
@@ -198,7 +204,8 @@ else if (loaded && !Shown.Any())
             { x => x.Today, Today },
         };
 
-        var dialog = await DialogService.ShowAsync<CommitmentDialog>(title, parameters, Forms.Options());
+        // Der Dialog hat Schritte (Spec 17); er geht wie jeder Schritt-Dialog auf und füllt auf dem Handy den Bildschirm.
+        var dialog = await DialogService.ShowAsync<CommitmentDialog>(title, parameters, StepDialogOptions.Create());
         var result = await dialog.Result;
 
         if (result is { Canceled: false })
@@ -239,7 +246,7 @@ else if (loaded && !Shown.Any())
     private string Caption(CommitmentResponse commitment)
     {
         var type = L[$"CommitmentType_{commitment.Type}"];
-        var parts = new List<string> { $"{type} · {IntervalText(commitment.IntervalMonths)}" };
+        var parts = new List<string> { $"{type} · {IntervalTexts.For(L, commitment.IntervalMonths)}" };
         if (!commitment.Running)
         {
             return L["Commitments_EndedMark", parts[0]];
@@ -250,11 +257,6 @@ else if (loaded && !Shown.Any())
         }
         return string.Join(" · ", parts);
     }
-
-    // Die üblichen Abstände haben ein eigenes Wort, alle anderen heißen "alle n Monate".
-    private string IntervalText(int months) => months is 1 or 3 or 6 or 12
-        ? L[$"Interval_{months}"]
-        : L["Interval_Other", months];
 
     private static string Money(decimal amount) => amount.ToString("N2", German) + " €";
 }

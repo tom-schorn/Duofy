@@ -1,0 +1,62 @@
+@inject IStringLocalizer<SharedResources> L
+@implements IDisposable
+
+@* Ein Feld in einem DialogStep: Beschriftung, das Eingabefeld als Inhalt und darunter sein Fehler.
+   Der Fehler hat role alert, damit Vorlese-Programme ihn sofort ansagen, und die Id "{InputId}-error";
+   das Eingabefeld kann ihn mit aria-describedby verbinden. Er erscheint erst nach dem ersten Weiter
+   und verschwindet, sobald das Feld in Ordnung ist. *@
+
+<div class="step-field" data-testid="@TestId">
+    <FieldLabel For="@InputId" Text="@Label" />
+    @ChildContent
+    @if (Step.ShowErrors && Error is { } error)
+    {
+        <div class="step-field-error" role="alert" id="@($"{InputId}-error")">@error</div>
+    }
+</div>
+
+@code {
+    [CascadingParameter]
+    private DialogStep Step { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = "";
+
+    /// <summary>Die Id des Eingabefelds (InputId am MudTextField); daran hängen Beschriftung und Fehler.</summary>
+    [Parameter, EditorRequired]
+    public string InputId { get; set; } = "";
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Pflichtfeld: Weiter geht erst, wenn <see cref="IsFilled"/> true sagt.</summary>
+    [Parameter]
+    public bool Required { get; set; }
+
+    /// <summary>Ob das Feld gefüllt ist; gefragt wird beim Weiter und bei jedem Zeichnen danach.</summary>
+    [Parameter]
+    public Func<bool>? IsFilled { get; set; }
+
+    /// <summary>Eine weitere Regel: null, wenn alles passt, sonst der Fehlertext.</summary>
+    [Parameter]
+    public Func<string?>? Validate { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    /// <summary>Der aktuelle Fehler des Felds oder null.</summary>
+    internal string? Error => Required && IsFilled?.Invoke() != true
+        ? L["Validation_Required"]
+        : Validate?.Invoke();
+
+    protected override void OnInitialized()
+    {
+        if (Step is null)
+        {
+            throw new InvalidOperationException("StepField steht nur in einem DialogStep.");
+        }
+        Step.Add(this);
+    }
+
+    public void Dispose() => Step.Remove(this);
+}

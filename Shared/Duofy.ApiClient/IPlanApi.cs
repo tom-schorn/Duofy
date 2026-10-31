@@ -16,6 +16,11 @@ public interface IPlanApi
     /// <summary>Öffnet den Monat; beim ersten Mal legt die API ihn aus den Verträgen an.</summary>
     Task<ApiResult<PlanResponse>> GetAsync(int year, int month, Guid? owner = null, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Die Monate mit einem Plan und deren Frei-Betrag, der neueste zuerst; legt nichts an (Spec 23).
+    /// </summary>
+    Task<ApiResult<IReadOnlyList<PlanMonthResponse>>> ListMonthsAsync(Guid? owner = null, CancellationToken cancellationToken = default);
+
     /// <summary>Legt einen einmaligen Posten an.</summary>
     Task<ApiResult<PlanPositionResponse>> CreatePositionAsync(
         int year, int month, CreatePositionRequest request, Guid? owner = null, CancellationToken cancellationToken = default);

@@ -57,9 +57,6 @@ public sealed class ActiveMember : IDisposable
     /// <summary>Der Vorname des gewählten Mitglieds für die Gründe an ausgegrauten Knöpfen; null bei "Ich".</summary>
     public string? Name => Chosen?.FirstName;
 
-    /// <summary>True, wenn es jemanden zum Umschalten gibt. Mit nur "Ich" zeigt die Oberfläche keinen Umschalter.</summary>
-    public bool HasSwitch => Sharing.Count > 0 || CanShowHousehold;
-
     /// <summary>
     /// Die Stufe in einem Bereich (<see cref="GrantAreas"/>): bei "Ich" Löschen, sonst die Freigabe des Mitglieds.
     /// Der Haushalt hat keine Stufen, er ist nur zum Lesen und nur im Plan.

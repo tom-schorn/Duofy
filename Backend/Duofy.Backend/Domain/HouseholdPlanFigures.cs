@@ -20,12 +20,14 @@ public sealed record PotTotal(decimal Planned, decimal Booked);
 /// <param name="Unpaid">Was noch hinausgeht.</param>
 /// <param name="QuotaActual">Das Ist der Quoten in Prozent mit einer Nachkommastelle.</param>
 /// <param name="Unplanned">Die Buchungen des Planmonats ohne Posten je Topf, Einnahmen eingeschlossen.</param>
+/// <param name="QuotaIncome">Die gebuchten Einnahmen, durch die das Ist der Quoten geteilt wird; 0 heißt, es gab keine.</param>
 public sealed record HouseholdFigures(
     decimal Income,
     IReadOnlyDictionary<Pot, PotTotal> Pots,
     decimal Unpaid,
     IReadOnlyDictionary<Pot, decimal> QuotaActual,
-    IReadOnlyDictionary<Pot, decimal> Unplanned);
+    IReadOnlyDictionary<Pot, decimal> Unplanned,
+    decimal QuotaIncome);
 
 /// <summary>
 /// Die Zahlen des zusammengesetzten Haushaltsplans (Spec 69, R4): dieselben Regeln wie beim Plan einer Person
@@ -33,12 +35,9 @@ public sealed record HouseholdFigures(
 /// </summary>
 public static class HouseholdPlanFigures
 {
-    private static readonly Pot[] QuotaPots = [Pot.Needs, Pot.Wants, Pot.Savings];
-
     public static HouseholdFigures Compute(IReadOnlyCollection<MemberMonth> months)
     {
         var positions = months.SelectMany(m => m.Plan.Positions).ToList();
-        var counting = positions.Where(p => !p.PassThrough).ToList();
         var booked = new Dictionary<Guid, decimal>();
         foreach (var month in months)
         {
@@ -48,36 +47,30 @@ public static class HouseholdPlanFigures
             }
         }
 
-        var pots = QuotaPots.ToDictionary(
-            pot => pot,
-            pot => new PotTotal(
-                counting.Where(p => p.Pot == pot).Sum(p => p.AmountPlanned),
-                counting.Where(p => p.Pot == pot).Sum(p => booked.GetValueOrDefault(p.Id))));
-
         // Was noch hinausgeht: Einnahmen, Abgehaktes und durchlaufende Posten nie; sonst der geplante Betrag
         // minus das Gebuchte, nie unter 0 (wer ein Budget überzieht, hat nichts mehr offen).
         var unpaid = positions
             .Where(p => p.Pot != Pot.Income && !p.IsDone && !p.PassThrough)
             .Sum(p => Math.Max(p.AmountPlanned - booked.GetValueOrDefault(p.Id), 0m));
 
-        var unplanned = new Dictionary<Pot, decimal>();
-        foreach (Pot pot in Enum.GetValues<Pot>())
-        {
-            unplanned[pot] = months
-                .SelectMany(m => m.Bookings.Where(b => !b.IsTransfer && !m.CarryOverBookingIds.Contains(b.Id)))
-                .SelectMany(b => b.Lines)
-                .Where(l => l.PositionId is null && l.Pot == pot)
-                .Sum(l => l.Amount);
-        }
+        var unplanned = Enum.GetValues<Pot>().ToDictionary(
+            pot => pot,
+            pot => months.Sum(m => PlanFigures.Unplanned(m.Bookings, m.CarryOverBookingIds)[pot]));
+
+        var pots = PlanFigures.PotTotals(positions, booked, unplanned);
+
+        // Ohne Übertrag, wie bei der Quote einer Person; das Ist und sein Nenner kommen aus denselben Monaten.
+        var quotaMonths = months.Select(m => (
+            m.Plan,
+            (IReadOnlyCollection<Booking>)m.Bookings.Where(b => !m.CarryOverBookingIds.Contains(b.Id)).ToList(),
+            m.Plan.CarryOverIncomeBookingId)).ToList();
 
         return new HouseholdFigures(
-            counting.Where(p => p.Pot == Pot.Income).Sum(p => p.AmountPlanned),
+            PlanFigures.Income(positions),
             pots,
             unpaid,
-            PlanFigures.QuotaActual(months.Select(m => (
-                m.Plan,
-                (IReadOnlyCollection<Booking>)m.Bookings.Where(b => !m.CarryOverBookingIds.Contains(b.Id)).ToList(),
-                m.Plan.CarryOverIncomeBookingId))),
-            unplanned);
+            PlanFigures.QuotaActual(quotaMonths),
+            unplanned,
+            PlanFigures.QuotaIncome(quotaMonths));
     }
 }

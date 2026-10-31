@@ -1,0 +1,155 @@
+@inject IStringLocalizer<SharedResources> L
+@inject IDialogService DialogService
+
+@* Der Rahmen für Dialoge in Schritten (Spec 11). Er ist die Wurzel eines Dialogs, der über den
+   IDialogService mit StepDialogOptions aufgeht, so wie andere Dialoge MudDialog als Wurzel haben.
+
+   Die Schritte stehen als DialogStep im Inhalt. Alle Schritte bleiben gezeichnet, nur der aktuelle
+   ist sichtbar; so bleiben Eingaben beim Zurückgehen stehen, auch in Feldern ohne Bindung.
+   Weiter prüft die Felder des aktuellen Schritts (StepField), im letzten Schritt ruft es OnFinish.
+   Zurück steht links, Weiter rechts am unteren Rand; im ersten Schritt hält ein Platzhalter die Stelle frei. *@
+
+<MudDialog Class="step-dialog">
+    <TitleContent>
+        <div class="step-dialog-head">
+            <div class="step-dialog-heading">
+                <h2 class="step-dialog-title">@Dialog.Title</h2>
+                <p class="step-dialog-progress" aria-live="polite" data-testid="step-dialog-progress">@ProgressText</p>
+            </div>
+            <DuofyButton Kind="ButtonKind.Secondary" OnClick="CancelAsync">@L["StepDialog_Cancel"]</DuofyButton>
+        </div>
+        <div class="step-dialog-bar" aria-hidden="true">
+            @for (var i = 0; i < steps.Count; i++)
+            {
+                <span class="@(i <= current ? "step-dialog-bar-segment step-dialog-bar-segment--reached" : "step-dialog-bar-segment")"></span>
+            }
+        </div>
+    </TitleContent>
+    <DialogContent>
+        @* Tippen, Auswählen und Ankreuzen lösen input aus, und input steigt in Blazor bis hierher auf
+           (change nicht); daran merkt der Rahmen, dass etwas eingegeben ist. *@
+        <div class="step-dialog-steps" @oninput="MarkInput">
+            <CascadingValue Value="this" IsFixed="true">
+                @ChildContent
+            </CascadingValue>
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <div class="step-dialog-actions">
+            @if (current > 0)
+            {
+                <DuofyButton Kind="ButtonKind.Secondary" OnClick="Back">@L["StepDialog_Back"]</DuofyButton>
+            }
+            else
+            {
+                <span class="step-dialog-actions-spacer"></span>
+            }
+            <DuofyButton Kind="ButtonKind.Primary" Disabled="Busy" OnClick="NextAsync">@(IsLast ? FinishText ?? L["StepDialog_Finish"] : L["StepDialog_Next"])</DuofyButton>
+        </div>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    // Der Dialog selbst; sein Titel steht im Kopf, über ihn schließt Abbrechen.
+    [CascadingParameter]
+    private IMudDialogInstance Dialog { get; set; } = default!;
+
+    /// <summary>Die Schritte als DialogStep, in ihrer Reihenfolge.</summary>
+    [Parameter, EditorRequired]
+    public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Wird im letzten Schritt nach bestandener Prüfung gerufen; der Dialog speichert und schließt sich dort selbst.</summary>
+    [Parameter]
+    public EventCallback OnFinish { get; set; }
+
+    /// <summary>Text des Knopfs im letzten Schritt; ohne Angabe "Speichern".</summary>
+    [Parameter]
+    public string? FinishText { get; set; }
+
+    /// <summary>Sperrt Weiter, etwa während gespeichert wird.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    /// <summary>
+    /// Sagt zusätzlich, ob schon etwas eingegeben ist, für Eingaben, die kein input im Inhalt auslösen
+    /// (etwa Auswahllisten in einem Popover). Eingaben in Feldern bemerkt der Rahmen selbst.
+    /// </summary>
+    [Parameter]
+    public Func<bool>? HasInput { get; set; }
+
+    private readonly List<DialogStep> steps = [];
+    private int current;
+    private bool typed;
+
+    private bool IsLast => current >= steps.Count - 1;
+
+    private string ProgressText => steps.Count == 0
+        ? ""
+        : $"{L["StepDialog_Progress", current + 1, steps.Count]}: {steps[current].Title}";
+
+    internal bool IsCurrent(DialogStep step) => steps.IndexOf(step) == current;
+
+    internal int StepNumber(DialogStep step) => steps.IndexOf(step) + 1;
+
+    internal void Add(DialogStep step)
+    {
+        steps.Add(step);
+        StateHasChanged();
+    }
+
+    // MudBlazor zeichnet Kopf, Inhalt und Knöpfe im Dialograhmen, nicht hier. Nach jedem Zeichnen
+    // (neuer Schritt, Weiter, Zurück, neue Werte des Aufrufers) muss deshalb auch der Rahmen neu zeichnen.
+    protected override void OnAfterRender(bool firstRender) => Dialog.StateHasChanged();
+
+    internal void Remove(DialogStep step)
+    {
+        // Kein Neuzeichnen: Meist geht hier der ganze Dialog zu.
+        steps.Remove(step);
+        current = Math.Clamp(current, 0, Math.Max(steps.Count - 1, 0));
+    }
+
+    private void MarkInput() => typed = true;
+
+    private void Back()
+    {
+        if (current > 0)
+        {
+            current--;
+        }
+    }
+
+    private async Task NextAsync()
+    {
+        if (steps.Count == 0 || !steps[current].Check())
+        {
+            return;
+        }
+
+        if (IsLast)
+        {
+            await OnFinish.InvokeAsync();
+            return;
+        }
+        current++;
+    }
+
+    // Ohne Eingaben schließt Abbrechen sofort, mit Eingaben fragt es erst nach (Spec 11, R5).
+    private async Task CancelAsync()
+    {
+        if (typed || HasInput?.Invoke() == true)
+        {
+            var discard = await DialogService.ShowMessageBoxAsync(new MessageBoxOptions
+            {
+                Title = L["StepDialog_DiscardTitle"],
+                Message = L["StepDialog_DiscardText"],
+                YesText = L["StepDialog_DiscardConfirm"],
+                CancelText = L["StepDialog_DiscardKeep"],
+            });
+            if (discard != true)
+            {
+                return;
+            }
+        }
+        Dialog.Cancel();
+    }
+}

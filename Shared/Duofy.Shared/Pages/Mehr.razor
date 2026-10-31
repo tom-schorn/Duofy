@@ -41,10 +41,9 @@
         }
         @if (Mode is not null)
         {
-            <MudButton OnClick="Mode.Toggle" Variant="Variant.Text" FullWidth="true" Class="more-item" data-testid="more-mode"
-                       StartIcon="@(Mode.IsDark ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)">
-                @L[Mode.IsDark ? "Layout_ToLightMode" : "Layout_ToDarkMode"]
-            </MudButton>
+            <div class="more-item" data-testid="more-mode">
+                <ThemeChoiceSwitch Choice="Mode.Choice" ChoiceSelected="Mode.Select" />
+            </div>
         }
         <MudButton Href="/lizenzen" Variant="Variant.Text" FullWidth="true" Class="more-item"
                    StartIcon="@Icons.Material.Filled.Gavel" data-testid="more-licenses">@L["More_Licenses"]</MudButton>

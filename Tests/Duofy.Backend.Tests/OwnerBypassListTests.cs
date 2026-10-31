@@ -17,6 +17,7 @@ public partial class OwnerBypassListTests
         ("Backend/Duofy.Backend/Api/PlanStore.cs", "Mitgliedermonat anlegen"),
         ("Backend/Duofy.Backend/Api/HouseholdPlanStore.cs", "Haushaltsplan zusammensetzen"),
         ("Backend/Duofy.Backend/Api/HouseholdPlanStore.cs", "Haushaltsplan zusammensetzen"),
+        ("Backend/Duofy.Backend/Api/AuthEndpoints.cs", "Erstes Konto bei der Registrierung"),
         // Ebenfalls genehmigt, aber noch nicht gebaut; der Eintrag kommt mit dem Code:
         // Prüfungen beim Start.
     ];

@@ -19,8 +19,17 @@ public sealed class CommitmentDraft
     {
     }
 
+    /// <summary>
+    /// Die Arten, die der Dialog zur Wahl anbietet: Ausgabe und Einnahme (Spec 17, R4). Sparziel und Schuld
+    /// bekommen einen eigenen Bereich; bestehende bleiben gespeichert, werden hier aber nicht mehr angelegt.
+    /// </summary>
+    public static readonly IReadOnlyList<string> OfferedTypes = [CommitmentTypes.Contract, CommitmentTypes.Income];
+
     /// <summary>"contract", "income", "savings_goal" oder "debt", siehe <see cref="CommitmentTypes"/>.</summary>
     public string Type { get; private set; } = CommitmentTypes.Contract;
+
+    /// <summary>True, wenn die Art eine der angebotenen ist; false bei einem gespeicherten Sparziel oder einer Schuld.</summary>
+    public bool IsOfferedType => OfferedTypes.Contains(Type);
 
     public string Name { get; set; } = "";
 
@@ -71,6 +80,12 @@ public sealed class CommitmentDraft
 
     /// <summary>True bei einer Einnahme: Dann passen nur Einnahme-Kategorien.</summary>
     public bool WantsIncomeCategories => Type == CommitmentTypes.Income;
+
+    /// <summary>True, wenn der Abstand eingegeben ist und zwischen 1 und <see cref="CommitmentRules.MaxIntervalMonths"/> liegt.</summary>
+    public bool HasValidInterval => IntervalMonths is >= 1 and <= CommitmentRules.MaxIntervalMonths;
+
+    /// <summary>True, wenn die letzte Zahlung vor der ersten liegt; am selben Tag ist erlaubt.</summary>
+    public bool EndsBeforeStart => LastDueDate < FirstDueDate;
 
     /// <summary>Der Entwurf für einen neuen Vertrag: monatlich, erste Zahlung heute, Topf Grundbedarf.</summary>
     public static CommitmentDraft ForNew(DateOnly today) => new() { FirstDueDate = today };
@@ -193,6 +208,47 @@ public sealed class CommitmentDraft
             ClearAccountId: Cleared(saved.AccountId, AccountId),
             ClearCounterAccountId: Cleared(saved.CounterAccountId, CounterAccountId),
             ClearTarget: Cleared(saved.TargetAmount, targetAmount) ?? Cleared(saved.TargetDate, targetDate));
+    }
+
+    /// <summary>
+    /// Der Tag der nächsten Zahlung an <paramref name="today"/> oder danach, oder null, wenn keine mehr kommt
+    /// oder der Abstand nicht gültig ist. Der Dialog zeigt ihn in Schritt 2 (Spec 17, R2).
+    ///
+    /// Dieselbe Rechnung wie Commitment.NextPaymentOnOrAfter in der Domäne, die die Oberfläche nicht kennt:
+    /// fällig in jedem Monat, der den Abstand ab der ersten Zahlung trifft, am Tag der ersten Zahlung oder
+    /// am letzten Tag eines kürzeren Monats, und nicht nach der letzten Zahlung.
+    /// </summary>
+    public DateOnly? NextDueDate(DateOnly today)
+    {
+        if (!HasValidInterval)
+        {
+            return null;
+        }
+
+        var interval = IntervalMonths!.Value;
+        var firstMonth = new DateOnly(FirstDueDate.Year, FirstDueDate.Month, 1);
+        var month = new DateOnly(today.Year, today.Month, 1);
+        if (month < firstMonth)
+        {
+            month = firstMonth;
+        }
+
+        // Ab dem ersten Monat, der den Abstand trifft, liegt die Zahlung in diesem oder im nächsten Treffer.
+        var distance = (month.Year - firstMonth.Year) * 12 + month.Month - firstMonth.Month;
+        month = month.AddMonths((interval - distance % interval) % interval);
+        for (var i = 0; i < 2; i++, month = month.AddMonths(interval))
+        {
+            var due = new DateOnly(month.Year, month.Month, Math.Min(FirstDueDate.Day, DateTime.DaysInMonth(month.Year, month.Month)));
+            if (LastDueDate is { } last && due > last)
+            {
+                return null;
+            }
+            if (due >= today)
+            {
+                return due;
+            }
+        }
+        return null;
     }
 
     // True, wenn ein gespeicherter Wert jetzt leer ist; sonst null, damit der Schalter gar nicht mitgeht.

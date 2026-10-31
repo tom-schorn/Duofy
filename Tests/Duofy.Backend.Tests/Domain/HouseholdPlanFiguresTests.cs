@@ -59,6 +59,34 @@ public class HouseholdPlanFiguresTests
         Assert.Equal(0m, figures.Unplanned[Pot.Income]);
     }
 
+    // Richtwert je Person (Spec 27): dieselbe Rechenregel, nur über den Monat einer Person.
+    [Fact]
+    public void Run_for_one_member_the_quota_actual_is_that_members_own_share_of_their_income()
+    {
+        var annasSalary = Position("Gehalt Anna", 3000.00m, Pot.Income);
+        var rent = Position("Miete", 1800.00m, Pot.Needs);
+        var anna = Month([annasSalary, rent], Booked(3000.00m, Pot.Income, annasSalary.Id), Booked(1800.00m, Pot.Needs, rent.Id));
+
+        var figures = HouseholdPlanFigures.Compute([anna]);
+
+        Assert.Equal(3000.00m, figures.QuotaIncome);
+        Assert.Equal(60.0m, figures.QuotaActual[Pot.Needs]);
+    }
+
+    [Fact]
+    public void The_quota_income_leaves_out_pass_through_and_the_carry_over_and_is_zero_without_income()
+    {
+        var salary = Position("Gehalt", 3000.00m, Pot.Income);
+        var forwarding = Position("Weiterleitung", 200.00m, Pot.Income, passThrough: true);
+        var carryOver = Booked(500.00m, Pot.Income, null);
+        var month = Month([salary, forwarding],
+            Booked(3000.00m, Pot.Income, salary.Id), Booked(200.00m, Pot.Income, forwarding.Id), carryOver);
+        month.Plan.CarryOverIncomeBookingId = carryOver.Id;
+
+        Assert.Equal(3000.00m, HouseholdPlanFigures.Compute([month]).QuotaIncome);
+        Assert.Equal(0m, HouseholdPlanFigures.Compute([Month([])]).QuotaIncome);
+    }
+
     [Fact]
     public void Without_income_every_actual_is_zero()
     {
@@ -104,6 +132,33 @@ public class HouseholdPlanFiguresTests
         Assert.Equal(25.00m, figures.Unplanned[Pot.Income]);
         Assert.Equal(0m, figures.Unplanned[Pot.Needs]);
         Assert.Equal(0m, figures.Unplanned[Pot.Savings]);
+    }
+
+    // Spec 72, A5
+    [Fact]
+    public void A_booking_without_position_counts_as_booked_in_its_pot_and_stays_in_the_unplanned_breakdown()
+    {
+        var ben = Month([], Booked(40.00m, Pot.Wants, null));
+
+        var figures = HouseholdPlanFigures.Compute([ben]);
+
+        Assert.Equal(new PotTotal(0m, 40.00m), figures.Pots[Pot.Wants]);
+        Assert.Equal(40.00m, figures.Unplanned[Pot.Wants]);
+    }
+
+    // Spec 72, A4
+    [Fact]
+    public void Transfers_and_the_carry_over_count_as_booked_in_no_pot()
+    {
+        var carryOutflow = Booked(500.00m, Pot.Needs, null);
+        var transfer = new Booking { Id = Guid.NewGuid(), AccountId = Giro, CounterAccountId = Guid.NewGuid(), PaymentDate = new DateOnly(2026, 11, 3), Amount = 100.00m };
+        transfer.Lines.Add(new BookingLine { Amount = 100.00m, Pot = Pot.Savings });
+        var month = Month([], [carryOutflow, transfer], [carryOutflow.Id]);
+
+        var figures = HouseholdPlanFigures.Compute([month]);
+
+        Assert.Equal(0m, figures.Pots[Pot.Needs].Booked);
+        Assert.Equal(0m, figures.Pots[Pot.Savings].Booked);
     }
 
     [Fact]

@@ -54,6 +54,33 @@ public class CommitmentsPageTests : PageTestContext
     private static void SelectIn(IRenderedComponent<IComponent> cut, string testId, string value) =>
         cut.Find($"[data-testid='{testId}']").Change(value);
 
+    // Der Kopf des Schritt-Dialogs (Spec 11), etwa "Schritt 2 von 3: Wann".
+    private string Progress => dialogs.Find("[data-testid='step-dialog-progress']").TextContent.Trim();
+
+    private IElement Button(string text) => dialogs.FindAll("button").Single(b => b.TextContent.Trim() == text);
+
+    // Der Fehler eines Felds im Schritt; null, solange das Feld in Ordnung ist.
+    private string? FieldError(string fieldTestId) =>
+        dialogs.Find($"[data-testid='{fieldTestId}']").QuerySelector(".step-field-error")?.TextContent.Trim();
+
+    private void Next(string expectedProgress)
+    {
+        Button("Weiter").Click();
+        dialogs.WaitForAssertion(() => Assert.StartsWith(expectedProgress, Progress));
+    }
+
+    // Schritt 1 ausfüllen: Name, Betrag und eine Ausgaben-Kategorie.
+    private void FillWhat(string name = "Miete", string amount = "890")
+    {
+        Input(dialogs, "commitment-name").Change(name);
+        Input(dialogs, "commitment-amount").Change(amount);
+        SelectIn(dialogs, "commitment-category", FakeCategoryApi.Groceries.Id.ToString());
+    }
+
+    // Die Optionen einer Auswahl als (Wert, Text).
+    private (string Value, string Text)[] Options(string testId) => dialogs.Find($"[data-testid='{testId}']")
+        .QuerySelectorAll("option").Select(o => (o.GetAttribute("value") ?? "", o.TextContent.Trim())).ToArray();
+
     [Fact]
     public void The_page_is_reachable_at_vertraege_and_needs_a_sign_in()
     {
@@ -159,21 +186,30 @@ public class CommitmentsPageTests : PageTestContext
         Assert.DoesNotContain("Der Vertrag ist beendet.", cut.Markup);
     }
 
-    // A15
+    // Spec 17, A4 (vorher Spec 64, A15): Sparziel und Schuld lassen sich nicht mehr anlegen; die Art ist Ausgabe oder Einnahme.
     [Fact]
-    public void A_savings_goal_fixes_the_pot_savings_and_shows_target_amount_and_date()
+    public void The_kind_offers_exactly_spending_and_income()
     {
         var cut = OpenPage();
         OpenNewDialog(cut);
 
-        SelectIn(dialogs, "commitment-type", CommitmentTypes.SavingsGoal);
+        Assert.Equal(
+            [(CommitmentTypes.Contract, "Ausgabe"), (CommitmentTypes.Income, "Einnahme")],
+            Options("commitment-type"));
+        Assert.Empty(dialogs.FindAll("[data-testid='commitment-target-amount']"));
+        Assert.Empty(dialogs.FindAll("[data-testid='commitment-target-date']"));
+    }
 
-        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='commitment-target-amount']")));
-        Assert.NotEmpty(dialogs.FindAll("[data-testid='commitment-target-date']"));
-        Assert.Empty(dialogs.FindAll("[data-testid='commitment-pot']"));
-        var pot = Input(dialogs, "commitment-pot-fixed");
-        Assert.Equal("Sparen", pot.GetAttribute("value"));
-        Assert.True(pot.HasAttribute("readonly"));
+    // Spec 17, R4, R6: Ein bestehender Sparplan bleibt in der Liste zu sehen, der Vertragsdialog ändert ihn aber nicht mehr.
+    [Fact]
+    public void An_existing_savings_goal_is_listed_but_not_offered_for_editing()
+    {
+        var goal = FakeCommitmentApi.Commitment("Urlaub", 100m, type: CommitmentTypes.SavingsGoal);
+        var cut = OpenPage(goal);
+
+        cut.WaitForAssertion(() => Assert.Contains("Urlaub", Row(cut, goal).TextContent));
+        Assert.Contains("Sparziel", Row(cut, goal).TextContent);
+        Assert.Empty(cut.FindAll($"[data-testid='commitment-edit-{goal.Id}']"));
     }
 
     // A15
@@ -193,12 +229,14 @@ public class CommitmentsPageTests : PageTestContext
         Assert.Empty(dialogs.FindAll("[data-testid='commitment-target-date']"));
     }
 
+    // Alle Schritte bleiben gezeichnet (Spec 11); deshalb lassen sich die Felder aus Schritt 3 schon in Schritt 1 finden.
     [Fact]
-    public void An_income_offers_only_income_categories_and_no_target_account()
+    public void An_income_offers_only_income_categories_and_is_paid_to_one_own_account()
     {
         var cut = OpenPage();
         OpenNewDialog(cut);
         Assert.Contains("Lebensmittel", dialogs.Find("[data-testid='commitment-category']").InnerHtml);
+        Assert.NotEmpty(dialogs.FindAll("[data-testid='commitment-account']"));
         Assert.NotEmpty(dialogs.FindAll("[data-testid='commitment-counter-account']"));
 
         SelectIn(dialogs, "commitment-type", CommitmentTypes.Income);
@@ -207,32 +245,180 @@ public class CommitmentsPageTests : PageTestContext
         var categories = dialogs.Find("[data-testid='commitment-category']").InnerHtml;
         Assert.Contains("Gehalt", categories);
         Assert.DoesNotContain("Lebensmittel", categories);
+        Assert.Contains("Gezahlt zu", dialogs.Find("[data-testid='commitment-account-field']").TextContent);
+        Assert.Equal("Einnahmen", Input(dialogs, "commitment-pot-fixed").GetAttribute("value"));
     }
 
+    // Spec 17, A1: Ohne Name bleibt der Dialog in Schritt 1, der Fehler steht am Feld Name.
     [Fact]
-    public void Saving_a_new_contract_sends_it_and_shows_it_in_the_list()
+    public void Next_without_a_name_stays_in_step_one_and_marks_the_name()
+    {
+        var cut = OpenPage();
+        OpenNewDialog(cut);
+        Assert.Equal("Schritt 1 von 3: Was", Progress);
+        Input(dialogs, "commitment-amount").Change("890");
+        SelectIn(dialogs, "commitment-category", FakeCategoryApi.Groceries.Id.ToString());
+
+        Button("Weiter").Click();
+
+        dialogs.WaitForAssertion(() => Assert.Equal("Bitte ausfüllen.", FieldError("commitment-name-field")));
+        Assert.Equal("Schritt 1 von 3: Was", Progress);
+        Assert.Null(FieldError("commitment-amount-field"));
+        Assert.Contains("commitment-name-input-error", Input(dialogs, "commitment-name").GetAttribute("aria-describedby") ?? "");
+    }
+
+    // Spec 17, R1: Auch ohne Betrag geht es nicht weiter; ein Betrag von null zählt nicht.
+    [Theory]
+    [InlineData("")]
+    [InlineData("0")]
+    public void Next_without_an_amount_stays_in_step_one(string amount)
+    {
+        var cut = OpenPage();
+        OpenNewDialog(cut);
+        FillWhat(amount: amount);
+
+        Button("Weiter").Click();
+
+        dialogs.WaitForAssertion(() => Assert.NotNull(FieldError("commitment-amount-field")));
+        Assert.Equal("Schritt 1 von 3: Was", Progress);
+    }
+
+    // Bisherige Regel (Spec 64), jetzt in Schritt 1: ohne Kategorie geht nichts an die API.
+    [Fact]
+    public void Without_a_category_the_dialog_asks_for_one_before_sending()
     {
         var cut = OpenPage();
         OpenNewDialog(cut);
         Input(dialogs, "commitment-name").Change("Miete");
         Input(dialogs, "commitment-amount").Change("890");
-        SelectIn(dialogs, "commitment-category", FakeCategoryApi.Groceries.Id.ToString());
+
+        Button("Weiter").Click();
+
+        dialogs.WaitForAssertion(() => Assert.Equal("Bitte wähle eine Kategorie.", FieldError("commitment-category-field")));
+        Assert.Equal("Schritt 1 von 3: Was", Progress);
+        Assert.Empty(CommitmentApiFake.Created);
+    }
+
+    // Spec 17, A2: Ein Ende vor dem Start lehnt Schritt 2 ab.
+    [Fact]
+    public void An_end_before_the_start_is_rejected_in_step_two()
+    {
+        var cut = OpenPage();
+        OpenNewDialog(cut);
+        FillWhat();
+        Next("Schritt 2 von 3: Wann");
+        Input(dialogs, "commitment-first-due").Change("2026-11-01");
+        Input(dialogs, "commitment-last-due").Change("2026-10-31");
+
+        Button("Weiter").Click();
+
+        dialogs.WaitForAssertion(() => Assert.Equal("Die letzte Zahlung darf nicht vor der ersten liegen.", FieldError("commitment-last-due-field")));
+        Assert.Equal("Schritt 2 von 3: Wann", Progress);
+
+        Input(dialogs, "commitment-last-due").Change("2026-11-01");
+        Next("Schritt 3 von 3: Wer und Wohin");
+    }
+
+    // Spec 17, A2: Mit gültigem Rhythmus steht der nächste Fälligkeitstermin da und folgt den Eingaben.
+    [Fact]
+    public void Step_two_shows_the_next_due_date_for_a_valid_interval()
+    {
+        var cut = OpenPage();
+        OpenNewDialog(cut);
+        FillWhat();
+        Next("Schritt 2 von 3: Wann");
+
+        Input(dialogs, "commitment-first-due").Change("2026-02-15");
+        Input(dialogs, "commitment-interval").Change("3");
+
+        dialogs.WaitForAssertion(() => Assert.Equal("Nächste Zahlung: 15.11.2026",
+            dialogs.Find("[data-testid='commitment-next-due']").TextContent.Trim()));
+
+        // Leer gibt es keinen Termin, und Weiter bleibt gesperrt (unter 1 und über 120 lässt das Feld gar nicht zu).
+        Input(dialogs, "commitment-interval").Change("");
+        dialogs.WaitForAssertion(() => Assert.Empty(dialogs.FindAll("[data-testid='commitment-next-due']")));
+        Button("Weiter").Click();
+        dialogs.WaitForAssertion(() => Assert.NotNull(FieldError("commitment-interval-field")));
+        Assert.Equal("Schritt 2 von 3: Wann", Progress);
+    }
+
+    // Spec 17, A3: In Schritt 3 steht vor dem Speichern, was entsteht.
+    [Fact]
+    public void Step_three_summarises_name_amount_interval_accounts_and_payment_method_before_saving()
+    {
+        var savings = new AccountChoice(Guid.NewGuid(), "Sparkonto", IsDefault: false, Active: true);
+        Accounts.Accounts.Add(savings);
+        var cut = OpenPage();
+        OpenNewDialog(cut);
+        FillWhat();
+        Next("Schritt 2 von 3: Wann");
+        Input(dialogs, "commitment-interval").Change("12");
+        Next("Schritt 3 von 3: Wer und Wohin");
+
+        SelectIn(dialogs, "commitment-counter-account", savings.Id.ToString());
         SelectIn(dialogs, "commitment-payment-method", PaymentMethods.StandingOrder);
 
-        dialogs.Find("[data-testid='commitment-save']").Click();
+        dialogs.WaitForAssertion(() => Assert.Contains("Sparkonto", Summary("to")));
+        Assert.Contains("Miete", Summary("name"));
+        Assert.Contains("890,00 €", Summary("amount"));
+        Assert.Contains("jährlich", Summary("interval"));
+        Assert.Contains("Standardkonto", Summary("from"));
+        Assert.Contains("Dauerauftrag", Summary("payment-method"));
+        Assert.Empty(CommitmentApiFake.Created);
+    }
+
+    private string Summary(string row) => dialogs.Find($"[data-testid='commitment-summary-{row}']").TextContent;
+
+    // Bisherige Regel (Spec 64), jetzt in Schritt 3: ohne Zahlungsart wird nicht gespeichert.
+    [Fact]
+    public void Saving_without_a_payment_method_stays_in_step_three()
+    {
+        var cut = OpenPage();
+        OpenNewDialog(cut);
+        FillWhat();
+        Next("Schritt 2 von 3: Wann");
+        Next("Schritt 3 von 3: Wer und Wohin");
+
+        Button("Speichern").Click();
+
+        dialogs.WaitForAssertion(() => Assert.NotNull(FieldError("commitment-payment-method-field")));
+        Assert.Empty(CommitmentApiFake.Created);
+    }
+
+    // Spec 17, A6: Was in den drei Schritten eingegeben wurde, kommt genau so bei der API an; ein Sparplan bleibt unberührt.
+    [Fact]
+    public void Saving_a_new_contract_sends_exactly_the_inputs_and_leaves_a_savings_goal_alone()
+    {
+        var giro = Accounts.Accounts[0];
+        var savings = new AccountChoice(Guid.NewGuid(), "Sparkonto", IsDefault: false, Active: true);
+        Accounts.Accounts.Add(savings);
+        var goal = FakeCommitmentApi.Commitment("Urlaub", 100m, type: CommitmentTypes.SavingsGoal);
+        var cut = OpenPage(goal);
+        OpenNewDialog(cut);
+
+        FillWhat("Miete", "890,50");
+        SelectIn(dialogs, "commitment-pot", PotKeys.Wants);
+        Next("Schritt 2 von 3: Wann");
+        Input(dialogs, "commitment-interval").Change("3");
+        Input(dialogs, "commitment-first-due").Change("2026-11-01");
+        Input(dialogs, "commitment-last-due").Change("2027-11-01");
+        Next("Schritt 3 von 3: Wer und Wohin");
+        SelectIn(dialogs, "commitment-account", giro.Id.ToString());
+        SelectIn(dialogs, "commitment-counter-account", savings.Id.ToString());
+        SelectIn(dialogs, "commitment-payment-method", PaymentMethods.StandingOrder);
+        Input(dialogs, "commitment-pass-through").Change(true);
+
+        Button("Speichern").Click();
 
         cut.WaitForAssertion(() => Assert.Single(CommitmentApiFake.Created));
-        var request = CommitmentApiFake.Created[0];
-        Assert.Equal(CommitmentTypes.Contract, request.Type);
-        Assert.Equal("Miete", request.Name);
-        Assert.Equal(890m, request.Amount);
-        Assert.Equal(1, request.IntervalMonths);
-        Assert.Equal(Today, request.FirstDueDate);
-        Assert.Equal(PotKeys.Needs, request.Pot);
-        Assert.Null(request.AccountId);
-        Assert.Equal(PaymentMethods.StandingOrder, request.PaymentMethod);
+        Assert.Equal(new CreateCommitmentRequest(
+            CommitmentTypes.Contract, "Miete", 890.50m, 3, new DateOnly(2026, 11, 1), new DateOnly(2027, 11, 1),
+            FakeCategoryApi.Groceries.Id, PotKeys.Wants, giro.Id, savings.Id, true, PaymentMethods.StandingOrder, null, null),
+            CommitmentApiFake.Created[0]);
         dialogs.WaitForAssertion(() => Assert.DoesNotContain("Neuer Vertrag", dialogs.Markup));
         cut.WaitForAssertion(() => Assert.Contains("Miete", cut.Markup));
+        Assert.Contains(goal, CommitmentApiFake.Commitments);
+        Assert.Empty(CommitmentApiFake.Updated);
     }
 
     [Fact]
@@ -241,41 +427,77 @@ public class CommitmentsPageTests : PageTestContext
         CommitmentApiFake.Error = ErrorCodes.PaymentMethodInvalid;
         var cut = OpenPage();
         OpenNewDialog(cut);
-        SelectIn(dialogs, "commitment-category", FakeCategoryApi.Groceries.Id.ToString());
+        FillWhat();
+        Next("Schritt 2 von 3: Wann");
+        Next("Schritt 3 von 3: Wer und Wohin");
+        SelectIn(dialogs, "commitment-payment-method", PaymentMethods.StandingOrder);
 
-        dialogs.Find("[data-testid='commitment-save']").Click();
+        Button("Speichern").Click();
 
         dialogs.WaitForAssertion(() => Assert.Contains("Bitte wähle, wie gezahlt wird.", dialogs.Find("[data-testid='commitment-error']").TextContent));
         Assert.Contains("Neuer Vertrag", dialogs.Markup);
+        Assert.Equal("Schritt 3 von 3: Wer und Wohin", Progress);
     }
 
+    // Spec 17, A5: Bearbeiten nutzt dieselben drei Schritte, alle Felder sind vorbelegt, gespeichert wird derselbe Vertrag.
     [Fact]
-    public void Without_a_category_the_dialog_asks_for_one_before_sending()
+    public void Editing_fills_every_step_with_the_saved_values_and_changes_the_same_contract()
     {
-        var cut = OpenPage();
-        OpenNewDialog(cut);
-
-        dialogs.Find("[data-testid='commitment-save']").Click();
-
-        dialogs.WaitForAssertion(() => Assert.Contains("Bitte wähle eine Kategorie.", dialogs.Find("[data-testid='commitment-error']").TextContent));
-        Assert.Empty(CommitmentApiFake.Created);
-    }
-
-    [Fact]
-    public void Editing_opens_the_saved_values_and_sends_a_change()
-    {
-        var rent = FakeCommitmentApi.Commitment("Miete");
+        var giro = Accounts.Accounts[0];
+        var rent = FakeCommitmentApi.Commitment("Miete", 890m, interval: 3) with
+        {
+            LastDueDate = new DateOnly(2027, 1, 1),
+            AccountId = giro.Id,
+            Pot = PotKeys.Wants,
+        };
         var cut = OpenPage(rent);
         cut.WaitForAssertion(() => Assert.True(Shows(cut, rent)));
 
         cut.Find($"[data-testid='commitment-edit-{rent.Id}']").Click();
         dialogs.WaitForAssertion(() => Assert.Contains("Vertrag ändern", dialogs.Markup));
+
+        Assert.Equal("Schritt 1 von 3: Was", Progress);
         Assert.Equal("Miete", Input(dialogs, "commitment-name").GetAttribute("value"));
+        Assert.Equal("890,00", Input(dialogs, "commitment-amount").GetAttribute("value"));
+        Assert.Equal(CommitmentTypes.Contract, dialogs.Find("[data-testid='commitment-type']").GetAttribute("value"));
+        Assert.Equal(FakeCategoryApi.Groceries.Id.ToString(), dialogs.Find("[data-testid='commitment-category']").GetAttribute("value"));
+        Assert.Equal(PotKeys.Wants, dialogs.Find("[data-testid='commitment-pot']").GetAttribute("value"));
         Input(dialogs, "commitment-name").Change("Warmmiete");
-        dialogs.Find("[data-testid='commitment-save']").Click();
+        Next("Schritt 2 von 3: Wann");
+
+        Assert.Equal("3", Input(dialogs, "commitment-interval").GetAttribute("value"));
+        Assert.Equal("2026-01-01", Input(dialogs, "commitment-first-due").GetAttribute("value"));
+        Assert.Equal("2027-01-01", Input(dialogs, "commitment-last-due").GetAttribute("value"));
+        Next("Schritt 3 von 3: Wer und Wohin");
+
+        Assert.Equal(giro.Id.ToString(), dialogs.Find("[data-testid='commitment-account']").GetAttribute("value"));
+        Assert.Equal("", dialogs.Find("[data-testid='commitment-counter-account']").GetAttribute("value"));
+        Assert.Equal(PaymentMethods.StandingOrder, dialogs.Find("[data-testid='commitment-payment-method']").GetAttribute("value"));
+        Button("Speichern").Click();
 
         cut.WaitForAssertion(() => Assert.Single(CommitmentApiFake.Updated));
-        Assert.Equal((rent.Id, "Warmmiete"), (CommitmentApiFake.Updated[0].Id, CommitmentApiFake.Updated[0].Request.Name));
+        var (id, request) = CommitmentApiFake.Updated[0];
+        Assert.Equal(rent.Id, id);
+        Assert.Equal("Warmmiete", request.Name);
+        Assert.Equal((890m, 3, new DateOnly(2026, 1, 1), new DateOnly(2027, 1, 1)),
+            (request.Amount, request.IntervalMonths, request.FirstDueDate, request.LastDueDate));
+        Assert.Equal((giro.Id, PotKeys.Wants, PaymentMethods.StandingOrder), (request.AccountId, request.Pot, request.PaymentMethod));
+        Assert.Empty(CommitmentApiFake.Created);
         cut.WaitForAssertion(() => Assert.Contains("Warmmiete", Row(cut, rent).TextContent));
+    }
+
+    // Ein schon vor seinem Start beendeter Vertrag (Beenden setzt dann den Tag vor der ersten Zahlung) bleibt änderbar,
+    // solange die letzte Zahlung bleibt, wie sie ist.
+    [Fact]
+    public void An_unchanged_end_before_the_start_of_a_saved_contract_does_not_block_editing()
+    {
+        var early = FakeCommitmentApi.Commitment("Probeabo") with { LastDueDate = new DateOnly(2025, 12, 31) };
+        var cut = OpenPage(early);
+        cut.WaitForAssertion(() => Assert.True(Shows(cut, early)));
+        cut.Find($"[data-testid='commitment-edit-{early.Id}']").Click();
+        dialogs.WaitForAssertion(() => Assert.Contains("Vertrag ändern", dialogs.Markup));
+
+        Next("Schritt 2 von 3: Wann");
+        Next("Schritt 3 von 3: Wer und Wohin");
     }
 }

@@ -1,0 +1,41 @@
+@* Die Wahl eines Kontos im Vertragsdialog (Schritt 3, Spec 17). Vorerst ein Auswahlfeld; die
+   Symbol-Knöpfe (#16) ersetzen nur diese Datei, der Dialog gibt weiter Wert, Konten und den Text
+   für "kein Konto" hinein und bekommt die Wahl über ValueChanged zurück.
+
+   Aufgelöste Konten werden nicht angeboten, außer das gespeicherte; so bleibt es beim Ändern sichtbar. *@
+
+<NativeSelect Value="@Key(Value)" ValueChanged="OnChanged" id="@InputId" aria-describedby="@($"{InputId}-error")"
+              data-testid="@TestId">
+    <option value="">@EmptyText</option>
+    @foreach (var account in Accounts.Where(a => a.Active || a.Id == Value))
+    {
+        <option value="@account.Id">@account.Name</option>
+    }
+</NativeSelect>
+
+@code {
+    /// <summary>Das gewählte Konto; null heißt: die leere Wahl mit <see cref="EmptyText"/>.</summary>
+    [Parameter]
+    public Guid? Value { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid?> ValueChanged { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<AccountChoice> Accounts { get; set; } = [];
+
+    /// <summary>Was die leere Wahl bedeutet, etwa "Standardkonto" oder "(kein eigenes Konto)".</summary>
+    [Parameter, EditorRequired]
+    public string EmptyText { get; set; } = "";
+
+    /// <summary>Die Id des Felds; daran hängen Beschriftung und Fehler des StepField.</summary>
+    [Parameter, EditorRequired]
+    public string InputId { get; set; } = "";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private static string Key(Guid? id) => id?.ToString() ?? "";
+
+    private Task OnChanged(string value) => ValueChanged.InvokeAsync(Guid.TryParse(value, out var id) ? id : null);
+}

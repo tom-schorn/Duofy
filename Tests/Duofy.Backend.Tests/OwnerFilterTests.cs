@@ -356,7 +356,7 @@ public class OwnerFilterTests(ApiFixture fixture)
     [MemberData(nameof(AttemptsOnAnnasData))]
     public async Task With_only_plan_view_ben_changes_nothing_of_anna(string attempt)
     {
-        var (anna, ben) = await client.AnnaAndBenAsync();
+        var (anna, ben) = await client.AnnaAndBenAsync(fixture.Factory);
         await SeedAsync(anna);
         await client.GrantAsync(anna, ben, new UpdateGrantsRequest(Plan: AccessLevelKeys.View));
         var before = await FingerprintAsync(anna.Id);

@@ -89,7 +89,7 @@ public class GrantedPlanTests
     [Fact]
     public async Task With_the_book_ben_ticks_annas_position_and_takes_the_tick_back_only_with_delete()
     {
-        var (anna, ben) = await client.AnnaAndBenAsync();
+        var (anna, ben) = await client.AnnaAndBenAsync(fixture.Factory);
         await GiroOfAsync(anna);
         var position = await PositionOfAsync(anna);
         await client.GrantAsync(anna, ben, new UpdateGrantsRequest(Plan: AccessLevelKeys.View, Book: AccessLevelKeys.Edit, Accounts: AccessLevelKeys.View));
@@ -110,7 +110,7 @@ public class GrantedPlanTests
     [Fact]
     public async Task With_plan_view_only_annas_month_shows_no_bookings_balances_or_contracts()
     {
-        var (anna, ben) = await client.AnnaAndBenAsync();
+        var (anna, ben) = await client.AnnaAndBenAsync(fixture.Factory);
         await GiroOfAsync(anna);
         var position = await PositionOfAsync(anna);
         (await client.SendAsync(anna, HttpMethod.Post, $"{November}/positions/{position.Id}/tick")).EnsureSuccessStatusCode();
@@ -140,7 +140,8 @@ public class GrantedPlanTests
     [Fact]
     public async Task The_carry_over_of_annas_month_needs_the_book_as_well()
     {
-        var (anna, ben) = await client.AnnaAndBenAsync();
+        // Ohne das erste Konto ist das Giro das Standardkonto; das erste Konto startet heute und trüge keinen Übertrag.
+        var (anna, ben) = await client.AnnaAndBenAsync(fixture.Factory);
         await GiroOfAsync(anna);
         await client.GrantAsync(anna, ben, new UpdateGrantsRequest(Plan: AccessLevelKeys.Delete, Book: AccessLevelKeys.View, Accounts: AccessLevelKeys.View));
 

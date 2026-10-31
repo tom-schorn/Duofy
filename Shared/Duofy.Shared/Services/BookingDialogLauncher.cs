@@ -28,7 +28,8 @@ public sealed class BookingDialogLauncher(
     public async Task<NoticeMessage?> OpenAsync(
         BookingResponse? existing = null,
         IReadOnlyList<AccountChoice>? accounts = null,
-        List<CategoryResponse>? categories = null)
+        List<CategoryResponse>? categories = null,
+        DateOnly? planMonth = null)
     {
         if (accounts is null)
         {
@@ -66,6 +67,7 @@ public sealed class BookingDialogLauncher(
             { x => x.Accounts, accounts },
             { x => x.Categories, categories },
             { x => x.Today, today },
+            { x => x.PlanMonth, planMonth },
         };
 
         var title = l[existing is null ? "BookingDialog_TitleNew" : "BookingDialog_TitleEdit"];

@@ -29,16 +29,17 @@ public class PlanPageTests : PageTestContext
     {
         PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10) with { Positions = positions };
         var cut = Render<Plan>();
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='plan-sums']")));
+        OpenPlanTab(cut);
         return cut;
     }
 
     private static string Text(IRenderedComponent<Plan> cut, string testId) => cut.Find($"[data-testid='{testId}']").TextContent;
 
     [Fact]
-    public void The_page_is_reachable_at_plan_and_needs_a_sign_in()
+    public void The_page_is_reachable_at_plan_year_month_and_needs_a_sign_in()
     {
-        Assert.Equal("/plan", typeof(Plan).GetCustomAttribute<RouteAttribute>()?.Template);
+        // Seit Spec 23 liegt der Monatsplan unter /plan/{Jahr}/{Monat}; /plan ist die Übersicht (PlanOverviewPageTests).
+        Assert.Equal("/plan/{Year:int}/{Month:int}", typeof(Plan).GetCustomAttribute<RouteAttribute>()?.Template);
         Assert.NotNull(typeof(Plan).GetCustomAttribute<AuthorizeAttribute>());
     }
 
@@ -141,6 +142,7 @@ public class PlanPageTests : PageTestContext
                 [new PlanFieldChangeResponse(PlanFields.Amount, "890.00", "950.00")], Protected: true)],
         };
         var cut = Render<Plan>();
+        OpenPlanTab(cut);
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='plan-changes']")));
 
         Assert.Contains("Miete: geändert", Text(cut, "plan-changes"));
@@ -161,6 +163,7 @@ public class PlanPageTests : PageTestContext
             Changes = [new PlanChangeResponse(PlanChangeKinds.New, null, gymId, "Fitness", [], Protected: false)],
         };
         var cut = Render<Plan>();
+        OpenPlanTab(cut);
         cut.WaitForAssertion(() => Assert.Contains("Fitness: neu in diesem Monat", Text(cut, "plan-changes")));
 
         cut.Find("[data-testid='plan-changes-apply-all']").Click();
@@ -197,6 +200,7 @@ public class PlanPageTests : PageTestContext
             CarryOver = new PlanCarryOverResponse(230m, false, null, [new PlanAccountBalanceResponse(giro, 1230m)]),
         };
         var cut = Render<Plan>();
+        OpenPlanTab(cut);
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='plan-carry-over-open']")));
 
         cut.Find("[data-testid='plan-carry-over-open']").Click();
@@ -221,6 +225,7 @@ public class PlanPageTests : PageTestContext
             CarryOver = new PlanCarryOverResponse(-150m, false, null, []),
         };
         var cut = Render<Plan>();
+        OpenPlanTab(cut);
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='plan-carry-over-open']")));
 
         cut.Find("[data-testid='plan-carry-over-open']").Click();

@@ -78,7 +78,8 @@ public class AccessWalkTests
             ["POST /api/v1/categories"] = (HttpMethod.Post, "/api/v1/categories", new { name = $"Fremd {Guid.NewGuid():N}", group = CategoryGroupKeys.All[0], pot = PotKeys.Needs, ownerId = f.OwnerId }),
             ["PUT /api/v1/categories/{id:guid}"] = (HttpMethod.Put, $"/api/v1/categories/{f.Category}", new SaveCategoryRequest("Fremd", CategoryGroupKeys.All[0], PotKeys.Needs)),
             ["DELETE /api/v1/categories/{id:guid}"] = (HttpMethod.Delete, $"/api/v1/categories/{f.Category}", null),
-            ["GET /api/v1/plans/{year:int}/{month:int}"] = (HttpMethod.Get, $"{plan}?{owner}", null),
+            ["GET /api/v1/plans"] = (HttpMethod.Get, $"/api/v1/plans?{owner}", null),
+            ["GET /api/v1/plans/{year:int}/{month:int}"] =(HttpMethod.Get, $"{plan}?{owner}", null),
             ["POST /api/v1/plans/{year:int}/{month:int}/positions"] = (HttpMethod.Post, $"{plan}/positions?{owner}",
                 new CreatePositionRequest("Fremd", 5m, 3, Groceries, PotKeys.Needs)),
             ["PATCH /api/v1/plans/{year:int}/{month:int}/positions/{id:guid}"] = (HttpMethod.Patch, $"{plan}/positions/{f.Position}?{owner}", new UpdatePositionRequest(Label: "Fremd")),
@@ -135,8 +136,9 @@ public class AccessWalkTests
     [InlineData(false)]
     public async Task No_endpoint_answers_with_success_for_a_foreign_owner_without_a_grant(bool sameHousehold)
     {
-        var (anna, ben) = await client.AnnaAndBenAsync();
-        var foreignPerson = sameHousehold ? anna : await client.FounderAsync("Clara");
+        // Ohne das erste Konto ist das Giro das Standardkonto; das erste Konto startet heute und trüge keinen Übertrag.
+        var (anna, ben) = await client.AnnaAndBenAsync(fixture.Factory);
+        var foreignPerson = sameHousehold ? anna : await client.FounderAsync("Clara", withoutFirstAccount: fixture.Factory);
         var foreign = await DataOfAsync(foreignPerson);
         // Ben gibt Anna alles; was er gibt, darf ihm selbst nichts öffnen.
         await client.GrantAsync(ben, anna, new UpdateGrantsRequest(AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.Delete));

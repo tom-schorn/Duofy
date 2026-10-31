@@ -40,6 +40,7 @@ public static class ErrorCodes
     public const string CounterAccountUnexpected = "counter_account_unexpected";
     public const string TransferSameAccount = "transfer_same_account";
     public const string TransferPotInvalid = "transfer_pot_invalid";
+    public const string TransferPotsRequired = "transfer_pots_required";
     public const string TransferCategoryInvalid = "transfer_category_invalid";
     public const string DateBeforeOpening = "date_before_opening";
     public const string DateInFuture = "date_in_future";

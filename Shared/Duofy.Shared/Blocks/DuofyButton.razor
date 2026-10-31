@@ -1,0 +1,27 @@
+@* Der eckige Knopf in drei Arten. Aussehen und Fokuskontur stehen in app.css (.duofy-button);
+   MudButton liefert Verhalten (Klick, Link, gesperrt). Ein Knopf nur mit Zeichen braucht AriaLabel. *@
+<MudButton Class="@($"duofy-button duofy-button--{KindName}")"
+           Variant="Variant.Filled"
+           Disabled="Disabled"
+           Href="@Href"
+           OnClick="OnClick"
+           UserAttributes="@Attributes">@ChildContent</MudButton>
+
+@code {
+    [Parameter] public ButtonKind Kind { get; set; } = ButtonKind.Primary;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? AriaLabel { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public string? Href { get; set; }
+    [Parameter] public EventCallback<Microsoft.AspNetCore.Components.Web.MouseEventArgs> OnClick { get; set; }
+
+    private string KindName => Kind switch
+    {
+        ButtonKind.Secondary => "secondary",
+        ButtonKind.Danger => "danger",
+        _ => "primary",
+    };
+
+    private Dictionary<string, object> Attributes =>
+        AriaLabel is null ? [] : new() { ["aria-label"] = AriaLabel };
+}

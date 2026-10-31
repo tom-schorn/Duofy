@@ -53,6 +53,17 @@ public abstract class PageTestContext : UiTestContext
         AddAuthorization().SetAuthorized("anna");
     }
 
+    /// <summary>
+    /// Die Monatsseite öffnet mit der Übersicht (Spec 24); die Tests des Plans (Posten, Summen, Übertrag) wechseln
+    /// zuerst zum Tab Plan und warten, bis er da ist.
+    /// </summary>
+    protected static void OpenPlanTab(IRenderedComponent<IComponent> cut)
+    {
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-tab-plan']")));
+        cut.Find("[data-testid='month-tab-plan']").Click();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='plan-sums']")));
+    }
+
     protected NavigationManager Navigation => Services.GetRequiredService<NavigationManager>();
 
     /// <summary>Die Adresse ohne Rechnername, zum Beispiel "/anmelden".</summary>

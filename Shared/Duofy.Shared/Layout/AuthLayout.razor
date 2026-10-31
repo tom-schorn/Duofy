@@ -8,7 +8,7 @@
    Schalter für hell/dunkel sitzt oben rechts, damit man auch vor der Anmeldung den
    Modus wechseln kann. *@
 
-<MudThemeProvider @ref="ThemeProvider" Theme="DuofyTheme.Instance" @bind-IsDarkMode="IsDarkMode" />
+<MudThemeProvider @ref="ThemeProvider" Theme="DuofyTheme.Instance" @bind-IsDarkMode="IsDarkMode" ObserveSystemDarkModeChange="false" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -31,9 +31,7 @@
 
     <main class="auth-main">
         <div class="auth-mode-switch">
-            <MudIconButton Class="mode-switch" OnClick="ToggleModeAsync"
-                           Icon="@(IsDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
-                           aria-label="@(IsDarkMode ? L["Layout_ToLightMode"] : L["Layout_ToDarkMode"])" />
+            <ThemeChoiceSwitch Choice="Choice" ChoiceSelected="SelectChoiceAsync" />
         </div>
 
         <div class="auth-form">@Body</div>

@@ -114,7 +114,33 @@ public sealed record PlanResponse(
     decimal BookedExpenses,
     IReadOnlyList<PlanQuotaResponse> Quotas,
     IReadOnlyList<PlanChangeResponse> Changes,
-    PlanCarryOverResponse CarryOver);
+    PlanCarryOverResponse CarryOver,
+    PlanOverviewResponse? Overview = null);
+
+/// <summary>Geplant und gebucht in einem Topf, ohne durchlaufende Posten.</summary>
+/// <param name="Pot">"needs", "wants" oder "savings".</param>
+public sealed record PlanPotResponse(string Pot, decimal Planned, decimal Booked);
+
+/// <summary>
+/// Was die Übersicht eines Monats zeigt (Spec 24), von der API gerechnet: die Blöcke, die Töpfe für das Lückendiagramm
+/// und die Buchungen mit diesem Planmonat, die neueste zuerst (auch die, deren Datum in einem anderen Monat liegt).
+/// Ohne Sicht auf die Buchungen sind Gebuchtes und die Liste leer.
+/// </summary>
+/// <param name="Income">Die geplanten Einnahmen ohne durchlaufende Posten.</param>
+/// <param name="Fixed">Die geplanten Ausgaben ohne durchlaufende Posten.</param>
+/// <param name="Free">Einnahmen minus Festes, wie in der Übersicht der Monate; auch negativ möglich.</param>
+public sealed record PlanOverviewResponse(
+    decimal Income,
+    decimal Fixed,
+    decimal Free,
+    IReadOnlyList<PlanPotResponse> Pots,
+    IReadOnlyList<BookingResponse> Bookings);
+
+/// <summary>
+/// Ein Monat in der Übersicht der Pläne (GET /api/v1/plans, Spec 23).
+/// </summary>
+/// <param name="Free">Der Frei-Betrag: geplante Einnahmen minus geplante Ausgaben, ohne durchlaufende Posten; auch negativ möglich.</param>
+public sealed record PlanMonthResponse(int Year, int Month, decimal Free);
 
 /// <summary>Ein einmaliger Posten (POST /api/v1/plans/{year}/{month}/positions).</summary>
 /// <param name="Label">Die Bezeichnung, 1 bis <see cref="PlanRules.LabelMaxLength"/> Zeichen.</param>

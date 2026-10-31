@@ -201,13 +201,26 @@ public class BookingRulesTests
         Assert.Equal(BookingCheckOutcome.Valid, (await CheckAsync(Transfer())).Outcome);
     }
 
-    // A10 (Teil: Prüfung)
-    [Fact]
-    public async Task A_transfer_may_carry_one_savings_line_without_category()
+    // Spec 72, R9: Quelle und Ziel sind frei aus den drei Töpfen wählbar, auch derselbe Topf auf beiden Seiten.
+    [Theory]
+    [InlineData(PotKeys.Savings, PotKeys.Wants)]
+    [InlineData(PotKeys.Needs, PotKeys.Savings)]
+    [InlineData(PotKeys.Wants, PotKeys.Wants)]
+    public async Task A_transfer_with_any_source_and_target_pot_is_valid(string source, string target)
     {
-        var request = Transfer() with { Lines = [new SaveBookingLine(100m, PotKeys.Savings, null)] };
+        var request = Transfer() with { Lines = [new SaveBookingLine(100m, source, null)], TargetPot = target };
 
         Assert.Equal(BookingCheckOutcome.Valid, (await CheckAsync(request)).Outcome);
+    }
+
+    // Spec 72, R9: Fehlt einer der beiden Töpfe, lehnt die API ab.
+    [Fact]
+    public async Task A_transfer_without_its_source_or_target_pot_answers_transfer_pots_required()
+    {
+        AssertInvalid(await CheckAsync(Transfer() with { Lines = null }), ErrorCodes.TransferPotsRequired);
+        AssertInvalid(await CheckAsync(Transfer() with { Lines = [] }), ErrorCodes.TransferPotsRequired);
+        AssertInvalid(await CheckAsync(Transfer() with { Lines = [new SaveBookingLine(100m, null, null)] }), ErrorCodes.TransferPotsRequired);
+        AssertInvalid(await CheckAsync(Transfer() with { TargetPot = null }), ErrorCodes.TransferPotsRequired);
     }
 
     // A9
@@ -217,13 +230,13 @@ public class BookingRulesTests
         AssertInvalid(await CheckAsync(Transfer() with { CounterAccountId = giro }), ErrorCodes.TransferSameAccount);
     }
 
-    // A9
+    // Spec 72, R9: Der Topf Einnahmen und unbekannte Töpfe sind weder Quelle noch Ziel.
     [Fact]
-    public async Task Transfer_with_a_pot_other_than_savings_answers_transfer_pot_invalid()
+    public async Task Transfer_with_the_income_pot_or_an_unknown_pot_answers_transfer_pot_invalid()
     {
-        var request = Transfer() with { Lines = [new SaveBookingLine(100m, PotKeys.Needs, null)] };
-
-        AssertInvalid(await CheckAsync(request), ErrorCodes.TransferPotInvalid);
+        AssertInvalid(await CheckAsync(Transfer() with { Lines = [new SaveBookingLine(100m, PotKeys.Income, null)] }), ErrorCodes.TransferPotInvalid);
+        AssertInvalid(await CheckAsync(Transfer() with { TargetPot = PotKeys.Income }), ErrorCodes.TransferPotInvalid);
+        AssertInvalid(await CheckAsync(Transfer() with { TargetPot = "luxury" }), ErrorCodes.TransferPotInvalid);
     }
 
     // A9
@@ -332,7 +345,8 @@ public class BookingRulesTests
             (await CheckAsync(Expense(lines: new SaveBookingLine(42.10m, PotKeys.Needs, builtIn)))).Outcome);
     }
 
-    private SaveBookingRequest Transfer() => new(BookingKinds.Transfer, giro, cash, Today, 100m, null, null);
+    private SaveBookingRequest Transfer() => new(
+        BookingKinds.Transfer, giro, cash, Today, 100m, null, [new SaveBookingLine(100m, PotKeys.Savings, null)], TargetPot: PotKeys.Wants);
 
     private sealed class FakeAccounts : IAccountLookup
     {

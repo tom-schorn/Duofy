@@ -50,6 +50,20 @@ public class PlanFiguresTests
         Assert.Equal(0.0m, actual[Pot.Wants]);
     }
 
+    // Spec 72, A8 (R5, Tom 31.10.): Quoten zählen nur Posten; was ohne Posten im Topf liegt, bleibt aus dem Ist der Quote.
+    [Fact]
+    public void Quota_actual_keeps_a_booking_without_position_out()
+    {
+        var plan = Plan.CreateFrom([], 2026, 10);
+        var wishes = Position("Wünsche", 50.00m, Pot.Wants);
+        plan.Positions.Add(wishes);
+        var bookings = new[] { Income(1000.00m, null), Expense(50.00m, Pot.Wants, wishes.Id), Expense(100.00m, Pot.Wants, null) };
+
+        var actual = PlanFigures.QuotaActual(plan, bookings, null);
+
+        Assert.Equal(5.0m, actual[Pot.Wants]);
+    }
+
     // A25
     [Fact]
     public void Quota_actual_rounds_half_away_from_zero()

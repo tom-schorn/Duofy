@@ -1,0 +1,56 @@
+@implements IDisposable
+
+@* Ein Schritt im StepDialog: Titel, Inhalt und die Felder, die Weiter prüft (StepField).
+   Er bleibt gezeichnet, solange der Dialog offen ist; nicht aktuelle Schritte sind nur verborgen. *@
+
+<section class="step-dialog-step" hidden="@(!Parent.IsCurrent(this))" aria-label="@Title"
+         data-testid="@($"step-dialog-step-{Number}")">
+    <CascadingValue Value="this" IsFixed="true">
+        @ChildContent
+    </CascadingValue>
+</section>
+
+@code {
+    [CascadingParameter]
+    private StepDialog Parent { get; set; } = default!;
+
+    /// <summary>Der Name des Schritts; er steht im Kopf hinter "Schritt x von y".</summary>
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = "";
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    private readonly List<StepField> fields = [];
+
+    /// <summary>Ob die Felder ihre Fehler zeigen; erst nach dem ersten Weiter in diesem Schritt.</summary>
+    internal bool ShowErrors { get; private set; }
+
+    // Die Nummer zählt ab 1 in der Reihenfolge, in der sich die Schritte angemeldet haben.
+    private int Number => Parent.StepNumber(this);
+
+    protected override void OnInitialized()
+    {
+        if (Parent is null)
+        {
+            throw new InvalidOperationException("DialogStep steht nur im Inhalt eines StepDialog.");
+        }
+        Parent.Add(this);
+    }
+
+    internal void Add(StepField field) => fields.Add(field);
+
+    internal void Remove(StepField field) => fields.Remove(field);
+
+    /// <summary>
+    /// Prüft alle Felder des Schritts; true, wenn keins einen Fehler hat. Ab jetzt zeigen sie ihre Fehler,
+    /// sobald der StepDialog neu zeichnet (das tut er nach jedem Weiter).
+    /// </summary>
+    internal bool Check()
+    {
+        ShowErrors = true;
+        return fields.All(f => f.Error is null);
+    }
+
+    public void Dispose() => Parent.Remove(this);
+}

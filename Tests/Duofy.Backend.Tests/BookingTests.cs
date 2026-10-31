@@ -76,8 +76,8 @@ public class BookingTests
     private static SaveBookingRequest Income(Guid account, decimal amount, Guid category) =>
         new(BookingKinds.Income, account, null, October5, amount, null, [new SaveBookingLine(amount, PotKeys.Income, category)]);
 
-    private static SaveBookingRequest Transfer(Guid from, Guid to, decimal amount, string? pot = null) =>
-        new(BookingKinds.Transfer, from, to, October5, amount, null, pot is null ? [] : [new SaveBookingLine(amount, pot, null)]);
+    private static SaveBookingRequest Transfer(Guid from, Guid to, decimal amount, string pot = PotKeys.Savings, string target = PotKeys.Wants) =>
+        new(BookingKinds.Transfer, from, to, October5, amount, null, [new SaveBookingLine(amount, pot, null)], TargetPot: target);
 
     [Fact]
     public async Task Bookings_need_a_signed_in_person()
@@ -133,19 +133,51 @@ public class BookingTests
         Assert.Equal(100.00m, await BalanceAsync(person, cash));
     }
 
-    // A10
+    // Spec 72, A9: Quelle und Ziel werden gespeichert und in der Buchung zurückgeliefert.
     [Fact]
-    public async Task A_savings_transfer_is_stored_with_pot_savings()
+    public async Task A_transfer_from_savings_to_wants_is_stored_and_returned_with_both_pots()
     {
         var person = await SignUpAsync();
         var giro = await AccountAsync(person, AccountTypes.Checking, 1000.00m, "Giro");
         var savings = await AccountAsync(person, AccountTypes.Savings, 0.00m, "Spar");
 
-        var saved = await CreateAsync(person, Transfer(giro, savings, 50.00m, PotKeys.Savings));
+        var saved = await CreateAsync(person, Transfer(giro, savings, 50.00m, PotKeys.Savings, PotKeys.Wants));
 
+        Assert.Equal(PotKeys.Wants, saved.TargetPot);
         var stored = Assert.Single((await MonthAsync(person, 2026, 10)).Bookings, b => b.Id == saved.Id);
         Assert.Equal(PotKeys.Savings, Assert.Single(stored.Lines).Pot);
+        Assert.Equal(PotKeys.Wants, stored.TargetPot);
         Assert.Null(stored.Lines[0].CategoryId);
+    }
+
+    // Spec 72, A10: Ohne einen der Töpfe wird nichts gespeichert.
+    [Fact]
+    public async Task A_transfer_without_a_target_pot_is_refused_and_not_stored()
+    {
+        var person = await SignUpAsync();
+        var giro = await AccountAsync(person, AccountTypes.Checking, 1000.00m, "Giro");
+        var cash = await AccountAsync(person, AccountTypes.Cash, 0.00m, "Bargeld");
+
+        var response = await SendAsync(HttpMethod.Post, Path, person, Transfer(giro, cash, 10.00m) with { TargetPot = null });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Empty((await MonthAsync(person, 2026, 10)).Bookings);
+    }
+
+    // Spec 72, A9: Beim Ändern lassen sich Quelle und Ziel ändern.
+    [Fact]
+    public async Task Changing_a_transfer_changes_its_pots()
+    {
+        var person = await SignUpAsync();
+        var giro = await AccountAsync(person, AccountTypes.Checking, 1000.00m, "Giro");
+        var cash = await AccountAsync(person, AccountTypes.Cash, 0.00m, "Bargeld");
+        var saved = await CreateAsync(person, Transfer(giro, cash, 10.00m, PotKeys.Needs, PotKeys.Needs));
+
+        var put = await SendAsync(HttpMethod.Put, $"{Path}/{saved.Id}", person, Transfer(giro, cash, 10.00m, PotKeys.Wants, PotKeys.Savings));
+
+        Assert.Equal(HttpStatusCode.OK, put.StatusCode);
+        var changed = (await put.Content.ReadFromJsonAsync<BookingResponse>())!;
+        Assert.Equal((PotKeys.Wants, PotKeys.Savings), (Assert.Single(changed.Lines).Pot, changed.TargetPot));
     }
 
     // A19

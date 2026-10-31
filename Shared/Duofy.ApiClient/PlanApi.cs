@@ -12,6 +12,15 @@ internal sealed class PlanApi(ApiConnection api) : IPlanApi
     public Task<ApiResult<PlanResponse>> GetAsync(int year, int month, Guid? owner = null, CancellationToken cancellationToken = default) =>
         api.SendAsync<PlanResponse>(HttpMethod.Get, OwnerQuery.With(Month(year, month), owner), body: null, anonymous: false, cancellationToken);
 
+    public async Task<ApiResult<IReadOnlyList<PlanMonthResponse>>> ListMonthsAsync(Guid? owner = null, CancellationToken cancellationToken = default)
+    {
+        var result = await api.SendAsync<List<PlanMonthResponse>>(
+            HttpMethod.Get, OwnerQuery.With("api/v1/plans", owner), body: null, anonymous: false, cancellationToken);
+        return result.Succeeded
+            ? ApiResult<IReadOnlyList<PlanMonthResponse>>.Success(result.Value!)
+            : ApiResult<IReadOnlyList<PlanMonthResponse>>.Failure(result.ErrorCode!);
+    }
+
     public Task<ApiResult<PlanPositionResponse>> CreatePositionAsync(
         int year, int month, CreatePositionRequest request, Guid? owner = null, CancellationToken cancellationToken = default) =>
         api.SendAsync<PlanPositionResponse>(

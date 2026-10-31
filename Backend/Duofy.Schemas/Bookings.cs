@@ -26,7 +26,8 @@ public sealed record SaveBookingLine(decimal Amount, string? Pot, Guid? Category
 /// <param name="Note">Eine freie Notiz, höchstens <see cref="BookingRules.NoteMaxLength"/> Zeichen.</param>
 /// <param name="Lines">
 /// Bei Ausgabe und Einnahme 1 bis <see cref="BookingRules.MaxLines"/> Zeilen, deren Beträge zusammen den
-/// Gesamtbetrag ergeben. Bei einer Umbuchung keine Zeile oder eine mit dem Topf "savings" und ohne Kategorie.
+/// Gesamtbetrag ergeben. Bei einer Umbuchung genau eine Zeile über den ganzen Betrag ohne Kategorie; ihr Topf
+/// ist der Quelltopf (Spec 72, R9).
 /// </param>
 /// <param name="PlanYear">Das Jahr des Planmonats; zusammen mit <paramref name="PlanMonth"/> freiwillig.</param>
 /// <param name="PlanMonth">
@@ -36,6 +37,10 @@ public sealed record SaveBookingLine(decimal Amount, string? Pot, Guid? Category
 /// <param name="OwnerId">
 /// Nur beim Anlegen: für wen die Buchung ist (Spec 68); leer heißt: für die angemeldete Person. Beim Ändern
 /// bleibt die Buchung bei ihrem Besitzer.
+/// </param>
+/// <param name="TargetPot">
+/// Nur bei einer Umbuchung und dort Pflicht: der Zieltopf ("needs", "wants" oder "savings"). Quelle und Ziel werden
+/// nur gemerkt; keine Zahl im Plan ändert sich dadurch (Spec 72, R9).
 /// </param>
 public sealed record SaveBookingRequest(
     string? Kind,
@@ -47,7 +52,8 @@ public sealed record SaveBookingRequest(
     IReadOnlyList<SaveBookingLine>? Lines,
     int? PlanYear = null,
     int? PlanMonth = null,
-    Guid? OwnerId = null);
+    Guid? OwnerId = null,
+    string? TargetPot = null);
 
 /// <summary>Eine gespeicherte Zeile einer Buchung.</summary>
 public sealed record BookingLineResponse(Guid Id, decimal Amount, string Pot, Guid? CategoryId, Guid? PositionId = null);
@@ -63,7 +69,8 @@ public sealed record BookingResponse(
     string? Note,
     IReadOnlyList<BookingLineResponse> Lines,
     int PlanYear = 0,
-    int PlanMonth = 0);
+    int PlanMonth = 0,
+    string? TargetPot = null);
 
 /// <summary>
 /// Die Antwort auf GET /api/v1/bookings?year=&amp;month=&amp;accountId=: die Buchungen des Monats,

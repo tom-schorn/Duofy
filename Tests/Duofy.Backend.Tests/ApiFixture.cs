@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Duofy.Schemas;
 using Duofy.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -89,6 +90,17 @@ public class DuofyApiFactory : WebApplicationFactory<Program>
             return await action(db);
         }
     }
+
+    /// <summary>
+    /// Nimmt einer frisch registrierten Person das erste Konto wieder weg (Spec 13). Für Tests, die mit einer leeren
+    /// Kontoliste beginnen wollen, weil sie das Anlegen oder das erste Girokonto als Standardkonto prüfen.
+    /// </summary>
+    public Task RemoveFirstAccountAsync(string email) =>
+        WithDbAsync(async db =>
+        {
+            await db.Accounts.Where(a => db.Users.Any(u => u.Email == email && u.Id == a.OwnerId)).ExecuteDeleteAsync();
+            return 0;
+        });
 }
 
 /// <summary>Kurze Wege für die Tests: registrieren, anmelden, angemeldet anfragen.</summary>
@@ -108,10 +120,15 @@ public static class ApiDriver
         await client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(email, password));
 
     /// <summary>Registriert eine neue Person und meldet sie an.</summary>
-    public static async Task<(string Email, TokenResponse Tokens)> SignUpAsync(this HttpClient client)
+    public static async Task<(string Email, TokenResponse Tokens)> SignUpAsync(
+        this HttpClient client, DuofyApiFactory? withoutFirstAccount = null)
     {
         var email = NewEmail();
         (await client.RegisterAsync(Registration(email))).EnsureSuccessStatusCode();
+        if (withoutFirstAccount is not null)
+        {
+            await withoutFirstAccount.RemoveFirstAccountAsync(email);
+        }
         var login = await client.LoginAsync(email);
         login.EnsureSuccessStatusCode();
         return (email, (await login.Content.ReadFromJsonAsync<TokenResponse>())!);

@@ -1,0 +1,70 @@
+@page "/diagramme"
+@using Duofy.Shared.Charts
+@inject IServiceProvider Services
+@inject NavigationManager Navigation
+
+@* Die Testseite der Diagramme (Spec 12): Balkendiagramm, Soll-Ist-Balken und Leerzustand hell und dunkel nebeneinander.
+   Nur im Entwicklungsbetrieb da, wie die Testseite der Bausteine (Spec 6); ohne Meldung des Hosts zeigt sie nichts.
+   Der dunkle Teil setzt die Palette des Themes als Variablen; so zeigt eine Seite beide Modi. *@
+
+@if (IsDevelopment)
+{
+    <PageTitle>@Heading</PageTitle>
+    <h1 class="mud-typography mud-typography-h4 mb-4">@Heading</h1>
+
+    <div class="blocks-panels">
+        <section class="blocks-panel" data-testid="charts-panel-light" style="@PanelStyle(DuofyTheme.Instance.PaletteLight)" aria-label="@LightName">
+            @Panel()
+        </section>
+        <section class="blocks-panel" data-testid="charts-panel-dark" style="@PanelStyle(DuofyTheme.Instance.PaletteDark)" aria-label="@DarkName">
+            @Panel()
+        </section>
+    </div>
+}
+else
+{
+    <NotFound />
+}
+
+@code {
+    private bool IsDevelopment => (Services.GetService(typeof(IDevelopmentMode)) as IDevelopmentMode)?.IsDevelopment == true;
+
+    // Ohne Entwicklungsbetrieb antwortet der Server mit 404 wie bei jeder unbekannten Adresse.
+    protected override void OnInitialized()
+    {
+        if (!IsDevelopment)
+        {
+            Navigation.NotFound();
+        }
+    }
+
+    // Die Testseite ist nur für das Team: Ihre Texte stehen hier statt in den Textdateien (SharedResources).
+    private const string Heading = "Diagramme";
+    private const string LightName = "Hell";
+    private const string DarkName = "Dunkel";
+
+    private static readonly ChartBar[] Bars = [new("Miete", 850m), new("Strom", 62.4m), new("Internet", 39.99m)];
+    private static readonly ChartBar[] None = [];
+
+    // Die Palette als CSS-Variablen, wie MudBlazor sie für das aktive Theme schreibt.
+    private static string PanelStyle(Palette palette) => string.Join("; ", new (string Name, MudColor Value)[]
+    {
+        ("background", palette.Background),
+        ("surface", palette.Surface),
+        ("text-primary", palette.TextPrimary),
+        ("text-secondary", palette.TextSecondary),
+        ("primary", palette.Primary),
+        ("primary-text", palette.PrimaryContrastText),
+        ("success", palette.Success),
+        ("error", palette.Error),
+        ("warning", palette.Warning),
+        ("lines-default", palette.LinesDefault),
+    }.Select(v => $"--mud-palette-{v.Name}: {v.Value.ToString(MudColorOutputFormats.Hex).ToLowerInvariant()}"));
+
+    private RenderFragment Panel() => @<text>
+        <BarChart Caption="Feste Kosten" Items="Bars" />
+        <TargetActualBar Caption="Lebensmittel, im Soll" Target="200m" Actual="140m" />
+        <TargetActualBar Caption="Freizeit, über dem Soll" Target="200m" Actual="250m" />
+        <BarChart Caption="Ohne Daten" Items="None" />
+    </text>;
+}

@@ -1,6 +1,7 @@
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
+@using Duofy.Shared.Pages.Month
 @implements IDisposable
 @inject IHouseholdApi HouseholdApi
 @inject IAppHost Host
@@ -13,7 +14,10 @@
    Konten der Mitglieder, die sie freigegeben haben. Es gibt keinen Knopf zum Anlegen, Abhaken oder Ändern: Das geht
    im Plan der jeweiligen Person, mit deren Freigaben (Spec 68).
 
-   Die Seite rechnet nichts; die API setzt den Plan bei jedem Öffnen aus den Monaten der Mitglieder zusammen. *@
+   Die Seite rechnet nichts; die API setzt den Plan bei jedem Öffnen aus den Monaten der Mitglieder zusammen.
+
+   Seit Spec 24 hat der Haushaltsmonat dieselben drei Tabs wie der Monat einer Person (Übersicht, Plan, Buchungen),
+   alle nur zum Lesen. *@
 
 @if (!Host.IsApp)
 {
@@ -34,8 +38,20 @@
 
 <Notice Message="message" />
 
+<MonthTabs Active="tab" ActiveChanged="SelectTab" />
+<div role="tabpanel" id="month-panel" aria-labelledby="@($"month-tab-{MonthTabs.Key(tab)}")">
 @if (plan is not null)
 {
+    @if (tab == MonthTab.Overview)
+    {
+        <MonthOverview Model="MonthView.ForHousehold(plan, Today)" ReadOnly="true" BookingsMissing="plan.BookingsMissing ?? []" />
+    }
+    else if (tab == MonthTab.Bookings)
+    {
+        <MonthBookings Rows="MonthView.HouseholdBookingRows(plan)" Missing="plan.BookingsMissing ?? []" />
+    }
+    else
+    {
     @* Summen und Quoten. *@
     <MudPaper Outlined="true" Class="pa-3 mb-4" data-testid="plan-sums">
         <MudText>@L["HouseholdPlan_SumsIncome", Money(plan.Income)]</MudText>
@@ -99,11 +115,26 @@
             @L["HouseholdPlan_AccountsMissing", string.Join(", ", plan.AccountsMissing)]
         </MudText>
     }
+    }
 }
+</div>
 
 @code {
 
     private static readonly CultureInfo German = new("de-DE");
+
+    /// <summary>Der Monat, den die Planseite zeigt; sie gibt ihn aus der Adresse /plan/{Jahr}/{Monat} weiter.</summary>
+    [Parameter, EditorRequired] public int Year { get; set; }
+
+    [Parameter, EditorRequired] public int Month { get; set; }
+
+    /// <summary>Wird mit +1 oder -1 gerufen, wenn der Pfeil einen Monat weiterblättert; die Planseite hält den Monat.</summary>
+    [Parameter] public EventCallback<int> OnMove { get; set; }
+
+    private MonthTab tab = MonthTab.Overview;
+    private DateOnly Today => DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
+
+    private void SelectTab(MonthTab selected) => tab = selected;
 
     private int year;
     private int month;
@@ -114,11 +145,19 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var today = DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
-        (year, month) = (today.Year, today.Month);
         await Member.LoadAsync();
         // Geht ein Mitglied, während die Sicht offen ist, endet sie; die Planseite zeichnet dann den eigenen Plan.
         Member.Changed += OnMemberChanged;
+    }
+
+    // Der erste Aufruf lädt den Monat der Adresse, jeder weitere den neu gewählten.
+    protected override async Task OnParametersSetAsync()
+    {
+        if ((year, month) == (Year, Month))
+        {
+            return;
+        }
+        (year, month) = (Year, Month);
         await LoadAsync();
     }
 
@@ -148,9 +187,8 @@
 
     private async Task MoveAsync(int by)
     {
-        (year, month) = PlanView.Shift(year, month, by);
         message = null;
-        await LoadAsync();
+        await OnMove.InvokeAsync(by);
     }
 
     /// <summary>Die Posten je Topf in der Reihenfolge der API (Topf, Fälligkeitstag, Name); leere Töpfe fehlen.</summary>

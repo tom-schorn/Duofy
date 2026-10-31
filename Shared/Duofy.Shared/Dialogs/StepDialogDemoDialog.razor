@@ -1,0 +1,47 @@
+@using System.Globalization
+
+@* Der Beispieldialog der Testseite (Spec 11): drei Schritte, zwei davon mit Pflichtfeld.
+   Er zeigt, wie ein Dialog den StepDialog benutzt; ein echter Dialog hält seine Werte genauso
+   in eigenen Feldern und schließt sich in OnFinish mit dem Ergebnis. *@
+
+<StepDialog OnFinish="Finish">
+    <DialogStep Title="@NameStep">
+        <StepField Label="@NameLabel" InputId="demo-name-input" Required IsFilled="() => !string.IsNullOrWhiteSpace(name)"
+                   TestId="demo-name-field">
+            <MudTextField T="string" @bind-Value="name" Variant="Variant.Outlined" InputId="demo-name-input"
+                          aria-describedby="demo-name-input-error" data-testid="demo-name" />
+        </StepField>
+    </DialogStep>
+    <DialogStep Title="@AmountStep">
+        <StepField Label="@AmountLabel" InputId="demo-amount-input" Required IsFilled="() => amount is not null"
+                   TestId="demo-amount-field">
+            <MudNumericField T="decimal?" @bind-Value="amount" Culture="German" Format="0.00" HideSpinButtons="true"
+                             Variant="Variant.Outlined" InputId="demo-amount-input"
+                             aria-describedby="demo-amount-input-error" data-testid="demo-amount" />
+        </StepField>
+    </DialogStep>
+    <DialogStep Title="@CheckStep">
+        <LineTable Caption="@CheckStep" Rows="Summary" />
+    </DialogStep>
+</StepDialog>
+
+@code {
+    private static readonly CultureInfo German = new("de-DE");
+
+    [CascadingParameter]
+    private IMudDialogInstance Dialog { get; set; } = default!;
+
+    // Die Testseite ist nur für das Team: Ihre Texte stehen hier statt in den Textdateien (SharedResources).
+    private const string NameStep = "Name";
+    private const string NameLabel = "Name des Vertrags";
+    private const string AmountStep = "Betrag";
+    private const string AmountLabel = "Betrag im Monat";
+    private const string CheckStep = "Prüfen";
+
+    private string name = "";
+    private decimal? amount;
+
+    private LineTableRow[] Summary => [new(name, amount ?? 0m)];
+
+    private void Finish() => Dialog.Close(DialogResult.Ok(name));
+}

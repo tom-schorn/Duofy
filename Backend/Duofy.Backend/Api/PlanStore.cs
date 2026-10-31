@@ -61,6 +61,24 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
         return plan;
     }
 
+    /// <summary>
+    /// Die Monate, für die die Person einen Plan hat, der neueste zuerst, mit dem Frei-Betrag je Monat (Spec 23).
+    /// Legt nichts an; die Zahl der Monate ist die der vorhandenen Pläne.
+    /// </summary>
+    public async Task<List<PlanMonthResponse>> MonthsAsync(Guid ownerId, CancellationToken cancellationToken)
+    {
+        var plans = await db.Plans
+            .AsNoTracking()
+            .Include(p => p.Positions)
+            .Where(p => p.OwnerId == ownerId)
+            .ToListAsync(cancellationToken);
+        return plans
+            .OrderByDescending(p => p.Year)
+            .ThenByDescending(p => p.Month)
+            .Select(p => new PlanMonthResponse(p.Year, p.Month, PlanFigures.Free(p.Positions)))
+            .ToList();
+    }
+
     private async Task<Plan> NewAsync(Guid ownerId, int year, int month, CancellationToken cancellationToken)
     {
         var quotas = await db.Users
@@ -204,6 +222,9 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
             CarryOverAmount(plan, bookings),
             balances);
 
+        // Die Buchungen aller Überträge rund um den Monat; sie zählen nicht als ungeplant (Spec 72).
+        var carryOverIds = nextCarryOver.Append(plan.CarryOverIncomeBookingId).Append(plan.CarryOverExpenseBookingId).OfType<Guid>().ToList();
+
         Pot[] quotaPots = [Pot.Needs, Pot.Wants, Pot.Savings];
         return new PlanResponse(
             plan.Id,
@@ -216,7 +237,19 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
             sums.Expenses,
             quotaPots.Select(pot => new PlanQuotaResponse(PotKey.ToKey(pot), plan.Quotas.For(pot)!.Value, actual[pot])).ToList(),
             changes,
-            carryOver);
+            carryOver,
+            new PlanOverviewResponse(
+                PlanFigures.Income(plan.Positions),
+                PlanFigures.Fixed(plan.Positions),
+                PlanFigures.Free(plan.Positions),
+                PlanFigures.PotTotals(plan.Positions, booked, PlanFigures.Unplanned(bookings, carryOverIds))
+                    .Select(entry => new PlanPotResponse(PotKey.ToKey(entry.Key), entry.Value.Planned, entry.Value.Booked))
+                    .ToList(),
+                bookings
+                    .OrderByDescending(b => b.PaymentDate)
+                    .ThenByDescending(b => b.CreatedAt)
+                    .Select(BookingEndpoints.ToResponse)
+                    .ToList()));
     }
 
     /// <summary>

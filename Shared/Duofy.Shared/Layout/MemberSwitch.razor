@@ -1,51 +1,107 @@
+@using Duofy.ApiClient
 @implements IDisposable
 @inject ActiveMember Member
+@inject IAuthApi AuthApi
+@inject NavigationManager Navigation
 @inject IStringLocalizer<SharedResources> L
 
-@* Der Umschalter "wessen Zahlen" (Spec 68, R8): "Ich" und jedes Mitglied, das mir in irgendeinem Bereich
-   mindestens Ansehen freigegeben hat. Er steht in der oberen Leiste der App und in der Navigation im Browser,
-   damit von jeder Seite aus zu sehen ist, wessen Monat gerade offen ist. Gibt es nur "Ich", fehlt er ganz.
+@* Der Profil-Knopf mit dem Menü "wessen Zahlen" (Spec 44, Spec 68 R8). Er ist für jede angemeldete Person da, auch
+   allein: Das Menü bietet "Ich" und jedes Mitglied, das mir in irgendeinem Bereich mindestens Ansehen freigegeben hat,
+   dann "Haushalt" (Spec 69, R9), das Konto und Abmelden. Der Knopf trägt die Beschriftung der gewählten Sicht, damit
+   von jeder Seite aus zu sehen ist, wessen Zahlen gerade offen sind.
 
-   Neben den Mitgliedern bietet er "Haushalt", solange der Haushalt mehr als ein Mitglied hat (Spec 69, R9): Dann zeigt
-   die Planseite den Haushaltsplan, nur zum Lesen.
+   "Haushalt" gibt es nur ab zwei Mitgliedern; sonst steht er als nicht verfügbar im Menü, nennt den Grund und führt
+   zur Haushalt-Seite. Die Auswahl ändert keine Rechte: Wer nichts freigegeben hat, steht gar nicht in der Liste.
 
-   Eine Auswahl des Geräts statt eines Popups, wie NativeSelect: auf dem Handy das Auswahlfenster des Systems. *@
+   Der Knopf steht in der Seitenleiste ganz unten (das Menü öffnet nach oben) und in der oberen Leiste; welcher von
+   beiden zu sehen ist, entscheidet das Stylesheet nach der Breite. Einfache Elemente statt MudMenu, damit das Menü
+   ohne Popup-Anbieter an Ort und Stelle bleibt und Tastatur und Screenreader (Menü, Escape) ohne Umweg gelten. *@
 
-@if (Member.HasSwitch)
-{
-    <select class="member-switch" value="@Selected" @onchange="OnChange"
-            aria-label="@L["MemberSwitch_Label"]" data-testid="member-switch">
-        <option value="">@L["MemberSwitch_Me"]</option>
-        @foreach (var member in Member.Sharing)
-        {
-            <option value="@member.UserId">@member.FirstName</option>
-        }
-        @if (Member.CanShowHousehold)
-        {
-            <option value="@HouseholdValue">@L["MemberSwitch_Household"]</option>
-        }
-    </select>
-}
+<div class="@(Up ? "member-profile member-profile-up" : "member-profile")" data-testid="member-switch" @onkeydown="OnKeyDown">
+    <button type="button" class="member-profile-button" aria-haspopup="menu" aria-expanded="@(open ? "true" : "false")"
+            aria-label="@($"{L["MemberSwitch_Label"]}: {ViewLabel}")" data-testid="member-profile" @onclick="Toggle">
+        <MudIcon Icon="@Icons.Material.Filled.AccountCircle" />
+        <span class="member-profile-name">@ViewLabel</span>
+    </button>
+
+    @if (open)
+    {
+        <div class="member-menu-backdrop" @onclick="Close"></div>
+        <div class="member-menu" role="menu" aria-label="@L["MemberSwitch_Label"]" data-testid="member-menu">
+            <button type="button" role="menuitemradio" aria-checked="@Checked(!Member.IsHousehold && Member.Owner is null)"
+                    class="member-menu-item" data-testid="member-choice-me" @onclick="() => ChooseMember(null)">@L["MemberSwitch_Me"]</button>
+            @foreach (var person in Member.Sharing)
+            {
+                <button type="button" role="menuitemradio" aria-checked="@Checked(!Member.IsHousehold && Member.Owner == person.UserId)"
+                        class="member-menu-item" data-testid="@($"member-choice-{person.UserId}")"
+                        @onclick="() => ChooseMember(person.UserId)">@person.FirstName</button>
+            }
+            @if (Member.CanShowHousehold)
+            {
+                <button type="button" role="menuitemradio" aria-checked="@Checked(Member.IsHousehold)"
+                        class="member-menu-item" data-testid="member-choice-household" @onclick="ChooseHousehold">@L["MemberSwitch_Household"]</button>
+            }
+            else
+            {
+                @* Nicht verfügbar, aber erreichbar: ausgegraut, mit dem Grund und dem Weg zur Haushalt-Seite. *@
+                <a href="/haushalt" role="menuitem" class="member-menu-item grant-locked" aria-disabled="true"
+                   aria-describedby="member-household-reason" data-testid="member-choice-household" @onclick="Close">@L["MemberSwitch_Household"]</a>
+                <span id="member-household-reason" class="member-menu-reason">@L["MemberSwitch_HouseholdReason"]</span>
+            }
+            <hr class="member-menu-separator" />
+            <a href="/konto" role="menuitem" class="member-menu-item" data-testid="member-account" @onclick="Close">@L["Account_Title"]</a>
+            <button type="button" role="menuitem" class="member-menu-item" data-testid="member-sign-out" @onclick="SignOutAsync">@L["Account_SignOut"]</button>
+        </div>
+    }
+</div>
 
 @code {
+    /// <summary>True, wenn das Menü nach oben aufgeht, weil der Knopf unten in der Seitenleiste steht.</summary>
+    [Parameter]
+    public bool Up { get; set; }
+
+    private bool open;
+
     protected override async Task OnInitializedAsync()
     {
         Member.Changed += OnMemberChanged;
         await Member.LoadAsync();
     }
 
-    private const string HouseholdValue = "household";
+    // Die Beschriftung der gewählten Sicht: Ich, der Vorname oder Haushalt.
+    private string ViewLabel => Member.IsHousehold ? L["MemberSwitch_Household"] : Member.Name ?? L["MemberSwitch_Me"];
 
-    private string Selected => Member.IsHousehold ? HouseholdValue : Member.Owner?.ToString() ?? "";
+    private static string Checked(bool value) => value ? "true" : "false";
 
-    private void OnChange(ChangeEventArgs e)
+    private void Toggle() => open = !open;
+
+    private void Close() => open = false;
+
+    private void OnKeyDown(KeyboardEventArgs e)
     {
-        if (e.Value?.ToString() == HouseholdValue)
+        if (e.Key == "Escape")
         {
-            Member.ChooseHousehold();
-            return;
+            open = false;
         }
-        Member.Choose(Guid.TryParse(e.Value?.ToString(), out var id) ? id : null);
+    }
+
+    private void ChooseMember(Guid? userId)
+    {
+        Member.Choose(userId);
+        open = false;
+    }
+
+    private void ChooseHousehold()
+    {
+        Member.ChooseHousehold();
+        open = false;
+    }
+
+    private async Task SignOutAsync()
+    {
+        open = false;
+        await AuthApi.LogoutAsync();
+        Navigation.NavigateTo("/anmelden");
     }
 
     private void OnMemberChanged() => InvokeAsync(StateHasChanged);

@@ -38,7 +38,7 @@ public class GrantedAccountTests
     [Fact]
     public async Task Ben_lists_annas_accounts_only_with_view()
     {
-        var (anna, ben) = await client.AnnaAndBenAsync();
+        var (anna, ben) = await client.AnnaAndBenAsync(fixture.Factory);
         var giro = await AccountOfAsync(anna);
 
         var before = await client.SendAsync(ben, HttpMethod.Get, $"{Accounts}?owner={anna.Id}");
@@ -56,7 +56,7 @@ public class GrantedAccountTests
     [Fact]
     public async Task Ben_creates_and_changes_annas_accounts_step_by_step()
     {
-        var (anna, ben) = await client.AnnaAndBenAsync();
+        var (anna, ben) = await client.AnnaAndBenAsync(fixture.Factory);
         await client.GrantAsync(anna, ben, new UpdateGrantsRequest(Accounts: AccessLevelKeys.View));
 
         var withView = await client.SendAsync(ben, HttpMethod.Post, Accounts, Giro(anna.Id));
@@ -81,7 +81,7 @@ public class GrantedAccountTests
     [Fact]
     public async Task Making_a_new_account_annas_default_needs_edit()
     {
-        var (anna, ben) = await client.AnnaAndBenAsync();
+        var (anna, ben) = await client.AnnaAndBenAsync(fixture.Factory);
         var giro = await AccountOfAsync(anna);
         await client.GrantAsync(anna, ben, new UpdateGrantsRequest(Accounts: AccessLevelKeys.Create));
 
@@ -114,8 +114,8 @@ public class GrantedAccountTests
     [Fact]
     public async Task Claras_account_is_not_found_for_ben_and_stays_as_it_is()
     {
-        var (_, ben) = await client.AnnaAndBenAsync();
-        var clara = await client.FounderAsync("Clara");
+        var (_, ben) = await client.AnnaAndBenAsync(fixture.Factory);
+        var clara = await client.FounderAsync("Clara", withoutFirstAccount: fixture.Factory);
         var giro = await AccountOfAsync(clara);
 
         var patch = await client.SendAsync(ben, HttpMethod.Patch, $"{Accounts}/{giro.Id}", new UpdateAccountRequest(Name: "Meins"));

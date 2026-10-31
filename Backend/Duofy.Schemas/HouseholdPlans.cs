@@ -43,6 +43,11 @@ public sealed record HouseholdAccountResponse(Guid AccountId, Guid OwnerId, stri
 /// <param name="Quotas">Die Zielquoten des Haushalts und das Ist aller gezählten Mitglieder.</param>
 /// <param name="Accounts">Die offenen Konten der Mitglieder, die sie dem Betrachter mindestens zum Ansehen freigegeben haben; die eigenen immer.</param>
 /// <param name="AccountsMissing">Die Vornamen derer, deren Konten fehlen, weil sie sie nicht freigegeben haben.</param>
+/// <param name="Members">Je gezähltem Mitglied Einnahmen und Quoten gegen den Richtwert des Haushalts; alle sehen alle (Spec 27).</param>
+/// <param name="Fixed">Die geplanten Ausgaben aller gezählten Mitglieder ohne durchlaufende Posten (Spec 24).</param>
+/// <param name="Free">Einnahmen minus Festes über alle gezählten Mitglieder (Spec 24).</param>
+/// <param name="Bookings">Die Buchungen mit diesem Planmonat der gezählten Mitglieder, die ihre Buchungen dem Betrachter mindestens zum Ansehen freigegeben haben (die eigenen immer), die neueste zuerst (Spec 24).</param>
+/// <param name="BookingsMissing">Die Vornamen derer, deren Buchungen fehlen, weil sie sie nicht freigegeben haben.</param>
 public sealed record HouseholdPlanResponse(
     Guid HouseholdId,
     string HouseholdName,
@@ -55,7 +60,32 @@ public sealed record HouseholdPlanResponse(
     IReadOnlyList<PlanQuotaResponse> Quotas,
     HouseholdUnplannedResponse Unplanned,
     IReadOnlyList<HouseholdAccountResponse> Accounts,
-    IReadOnlyList<string> AccountsMissing);
+    IReadOnlyList<string> AccountsMissing,
+    IReadOnlyList<HouseholdMemberResponse> Members,
+    decimal Fixed = 0m,
+    decimal Free = 0m,
+    IReadOnlyList<HouseholdBookingResponse>? Bookings = null,
+    IReadOnlyList<string>? BookingsMissing = null);
+
+/// <summary>Die Quote eines Mitglieds in einem Topf gegen den Richtwert des Haushalts (Spec 27).</summary>
+/// <param name="Pot">"needs", "wants" oder "savings".</param>
+/// <param name="Target">Die Zielquote des Haushalts in ganzen Prozent, für alle gleich.</param>
+/// <param name="Actual">Das Ist des Mitglieds in Prozent mit einer Nachkommastelle, gerechnet wie das des Haushalts.</param>
+/// <param name="Deviation">Ist minus Ziel in Prozentpunkten mit einer Nachkommastelle; positiv heißt über dem Richtwert.</param>
+public sealed record HouseholdMemberQuotaResponse(string Pot, int Target, decimal Actual, decimal Deviation);
+
+/// <summary>Ein gezähltes Mitglied mit seinen Einnahmen und Quoten im Haushaltsplan (Spec 27).</summary>
+/// <param name="Income">Die gebuchten Einnahmen des Mitglieds, durch die das Ist geteilt wird.</param>
+/// <param name="HasIncome">False, wenn das Mitglied im Monat keine Einnahmen hat; dann ist jedes Ist 0.</param>
+/// <param name="Quotas">Grundbedarf, Wünsche und Sparen in dieser Reihenfolge.</param>
+public sealed record HouseholdMemberResponse(Guid UserId, string FirstName, decimal Income, bool HasIncome, IReadOnlyList<HouseholdMemberQuotaResponse> Quotas);
+
+/// <summary>
+/// Eine Buchung mit diesem Planmonat im Haushaltsplan (Spec 24), mit der Person, der sie gehört; ohne Notiz und Konto,
+/// denn die Konten zeigt der Haushaltsplan nur mit Freigabe.
+/// </summary>
+public sealed record HouseholdBookingResponse(Guid Id, DateOnly Date, decimal Amount, int PlanYear, int PlanMonth, Guid OwnerId, string OwnerFirstName);
 
 /// <summary>Ein Monat in der Liste der Haushaltsmonate (GET /api/v1/households/{id}/plans).</summary>
-public sealed record HouseholdPlanMonth(int Year, int Month);
+/// <param name="Free">Der Frei-Betrag aller gezählten Mitglieder, gerechnet wie bei <see cref="PlanMonthResponse"/>.</param>
+public sealed record HouseholdPlanMonth(int Year, int Month, decimal Free);

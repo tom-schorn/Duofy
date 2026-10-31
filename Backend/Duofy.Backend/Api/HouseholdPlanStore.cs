@@ -67,6 +67,32 @@ internal sealed class HouseholdPlanStore(
             .ThenBy(p => p.Label, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
 
+        var members = MemberQuotas(household, months, names);
+        var positionsOf = months.SelectMany(m => m.Plan.Positions).ToList();
+        // Einzelne Buchungen gehören zum Bereich Buchungen und folgen den Freigaben wie die Konten: nur die eigenen und
+        // die der Mitglieder, die sie dem Betrachter zeigen; die übrigen stehen mit Vornamen in BookingsMissing.
+        var bookingsMissing = new List<string>();
+        var visibleMonths = new List<MemberMonth>();
+        foreach (var memberMonth in months)
+        {
+            if ((await access.LevelAsync(memberMonth.Plan.OwnerId, Area.Book, cancellationToken)).Includes(AccessLevel.View))
+            {
+                visibleMonths.Add(memberMonth);
+            }
+            else
+            {
+                bookingsMissing.Add(names[memberMonth.Plan.OwnerId]);
+            }
+        }
+        bookingsMissing.Sort(StringComparer.CurrentCultureIgnoreCase);
+        var bookingsOf = visibleMonths
+            .SelectMany(m => m.Bookings.Select(b => (Booking: b, Name: names[m.Plan.OwnerId])))
+            .OrderByDescending(x => x.Booking.PaymentDate)
+            .ThenByDescending(x => x.Booking.CreatedAt)
+            .Select(x => new HouseholdBookingResponse(
+                x.Booking.Id, x.Booking.PaymentDate, x.Booking.Amount, x.Booking.PlanYear, x.Booking.PlanMonth, x.Booking.OwnerId, x.Name))
+            .ToList();
+
         var (accounts, missing) = await AccountsAsync(counted, names, year, month, cancellationToken);
         logger.LogInformation(
             "Haushaltsplan {Year}-{Month} von {HouseholdId} für {UserId} zusammengesetzt: {Members} Mitglieder, {Positions} Posten.",
@@ -85,8 +111,31 @@ internal sealed class HouseholdPlanStore(
             new HouseholdUnplannedResponse(
                 figures.Unplanned[Pot.Income], figures.Unplanned[Pot.Needs], figures.Unplanned[Pot.Wants], figures.Unplanned[Pot.Savings]),
             accounts,
-            missing);
+            missing,
+            members,
+            PlanFigures.Fixed(positionsOf),
+            PlanFigures.Free(positionsOf),
+            bookingsOf,
+            bookingsMissing);
     }
+
+    /// <summary>
+    /// Die Quote je Person (Spec 27): dieselbe Rechnung wie die des Haushalts, einzeln über den Monat nur dieser
+    /// Person; Ziel ist für alle der Wert des Haushalts, die Abweichung Ist minus Ziel.
+    /// </summary>
+    private static List<HouseholdMemberResponse> MemberQuotas(
+        Household household, IReadOnlyCollection<MemberMonth> months, IReadOnlyDictionary<Guid, string> names) =>
+        months.Select(month =>
+        {
+            var figures = HouseholdPlanFigures.Compute([month]);
+            var quotas = QuotaPots.Select(pot =>
+            {
+                var target = household.Quotas.For(pot)!.Value;
+                return new HouseholdMemberQuotaResponse(
+                    PotKey.ToKey(pot), target, figures.QuotaActual[pot], decimal.Round(figures.QuotaActual[pot] - target, 1, MidpointRounding.AwayFromZero));
+            }).ToList();
+            return new HouseholdMemberResponse(month.Plan.OwnerId, names[month.Plan.OwnerId], figures.QuotaIncome, figures.QuotaIncome > 0m, quotas);
+        }).ToList();
 
     /// <summary>Die Monate mit einem Plan eines Mitglieds, das in diesem Monat zählt, der neueste zuerst (R7).</summary>
     public async Task<List<HouseholdPlanMonth>> MonthsAsync(Household household, CancellationToken cancellationToken)
@@ -96,14 +145,14 @@ internal sealed class HouseholdPlanStore(
         var ids = household.Members.Select(m => m.UserId).ToList();
         var rows = await db.Plans
             .AsNoTracking()
+            .Include(p => p.Positions)
             .Where(p => ids.Contains(p.OwnerId))
-            .Select(p => new { p.OwnerId, p.Year, p.Month })
             .ToListAsync(cancellationToken);
         var members = household.Members.ToDictionary(m => m.UserId);
         return rows
             .Where(r => IsCounted(members[r.OwnerId], r.Year, r.Month))
-            .Select(r => new HouseholdPlanMonth(r.Year, r.Month))
-            .Distinct()
+            .GroupBy(r => (r.Year, r.Month))
+            .Select(g => new HouseholdPlanMonth(g.Key.Year, g.Key.Month, PlanFigures.Free(g.SelectMany(p => p.Positions))))
             .OrderByDescending(m => m.Year)
             .ThenByDescending(m => m.Month)
             .ToList();

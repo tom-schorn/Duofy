@@ -25,11 +25,16 @@ public static class HouseholdDriver
     public static string Grants(Guid householdId, Guid granteeId) => $"/api/v1/households/{householdId}/grants/{granteeId}";
 
     /// <summary>Registriert eine Person mit diesen Namen und meldet sie an.</summary>
-    public static async Task<Person> PersonAsync(this HttpClient client, string firstName, string lastName = "Muster")
+    public static async Task<Person> PersonAsync(
+        this HttpClient client, string firstName, string lastName = "Muster", DuofyApiFactory? withoutFirstAccount = null)
     {
         var email = NewEmail(firstName.ToLowerInvariant());
         (await client.RegisterAsync(new RegisterRequest(firstName, lastName, email, Password, AcceptedTerms: true)))
             .EnsureSuccessStatusCode();
+        if (withoutFirstAccount is not null)
+        {
+            await withoutFirstAccount.RemoveFirstAccountAsync(email);
+        }
         var login = await client.LoginAsync(email);
         login.EnsureSuccessStatusCode();
         var token = (await login.Content.ReadFromJsonAsync<TokenResponse>())!.AccessToken;
@@ -50,9 +55,10 @@ public static class HouseholdDriver
     }
 
     /// <summary>Registriert eine Person und lässt sie gleich einen Haushalt gründen.</summary>
-    public static async Task<Person> FounderAsync(this HttpClient client, string firstName, string lastName = "Muster")
+    public static async Task<Person> FounderAsync(
+        this HttpClient client, string firstName, string lastName = "Muster", DuofyApiFactory? withoutFirstAccount = null)
     {
-        var person = await client.PersonAsync(firstName, lastName);
+        var person = await client.PersonAsync(firstName, lastName, withoutFirstAccount);
         await client.FoundAsync(person);
         return person;
     }
@@ -97,10 +103,11 @@ public static class HouseholdDriver
     }
 
     /// <summary>Anna als Gründerin und Ben als Mitglied in ihrem Haushalt.</summary>
-    public static async Task<(Person Anna, Person Ben)> AnnaAndBenAsync(this HttpClient client)
+    public static async Task<(Person Anna, Person Ben)> AnnaAndBenAsync(
+        this HttpClient client, DuofyApiFactory? withoutFirstAccount = null)
     {
-        var anna = await client.FounderAsync("Anna");
-        var ben = await client.PersonAsync("Ben");
+        var anna = await client.FounderAsync("Anna", withoutFirstAccount: withoutFirstAccount);
+        var ben = await client.PersonAsync("Ben", withoutFirstAccount: withoutFirstAccount);
         await client.JoinAsync(anna, ben);
         return (anna, ben);
     }

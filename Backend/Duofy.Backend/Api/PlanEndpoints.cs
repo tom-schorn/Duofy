@@ -26,6 +26,8 @@ internal static class PlanEndpoints
 
     public static void MapPlanEndpoints(this IEndpointRouteBuilder v1)
     {
+        v1.MapGet("/plans", ListMonthsAsync).RequireAuthorization();
+
         var plan = v1.MapGroup("/plans/{year:int}/{month:int}").RequireAuthorization();
         plan.MapGet("", GetAsync);
         plan.MapPost("/positions", CreatePositionAsync);
@@ -61,6 +63,17 @@ internal static class PlanEndpoints
 
     private static IResult Conflict(string code) =>
         Results.Json(new ErrorResponse(code), statusCode: StatusCodes.Status409Conflict);
+
+    /// <summary>
+    /// Die Monate mit einem Plan und deren Frei-Betrag für die Plan-Übersicht (Spec 23); legt nichts an. Wie beim
+    /// Monat gilt <c>?owner=</c> mit der Freigabe im Bereich Planung.
+    /// </summary>
+    private static async Task<IResult> ListMonthsAsync(
+        Guid? owner, IAccess access, PlanStore plans, CancellationToken cancellationToken)
+    {
+        var (ownerId, denied) = await OwnerAsync(access, owner, Area.Plan, AccessLevel.View, ErrorCodes.OwnerNotFound, cancellationToken);
+        return denied ?? Results.Ok(await plans.MonthsAsync(ownerId, cancellationToken));
+    }
 
     /// <summary>Öffnet den Monat (R1); beim ersten Mal wird er aus den Verträgen angelegt.</summary>
     private static async Task<IResult> GetAsync(
@@ -608,15 +621,16 @@ internal static class PlanEndpoints
 
     /// <summary>
     /// Die Buchung zum Abhaken, vorbelegt aus dem Posten. Ihre Zeile füllt immer den eigenen Posten.
-    /// Mit Zielkonto ist sie eine Umbuchung mit einer Zeile im Topf Sparen, gleich in welchem Topf der
-    /// Posten steht; eine Umbuchung darf jeden Posten mit eigenem Zielkonto füllen (R6), von Hand genauso.
+    /// Mit Zielkonto ist sie eine Umbuchung; Quell- und Zieltopf sind beide der Topf des Postens (Spec 72, R9),
+    /// und eine Umbuchung darf jeden Posten mit eigenem Zielkonto füllen (R6), von Hand genauso.
     /// </summary>
     private static SaveBookingRequest TickBooking(PlanPosition position, int year, int month, decimal amount, Guid accountId, DateOnly date)
     {
         if (position.CounterAccountId is { } counter)
         {
+            var pot = PotKey.ToKey(position.Pot);
             return new SaveBookingRequest(BookingKinds.Transfer, accountId, counter, date, amount, position.Label,
-                [new SaveBookingLine(amount, PotKeys.Savings, null, position.Id)], year, month);
+                [new SaveBookingLine(amount, pot, null, position.Id)], year, month, TargetPot: pot);
         }
 
         var kind = position.Pot == Pot.Income ? BookingKinds.Income : BookingKinds.Expense;

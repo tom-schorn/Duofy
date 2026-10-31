@@ -26,6 +26,35 @@ public class BookingDialogPlanTests : PageTestContext
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-line-position-0']")));
     }
 
+    // Spec 72, A6
+    [Fact]
+    public void The_pot_is_marked_as_required_starts_empty_and_follows_the_category()
+    {
+        OpenDialog();
+
+        var pot = dialogs.Find("[data-testid='booking-line-pot-0']");
+        Assert.Equal("", pot.GetAttribute("value"));
+        Assert.Equal("true", pot.GetAttribute("aria-required"));
+        Assert.Contains("(bitte wählen)", pot.TextContent);
+        Assert.Contains("Topf (Pflicht)", dialogs.Markup);
+
+        dialogs.Find("[data-testid='booking-line-category-0']").Change(FakeCategoryApi.Restaurant.Id.ToString());
+
+        Assert.Equal(PotKeys.Wants, dialogs.Find("[data-testid='booking-line-pot-0']").GetAttribute("value"));
+    }
+
+    [Fact]
+    public void An_income_offers_only_its_pot_and_nothing_to_choose()
+    {
+        OpenDialog();
+
+        dialogs.Find("[data-testid='booking-kind-income']").Click();
+
+        var pot = dialogs.Find("[data-testid='booking-line-pot-0']");
+        Assert.Equal(PotKeys.Income, pot.GetAttribute("value"));
+        Assert.DoesNotContain("(bitte wählen)", pot.TextContent);
+    }
+
     [Fact]
     public void A_line_offers_the_open_positions_of_the_plan_month_and_sends_the_chosen_one()
     {

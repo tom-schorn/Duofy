@@ -59,7 +59,7 @@ public class HouseholdPlanTests : IDisposable
 
     private async Task<(HouseholdResponse Household, Member Anna, Member Ben)> AnnaAndBenWithGiroAsync()
     {
-        var (anna, ben) = await client.AnnaAndBenAsync();
+        var (anna, ben) = await client.AnnaAndBenAsync(fixture.Factory);
         return (await client.MineAsync(anna), await WithGiroAsync(anna), await WithGiroAsync(ben));
     }
 
@@ -99,6 +99,139 @@ public class HouseholdPlanTests : IDisposable
         fixture.Factory.WithDbAsync(db => db.HouseholdMembers
             .Where(m => userId == null || m.UserId == userId)
             .ExecuteUpdateAsync(s => s.SetProperty(m => m.JoinedAt, joinedAt)));
+
+    // Spec 24, A13: der Haushalt zeigt Festes, Frei und die Buchungen beider Mitglieder, neueste zuerst.
+    [Fact]
+    public async Task The_household_plan_carries_fixed_free_and_the_bookings_of_all_members()
+    {
+        var (household, anna, ben) = await AnnaAndBenWithGiroAsync();
+        await PositionAsync(anna.Person, "Gehalt", 3000.00m, Salary, PotKeys.Income);
+        var rent = await PositionAsync(anna.Person, "Miete", 1000.00m, Rent);
+        var power = await PositionAsync(ben.Person, "Strom", 200.00m, Groceries);
+        await BookAsync(anna, 1000.00m, PotKeys.Needs, Rent, rent.Id);
+        await BookAsync(ben, 60.00m, PotKeys.Needs, Groceries, power.Id);
+
+        await client.GrantAsync(ben.Person, anna.Person, new UpdateGrantsRequest(Book: AccessLevelKeys.View));
+
+        var plan = await HouseholdPlanAsync(anna.Person, household.Id);
+
+        Assert.Equal(1200.00m, plan.Fixed);
+        Assert.Equal(1800.00m, plan.Free);
+        Assert.Empty(plan.BookingsMissing!);
+        Assert.Equal(2, plan.Bookings!.Count);
+        Assert.Equal(["Anna", "Ben"], plan.Bookings.Select(b => b.OwnerFirstName).Order());
+        Assert.Equal(plan.Bookings.OrderByDescending(b => b.Date).Select(b => b.Id), plan.Bookings.Select(b => b.Id));
+    }
+
+    // Einzelne Buchungen folgen den Freigaben wie die Konten; wer nichts freigibt, steht mit Namen als fehlend da.
+    [Fact]
+    public async Task Single_bookings_show_only_for_members_who_granted_them_and_the_others_are_named()
+    {
+        var (household, anna, ben) = await AnnaAndBenWithGiroAsync();
+        await BookAsync(anna, 20.00m, PotKeys.Needs, Groceries);
+        await BookAsync(ben, 30.00m, PotKeys.Needs, Groceries);
+
+        var plan = await HouseholdPlanAsync(anna.Person, household.Id);
+
+        Assert.Equal([anna.Person.Id], plan.Bookings!.Select(b => b.OwnerId));
+        Assert.Equal(["Ben"], plan.BookingsMissing);
+    }
+
+    // Spec 46, A2: die Freigabe gilt je Richtung; die eigenen Buchungen sieht man immer.
+    [Fact]
+    public async Task The_booking_grant_counts_in_one_direction_and_the_own_bookings_always_show()
+    {
+        var (household, anna, ben) = await AnnaAndBenWithGiroAsync();
+        await BookAsync(anna, 20.00m, PotKeys.Needs, Groceries);
+        await BookAsync(ben, 30.00m, PotKeys.Needs, Groceries);
+        await client.GrantAsync(ben.Person, anna.Person, new UpdateGrantsRequest(Book: AccessLevelKeys.View));
+
+        var seenByAnna = await HouseholdPlanAsync(anna.Person, household.Id);
+        var seenByBen = await HouseholdPlanAsync(ben.Person, household.Id);
+
+        Assert.Equal(2, seenByAnna.Bookings!.Count);
+        Assert.Empty(seenByAnna.BookingsMissing!);
+        Assert.Equal([ben.Person.Id], seenByBen.Bookings!.Select(b => b.OwnerId));
+        Assert.Equal(["Anna"], seenByBen.BookingsMissing);
+    }
+
+    // Spec 46, A3: nimmt Ben die Freigabe zurück, verschwinden seine Buchungen aus der nächsten Antwort.
+    [Fact]
+    public async Task Taking_the_booking_grant_back_hides_the_bookings_again()
+    {
+        var (household, anna, ben) = await AnnaAndBenWithGiroAsync();
+        await BookAsync(ben, 30.00m, PotKeys.Needs, Groceries);
+        await client.GrantAsync(ben.Person, anna.Person, new UpdateGrantsRequest(Book: AccessLevelKeys.View));
+        Assert.Single((await HouseholdPlanAsync(anna.Person, household.Id)).Bookings!);
+
+        await client.GrantAsync(ben.Person, anna.Person, new UpdateGrantsRequest(Book: AccessLevelKeys.None));
+        var plan = await HouseholdPlanAsync(anna.Person, household.Id);
+
+        Assert.Empty(plan.Bookings!);
+        Assert.Equal(["Ben"], plan.BookingsMissing);
+    }
+
+    // Spec 46, A4: nur der Bereich Buchungen öffnet die Buchungen, nicht Konten oder Plan.
+    [Fact]
+    public async Task Grants_of_other_areas_do_not_show_the_bookings()
+    {
+        var (household, anna, ben) = await AnnaAndBenWithGiroAsync();
+        await BookAsync(ben, 30.00m, PotKeys.Needs, Groceries);
+        await client.GrantAsync(ben.Person, anna.Person,
+            new UpdateGrantsRequest(Plan: AccessLevelKeys.Delete, Accounts: AccessLevelKeys.Delete, Commitments: AccessLevelKeys.Delete));
+
+        var plan = await HouseholdPlanAsync(anna.Person, household.Id);
+
+        Assert.Empty(plan.Bookings!);
+        Assert.Equal(["Ben"], plan.BookingsMissing);
+    }
+
+    // Spec 46, A5 und A10: nichts Weiteres in den Antworten des Haushalts trägt die Kennung einer gesperrten Buchung.
+    [Fact]
+    public async Task No_answer_of_the_household_carries_the_id_of_a_hidden_booking()
+    {
+        var (household, anna, ben) = await AnnaAndBenWithGiroAsync();
+        var power = await PositionAsync(ben.Person, "Strom", 80.00m, Groceries);
+        await BookAsync(ben, 12.34m, PotKeys.Needs, Groceries, power.Id);
+        var hiddenId = (await HouseholdPlanAsync(ben.Person, household.Id)).Bookings!.Single().Id.ToString();
+
+        var plan = await client.SendAsync(anna.Person, HttpMethod.Get, PlanPath(household.Id));
+        var months = await client.SendAsync(anna.Person, HttpMethod.Get, $"/api/v1/households/{household.Id}/plans");
+        var mine = await client.SendAsync(anna.Person, HttpMethod.Get, "/api/v1/households/mine");
+
+        foreach (var response in new[] { plan, months, mine })
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var text = await response.Content.ReadAsStringAsync();
+            Assert.DoesNotContain(hiddenId, text, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    // Spec 46, A6: Summen, Quoten und Soll-Ist bleiben gleich, ob die Buchungen freigegeben sind oder nicht.
+    [Fact]
+    public async Task The_figures_are_the_same_with_and_without_the_booking_grant()
+    {
+        var (household, anna, ben) = await AnnaAndBenWithGiroAsync();
+        await PositionAsync(anna.Person, "Gehalt", 3000.00m, Salary, PotKeys.Income);
+        var power = await PositionAsync(ben.Person, "Strom", 80.00m, Groceries);
+        await BookAsync(ben, 60.00m, PotKeys.Needs, Groceries, power.Id);
+        await BookAsync(ben, 40.00m, PotKeys.Wants, Gifts);
+
+        var without = await HouseholdPlanAsync(anna.Person, household.Id);
+        await client.GrantAsync(ben.Person, anna.Person, new UpdateGrantsRequest(Book: AccessLevelKeys.View));
+        var with = await HouseholdPlanAsync(anna.Person, household.Id);
+
+        Assert.Empty(without.Bookings!);
+        Assert.Single(with.Bookings!, b => b.Amount == 60.00m);
+        Assert.Equal(with.Income, without.Income);
+        Assert.Equal(with.Fixed, without.Fixed);
+        Assert.Equal(with.Free, without.Free);
+        Assert.Equal(with.Unpaid, without.Unpaid);
+        Assert.Equal(with.Pots, without.Pots);
+        Assert.Equal(with.Quotas, without.Quotas);
+        Assert.Equal(with.Unplanned, without.Unplanned);
+        Assert.Equal(with.Positions.Select(p => (p.Id, p.Booked)), without.Positions.Select(p => (p.Id, p.Booked)));
+    }
 
     // A1
     [Fact]
@@ -197,6 +330,118 @@ public class HouseholdPlanTests : IDisposable
         Assert.Equal(2500.00m, plan.Pots.Single(p => p.Pot == PotKeys.Needs).Planned);
     }
 
+    private async Task SetQuotasAsync(Person founder, Guid householdId) =>
+        (await client.SendAsync(founder, HttpMethod.Patch, $"/api/v1/households/{householdId}",
+            new UpdateHouseholdRequest(QuotaNeeds: 50, QuotaWants: 30, QuotaSavings: 20))).EnsureSuccessStatusCode();
+
+    /// <summary>Anna mit Einnahmen 3000 und Grundbedarf 1800, Ben mit 2000 und 700, Quoten 50/30/20 (Spec 27, A1).</summary>
+    private async Task<(HouseholdResponse Household, Member Anna, Member Ben)> AnnaAndBenWithFiguresAsync()
+    {
+        var (household, anna, ben) = await AnnaAndBenWithGiroAsync();
+        var annasSalary = await PositionAsync(anna.Person, "Gehalt Anna", 3000.00m, Salary, PotKeys.Income);
+        var bensSalary = await PositionAsync(ben.Person, "Gehalt Ben", 2000.00m, Salary, PotKeys.Income);
+        var rent = await PositionAsync(anna.Person, "Miete", 1800.00m, Rent);
+        var power = await PositionAsync(ben.Person, "Strom", 700.00m, Groceries);
+        await BookAsync(anna, 3000.00m, PotKeys.Income, Salary, annasSalary.Id);
+        await BookAsync(ben, 2000.00m, PotKeys.Income, Salary, bensSalary.Id);
+        await BookAsync(anna, 1800.00m, PotKeys.Needs, Rent, rent.Id);
+        await BookAsync(ben, 700.00m, PotKeys.Needs, Groceries, power.Id);
+        await SetQuotasAsync(anna.Person, household.Id);
+        return (household, anna, ben);
+    }
+
+    // Spec 27, A1 und A5: je Person die Quote, der Haushalt unverändert
+    [Fact]
+    public async Task Each_counted_member_gets_their_own_quota_next_to_the_unchanged_household_figures()
+    {
+        var (household, anna, ben) = await AnnaAndBenWithFiguresAsync();
+
+        var plan = await HouseholdPlanAsync(anna.Person, household.Id);
+
+        Assert.Equal(50.0m, plan.Quotas.Single(q => q.Pot == PotKeys.Needs).Actual);
+        Assert.Equal(5000.00m, plan.Income);
+        Assert.Equal(2500.00m, plan.Pots.Single(p => p.Pot == PotKeys.Needs).Booked);
+        var members = plan.Members.ToDictionary(m => m.UserId);
+        Assert.Equal(2, members.Count);
+        Assert.Equal(("Anna", 3000.00m, true), (members[anna.Person.Id].FirstName, members[anna.Person.Id].Income, members[anna.Person.Id].HasIncome));
+        Assert.Equal(("Ben", 2000.00m, true), (members[ben.Person.Id].FirstName, members[ben.Person.Id].Income, members[ben.Person.Id].HasIncome));
+        Assert.Equal(60.0m, members[anna.Person.Id].Quotas.Single(q => q.Pot == PotKeys.Needs).Actual);
+        Assert.Equal(35.0m, members[ben.Person.Id].Quotas.Single(q => q.Pot == PotKeys.Needs).Actual);
+        Assert.Equal(new[] { PotKeys.Needs, PotKeys.Wants, PotKeys.Savings }, members[anna.Person.Id].Quotas.Select(q => q.Pot));
+    }
+
+    // Spec 27, A2: Ziel ist der Haushaltswert, Abweichung Ist minus Ziel
+    [Fact]
+    public async Task The_deviation_is_the_actual_minus_the_household_target_in_percentage_points()
+    {
+        var (household, anna, ben) = await AnnaAndBenWithFiguresAsync();
+
+        var plan = await HouseholdPlanAsync(ben.Person, household.Id);
+
+        var annasNeeds = plan.Members.Single(m => m.UserId == anna.Person.Id).Quotas.Single(q => q.Pot == PotKeys.Needs);
+        var bensNeeds = plan.Members.Single(m => m.UserId == ben.Person.Id).Quotas.Single(q => q.Pot == PotKeys.Needs);
+        Assert.Equal((50, 60.0m, 10.0m), (annasNeeds.Target, annasNeeds.Actual, annasNeeds.Deviation));
+        Assert.Equal((50, 35.0m, -15.0m), (bensNeeds.Target, bensNeeds.Actual, bensNeeds.Deviation));
+        var bensWants = plan.Members.Single(m => m.UserId == ben.Person.Id).Quotas.Single(q => q.Pot == PotKeys.Wants);
+        Assert.Equal((30, 0.0m, -30.0m), (bensWants.Target, bensWants.Actual, bensWants.Deviation));
+    }
+
+    // Spec 27, A3: durchlaufende Posten und der Übertrag zählen bei einer Person nirgends
+    [Fact]
+    public async Task Pass_through_and_the_carry_over_count_for_no_member()
+    {
+        var (household, anna, ben) = await AnnaAndBenWithGiroAsync();
+        (await client.SendAsync(anna.Person, HttpMethod.Post, "/api/v1/commitments",
+            new CreateCommitmentRequest(CommitmentTypes.Contract, "Weiterleitung", 200.00m, 1, new DateOnly(2026, 1, 1), null, Groceries, PotKeys.Needs,
+                PassThrough: true, PaymentMethod: PaymentMethods.Other))).EnsureSuccessStatusCode();
+        var salary = await PositionAsync(anna.Person, "Gehalt Anna", 3000.00m, Salary, PotKeys.Income);
+        var rent = await PositionAsync(anna.Person, "Miete", 1800.00m, Rent);
+        var forwarding = (await HouseholdPlanAsync(anna.Person, household.Id)).Positions.Single(p => p.Label == "Weiterleitung");
+        await BookAsync(anna, 3000.00m, PotKeys.Income, Salary, salary.Id);
+        await BookAsync(anna, 1800.00m, PotKeys.Needs, Rent, rent.Id);
+        await BookAsync(anna, 200.00m, PotKeys.Needs, Groceries, forwarding.Id);
+        (await client.SendAsync(anna.Person, HttpMethod.Post, "/api/v1/plans/2026/11/carry-over", new CreateCarryOverRequest(500.00m)))
+            .EnsureSuccessStatusCode();
+        await SetQuotasAsync(anna.Person, household.Id);
+
+        var plan = await HouseholdPlanAsync(ben.Person, household.Id);
+
+        var annas = plan.Members.Single(m => m.UserId == anna.Person.Id);
+        Assert.Equal(3000.00m, annas.Income);
+        Assert.Equal(60.0m, annas.Quotas.Single(q => q.Pot == PotKeys.Needs).Actual);
+    }
+
+    // Spec 27, A4: ohne Einnahmen ist das Ist 0, hasIncome false und es gibt keinen Fehler
+    [Fact]
+    public async Task A_member_without_income_has_actual_zero_and_is_flagged()
+    {
+        var (household, anna, ben) = await AnnaAndBenWithGiroAsync();
+        var salary = await PositionAsync(anna.Person, "Gehalt Anna", 3000.00m, Salary, PotKeys.Income);
+        var power = await PositionAsync(ben.Person, "Strom", 700.00m, Groceries);
+        await BookAsync(anna, 3000.00m, PotKeys.Income, Salary, salary.Id);
+        await BookAsync(ben, 700.00m, PotKeys.Needs, Groceries, power.Id);
+        await SetQuotasAsync(anna.Person, household.Id);
+
+        var plan = await HouseholdPlanAsync(anna.Person, household.Id);
+
+        var bens = plan.Members.Single(m => m.UserId == ben.Person.Id);
+        Assert.Equal((0m, false), (bens.Income, bens.HasIncome));
+        Assert.All(bens.Quotas, q => Assert.Equal(0m, q.Actual));
+        Assert.Equal(-50.0m, bens.Quotas.Single(q => q.Pot == PotKeys.Needs).Deviation);
+    }
+
+    // Spec 27, A7: auch ohne Freigabe stehen die Zahlen beider in members
+    [Fact]
+    public async Task Both_members_are_listed_for_the_viewer_although_nothing_is_granted()
+    {
+        var (household, anna, ben) = await AnnaAndBenWithFiguresAsync();
+
+        var plan = await HouseholdPlanAsync(ben.Person, household.Id);
+
+        Assert.Equal(new[] { anna.Person.Id, ben.Person.Id }.Order(),plan.Members.Select(m => m.UserId).Order());
+        Assert.Equal(60.0m, plan.Members.Single(m => m.UserId == anna.Person.Id).Quotas.Single(q => q.Pot == PotKeys.Needs).Actual);
+    }
+
     // A4
     [Fact]
     public async Task Bookings_without_a_position_are_unplanned_by_pot_but_transfers_and_the_carry_over_are_not()
@@ -205,7 +450,8 @@ public class HouseholdPlanTests : IDisposable
         await BookAsync(ben, 40.00m, PotKeys.Wants, Gifts);
         var savings = await WithGiroAsync(ben.Person);
         (await client.SendAsync(ben.Person, HttpMethod.Post, "/api/v1/bookings",
-            new SaveBookingRequest(BookingKinds.Transfer, ben.Giro, savings.Giro, new DateOnly(2026, 11, 6), 100.00m, null, null)))
+            new SaveBookingRequest(BookingKinds.Transfer, ben.Giro, savings.Giro, new DateOnly(2026, 11, 6), 100.00m, null,
+                [new SaveBookingLine(100.00m, PotKeys.Savings, null)], TargetPot: PotKeys.Wants)))
             .EnsureSuccessStatusCode();
         (await client.SendAsync(anna.Person, HttpMethod.Post, "/api/v1/plans/2026/11/carry-over", new CreateCarryOverRequest(500.00m)))
             .EnsureSuccessStatusCode();
@@ -312,8 +558,8 @@ public class HouseholdPlanTests : IDisposable
         var response = await client.SendAsync(ben.Person, HttpMethod.Get, $"/api/v1/households/{household.Id}/plans");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal([new HouseholdPlanMonth(2026, 11), new HouseholdPlanMonth(2026, 10)],
-            await response.Content.ReadFromJsonAsync<List<HouseholdPlanMonth>>());
+        Assert.Equal([(2026, 11), (2026, 10)],
+            (await response.Content.ReadFromJsonAsync<List<HouseholdPlanMonth>>())!.Select(m => (m.Year, m.Month)));
     }
 
     // A8
@@ -321,7 +567,7 @@ public class HouseholdPlanTests : IDisposable
     public async Task Accounts_show_only_for_members_who_granted_them_and_the_others_are_named()
     {
         var (household, anna, ben) = await AnnaAndBenWithGiroAsync();
-        var clara = await WithGiroAsync(await client.PersonAsync("Clara"));
+        var clara = await WithGiroAsync(await client.PersonAsync("Clara", withoutFirstAccount: fixture.Factory));
         await client.JoinAsync(anna.Person, clara.Person);
         await client.GrantAsync(anna.Person, ben.Person, new UpdateGrantsRequest(Accounts: AccessLevelKeys.View));
 

@@ -1,17 +1,16 @@
-@implements IDisposable
-@inject NavigationManager Navigation
+@inherits DestinationNavigationBase
 @inject IStringLocalizer<SharedResources> L
 
 @* Die untere Leiste der App: vier Ziele mit Symbol und Beschriftung, das aktuelle ist hervorgehoben.
-   MudBlazor hat keine fertige Leiste dafür, sie besteht aus MudButtons. Die Leiste hört selbst auf
-   Adresswechsel, weil das Layout sie sonst nicht neu zeichnet (sie hat keine Parameter).
+   MudBlazor hat keine fertige Leiste dafür, sie besteht aus MudButtons. Ziele und Adresswechsel
+   kommen aus DestinationNavigationBase, wie bei der Seitenleiste (SideNavigation).
 
    Unten kommt der Abstand zur Systemleiste dazu (siehe .app-bottom-bar in app.css). *@
 
 <nav class="app-bottom-bar" aria-label="@L["AppLayout_Navigation"]" data-testid="bottom-bar">
-    @foreach (var item in AppDestinations.All)
+    @foreach (var item in Destinations)
     {
-        var active = item.Destination == current;
+        var active = item.Destination == Current;
         <MudButton Href="@item.Href" Variant="Variant.Text" Color="@(active ? Color.Primary : Color.Default)"
                    Class="@(active ? "app-bottom-item app-bottom-item-active" : "app-bottom-item")"
                    aria-current="@(active ? "page" : null)" data-testid="@($"bottom-{item.Destination}".ToLowerInvariant())">
@@ -20,21 +19,3 @@
         </MudButton>
     }
 </nav>
-
-@code {
-    private AppDestination? current;
-
-    protected override void OnInitialized()
-    {
-        current = AppDestinations.For(Navigation.ToBaseRelativePath(Navigation.Uri));
-        Navigation.LocationChanged += OnLocationChanged;
-    }
-
-    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
-    {
-        current = AppDestinations.For(Navigation.ToBaseRelativePath(e.Location));
-        InvokeAsync(StateHasChanged);
-    }
-
-    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
-}

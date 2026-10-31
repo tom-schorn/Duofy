@@ -62,7 +62,8 @@ internal static class BookingEndpoints
         booking.Note,
         booking.Lines.Select(l => new BookingLineResponse(l.Id, l.Amount, PotKey.ToKey(l.Pot), l.CategoryId, l.PositionId)).ToList(),
         booking.PlanYear,
-        booking.PlanMonth);
+        booking.PlanMonth,
+        booking.TargetPot is { } target ? PotKey.ToKey(target) : null);
 
     /// <summary>
     /// Die Buchungen eines Monats, die neueste zuerst, mit den Summen (R8). Mit <c>accountId</c>
@@ -289,6 +290,8 @@ internal static class BookingEndpoints
     {
         booking.AccountId = request.AccountId;
         booking.CounterAccountId = request.Kind == BookingKinds.Transfer ? request.CounterAccountId : null;
+        // Der Zieltopf ist geprüft; TryParse kann hier nicht mehr scheitern.
+        booking.TargetPot = request.Kind == BookingKinds.Transfer && PotKey.TryParse(request.TargetPot, out var targetPot) ? targetPot : null;
         booking.PaymentDate = request.Date;
         booking.Amount = request.Amount;
         booking.Note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim();

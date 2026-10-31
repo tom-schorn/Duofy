@@ -31,27 +31,35 @@ public class HouseholdPlanPageTests : PageTestContext
     private ActiveMember Member => Services.GetRequiredService<ActiveMember>();
 
     private static string Names(IRenderedComponent<MemberSwitch> cut) =>
-        string.Join(",", cut.FindAll("[data-testid='member-switch'] option").Select(o => o.TextContent.Trim()));
+        string.Join(",", cut.FindAll("[data-testid^='member-choice-']").Select(o => o.TextContent.Trim()));
+
+    private static IRenderedComponent<MemberSwitch> Open(IRenderedComponent<MemberSwitch> cut)
+    {
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='member-profile']")));
+        cut.Find("[data-testid='member-profile']").Click();
+        return cut;
+    }
 
     // R9
     [Fact]
-    public void In_a_household_of_two_the_switch_offers_the_household_even_without_any_grant()
+    public void In_a_household_of_two_the_menu_offers_the_household_even_without_any_grant()
     {
-        var cut = Render<MemberSwitch>();
+        var cut = Open(Render<MemberSwitch>());
 
-        cut.WaitForAssertion(() => Assert.Equal("Ich,Haushalt", Names(cut)));
+        cut.WaitForAssertion(() => Assert.Equal("button", cut.Find("[data-testid='member-choice-household']").TagName.ToLowerInvariant()));
+        Assert.Equal("Ich,Haushalt", Names(cut));
     }
 
-    // A10: Bei einem Haushalt von einem gibt es kein "Haushalt".
+    // A10, Spec 44 A2: Bei einem Haushalt von einem ist "Haushalt" sichtbar, aber nicht verfügbar.
     [Fact]
-    public void In_a_household_of_one_there_is_no_switch()
+    public void In_a_household_of_one_the_household_entry_is_unavailable()
     {
         HouseholdApiFake.Household = household with { Members = [FakeHouseholdApi.Ben(isMe: true)] };
 
-        var cut = Render<MemberSwitch>();
+        var cut = Open(Render<MemberSwitch>());
 
         cut.WaitForAssertion(() => Assert.Equal(1, HouseholdApiFake.MineCalls));
-        Assert.Empty(cut.FindAll("[data-testid='member-switch']"));
+        Assert.Equal("true", cut.Find("[data-testid='member-choice-household']").GetAttribute("aria-disabled"));
     }
 
     [Fact]
@@ -61,16 +69,17 @@ public class HouseholdPlanPageTests : PageTestContext
         {
             Members = [FakeHouseholdApi.Anna(isMe: false) with { GrantsToMe = GrantLevels.None with { Plan = AccessLevelKeys.View } }, FakeHouseholdApi.Ben(isMe: true)],
         };
-        var cut = Render<MemberSwitch>();
+        var cut = Open(Render<MemberSwitch>());
         cut.WaitForAssertion(() => Assert.Equal("Ich,Anna,Haushalt", Names(cut)));
-        cut.Find("[data-testid='member-switch']").Change(FakeHouseholdApi.AnnaId.ToString());
+        cut.Find($"[data-testid='member-choice-{FakeHouseholdApi.AnnaId}']").Click();
 
-        cut.Find("[data-testid='member-switch']").Change("household");
+        cut.Find("[data-testid='member-profile']").Click();
+        cut.Find("[data-testid='member-choice-household']").Click();
 
         Assert.True(Member.IsHousehold);
         Assert.Null(Member.Owner);
         Assert.False(Member.Allows(GrantAreas.Plan, AccessLevelKeys.View));
-        Assert.Equal("household", cut.Find("[data-testid='member-switch']").GetAttribute("value"));
+        Assert.Equal("Haushalt", cut.Find("[data-testid='member-profile']").TextContent.Trim());
     }
 
     [Fact]
@@ -101,6 +110,7 @@ public class HouseholdPlanPageTests : PageTestContext
         Member.ChooseHousehold();
 
         var cut = Render<Plan>();
+        OpenPlanTab(cut);
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll($"[data-testid='household-position-{rent.Id}']")));
 
         Assert.Equal("Haushalt von Anna", cut.Find("[data-testid='household-name']").TextContent.Trim());
@@ -146,6 +156,7 @@ public class HouseholdPlanPageTests : PageTestContext
         Member.ChooseHousehold();
 
         var cut = Render<Plan>();
+        OpenPlanTab(cut);
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='household-accounts']")));
 
         Assert.Contains("Giro", cut.Find("[data-testid='household-accounts']").TextContent);
@@ -180,7 +191,7 @@ public class HouseholdPlanPageTests : PageTestContext
         Member.ChooseHousehold();
 
         var cut = Render<Plan>();
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='plan-sums']")));
+        OpenPlanTab(cut);
 
         var sums = cut.Find("[data-testid='plan-sums']").TextContent;
         Assert.Contains("5.000,00 €", sums);
@@ -228,6 +239,6 @@ public class HouseholdPlanPageTests : PageTestContext
         await Member.RefreshAsync();
 
         Assert.False(Member.IsHousehold);
-        Assert.False(Member.HasSwitch);
+        Assert.False(Member.CanShowHousehold);
     }
 }

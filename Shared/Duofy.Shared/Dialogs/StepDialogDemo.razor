@@ -1,0 +1,58 @@
+@page "/schritt-dialog"
+@using Duofy.Shared.Pages
+@inject IServiceProvider Services
+@inject NavigationManager Navigation
+@inject IDialogService DialogService
+
+@* Die Testseite des Schritt-Dialogs (Spec 11), wie die der Bausteine nur im Entwicklungsbetrieb da.
+   Ohne Meldung des Hosts (Produktion, App) zeigt sie nichts und die Adresse gilt als nicht gefunden.
+   Zum Prüfen der Größe das Fenster unter 600 px schmal ziehen: Dann füllt der Dialog den Bildschirm. *@
+
+@if (IsDevelopment)
+{
+    <PageTitle>@Heading</PageTitle>
+    <h1 class="mud-typography mud-typography-h4 mb-4">@Heading</h1>
+
+    <div class="step-dialog-demo">
+        <span data-testid="step-dialog-demo-open">
+            <DuofyButton Kind="ButtonKind.Primary" OnClick="OpenAsync">@OpenText</DuofyButton>
+        </span>
+        @if (result is not null)
+        {
+            <p data-testid="step-dialog-demo-result">@result</p>
+        }
+    </div>
+}
+else
+{
+    <NotFound />
+}
+
+@code {
+    private bool IsDevelopment => (Services.GetService(typeof(IDevelopmentMode)) as IDevelopmentMode)?.IsDevelopment == true;
+
+    // Ohne Entwicklungsbetrieb antwortet der Server mit 404 wie bei jeder unbekannten Adresse.
+    protected override void OnInitialized()
+    {
+        if (!IsDevelopment)
+        {
+            Navigation.NotFound();
+        }
+    }
+
+    // Die Testseite ist nur für das Team: Ihre Texte stehen hier statt in den Textdateien (SharedResources).
+    private const string Heading = "Schritt-Dialog";
+    private const string OpenText = "Beispiel öffnen";
+    private const string DialogTitle = "Vertrag anlegen (Beispiel)";
+    private const string Saved = "Gespeichert: {0}";
+    private const string Cancelled = "Abgebrochen";
+
+    private string? result;
+
+    private async Task OpenAsync()
+    {
+        var dialog = await DialogService.ShowAsync<StepDialogDemoDialog>(DialogTitle, StepDialogOptions.Create());
+        var closed = await dialog.Result;
+        result = closed is null || closed.Canceled ? Cancelled : string.Format(Saved, closed.Data);
+    }
+}

@@ -147,6 +147,31 @@ public class BookingsPageTests : PageTestContext
         cut.WaitForAssertion(() => Assert.Contains("Umbuchung: Girokonto → Bargeld", cut.Markup));
     }
 
+    // Spec 72, R9: Die Liste nennt Quell- und Zieltopf als Text, nicht nur durch Farbe.
+    [Fact]
+    public void A_transfer_shows_its_source_and_target_pot_as_text()
+    {
+        var transfer = FakeBookingApi.Transfer(giro.Id, cash.Id, new DateOnly(2026, 10, 7), 100m);
+        BookingApiFake.Bookings.Add(transfer);
+
+        var cut = OpenPage();
+
+        cut.WaitForAssertion(() => Assert.Contains("Sparen → Wünsche", cut.Find($"[data-testid='booking-transfer-pots-{transfer.Id}']").TextContent));
+    }
+
+    // Spec 72, R9: Eine ältere Umbuchung ohne Töpfe bleibt lesbar und wird angezeigt.
+    [Fact]
+    public void An_older_transfer_without_pots_is_still_listed()
+    {
+        var older = FakeBookingApi.Transfer(giro.Id, cash.Id, new DateOnly(2026, 10, 7), 100m) with { Lines = [], TargetPot = null };
+        BookingApiFake.Bookings.Add(older);
+
+        var cut = OpenPage();
+
+        cut.WaitForAssertion(() => Assert.Contains("Umbuchung: Girokonto → Bargeld", cut.Markup));
+        Assert.Empty(cut.FindAll($"[data-testid='booking-transfer-pots-{older.Id}']"));
+    }
+
     [Fact]
     public void Accounts_that_cannot_be_loaded_show_the_error_and_not_the_hint_to_create_one()
     {
@@ -377,7 +402,19 @@ public class BookingsPageTests : PageTestContext
 
         dialogs.WaitForAssertion(() => Assert.NotNull(dialogs.Find("[data-testid='booking-counter-account']")));
         Assert.Empty(dialogs.FindAll("[data-testid='booking-line-category-0']"));
+        // Spec 72, R9: Quelle und Ziel sind Pflichtfelder ohne Vorauswahl.
+        var source = dialogs.Find("[data-testid='booking-transfer-source-pot']");
+        var target = dialogs.Find("[data-testid='booking-transfer-target-pot']");
+        Assert.Equal(("", ""), (source.GetAttribute("value"), target.GetAttribute("value")));
+        Assert.Equal("true", source.GetAttribute("aria-required"));
+        Assert.Equal("true", target.GetAttribute("aria-required"));
+        Assert.Contains("Von Topf (Pflicht)", dialogs.Markup);
+        Assert.Contains("Zu Topf (Pflicht)", dialogs.Markup);
+        Assert.Contains("(bitte wählen)", source.TextContent);
+
         SelectIn(dialogs, "booking-counter-account", cash.Id.ToString());
+        SelectIn(dialogs, "booking-transfer-source-pot", PotKeys.Savings);
+        SelectIn(dialogs, "booking-transfer-target-pot", PotKeys.Wants);
         Input(dialogs, "booking-amount").Change("100");
         dialogs.Find("[data-testid='booking-save']").Click();
 
@@ -385,7 +422,8 @@ public class BookingsPageTests : PageTestContext
         var request = BookingApiFake.Created[0];
         Assert.Equal(BookingKinds.Transfer, request.Kind);
         Assert.Equal(cash.Id, request.CounterAccountId);
-        Assert.Empty(request.Lines!);
+        Assert.Equal(PotKeys.Savings, Assert.Single(request.Lines!).Pot);
+        Assert.Equal(PotKeys.Wants, request.TargetPot);
     }
 
     [Fact]

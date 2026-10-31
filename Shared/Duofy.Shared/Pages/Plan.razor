@@ -1,25 +1,31 @@
-@page "/plan"
+@page "/plan/{Year:int}/{Month:int}"
 @attribute [Authorize]
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
+@using Duofy.Shared.Pages.Month
 @implements IDisposable
 @inject IPlanApi PlanApi
 @inject ICategoryApi CategoryApi
 @inject IAccountChoices AccountChoices
 @inject IDialogService DialogService
+@inject BookingDialogLauncher Launcher
 @inject FormDialogs Forms
 @inject IAppHost Host
 @inject AppChrome Chrome
 @inject ActiveMember Member
 @inject TimeProvider Time
+@inject NavigationManager Navigation
 @inject IStringLocalizer<SharedResources> L
 
-@* Der Monatsplan (Spec 66): ein Monat mit seinen Posten nach Topf, geplant und gebucht je Posten,
+@* Der Monatsplan (Spec 66) unter /plan/{Jahr}/{Monat} (Spec 23): ein Monat mit seinen Posten nach Topf, geplant und gebucht je Posten,
    Ziel und Ist der Quoten, der Hinweis auf geänderte Verträge und der Übertrag.
 
    Die Seite rechnet nichts selbst. Gebuchte Beträge, Quoten und Unterschiede schickt die API mit;
    nach jeder Änderung holt die Seite den Monat neu. Der Plus-Knopf legt einen einmaligen Posten an.
+
+   Seit Spec 24 hat der Monat drei Tabs: Übersicht (zuerst), Plan (die Posten wie bisher) und Buchungen (die diesem
+   Planmonat zugeordneten). Der gewählte Tab bleibt beim Blättern zwischen den Monaten.
 
    Mit dem Umschalter zeigt die Seite den Monat eines anderen Mitglieds (Spec 68). Was dessen Freigabe nicht
    erlaubt, ist ausgegraut, und der Grund steht einmal oben; ohne Planung Ansehen sagt die Seite nur, dass die
@@ -27,10 +33,13 @@
 
 <PageTitle>@L["Nav_Plan"]</PageTitle>
 
+@* Der Weg zurück zur Übersicht der Monate (Spec 23, R6); er gilt für den eigenen Plan wie für den des Haushalts. *@
+<MudLink Href="/plan" Class="d-inline-block mb-2" data-testid="plan-back">@L["Plan_BackToMonths"]</MudLink>
+
 @* Mit "Haushalt" im Umschalter zeigt die Seite den Haushaltsplan (Spec 69), nur zum Lesen. *@
 @if (Member.IsHousehold)
 {
-    <HouseholdPlanView />
+    <HouseholdPlanView Year="year" Month="month" OnMove="MoveAsync" />
 }
 else
 {
@@ -66,8 +75,28 @@ else
 
 <Notice Message="message" />
 
+<MonthTabs Active="tab" ActiveChanged="SelectTab" />
+<div role="tabpanel" id="month-panel" aria-labelledby="@($"month-tab-{MonthTabs.Key(tab)}")">
 @if (plan is not null)
 {
+    @if (tab == MonthTab.Overview)
+    {
+        <MonthOverview Model="MonthView.ForPerson(plan, Today, AccountName)" SeesBookings="SeesBookings" CanBook="CanBook" CanAddPosition="CanAdd"
+                       OnNewBooking="NewBookingAsync" OnNewPosition="AddAsync" OnTick="ShowPlanTab" />
+    }
+    else if (tab == MonthTab.Bookings)
+    {
+        @if (SeesBookings)
+        {
+            <MonthBookings Rows="MonthView.BookingRows(plan.Overview?.Bookings ?? [], AccountName)" />
+        }
+        else
+        {
+            <MudText Color="Color.Secondary" data-testid="bookings-not-shared">@L["Grant_NotShared"]</MudText>
+        }
+    }
+    else
+    {
     @* Geänderte Verträge: vorher und nachher je Unterschied, alle oder einzeln übernehmen (R2). *@
     @if (plan.Changes.Count > 0)
     {
@@ -115,40 +144,11 @@ else
         <MudText Color="Color.Secondary" Class="mb-2" data-testid="plan-empty">@L["Plan_Empty"]</MudText>
     }
 
-    @* Die Posten nach Topf. *@
+    @* Die Posten nach Topf, je Topf eine Linientabelle mit Haken (Spec 24, R5). *@
     @foreach (var group in PlanView.Groups(plan))
     {
         <MudText Typo="Typo.subtitle1" Class="mt-3 mb-1" data-testid="@($"plan-group-{group.Pot}")">@L[$"Pot_{group.Pot}"]</MudText>
-        <MudStack Spacing="2">
-            @foreach (var position in group.Positions)
-            {
-                var current = position;
-                var done = position.DoneAt is not null;
-                var toggle = CanToggle(position);
-                <MudPaper Class="pa-3" Outlined="true" data-testid="@($"plan-position-{position.Id}")">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                        <MudCheckBox T="bool" Value="done" ValueChanged="_ => ToggleAsync(current)" Color="Color.Primary"
-                                     ReadOnly="!toggle" Class="@GrantLock.Class(toggle)" @attributes="GrantLock.Attributes(toggle)"
-                                     aria-label="@L[done ? "Plan_Untick" : "Plan_Tick"]"
-                                     data-testid="@($"plan-tick-{position.Id}")" />
-                        <MudStack Spacing="0" Class="flex-grow-1">
-                            <MudText Color="@(done ? Color.Secondary : Color.Default)">@position.Label</MudText>
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">@Caption(position)</MudText>
-                        </MudStack>
-                        <MudText Typo="Typo.body2" data-testid="@($"plan-amounts-{position.Id}")">@L["Plan_Amounts", Money(position.AmountPlanned), Money(position.Booked)]</MudText>
-                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditAsync(current)"
-                                       Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
-                                       aria-label="@L["Plan_Edit"]" data-testid="@($"plan-edit-{position.Id}")" />
-                        @if (PlanView.CanDelete(position))
-                        {
-                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => DeleteAsync(current)"
-                                           Class="@GrantLock.Class(CanDelete)" @attributes="GrantLock.Attributes(CanDelete)"
-                                           aria-label="@L["Plan_Delete"]" data-testid="@($"plan-delete-{position.Id}")" />
-                        }
-                    </MudStack>
-                </MudPaper>
-            }
-        </MudStack>
+        <LineTable Caption="@L[$"Pot_{group.Pot}"]" HideCaption="true" Rows="PositionRows(group.Positions)" />
     }
 
     @* Der Übertrag in diesen Monat (R9). *@
@@ -169,7 +169,9 @@ else
                        data-testid="plan-carry-over-open">@L["Plan_CarryOver"]</MudButton>
         }
     </MudPaper>
+    }
 }
+</div>
 }
 }
 
@@ -177,12 +179,27 @@ else
 
     private static readonly CultureInfo German = new("de-DE");
 
+    /// <summary>Das Jahr aus der Adresse /plan/{Jahr}/{Monat}; ohne Angabe der laufende Monat.</summary>
+    [Parameter] public int? Year { get; set; }
+
+    /// <summary>Der Monat aus der Adresse, 1 bis 12.</summary>
+    [Parameter] public int? Month { get; set; }
+
     private int year;
     private int month;
+    private bool opened;
     private PlanResponse? plan;
     private List<CategoryResponse> categories = [];
     private IReadOnlyList<AccountChoice> accounts = [];
     private NoticeMessage? message;
+
+    private MonthTab tab = MonthTab.Overview;
+    private DateOnly Today => DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
+
+    private void SelectTab(MonthTab selected) => tab = selected;
+    private void ShowPlanTab() => tab = MonthTab.Plan;
+
+    private string? AccountName(Guid id) => accounts.FirstOrDefault(a => a.Id == id)?.Name;
 
     private string MonthTitle => new DateOnly(year, month, 1).ToString("MMMM yyyy", German);
 
@@ -192,6 +209,8 @@ else
     private bool CanAdd => Member.Allows(GrantAreas.Plan, AccessLevelKeys.Create);
     private bool CanEdit => Member.Allows(GrantAreas.Plan, AccessLevelKeys.Edit);
     private bool CanDelete => Member.Allows(GrantAreas.Plan, AccessLevelKeys.Delete);
+    private bool SeesBookings => Member.Allows(GrantAreas.Book, AccessLevelKeys.View);
+    private bool CanBook => Member.Allows(GrantAreas.Book, AccessLevelKeys.Create) && SeesAccounts;
     private bool SeesAccounts => Member.Allows(GrantAreas.Accounts, AccessLevelKeys.View);
     private bool CanTick => Member.Allows(GrantAreas.Book, AccessLevelKeys.Edit) && SeesAccounts;
     private bool CanUntick => Member.Allows(GrantAreas.Book, AccessLevelKeys.Delete);
@@ -209,16 +228,69 @@ else
 
     private bool CanToggle(PlanPositionResponse position) => position.DoneAt is null ? CanTick : CanUntick;
 
+    /// <summary>
+    /// Der Monat der Adresse; ohne Jahr und Monat (Aufruf ohne Adresse) der laufende. Ein Monat, den es nicht gibt
+    /// (13, Jahr 0), ergibt null.
+    /// </summary>
+    private (int Year, int Month)? Requested()
+    {
+        if (Year is not { } requestedYear || Month is not { } requestedMonth)
+        {
+            var today = DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
+            return (today.Year, today.Month);
+        }
+        return requestedMonth is >= 1 and <= 12 && requestedYear is >= PlanRules.FirstYear and <= PlanRules.LastYear
+            ? (requestedYear, requestedMonth)
+            : null;
+    }
+
     protected override async Task OnInitializedAsync()
     {
-        // Die Seite öffnet immer den laufenden Monat; der Plus-Knopf legt einen einmaligen Posten an.
+        // Die Seite zeigt den Monat der Adresse; der Plus-Knopf legt einen einmaligen Posten an.
         var today = DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
         (year, month) = (today.Year, today.Month);
+        var requested = Requested();
+        if (requested is { } open)
+        {
+            (year, month) = open;
+        }
         Chrome.Set(this, L["Nav_Plan"], AddAsync, L["Plan_AddPosition"]);
         // Erst nach dem ersten Laden zuhören: Das Laden selbst meldet sich auch als Änderung.
         await Member.LoadAsync();
         Member.Changed += OnMemberChanged;
+        if (requested is null)
+        {
+            // Einen Monat, den es nicht gibt, ersetzt die Übersicht; zurück führt dann nichts auf die kaputte Adresse.
+            Navigation.NavigateTo("/plan", replace: true);
+            return;
+        }
         await LoadAllAsync();
+        opened = true;
+    }
+
+    // Die Adresse zeigt einen anderen Monat (Link, Zurück-Knopf des Browsers): diesen Monat holen. Der erste Aufruf
+    // gehört dem Öffnen oben, und ein Monat, auf den die Seite selbst gepaart hat, steht schon da.
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!opened)
+        {
+            return;
+        }
+        if (Requested() is not { } requested)
+        {
+            Navigation.NavigateTo("/plan", replace: true);
+            return;
+        }
+        if (requested == (year, month))
+        {
+            return;
+        }
+        (year, month) = requested;
+        message = null;
+        if (!Member.IsHousehold && SeesPlan)
+        {
+            await LoadAsync();
+        }
     }
 
     public void Dispose()
@@ -279,7 +351,12 @@ else
     {
         (year, month) = PlanView.Shift(year, month, by);
         message = null;
-        await LoadAsync();
+        // Die Adresse folgt dem Monat, ohne einen Eintrag im Verlauf (Spec 23): Zurück führt zur Übersicht.
+        Navigation.NavigateTo($"/plan/{year}/{month}", replace: true);
+        if (!Member.IsHousehold)
+        {
+            await LoadAsync();
+        }
     }
 
     /// <summary>Zeigt das Ergebnis einer Änderung und holt den Monat neu.</summary>
@@ -288,6 +365,17 @@ else
         message = result.Succeeded
             ? new NoticeMessage(L[successKey], Severity.Success)
             : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+        await LoadAsync();
+    }
+
+    // Die schnelle Aktion "Neue Buchung" (Spec 24, R12): derselbe Dialog wie auf der Buchungsseite.
+    private async Task NewBookingAsync()
+    {
+        if (!CanBook)
+        {
+            return;
+        }
+        message = await Launcher.OpenAsync(null, accounts, categories, new DateOnly(year, month, 1)) ?? message;
         await LoadAsync();
     }
 
@@ -422,6 +510,31 @@ else
             await AfterAsync(await PlanApi.DeleteCarryOverAsync(year, month, Member.Owner), "Plan_CarryOverRemoved");
         }
     }
+
+    // Die Zeilen eines Topfs für die Linientabelle: vorne der Haken, hinten Beträge und Knöpfe, darunter der Nebentext.
+    private IReadOnlyList<LineTableRow> PositionRows(IReadOnlyList<PlanPositionResponse> positions) => positions
+        .Select(position => new LineTableRow(
+            position.Label, null, Caption(position),
+            Leading: TickBox(position), Trailing: PositionActions(position), TestId: $"plan-position-{position.Id}"))
+        .ToList();
+
+    private RenderFragment TickBox(PlanPositionResponse position) => @<MudCheckBox T="bool" Value="position.DoneAt is not null" ValueChanged="_ => ToggleAsync(position)" Color="Color.Primary"
+                     ReadOnly="!CanToggle(position)" Class="@GrantLock.Class(CanToggle(position))" @attributes="GrantLock.Attributes(CanToggle(position))"
+                     aria-label="@L[position.DoneAt is not null ? "Plan_Untick" : "Plan_Tick"]"
+                     data-testid="@($"plan-tick-{position.Id}")" />;
+
+    private RenderFragment PositionActions(PlanPositionResponse position) => @<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+        <MudText Typo="Typo.body2" data-testid="@($"plan-amounts-{position.Id}")">@L["Plan_Amounts", Money(position.AmountPlanned), Money(position.Booked)]</MudText>
+        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditAsync(position)"
+                       Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
+                       aria-label="@L["Plan_Edit"]" data-testid="@($"plan-edit-{position.Id}")" />
+        @if (PlanView.CanDelete(position))
+        {
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => DeleteAsync(position)"
+                           Class="@GrantLock.Class(CanDelete)" @attributes="GrantLock.Attributes(CanDelete)"
+                           aria-label="@L["Plan_Delete"]" data-testid="@($"plan-delete-{position.Id}")" />
+        }
+    </MudStack>;
 
     // Unter der Bezeichnung: der Tag, und ob der Posten einmalig, durchlaufend oder von Hand geändert ist.
     private string Caption(PlanPositionResponse position)

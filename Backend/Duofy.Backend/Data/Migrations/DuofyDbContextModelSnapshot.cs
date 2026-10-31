@@ -257,6 +257,11 @@ namespace Duofy.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("plan_year");
 
+                    b.Property<string>("TargetPot")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("target_pot");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");

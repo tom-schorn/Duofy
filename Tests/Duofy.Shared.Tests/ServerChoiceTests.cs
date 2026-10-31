@@ -213,7 +213,7 @@ public class ServerChoiceTests : PageTestContext
 
     private sealed class NoThemeStore : IThemePreferenceStore
     {
-        public Task<bool?> LoadIsDarkAsync() => Task.FromResult<bool?>(null);
-        public Task SaveIsDarkAsync(bool isDark) => Task.CompletedTask;
+        public Task<ThemeChoice> LoadAsync() => Task.FromResult(ThemeChoice.Device);
+        public Task SaveAsync(ThemeChoice choice) => Task.CompletedTask;
     }
 }

@@ -13,10 +13,12 @@ public class AccountTests
 
     private static readonly DateOnly October1 = new(2026, 10, 1);
 
+    private readonly ApiFixture fixture;
     private readonly HttpClient client;
 
     public AccountTests(ApiFixture fixture)
     {
+        this.fixture = fixture;
         client = fixture.Factory.CreateClient();
     }
 
@@ -64,7 +66,7 @@ public class AccountTests
     [Fact]
     public async Task Created_account_is_listed_with_its_opening_balance()
     {
-        var (_, tokens) = await client.SignUpAsync();
+        var (_, tokens) = await client.SignUpAsync(fixture.Factory);
 
         var response = await PostAsync(tokens.AccessToken, Giro());
 
@@ -103,7 +105,7 @@ public class AccountTests
     [InlineData("x", AccountTypes.Checking, 1, ErrorCodes.OpeningDateInFuture)]
     public async Task Invalid_account_answers_400_and_creates_nothing(string? name, string? type, int daysFromToday, string code)
     {
-        var (_, tokens) = await client.SignUpAsync();
+        var (_, tokens) = await client.SignUpAsync(fixture.Factory);
         var date = daysFromToday == 0 ? October1 : TodayInBerlin.AddDays(daysFromToday);
 
         var response = await PostAsync(tokens.AccessToken, new CreateAccountRequest(name, type, 0m, date));
@@ -117,7 +119,7 @@ public class AccountTests
     [Fact]
     public async Task Name_may_have_100_characters_but_not_101()
     {
-        var (_, tokens) = await client.SignUpAsync();
+        var (_, tokens) = await client.SignUpAsync(fixture.Factory);
 
         var ok = await PostAsync(tokens.AccessToken, Giro(new string('a', 100)));
         var tooLong = await PostAsync(tokens.AccessToken, Giro(new string('b', 101)));
@@ -170,7 +172,7 @@ public class AccountTests
     [Fact]
     public async Task First_checking_account_becomes_default_and_marking_another_replaces_it()
     {
-        var (_, tokens) = await client.SignUpAsync();
+        var (_, tokens) = await client.SignUpAsync(fixture.Factory);
 
         var first = await CreateAsync(tokens.AccessToken, Giro("Giro"));
         var second = await CreateAsync(tokens.AccessToken, Giro("Zweitkonto"));
@@ -187,7 +189,7 @@ public class AccountTests
     [Fact]
     public async Task Savings_or_cash_first_do_not_become_default_but_the_first_checking_account_does()
     {
-        var (_, tokens) = await client.SignUpAsync();
+        var (_, tokens) = await client.SignUpAsync(fixture.Factory);
 
         var savings = await CreateAsync(tokens.AccessToken, new CreateAccountRequest("Spar", AccountTypes.Savings, 0m, October1));
         var giro = await CreateAsync(tokens.AccessToken, Giro());
@@ -225,7 +227,7 @@ public class AccountTests
     [Fact]
     public async Task Closing_the_default_account_clears_the_mark_and_hides_it_from_pickers()
     {
-        var (_, tokens) = await client.SignUpAsync();
+        var (_, tokens) = await client.SignUpAsync(fixture.Factory);
         var giro = await CreateAsync(tokens.AccessToken, Giro());
         Assert.True(giro.IsDefault);
 
@@ -298,7 +300,7 @@ public class AccountTests
     [Fact]
     public async Task Fields_can_be_changed_and_what_is_left_out_stays()
     {
-        var (_, tokens) = await client.SignUpAsync();
+        var (_, tokens) = await client.SignUpAsync(fixture.Factory);
         var giro = await CreateAsync(tokens.AccessToken, Giro());
 
         var changed = await UpdateAsync(tokens.AccessToken, giro.Id,
@@ -315,7 +317,7 @@ public class AccountTests
     [Fact]
     public async Task Changes_follow_the_same_rules_as_creating()
     {
-        var (_, tokens) = await client.SignUpAsync();
+        var (_, tokens) = await client.SignUpAsync(fixture.Factory);
         var giro = await CreateAsync(tokens.AccessToken, Giro());
 
         var emptyName = await PatchAsync(tokens.AccessToken, giro.Id, new UpdateAccountRequest(Name: " "));
@@ -332,8 +334,8 @@ public class AccountTests
     [Fact]
     public async Task Another_persons_account_answers_404_and_stays_unchanged()
     {
-        var (_, anna) = await client.SignUpAsync();
-        var (_, ben) = await client.SignUpAsync();
+        var (_, anna) = await client.SignUpAsync(fixture.Factory);
+        var (_, ben) = await client.SignUpAsync(fixture.Factory);
         var annas = await CreateAsync(anna.AccessToken, Giro("Annas Giro"));
 
         var patch = await PatchAsync(ben.AccessToken, annas.Id, new UpdateAccountRequest(Name: "Bens", Active: false));
@@ -360,8 +362,8 @@ public class AccountTests
     [Fact]
     public async Task Making_another_persons_account_default_leaves_both_defaults_alone()
     {
-        var (_, anna) = await client.SignUpAsync();
-        var (_, ben) = await client.SignUpAsync();
+        var (_, anna) = await client.SignUpAsync(fixture.Factory);
+        var (_, ben) = await client.SignUpAsync(fixture.Factory);
         var annas = await CreateAsync(anna.AccessToken, Giro());
         var bens = await CreateAsync(ben.AccessToken, Giro());
 
@@ -373,7 +375,7 @@ public class AccountTests
     [Fact]
     public async Task There_is_no_delete()
     {
-        var (_, tokens) = await client.SignUpAsync();
+        var (_, tokens) = await client.SignUpAsync(fixture.Factory);
         var giro = await CreateAsync(tokens.AccessToken, Giro());
 
         var delete = await client.SendAsync(Authorized(HttpMethod.Delete, $"{Path}/{giro.Id}", tokens.AccessToken));

@@ -8,17 +8,17 @@
    MainLayout.
 
    Titel und Plus-Knopf kommen von der Seite über AppChrome. Rechts in der oberen Leiste steht der Umschalter
-   "wessen Zahlen" (Spec 68), sobald jemand etwas mit mir teilt. Die vier "Provider" braucht MudBlazor
+   "wessen Zahlen" (Spec 68) als Profil-Knopf mit Menü (Spec 44), immer, und ab dem Desktop unten in der Seitenleiste. Die vier "Provider" braucht MudBlazor
    einmal pro Anwendung (Farben, Popups, Dialoge, Meldungen), wie in MainLayout. *@
 
-<MudThemeProvider @ref="ThemeProvider" Theme="DuofyTheme.Instance" @bind-IsDarkMode="IsDarkMode" />
+<MudThemeProvider @ref="ThemeProvider" Theme="DuofyTheme.Instance" @bind-IsDarkMode="IsDarkMode" ObserveSystemDarkModeChange="false" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
 <MudLayout>
     <MudAppBar Elevation="0">
-        <MudText Typo="Typo.h6" HtmlTag="h1" data-testid="app-title">@(Chrome.Title ?? L["App_Name"])</MudText>
+        <MudText Typo="Typo.h6" HtmlTag="h1" Class="app-title" data-testid="app-title">@(Chrome.Title ?? L["App_Name"])</MudText>
         <MudSpacer />
         <AuthorizeView>
             <Authorized>
@@ -27,12 +27,22 @@
         </AuthorizeView>
     </MudAppBar>
 
+    <SideNavigation>
+        <Footer>
+            <AuthorizeView>
+                <Authorized>
+                    <MemberSwitch Up="true" />
+                </Authorized>
+            </AuthorizeView>
+        </Footer>
+    </SideNavigation>
+
     <MudMainContent Class="app-main">
-        <MudContainer MaxWidth="MaxWidth.Large" Class="my-4">
-            <CascadingValue Value="@(new ModeSwitch(IsDarkMode, ToggleModeAsync))">
+        <div class="app-page">
+            <CascadingValue Value="@(new ModeSwitch(Choice, SelectChoiceAsync))">
                 @Body
             </CascadingValue>
-        </MudContainer>
+        </div>
     </MudMainContent>
 </MudLayout>
 

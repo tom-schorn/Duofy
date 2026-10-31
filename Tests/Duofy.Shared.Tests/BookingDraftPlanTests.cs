@@ -25,6 +25,17 @@ public class BookingDraftPlanTests
     }
 
     [Fact]
+    public void A_new_booking_can_start_in_a_given_month_far_from_its_date()
+    {
+        var draft = BookingDraft.ForNew(October21, Giro, new DateOnly(2026, 12, 15));
+
+        Assert.Equal(new DateOnly(2026, 12, 1), draft.PlanMonth);
+        Assert.Equal(October21, draft.Date);
+        var request = draft.ToRequest();
+        Assert.Equal((2026, 12), (request.PlanYear, request.PlanMonth));
+    }
+
+    [Fact]
     public void A_salary_on_the_25th_may_count_in_the_next_month()
     {
         var draft = BookingDraft.ForNew(new DateOnly(2026, 9, 25), Giro);
@@ -98,7 +109,8 @@ public class BookingDraftPlanTests
         var draft = BookingDraft.ForNew(October21, Giro);
         draft.SetKind(BookingKinds.Transfer);
         draft.SetAmount(100m);
-        draft.TransferIsSavings = true;
+        draft.TransferSourcePot = PotKeys.Savings;
+        draft.TransferTargetPot = PotKeys.Savings;
 
         draft.TransferPositionId = goal.Id;
 

@@ -1,0 +1,74 @@
+@page "/bausteine"
+@inject IServiceProvider Services
+@inject NavigationManager Navigation
+
+@* Die Testseite der Bausteine (Spec 6): alle Bausteine hell und dunkel nebeneinander.
+   Nur im Entwicklungsbetrieb da. Ohne Meldung des Hosts (Produktion, App) zeigt sie nichts
+   und die Adresse gilt als nicht gefunden (der Web-Host antwortet dann 404, siehe Web-Test).
+   Der dunkle Teil setzt die Palette des Themes als Variablen; so zeigt eine Seite beide Modi. *@
+
+@if (IsDevelopment)
+{
+    <PageTitle>@Heading</PageTitle>
+    <h1 class="mud-typography mud-typography-h4 mb-4">@Heading</h1>
+
+    <div class="blocks-panels">
+        <section class="blocks-panel" data-testid="blocks-panel-light" style="@PanelStyle(DuofyTheme.Instance.PaletteLight)" aria-label="@LightName">
+            @Panel()
+        </section>
+        <section class="blocks-panel" data-testid="blocks-panel-dark" style="@PanelStyle(DuofyTheme.Instance.PaletteDark)" aria-label="@DarkName">
+            @Panel()
+        </section>
+    </div>
+}
+else
+{
+    <NotFound />
+}
+
+@code {
+    private bool IsDevelopment => (Services.GetService(typeof(IDevelopmentMode)) as IDevelopmentMode)?.IsDevelopment == true;
+
+    // Ohne Entwicklungsbetrieb antwortet der Server mit 404 wie bei jeder unbekannten Adresse.
+    protected override void OnInitialized()
+    {
+        if (!IsDevelopment)
+        {
+            Navigation.NotFound();
+        }
+    }
+
+    // Die Testseite ist nur für das Team: Ihre Texte stehen hier statt in den Textdateien (SharedResources).
+    private const string Heading = "Bausteine";
+    private const string LightName = "Hell";
+    private const string DarkName = "Dunkel";
+
+    private static readonly LineTableRow[] Rows = [new("Miete", 850m), new("Strom", 62.4m), new("Internet", 39.99m)];
+
+    // Die Palette als CSS-Variablen, wie MudBlazor sie für das aktive Theme schreibt.
+    private static string PanelStyle(Palette palette) => string.Join("; ", new (string Name, MudColor Value)[]
+    {
+        ("background", palette.Background),
+        ("surface", palette.Surface),
+        ("text-primary", palette.TextPrimary),
+        ("text-secondary", palette.TextSecondary),
+        ("primary", palette.Primary),
+        ("primary-text", palette.PrimaryContrastText),
+        ("success", palette.Success),
+        ("error", palette.Error),
+        ("warning", palette.Warning),
+        ("lines-default", palette.LinesDefault),
+    }.Select(v => $"--mud-palette-{v.Name}: {v.Value.ToString(MudColorOutputFormats.Hex).ToLowerInvariant()}"));
+
+    private RenderFragment Panel() => @<text>
+        <ColorBlock Variant="BlockVariant.Income" Title="Einnahmen" Amount="3200m" />
+        <ColorBlock Variant="BlockVariant.Fixed" Title="Festes" Amount="952.39m" />
+        <ColorBlock Variant="BlockVariant.Free" Title="Frei" Amount="2247.61m" />
+        <LineTable Caption="Feste Kosten" Rows="Rows" />
+        <div class="blocks-panel-buttons">
+            <DuofyButton Kind="ButtonKind.Primary">Speichern</DuofyButton>
+            <DuofyButton Kind="ButtonKind.Secondary">Abbrechen</DuofyButton>
+            <DuofyButton Kind="ButtonKind.Danger">Löschen</DuofyButton>
+        </div>
+    </text>;
+}

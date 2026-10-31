@@ -50,7 +50,7 @@ public class PlanTests : IDisposable
 
     private async Task<Person> SignUpAsync()
     {
-        var (_, tokens) = await client.SignUpAsync();
+        var (_, tokens) = await client.SignUpAsync(fixture.Factory);
         var categories = await client.SendAsync(Authorized(HttpMethod.Get, "/api/v1/categories", tokens.AccessToken));
         var all = (await categories.Content.ReadFromJsonAsync<List<CategoryResponse>>())!;
         Guid Id(string key) => all.Single(c => c.Key == key).Id;
@@ -408,6 +408,8 @@ public class PlanTests : IDisposable
         Assert.Equal(person.Giro, booking.AccountId);
         Assert.Equal(savingsAccount, booking.CounterAccountId);
         Assert.Equal(position.Id, Assert.Single(booking.Lines).PositionId);
+        // Spec 72, R9: Beim Abhaken tragen beide Seiten den Topf des Postens (hier Sparen).
+        Assert.Equal((PotKeys.Savings, PotKeys.Savings), (booking.Lines[0].Pot, booking.TargetPot));
         Assert.Equal(100.00m, Position(await PlanAsync(person, 2026, 11), "Urlaub").Booked);
     }
 
@@ -428,6 +430,7 @@ public class PlanTests : IDisposable
         var booking = Assert.Single(await BookingsInAsync(person, 2026, 10));
         Assert.Equal((BookingKinds.Transfer, cash), (booking.Kind, booking.CounterAccountId));
         Assert.Equal(position.Id, Assert.Single(booking.Lines).PositionId);
+        Assert.Equal((PotKeys.Needs, PotKeys.Needs), (booking.Lines[0].Pot, booking.TargetPot));
     }
 
     // A19
@@ -445,7 +448,7 @@ public class PlanTests : IDisposable
 
         var put = await SendAsync(HttpMethod.Put, $"{Bookings}/{booking.Id}", person,
             new SaveBookingRequest(BookingKinds.Transfer, person.Giro, cash, booking.Date, 380.00m, booking.Note,
-                [new SaveBookingLine(380.00m, PotKeys.Savings, null, position.Id)], 2026, 11));
+                [new SaveBookingLine(380.00m, PotKeys.Needs, null, position.Id)], 2026, 11, TargetPot: PotKeys.Needs));
 
         Assert.True(put.StatusCode == HttpStatusCode.OK, await put.Content.ReadAsStringAsync());
         Assert.Equal(position.Id, Assert.Single((await put.Content.ReadFromJsonAsync<BookingResponse>())!.Lines).PositionId);
@@ -843,6 +846,132 @@ public class PlanTests : IDisposable
                 .ToListAsync();
             return account.Balance(day);
         });
+
+    // Spec 24, R2/R4: die Blöcke und die Töpfe kommen aus dem Plan der API, nichts wird auf der Seite gerechnet.
+    [Fact]
+    public async Task The_month_carries_income_fixed_free_and_the_pot_totals()
+    {
+        var person = await SignUpAsync();
+        await OneOffAsync(person, 2026, 10, "Gehalt", 3000.00m, person.Salary, PotKeys.Income);
+        var rent = await OneOffAsync(person, 2026, 10, "Miete", 1000.00m, person.Rent);
+        await OneOffAsync(person, 2026, 10, "Sparplan", 200.00m, person.Savings, PotKeys.Savings);
+        await BookAsync(person, Expense(person, 1200.00m, rent.Id, new DateOnly(2026, 10, 3)));
+
+        var overview = (await PlanAsync(person, 2026, 10)).Overview!;
+
+        Assert.Equal(3000.00m, overview.Income);
+        Assert.Equal(1200.00m, overview.Fixed);
+        Assert.Equal(1800.00m, overview.Free);
+        Assert.Equal(new PlanPotResponse(PotKeys.Needs, 1000.00m, 1200.00m), overview.Pots.Single(p => p.Pot == PotKeys.Needs));
+        Assert.Equal(new PlanPotResponse(PotKeys.Wants, 0m, 0m), overview.Pots.Single(p => p.Pot == PotKeys.Wants));
+        Assert.Equal(200.00m, overview.Pots.Single(p => p.Pot == PotKeys.Savings).Planned);
+    }
+
+    // Spec 72, A2: Ein Posten ist freiwillig, der Topf nicht; was nie geplant war, zeigt das Lückendiagramm.
+    [Fact]
+    public async Task A_booking_without_a_position_counts_as_booked_in_its_pot()
+    {
+        var person = await SignUpAsync();
+
+        await BookAsync(person, new SaveBookingRequest(BookingKinds.Expense, person.Giro, null, October5, 40.00m, null,
+            [new SaveBookingLine(40.00m, PotKeys.Wants, person.Gifts)]));
+
+        var overview = (await PlanAsync(person, 2026, 10)).Overview!;
+        Assert.Equal(new PlanPotResponse(PotKeys.Wants, 0m, 40.00m), overview.Pots.Single(p => p.Pot == PotKeys.Wants));
+    }
+
+    // Spec 72, A8 (R5): Die Quote zählt nur Posten, die Ausgabe ohne Posten bleibt draußen.
+    [Fact]
+    public async Task A_booking_without_a_position_does_not_count_in_the_actual_of_its_quota()
+    {
+        var person = await SignUpAsync();
+        var wishes = await OneOffAsync(person, 2026, 10, "Wünsche", 50.00m, person.Gifts, PotKeys.Wants);
+        await BookAsync(person, Income(person, 1000.00m));
+        await BookAsync(person, new SaveBookingRequest(BookingKinds.Expense, person.Giro, null, October5, 50.00m, null,
+            [new SaveBookingLine(50.00m, PotKeys.Wants, person.Gifts, wishes.Id)]));
+        await BookAsync(person, new SaveBookingRequest(BookingKinds.Expense, person.Giro, null, October5, 100.00m, null,
+            [new SaveBookingLine(100.00m, PotKeys.Wants, person.Gifts)]));
+
+        var quotas = (await PlanAsync(person, 2026, 10)).Quotas;
+
+        Assert.Equal(5.0m, quotas.Single(q => q.Pot == PotKeys.Wants).Actual);
+    }
+
+    // Spec 72, A3: Zeilen auf einem Posten zählen über den Posten, nichts doppelt.
+    [Fact]
+    public async Task A_pot_adds_what_is_booked_on_its_positions_and_what_is_unplanned()
+    {
+        var person = await SignUpAsync();
+        var rent = await OneOffAsync(person, 2026, 10, "Miete", 1000.00m, person.Rent);
+        await BookAsync(person, Expense(person, 100.00m, rent.Id));
+        await BookAsync(person, Expense(person, 40.00m));
+
+        var overview = (await PlanAsync(person, 2026, 10)).Overview!;
+
+        Assert.Equal(new PlanPotResponse(PotKeys.Needs, 1000.00m, 140.00m), overview.Pots.Single(p => p.Pot == PotKeys.Needs));
+    }
+
+    // Spec 72, A11 (R9): Quelle und Ziel einer Umbuchung werden nur gemerkt; Plan, Gebucht und Quoten bleiben gleich.
+    [Fact]
+    public async Task A_transfer_between_pots_changes_no_figure_of_the_plan()
+    {
+        var person = await SignUpAsync();
+        var savingsAccount = await AccountAsync(person, "Sparkonto", 500m);
+        await OneOffAsync(person, 2026, 10, "Wünsche", 300.00m, person.Gifts, PotKeys.Wants);
+        await OneOffAsync(person, 2026, 10, "Sparen", 200.00m, person.Gifts, PotKeys.Savings);
+        await BookAsync(person, Income(person, 1000.00m));
+        var before = await PlanAsync(person, 2026, 10);
+
+        await BookAsync(person, new SaveBookingRequest(BookingKinds.Transfer, savingsAccount, person.Giro, October5, 100.00m, null,
+            [new SaveBookingLine(100.00m, PotKeys.Savings, null)], TargetPot: PotKeys.Wants));
+
+        var after = await PlanAsync(person, 2026, 10);
+        Assert.Equal(before.Overview!.Pots, after.Overview!.Pots);
+        Assert.Equal(before.Quotas, after.Quotas);
+        Assert.Equal(before.Positions.Select(p => (p.Id, p.Booked)), after.Positions.Select(p => (p.Id, p.Booked)));
+    }
+
+    // Spec 72, A4
+    [Fact]
+    public async Task Transfers_and_the_carry_over_count_as_booked_in_no_pot()
+    {
+        var person = await SignUpAsync();
+        var cash = await AccountAsync(person, "Bar", 0m);
+        await BookAsync(person, Income(person, 2000.00m));
+        await BookAsync(person, new SaveBookingRequest(BookingKinds.Transfer, person.Giro, cash, October5, 100.00m, null,
+            [new SaveBookingLine(100.00m, PotKeys.Savings, null)], TargetPot: PotKeys.Wants));
+        await PlanAsync(person, 2026, 11);
+
+        // Der Rest geht als Paar in den November: die Ausgabe "Übertrag nach November" liegt im Planmonat Oktober.
+        var created = await SendAsync(HttpMethod.Post, $"{Plans}/2026/11/carry-over", person, new CreateCarryOverRequest(2000.00m));
+        Assert.True(created.StatusCode == HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
+
+        foreach (var (year, month) in new[] { (2026, 10), (2026, 11) })
+        {
+            var overview = (await PlanAsync(person, year, month)).Overview!;
+            Assert.All(overview.Pots, pot => Assert.Equal(0m, pot.Booked));
+        }
+    }
+
+    // Spec 24, R8/A9: eine Buchung vom 20. November kann dem Dezember zugeordnet sein.
+    [Fact]
+    public async Task The_month_lists_the_bookings_of_its_plan_month_newest_first_even_when_their_date_is_in_another_month()
+    {
+        var person = await SignUpAsync();
+        var october20 = new DateOnly(2026, 10, 20);
+        var inDecember = new SaveBookingRequest(BookingKinds.Expense, person.Giro, null, october20, 45.00m, null,
+            [new SaveBookingLine(45.00m, PotKeys.Needs, person.Groceries)], 2026, 11);
+        var assigned = await BookAsync(person, inDecember);
+        var newer = await BookAsync(person, Expense(person, 10.00m, null, new DateOnly(2026, 10, 22)) with { PlanYear = 2026, PlanMonth = 11 });
+        var inOctober = await BookAsync(person, Expense(person, 5.00m, null, new DateOnly(2026, 10, 2)));
+
+        var november = (await PlanAsync(person, 2026, 11)).Overview!.Bookings;
+        var october = (await PlanAsync(person, 2026, 10)).Overview!.Bookings;
+
+        Assert.Equal([newer.Id, assigned.Id], november.Select(b => b.Id));
+        Assert.Equal(october20, november[1].Date);
+        Assert.Equal([inOctober.Id], october.Select(b => b.Id));
+    }
 
     private sealed class FixedTime(DateTimeOffset now) : TimeProvider
     {
