@@ -22,6 +22,7 @@ A place where a person's money sits: a Girokonto, a Sparkonto or cash. It holds 
 ## Rules
 
 - Balance = opening balance + bookings after the opening date.
+- The first account created automatically at registration opens the day before registration (Europe/Berlin), so a booking is possible on the first day; every other account takes no booking on its opening date (spec 59, amendment 2026-11-01).
 - At most one default account per person; the first Girokonto becomes default.
 - Accounts are closed, never deleted; closing removes the default mark.
 - Only the owner sees and changes an account.

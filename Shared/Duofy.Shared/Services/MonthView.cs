@@ -12,6 +12,12 @@ public sealed record MonthPotRow(string Pot, int Target, decimal Actual, decimal
 /// <summary>Eine Buchung der Übersicht oder des Tabs Buchungen; <paramref name="OtherMonth"/> heißt: ihr Datum liegt nicht im Planmonat.</summary>
 public sealed record MonthBookingRow(Guid Id, DateOnly Date, decimal Amount, string? Detail, bool OtherMonth);
 
+/// <summary>
+/// Ein Übertrag als eigene Zeile des Monats (Spec 66, R9), keine Buchung: <paramref name="Incoming"/> heißt "Übertrag aus ...",
+/// sonst "Übertrag nach ..."; <paramref name="Month"/> ist der genannte Monat, <paramref name="Owner"/> im Haushalt der Vorname.
+/// </summary>
+public sealed record MonthCarryOverRow(bool Incoming, DateOnly Month, decimal Amount, string? Owner);
+
 /// <summary>Eine anstehende oder überfällige Zahlung; <paramref name="Open"/> ist der Rest, der noch nicht gebucht ist.</summary>
 public sealed record MonthDueRow(string Label, DateOnly Due, decimal Open, bool Overdue, string? Owner);
 
@@ -22,7 +28,8 @@ public sealed record MonthOverviewModel(
     decimal Free,
     IReadOnlyList<MonthPotRow> Pots,
     IReadOnlyList<MonthBookingRow> Bookings,
-    IReadOnlyList<MonthDueRow> Due);
+    IReadOnlyList<MonthDueRow> Due,
+    IReadOnlyList<MonthCarryOverRow> CarryOvers);
 
 /// <summary>
 /// Setzt aus den Antworten der API die Übersicht des Monats zusammen (Spec 24). Gerechnet wird hier nichts Neues:
@@ -49,7 +56,7 @@ public static class MonthView
         var due = DueRows(
             plan.Positions.Select(p => new DueSource(p.Label, p.DueDay, p.Pot, p.PassThrough, p.AmountPlanned, p.Booked, p.DoneAt, null)),
             plan.Year, plan.Month, today);
-        return new MonthOverviewModel(overview?.Income ?? 0m, overview?.Fixed ?? 0m, overview?.Free ?? 0m, pots, bookings.Take(RecentCount).ToList(), due);
+        return new MonthOverviewModel(overview?.Income ?? 0m, overview?.Fixed ?? 0m, overview?.Free ?? 0m, pots, bookings.Take(RecentCount).ToList(), due, CarryOverRows(overview?.CarryOvers));
     }
 
     public static MonthOverviewModel ForHousehold(HouseholdPlanResponse plan, DateOnly today)
@@ -61,7 +68,7 @@ public static class MonthView
         var due = DueRows(
             plan.Positions.Select(p => new DueSource(p.Label, p.DueDay, p.Pot, p.PassThrough, p.AmountPlanned, p.Booked, p.DoneAt, p.OwnerFirstName)),
             plan.Year, plan.Month, today);
-        return new MonthOverviewModel(plan.Income, plan.Fixed, plan.Free, pots, bookings.Take(RecentCount).ToList(), due);
+        return new MonthOverviewModel(plan.Income, plan.Fixed, plan.Free, pots, bookings.Take(RecentCount).ToList(), due, CarryOverRows(plan.CarryOvers));
     }
 
     /// <summary>Die Buchungen eines Planmonats für die Liste, in der Reihenfolge der API (neueste zuerst); <paramref name="accountName"/> gibt den Namen des Kontos.</summary>
@@ -74,6 +81,12 @@ public static class MonthView
     public static IReadOnlyList<MonthBookingRow> HouseholdBookingRows(HouseholdPlanResponse plan) =>
         (plan.Bookings ?? [])
             .Select(b => new MonthBookingRow(b.Id, b.Date, b.Amount, b.OwnerFirstName, OtherMonth(b.Date, b.PlanYear, b.PlanMonth)))
+            .ToList();
+
+    /// <summary>Die Überträge des Monats für die Zeilen über den Buchungen; sie zählen nicht zu den fünf neuesten Buchungen.</summary>
+    public static IReadOnlyList<MonthCarryOverRow> CarryOverRows(IEnumerable<PlanCarryOverLineResponse>? lines) =>
+        (lines ?? [])
+            .Select(l => new MonthCarryOverRow(l.Direction == CarryOverDirections.In, new DateOnly(l.Year, l.Month, 1), l.Amount, l.OwnerFirstName))
             .ToList();
 
     private static bool OtherMonth(DateOnly date, int planYear, int planMonth) =>

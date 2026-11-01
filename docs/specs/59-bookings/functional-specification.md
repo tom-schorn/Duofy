@@ -128,3 +128,5 @@ Approved by the human on 2026-10-21
 Rules decided one at a time in the dialog of 2026-10-21; the lead's additions (amount > 0, income shows only income categories, own category rules, no new bookings on closed accounts, transfer sums by filter) were presented separately and accepted.
 
 Amended on 2026-10-21 by the human in the dialog: split bookings (R13, A19–A21); the lead's details (1–20 lines, first line takes the rest, all lines of one direction) presented with the amendment.
+
+Amended on 2026-11-01 by the human: R6 stays for every account, but the first account created automatically at registration now opens the day before registration (Europe/Berlin), so a booking is possible on the first day. Existing accounts are unchanged. Proof: `Tests/Duofy.Backend.Tests/CarryOverOpeningDayTests.cs`. A plan year outside `PlanRules.FirstYear` to `LastYear` answers `400 plan_month_invalid` (review finding of the same day): `BookingRulesTests.A_plan_year_outside_the_plan_years_answers_plan_month_invalid`.

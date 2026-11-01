@@ -88,7 +88,7 @@ else
     {
         @if (SeesBookings)
         {
-            <MonthBookings Rows="MonthView.BookingRows(plan.Overview?.Bookings ?? [], AccountName)" />
+            <MonthBookings Rows="MonthView.BookingRows(plan.Overview?.Bookings ?? [], AccountName)" CarryOvers="MonthView.CarryOverRows(plan.Overview?.CarryOvers)" />
         }
         else
         {
@@ -151,12 +151,24 @@ else
         <LineTable Caption="@L[$"Pot_{group.Pot}"]" HideCaption="true" Rows="PositionRows(group.Positions)" />
     }
 
-    @* Der Übertrag in diesen Monat (R9). *@
+    @* Der Übertrag (R9): je eine eigene Zeile, in keinem Topf und keiner Quote; zurücknehmen und neu nur hier. *@
     <MudPaper Outlined="true" Class="pa-3 mt-4" data-testid="plan-carry-over">
+        @{ var carryOvers = MonthView.CarryOverRows(plan.Overview?.CarryOvers); }
+        @if (carryOvers.Count > 0)
+        {
+            <LineTable Caption="@L["Plan_CarryOver"]" HideCaption="true" Rows="MonthCarryOverText.Rows(carryOvers, L)" />
+        }
         @if (plan.CarryOver.Exists)
         {
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                <MudText Class="flex-grow-1">@L["Plan_CarryOverBooked", Money(plan.CarryOver.Amount ?? 0m)]</MudText>
+                @if (carryOvers.Any(c => c.Incoming))
+                {
+                    <MudSpacer />
+                }
+                else
+                {
+                    <MudText Class="flex-grow-1">@L["Plan_CarryOverBooked", Money(plan.CarryOver.Amount ?? 0m)]</MudText>
+                }
                 <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="RemoveCarryOverAsync"
                            Class="@GrantLock.Class(CanRemoveCarryOver)" @attributes="GrantLock.Attributes(CanRemoveCarryOver)"
                            data-testid="plan-carry-over-remove">@L["Plan_CarryOverRemove"]</MudButton>

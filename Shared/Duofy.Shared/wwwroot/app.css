@@ -675,6 +675,12 @@ h1:focus {
     font-variant-numeric: tabular-nums;
 }
 
+.color-block-note {
+    margin: 0.5rem 0 0;
+    font-size: 0.875rem;
+    line-height: 1.45;
+}
+
 /* Linien statt Schatten: eine Linie über der Tabelle und unter jeder Zeile. */
 .line-table {
     width: 100%;

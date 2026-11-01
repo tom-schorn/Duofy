@@ -4,7 +4,8 @@ namespace Duofy.Domain;
 public sealed record MonthSums(decimal Income, decimal Expenses);
 
 /// <summary>
-/// Das Monatsbuch: die Buchungen eines Monats, wie die Seite "Buchungen" sie zeigt.
+/// Das Monatsbuch: die Buchungen eines Monats, wie die Seite "Buchungen" sie zeigt. Das Paar eines Übertrags gehört
+/// nicht dazu; das filtert die API, denn erkannt wird es nur über die Kennungen im Plan (Spec 66, R9).
 /// </summary>
 public static class MonthBook
 {

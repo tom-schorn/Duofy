@@ -101,8 +101,8 @@ public sealed record PlanCarryOverResponse(
 /// </summary>
 /// <param name="PlannedIncome">Die geplanten Einnahmen (Posten im Topf Einnahmen).</param>
 /// <param name="PlannedExpenses">Die geplanten Ausgaben (alle anderen Posten).</param>
-/// <param name="BookedIncome">Die Einnahmen aller Buchungen mit diesem Planmonat.</param>
-/// <param name="BookedExpenses">Die Ausgaben aller Buchungen mit diesem Planmonat; Umbuchungen zählen nicht.</param>
+/// <param name="BookedIncome">Die Einnahmen der Buchungen mit diesem Planmonat, ohne das Paar eines Übertrags.</param>
+/// <param name="BookedExpenses">Die Ausgaben der Buchungen mit diesem Planmonat, ohne das Paar eines Übertrags; Umbuchungen zählen nicht.</param>
 public sealed record PlanResponse(
     Guid Id,
     int Year,
@@ -128,19 +128,41 @@ public sealed record PlanPotResponse(string Pot, decimal Planned, decimal Booked
 /// </summary>
 /// <param name="Income">Die geplanten Einnahmen ohne durchlaufende Posten.</param>
 /// <param name="Fixed">Die geplanten Ausgaben ohne durchlaufende Posten.</param>
-/// <param name="Free">Einnahmen minus Festes, wie in der Übersicht der Monate; auch negativ möglich.</param>
+/// <param name="Free">Einnahmen minus Festes plus der Übertrag aus dem Vormonat, wie in der Übersicht der Monate; auch negativ möglich. Ohne Sicht auf die Buchungen ohne Übertrag.</param>
+/// <param name="Bookings">Die Buchungen mit diesem Planmonat ohne die beiden Buchungen eines Übertrags (Spec 66, R9).</param>
+/// <param name="CarryOvers">Die Überträge dieses Monats als eigene Zeilen; leer ohne Sicht auf die Buchungen.</param>
 public sealed record PlanOverviewResponse(
     decimal Income,
     decimal Fixed,
     decimal Free,
     IReadOnlyList<PlanPotResponse> Pots,
-    IReadOnlyList<BookingResponse> Bookings);
+    IReadOnlyList<BookingResponse> Bookings,
+    IReadOnlyList<PlanCarryOverLineResponse>? CarryOvers = null);
+
+/// <summary>Die Richtung einer Zeile des Übertrags.</summary>
+public static class CarryOverDirections
+{
+    /// <summary>"Übertrag aus ...": der Rest des Vormonats kommt an.</summary>
+    public const string In = "in";
+
+    /// <summary>"Übertrag nach ...": der Rest geht in den nächsten Monat.</summary>
+    public const string Out = "out";
+}
+
+/// <summary>Ein Übertrag als eigene Zeile des Monats (Spec 66, R9): in keinem Topf und keiner Quote, ohne Kennung einer Buchung.</summary>
+/// <param name="Direction">Siehe <see cref="CarryOverDirections"/>.</param>
+/// <param name="Year">Das Jahr des Monats, den die Zeile nennt: woher der Rest kommt oder wohin er geht.</param>
+/// <param name="Month">Dieser Monat, 1 bis 12.</param>
+/// <param name="Amount">Der übertragene Rest; negativ bei einem negativen Rest.</param>
+/// <param name="OwnerFirstName">Nur im Haushaltsplan: wessen Übertrag es ist.</param>
+public sealed record PlanCarryOverLineResponse(string Direction, int Year, int Month, decimal Amount, string? OwnerFirstName = null);
 
 /// <summary>
 /// Ein Monat in der Übersicht der Pläne (GET /api/v1/plans, Spec 23).
 /// </summary>
-/// <param name="Free">Der Frei-Betrag: geplante Einnahmen minus geplante Ausgaben, ohne durchlaufende Posten; auch negativ möglich.</param>
-public sealed record PlanMonthResponse(int Year, int Month, decimal Free);
+/// <param name="Free">Der Frei-Betrag: geplante Einnahmen minus geplante Ausgaben, ohne durchlaufende Posten, plus der Übertrag aus dem Vormonat; auch negativ möglich.</param>
+/// <param name="CarryOver">Der in <paramref name="Free"/> enthaltene Übertrag; null ohne Übertrag oder ohne Sicht auf die Buchungen.</param>
+public sealed record PlanMonthResponse(int Year, int Month, decimal Free, decimal? CarryOver = null);
 
 /// <summary>Ein einmaliger Posten (POST /api/v1/plans/{year}/{month}/positions).</summary>
 /// <param name="Label">Die Bezeichnung, 1 bis <see cref="PlanRules.LabelMaxLength"/> Zeichen.</param>

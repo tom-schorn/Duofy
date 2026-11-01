@@ -38,6 +38,7 @@ internal sealed class HouseholdPlanStore(
 
         var next = new DateOnly(year, month, 1).AddMonths(1);
         var months = new List<MemberMonth>();
+        var nextPlans = new Dictionary<Guid, Plan?>();
         foreach (var ownerId in counted)
         {
             var plan = await plans.GetOrCreateAsync(ownerId, year, month, cancellationToken);
@@ -53,6 +54,7 @@ internal sealed class HouseholdPlanStore(
                 }
                 .OfType<Guid>().ToList();
             months.Add(new MemberMonth(plan, bookings, carryOver));
+            nextPlans[ownerId] = nextPlan;
         }
 
         var figures = HouseholdPlanFigures.Compute(months);
@@ -86,11 +88,17 @@ internal sealed class HouseholdPlanStore(
         }
         bookingsMissing.Sort(StringComparer.CurrentCultureIgnoreCase);
         var bookingsOf = visibleMonths
-            .SelectMany(m => m.Bookings.Select(b => (Booking: b, Name: names[m.Plan.OwnerId])))
+            // Das Paar eines Übertrags steht nicht in der Liste, sondern als eigene Zeile (Spec 66, R9).
+            .SelectMany(m => m.Bookings.Where(b => !m.CarryOverBookingIds.Contains(b.Id)).Select(b => (Booking: b, Name: names[m.Plan.OwnerId])))
             .OrderByDescending(x => x.Booking.PaymentDate)
             .ThenByDescending(x => x.Booking.CreatedAt)
             .Select(x => new HouseholdBookingResponse(
                 x.Booking.Id, x.Booking.PaymentDate, x.Booking.Amount, x.Booking.PlanYear, x.Booking.PlanMonth, x.Booking.OwnerId, x.Name))
+            .ToList();
+        // Die Zeilen folgen denselben Freigaben wie die Buchungen; sie tragen keine Kennung einer Buchung (Spec 46, R3).
+        var carryOvers = visibleMonths
+            .SelectMany(m => PlanStore.CarryOverLines(
+                m.Plan, nextPlans[m.Plan.OwnerId]?.CarryOverIncomeBookingId, nextPlans[m.Plan.OwnerId]?.CarryOverExpenseBookingId, m.Bookings, names[m.Plan.OwnerId]))
             .ToList();
 
         var (accounts, missing) = await AccountsAsync(counted, names, year, month, cancellationToken);
@@ -114,9 +122,11 @@ internal sealed class HouseholdPlanStore(
             missing,
             members,
             PlanFigures.Fixed(positionsOf),
-            PlanFigures.Free(positionsOf),
+            // Alle sehen alle Posten: Ein fremder Übertrag in der Summe ließe sich herausrechnen, deshalb nur die sichtbaren.
+            PlanFigures.Free(positionsOf, visibleMonths.Sum(m => PlanFigures.CarriedIn(m.Plan, m.Bookings) ?? 0m)),
             bookingsOf,
-            bookingsMissing);
+            bookingsMissing,
+            carryOvers);
     }
 
     /// <summary>
@@ -149,10 +159,25 @@ internal sealed class HouseholdPlanStore(
             .Where(p => ids.Contains(p.OwnerId))
             .ToListAsync(cancellationToken);
         var members = household.Members.ToDictionary(m => m.UserId);
+        var visible = new HashSet<Guid>();
+        foreach (var id in ids)
+        {
+            if ((await access.LevelAsync(id, Area.Book, cancellationToken)).Includes(AccessLevel.View))
+            {
+                visible.Add(id);
+            }
+        }
+        var carried = await plans.CarryOverBookingsAsync(rows.Where(r => visible.Contains(r.OwnerId)), cancellationToken);
         return rows
             .Where(r => IsCounted(members[r.OwnerId], r.Year, r.Month))
             .GroupBy(r => (r.Year, r.Month))
-            .Select(g => new HouseholdPlanMonth(g.Key.Year, g.Key.Month, PlanFigures.Free(g.SelectMany(p => p.Positions))))
+            .Select(g =>
+            {
+                // Wie im Haushaltsplan: nur die Überträge derer, deren Buchungen der Betrachter sieht.
+                var amounts = g.Select(p => PlanFigures.CarriedIn(p, carried)).OfType<decimal>().ToList();
+                var carriedIn = amounts.Count > 0 ? amounts.Sum() : (decimal?)null;
+                return new HouseholdPlanMonth(g.Key.Year, g.Key.Month, PlanFigures.Free(g.SelectMany(p => p.Positions), carriedIn ?? 0m), carriedIn);
+            })
             .OrderByDescending(m => m.Year)
             .ThenByDescending(m => m.Month)
             .ToList();

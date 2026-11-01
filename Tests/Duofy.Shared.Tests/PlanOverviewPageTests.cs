@@ -117,6 +117,18 @@ public class PlanOverviewPageTests : PageTestContext
         Assert.DoesNotContain("noch nicht angelegt", Row(cut, "2026-10"));
     }
 
+    // Spec 66, R9: Die Zeile sagt, dass der Übertrag im Betrag steckt, sobald einer da ist.
+    [Fact]
+    public void A_month_with_a_carry_over_says_so_at_its_free_amount()
+    {
+        PlanApiFake.Months = [new PlanMonthResponse(2026, 11, 530m, 230m), new PlanMonthResponse(2026, 10, 300m)];
+
+        var cut = OpenOverview();
+
+        Assert.Contains("530,00 € inkl. Übertrag", Row(cut, "2026-11"));
+        Assert.DoesNotContain("Übertrag", Row(cut, "2026-10"));
+    }
+
     // A5
     [Fact]
     public void Tapping_a_row_opens_that_month_at_its_own_address()

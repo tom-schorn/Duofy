@@ -90,6 +90,8 @@ public static class ErrorCodes
     public const string PositionPotInvalid = "position_pot_invalid";
     public const string PositionCategoryInvalid = "position_category_invalid";
     public const string PositionHasBookings = "position_has_bookings";
+    public const string PositionTargetInvalid = "position_target_invalid";
+    public const string PositionIncomeWithTarget = "position_income_with_target";
     public const string LinePositionInvalid = "line_position_invalid";
     public const string PlanMonthInvalid = "plan_month_invalid";
     public const string QuotaInvalid = "quota_invalid";

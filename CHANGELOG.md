@@ -8,6 +8,11 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- After a new carry-over the balance matches the entered one on the last day of the month too: both bookings of the pair stand on that day, the income counts in the next month through its plan month only. Stored pairs keep their dates, so on the last day of their old month their balance stays as stored (spec 66, amendment 2026-11-01)
+- A position with a target account can no longer be switched to Einnahmen, because it could not be ticked afterwards; one stored that way stays editable and explains the repair when ticked
+- A plan year outside 2000 to 2100 is refused; a huge year got through the plan month check by an overflow
+- The log line of a carry-over no longer contains the amount
+- `docs/betrieb.md` uses placeholders instead of the real Tailscale address and root paths
 - "Neue Buchung" on the plan page starts in the month on the screen
 - Without access to someone's bookings, the month overview says so instead of showing an empty list, a false gap and false open amounts
 - The arrow keys on the month tabs count from the active tab and move the focus along
@@ -17,8 +22,13 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- The free amount of a month contains the carry-over from the previous month: planned income minus planned expenses plus the carry-over, in the month overview and the list of months, for a person and for the household, with a text at the number as soon as one is included. Fixed, quotas, pots, booked sums and the suggestion for the next carry-over stay without it. Whoever does not see a person's bookings gets that person's free amount without the carry-over, also as a share of the household sum, so the household sum depends on the viewer. `GET /api/v1/plans` and `GET /api/v1/households/{id}/plans` carry the included amount as `carryOver`. No migration (spec 66, amendment 2026-11-01)
+- A carry-over is no ordinary booking any more: the booking page, its sums and the booked sums of the plan show only real money, and the month shows one line "Übertrag nach <Monat>" in the old month and "Übertrag aus <Monat>" in the new one, in no pot and no quota, also on the tab Buchungen and under "Letzte Buchungen"; the household shows these lines only for members who granted their bookings. The balancing booking stays a normal booking. Stored pairs are treated the same way through the ids in the plan, without a migration (spec 66, amendment 2026-11-01)
+- If an entered real balance differs from the computed one, the carry-over dialog shows the difference per account and offers "Buchungen nachtragen" (closes without a change) or "Als Ausgleich übernehmen" (books); without a difference it stays as it was (spec 66, amendment 2026-11-01)
+- A balancing booking that lowers a balance counts in Wünsche instead of Grundbedarf; stored ones stay as they are (spec 72, amendment 2026-11-01)
+- The first account created at registration opens the day before, so a new person can book on the first day; other accounts keep the rule of spec 59, R6
 - A new transfer carries a required source pot ("Von Topf") and a required target pot ("Zu Topf") from Grundbedarf, Wünsche and Sparen, in the dialog, the API and the booking list; they are only remembered and change no figure of the plan. The target pot is a new nullable column `bookings.target_pot` (additive migration `AddTransferTargetPot`); older transfers stay readable and the dialog asks for the missing pots when one is changed. The rule that a transfer may only be in Sparen is gone; the box "Das Geld wird gespart" is replaced by the two fields. Ticking a position with a target account books a transfer with the pot of the position on both sides (spec 72, R9)
-- Bookings without a position count as booked in their pot, so the gap chart and the actual of the quotas show unplanned spending; the booking dialog starts an expense without a pot and marks the field as required (spec 72)
+- Bookings without a position count as booked in their pot, so the gap chart shows unplanned spending, while the actual of the quotas counts the positions only (spec 72, R5); the booking dialog starts an expense without a pot and marks the field as required (spec 72)
 - The app's default server is the hosted service Plagevo at `https://api.plagevo.de/`; the server line reads "Plagevo (gehostet)" and the dialog offers "Plagevo" or an own server (spec 61, amendment 2026-10-27)
 - A hosted server no longer starts with an http public address or with mail TLS switched off (spec 79)
 - Repository restructured without any change of behaviour: `Duofy.Api`, `Duofy.Data` and `Duofy.Domain` are one project `Backend/Duofy.Backend` (folders `Api`, `Data`, `Domain`), the data formats are called `Duofy.Schemas`, projects lie in the folders `Backend`, `Shared`, `Web`, `Mobile` and `Tests`, and the tests of the API and the domain are one project `Duofy.Backend.Tests` (spec 77)

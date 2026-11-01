@@ -72,7 +72,12 @@ internal static class PlanEndpoints
         Guid? owner, IAccess access, PlanStore plans, CancellationToken cancellationToken)
     {
         var (ownerId, denied) = await OwnerAsync(access, owner, Area.Plan, AccessLevel.View, ErrorCodes.OwnerNotFound, cancellationToken);
-        return denied ?? Results.Ok(await plans.MonthsAsync(ownerId, cancellationToken));
+        if (denied is not null)
+        {
+            return denied;
+        }
+        var seesBookings = (await access.LevelAsync(ownerId, Area.Book, cancellationToken)).Includes(AccessLevel.View);
+        return Results.Ok(await plans.MonthsAsync(ownerId, seesBookings, cancellationToken));
     }
 
     /// <summary>Öffnet den Monat (R1); beim ersten Mal wird er aus den Verträgen angelegt.</summary>
@@ -186,6 +191,12 @@ internal static class PlanEndpoints
         }
 
         var value = check.Value!;
+        // Eine Einnahme hat kein Zielkonto, wie beim Vertrag. Abgelehnt wird nur das Umstellen: Ein schon so gespeicherter
+        // Posten lässt sich weiter ändern und zurück auf einen anderen Topf stellen.
+        if (value.Pot == Pot.Income && position.Pot != Pot.Income && position.CounterAccountId is not null)
+        {
+            return ApiErrors.BadRequest(ErrorCodes.PositionTargetInvalid);
+        }
         // Einnahme-Zeilen füllen nur Einnahme-Posten und die übrigen nur die anderen (R6). Wechselt ein Posten mit
         // Buchungen die Art seines Topfs, passten seine Zeilen nicht mehr; zwischen den Ausgabe-Töpfen geht es.
         if ((value.Pot == Pot.Income) != (position.Pot == Pot.Income) && await plans.HasBookingsAsync(position.Id, cancellationToken))
@@ -298,6 +309,11 @@ internal static class PlanEndpoints
 
         if (amount != 0m)
         {
+            // Eine Umbuchung kann nicht aus dem Topf Einnahmen kommen; die Person bekommt gesagt, wie der alte Posten zu reparieren ist.
+            if (position.Pot == Pot.Income && position.CounterAccountId is not null)
+            {
+                return ApiErrors.BadRequest(ErrorCodes.PositionIncomeWithTarget);
+            }
             var accountId = request.AccountId ?? position.AccountId ?? await plans.DefaultAccountAsync(ownerId, cancellationToken);
             if (accountId is null)
             {
@@ -437,12 +453,13 @@ internal static class PlanEndpoints
     /// <summary>
     /// Der Übertrag in diesen Monat (R9). Für jedes Konto mit echtem Stand gleicht eine Buchung am
     /// letzten Tag des Vormonats den Unterschied zum gerechneten Stand aus. Der Übertrag selbst ist
-    /// ein Paar auf dem Standardkonto, das sich im Kontostand aufhebt: "Übertrag nach ..." am letzten
-    /// Tag des Vormonats im Planmonat des Vormonats und "Übertrag aus ..." am Ersten im Planmonat
-    /// dieses Monats. Bei einem positiven Rest ist das erste eine Ausgabe und das zweite eine Einnahme,
+    /// ein Paar auf dem Standardkonto, das sich im Kontostand aufhebt: Beide Buchungen stehen am letzten
+    /// Tag des Vormonats, damit der Stand an jedem Tag stimmt; "Übertrag nach ..." im Planmonat des
+    /// Vormonats und "Übertrag aus ..." im Planmonat dieses Monats. Paare von vor dem 1.11.2026 haben
+    /// "Übertrag aus ..." noch am Ersten und bleiben so. Bei einem positiven Rest ist das erste eine Ausgabe und das zweite eine Einnahme,
     /// bei einem negativen umgekehrt, damit der neue Monat mit dem Minus beginnt; die Beträge sind
     /// immer positiv. Ein Rest von 0 bucht kein Paar, nur die Ausgleichsbuchungen. Höchstens ein
-    /// Übertrag je Monat.
+    /// Übertrag je Monat. Ein Ausgleich nach unten liegt im Topf Wünsche, das Paar in Grundbedarf.
     /// </summary>
     private static async Task<IResult> CreateCarryOverAsync(
         int year,
@@ -540,7 +557,7 @@ internal static class PlanEndpoints
             var difference = real.Balance - computed.GetValueOrDefault(real.AccountId);
             if (difference != 0m)
             {
-                Add(db, ownerId, real.AccountId, lastOfPrevious, previous, Math.Abs(difference), income: difference > 0, "Ausgleich", now);
+                Add(db, ownerId, real.AccountId, lastOfPrevious, previous, Math.Abs(difference), income: difference > 0, "Ausgleich", now, expensePot: PotKeys.Wants);
             }
         }
 
@@ -550,7 +567,7 @@ internal static class PlanEndpoints
             var amount = Math.Abs(request.Amount);
             var outgoing = Add(db, ownerId, defaultAccount!.Value, lastOfPrevious, previous, amount,
                 income: !positive, $"Übertrag nach {GermanMonths[month - 1]}", now);
-            var incoming = Add(db, ownerId, defaultAccount.Value, first, (year, month), amount,
+            var incoming = Add(db, ownerId, defaultAccount.Value, lastOfPrevious, (year, month), amount,
                 income: positive, $"Übertrag aus {GermanMonths[lastOfPrevious.Month - 1]}", now);
             plan.CarryOverIncomeBookingId = positive ? incoming.Id : outgoing.Id;
             plan.CarryOverExpenseBookingId = positive ? outgoing.Id : incoming.Id;
@@ -559,7 +576,7 @@ internal static class PlanEndpoints
         await transaction.CommitAsync(cancellationToken);
 
         loggers.CreateLogger(LogCategory).LogInformation(
-            "Übertrag {Amount} in den Plan {Year}-{Month} von {UserId} gebucht.", request.Amount, year, month, ownerId);
+            "Übertrag in den Plan {Year}-{Month} von {UserId} gebucht.", year, month, ownerId);
         return Results.Created($"/api/v1/plans/{year}/{month}/carry-over", await plans.ResponseAsync(plan, await PlanSight.OfAsync(access, ownerId, cancellationToken), cancellationToken));
     }
 
@@ -641,11 +658,11 @@ internal static class PlanEndpoints
     /// <summary>Eine Buchung des Übertrags oder Ausgleichs, ohne die Prüfung für Buchungen von Hand (die Daten sind schon geprüft).</summary>
     private static Booking Add(
         DuofyDbContext db, Guid ownerId, Guid accountId, DateOnly date, (int Year, int Month) planMonth, decimal amount,
-        bool income, string note, DateTimeOffset now)
+        bool income, string note, DateTimeOffset now, string expensePot = PotKeys.Needs)
     {
         var line = income
             ? new SaveBookingLine(amount, PotKeys.Income, CategoryCatalog.IdFor(CarryOverIncomeCategory))
-            : new SaveBookingLine(amount, PotKeys.Needs, CategoryCatalog.IdFor(CarryOverExpenseCategory));
+            : new SaveBookingLine(amount, expensePot, CategoryCatalog.IdFor(CarryOverExpenseCategory));
         var request = new SaveBookingRequest(
             income ? BookingKinds.Income : BookingKinds.Expense, accountId, null, date, amount, note, [line], planMonth.Year, planMonth.Month);
         return BookingEndpoints.Add(db, ownerId, request, BookingCheck.ValidIn(planMonth.Year, planMonth.Month), now);

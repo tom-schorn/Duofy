@@ -70,6 +70,16 @@ public class BookingRulesTests
         AssertInvalid(await CheckAsync(Expense(amount)), ErrorCodes.AmountInvalid);
     }
 
+    // 1073743850 ist 2026 + 2^30: Mal 12 läuft das über und landet wieder bei 2026.
+    [Theory]
+    [InlineData(1073743850)]
+    [InlineData(PlanRules.FirstYear - 1)]
+    [InlineData(PlanRules.LastYear + 1)]
+    public async Task A_plan_year_outside_the_plan_years_answers_plan_month_invalid(int planYear)
+    {
+        AssertInvalid(await CheckAsync(Expense() with { PlanYear = planYear, PlanMonth = Today.Month }), ErrorCodes.PlanMonthInvalid);
+    }
+
     [Fact]
     public async Task Amount_has_at_most_two_decimals_and_a_maximum()
     {

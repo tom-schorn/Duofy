@@ -64,8 +64,10 @@ public class Booking
     /// <summary>
     /// Der Tag, an dem das Geld das Konto verlässt oder dort ankommt.
     ///
-    /// Der Tag darf in der Zukunft liegen. Die Buchung zählt dann erst ab diesem
-    /// Tag zum Kontostand.
+    /// Von Hand darf der Tag nicht nach heute liegen (Spec 59, R6). Nur die Buchungen des Übertrags und sein
+    /// Ausgleich können in der Zukunft stehen, wenn der Übertrag vor dem Monatsende gemacht wird: Sie stehen am
+    /// letzten Tag des alten Monats und zählen erst ab diesem Tag zum Kontostand. Ältere Paare haben
+    /// "Übertrag aus ..." noch am Ersten des neuen Monats (Spec 66, R9).
     /// </summary>
     public required DateOnly PaymentDate { get; set; }
 

@@ -8,15 +8,16 @@
 
 @* Der Übertrag in diesen Monat (R9). Vorgeschlagen sind Einnahmen minus Ausgaben des Vormonats, auch
    unter 0: Ein negativer Rest wird genauso übertragen.
-   Wer einen echten Kontostand einträgt, bekommt für den Unterschied zum gerechneten Stand eine
-   Ausgleichsbuchung am letzten Tag des Vormonats; leere Felder bleiben, wie sie sind. *@
+   Weicht ein eingetragener echter Kontostand vom gerechneten ab, zeigt der Dialog den Unterschied je Konto und
+   bietet zwei Wege: Buchungen nachtragen schließt ohne Änderung, als Ausgleich übernehmen bucht den Unterschied am
+   letzten Tag des Vormonats. Ohne Abweichung bucht er sofort; leere Felder bleiben, wie sie sind. *@
 
 <MudDialog>
     <DialogContent>
         @if (Host.IsApp)
         {
             <FullScreenFormHeader Title="@MudDialog.Title" SaveText="@L["PlanCarryOverDialog_Save"]" SaveTestId="carry-over-save"
-                                  Busy="busy" OnClose="Cancel" OnSave="SaveAsync" />
+                                  Busy="busy" ShowSave="!Reviewing" OnClose="Cancel" OnSave="SaveAsync" />
         }
         <MudStack Spacing="3">
             @if (error is not null)
@@ -36,14 +37,34 @@
                                  HelperText="@L["PlanCarryOverDialog_Computed", Money(balance.Balance)]"
                                  data-testid="@($"carry-over-balance-{accountId}")" />
             }
+
+            @if (Reviewing)
+            {
+                <MudAlert Severity="Severity.Warning" data-testid="carry-over-differences">
+                    <MudText Typo="Typo.body2">@L["PlanCarryOverDialog_DifferencesLead"]</MudText>
+                    @foreach (var difference in Differences)
+                    {
+                        <MudText Typo="Typo.body2" data-testid="@($"carry-over-difference-{difference.AccountId}")">@L["PlanCarryOverDialog_Difference", AccountName(difference.AccountId), Money(difference.Computed), Money(difference.Real), SignedMoney(difference.Real - difference.Computed)]</MudText>
+                    }
+                </MudAlert>
+                <MudStack Row="true" Justify="Justify.FlexEnd" Wrap="Wrap.Wrap" Spacing="2">
+                    <MudButton Variant="Variant.Outlined" Disabled="busy" OnClick="Cancel"
+                               data-testid="carry-over-backfill">@L["PlanCarryOverDialog_Backfill"]</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="busy" OnClick="BookAsync"
+                               data-testid="carry-over-adopt">@L["PlanCarryOverDialog_Adopt"]</MudButton>
+                </MudStack>
+            }
         </MudStack>
     </DialogContent>
     <DialogActions>
         @if (!Host.IsApp)
         {
             <MudButton OnClick="Cancel">@L["PlanDialog_Cancel"]</MudButton>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="busy" OnClick="SaveAsync"
-                       data-testid="carry-over-save">@L["PlanCarryOverDialog_Save"]</MudButton>
+            @if (!Reviewing)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="busy" OnClick="SaveAsync"
+                           data-testid="carry-over-save">@L["PlanCarryOverDialog_Save"]</MudButton>
+            }
         }
     </DialogActions>
 </MudDialog>
@@ -68,6 +89,18 @@
     private string? error;
     private bool busy;
 
+    // Gesetzt, sobald die Person mit einer Abweichung buchen wollte. Wird sie weggetippt, gilt wieder der normale Dialog.
+    private bool reviewRequested;
+
+    private sealed record BalanceDifference(Guid AccountId, decimal Computed, decimal Real);
+
+    private List<BalanceDifference> Differences => CarryOver.Balances
+        .Where(balance => real.GetValueOrDefault(balance.AccountId) is { } entered && entered != balance.Balance)
+        .Select(balance => new BalanceDifference(balance.AccountId, balance.Balance, real[balance.AccountId]!.Value))
+        .ToList();
+
+    private bool Reviewing => reviewRequested && Differences.Count > 0;
+
     // Die Person, für die der Dialog geöffnet wurde; sie bleibt, auch wenn der Umschalter inzwischen woanders steht (Spec 68, A15).
     private Guid? owner;
 
@@ -82,6 +115,17 @@
     private void Cancel() => MudDialog.Cancel();
 
     private async Task SaveAsync()
+    {
+        if (Differences.Count > 0)
+        {
+            error = null;
+            reviewRequested = true;
+            return;
+        }
+        await BookAsync();
+    }
+
+    private async Task BookAsync()
     {
         error = null;
         busy = true;
@@ -108,4 +152,6 @@
     }
 
     private static string Money(decimal value) => value.ToString("N2", German) + " €";
+
+    private static string SignedMoney(decimal value) => value.ToString("+#,##0.00;-#,##0.00", German) + " €";
 }

@@ -16,7 +16,7 @@ What a person expects to pay and receive in one month, and how far it has happen
 | Change notice | The list of differences between a month and the current contracts. |
 | Plan month | The month a booking counts in; may differ from its date by one month. |
 | Quota | The target share of income for Bedürfnisse, Wünsche and Sparen. |
-| Carry-over | What is really left of a month (also zero or negative), booked as a pair that cancels out in the balance: an expense "Übertrag nach <Monat>" in the old plan month and an income "Übertrag aus <Monat>" in the new one; changed or removed only through the plan. |
+| Carry-over | What is really left of a month (also zero or negative), booked as a pair that cancels out in the balance, both on the last day of the old month: an expense "Übertrag nach <Monat>" in the old plan month and an income "Übertrag aus <Monat>" in the new one; shown as its own line and not as bookings, changed or removed only through the plan. |
 
 ## Data
 
@@ -30,7 +30,13 @@ What a person expects to pay and receive in one month, and how far it has happen
 - Ticking is manual; ticking without bookings creates one, with bookings it offers a balancing booking.
 - A position with bookings cannot be deleted.
 - Pass-through positions count in no quota.
-- Booked per pot is what is booked on its positions without pass-through plus the bookings of the plan month without a position, without transfers and the carry-over; the actual of a quota counts the same (spec 72).
+- Booked per pot is what is booked on its positions without pass-through plus the bookings of the plan month without a position, without transfers and the carry-over; the actual of a quota counts the positions only (spec 72, R5).
+- A position with a target account does not become income; one stored that way before stays editable and says how to repair it when ticked (spec 66, amendment 2026-11-01).
+- The month shows a carry-over as one line each, "Übertrag nach <Monat>" in the old month and "Übertrag aus <Monat>" in the new one, in no pot and no quota, also on the tab Buchungen and under "Letzte Buchungen"; without a view of the bookings there is no line. The household shows the lines with the first name only for members whose bookings the viewer may see (spec 66, amendment 2026-11-01).
+- The booked sums of the plan count only real money; the suggestion for the next carry-over counts the carried rest, computed separately (spec 66, amendment 2026-11-01).
+- The free amount is planned income minus planned expenses plus the carry-over from the previous month, computed in `PlanFigures.Free`; the text at the number says when a carry-over is included. Fixed, quotas, pots and booked sums stay without it, and the carry-over going out of a month does not lower that month's free amount. Whoever does not see a person's bookings gets that person's free amount without the carry-over, also as a share of the household sum, so the household sum depends on the viewer; the household month names every member without the grant (spec 66, amendment 2026-11-01).
+- Stored pairs with the income on the first of the month stay as they are and are recognised through the two booking ids of the plan (spec 66, amendment 2026-11-01).
+- If an entered real balance differs from the computed one, the carry-over dialog shows the difference per account and asks: book the missing bookings first or adopt the difference as a balancing booking (spec 66, amendment 2026-11-01).
 
 ## Interfaces
 

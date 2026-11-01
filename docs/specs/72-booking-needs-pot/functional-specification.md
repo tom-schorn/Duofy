@@ -102,3 +102,5 @@ None.
 ## Approval
 
 Approved by the human (Tom) on 2026-10-31, in the session of his finance day; R8 dropped and R9 decided the same day.
+
+Amended on 2026-11-01 by the human: a balancing booking of the carry-over that lowers a balance is an expense in Wünsche, no longer in Grundbedarf; one that raises a balance stays an income, and the carried rest still arrives as an income in the next month. By R3 the balancing expense counts as booked in Wünsche, by R5 not in the actual of the quota. Balancing bookings already stored stay as they are; no data migration. Proof: `PlanTests.A_balancing_expense_counts_in_wants_a_balancing_income_stays_income_and_the_balances_match_what_was_entered`.

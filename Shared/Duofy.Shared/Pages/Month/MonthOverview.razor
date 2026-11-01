@@ -17,7 +17,7 @@
         <div data-testid="month-block-fixed"><ColorBlock Variant="BlockVariant.Fixed" Title="@L["Month_Fixed"]" Amount="Model.Fixed" /></div>
         <div data-testid="month-block-free">
             <ColorBlock Variant="BlockVariant.Free" Title="@L["Month_Free"]" Amount="Model.Free"
-                        AmountText="@(Model.Free == 0m ? L["Month_AllPlanned"].Value : null)" />
+                        AmountText="@(Model.Free == 0m ? L["Month_AllPlanned"].Value : null)" Note="@FreeNote" />
         </div>
     </div>
 
@@ -58,7 +58,7 @@
         {
             <p class="month-hint" data-testid="month-recent-not-shared">@L["Grant_NotShared"]</p>
         }
-        else if (Model.Bookings.Count > 0)
+        else if (Model.Bookings.Count > 0 || Model.CarryOvers.Count > 0)
         {
             <LineTable Caption="@L["Month_RecentHeading"]" HideCaption="true" Rows="RecentRows" />
         }
@@ -109,6 +109,26 @@
     [Parameter] public EventCallback<Microsoft.AspNetCore.Components.Web.MouseEventArgs> OnNewPosition { get; set; }
     [Parameter] public EventCallback<Microsoft.AspNetCore.Components.Web.MouseEventArgs> OnTick { get; set; }
 
+    // Was im Frei-Betrag steckt (Spec 66, R9): der Übertrag, sobald einer da ist. Im Haushalt steht dazu, wessen Übertrag
+    // fehlen kann. Das steht bei jedem ohne Freigabe der Buchungen und verrät so nicht, ob es wirklich einen gibt.
+    private string? FreeNote
+    {
+        get
+        {
+            var incoming = Model.CarryOvers.Where(c => c.Incoming).ToList();
+            var parts = new List<string>();
+            if (incoming.Count > 0)
+            {
+                parts.Add(L["Month_FreeCarryOver", MoneyText.Format(incoming.Sum(c => c.Amount))].Value);
+            }
+            if (BookingsMissing.Count > 0)
+            {
+                parts.Add(L["Month_FreeCarryOverMissing", string.Join(", ", BookingsMissing)].Value);
+            }
+            return parts.Count > 0 ? string.Join(" ", parts) : null;
+        }
+    }
+
     // Die Lücke je Topf als Länge ohne Vorzeichen; ob mehr oder weniger, sagt der Name des Balkens.
     private IReadOnlyList<ChartBar> GapBars => Model.Pots
         .Select(pot => new ChartBar(
@@ -116,8 +136,9 @@
             Math.Abs(pot.Gap)))
         .ToList();
 
-    private IReadOnlyList<LineTableRow> RecentRows => Model.Bookings
-        .Select(b => new LineTableRow(b.Date.ToString("d", German), b.Amount, b.Detail, TestId: $"month-recent-{b.Id}"))
+    // Der Übertrag steht als eigene Zeile über den Buchungen (Spec 66, R9).
+    private IReadOnlyList<LineTableRow> RecentRows => MonthCarryOverText.Rows(Model.CarryOvers, L)
+        .Concat(Model.Bookings.Select(b => new LineTableRow(b.Date.ToString("d", German), b.Amount, b.Detail, TestId: $"month-recent-{b.Id}")))
         .ToList();
 
     private IReadOnlyList<LineTableRow> DueRows => Model.Due

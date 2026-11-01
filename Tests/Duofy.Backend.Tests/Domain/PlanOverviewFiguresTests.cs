@@ -23,7 +23,7 @@ public class PlanOverviewFiguresTests
 
         Assert.Equal(3000m, PlanFigures.Income(positions));
         Assert.Equal(1200m, PlanFigures.Fixed(positions));
-        Assert.Equal(1800m, PlanFigures.Free(positions));
+        Assert.Equal(1800m, PlanFigures.Free(positions, carriedIn: 0m));
     }
 
     [Fact]

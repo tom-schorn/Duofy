@@ -90,6 +90,8 @@ public static class ErrorTexts
         ErrorCodes.PositionPotInvalid => L["Error_position_pot_invalid"],
         ErrorCodes.PositionCategoryInvalid => L["Error_position_category_invalid"],
         ErrorCodes.PositionHasBookings => L["Error_position_has_bookings"],
+        ErrorCodes.PositionTargetInvalid => L["Error_position_target_invalid"],
+        ErrorCodes.PositionIncomeWithTarget => L["Error_position_income_with_target"],
         ErrorCodes.LinePositionInvalid => L["Error_line_position_invalid"],
         ErrorCodes.PlanMonthInvalid => L["Error_plan_month_invalid"],
         ErrorCodes.QuotaInvalid => L["Error_quota_invalid"],

@@ -45,9 +45,10 @@ public sealed record HouseholdAccountResponse(Guid AccountId, Guid OwnerId, stri
 /// <param name="AccountsMissing">Die Vornamen derer, deren Konten fehlen, weil sie sie nicht freigegeben haben.</param>
 /// <param name="Members">Je gezähltem Mitglied Einnahmen und Quoten gegen den Richtwert des Haushalts; alle sehen alle (Spec 27).</param>
 /// <param name="Fixed">Die geplanten Ausgaben aller gezählten Mitglieder ohne durchlaufende Posten (Spec 24).</param>
-/// <param name="Free">Einnahmen minus Festes über alle gezählten Mitglieder (Spec 24).</param>
+/// <param name="Free">Einnahmen minus Festes über alle gezählten Mitglieder (Spec 24) plus die Überträge derer, deren Buchungen in <paramref name="Bookings"/> zu sehen sind (Spec 66, R9); hängt also vom Betrachter ab.</param>
 /// <param name="Bookings">Die Buchungen mit diesem Planmonat der gezählten Mitglieder, die ihre Buchungen dem Betrachter mindestens zum Ansehen freigegeben haben (die eigenen immer), die neueste zuerst (Spec 24).</param>
 /// <param name="BookingsMissing">Die Vornamen derer, deren Buchungen fehlen, weil sie sie nicht freigegeben haben.</param>
+/// <param name="CarryOvers">Die Überträge als eigene Zeilen, nur von denen, deren Buchungen in <paramref name="Bookings"/> zu sehen sind (Spec 66, R9).</param>
 public sealed record HouseholdPlanResponse(
     Guid HouseholdId,
     string HouseholdName,
@@ -65,7 +66,8 @@ public sealed record HouseholdPlanResponse(
     decimal Fixed = 0m,
     decimal Free = 0m,
     IReadOnlyList<HouseholdBookingResponse>? Bookings = null,
-    IReadOnlyList<string>? BookingsMissing = null);
+    IReadOnlyList<string>? BookingsMissing = null,
+    IReadOnlyList<PlanCarryOverLineResponse>? CarryOvers = null);
 
 /// <summary>Die Quote eines Mitglieds in einem Topf gegen den Richtwert des Haushalts (Spec 27).</summary>
 /// <param name="Pot">"needs", "wants" oder "savings".</param>
@@ -87,5 +89,6 @@ public sealed record HouseholdMemberResponse(Guid UserId, string FirstName, deci
 public sealed record HouseholdBookingResponse(Guid Id, DateOnly Date, decimal Amount, int PlanYear, int PlanMonth, Guid OwnerId, string OwnerFirstName);
 
 /// <summary>Ein Monat in der Liste der Haushaltsmonate (GET /api/v1/households/{id}/plans).</summary>
-/// <param name="Free">Der Frei-Betrag aller gezählten Mitglieder, gerechnet wie bei <see cref="PlanMonthResponse"/>.</param>
-public sealed record HouseholdPlanMonth(int Year, int Month, decimal Free);
+/// <param name="Free">Der Frei-Betrag aller gezählten Mitglieder, gerechnet wie bei <see cref="PlanMonthResponse"/>; Überträge nur von denen, deren Buchungen der Betrachter sieht.</param>
+/// <param name="CarryOver">Die Summe der in <paramref name="Free"/> enthaltenen Überträge; null, wenn keiner enthalten ist.</param>
+public sealed record HouseholdPlanMonth(int Year, int Month, decimal Free, decimal? CarryOver = null);

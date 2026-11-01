@@ -48,7 +48,7 @@
     }
     else if (tab == MonthTab.Bookings)
     {
-        <MonthBookings Rows="MonthView.HouseholdBookingRows(plan)" Missing="plan.BookingsMissing ?? []" />
+        <MonthBookings Rows="MonthView.HouseholdBookingRows(plan)" Missing="plan.BookingsMissing ?? []" CarryOvers="MonthView.CarryOverRows(plan.CarryOvers)" />
     }
     else
     {
@@ -93,6 +93,14 @@
                 </MudPaper>
             }
         </MudStack>
+    }
+
+    @* Die Überträge als eigene Zeilen, nur von denen, die ihre Buchungen freigegeben haben (Spec 66, R9). *@
+    @if (plan.CarryOvers is { Count: > 0 })
+    {
+        <div class="mt-4" data-testid="household-carry-overs">
+            <LineTable Caption="@L["Plan_CarryOver"]" HideCaption="true" Rows="MonthCarryOverText.Rows(MonthView.CarryOverRows(plan.CarryOvers), L)" />
+        </div>
     }
 
     @* Die Konten der Mitglieder, die sie freigegeben haben (R8); wer fehlt, steht mit Namen darunter. *@

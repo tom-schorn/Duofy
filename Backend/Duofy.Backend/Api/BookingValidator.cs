@@ -188,8 +188,11 @@ public static class BookingValidator
         {
             return ErrorCodes.NoteTooLong;
         }
-        // Der Planmonat kommt ganz oder gar nicht.
-        if ((request.PlanYear is null) != (request.PlanMonth is null) || request.PlanMonth is < 1 or > 12)
+        // Der Planmonat kommt ganz oder gar nicht, und nur in den Jahren, die es als Plan geben kann. Die Grenze hält auch
+        // den Vergleich in Booking.IsPlanMonthAllowed im Zahlenbereich.
+        if ((request.PlanYear is null) != (request.PlanMonth is null)
+            || request.PlanMonth is < 1 or > 12
+            || request.PlanYear is < PlanRules.FirstYear or > PlanRules.LastYear)
         {
             return ErrorCodes.PlanMonthInvalid;
         }

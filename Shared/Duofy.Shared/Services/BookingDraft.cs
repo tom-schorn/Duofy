@@ -29,7 +29,7 @@ public sealed class LineDraft
 /// - Es gibt immer mindestens eine Zeile. Die erste Zeile enthält, was von den anderen übrig lässt:
 ///   Gesamtbetrag minus die Beträge der übrigen Zeilen. So stimmt die Summe schon beim Tippen.
 /// - Eine Einnahme hat nur Zeilen im Topf Einnahmen, eine Ausgabe nur in den anderen.
-/// - Eine Umbuchung hat keine Zeilen im Dialog; sie kann nur als "Sparen" markiert werden.
+/// - Eine Umbuchung hat keine Zeilen im Dialog, sondern einen Von-Topf und einen Zu-Topf (Spec 72, R9).
 /// - Der Planmonat ist der Monat des Datums, der davor oder der danach (Spec 66, R7). Rückt das
 ///   Datum zu weit weg, wird er wieder der Monat des Datums. Posten gehören zu einem Planmonat;
 ///   wechselt er oder die Art, fallen die gewählten Posten weg.

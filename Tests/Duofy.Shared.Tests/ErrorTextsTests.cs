@@ -53,6 +53,23 @@ public class ErrorTextsTests
         Assert.Equal("Auf dem Posten liegen schon Buchungen. Deshalb lässt er sich weder löschen noch zwischen Einnahme und Ausgabe wechseln.", text);
     }
 
+    // Ein alter Posten: Einnahme mit Zielkonto. Die Meldung sagt, wie er wieder bedienbar wird.
+    [Fact]
+    public void A_stored_income_position_with_a_target_account_says_how_to_repair_it()
+    {
+        var text = ErrorTexts.For(Localizer(), ErrorCodes.PositionIncomeWithTarget);
+
+        Assert.Equal("Dieser Posten ist eine Einnahme mit Zielkonto und lässt sich so nicht abhaken. Stelle ihn auf einen anderen Topf um oder lösche ihn.", text);
+    }
+
+    [Fact]
+    public void A_position_with_a_target_account_explains_why_it_does_not_become_income()
+    {
+        var text = ErrorTexts.For(Localizer(), ErrorCodes.PositionTargetInvalid);
+
+        Assert.Equal("Eine Einnahme hat kein Zielkonto. Dieser Posten hat eines und bleibt deshalb in seinem Topf.", text);
+    }
+
     // Tom 31.10.: Im Übertrag erklärt die Meldung, dass das Zielkonto zu spät startet.
     [Fact]
     public void Carry_over_explains_a_target_account_that_opens_too_late()

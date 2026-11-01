@@ -119,6 +119,11 @@ public class PlanTests : IDisposable
         return (await response.Content.ReadFromJsonAsync<BookingMonthResponse>())!.Bookings.ToList();
     }
 
+    /// <summary>Eine Buchung des Übertrags, direkt aus der Datenbank: Das Paar steht in keiner Liste der Buchungen.</summary>
+    private Task<BookingResponse> CarryOverBookingAsync(Person person, string note) =>
+        fixture.Factory.WithDbAsync(async db => BookingEndpoints.ToResponse(
+            await BookingEndpoints.WithLines(db).AsNoTracking().SingleAsync(b => b.AccountId == person.Giro && b.Note == note)));
+
     private static PlanPositionResponse Position(PlanResponse plan, string label) => plan.Positions.Single(p => p.Label == label);
 
     [Fact]
@@ -582,14 +587,15 @@ public class PlanTests : IDisposable
             new CreateCarryOverRequest(230.00m, [new RealBalance(person.Giro, computed - 10.00m)]));
 
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
-        var income = Assert.Single(await BookingsInAsync(person, 2026, 11));
+        var income = await CarryOverBookingAsync(person, "Übertrag aus Oktober");
         Assert.Equal(BookingKinds.Income, income.Kind);
         Assert.Equal("Übertrag aus Oktober", income.Note);
         Assert.Equal(230.00m, income.Amount);
-        Assert.Equal(new DateOnly(2026, 11, 1), income.Date);
+        // Beide Buchungen stehen am letzten Tag des alten Monats, die Einnahme zählt über den Planmonat im November.
+        Assert.Equal(new DateOnly(2026, 10, 31), income.Date);
         Assert.Equal((2026, 11), (income.PlanYear, income.PlanMonth));
         var october = await BookingsInAsync(person, 2026, 10);
-        var outgoing = october.Single(b => b.Note == "Übertrag nach November");
+        var outgoing = await CarryOverBookingAsync(person, "Übertrag nach November");
         Assert.Equal((BookingKinds.Expense, 230.00m, new DateOnly(2026, 10, 31)), (outgoing.Kind, outgoing.Amount, outgoing.Date));
         Assert.Equal((2026, 10), (outgoing.PlanYear, outgoing.PlanMonth));
         var balancing = october.Single(b => b.Amount == 10.00m);
@@ -620,10 +626,10 @@ public class PlanTests : IDisposable
         var created = await SendAsync(HttpMethod.Post, $"{Plans}/2026/11/carry-over", person, new CreateCarryOverRequest(-150.00m));
 
         Assert.True(created.StatusCode == HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
-        var incoming = Assert.Single(await BookingsInAsync(person, 2026, 11));
+        var incoming = await CarryOverBookingAsync(person, "Übertrag aus Oktober");
         Assert.Equal((BookingKinds.Expense, "Übertrag aus Oktober", 150.00m), (incoming.Kind, incoming.Note, incoming.Amount));
-        Assert.Equal((new DateOnly(2026, 11, 1), 2026, 11), (incoming.Date, incoming.PlanYear, incoming.PlanMonth));
-        var outgoing = (await BookingsInAsync(person, 2026, 10)).Single(b => b.Note == "Übertrag nach November");
+        Assert.Equal((new DateOnly(2026, 10, 31), 2026, 11), (incoming.Date, incoming.PlanYear, incoming.PlanMonth));
+        var outgoing = await CarryOverBookingAsync(person, "Übertrag nach November");
         Assert.Equal((BookingKinds.Income, 150.00m), (outgoing.Kind, outgoing.Amount));
         Assert.Equal((new DateOnly(2026, 10, 31), 2026, 10), (outgoing.Date, outgoing.PlanYear, outgoing.PlanMonth));
         Assert.Equal(computed, await BalanceOnAsync(person.Giro, new DateOnly(2026, 11, 30)));
@@ -643,6 +649,89 @@ public class PlanTests : IDisposable
         var balancing = (await BookingsInAsync(person, 2026, 11)).Single(b => b.Amount == 5.00m);
         Assert.Equal((BookingKinds.Expense, new DateOnly(2026, 11, 30)), (balancing.Kind, balancing.Date));
         Assert.False((await PlanAsync(person, 2026, 12)).CarryOver.Exists);
+    }
+
+    // Toms Entscheidung vom 1.11.: Der Ausgleich nach unten zählt in Wünsche, nach oben bleibt er eine Einnahme.
+    [Fact]
+    public async Task A_balancing_expense_counts_in_wants_a_balancing_income_stays_income_and_the_balances_match_what_was_entered()
+    {
+        var person = await SignUpAsync();
+        var cash = await AccountAsync(person, "Bar", 100.00m);
+        await BookAsync(person, Income(person, 3000.00m));
+        await BookAsync(person, Expense(person, 2770.00m));
+        var balances = (await PlanAsync(person, 2026, 11)).CarryOver.Balances;
+        var realGiro = balances.Single(b => b.AccountId == person.Giro).Balance - 10.00m;
+        var realCash = balances.Single(b => b.AccountId == cash).Balance + 25.00m;
+
+        var created = await SendAsync(HttpMethod.Post, $"{Plans}/2026/11/carry-over", person,
+            new CreateCarryOverRequest(230.00m, [new RealBalance(person.Giro, realGiro), new RealBalance(cash, realCash)]));
+
+        Assert.True(created.StatusCode == HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
+        var october = await BookingsInAsync(person, 2026, 10);
+        var down = october.Single(b => b.Note == "Ausgleich" && b.AccountId == person.Giro);
+        Assert.Equal((BookingKinds.Expense, 10.00m, PotKeys.Wants), (down.Kind, down.Amount, Assert.Single(down.Lines).Pot));
+        var up = october.Single(b => b.Note == "Ausgleich" && b.AccountId == cash);
+        Assert.Equal((BookingKinds.Income, 25.00m, PotKeys.Income), (up.Kind, up.Amount, Assert.Single(up.Lines).Pot));
+        // Das Paar des Übertrags bleibt, wie es war: Der Rest kommt im November als Einnahme an.
+        Assert.Equal(PotKeys.Needs, Assert.Single((await CarryOverBookingAsync(person, "Übertrag nach November")).Lines).Pot);
+        var arriving = await CarryOverBookingAsync(person, "Übertrag aus Oktober");
+        Assert.Equal((BookingKinds.Income, 230.00m, PotKeys.Income), (arriving.Kind, arriving.Amount, Assert.Single(arriving.Lines).Pot));
+
+        Assert.Equal(realGiro, await BalanceOnAsync(person.Giro, new DateOnly(2026, 11, 30)));
+        Assert.Equal(realCash, await BalanceOnAsync(cash, new DateOnly(2026, 11, 30)));
+        // Gebucht im Topf nach Spec 72, R3; in der Quote zählen nur Posten (R5).
+        var plan = await PlanAsync(person, 2026, 10);
+        Assert.Equal(10.00m, plan.Overview!.Pots.Single(p => p.Pot == PotKeys.Wants).Booked);
+        Assert.Equal(0m, plan.Quotas.Single(q => q.Pot == PotKeys.Wants).Actual);
+    }
+
+    /// <summary>Ein Posten aus einem Vertrag mit Zielkonto; nur der Abgleich legt so einen an.</summary>
+    private async Task<(PlanPositionResponse Position, Guid Target)> PositionWithTargetAsync(Person person)
+    {
+        var target = await AccountAsync(person, "Bar", 0m);
+        await CommitmentAsync(person, new CreateCommitmentRequest(
+            CommitmentTypes.Contract, "Rücklage", 100.00m, 1, January1, null, person.Rent, PotKeys.Needs, CounterAccountId: target));
+        return ((await PlanAsync(person, 2026, 10)).Positions.Single(p => p.CounterAccountId == target), target);
+    }
+
+    [Fact]
+    public async Task A_position_with_a_target_account_does_not_become_income()
+    {
+        var person = await SignUpAsync();
+        var (position, _) = await PositionWithTargetAsync(person);
+
+        var refused = await SendAsync(HttpMethod.Patch, $"{Plans}/2026/10/positions/{position.Id}", person,
+            new UpdatePositionRequest(Pot: PotKeys.Income, CategoryId: person.Salary));
+
+        Assert.Equal((HttpStatusCode.BadRequest, ErrorCodes.PositionTargetInvalid), (refused.StatusCode, await refused.ReadCodeAsync()));
+        Assert.Equal(PotKeys.Needs, (await PlanAsync(person, 2026, 10)).Positions.Single(p => p.Id == position.Id).Pot);
+    }
+
+    // Vor dieser Regel ließ sich so ein Posten speichern; er bleibt bedienbar und sagt beim Abhaken, was zu tun ist.
+    [Fact]
+    public async Task A_stored_income_position_with_a_target_account_explains_the_refused_tick_and_can_be_repaired()
+    {
+        var person = await SignUpAsync();
+        var (position, _) = await PositionWithTargetAsync(person);
+        await fixture.Factory.WithDbAsync(async db =>
+        {
+            var stored = await db.PlanPositions.SingleAsync(p => p.Id == position.Id);
+            stored.Pot = Duofy.Domain.Pot.Income;
+            stored.CategoryId = person.Salary;
+            return await db.SaveChangesAsync();
+        });
+        var path = $"{Plans}/2026/10/positions/{position.Id}";
+
+        var tick = await SendAsync(HttpMethod.Post, $"{path}/tick", person);
+
+        Assert.Equal((HttpStatusCode.BadRequest, ErrorCodes.PositionIncomeWithTarget), (tick.StatusCode, await tick.ReadCodeAsync()));
+        Assert.Empty(await BookingsInAsync(person, 2026, 10));
+        var edited = await SendAsync(HttpMethod.Patch, path, person, new UpdatePositionRequest(Amount: 120.00m));
+        Assert.Equal(HttpStatusCode.OK, edited.StatusCode);
+        var repaired = await SendAsync(HttpMethod.Patch, path, person, new UpdatePositionRequest(Pot: PotKeys.Needs, CategoryId: person.Rent));
+        Assert.Equal(HttpStatusCode.OK, repaired.StatusCode);
+        var ticked = await SendAsync(HttpMethod.Post, $"{path}/tick", person);
+        Assert.True(ticked.StatusCode == HttpStatusCode.OK, await ticked.Content.ReadAsStringAsync());
     }
 
     // A21
@@ -686,8 +775,8 @@ public class PlanTests : IDisposable
         var person = await SignUpAsync();
         await BookAsync(person, Income(person, 3000.00m));
         await SendAsync(HttpMethod.Post, $"{Plans}/2026/11/carry-over", person, new CreateCarryOverRequest(230.00m));
-        var incoming = Assert.Single(await BookingsInAsync(person, 2026, 11));
-        var outgoing = (await BookingsInAsync(person, 2026, 10)).Single(b => b.Note == "Übertrag nach November");
+        var incoming = await CarryOverBookingAsync(person, "Übertrag aus Oktober");
+        var outgoing = await CarryOverBookingAsync(person, "Übertrag nach November");
 
         foreach (var booking in new[] { incoming, outgoing })
         {
@@ -702,14 +791,14 @@ public class PlanTests : IDisposable
             Assert.Equal(HttpStatusCode.Conflict, delete.StatusCode);
             Assert.Equal(ErrorCodes.CarryOverBooking, await delete.ReadCodeAsync());
         }
-        Assert.Equal(230.00m, Assert.Single(await BookingsInAsync(person, 2026, 11)).Amount);
-        Assert.Equal(230.00m, (await BookingsInAsync(person, 2026, 10)).Single(b => b.Id == outgoing.Id).Amount);
+        Assert.Equal(230.00m, (await CarryOverBookingAsync(person, "Übertrag aus Oktober")).Amount);
+        Assert.Equal(230.00m, (await CarryOverBookingAsync(person, "Übertrag nach November")).Amount);
 
         var removed = await SendAsync(HttpMethod.Delete, $"{Plans}/2026/11/carry-over", person);
 
         Assert.Equal(HttpStatusCode.NoContent, removed.StatusCode);
         Assert.Empty(await BookingsInAsync(person, 2026, 11));
-        Assert.DoesNotContain(await BookingsInAsync(person, 2026, 10), b => b.Id == outgoing.Id);
+        Assert.DoesNotContain(await BookingsInAsync(person, 2026, 10), b => b.Id == outgoing.Id || b.Id == incoming.Id);
     }
 
     // A15
@@ -772,7 +861,8 @@ public class PlanTests : IDisposable
                 SendAsync(HttpMethod.Post, path, person, new CreateCarryOverRequest(100.00m)));
 
             Assert.Equal([HttpStatusCode.Created, HttpStatusCode.Conflict], answers.Select(a => a.StatusCode).Order());
-            Assert.Single(await BookingsInAsync(person, year, month), b => b.Note!.StartsWith("Übertrag aus"));
+            Assert.Equal(1, await fixture.Factory.WithDbAsync(db => db.Bookings.CountAsync(
+                b => b.AccountId == person.Giro && b.PlanYear == year && b.PlanMonth == month && b.Note!.StartsWith("Übertrag aus"))));
         }
     }
 

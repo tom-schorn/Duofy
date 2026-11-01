@@ -5,6 +5,7 @@ using Duofy.Shared.Pages;
 using Duofy.Shared.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
 using MudBlazor;
 
 namespace Duofy.Shared.Tests;
@@ -191,10 +192,8 @@ public class PlanPageTests : PageTestContext
         Assert.Contains("einmalig", cut.Markup);
     }
 
-    [Fact]
-    public void The_carry_over_dialog_suggests_the_rest_and_sends_real_balances()
+    private IRenderedComponent<Plan> OpenCarryOver(Guid giro)
     {
-        var giro = Accounts.Accounts[0].Id;
         PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10) with
         {
             CarryOver = new PlanCarryOverResponse(230m, false, null, [new PlanAccountBalanceResponse(giro, 1230m)]),
@@ -202,13 +201,73 @@ public class PlanPageTests : PageTestContext
         var cut = Render<Plan>();
         OpenPlanTab(cut);
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='plan-carry-over-open']")));
-
         cut.Find("[data-testid='plan-carry-over-open']").Click();
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='carry-over-amount']")));
+        return cut;
+    }
+
+    [Fact]
+    public void A_real_balance_equal_to_the_computed_one_books_without_asking()
+    {
+        var giro = Accounts.Accounts[0].Id;
+        var cut = OpenCarryOver(giro);
+
+        Field(dialogs, $"carry-over-balance-{giro}").Change("1230,00");
+        dialogs.Find("[data-testid='carry-over-save']").Click();
+
+        cut.WaitForAssertion(() => Assert.Single(PlanApiFake.CarryOvers));
+        Assert.Empty(dialogs.FindAll("[data-testid='carry-over-differences']"));
+    }
+
+    [Fact]
+    public void A_different_real_balance_shows_the_difference_and_backfilling_closes_without_booking()
+    {
+        var giro = Accounts.Accounts[0].Id;
+        var cut = OpenCarryOver(giro);
+
+        Field(dialogs, $"carry-over-balance-{giro}").Change("1220,00");
+        dialogs.Find("[data-testid='carry-over-save']").Click();
+
+        dialogs.WaitForAssertion(() => Assert.Equal(
+            "Girokonto: gerechnet 1.230,00 €, eingetragen 1.220,00 €, Unterschied -10,00 €",
+            dialogs.Find($"[data-testid='carry-over-difference-{giro}']").TextContent.Trim()));
+        Assert.Empty(PlanApiFake.CarryOvers);
+        Assert.Empty(dialogs.FindAll("[data-testid='carry-over-save']"));
+
+        dialogs.Find("[data-testid='carry-over-backfill']").Click();
+
+        dialogs.WaitForAssertion(() => Assert.Empty(dialogs.FindAll("[data-testid='carry-over-amount']")));
+        Assert.Empty(PlanApiFake.CarryOvers);
+    }
+
+    [Fact]
+    public void Correcting_the_real_balance_brings_the_normal_dialog_back()
+    {
+        var giro = Accounts.Accounts[0].Id;
+        OpenCarryOver(giro);
+        Field(dialogs, $"carry-over-balance-{giro}").Change("1220,00");
+        dialogs.Find("[data-testid='carry-over-save']").Click();
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='carry-over-differences']")));
+
+        Field(dialogs, $"carry-over-balance-{giro}").Change("1230,00");
+
+        dialogs.WaitForAssertion(() => Assert.Empty(dialogs.FindAll("[data-testid='carry-over-differences']")));
+        Assert.NotEmpty(dialogs.FindAll("[data-testid='carry-over-save']"));
+        Assert.Empty(PlanApiFake.CarryOvers);
+    }
+
+    [Fact]
+    public void The_carry_over_dialog_suggests_the_rest_and_sends_real_balances_when_the_difference_is_adopted()
+    {
+        var giro = Accounts.Accounts[0].Id;
+        var cut = OpenCarryOver(giro);
+
         Assert.Equal("230,00", Field(dialogs, "carry-over-amount").GetAttribute("value"));
         Assert.Contains("Gerechnet: 1.230,00 €", dialogs.Markup);
         Field(dialogs, $"carry-over-balance-{giro}").Change("1220,00");
         dialogs.Find("[data-testid='carry-over-save']").Click();
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='carry-over-adopt']")));
+        dialogs.Find("[data-testid='carry-over-adopt']").Click();
 
         cut.WaitForAssertion(() => Assert.Contains("Übertrag aus dem Vormonat: 230,00 €", Text(cut, "plan-carry-over")));
         var request = Assert.Single(PlanApiFake.CarryOvers);
@@ -236,5 +295,49 @@ public class PlanPageTests : PageTestContext
 
         cut.WaitForAssertion(() => Assert.Single(PlanApiFake.CarryOvers));
         Assert.Equal(-80m, PlanApiFake.CarryOvers[0].Amount);
+    }
+}
+
+/// <summary>
+/// Der Übertrag in der App: Dort sitzt Speichern in der Kopfzeile. Bei einer Abweichung verschwindet es, damit nur die
+/// beiden Wege bleiben.
+/// </summary>
+public class PlanPageInAppTests : PageTestContext
+{
+    private readonly IRenderedComponent<MudDialogProvider> dialogs;
+
+    public PlanPageInAppTests()
+    {
+        Services.AddSingleton<IAppHost, AppHost>();
+        Render<MudPopoverProvider>();
+        dialogs = Render<MudDialogProvider>();
+        Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true));
+    }
+
+    [Fact]
+    public void A_difference_replaces_the_save_button_of_the_header_with_the_two_ways()
+    {
+        var giro = Accounts.Accounts[0].Id;
+        PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10) with
+        {
+            CarryOver = new PlanCarryOverResponse(230m, false, null, [new PlanAccountBalanceResponse(giro, 1230m)]),
+        };
+        var cut = Render<Plan>();
+        OpenPlanTab(cut);
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='plan-carry-over-open']")));
+        cut.Find("[data-testid='plan-carry-over-open']").Click();
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='carry-over-amount']")));
+
+        Field(dialogs, $"carry-over-balance-{giro}").Change("1250,00");
+        dialogs.Find("[data-testid='carry-over-save']").Click();
+
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='carry-over-adopt']")));
+        Assert.Empty(dialogs.FindAll("[data-testid='carry-over-save']"));
+        Assert.Contains("Unterschied +20,00 €", dialogs.Find($"[data-testid='carry-over-difference-{giro}']").TextContent);
+        Assert.NotEmpty(dialogs.FindAll("[data-testid='carry-over-backfill']"));
+
+        dialogs.Find("[data-testid='carry-over-adopt']").Click();
+
+        cut.WaitForAssertion(() => Assert.Equal(new RealBalance(giro, 1250m), Assert.Single(Assert.Single(PlanApiFake.CarryOvers).Balances!)));
     }
 }

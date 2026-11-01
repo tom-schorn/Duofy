@@ -94,13 +94,31 @@ public static class PlanFigures
         positions.Where(p => !p.PassThrough && p.Pot != Pot.Income).Sum(p => p.AmountPlanned);
 
     /// <summary>
-    /// Der Frei-Betrag eines oder mehrerer Monate für die Plan-Übersicht (Spec 23): die geplanten Einnahmen minus die
-    /// geplanten Ausgaben. Durchlaufende Posten zählen weder als Einnahme noch als Ausgabe, wie bei den Quoten.
+    /// Der Frei-Betrag eines oder mehrerer Monate (Spec 23; Spec 66, R9): die geplanten Einnahmen minus die geplanten
+    /// Ausgaben plus der Übertrag aus dem Vormonat. Durchlaufende Posten zählen weder als Einnahme noch als Ausgabe, wie
+    /// bei den Quoten. Der Parameter ist Pflicht, damit keine Stelle den Übertrag aus Versehen vergisst.
     /// </summary>
-    public static decimal Free(IEnumerable<PlanPosition> positions)
+    /// <param name="carriedIn">
+    /// Der Übertrag, den der Betrachter sehen darf, siehe <see cref="CarriedIn"/>; 0 ohne Übertrag. Über mehrere Monate
+    /// die Summe. Der Übertrag in den nächsten Monat gehört nicht hierher, er ändert den Frei-Betrag dieses Monats nicht.
+    /// </param>
+    public static decimal Free(IEnumerable<PlanPosition> positions, decimal carriedIn)
     {
         var counting = positions.ToList();
-        return Income(counting) - Fixed(counting);
+        return Income(counting) - Fixed(counting) + carriedIn;
+    }
+
+    /// <summary>
+    /// Der Betrag des Übertrags in diesen Monat aus seiner Buchung mit diesem Planmonat: bei einem positiven Rest die Einnahme,
+    /// bei einem negativen die Ausgabe als negativer Betrag; null ohne Übertrag oder ohne Sicht auf die Buchungen. Der Plan
+    /// kennt beide Hälften des Paares, die andere liegt im Vormonat und zählt hier nicht, auch wenn die Liste sie enthält.
+    /// </summary>
+    /// <param name="bookings">Die Buchungen, die der Betrachter sehen darf.</param>
+    public static decimal? CarriedIn(Plan plan, IReadOnlyCollection<Booking> bookings)
+    {
+        var inMonth = bookings.Where(b => b.PlanYear == plan.Year && b.PlanMonth == plan.Month).ToList();
+        return inMonth.FirstOrDefault(b => b.Id == plan.CarryOverIncomeBookingId)?.Amount
+            ?? -inMonth.FirstOrDefault(b => b.Id == plan.CarryOverExpenseBookingId)?.Amount;
     }
 
     /// <summary>

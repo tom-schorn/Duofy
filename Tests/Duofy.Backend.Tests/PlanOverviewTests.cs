@@ -2,7 +2,10 @@ using System.Net;
 using System.Net.Http.Json;
 using Duofy.Domain;
 using Duofy.Schemas;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Duofy.Api.Tests;
 
@@ -28,9 +31,9 @@ public class PlanOverviewTests
         client = fixture.Factory.CreateClient();
     }
 
-    private async Task PositionAsync(Person owner, int month, string label, decimal amount, string pot, Guid category)
+    private async Task PositionAsync(Person owner, int month, string label, decimal amount, string pot, Guid category, HttpClient? via = null)
     {
-        var response = await client.SendAsync(owner, HttpMethod.Post, $"/api/v1/plans/2026/{month}/positions",
+        var response = await (via ?? client).SendAsync(owner, HttpMethod.Post, $"/api/v1/plans/2026/{month}/positions",
             new CreatePositionRequest(label, amount, 10, category, pot));
         Assert.True(response.StatusCode == HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
     }
@@ -116,13 +119,19 @@ public class PlanOverviewTests
     [Fact]
     public async Task The_household_list_carries_the_free_amount_of_all_counted_members()
     {
-        var (anna, ben) = await client.AnnaAndBenAsync();
-        var household = await client.MineAsync(anna);
-        await PositionAsync(anna, 10, "Gehalt", 3000m, PotKeys.Income, Salary);
-        await PositionAsync(anna, 10, "Miete", 890m, PotKeys.Needs, Rent);
-        await PositionAsync(ben, 10, "Gehalt", 1000m, PotKeys.Income, Salary);
+        // Feste Uhr im Oktober: Ein Mitglied zählt erst ab dem Monat seines Beitritts; mit der echten Uhr wäre der Test
+        // ab November rot.
+        var today = new MovableTime(new DateTimeOffset(2026, 10, 24, 8, 0, 0, TimeSpan.Zero));
+        await using var api = fixture.Factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(
+            services => services.AddSingleton<TimeProvider>(today)));
+        var inOctober = api.CreateClient();
+        var (anna, ben) = await inOctober.AnnaAndBenAsync();
+        var household = await inOctober.MineAsync(anna);
+        await PositionAsync(anna, 10, "Gehalt", 3000m, PotKeys.Income, Salary, inOctober);
+        await PositionAsync(anna, 10, "Miete", 890m, PotKeys.Needs, Rent, inOctober);
+        await PositionAsync(ben, 10, "Gehalt", 1000m, PotKeys.Income, Salary, inOctober);
 
-        var response = await client.SendAsync(ben, HttpMethod.Get, $"/api/v1/households/{household.Id}/plans");
+        var response = await inOctober.SendAsync(ben, HttpMethod.Get, $"/api/v1/households/{household.Id}/plans");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var october = (await response.Content.ReadFromJsonAsync<List<HouseholdPlanMonth>>())!.Single(m => (m.Year, m.Month) == (2026, 10));

@@ -15,7 +15,8 @@
 
 @* Die Plan-Übersicht (Spec 23): Wer auf Plan tippt, sieht zuerst die Monate, nicht gleich den laufenden. Die Liste hat
    alle Monate mit Plan, den laufenden und die drei kommenden, den neuesten oben. Der laufende ist hervorgehoben und
-   beschriftet; jede Zeile zeigt den Frei-Betrag oder "noch nicht angelegt" und führt zu /plan/{Jahr}/{Monat}.
+   beschriftet; jede Zeile zeigt den Frei-Betrag, mit einem enthaltenen Übertrag als solchen benannt (Spec 66, R9), oder
+   "noch nicht angelegt" und führt zu /plan/{Jahr}/{Monat}.
 
    Die Seite rechnet nichts: Den Frei-Betrag schickt die API (PlanFigures.Free). Eine Zeile ist ein gewöhnlicher Link,
    darum geht sie mit Tastatur, Vorlese-Programm und als Adresse zum Merken. Ein Monat ohne Plan wird erst beim Öffnen
@@ -59,7 +60,7 @@ else if (rows is not null)
                     {
                         <span class="plan-month-free">
                             <TablerIcon Name="coins" Size="20" />
-                            @L["PlanOverview_Free", MoneyText.Format(free)]
+                            @L[row.WithCarryOver ? "PlanOverview_FreeWithCarryOver" : "PlanOverview_Free", MoneyText.Format(free)]
                         </span>
                     }
                     else
@@ -113,7 +114,7 @@ else if (rows is not null)
             return;
         }
 
-        var known = new List<(int Year, int Month, decimal Free)>();
+        var known = new List<(int Year, int Month, decimal Free, bool WithCarryOver)>();
         string? errorCode = null;
         if (Member.IsHousehold)
         {
@@ -121,14 +122,14 @@ else if (rows is not null)
             {
                 var result = await HouseholdApi.ListPlansAsync(household.Id);
                 errorCode = result.ErrorCode;
-                known.AddRange(result.Succeeded ? result.Value!.Select(m => (m.Year, m.Month, m.Free)) : []);
+                known.AddRange(result.Succeeded ? result.Value!.Select(m => (m.Year, m.Month, m.Free, m.CarryOver is not null)) : []);
             }
         }
         else
         {
             var result = await PlanApi.ListMonthsAsync(Member.Owner);
             errorCode = result.ErrorCode;
-            known.AddRange(result.Succeeded ? result.Value!.Select(m => (m.Year, m.Month, m.Free)) : []);
+            known.AddRange(result.Succeeded ? result.Value!.Select(m => (m.Year, m.Month, m.Free, m.CarryOver is not null)) : []);
         }
 
         if (errorCode is not null)

@@ -426,7 +426,11 @@
   <data name="Field_BalancingAmount"><value>Ausgleich in Euro</value></data>
   <data name="PlanCarryOverDialog_Title"><value>Übertrag</value></data>
   <data name="PlanCarryOverDialog_Save"><value>Übertrag buchen</value></data>
-  <data name="PlanCarryOverDialog_Lead"><value>Wie viel ist vom Vormonat wirklich übrig? Trage echte Kontostände ein, wenn sie vom gerechneten Stand abweichen; der Unterschied wird ausgeglichen.</value></data>
+  <data name="PlanCarryOverDialog_Lead"><value>Wie viel ist vom Vormonat wirklich übrig? Trage echte Kontostände ein, wenn sie vom gerechneten Stand abweichen; du entscheidest danach, was mit dem Unterschied geschieht.</value></data>
+  <data name="PlanCarryOverDialog_DifferencesLead"><value>Das weicht vom gerechneten Stand ab. Fehlen noch Buchungen, trage sie nach. Sonst wird der Unterschied am letzten Tag des Vormonats gebucht: ein Plus als Einnahme, ein Minus als Ausgabe im Topf Wünsche.</value></data>
+  <data name="PlanCarryOverDialog_Difference"><value>{0}: gerechnet {1}, eingetragen {2}, Unterschied {3}</value></data>
+  <data name="PlanCarryOverDialog_Backfill"><value>Buchungen nachtragen</value></data>
+  <data name="PlanCarryOverDialog_Adopt"><value>Als Ausgleich übernehmen</value></data>
   <data name="PlanCarryOverDialog_Computed"><value>Gerechnet: {0}</value></data>
   <data name="Field_CarryOverAmount"><value>Übrig in Euro</value></data>
   <data name="Field_RealBalance"><value>Echter Stand {0} am Monatsende (freiwillig)</value></data>
@@ -452,6 +456,8 @@
   <data name="Error_carry_over_exists"><value>Für diesen Monat gibt es schon einen Übertrag.</value></data>
   <data name="Error_carry_over_not_found"><value>Für diesen Monat gibt es keinen Übertrag.</value></data>
   <data name="Error_carry_over_booking"><value>Diese Buchung gehört zu einem Übertrag. Ändern oder entfernen kannst du ihn nur im Plan.</value></data>
+  <data name="Error_position_target_invalid"><value>Eine Einnahme hat kein Zielkonto. Dieser Posten hat eines und bleibt deshalb in seinem Topf.</value></data>
+  <data name="Error_position_income_with_target"><value>Dieser Posten ist eine Einnahme mit Zielkonto und lässt sich so nicht abhaken. Stelle ihn auf einen anderen Topf um oder lösche ihn.</value></data>
   <data name="Error_carry_over_opening"><value>Das Konto startet zu spät für diesen Übertrag. Bitte ein anderes Konto wählen.</value></data>
   <data name="Error_carry_over_balance_duplicate"><value>Jedes Konto darf beim Übertrag nur einmal vorkommen.</value></data>
   <data name="Error_default_account_required"><value>Dafür brauchst du ein Standardkonto. Lege es unter Konten fest.</value></data>
@@ -663,6 +669,7 @@
   <data name="PlanOverview_Months"><value>Monate</value></data>
   <data name="PlanOverview_Current"><value>aktueller Monat</value></data>
   <data name="PlanOverview_Free"><value>Frei {0}</value></data>
+  <data name="PlanOverview_FreeWithCarryOver"><value>Frei {0} inkl. Übertrag</value></data>
   <data name="PlanOverview_NotCreated"><value>noch nicht angelegt</value></data>
   <data name="StepDialog_Progress"><value>Schritt {0} von {1}</value></data>
   <data name="StepDialog_Back"><value>Zurück</value></data>
@@ -695,6 +702,8 @@
   <data name="Month_Fixed"><value>Festes</value></data>
   <data name="Month_Free"><value>Frei</value></data>
   <data name="Month_AllPlanned"><value>Alles verplant</value></data>
+  <data name="Month_FreeCarryOver"><value>Enthält Übertrag: {0}</value></data>
+  <data name="Month_FreeCarryOverMissing"><value>Ein möglicher Übertrag von {0} ist nicht enthalten.</value></data>
   <data name="Month_PotsHeading"><value>Soll und Ist je Topf</value></data>
   <data name="Month_GapCaption"><value>Lücke zwischen Geplantem und Gebuchtem in Euro</value></data>
   <data name="Month_GapMore"><value>{0}, mehr als geplant</value></data>
@@ -715,5 +724,7 @@
   <data name="Month_BookingsEmpty"><value>Diesem Monat sind noch keine Buchungen zugeordnet.</value></data>
   <data name="Month_BookingsCaption"><value>Buchungen dieses Planmonats</value></data>
   <data name="Month_OtherMonth"><value>Datum im {0}</value></data>
+  <data name="Month_CarryOverIn"><value>Übertrag aus {0}</value></data>
+  <data name="Month_CarryOverOut"><value>Übertrag nach {0}</value></data>
   <data name="Month_BookingsMissing"><value>Nicht freigegebene Buchungen von: {0}</value></data>
 </root>

@@ -34,6 +34,28 @@ public class MonthViewTests
         Assert.Equal(70m, model.Bookings[0].Amount);
     }
 
+    // Spec 66, R9: Die Zeilen des Übertrags nehmen keiner Buchung den Platz unter den fünf neuesten.
+    [Fact]
+    public void The_carry_overs_come_as_their_own_rows_beside_the_five_newest_bookings()
+    {
+        var bookings = Enumerable.Range(1, 7).Select(day => Booking(new DateOnly(2026, 10, day), day * 10m)).Reverse().ToArray();
+        var overview = Overview(bookings) with
+        {
+            CarryOvers =
+            [
+                new PlanCarryOverLineResponse(CarryOverDirections.In, 2026, 9, 230m),
+                new PlanCarryOverLineResponse(CarryOverDirections.Out, 2026, 11, -150m),
+            ],
+        };
+
+        var model = MonthView.ForPerson(PlanWith(overview), Today, _ => null);
+
+        Assert.Equal(5, model.Bookings.Count);
+        Assert.Equal(
+            [new MonthCarryOverRow(true, new DateOnly(2026, 9, 1), 230m, null), new MonthCarryOverRow(false, new DateOnly(2026, 11, 1), -150m, null)],
+            model.CarryOvers);
+    }
+
     // A9 (R8)
     [Fact]
     public void A_booking_dated_in_another_month_than_its_plan_month_is_marked()

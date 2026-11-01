@@ -5,7 +5,10 @@ Tunnel, ohne einen offenen Port außer SSH, mit der Datenbank bei dir zu Hause, 
 die gehostete Version von Duofy ("Plagevo by Duofy"); der Code heißt weiter Duofy. Die Anforderungen stehen in
 [docs/specs/79-operations](specs/79-operations).
 
-Du brauchst diese Anleitung selten, deshalb steht jeder Schritt ausgeschrieben da, auch die Befehle.
+Du brauchst diese Anleitung selten, deshalb steht jeder Schritt ausgeschrieben da, auch die Befehle. Vier Platzhalter
+setzt du selbst ein: `<installationsordner>` ist der Ordner dieses Repositorys auf dem Server, `<tunnel-ordner>` der Ordner
+des Compose-Projekts für den Tunnel, `<server-tailnet-ip>` die Tailscale-Adresse des Servers (dort `tailscale ip -4`) und
+`<benutzer>` dein SSH-Benutzer auf dem Server.
 
 ## Überblick
 
@@ -16,7 +19,7 @@ Auf dem Server laufen diese Container:
 | `api` | Die Duofy-API, erreichbar als `api.plagevo.de` | 384 MB |
 | `web` | Die Web-Variante, erreichbar als `portal.plagevo.de` | 512 MB |
 | `backup` | Sichert die Datenbank jeden Tag nach `deploy/backups` | 128 MB |
-| `cloudflared` | Der Tunnel zu Cloudflare; ein eigenes Compose-Projekt in `/root/infrastructure` | – |
+| `cloudflared` | Der Tunnel zu Cloudflare; ein eigenes Compose-Projekt in `<tunnel-ordner>` | – |
 
 `api`, `web` und `backup` kommen aus `deploy/docker-compose.yml`. Die Datenbank gehört nicht dazu: Es ist dein
 PostgreSQL-Server zu Hause, den der Server über Tailscale erreicht (Schritt 3). Wer keinen eigenen PostgreSQL-Server
@@ -47,14 +50,14 @@ Web-Nutzer ein Budget. Vor der Web-Variante bremst deshalb die Regel bei Cloudfl
 - Tailscale auf dem Server und auf deinem PostgreSQL-Server zu Hause, beide im selben Tailnet
 - die Domain `plagevo.de` in Cloudflare (kostenloser Plan reicht)
 - das Postfach `noreply@example.org` mit seinen SMTP-Zugangsdaten
-- dieses Repository auf dem Server unter `/root/duofy_rework`:
+- dieses Repository auf dem Server unter `<installationsordner>`:
 
   ```bash
-  git clone https://github.com/tom-schorn/duofy-dotnet.git /root/duofy_rework
-  cd /root/duofy_rework/deploy
+  git clone https://github.com/tom-schorn/duofy-dotnet.git <installationsordner>
+  cd <installationsordner>/deploy
   ```
 
-Alle weiteren Befehle auf dem Server laufen im Ordner `deploy`, außer denen für den Tunnel in `/root/infrastructure`.
+Alle weiteren Befehle auf dem Server laufen im Ordner `deploy`, außer denen für den Tunnel in `<tunnel-ordner>`.
 
 ## 2. Cloudflare einrichten
 
@@ -82,8 +85,8 @@ Verschlüsselung macht Cloudflare, im Tunnel ist die Verbindung ohnehin geschüt
 dann überall `app.plagevo.de` statt `portal.plagevo.de` einsetzen, auch in `DUOFY_PUBLIC_URL`.
 
 **Fall A: Der Tunnel läuft in seinem eigenen Compose-Projekt (so ist es auf dem Server).** Der Container `cloudflared`
-gehört zum Projekt in `/root/infrastructure`. Er tritt dem Netz `plagevo` als externem Netz bei und bekommt dort die
-feste Adresse `172.30.10.2`. In `/root/infrastructure/docker-compose.yml` sieht das so aus:
+gehört zum Projekt in `<tunnel-ordner>`. Er tritt dem Netz `plagevo` als externem Netz bei und bekommt dort die
+feste Adresse `172.30.10.2`. In `<tunnel-ordner>/docker-compose.yml` sieht das so aus:
 
 ```yaml
 services:
@@ -108,7 +111,7 @@ Hängt `cloudflared` noch in weiteren Netzen für andere Anwendungen, bleiben di
 dazu. Die Reihenfolge beim Start: erst Plagevo (das legt das Netz an, Schritt 7), dann das Projekt des Tunnels:
 
 ```bash
-cd /root/infrastructure
+cd <tunnel-ordner>
 docker compose up -d
 ```
 
@@ -120,7 +123,7 @@ sie steht in seiner Compose-Datei.
 "Cloudflared" anlegen. Bei "Install connector" steht ein Befehl mit einem langen Token nach `--token`; nur dieses Token
 kommt als `TUNNEL_TOKEN` in `deploy/.env`. Die beiden Einträge wie oben anlegen. Beim Start (Schritt 7) kommt dann
 `--profile own-tunnel` dazu; das startet den Dienst `tunnel` aus `deploy/docker-compose.yml` mit der Adresse
-`172.30.10.2` im selben Netz. Ein eigenes Projekt in `/root/infrastructure` gibt es dann nicht.
+`172.30.10.2` im selben Netz. Ein eigenes Projekt in `<tunnel-ordner>` gibt es dann nicht.
 
 ### 2.3 Die eine Regel gegen zu viele Anfragen
 
@@ -165,7 +168,7 @@ Cloudflare einen Schnipsel mit `data-cf-beacon='{"token": "..."}'`, und nur den 
 
 Die Daten von Plagevo liegen in deinem PostgreSQL-Server zu Hause. Der Server erreicht ihn über Tailscale, also durch
 ein verschlüsseltes WireGuard-Netz; im Internet ist der Port der Datenbank nie offen. Die Adresse des Servers im
-Tailnet ist `100.72.244.19`, die deines PostgreSQL-Servers siehst du dort mit `tailscale ip -4` (unten `100.x.y.z`).
+Tailnet ist `<server-tailnet-ip>`, die deines PostgreSQL-Servers siehst du dort mit `tailscale ip -4` (unten `100.x.y.z`).
 
 Alles in diesem Schritt machst du auf deinem PostgreSQL-Server zu Hause, nicht auf dem Server.
 
@@ -198,7 +201,7 @@ Alles in diesem Schritt machst du auf deinem PostgreSQL-Server zu Hause, nicht a
 3. Nur den Server hereinlassen. In `pg_hba.conf` (im selben Ordner) eine Zeile anfügen:
 
    ```text
-   host    plagevo    plagevo    100.72.244.19/32    scram-sha-256
+   host    plagevo    plagevo    <server-tailnet-ip>/32    scram-sha-256
    ```
 
    Danach PostgreSQL neu starten, denn `listen_addresses` gilt erst dann: `sudo systemctl restart postgresql`.
@@ -206,7 +209,7 @@ Alles in diesem Schritt machst du auf deinem PostgreSQL-Server zu Hause, nicht a
 4. Die Firewall: Port 5432 nur über Tailscale und nur für den Server öffnen, zum Beispiel mit ufw:
 
    ```bash
-   sudo ufw allow in on tailscale0 from 100.72.244.19 to any port 5432 proto tcp
+   sudo ufw allow in on tailscale0 from <server-tailnet-ip> to any port 5432 proto tcp
    ```
 
    Aus dem Heimnetz und aus dem Internet bleibt der Port zu. Wer Tailscale-ACLs benutzt, erlaubt dort ebenso nur den
@@ -351,7 +354,7 @@ Beim ersten Start gibt es noch keinen Administrator. Den macht der Einrichtungsc
 4. In Fall A danach den Tunnel starten, damit er dem Netz beitritt (Schritt 2.2):
 
    ```bash
-   cd /root/infrastructure && docker compose up -d && cd /root/duofy_rework/deploy
+   cd <tunnel-ordner> && docker compose up -d && cd <installationsordner>/deploy
    ```
 
 5. Warten, bis alles gesund ist; `docker compose ps` zeigt bei `api` und `web` "healthy":
@@ -442,7 +445,7 @@ Reicht der Arbeitsspeicher beim Bauen nicht (der Bau bricht mit "Killed" ab), vo
 
 `docker compose down` will auch das Netz `plagevo` entfernen. Solange `cloudflared` daran hängt, geht das nicht, und
 Compose meldet "network plagevo has active endpoints"; das schadet nicht, das Netz bleibt einfach stehen. Muss das Netz
-wirklich neu entstehen, erst den Tunnel anhalten (`cd /root/infrastructure && docker compose down`), dann Plagevo
+wirklich neu entstehen, erst den Tunnel anhalten (`cd <tunnel-ordner> && docker compose down`), dann Plagevo
 `down` und `up`, dann den Tunnel wieder `up -d`.
 
 ## 10. Sicherung
@@ -470,7 +473,7 @@ So liegen Datenbank und Sicherungen an zwei Orten: die Daten bei dir zu Hause, d
 Kopie zu dir holst du zum Beispiel mit `scp` über Tailscale:
 
 ```bash
-scp root@100.72.244.19:/root/duofy_rework/deploy/backups/duofy-2026-10-26.sql.gz .
+scp <benutzer>@<server-tailnet-ip>:<installationsordner>/deploy/backups/duofy-2026-10-26.sql.gz .
 ```
 
 ## 11. Wiederherstellen
@@ -487,7 +490,7 @@ Auf deinem PostgreSQL-Server zu Hause die Sicherung holen, die Datenbank leer ne
 (Datum anpassen):
 
 ```bash
-scp root@100.72.244.19:/root/duofy_rework/deploy/backups/duofy-2026-10-26.sql.gz .
+scp <benutzer>@<server-tailnet-ip>:<installationsordner>/deploy/backups/duofy-2026-10-26.sql.gz .
 sudo -u postgres dropdb plagevo
 sudo -u postgres createdb --owner=plagevo plagevo
 gunzip -c duofy-2026-10-26.sql.gz | psql -h localhost -U plagevo -d plagevo --quiet --set ON_ERROR_STOP=1

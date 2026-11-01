@@ -1,9 +1,13 @@
 @* Der Farbblock: Titel und Betrag auf der Fläche einer Variante (Einnahmen, Festes, Frei).
    Die Farben kommen aus dem Theme (app.css liest die Palette), auf dem Block steht immer der Haupttext.
    Für Vorlese-Programme ist der Block eine Gruppe mit Titel und Betrag als Name. *@
-<div class="@($"color-block color-block--{VariantName}")" role="group" aria-label="@($"{Title}: {Shown}")">
+<div class="@($"color-block color-block--{VariantName}")" role="group" aria-label="@Label">
     <p class="color-block-title">@Title</p>
     <p class="color-block-amount">@Shown</p>
+    @if (Note is not null)
+    {
+        <p class="color-block-note">@Note</p>
+    }
 </div>
 
 @code {
@@ -14,7 +18,12 @@
     /// <summary>Statt des Betrags ein eigener Text, zum Beispiel "Alles verplant" bei null.</summary>
     [Parameter] public string? AmountText { get; set; }
 
+    /// <summary>Ein Zusatz unter dem Betrag, zum Beispiel was im Frei-Betrag enthalten ist.</summary>
+    [Parameter] public string? Note { get; set; }
+
     private string Shown => AmountText ?? MoneyText.Format(Amount);
+
+    private string Label => Note is null ? $"{Title}: {Shown}" : $"{Title}: {Shown}. {Note}";
 
     private string VariantName => Variant switch
     {

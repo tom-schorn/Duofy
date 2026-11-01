@@ -8,8 +8,11 @@
     <MudIconButton Icon="@Icons.Material.Filled.Close" OnClick="OnClose" aria-label="@L["AppLayout_Close"]"
                    data-testid="form-close" />
     <MudText Typo="Typo.h6" Class="app-form-header-title">@Title</MudText>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="Busy" OnClick="OnSave"
-               data-testid="@SaveTestId">@SaveText</MudButton>
+    @if (ShowSave)
+    {
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="Busy" OnClick="OnSave"
+                   data-testid="@SaveTestId">@SaveText</MudButton>
+    }
 </div>
 
 @code {
@@ -21,6 +24,9 @@
     [Parameter, EditorRequired] public string SaveTestId { get; set; } = "";
 
     [Parameter] public bool Busy { get; set; }
+
+    /// <summary>Ohne Speichern-Knopf, wenn das Formular gerade eine eigene Entscheidung verlangt.</summary>
+    [Parameter] public bool ShowSave { get; set; } = true;
 
     [Parameter] public EventCallback OnClose { get; set; }
 

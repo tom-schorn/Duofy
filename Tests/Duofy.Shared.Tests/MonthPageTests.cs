@@ -339,7 +339,124 @@ public class MonthPageTests : PageTestContext
         Assert.Empty(cut.FindAll("[data-testid^='month-action-']"));
     }
 
-    private async Task<IRenderedComponent<Plan>> OpenHouseholdAsync(IReadOnlyList<HouseholdBookingResponse> bookings, IReadOnlyList<string> missing)
+    // Spec 66, R9: Der Text am Frei-Betrag sagt, dass der Übertrag enthalten ist, sobald einer da ist.
+    [Fact]
+    public void The_free_block_says_that_it_contains_the_carry_over_only_when_there_is_one()
+    {
+        var with = Open(2026, 11, Overview(2500m, 2200m, 530m) with
+        {
+            CarryOvers = [new PlanCarryOverLineResponse(CarryOverDirections.In, 2026, 10, 230m)],
+        });
+        Assert.Contains("530,00 €", Text(with, "month-block-free"));
+        Assert.Contains("Enthält Übertrag: 230,00 €", Text(with, "month-block-free"));
+
+        var outgoing = Open(2026, 10, Overview(3000m, 2770m, 230m) with
+        {
+            CarryOvers = [new PlanCarryOverLineResponse(CarryOverDirections.Out, 2026, 11, 230m)],
+        });
+        Assert.DoesNotContain("Übertrag", Text(outgoing, "month-block-free"));
+
+        var without = Open(2026, 9, Overview(3000m, 2770m, 230m));
+        Assert.DoesNotContain("Übertrag", Text(without, "month-block-free"));
+    }
+
+    // Die Summe des Haushalts nennt, wessen Übertrag fehlen kann, ohne zu verraten, ob es einen gibt.
+    [Fact]
+    public async Task The_household_free_block_names_whose_carry_over_it_cannot_contain()
+    {
+        var household = new HouseholdResponse(Guid.NewGuid(), "Haushalt von Anna", 50, 30, 20,
+            [FakeHouseholdApi.Anna(), FakeHouseholdApi.Ben()]);
+        HouseholdApiFake.Household = household;
+        HouseholdApiFake.HouseholdPlans[(2026, 11)] = FakeHouseholdApi.EmptyPlan(household.Id, household.Name, 2026, 11) with
+        {
+            Free = 400m,
+            CarryOvers = [new PlanCarryOverLineResponse(CarryOverDirections.In, 2026, 10, 100m, "Ben")],
+            BookingsMissing = ["Anna"],
+        };
+        await Member.LoadAsync();
+        Member.ChooseHousehold();
+
+        var cut = Render<Plan>(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 11));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-overview']")));
+
+        Assert.Contains("Enthält Übertrag: 100,00 €", Text(cut, "month-block-free"));
+        Assert.Contains("Ein möglicher Übertrag von Anna ist nicht enthalten.", Text(cut, "month-block-free"));
+    }
+
+    // Spec 66, R9: Der Übertrag ist keine Buchung, sondern eine eigene Zeile in allen drei Tabs.
+    [Fact]
+    public void Overview_bookings_tab_and_plan_tab_show_the_carry_overs_as_their_own_lines()
+    {
+        var overview = Overview() with
+        {
+            CarryOvers =
+            [
+                new PlanCarryOverLineResponse(CarryOverDirections.In, 2026, 9, 230m),
+                new PlanCarryOverLineResponse(CarryOverDirections.Out, 2026, 11, -150m),
+            ],
+        };
+
+        var cut = Open(2026, 10, overview);
+
+        Assert.Contains("Übertrag aus September", Text(cut, "month-carry-over-in"));
+        Assert.Contains("230,00 €", Text(cut, "month-carry-over-in"));
+        Assert.Contains("Übertrag nach November", Text(cut, "month-carry-over-out"));
+        Assert.Contains("150,00 €", Text(cut, "month-carry-over-out"));
+        Assert.Contains("Übertrag aus September", Text(cut, "month-recent"));
+        Assert.Empty(cut.FindAll("[data-testid='month-recent-empty']"));
+
+        cut.Find("[data-testid='month-tab-bookings']").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Übertrag nach November", Text(cut, "month-bookings")));
+        Assert.Contains("Übertrag aus September", Text(cut, "month-bookings"));
+        Assert.Empty(cut.FindAll("[data-testid='month-bookings-empty']"));
+
+        cut.Find("[data-testid='month-tab-plan']").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Übertrag nach November", Text(cut, "plan-carry-over")));
+        Assert.Contains("Übertrag aus September", Text(cut, "plan-carry-over"));
+    }
+
+    // Zurücknehmen bleibt im Plan; die Zeile ersetzt dort den Satz über den Vormonat.
+    [Fact]
+    public void The_plan_tab_names_the_line_and_keeps_the_way_to_remove_the_carry_over()
+    {
+        var overview = Overview() with { CarryOvers = [new PlanCarryOverLineResponse(CarryOverDirections.In, 2026, 9, 230m)] };
+        PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10) with
+        {
+            Overview = overview,
+            CarryOver = new PlanCarryOverResponse(230m, true, 230m, []),
+        };
+        var cut = Render<Plan>(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 10));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-tab-plan']")));
+
+        cut.Find("[data-testid='month-tab-plan']").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Übertrag aus September", Text(cut, "plan-carry-over")));
+        Assert.DoesNotContain("Vormonat", Text(cut, "plan-carry-over"));
+        Assert.NotEmpty(cut.FindAll("[data-testid='plan-carry-over-remove']"));
+    }
+
+    // Im Haushalt steht dabei, wessen Übertrag es ist; in den Plan-Tab gehört die Zeile ebenso.
+    [Fact]
+    public async Task The_household_shows_a_carry_over_as_a_line_with_the_first_name()
+    {
+        var cut = await OpenHouseholdAsync([], [], [new PlanCarryOverLineResponse(CarryOverDirections.Out, 2026, 11, 230m, "Anna")]);
+
+        Assert.Contains("Übertrag nach November", Text(cut, "month-recent"));
+        Assert.Contains("Anna", Text(cut, "month-carry-over-out"));
+
+        cut.Find("[data-testid='month-tab-bookings']").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Übertrag nach November", Text(cut, "month-bookings")));
+
+        cut.Find("[data-testid='month-tab-plan']").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Anna", Text(cut, "household-carry-overs")));
+    }
+
+    private async Task<IRenderedComponent<Plan>> OpenHouseholdAsync(
+        IReadOnlyList<HouseholdBookingResponse> bookings, IReadOnlyList<string> missing, IReadOnlyList<PlanCarryOverLineResponse>? carryOvers = null)
     {
         var household = new HouseholdResponse(Guid.NewGuid(), "Haushalt von Anna", 50, 30, 20,
             [FakeHouseholdApi.Anna(isMe: true), FakeHouseholdApi.Ben()]);
@@ -348,6 +465,7 @@ public class MonthPageTests : PageTestContext
         {
             Bookings = bookings,
             BookingsMissing = missing,
+            CarryOvers = carryOvers,
         };
         await Member.LoadAsync();
         Member.ChooseHousehold();

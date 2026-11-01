@@ -178,7 +178,9 @@ internal static class AuthEndpoints
                 Name = DefaultAccountName.For("de"),
                 Type = AccountType.Checking,
                 OpeningBalance = 0m,
-                OpeningDate = Berlin.Today(time),
+                // Am Starttag lässt sich nichts buchen (Spec 59, R6); dieses eine Konto startet deshalb am Vortag,
+                // damit man gleich am ersten Tag buchen kann.
+                OpeningDate = Berlin.Today(time).AddDays(-1),
                 CountsAsAvailable = Account.CountsAsAvailableFor(AccountType.Checking),
                 IsDefault = true,
                 Active = true,

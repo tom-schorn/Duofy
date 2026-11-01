@@ -2,9 +2,10 @@
 @inject IStringLocalizer<SharedResources> L
 
 @* Der Tab Buchungen (Spec 24): die Buchungen, die diesem Planmonat zugeordnet sind, neueste zuerst, mit Datum, Betrag und
-   Konto (im Haushalt mit dem Vornamen). Liegt das Datum in einem anderen Monat als dem Planmonat, steht das daneben. *@
+   Konto (im Haushalt mit dem Vornamen). Liegt das Datum in einem anderen Monat als dem Planmonat, steht das daneben.
+   Ein Übertrag ist keine Buchung und steht als eigene Zeile darüber (Spec 66, R9). *@
 <div data-testid="month-bookings">
-    @if (Rows.Count == 0)
+    @if (Rows.Count == 0 && CarryOvers.Count == 0)
     {
         <p class="month-hint" data-testid="month-bookings-empty">@L["Month_BookingsEmpty"]</p>
     }
@@ -26,13 +27,16 @@
     /// <summary>Die Vornamen derer, deren Buchungen fehlen, weil sie sie nicht freigegeben haben (nur im Haushalt).</summary>
     [Parameter] public IReadOnlyList<string> Missing { get; set; } = [];
 
-    private IReadOnlyList<LineTableRow> TableRows => Rows
-        .Select(b => new LineTableRow(
+    /// <summary>Die Überträge des Monats als eigene Zeilen.</summary>
+    [Parameter] public IReadOnlyList<MonthCarryOverRow> CarryOvers { get; set; } = [];
+
+    private IReadOnlyList<LineTableRow> TableRows => MonthCarryOverText.Rows(CarryOvers, L)
+        .Concat(Rows.Select(b => new LineTableRow(
             b.Date.ToString("d", German),
             b.Amount,
             b.Detail,
             Trailing: b.OtherMonth ? Hint(b) : null,
-            TestId: $"month-booking-{b.Id}"))
+            TestId: $"month-booking-{b.Id}")))
         .ToList();
 
     private RenderFragment Hint(MonthBookingRow row) => builder =>

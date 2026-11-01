@@ -106,6 +106,9 @@ internal static class BookingEndpoints
             .AsNoTracking()
             .Where(b => b.OwnerId == ownerId && b.PaymentDate >= first && b.PaymentDate < next)
             .Where(b => accountId == null || b.AccountId == accountId || b.CounterAccountId == accountId)
+            // Die Seite zeigt nur echtes Geld: Das Paar eines Übertrags steht im Monatsplan als eigene Zeile (Spec 66, R9).
+            // Erkannt wird es über die Kennungen im Plan, damit auch ältere Paare mit dem Ersten als Datum dazugehören.
+            .Where(b => !db.Plans.Any(p => p.OwnerId == ownerId && (p.CarryOverIncomeBookingId == b.Id || p.CarryOverExpenseBookingId == b.Id)))
             .OrderByDescending(b => b.PaymentDate)
             .ThenByDescending(b => b.CreatedAt)
             .ToListAsync(cancellationToken);

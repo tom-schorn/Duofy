@@ -110,6 +110,20 @@ public class BuildingBlocksTests : UiTestContext
         Assert.Equal("62,40 €", cut.FindAll("tbody tr")[1].QuerySelector(".line-table-amount")!.TextContent);
     }
 
+    // Spec 66, R9: Ein Zusatz steht auf dem Block und gehört zu seinem Namen für Vorlese-Programme.
+    [Fact]
+    public void Color_block_may_carry_a_note_under_the_amount()
+    {
+        var cut = Render<ColorBlock>(p => p
+            .Add(c => c.Variant, BlockVariant.Free)
+            .Add(c => c.Title, "Frei")
+            .Add(c => c.Amount, 530m)
+            .Add(c => c.Note, "Enthält Übertrag"));
+
+        Assert.Equal("Enthält Übertrag", cut.Find(".color-block-note").TextContent);
+        Assert.Equal("Frei: 530,00 €. Enthält Übertrag", cut.Find(".color-block").GetAttribute("aria-label"));
+    }
+
     // Spec 24: Statt des Betrags darf der Block einen eigenen Text tragen (Frei bei null: Alles verplant).
     [Fact]
     public void Color_block_may_show_its_own_text_instead_of_the_amount()
