@@ -22,8 +22,8 @@
            <MauiXaml Update="MyPage.xaml" Inflator="Runtime" /> (force runtime inflation) -->
     <MauiXamlInflator>SourceGen</MauiXamlInflator>
 
-    <!-- Name unter dem Symbol auf dem Telefon -->
-    <ApplicationTitle>Duofy</ApplicationTitle>
+    <!-- Name unter dem Symbol auf dem Telefon (Plagevo, die gehostete Marke; der Paketname unten bleibt) -->
+    <ApplicationTitle>Plagevo</ApplicationTitle>
 
     <!-- Paketname für Google Play. Er lässt sich nach der Veröffentlichung nicht mehr ändern. -->
     <ApplicationId>de.tomschorn.duofy</ApplicationId>
@@ -62,11 +62,17 @@
     <AppxSymbolPackageEnabled>false</AppxSymbolPackageEnabled>
   </PropertyGroup>
 
-  <!-- Release: signiertes App-Bundle (AAB) für Google Play. Schlüsseldatei und Passwörter
-       kommen aus Umgebungsvariablen und stehen nie im Repository. Bei "env:" liest MSBuild
-       das Passwort selbst aus der Umgebungsvariable, es taucht nicht im Befehl auf. -->
+  <!-- Release: App-Bundle (AAB) für Google Play. -->
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <AndroidPackageFormat>aab</AndroidPackageFormat>
+  </PropertyGroup>
+
+  <!-- Signatur für Google Play: Schlüsseldatei und Passwörter kommen aus Umgebungsvariablen und stehen nie im
+       Repository. Bei "env:" liest MSBuild das Passwort selbst aus der Umgebungsvariable, es taucht nicht im Befehl
+       auf. Die Gruppe gilt nur, wenn DUOFY_KEYSTORE_PATH gesetzt ist: Ohne Pfad rief das SDK apksigner ohne
+       Schlüsseldatei auf, und der Build endete mit MSB6006 ("java.exe wurde mit dem Code 2 beendet"). Ohne Pfad
+       signiert das SDK mit dem Debug-Schlüssel; das genügt zum Testen auf dem eigenen Telefon, nicht für Google Play. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' And '$(DUOFY_KEYSTORE_PATH)' != ''">
     <AndroidKeyStore>true</AndroidKeyStore>
     <AndroidSigningKeyStore>$(DUOFY_KEYSTORE_PATH)</AndroidSigningKeyStore>
     <AndroidSigningKeyAlias>$(DUOFY_KEY_ALIAS)</AndroidSigningKeyAlias>
@@ -102,8 +108,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.12" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.14" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.14" />
   </ItemGroup>
 
   <!-- Einstellungen der App: die Adresse der API. appsettings.Debug.json und eine eigene

@@ -2,6 +2,8 @@
 
 Format: 2
 
+> **Alt (Stand vor der Radzen-Umstellung, Issue 76):** Diese Spezifikation nennt die frühere Oberflächenbibliothek MudBlazor und die Tabler-Symbole. Heute gelten Radzen und Material Symbols, siehe `docs/plans/radzen-plan.md`. Fachliche Regeln und Abläufe bleiben gültig.
+
 ## Summary
 
 The Android app gets its own layout `AppLayout`: a top bar with the page title, a bottom navigation bar with Start, Plan, Buchungen and Mehr, a plus button per page, and full-screen forms. The web keeps `MainLayout` unchanged.

@@ -1,4 +1,6 @@
 @page "/"
+@using Radzen
+@using Radzen.Blazor
 @attribute [Authorize]
 @using System.Globalization
 @using Duofy.ApiClient
@@ -35,7 +37,7 @@
 
 @if (error is not null)
 {
-    <MudAlert Severity="Severity.Error">@error</MudAlert>
+    <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false">@error</RadzenAlert>
 }
 else if (firstName is not null)
 {
@@ -94,11 +96,24 @@ else if (firstName is not null)
                     @foreach (var pot in model.Pots)
                     {
                         <TargetActualBar Caption="@L["Plan_Quota", L[$"Pot_{pot.Pot}"], pot.Target, pot.Actual.ToString("0.#", German)]"
-                                         Target="pot.Target" Actual="pot.Actual" />
+                                         Target="pot.Target" Actual="pot.Actual" AsPercent="true" />
                     }
                 </div>
             </StartSection>
         </div>
+
+        @if (deviating.Count > 0)
+        {
+            @* Ruhiger Hinweis (Issue #34): Der Richtwert ist ein Anhaltspunkt, kein Alarm; es gibt keine Warnfarbe. *@
+            <StartSection Title="@L["Start_GuidelineTitle"].Value" TestId="start-guideline"
+                          Href="@(Member.IsHousehold ? MonthHref : null)" LinkText="@L["Start_GuidelineLink"].Value">
+                <p>@L["Start_GuidelineText", string.Join(", ", deviating)]</p>
+                @if (!Member.IsHousehold)
+                {
+                    <p class="month-hint">@L["Start_GuidelineOwnView"]</p>
+                }
+            </StartSection>
+        }
     }
 
     @if (loaded && Member.Household is null)
@@ -123,6 +138,7 @@ else if (firstName is not null)
     private bool failed;
     private MonthOverviewModel? model;
     private IReadOnlyList<string> bookingsMissing = [];
+    private IReadOnlyList<string> deviating = [];
     private DateOnly today;
 
     private bool SeesPlan => Member.IsHousehold || Member.Allows(GrantAreas.Plan, AccessLevelKeys.View);
@@ -210,6 +226,7 @@ else if (firstName is not null)
         today = DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
         model = null;
         bookingsMissing = [];
+        deviating = [];
         message = null;
         loaded = false;
         failed = false;
@@ -233,7 +250,7 @@ else if (firstName is not null)
     private void Fail(string? errorCode)
     {
         failed = true;
-        message = new NoticeMessage(ErrorTexts.For(L, errorCode), Severity.Error);
+        message = new NoticeMessage(ErrorTexts.For(L, errorCode), NoticeSeverity.Error);
     }
 
     private async Task LoadPersonAsync()
@@ -256,7 +273,37 @@ else if (firstName is not null)
             return;
         }
         model = MonthView.ForPerson(plan.Value!, today, _ => null);
+        await LoadGuidelineHintAsync();
     }
+
+    // Wer im Haushalt ist, bekommt den Hinweis auch in der eigenen Sicht: dafür kommt der Haushaltsplan des Monats dazu.
+    // Der Hinweis ist ein Zusatz. Scheitert das Laden, fehlt er nur; den Fehler zeigt der Haushaltsplan selbst, sobald
+    // jemand ihn öffnet, und die Startseite bleibt ruhig.
+    private async Task LoadGuidelineHintAsync()
+    {
+        if (Member.Household is not { } household)
+        {
+            return;
+        }
+
+        var months = await HouseholdApi.ListPlansAsync(household.Id);
+        if (!months.Succeeded || !months.Value!.Any(m => m.Year == today.Year && m.Month == today.Month))
+        {
+            return;
+        }
+
+        var plan = await HouseholdApi.GetPlanAsync(household.Id, today.Year, today.Month);
+        if (plan.Succeeded)
+        {
+            deviating = DeviatingNames(plan.Value!);
+        }
+    }
+
+    // Die Vornamen derer, die in einem Topf deutlich vom Richtwert abweichen (Toleranz und Abstand legt GuidelineView fest).
+    private static IReadOnlyList<string> DeviatingNames(HouseholdPlanResponse plan) => GuidelineView.From(plan).People
+        .Where(person => person.HasIncome && person.OutsideRows.Count > 0)
+        .Select(person => person.Name)
+        .ToList();
 
     private async Task LoadHouseholdAsync()
     {
@@ -284,5 +331,6 @@ else if (firstName is not null)
         }
         model = MonthView.ForHousehold(plan.Value!, today);
         bookingsMissing = plan.Value!.BookingsMissing ?? [];
+        deviating = DeviatingNames(plan.Value!);
     }
 }

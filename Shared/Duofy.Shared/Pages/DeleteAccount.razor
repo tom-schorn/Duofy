@@ -1,4 +1,6 @@
 @page "/konto/loeschen"
+@using Radzen
+@using Radzen.Blazor
 @attribute [Authorize]
 @using Duofy.ApiClient
 @using Duofy.Schemas
@@ -13,29 +15,32 @@
 
 <PageTitle>@L["Delete_Title"]</PageTitle>
 
-<MudPaper Class="pa-6 mx-auto" MaxWidth="480px" Outlined="true">
-    <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">@L["Delete_Title"]</MudText>
-    <MudAlert Severity="Severity.Warning" Class="mb-4">@L["Delete_Warning"]</MudAlert>
+<RadzenRow JustifyContent="JustifyContent.Center">
+    <RadzenColumn Size="12" SizeMD="8" SizeLG="5">
+        <RadzenCard Variant="Variant.Outlined">
+            <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" Class="rz-mb-4">@L["Delete_Title"]</RadzenText>
+            <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" AllowClose="false" Class="rz-mb-4">@L["Delete_Warning"]</RadzenAlert>
 
-    @if (error is not null)
-    {
-        <MudAlert Severity="Severity.Error" Class="mb-4">@error</MudAlert>
-    }
+            @if (error is not null)
+            {
+                <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false" Class="rz-mb-4">@error</RadzenAlert>
+            }
 
-    <MudText Class="mb-2">@L["Delete_PasswordPrompt"]</MudText>
-    <div class="field">
-        <FieldLabel For="delete-password-input" Text="@L["Field_Password"]" />
-        <MudTextField @bind-Value="password" Variant="Variant.Outlined" InputId="delete-password-input"
-                      InputType="InputType.Password" autocomplete="current-password"
-                      OnKeyDown="OnPasswordKeyDown" data-testid="delete-password" />
-    </div>
+            <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-mb-2">@L["Delete_PasswordPrompt"]</RadzenText>
+            <div class="field">
+                <FieldLabel For="delete-password-input" Text="@L["Field_Password"]" />
+                <RadzenPassword @bind-Value="password" Immediate="true" id="delete-password-input" autocomplete="current-password"
+                                @onkeydown="OnPasswordKeyDown" data-testid="delete-password" />
+            </div>
 
-    <MudStack Row="true" Spacing="2" Class="mt-4">
-        <MudButton Variant="Variant.Filled" Color="Color.Error" Disabled="busy" OnClick="DeleteAsync"
-                   data-testid="delete-submit">@L["Delete_Submit"]</MudButton>
-        <MudButton Href="/konto" Variant="Variant.Text">@L["Delete_Cancel"]</MudButton>
-    </MudStack>
-</MudPaper>
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Class="rz-mt-4">
+                <RadzenButton Text="@L["Delete_Submit"]" ButtonStyle="ButtonStyle.Danger" Disabled="busy"
+                              Click="@(_ => DeleteAsync())" data-testid="delete-submit" />
+                <LinkButton Href="/konto" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base">@L["Delete_Cancel"]</LinkButton>
+            </RadzenStack>
+        </RadzenCard>
+    </RadzenColumn>
+</RadzenRow>
 
 @code {
     private string password = "";

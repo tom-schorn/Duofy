@@ -3,7 +3,6 @@ using Duofy.Schemas;
 using Duofy.Shared.Pages;
 using Duofy.Shared.Services;
 using Microsoft.Extensions.DependencyInjection;
-using MudBlazor;
 
 namespace Duofy.Shared.Tests;
 
@@ -18,8 +17,6 @@ public class MonthReviewTests : PageTestContext
 {
     public MonthReviewTests()
     {
-        Render<MudPopoverProvider>();
-        Render<MudDialogProvider>();
         Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true));
     }
 

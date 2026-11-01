@@ -1,3 +1,5 @@
+@using Radzen
+@using Radzen.Blazor
 @implements IAsyncDisposable
 @inject IConsentStore Store
 @inject IJSRuntime Js
@@ -23,10 +25,10 @@
                 <div class="consent-item" data-testid="@($"consent-item-{Slug(c)}")">
                     <p class="consent-text">@L[TextKey(c)]</p>
                     <div class="consent-actions">
-                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => ChooseAsync(c, true))"
-                                   data-testid="@TestId(c, "accept")">@L["Consent_Accept"]</MudButton>
-                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => ChooseAsync(c, false))"
-                                   data-testid="@TestId(c, "decline")">@L["Consent_Decline"]</MudButton>
+                        <RadzenButton Text="@L["Consent_Accept"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary"
+                                      Click="@(_ => ChooseAsync(c, true))" data-testid="@TestId(c, "accept")" />
+                        <RadzenButton Text="@L["Consent_Decline"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary"
+                                      Click="@(_ => ChooseAsync(c, false))" data-testid="@TestId(c, "decline")" />
                     </div>
                 </div>
             }
@@ -35,8 +37,9 @@
     else if (decided)
     {
         <div class="consent-change">
-            <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Default" OnClick="Reopen"
-                       data-testid="consent-change">@L[HasChat && HasStatistics ? "Consent_ChangeAll" : HasChat ? "Consent_ChangeChat" : "Consent_Change"]</MudButton>
+            <RadzenButton Text="@L[HasChat && HasStatistics ? "Consent_ChangeAll" : HasChat ? "Consent_ChangeChat" : "Consent_Change"]"
+                          Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small"
+                          Click="@(_ => Reopen())" data-testid="consent-change" />
         </div>
     }
 }

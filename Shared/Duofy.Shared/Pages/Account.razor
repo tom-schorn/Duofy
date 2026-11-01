@@ -1,4 +1,6 @@
 @page "/konto"
+@using Radzen
+@using Radzen.Blazor
 @attribute [Authorize]
 @using Duofy.ApiClient
 @using Duofy.Schemas
@@ -27,144 +29,145 @@
 <AppPageHeading Text="@L["Account_Title"]" />
 @if (!Host.IsApp)
 {
-    <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-1">@L["Account_Title"]</MudText>
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" Class="rz-mb-1">@L["Account_Title"]</RadzenText>
 }
 @if (email is not null)
 {
-    <MudText Class="mb-4" Color="Color.Secondary">@L["Account_Email", email]</MudText>
+    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color rz-mb-4">@L["Account_Email", email]</RadzenText>
 }
 
-<MudStack Spacing="4">
+<RadzenStack Gap="1rem">
 
-    <MudPaper Class="pa-4" Outlined="true" data-testid="account-names">
-        <MudText Typo="Typo.h6" Class="mb-2">@L["Account_NamesHeading"]</MudText>
+    <RadzenCard Variant="Variant.Outlined" data-testid="account-names">
+        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-2">@L["Account_NamesHeading"]</RadzenText>
         <Notice Message="namesMessage" />
         <div class="field">
             <FieldLabel For="account-first-name-input" Text="@L["Field_FirstName"]" />
-            <MudTextField @bind-Value="firstName" Variant="Variant.Outlined" InputId="account-first-name-input"
-                          MaxLength="AccountRules.NameMaxLength" data-testid="account-first-name" />
+            <RadzenTextBox @bind-Value="firstName" id="account-first-name-input" MaxLength="AccountRules.NameMaxLength"
+                           data-testid="account-first-name" />
         </div>
         <div class="field">
             <FieldLabel For="account-last-name-input" Text="@L["Field_LastName"]" />
-            <MudTextField @bind-Value="lastName" Variant="Variant.Outlined" InputId="account-last-name-input"
-                          MaxLength="AccountRules.NameMaxLength" data-testid="account-last-name" />
+            <RadzenTextBox @bind-Value="lastName" id="account-last-name-input" MaxLength="AccountRules.NameMaxLength"
+                           data-testid="account-last-name" />
         </div>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" OnClick="SaveNamesAsync"
-                   data-testid="account-names-save">@L["Account_NamesSave"]</MudButton>
-    </MudPaper>
+        <RadzenButton Text="@L["Account_NamesSave"]" ButtonStyle="ButtonStyle.Primary" Class="rz-mt-2" Click="@(_ => SaveNamesAsync())"
+                      data-testid="account-names-save" />
+    </RadzenCard>
 
-    <MudPaper Class="pa-4" Outlined="true" data-testid="account-email">
-        <MudText Typo="Typo.h6" Class="mb-1">@L["Account_EmailHeading"]</MudText>
-        <MudText Typo="Typo.body2" Class="mb-2">@(hosted ? L["Account_EmailHintHosted"] : L["Account_EmailHintSelfHosted"])</MudText>
+    <RadzenCard Variant="Variant.Outlined" data-testid="account-email">
+        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-1">@L["Account_EmailHeading"]</RadzenText>
+        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-mb-2">@(hosted ? L["Account_EmailHintHosted"] : L["Account_EmailHintSelfHosted"])</RadzenText>
         <Notice Message="emailMessage" />
         <div class="field">
             <FieldLabel For="account-new-email-input" Text="@L["Field_NewEmail"]" />
-            <MudTextField @bind-Value="newEmail" Variant="Variant.Outlined" InputId="account-new-email-input"
-                          InputType="InputType.Email" Placeholder="@L["Auth_EmailPlaceholder"]" autocomplete="email"
-                          data-testid="account-new-email" />
+            <RadzenTextBox @bind-Value="newEmail" id="account-new-email-input" type="email"
+                           Placeholder="@L["Auth_EmailPlaceholder"]" autocomplete="email"
+                           data-testid="account-new-email" />
         </div>
         <div class="field">
             <FieldLabel For="account-email-password-input" Text="@L["Field_CurrentPassword"]" />
-            <MudTextField @bind-Value="emailPassword" Variant="Variant.Outlined" InputId="account-email-password-input"
-                          InputType="InputType.Password" autocomplete="current-password"
-                          data-testid="account-email-password" />
+            <RadzenPassword @bind-Value="emailPassword" id="account-email-password-input" autocomplete="current-password"
+                            data-testid="account-email-password" />
         </div>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" Disabled="changingEmail" OnClick="ChangeEmailAsync"
-                   data-testid="account-email-save">@L["Account_EmailSave"]</MudButton>
-    </MudPaper>
+        <RadzenButton Text="@L["Account_EmailSave"]" ButtonStyle="ButtonStyle.Primary" Class="rz-mt-2" Disabled="changingEmail"
+                      Click="@(_ => ChangeEmailAsync())" data-testid="account-email-save" />
+    </RadzenCard>
 
     @* Die Zielquoten (Spec 66, R8): ganze Prozent, zusammen 100. Neue Monate übernehmen sie. *@
-    <MudPaper Class="pa-4" Outlined="true" data-testid="account-quotas">
-        <MudText Typo="Typo.h6" Class="mb-1">@L["Account_QuotasHeading"]</MudText>
-        <MudText Typo="Typo.body2" Class="mb-2">@L["Account_QuotasHint"]</MudText>
+    <RadzenCard Variant="Variant.Outlined" data-testid="account-quotas">
+        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-1">@L["Account_QuotasHeading"]</RadzenText>
+        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-mb-2">@L["Account_QuotasHint"]</RadzenText>
         <Notice Message="quotasMessage" />
         @foreach (var pot in QuotaPots)
         {
             var key = pot;
             <div class="field">
-                <FieldLabel For="@($"account-quota-{key}-input")" Text="@L["Account_QuotaField", L[$"Pot_{key}"]]" />
-                <MudNumericField T="int" Value="quotas[key]" ValueChanged="v => quotas[key] = v" Min="0" Max="100"
-                                 Variant="Variant.Outlined" InputId="@($"account-quota-{key}-input")"
-                                 data-testid="@($"account-quota-{key}")" />
+                <FieldLabel For="" id="@($"account-quota-{key}-label")" Text="@L["Account_QuotaField", L[$"Pot_{key}"]]" />
+                <RadzenNumeric TValue="int" Value="quotas[key]" ValueChanged="v => quotas[key] = v" Min="0" Max="100"
+                               ShowUpDown="false"
+                               InputAttributes="@(new Dictionary<string, object> { ["aria-labelledby"] = $"account-quota-{key}-label" })"
+                               data-testid="@($"account-quota-{key}")" />
             </div>
         }
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" OnClick="SaveQuotasAsync"
-                   data-testid="account-quotas-save">@L["Account_QuotasSave"]</MudButton>
-    </MudPaper>
+        <RadzenButton Text="@L["Account_QuotasSave"]" ButtonStyle="ButtonStyle.Primary" Class="rz-mt-2" Click="@(_ => SaveQuotasAsync())"
+                      data-testid="account-quotas-save" />
+    </RadzenCard>
 
-    <MudPaper Class="pa-4" Outlined="true">
-        <MudText Typo="Typo.h6" Class="mb-2">@L["Account_PasswordHeading"]</MudText>
+    <RadzenCard Variant="Variant.Outlined">
+        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-2">@L["Account_PasswordHeading"]</RadzenText>
         <Notice Message="passwordMessage" />
         <div class="field">
             <FieldLabel For="account-current-password-input" Text="@L["Field_CurrentPassword"]" />
-            <MudTextField @bind-Value="currentPassword" Variant="Variant.Outlined" InputId="account-current-password-input"
-                          InputType="InputType.Password" autocomplete="current-password"
-                          data-testid="account-current-password" />
+            <RadzenPassword @bind-Value="currentPassword" id="account-current-password-input" autocomplete="current-password"
+                            data-testid="account-current-password" />
         </div>
         <div class="field">
             <FieldLabel For="account-new-password-input" Text="@L["Field_NewPassword"]" />
-            <MudTextField @bind-Value="newPassword" Variant="Variant.Outlined" InputId="account-new-password-input"
-                          InputType="InputType.Password" HelperText="@L["Field_PasswordHint"]"
-                          autocomplete="new-password" data-testid="account-new-password" />
+            <RadzenPassword @bind-Value="newPassword" id="account-new-password-input" autocomplete="new-password"
+                            aria-describedby="account-new-password-hint"
+                            data-testid="account-new-password" />
+            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-display-block"
+                        id="account-new-password-hint">@L["Field_PasswordHint"]</RadzenText>
         </div>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" OnClick="ChangePasswordAsync"
-                   data-testid="account-password-save">@L["Account_PasswordSave"]</MudButton>
-    </MudPaper>
+        <RadzenButton Text="@L["Account_PasswordSave"]" ButtonStyle="ButtonStyle.Primary" Class="rz-mt-2" Click="@(_ => ChangePasswordAsync())"
+                      data-testid="account-password-save" />
+    </RadzenCard>
 
-    <MudPaper Class="pa-4" Outlined="true" data-testid="account-sessions">
-        <MudText Typo="Typo.h6" Class="mb-2">@L["Account_SessionsHeading"]</MudText>
+    <RadzenCard Variant="Variant.Outlined" data-testid="account-sessions">
+        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-2">@L["Account_SessionsHeading"]</RadzenText>
         <Notice Message="sessionsMessage" />
-        <MudStack Row="true" Spacing="2">
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="SignOutAsync"
-                       data-testid="account-sign-out">@L["Account_SignOut"]</MudButton>
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="SignOutEverywhereAsync"
-                       data-testid="account-sign-out-everywhere">@L["Account_SignOutEverywhere"]</MudButton>
-        </MudStack>
-        <MudText Typo="Typo.caption" Class="mt-2">@L["Account_SignOutEverywhereHint"]</MudText>
-    </MudPaper>
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+            <RadzenButton Text="@L["Account_SignOut"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary"
+                          Click="@(_ => SignOutAsync())" data-testid="account-sign-out" />
+            <RadzenButton Text="@L["Account_SignOutEverywhere"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary"
+                          Click="@(_ => SignOutEverywhereAsync())" data-testid="account-sign-out-everywhere" />
+        </RadzenStack>
+        <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-mt-2">@L["Account_SignOutEverywhereHint"]</RadzenText>
+    </RadzenCard>
 
     @if (setupPending && !isAdmin)
     {
-        <MudPaper Class="pa-4" Outlined="true" data-testid="account-admin">
-            <MudText Typo="Typo.h6" Class="mb-1">@L["Account_AdminHeading"]</MudText>
-            <MudText Typo="Typo.body2" Class="mb-2">@L["Account_AdminText"]</MudText>
+        <RadzenCard Variant="Variant.Outlined" data-testid="account-admin">
+            <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-1">@L["Account_AdminHeading"]</RadzenText>
+            <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-mb-2">@L["Account_AdminText"]</RadzenText>
             <Notice Message="adminMessage" />
             <div class="field">
                 <FieldLabel For="account-setup-code-input" Text="@L["Field_SetupCode"]" />
-                <MudTextField @bind-Value="setupCode" Variant="Variant.Outlined" InputId="account-setup-code-input"
-                              Immediate="true" autocomplete="off" data-testid="account-setup-code" />
+                <RadzenTextBox @bind-Value="setupCode" id="account-setup-code-input" Immediate="true" autocomplete="off"
+                               data-testid="account-setup-code" />
             </div>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" Disabled="claiming" OnClick="ClaimAdminAsync"
-                       data-testid="account-claim-admin">@L["Account_ClaimAdmin"]</MudButton>
-        </MudPaper>
+            <RadzenButton Text="@L["Account_ClaimAdmin"]" ButtonStyle="ButtonStyle.Primary" Class="rz-mt-2" Disabled="claiming"
+                          Click="@(_ => ClaimAdminAsync())" data-testid="account-claim-admin" />
+        </RadzenCard>
     }
     else if (adminMessage is not null)
     {
         <Notice Message="adminMessage" />
     }
 
-    <MudPaper Class="pa-4" Outlined="true">
-        <MudText Typo="Typo.h6" Class="mb-2">@L["Account_DangerHeading"]</MudText>
-        <MudText Class="mb-2">@L["Account_DangerText"]</MudText>
+    <RadzenCard Variant="Variant.Outlined">
+        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-2">@L["Account_DangerHeading"]</RadzenText>
+        <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-mb-2">@L["Account_DangerText"]</RadzenText>
         @if (isAdmin)
         {
             @* Die API antwortet last_admin. Ausgegraut statt angeboten und abgelehnt; aria-disabled statt disabled,
                damit ein Screenreader den Knopf findet und den Grund darunter vorliest. *@
-            <MudButton Variant="Variant.Outlined" Ripple="false"
-                       Style="color: var(--mud-palette-action-disabled); border-color: var(--mud-palette-action-disabled); cursor: default;"
-                       aria-disabled="true" aria-describedby="account-delete-reason"
-                       data-testid="account-delete-link">@L["Account_DeleteLink"]</MudButton>
-            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-1" id="account-delete-reason"
-                     data-testid="account-delete-reason">@L["Account_DeleteLastAdminReason"]</MudText>
+            <RadzenButton Text="@L["Account_DeleteLink"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Base"
+                          Class="unavailable"
+                          aria-disabled="true" aria-describedby="account-delete-reason"
+                          data-testid="account-delete-link" />
+            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-display-block rz-mt-1"
+                        id="account-delete-reason" data-testid="account-delete-reason">@L["Account_DeleteLastAdminReason"]</RadzenText>
         }
         else
         {
-            <MudButton Href="/konto/loeschen" Variant="Variant.Outlined"
-                       data-testid="account-delete-link">@L["Account_DeleteLink"]</MudButton>
+            <LinkButton Href="/konto/loeschen" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Base"
+                        data-testid="account-delete-link">@L["Account_DeleteLink"]</LinkButton>
         }
-    </MudPaper>
+    </RadzenCard>
 
-</MudStack>
+</RadzenStack>
 
 @code {
 
@@ -208,7 +211,7 @@
         }
         else
         {
-            namesMessage = new NoticeMessage(ErrorTexts.For(L, me.ErrorCode), Severity.Error);
+            namesMessage = new NoticeMessage(ErrorTexts.For(L, me.ErrorCode), NoticeSeverity.Error);
         }
 
         // Ohne Antwort des Servers gibt es kein Angebot, Admin zu werden.
@@ -223,7 +226,7 @@
         }
         else
         {
-            quotasMessage = new NoticeMessage(ErrorTexts.For(L, stored.ErrorCode), Severity.Error);
+            quotasMessage = new NoticeMessage(ErrorTexts.For(L, stored.ErrorCode), NoticeSeverity.Error);
         }
     }
 
@@ -241,11 +244,11 @@
         if (result.Succeeded)
         {
             ShowQuotas(result.Value!);
-            quotasMessage = new NoticeMessage(L["Account_QuotasSaved"], Severity.Success);
+            quotasMessage = new NoticeMessage(L["Account_QuotasSaved"], NoticeSeverity.Success);
         }
         else
         {
-            quotasMessage = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+            quotasMessage = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
         }
     }
 
@@ -260,11 +263,11 @@
                 isAdmin = result.Value!.IsInstanceAdmin;
                 setupPending = false;
                 setupCode = "";
-                adminMessage = new NoticeMessage(L["Account_AdminClaimed"], Severity.Success);
+                adminMessage = new NoticeMessage(L["Account_AdminClaimed"], NoticeSeverity.Success);
             }
             else
             {
-                adminMessage = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+                adminMessage = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
             }
         }
         finally
@@ -277,8 +280,8 @@
     {
         var result = await UserApi.UpdateMeAsync(new UpdateMeRequest(firstName.Trim(), lastName.Trim()));
         namesMessage = result.Succeeded
-            ? new NoticeMessage(L["Account_NamesSaved"], Severity.Success)
-            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+            ? new NoticeMessage(L["Account_NamesSaved"], NoticeSeverity.Success)
+            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
     }
 
     // Die API prüft Adresse, Passwort und ob die Adresse frei ist; die Seite zeigt nur das Ergebnis.
@@ -291,7 +294,7 @@
             var result = await UserApi.ChangeEmailAsync(new ChangeEmailRequest(requested, emailPassword));
             if (!result.Succeeded)
             {
-                emailMessage = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+                emailMessage = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
                 return;
             }
             newEmail = "";
@@ -299,11 +302,11 @@
             if (result.Value is { } me)
             {
                 email = me.Email;
-                emailMessage = new NoticeMessage(L["Account_EmailChanged"], Severity.Success);
+                emailMessage = new NoticeMessage(L["Account_EmailChanged"], NoticeSeverity.Success);
             }
             else
             {
-                emailMessage = new NoticeMessage(L["Account_EmailPending", requested], Severity.Success);
+                emailMessage = new NoticeMessage(L["Account_EmailPending", requested], NoticeSeverity.Success);
             }
         }
         finally
@@ -319,11 +322,11 @@
         {
             currentPassword = "";
             newPassword = "";
-            passwordMessage = new NoticeMessage(L["Account_PasswordChanged"], Severity.Success);
+            passwordMessage = new NoticeMessage(L["Account_PasswordChanged"], NoticeSeverity.Success);
         }
         else
         {
-            passwordMessage = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+            passwordMessage = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
         }
     }
 
@@ -344,7 +347,7 @@
         }
         else
         {
-            sessionsMessage = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+            sessionsMessage = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
         }
     }
 }

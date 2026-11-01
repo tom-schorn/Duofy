@@ -1,4 +1,6 @@
 @page "/admin"
+@using Radzen
+@using Radzen.Blazor
 @attribute [Authorize]
 @using System.Globalization
 @using Duofy.ApiClient
@@ -8,7 +10,7 @@
 @inject IInstanceApi InstanceApi
 @inject IAdminApi AdminApi
 @inject IShareService Share
-@inject IDialogService DialogService
+@inject FormDialogs Forms
 @inject IAppHost Host
 @inject AppChrome Chrome
 @inject IStringLocalizer<SharedResources> L
@@ -30,97 +32,103 @@
 <AppPageHeading Text="@L["Admin_Title"]" />
 @if (!Host.IsApp)
 {
-    <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-2">@L["Admin_Title"]</MudText>
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" Class="rz-mb-2">@L["Admin_Title"]</RadzenText>
 }
 
 <Notice Message="message" />
 
 @if (loaded && !isAdmin)
 {
-    <MudAlert Severity="Severity.Info" data-testid="admin-not-allowed">@L["Admin_NotAllowed"]</MudAlert>
+    <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" AllowClose="false" Size="AlertSize.Small"
+                 data-testid="admin-not-allowed">@L["Admin_NotAllowed"]</RadzenAlert>
 }
 
 @if (isAdmin)
 {
-    <MudText Typo="Typo.body2" Class="mb-1">@L["Admin_Lead"]</MudText>
+    <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-mb-1">@L["Admin_Lead"]</RadzenText>
     @if (mode is not null)
     {
-        <MudText Typo="Typo.body2" Class="mb-4" data-testid="admin-mode">@L[$"Admin_Mode_{mode}"]</MudText>
+        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-mb-4" data-testid="admin-mode">@L[$"Admin_Mode_{mode}"]</RadzenText>
     }
 
-    <MudPaper Class="pa-4 mb-4" Outlined="true">
-        <MudText Typo="Typo.h6" Class="mb-2">@L["Admin_CreateHeading"]</MudText>
+    <RadzenCard Variant="Variant.Outlined" Class="rz-mb-4">
+        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-2">@L["Admin_CreateHeading"]</RadzenText>
         <div class="field">
             <FieldLabel For="admin-email-input" Text="@L["Admin_Email"]" />
-            <MudTextField @bind-Value="email" Variant="Variant.Outlined" InputId="admin-email-input" Immediate="true"
-                          InputType="InputType.Email" Placeholder="@L["Auth_EmailPlaceholder"]" HelperText="@L["Admin_EmailHint"]"
-                          data-testid="admin-email" />
+            <RadzenTextBox @bind-Value="email" id="admin-email-input" type="email" Placeholder="@L["Auth_EmailPlaceholder"]"
+                           aria-describedby="admin-email-hint" Immediate="true"
+                           data-testid="admin-email" />
+            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color"
+                        id="admin-email-hint">@L["Admin_EmailHint"]</RadzenText>
         </div>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd" Class="mt-3"
-                   Disabled="busy" OnClick="CreateAsync" data-testid="admin-create">@L["Admin_Create"]</MudButton>
-    </MudPaper>
+        <RadzenButton Text="@L["Admin_Create"]" Icon="person_add" ButtonStyle="ButtonStyle.Primary" Class="rz-mt-3"
+                      Disabled="busy" Click="@(_ => CreateAsync())" data-testid="admin-create" />
+    </RadzenCard>
 
     @if (!hosted)
     {
-        <MudPaper Class="pa-4 mb-4" Outlined="true" data-testid="admin-reset">
-            <MudText Typo="Typo.h6" Class="mb-1">@L["Admin_ResetHeading"]</MudText>
-            <MudText Typo="Typo.body2" Class="mb-2">@L["Admin_ResetText"]</MudText>
+        <RadzenCard Variant="Variant.Outlined" Class="rz-mb-4" data-testid="admin-reset">
+            <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-1">@L["Admin_ResetHeading"]</RadzenText>
+            <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-mb-2">@L["Admin_ResetText"]</RadzenText>
             <Notice Message="resetMessage" />
             <div class="field">
                 <FieldLabel For="admin-reset-email-input" Text="@L["Admin_ResetEmail"]" />
-                <MudTextField @bind-Value="resetEmail" Variant="Variant.Outlined" InputId="admin-reset-email-input"
-                              InputType="InputType.Email" Placeholder="@L["Auth_EmailPlaceholder"]" autocomplete="off"
-                              data-testid="admin-reset-email" />
+                <RadzenTextBox @bind-Value="resetEmail" id="admin-reset-email-input" type="email"
+                               Placeholder="@L["Auth_EmailPlaceholder"]" autocomplete="off"
+                               data-testid="admin-reset-email" />
             </div>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.LockReset" Class="mt-3"
-                       Disabled="resetBusy" OnClick="CreateResetLinkAsync" data-testid="admin-reset-create">@L["Admin_ResetCreate"]</MudButton>
+            <RadzenButton Text="@L["Admin_ResetCreate"]" Icon="lock_reset" ButtonStyle="ButtonStyle.Primary" Class="rz-mt-3"
+                          Disabled="resetBusy" Click="@(_ => CreateResetLinkAsync())" data-testid="admin-reset-create" />
             @if (resetLink is { } reset)
             {
-                <MudStack Spacing="2" Class="mt-3">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Admin_ResetValidUntil", Moment(reset.ExpiresAt)]</MudText>
-                    <div role="img" aria-label="@L["Admin_ResetQr"]" style="width: 160px; max-width: 100%; background: #ffffff;"
+                <RadzenStack Gap="1rem" Class="rz-mt-3">
+                    <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color">@L["Admin_ResetValidUntil", Moment(reset.ExpiresAt)]</RadzenText>
+                    @* Der QR-Code bleibt weiß, auch im Dunkelmodus, damit er sich scannen lässt. *@
+                    <div role="img" aria-label="@L["Admin_ResetQr"]" class="qr-code qr-code-small"
                          data-testid="admin-reset-qr">@((MarkupString)InvitationQr.Svg(reset.Url))</div>
-                    <MudText Typo="Typo.body2" Style="word-break: break-all;" data-testid="admin-reset-link">@reset.Url</MudText>
-                    <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.Share" Class="align-self-start"
-                               OnClick="() => ShareResetAsync(reset.Url)"
-                               data-testid="admin-reset-share">@L["InviteDialog_Share"]</MudButton>
-                </MudStack>
+                    <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="long-link" data-testid="admin-reset-link">@reset.Url</RadzenText>
+                    <RadzenButton Text="@L["InviteDialog_Share"]" Icon="share" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary"
+                                  Size="ButtonSize.Small" Class="align-start"
+                                  Click="@(_ => ShareResetAsync(reset.Url))" data-testid="admin-reset-share" />
+                </RadzenStack>
             }
-        </MudPaper>
+        </RadzenCard>
     }
 
-    <MudText Typo="Typo.h6" Class="mb-2">@L["Admin_OpenHeading"]</MudText>
+    <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-2">@L["Admin_OpenHeading"]</RadzenText>
     @if (invitations.Count == 0)
     {
-        <MudText Typo="Typo.body2" Color="Color.Secondary">@L["Admin_Empty"]</MudText>
+        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-text-secondary-color">@L["Admin_Empty"]</RadzenText>
     }
-    <MudStack Spacing="2" Class="mb-4">
+    <RadzenStack Gap="0.5rem" Class="rz-mb-4">
         @foreach (var invitation in invitations)
         {
-            <MudPaper Class="pa-3" Outlined="true" data-testid="@($"admin-invitation-{invitation.Id}")">
-                <MudStack Spacing="2">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                        <MudStack Spacing="0" Class="flex-grow-1">
-                            <MudText>@(invitation.Email ?? L["Admin_Anyone"])</MudText>
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Admin_ValidUntil", Day(invitation.ExpiresAt)]</MudText>
-                        </MudStack>
-                        <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => RevokeAsync(invitation)"
-                                   data-testid="@($"admin-invitation-revoke-{invitation.Id}")">@L["Admin_Revoke"]</MudButton>
-                    </MudStack>
+            <RadzenCard Variant="Variant.Outlined" data-testid="@($"admin-invitation-{invitation.Id}")">
+                <RadzenStack Gap="1rem">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Wrap="FlexWrap.Wrap">
+                        <RadzenStack Gap="0" Class="flex-grow-1">
+                            <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="long-link">@(invitation.Email ?? L["Admin_Anyone"])</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color">@L["Admin_ValidUntil", Day(invitation.ExpiresAt)]</RadzenText>
+                        </RadzenStack>
+                        <RadzenButton Text="@L["Admin_Revoke"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small"
+                                      Click="@(_ => RevokeAsync(invitation))"
+                                      data-testid="@($"admin-invitation-revoke-{invitation.Id}")" />
+                    </RadzenStack>
                     @if (invitation.Url is { } link)
                     {
-                        <div role="img" aria-label="@L["InviteDialog_Qr"]" style="width: 160px; max-width: 100%; background: #ffffff;"
+                        <div role="img" aria-label="@L["InviteDialog_Qr"]" class="qr-code qr-code-small"
                              data-testid="@($"admin-invitation-qr-{invitation.Id}")">@((MarkupString)InvitationQr.Svg(link))</div>
-                        <MudText Typo="Typo.body2" Style="word-break: break-all;"
-                                 data-testid="@($"admin-invitation-link-{invitation.Id}")">@link</MudText>
-                        <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.Share" Class="align-self-start"
-                                   OnClick="() => ShareAsync(link)"
-                                   data-testid="@($"admin-invitation-share-{invitation.Id}")">@L["InviteDialog_Share"]</MudButton>
+                        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="long-link"
+                                    data-testid="@($"admin-invitation-link-{invitation.Id}")">@link</RadzenText>
+                        <RadzenButton Text="@L["InviteDialog_Share"]" Icon="share" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary"
+                                      Size="ButtonSize.Small" Class="align-start"
+                                      Click="@(_ => ShareAsync(link))"
+                                      data-testid="@($"admin-invitation-share-{invitation.Id}")" />
                     }
-                </MudStack>
-            </MudPaper>
+                </RadzenStack>
+            </RadzenCard>
         }
-    </MudStack>
+    </RadzenStack>
 }
 
 @code {
@@ -149,7 +157,7 @@
         loaded = me.Succeeded;
         if (!me.Succeeded)
         {
-            message = new NoticeMessage(ErrorTexts.For(L, me.ErrorCode), Severity.Error);
+            message = new NoticeMessage(ErrorTexts.For(L, me.ErrorCode), NoticeSeverity.Error);
             return;
         }
         if (!isAdmin)
@@ -174,7 +182,7 @@
         }
         else
         {
-            message = new NoticeMessage(ErrorTexts.For(L, open.ErrorCode), Severity.Error);
+            message = new NoticeMessage(ErrorTexts.For(L, open.ErrorCode), NoticeSeverity.Error);
         }
     }
 
@@ -187,7 +195,7 @@
     {
         if (string.IsNullOrWhiteSpace(resetEmail))
         {
-            resetMessage = new NoticeMessage(ErrorTexts.For(L, ErrorCodes.EmailInvalid), Severity.Error);
+            resetMessage = new NoticeMessage(ErrorTexts.For(L, ErrorCodes.EmailInvalid), NoticeSeverity.Error);
             return;
         }
         resetBusy = true;
@@ -197,7 +205,7 @@
             var created = await AdminApi.CreatePasswordResetLinkAsync(resetEmail.Trim());
             if (!created.Succeeded)
             {
-                resetMessage = new NoticeMessage(ErrorTexts.For(L, created.ErrorCode), Severity.Error);
+                resetMessage = new NoticeMessage(ErrorTexts.For(L, created.ErrorCode), NoticeSeverity.Error);
                 return;
             }
             resetLink = created.Value;
@@ -220,11 +228,11 @@
             var created = await AdminApi.CreateInvitationAsync(address);
             if (!created.Succeeded)
             {
-                message = new NoticeMessage(ErrorTexts.For(L, created.ErrorCode), Severity.Error);
+                message = new NoticeMessage(ErrorTexts.For(L, created.ErrorCode), NoticeSeverity.Error);
                 return;
             }
             email = "";
-            message = new NoticeMessage(hosted && address is not null ? L["Admin_CreatedMailed"] : L["Admin_Created"], Severity.Success);
+            message = new NoticeMessage(hosted && address is not null ? L["Admin_CreatedMailed"] : L["Admin_Created"], NoticeSeverity.Success);
             await LoadAsync();
         }
         finally
@@ -240,13 +248,7 @@
     // Folgenreiches fragt einmal nach; erst die Bestätigung führt es aus.
     private async Task RevokeAsync(RegistrationInvitationResponse invitation)
     {
-        var confirmed = await DialogService.ShowMessageBoxAsync(new MessageBoxOptions
-        {
-            Title = L["Admin_RevokeTitle"],
-            Message = L["Admin_RevokeText"],
-            YesText = L["Admin_Revoke"],
-            CancelText = L["Admin_Cancel"],
-        }) == true;
+        var confirmed = await Forms.ConfirmAsync(L["Admin_RevokeText"], L["Admin_RevokeTitle"], L["Admin_Revoke"], L["Admin_Cancel"]);
         if (!confirmed)
         {
             return;
@@ -254,8 +256,8 @@
 
         var result = await AdminApi.RevokeInvitationAsync(invitation.Id);
         message = result.Succeeded
-            ? new NoticeMessage(L["Admin_Revoked"], Severity.Success)
-            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+            ? new NoticeMessage(L["Admin_Revoked"], NoticeSeverity.Success)
+            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
         await LoadAsync();
     }
 }

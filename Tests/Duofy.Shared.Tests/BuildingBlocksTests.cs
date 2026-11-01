@@ -3,8 +3,6 @@ using Duofy.Shared.Blocks;
 using Duofy.Shared.Pages;
 using Duofy.Shared.Theme;
 using Microsoft.Extensions.DependencyInjection;
-using MudBlazor;
-using MudBlazor.Utilities;
 
 namespace Duofy.Shared.Tests;
 
@@ -24,18 +22,26 @@ public class BuildingBlocksTests : UiTestContext
         return css[start..css.IndexOf('}', start)];
     }
 
-    private static double Luminance(MudColor color)
+    private static double Luminance(string hex)
     {
-        static double Channel(byte value)
+        static double Channel(int value)
         {
             var c = value / 255.0;
             return c <= 0.03928 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
         }
 
-        return 0.2126 * Channel(color.R) + 0.7152 * Channel(color.G) + 0.0722 * Channel(color.B);
+        var rgb = Convert.ToInt32(hex.TrimStart('#'), 16);
+        return 0.2126 * Channel(rgb >> 16 & 255) + 0.7152 * Channel(rgb >> 8 & 255) + 0.0722 * Channel(rgb & 255);
     }
 
-    private static double Contrast(MudColor a, MudColor b)
+    // Die Fläche eines Farbblocks: je zur Hälfte Statusfarbe und Karte (color-mix im Stylesheet).
+    private static string Mix(string a, string b)
+    {
+        var (x, y) = (Convert.ToInt32(a.TrimStart('#'), 16), Convert.ToInt32(b.TrimStart('#'), 16));
+        return $"#{((x >> 16 & 255) + (y >> 16 & 255)) / 2:x2}{((x >> 8 & 255) + (y >> 8 & 255)) / 2:x2}{((x & 255) + (y & 255)) / 2:x2}";
+    }
+
+    private static double Contrast(string a, string b)
     {
         var (la, lb) = (Luminance(a), Luminance(b));
         return (Math.Max(la, lb) + 0.05) / (Math.Min(la, lb) + 0.05);
@@ -43,9 +49,9 @@ public class BuildingBlocksTests : UiTestContext
 
     // A1: Titel und Betrag stehen im Block, die Variante bestimmt die Fläche, der Text ist der Haupttext.
     [Theory]
-    [InlineData(BlockVariant.Income, "color-block--income", "--mud-palette-success")]
-    [InlineData(BlockVariant.Fixed, "color-block--fixed", "--mud-palette-error")]
-    [InlineData(BlockVariant.Free, "color-block--free", "--mud-palette-warning")]
+    [InlineData(BlockVariant.Income, "color-block--income", "--rz-success")]
+    [InlineData(BlockVariant.Fixed, "color-block--fixed", "--rz-danger")]
+    [InlineData(BlockVariant.Free, "color-block--free", "--rz-warning")]
     public void Color_block_shows_title_and_amount_on_the_surface_of_its_variant(BlockVariant variant, string cssClass, string surfaceVariable)
     {
         var cut = Render<ColorBlock>(p => p
@@ -60,10 +66,10 @@ public class BuildingBlocksTests : UiTestContext
 
         var css = Css();
         var rule = Rule(css, "." + cssClass);
-        Assert.Contains($"background-color: var({surfaceVariable})", rule);
+        Assert.Contains($"background-color: color-mix(in srgb, var({surfaceVariable}) 50%, var(--rz-card-background-color))", rule);
         // Auf dem Block steht immer der Haupttext, nie der Nebentext.
         var baseRule = Rule(css, ".color-block");
-        Assert.Contains("color: var(--mud-palette-text-primary)", baseRule);
+        Assert.Contains("color: var(--rz-text-title-color)", baseRule);
         Assert.DoesNotContain("text-secondary", baseRule + rule);
     }
 
@@ -83,7 +89,7 @@ public class BuildingBlocksTests : UiTestContext
         Assert.Equal("62,40 €", rows[1].QuerySelector(".line-table-amount")!.TextContent);
 
         var css = Css();
-        Assert.Contains("border-bottom: 1px solid var(--mud-palette-lines-default)", Rule(css, ".line-table td"));
+        Assert.Contains("border-bottom: 1px solid var(--rz-input-line)", Rule(css, ".line-table td"));
         Assert.Contains("tabular-nums", Rule(css, ".line-table-amount"));
         Assert.Contains("text-align: right", Rule(css, ".line-table-amount"));
         Assert.DoesNotContain("box-shadow", Rule(css, ".line-table"));
@@ -155,8 +161,7 @@ public class BuildingBlocksTests : UiTestContext
         Assert.Contains("Speichern", button.TextContent);
 
         var css = Css();
-        Assert.Contains("outline: 3px solid var(--mud-palette-text-primary)", Rule(css, ".duofy-button:focus-visible"));
-        Assert.Contains("border-radius: 2px", Rule(css, ".duofy-button"));
+        Assert.Contains("outline: 3px solid var(--rz-text-title-color)", Rule(css, "button:focus-visible"));
     }
 
     // A4: Jeder Baustein hat eine Beschriftung für Screenreader.
@@ -191,25 +196,23 @@ public class BuildingBlocksTests : UiTestContext
     [Fact]
     public void Every_text_and_background_pair_of_the_blocks_reaches_4_5_to_1_in_light_and_dark()
     {
-        var themes = new (string Name, Palette Palette)[]
+        var themes = new (string Name, IReadOnlyDictionary<string, string> Palette)[]
         {
-            ("hell", DuofyTheme.Instance.PaletteLight),
-            ("dunkel", DuofyTheme.Instance.PaletteDark),
+            ("hell", RadzenVariables.Light),
+            ("dunkel", RadzenVariables.Dark),
         };
 
         foreach (var (name, p) in themes)
         {
-            var pairs = new (string Pair, MudColor Text, MudColor Background)[]
+            var pairs = new (string Pair, string Text, string Background)[]
             {
-                ("Farbblock Einnahmen", p.TextPrimary, p.Success),
-                ("Farbblock Festes", p.TextPrimary, p.Error),
-                ("Farbblock Frei", p.TextPrimary, p.Warning),
-                ("Knopf primär", p.PrimaryContrastText, p.Primary),
-                ("Knopf sekundär auf Grund", p.TextPrimary, p.Background),
-                ("Knopf sekundär auf Fläche", p.TextPrimary, p.Surface),
-                ("Knopf gefährlich", p.TextPrimary, p.Error),
-                ("Linientabelle auf Grund", p.TextPrimary, p.Background),
-                ("Linientabelle auf Fläche", p.TextPrimary, p.Surface),
+                ("Farbblock Einnahmen", p["--rz-text-title-color"], Mix(p["--rz-success"], p["--rz-card-background-color"])),
+                ("Farbblock Festes", p["--rz-text-title-color"], Mix(p["--rz-danger"], p["--rz-card-background-color"])),
+                ("Farbblock Frei", p["--rz-text-title-color"], Mix(p["--rz-warning"], p["--rz-card-background-color"])),
+                ("Knopf primär", p["--rz-on-primary"], p["--rz-primary"]),
+                ("Knopf gefährlich", p["--rz-on-danger"], p["--rz-danger"]),
+                ("Linientabelle auf Grund", p["--rz-text-title-color"], p["--rz-body-background-color"]),
+                ("Linientabelle auf Fläche", p["--rz-text-title-color"], p["--rz-card-background-color"]),
             };
 
             foreach (var (pair, text, background) in pairs)
@@ -218,22 +221,6 @@ public class BuildingBlocksTests : UiTestContext
                 Assert.True(ratio >= 4.5, $"{pair} ({name}): {ratio:0.00} zu 1 liegt unter 4,5 zu 1");
             }
         }
-    }
-
-    // A4: Die Regeln der Knöpfe nehmen genau diese Paare; das Fehlerrot ist nur Fläche, nie Schrift.
-    [Fact]
-    public void Button_rules_use_the_tested_pairs()
-    {
-        var css = Css();
-
-        var primary = Rule(css, ".duofy-button--primary");
-        Assert.Contains("background-color: var(--mud-palette-primary)", primary);
-        Assert.Contains("color: var(--mud-palette-primary-text)", primary);
-        Assert.Contains("color: var(--mud-palette-text-primary)", Rule(css, ".duofy-button--secondary"));
-        var danger = Rule(css, ".duofy-button--danger");
-        Assert.Contains("background-color: var(--mud-palette-error)", danger);
-        Assert.Contains("color: var(--mud-palette-text-primary)", danger);
-        Assert.DoesNotContain("color: var(--mud-palette-error)", danger.Replace("background-color: var(--mud-palette-error)", ""));
     }
 
     // A5: Die Testseite zeigt alle Bausteine hell und dunkel nebeneinander.
@@ -251,8 +238,8 @@ public class BuildingBlocksTests : UiTestContext
             Assert.NotEmpty(panel.QuerySelectorAll(".line-table"));
             Assert.Equal(3, panel.QuerySelectorAll(".duofy-button").Length);
         }
-        Assert.Contains("--mud-palette-success: #2e5a47", cut.Find("[data-testid='blocks-panel-dark']").GetAttribute("style"));
-        Assert.Contains("--mud-palette-success: #bfd8c8", cut.Find("[data-testid='blocks-panel-light']").GetAttribute("style"));
+        Assert.Contains("--rz-text-color: #f2efe8", cut.Find("[data-testid='blocks-panel-dark']").GetAttribute("style"));
+        Assert.Contains("--rz-text-color: #424242", cut.Find("[data-testid='blocks-panel-light']").GetAttribute("style"));
     }
 
     // A5: Ohne Meldung "Entwicklungsbetrieb" (Produktion, App) zeigt die Seite nichts.

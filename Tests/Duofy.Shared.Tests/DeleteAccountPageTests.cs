@@ -24,7 +24,7 @@ public class DeleteAccountPageTests : PageTestContext
     {
         var cut = Render<DeleteAccount>();
 
-        Field(cut, "delete-password").Change("ein-langes-passwort");
+        Field(cut, "delete-password").Input("ein-langes-passwort");
         Field(cut, "delete-submit").Click();
 
         cut.WaitForAssertion(() => Assert.Equal("/anmelden", CurrentPath));
@@ -38,7 +38,7 @@ public class DeleteAccountPageTests : PageTestContext
         Users.DeleteResult = ApiResult.Failure(ErrorCodes.PasswordWrong);
         var cut = Render<DeleteAccount>();
 
-        Field(cut, "delete-password").Change("falsch-falsch-1");
+        Field(cut, "delete-password").Input("falsch-falsch-1");
         Field(cut, "delete-submit").Click();
 
         cut.WaitForAssertion(() => Assert.Contains("Das Passwort stimmt nicht.", cut.Markup));
@@ -53,5 +53,48 @@ public class DeleteAccountPageTests : PageTestContext
         Field(cut, "delete-submit").Click();
 
         Assert.Empty(Users.Deleted);
+    }
+}
+
+/// <summary>Radzen-Umstellung R22: Konto löschen in Radzen.</summary>
+public class DeleteAccountPageRadzenTests : PageTestContext
+{
+    [Fact]
+    public void The_page_is_built_with_radzen_and_keeps_its_warning_field_and_buttons()
+    {
+        var cut = Render<DeleteAccount>();
+
+        Assert.Contains("rz-card", cut.Find(".rz-card").ClassList);
+        Assert.Contains("rz-alert", cut.Find(".rz-alert").ClassList);
+        Assert.Equal("password", Field(cut, "delete-password").GetAttribute("type"));
+        Assert.Equal("current-password", Field(cut, "delete-password").GetAttribute("autocomplete"));
+        Assert.Equal("delete-password-input", Field(cut, "delete-password").Id);
+        Assert.Contains("rz-danger", cut.Find("[data-testid='delete-submit']").ClassList);
+        Assert.Equal("/konto", cut.Find("a[href='/konto']").GetAttribute("href"));
+        Assert.Equal("Konto löschen", cut.Find("h1").TextContent.Trim());
+    }
+
+    [Fact]
+    public void Enter_in_the_password_field_deletes_after_the_password_check()
+    {
+        var cut = Render<DeleteAccount>();
+        Field(cut, "delete-password").Input("ein-langes-passwort");
+
+        Field(cut, "delete-password").KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Enter" });
+
+        cut.WaitForAssertion(() => Assert.Equal("/anmelden", CurrentPath));
+        Assert.Single(Users.Deleted);
+    }
+
+    [Fact]
+    public void A_wrong_password_shows_its_text_in_a_second_alert()
+    {
+        Users.DeleteResult = ApiResult.Failure(ErrorCodes.PasswordWrong);
+        var cut = Render<DeleteAccount>();
+        Field(cut, "delete-password").Input("falsch-falsch-1");
+
+        Field(cut, "delete-submit").Click();
+
+        cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll(".rz-alert").Count));
     }
 }

@@ -1,4 +1,6 @@
 @page "/buchungen"
+@using Radzen
+@using Radzen.Blazor
 @attribute [Authorize]
 @using System.Globalization
 @using Duofy.ApiClient
@@ -7,7 +9,7 @@
 @inject ICategoryApi CategoryApi
 @inject IAccountChoices AccountChoices
 @implements IDisposable
-@inject IDialogService DialogService
+@inject FormDialogs Forms
 @inject IAppHost Host
 @inject AppChrome Chrome
 @inject ActiveMember Member
@@ -31,7 +33,7 @@
 <AppPageHeading Text="@L["Bookings_Title"]" />
 @if (!Host.IsApp)
 {
-    <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-2">@L["Bookings_Title"]</MudText>
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" Class="rz-mb-2">@L["Bookings_Title"]</RadzenText>
 }
 
 <Notice Message="message" />
@@ -47,13 +49,13 @@ else
 @* Monat, Filter und Summen stehen ab 1280 px nebeneinander, darunter untereinander wie bisher. *@
 <div class="bookings-top">
 @* Blättern: ein Pfeil zurück, der Monat, ein Pfeil vor. *@
-<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
-    <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" OnClick="PreviousMonthAsync"
-                   aria-label="@L["Bookings_PreviousMonth"]" data-testid="bookings-previous-month" />
-    <MudText Typo="Typo.h6" data-testid="bookings-month">@MonthLabel</MudText>
-    <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" OnClick="NextMonthAsync"
-                   aria-label="@L["Bookings_NextMonth"]" data-testid="bookings-next-month" />
-</MudStack>
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-2">
+    <RadzenButton Icon="chevron_left" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Click="@(_ => PreviousMonthAsync())"
+                  aria-label="@L["Bookings_PreviousMonth"]" data-testid="bookings-previous-month" />
+    <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" data-testid="bookings-month">@MonthLabel</RadzenText>
+    <RadzenButton Icon="chevron_right" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Click="@(_ => NextMonthAsync())"
+                  aria-label="@L["Bookings_NextMonth"]" data-testid="bookings-next-month" />
+</RadzenStack>
 
 @* Der Filter: alle Konten oder eines. Auch aufgelöste Konten stehen hier, ihre Buchungen bleiben ja erhalten. *@
 <NativeSelect Value="@(filterAccountId?.ToString() ?? "")" ValueChanged="OnFilterChangedAsync"
@@ -66,30 +68,30 @@ else
 </NativeSelect>
 
 @* Die Summen des Monats (oder des gewählten Kontos). *@
-<MudStack Row="true" Spacing="4" Class="mb-2">
-    <MudPaper Class="pa-3 flex-grow-1" Outlined="true">
-        <MudText Typo="Typo.caption">@L["Bookings_Income"]</MudText>
-        <MudText Typo="Typo.h6" data-testid="bookings-sum-income">@Money(monthData?.Income ?? 0m)</MudText>
-    </MudPaper>
-    <MudPaper Class="pa-3 flex-grow-1" Outlined="true">
-        <MudText Typo="Typo.caption">@L["Bookings_Expenses"]</MudText>
-        <MudText Typo="Typo.h6" data-testid="bookings-sum-expenses">@Money(monthData?.Expenses ?? 0m)</MudText>
-    </MudPaper>
-</MudStack>
+<RadzenStack Orientation="Orientation.Horizontal" Gap="1.5rem" Class="rz-mb-2">
+    <RadzenCard Variant="Variant.Outlined" Class="flex-grow-1">
+        <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P">@L["Bookings_Income"]</RadzenText>
+        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.P" data-testid="bookings-sum-income">@Money(monthData?.Income ?? 0m)</RadzenText>
+    </RadzenCard>
+    <RadzenCard Variant="Variant.Outlined" Class="flex-grow-1">
+        <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P">@L["Bookings_Expenses"]</RadzenText>
+        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.P" data-testid="bookings-sum-expenses">@Money(monthData?.Expenses ?? 0m)</RadzenText>
+    </RadzenCard>
+</RadzenStack>
 </div>
 
-@if (accounts.Count == 0 && loaded && SeesAccounts && message?.Severity != Severity.Error)
+@if (accounts.Count == 0 && loaded && SeesAccounts && message?.Severity != NoticeSeverity.Error)
 {
-    <MudAlert Severity="Severity.Info" Class="mb-2">@L["Bookings_NoAccounts"]</MudAlert>
+    <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" AllowClose="false" Class="rz-mb-2">@L["Bookings_NoAccounts"]</RadzenAlert>
 }
 
 @if (monthData is { Bookings.Count: 0 } && loaded)
 {
-    <MudText Color="Color.Secondary">@L["Bookings_Empty"]</MudText>
+    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color">@L["Bookings_Empty"]</RadzenText>
 }
 
 @* Die Buchungen, die neueste zuerst. Eine aufgeteilte Buchung steht einmal da, mit ihrer Summe. *@
-<MudStack Spacing="2" Class="data-table bookings-table page-wide">
+<RadzenStack Gap="0.5rem" Class="data-table bookings-table page-wide">
     @if (monthData is { Bookings.Count: > 0 })
     {
         <div class="data-table-head" aria-hidden="true">
@@ -101,40 +103,42 @@ else
     }
     @foreach (var booking in monthData?.Bookings ?? [])
     {
-        <MudPaper Class="pa-3 data-row-frame" Outlined="true" data-testid="@($"booking-{booking.Id}")">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="data-row">
-                <MudStack Spacing="0" Class="flex-grow-1 data-cells">
-                    <MudText Typo="Typo.caption" Class="data-column-1">@booking.Date.ToString("d", German)</MudText>
-                    <MudText Class="data-column-2">@Title(booking)</MudText>
+        <RadzenCard Variant="Variant.Outlined" Class="data-row-frame" data-testid="@($"booking-{booking.Id}")">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem" Class="data-row">
+                <RadzenStack Gap="0" Class="flex-grow-1 data-cells">
+                    <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="data-column-1">@booking.Date.ToString("d", German)</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="data-column-2">@Title(booking)</RadzenText>
                     <div class="data-column-3">
                         @if (TransferPots(booking) is { } pots)
                         {
-                            <MudText Typo="Typo.caption" Class="d-block" data-testid="@($"booking-transfer-pots-{booking.Id}")">@pots</MudText>
+                            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" data-testid="@($"booking-transfer-pots-{booking.Id}")">@pots</RadzenText>
                         }
                         @if (booking.Note is { Length: > 0 })
                         {
-                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block">@booking.Note</MudText>
+                            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color">@booking.Note</RadzenText>
                         }
                     </div>
-                </MudStack>
-                <MudText Typo="Typo.subtitle1" Class="data-column-4 data-amount">@SignedMoney(booking)</MudText>
-                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditAsync(booking)"
-                               Class="@($"data-column-5 {GrantLock.Class(CanEdit)}")" @attributes="GrantLock.Attributes(CanEdit)"
-                               aria-label="@L["Bookings_Edit", RowName(booking)]" data-testid="@($"booking-edit-{booking.Id}")" />
-                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => DeleteAsync(booking)"
-                               Class="@($"data-column-6 {GrantLock.Class(CanDelete)}")" @attributes="GrantLock.Attributes(CanDelete)"
-                               aria-label="@L["Bookings_Delete", RowName(booking)]" data-testid="@($"booking-delete-{booking.Id}")" />
-            </MudStack>
-        </MudPaper>
+                </RadzenStack>
+                <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.P" Class="data-column-4 data-amount">@SignedMoney(booking)</RadzenText>
+                <RadzenButton Icon="edit" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small"
+                              Click="@(_ => EditAsync(booking))"
+                              Class="@($"data-column-5 {GrantLock.Class(CanEdit)}")" @attributes="GrantLock.Attributes(CanEdit)"
+                              aria-label="@L["Bookings_Edit", RowName(booking)]" data-testid="@($"booking-edit-{booking.Id}")" />
+                <RadzenButton Icon="delete" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small"
+                              Click="@(_ => DeleteAsync(booking))"
+                              Class="@($"data-column-6 {GrantLock.Class(CanDelete)}")" @attributes="GrantLock.Attributes(CanDelete)"
+                              aria-label="@L["Bookings_Delete", RowName(booking)]" data-testid="@($"booking-delete-{booking.Id}")" />
+            </RadzenStack>
+        </RadzenCard>
     }
-</MudStack>
+</RadzenStack>
 
 @* Das Plus. Es bleibt unten rechts stehen, auch wenn die Liste lang ist. Ohne Konto gibt es nichts zu buchen. *@
 @if (!Host.IsApp)
 {
-    <MudFab Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Disabled="@(CanAdd && !HasActiveAccount)"
-            OnClick="AddAsync" aria-label="@L["Bookings_Add"]" data-testid="bookings-add"
-            Class="@($"app-fab {GrantLock.Class(CanAdd)}")" @attributes="GrantLock.Attributes(CanAdd)" />
+    <RadzenFab Icon="add" Disabled="@(CanAdd && !HasActiveAccount)"
+               Click="@(() => AddAsync())" aria-label="@L["Bookings_Add"]" data-testid="bookings-add"
+               Class="@($"app-fab {GrantLock.Class(CanAdd)}")" @attributes="GrantLock.Attributes(CanAdd)" />
 }
 }
 
@@ -207,7 +211,7 @@ else
             }
             else
             {
-                message = new NoticeMessage(ErrorTexts.For(L, accountResult.ErrorCode), Severity.Error);
+                message = new NoticeMessage(ErrorTexts.For(L, accountResult.ErrorCode), NoticeSeverity.Error);
             }
         }
 
@@ -218,7 +222,7 @@ else
         }
         else
         {
-            message = new NoticeMessage(ErrorTexts.For(L, categoryResult.ErrorCode), Severity.Error);
+            message = new NoticeMessage(ErrorTexts.For(L, categoryResult.ErrorCode), NoticeSeverity.Error);
         }
 
         PublishChrome();
@@ -247,7 +251,7 @@ else
         }
         else
         {
-            message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+            message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
         }
         loaded = true;
     }
@@ -296,7 +300,7 @@ else
         }
 
         message = outcome;
-        if (outcome.Severity == Severity.Success)
+        if (outcome.Severity == NoticeSeverity.Success)
         {
             await LoadAsync();
         }
@@ -309,22 +313,16 @@ else
         {
             return;
         }
-        var confirmed = await DialogService.ShowMessageBoxAsync(new MessageBoxOptions
-        {
-            Title = L["Bookings_DeleteTitle"],
-            Message = L["Bookings_DeleteText"],
-            YesText = L["Bookings_DeleteConfirm"],
-            CancelText = L["Bookings_DeleteCancel"],
-        });
-        if (confirmed != true)
+        var confirmed = await Forms.ConfirmAsync(L["Bookings_DeleteText"], L["Bookings_DeleteTitle"], L["Bookings_DeleteConfirm"], L["Bookings_DeleteCancel"]);
+        if (!confirmed)
         {
             return;
         }
 
         var result = await BookingApi.DeleteAsync(booking.Id);
         message = result.Succeeded
-            ? new NoticeMessage(L["Bookings_Deleted"], Severity.Success)
-            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+            ? new NoticeMessage(L["Bookings_Deleted"], NoticeSeverity.Success)
+            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
         await LoadAsync();
     }
 

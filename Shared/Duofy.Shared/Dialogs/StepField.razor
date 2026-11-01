@@ -11,7 +11,7 @@
    (aria-required, aria-invalid); das setzt step-field.js über die Id, weil das Feld im ChildContent steckt. *@
 
 <div class="step-field" data-testid="@TestId">
-    <FieldLabel For="@InputId" Text="@Label" />
+    <FieldLabel For="@(AriaLabelled ? "" : InputId)" id="@($"{InputId}-label")" Text="@Label" />
     @ChildContent
     @if (Step.ShowErrors && Error is { } error)
     {
@@ -29,12 +29,22 @@
     [Parameter, EditorRequired]
     public string Label { get; set; } = "";
 
-    /// <summary>Die Id des Eingabefelds (InputId am MudTextField); daran hängen Beschriftung und Fehler.</summary>
+    /// <summary>
+    /// Die Id des Eingabefelds; daran hängen Beschriftung und Fehler. Bei einem Feld ohne Id (RadzenNumeric) ist es nur der
+    /// Name des Felds: Die Beschriftung hat die Id "{InputId}-label" und das Feld verweist mit aria-labelledby darauf.
+    /// </summary>
     [Parameter, EditorRequired]
     public string InputId { get; set; } = "";
 
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>
+    /// True für ein Feld, das keine Id am input zulässt (RadzenNumeric): Die Beschriftung zeigt dann nicht mit for darauf,
+    /// und das Feld trägt aria-labelledby="{InputId}-label" (InputAttributes).
+    /// </summary>
+    [Parameter]
+    public bool AriaLabelled { get; set; }
 
     /// <summary>Pflichtfeld: Weiter geht erst, wenn <see cref="IsFilled"/> true sagt.</summary>
     [Parameter]

@@ -22,9 +22,9 @@ public class LegalPagesTests : PageTestContext
         var imprint = cut.Find("[data-testid='more-legal-imprint']");
         var privacy = cut.Find("[data-testid='more-legal-privacy']");
         Assert.Equal("/rechtliches/impressum", imprint.GetAttribute("href"));
-        Assert.Equal("Impressum", imprint.TextContent.Trim());
+        Assert.EndsWith("Impressum", imprint.TextContent.Trim());
         Assert.Equal("/rechtliches/datenschutz", privacy.GetAttribute("href"));
-        Assert.Equal("Datenschutz", privacy.TextContent.Trim());
+        Assert.EndsWith("Datenschutz", privacy.TextContent.Trim());
         Assert.Empty(cut.FindAll("[data-testid='more-legal-terms']"));
         Assert.DoesNotContain("Nutzungsbedingungen", cut.Markup);
     }
@@ -39,7 +39,7 @@ public class LegalPagesTests : PageTestContext
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='more-legal-terms']")));
         var terms = cut.Find("[data-testid='more-legal-terms']");
         Assert.Equal("/rechtliches/nutzungsbedingungen", terms.GetAttribute("href"));
-        Assert.Equal("Nutzungsbedingungen", terms.TextContent.Trim());
+        Assert.EndsWith("Nutzungsbedingungen", terms.TextContent.Trim());
     }
 
     [Fact]
@@ -68,7 +68,7 @@ public class LegalPagesTests : PageTestContext
         Assert.Equal("Max Muster\nMusterweg <b>1</b>\n\n<b>x</b>", text.TextContent);
         Assert.Empty(text.QuerySelectorAll("b"));
         Assert.Contains("&lt;b&gt;x&lt;/b&gt;", cut.Markup);
-        Assert.Contains("white-space", text.GetAttribute("style") ?? "");
+        Assert.Contains("plain-text", text.ClassList);
         Assert.Equal(["imprint"], LegalApiFake.Read);
     }
 
@@ -113,7 +113,7 @@ public class LegalPagesTests : PageTestContext
 
         var cut = Render<Legal>(p => p.Add(l => l.Slug, "impressum"));
 
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".mud-alert")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(AlertSelector)));
         Assert.Empty(cut.FindAll("[data-testid='legal-text']"));
     }
 
@@ -124,5 +124,18 @@ public class LegalPagesTests : PageTestContext
         Assert.Null(typeof(Legal).GetCustomAttribute<AuthorizeAttribute>());
         var routes = typeof(Legal).GetCustomAttributes<RouteAttribute>().Select(r => r.Template).ToArray();
         Assert.Equal(["/rechtliches/{Slug}"], routes);
+    }
+
+    // Radzen-Umstellung R13
+    [Fact]
+    public void The_legal_page_is_built_with_radzen_for_its_heading_and_its_missing_text()
+    {
+        Navigation.NavigateTo("/rechtliches/impressum");
+
+        var cut = Render<Legal>(p => p.Add(l => l.Slug, "impressum"));
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='legal-missing']")));
+        Assert.Contains(cut.Find("h1").ClassList, c => c.StartsWith("rz-text"));
+        Assert.Contains(cut.Find("[data-testid='legal-missing']").ClassList, c => c.StartsWith("rz-text"));
     }
 }

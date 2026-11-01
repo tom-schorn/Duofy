@@ -2,7 +2,6 @@
 @using Duofy.Shared.Pages
 @implements IDisposable
 @inject IServerStore Servers
-@inject IDialogService DialogService
 @inject FormDialogs Forms
 @inject IStringLocalizer<SharedResources> L
 
@@ -28,6 +27,7 @@
 
     private async Task OpenAsync()
     {
-        await DialogService.ShowAsync<ServerDialog>(L["Server_DialogTitle"], Forms.Options());
+        var title = L["Server_DialogTitle"];
+        await Forms.OpenAsync<ServerDialog, bool>(title, new FormParameters<ServerDialog>().Add(d => d.Title, title));
     }
 }

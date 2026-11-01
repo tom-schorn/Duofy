@@ -2,19 +2,18 @@ using Bunit;
 using Duofy.Schemas;
 using Duofy.Shared.Pages;
 using Duofy.Shared.Services;
-using MudBlazor;
+using Microsoft.AspNetCore.Components;
 
 namespace Duofy.Shared.Tests;
 
 /// <summary>Planmonat und Posten je Zeile im Buchungsdialog (Spec 66, R6, R7). "Heute" ist der 21. Oktober 2026.</summary>
 public class BookingDialogPlanTests : PageTestContext
 {
-    private readonly IRenderedComponent<MudDialogProvider> dialogs;
+    private readonly IRenderedComponent<IComponent> dialogs;
 
     public BookingDialogPlanTests()
     {
-        Render<MudPopoverProvider>();
-        dialogs = Render<MudDialogProvider>();
+        dialogs = RenderRadzenHost();
         Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true));
     }
 

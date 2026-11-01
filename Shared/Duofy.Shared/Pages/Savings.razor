@@ -1,4 +1,6 @@
 @page "/sparen"
+@using Radzen
+@using Radzen.Blazor
 @attribute [Authorize]
 @using System.Globalization
 @using Duofy.ApiClient
@@ -8,7 +10,6 @@
 @inject IDebtApi DebtApi
 @inject ICategoryApi CategoryApi
 @inject IAccountChoices AccountChoices
-@inject IDialogService DialogService
 @inject FormDialogs Forms
 @inject IAppHost Host
 @inject AppChrome Chrome
@@ -27,15 +28,15 @@
 <AppPageHeading Text="@L["Savings_Title"]" />
 @if (!Host.IsApp)
 {
-    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
-        <MudText Typo="Typo.h4" HtmlTag="h1">@L["Savings_Title"]</MudText>
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-2">
+        <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1">@L["Savings_Title"]</RadzenText>
         @if (Sees)
         {
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-                       OnClick="AddGoalAsync" Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)"
-                       data-testid="savings-goal-add">@L["Savings_AddGoal"]</MudButton>
+            <RadzenButton Text="@L["Savings_AddGoal"]" Icon="add" ButtonStyle="ButtonStyle.Primary"
+                          Click="@(_ => AddGoalAsync())" Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)"
+                          data-testid="savings-goal-add" />
         }
-    </MudStack>
+    </RadzenStack>
 }
 
 <Notice Message="message" />
@@ -48,122 +49,125 @@ else
 {
     <GrantReason Show="@(!(CanAdd && CanEdit && CanDelete))" />
 
-    <MudStack Spacing="3">
-        <MudPaper Class="pa-3" Outlined="true" data-testid="savings-section-goals">
-            <MudText Typo="Typo.h6" Class="mb-1">@L["Savings_Section_goals"]</MudText>
+    <RadzenStack Gap="1rem">
+        <RadzenCard Variant="Variant.Outlined" data-testid="savings-section-goals">
+            <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-1">@L["Savings_Section_goals"]</RadzenText>
             @if (loaded && goals.Count == 0)
             {
-                <MudText Color="Color.Secondary" data-testid="savings-empty-goals">@L["Savings_Empty_goals"]</MudText>
+                <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color rz-m-0" data-testid="savings-empty-goals">@L["Savings_Empty_goals"]</RadzenText>
             }
-            <MudStack Spacing="2">
+            <RadzenStack Gap="0.5rem">
                 @foreach (var goal in goals)
                 {
-                    <MudPaper Class="pa-3" Outlined="true" data-testid="@($"savings-goal-{goal.Id}")">
-                        <MudStack Spacing="1">
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                <MudText Class="flex-grow-1" data-testid="@($"savings-goal-name-{goal.Id}")">@goal.Name</MudText>
-                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditGoalAsync(goal)"
-                                               Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
-                                               aria-label="@L["Savings_EditGoal", goal.Name]" data-testid="@($"savings-goal-edit-{goal.Id}")" />
-                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => DeleteGoalAsync(goal)"
-                                               Class="@GrantLock.Class(CanDelete)" @attributes="GrantLock.Attributes(CanDelete)"
-                                               aria-label="@L["Savings_DeleteGoal", goal.Name]" data-testid="@($"savings-goal-delete-{goal.Id}")" />
-                            </MudStack>
+                    <RadzenCard Variant="Variant.Outlined" data-testid="@($"savings-goal-{goal.Id}")">
+                        <RadzenStack Gap="0.25rem">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-m-0 fill" data-testid="@($"savings-goal-name-{goal.Id}")">@goal.Name</RadzenText>
+                                <RadzenButton Icon="edit" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small" Click="@(_ => EditGoalAsync(goal))"
+                                              Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
+                                              aria-label="@L["Savings_EditGoal", goal.Name]" data-testid="@($"savings-goal-edit-{goal.Id}")" />
+                                <RadzenButton Icon="delete" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small" Click="@(_ => DeleteGoalAsync(goal))"
+                                              Class="@GrantLock.Class(CanDelete)" @attributes="GrantLock.Attributes(CanDelete)"
+                                              aria-label="@L["Savings_DeleteGoal", goal.Name]" data-testid="@($"savings-goal-delete-{goal.Id}")" />
+                            </RadzenStack>
 
-                            <MudText Typo="Typo.subtitle1" data-testid="@($"savings-goal-balance-{goal.Id}")">@BalanceText(goal)</MudText>
+                            <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.P" Class="rz-m-0" data-testid="@($"savings-goal-balance-{goal.Id}")">@BalanceText(goal)</RadzenText>
                             @if (goal.TargetAmount is { } target)
                             {
-                                <MudProgressLinear Value="@ProgressOf(goal)" Max="100" Color="Color.Primary" Rounded="true"
-                                                   aria-label="@L["Savings_Progress", goal.Name]" data-testid="@($"savings-goal-progress-{goal.Id}")" />
+                                <RadzenProgressBar Value="@ProgressOf(goal)" Max="100" ShowValue="false"
+                                                   aria-hidden="true" data-testid="@($"savings-goal-progress-{goal.Id}")" />
                             }
                             @if (goal.Reached)
                             {
-                                <MudText Typo="Typo.caption" data-testid="@($"savings-goal-reached-{goal.Id}")">@L["Savings_Reached"]</MudText>
+                                <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-m-0" data-testid="@($"savings-goal-reached-{goal.Id}")">@L["Savings_Reached"]</RadzenText>
                             }
                             @if (goal.TargetDate is { } due)
                             {
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Savings_TargetDate", due.ToString("dd.MM.yyyy", German)]</MudText>
+                                <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-m-0">@L["Savings_TargetDate", due.ToString("dd.MM.yyyy", German)]</RadzenText>
                             }
                             @if (AccountName(goal) is { } accountName)
                             {
-                                <MudText Typo="Typo.caption" Color="Color.Secondary" data-testid="@($"savings-goal-account-{goal.Id}")">@L["Savings_OnAccount", accountName]</MudText>
+                                <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-m-0" data-testid="@($"savings-goal-account-{goal.Id}")">@L["Savings_OnAccount", accountName]</RadzenText>
                             }
 
-                            <MudStack Row="true" Spacing="2">
-                                <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="() => MoveAsync(goal, SavingsMoveKind.Deposit)"
-                                           Class="@GrantLock.Class(CanMove)" @attributes="GrantLock.Attributes(CanMove)"
-                                           data-testid="@($"savings-goal-deposit-{goal.Id}")">@L["Savings_Deposit"]</MudButton>
-                                <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="() => MoveAsync(goal, SavingsMoveKind.Withdrawal)"
-                                           Class="@GrantLock.Class(CanMove)" @attributes="GrantLock.Attributes(CanMove)"
-                                           data-testid="@($"savings-goal-withdraw-{goal.Id}")">@L["Savings_Withdraw"]</MudButton>
-                            </MudStack>
-                        </MudStack>
-                    </MudPaper>
+                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                                <RadzenButton Text="@L["Savings_Deposit"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small" Click="@(_ => MoveAsync(goal, SavingsMoveKind.Deposit))"
+                                              Class="@GrantLock.Class(CanMove)" @attributes="GrantLock.Attributes(CanMove)"
+                                              aria-label="@L["Savings_DepositTo", goal.Name]" data-testid="@($"savings-goal-deposit-{goal.Id}")" />
+                                <RadzenButton Text="@L["Savings_Withdraw"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small" Click="@(_ => MoveAsync(goal, SavingsMoveKind.Withdrawal))"
+                                              Class="@GrantLock.Class(CanMove)" @attributes="GrantLock.Attributes(CanMove)"
+                                              aria-label="@L["Savings_WithdrawFrom", goal.Name]" data-testid="@($"savings-goal-withdraw-{goal.Id}")" />
+                            </RadzenStack>
+                        </RadzenStack>
+                    </RadzenCard>
                 }
-            </MudStack>
-        </MudPaper>
+            </RadzenStack>
+        </RadzenCard>
 
         @foreach (var (section, kind) in DebtSections)
         {
-            <MudPaper Class="pa-3" Outlined="true" data-testid="@($"savings-section-{section}")">
-                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-1">
-                    <MudText Typo="Typo.h6">@L[$"Savings_Section_{section}"]</MudText>
-                    <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.Add" OnClick="() => AddDebtAsync(kind)"
-                               Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)"
-                               data-testid="@($"debt-add-{kind}")">@L[$"Savings_Add_{section}"]</MudButton>
-                </MudStack>
+            <RadzenCard Variant="Variant.Outlined" data-testid="@($"savings-section-{section}")">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Wrap="FlexWrap.Wrap" Class="rz-mb-1">
+                    <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-m-0">@L[$"Savings_Section_{section}"]</RadzenText>
+                    <RadzenButton Text="@L[$"Savings_Add_{section}"]" Icon="add" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small" Click="@(_ => AddDebtAsync(kind))"
+                                  Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)"
+                                  data-testid="@($"debt-add-{kind}")" />
+                </RadzenStack>
                 @if (loaded && DebtsOf(kind).Count == 0)
                 {
-                    <MudText Color="Color.Secondary" data-testid="@($"savings-empty-{section}")">@L[$"Savings_Empty_{section}"]</MudText>
+                    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color rz-m-0" data-testid="@($"savings-empty-{section}")">@L[$"Savings_Empty_{section}"]</RadzenText>
                 }
-                <MudStack Spacing="2">
+                <RadzenStack Gap="0.5rem">
                     @foreach (var debt in DebtsOf(kind))
                     {
-                        <MudPaper Class="pa-3" Outlined="true" data-testid="@($"debt-{debt.Id}")">
-                            <MudStack Spacing="1">
-                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                    <MudStack Spacing="0" Class="flex-grow-1">
-                                        <MudText data-testid="@($"debt-name-{debt.Id}")">@debt.Name</MudText>
-                                        <MudText Typo="Typo.caption" Color="Color.Secondary" data-testid="@($"debt-creditor-{debt.Id}")">@L["Savings_DebtTo", debt.Creditor]</MudText>
-                                    </MudStack>
-                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditDebtAsync(debt)"
-                                                   Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
-                                                   aria-label="@L["Savings_EditDebt", debt.Name]" data-testid="@($"debt-edit-{debt.Id}")" />
-                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => DeleteDebtAsync(debt)"
-                                                   Class="@GrantLock.Class(CanDelete)" @attributes="GrantLock.Attributes(CanDelete)"
-                                                   aria-label="@L["Savings_DeleteDebt", debt.Name]" data-testid="@($"debt-delete-{debt.Id}")" />
-                                </MudStack>
+                        <RadzenCard Variant="Variant.Outlined" data-testid="@($"debt-{debt.Id}")">
+                            <RadzenStack Gap="0.25rem">
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                    <RadzenStack Gap="0" Class="fill">
+                                        <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-m-0" data-testid="@($"debt-name-{debt.Id}")">@debt.Name</RadzenText>
+                                        <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-m-0" data-testid="@($"debt-creditor-{debt.Id}")">@L["Savings_DebtTo", debt.Creditor]</RadzenText>
+                                    </RadzenStack>
+                                    <RadzenButton Icon="edit" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small" Click="@(_ => EditDebtAsync(debt))"
+                                                  Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
+                                                  aria-label="@L["Savings_EditDebt", debt.Name]" data-testid="@($"debt-edit-{debt.Id}")" />
+                                    <RadzenButton Icon="delete" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small" Click="@(_ => DeleteDebtAsync(debt))"
+                                                  Class="@GrantLock.Class(CanDelete)" @attributes="GrantLock.Attributes(CanDelete)"
+                                                  aria-label="@L["Savings_DeleteDebt", debt.Name]" data-testid="@($"debt-delete-{debt.Id}")" />
+                                </RadzenStack>
 
-                                <MudText Typo="Typo.subtitle1" data-testid="@($"debt-open-{debt.Id}")">@L["Savings_DebtOpen", Money(debt.Open), Money(debt.OriginalAmount)]</MudText>
-                                <MudProgressLinear Value="@DebtProgress(debt)" Max="100" Color="Color.Primary" Rounded="true"
-                                                   aria-label="@L["Savings_DebtProgress", debt.Name]" data-testid="@($"debt-progress-{debt.Id}")" />
+                                <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.P" Class="rz-m-0" data-testid="@($"debt-open-{debt.Id}")">@L["Savings_DebtOpen", Money(debt.Open), Money(debt.OriginalAmount)]</RadzenText>
+                                <RadzenProgressBar Value="@DebtProgress(debt)" Max="100" ShowValue="false"
+                                                   aria-hidden="true" data-testid="@($"debt-progress-{debt.Id}")" />
                                 @if (debt.Settled)
                                 {
-                                    <MudText Typo="Typo.caption" data-testid="@($"debt-settled-{debt.Id}")">@L["Savings_DebtSettled"]</MudText>
+                                    <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-m-0" data-testid="@($"debt-settled-{debt.Id}")">@L["Savings_DebtSettled"]</RadzenText>
                                 }
                                 @if (debt.DueDate is { } due)
                                 {
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Savings_DebtDue", due.ToString("dd.MM.yyyy", German)]</MudText>
+                                    <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-m-0">@L["Savings_DebtDue", due.ToString("dd.MM.yyyy", German)]</RadzenText>
                                 }
                                 @if (debt.Note is { } note)
                                 {
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@note</MudText>
+                                    <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-m-0">@note</RadzenText>
                                 }
-                                <MudStack Row="true" Spacing="2">
-                                    <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="() => PayAsync(debt)"
-                                               Class="@GrantLock.Class(CanMove)" @attributes="GrantLock.Attributes(CanMove)"
-                                               data-testid="@($"debt-pay-{debt.Id}")">@L["Savings_DebtPay"]</MudButton>
-                                </MudStack>
-                            </MudStack>
-                        </MudPaper>
+                                @if (!debt.Settled)
+                                {
+                                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                                    <RadzenButton Text="@L["Savings_DebtPay"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small" Click="@(_ => PayAsync(debt))"
+                                                  Class="@GrantLock.Class(CanMove)" @attributes="GrantLock.Attributes(CanMove)"
+                                                  aria-label="@L["Savings_DebtPayFor", debt.Name]" data-testid="@($"debt-pay-{debt.Id}")" />
+                                </RadzenStack>
+                                }
+                            </RadzenStack>
+                        </RadzenCard>
                     }
-                </MudStack>
-            </MudPaper>
+                </RadzenStack>
+            </RadzenCard>
         }
 
         @* Ein ruhiger Hinweis auf echte Hilfe, ohne Rechtsaussage. *@
-        <MudText Typo="Typo.body2" Color="Color.Secondary" data-testid="savings-help">@L["Savings_Help"]</MudText>
-    </MudStack>
+        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-text-secondary-color rz-m-0" data-testid="savings-help">@L["Savings_Help"]</RadzenText>
+    </RadzenStack>
 }
 
 @code {
@@ -238,7 +242,7 @@ else
         }
         else
         {
-            message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+            message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
         }
 
         var debtResult = await DebtApi.ListAsync(owner: Member.Owner);
@@ -248,7 +252,7 @@ else
         }
         else
         {
-            message = new NoticeMessage(ErrorTexts.For(L, debtResult.ErrorCode), Severity.Error);
+            message = new NoticeMessage(ErrorTexts.For(L, debtResult.ErrorCode), NoticeSeverity.Error);
         }
 
         // Die Konten nur für die Namen und die Dialoge; ohne sie fehlt der Kontoname, sonst nichts.
@@ -288,16 +292,14 @@ else
 
     private async Task ShowGoalDialogAsync(SavingsGoalResponse? existing, string title)
     {
-        var parameters = new DialogParameters<SavingsGoalDialog>
+        var parameters = new FormParameters<SavingsGoalDialog>()
+            .Add(x => x.Title, title)
+            .Add(x => x.Existing, existing)
+            .Add(x => x.Accounts, accounts);
+        var outcome = await Forms.OpenAsync<SavingsGoalDialog, bool>(title, parameters);
+        if (outcome.Saved)
         {
-            { x => x.Existing, existing },
-            { x => x.Accounts, accounts },
-        };
-        var dialog = await DialogService.ShowAsync<SavingsGoalDialog>(title, parameters, Forms.Options());
-        var result = await dialog.Result;
-        if (result is { Canceled: false })
-        {
-            message = new NoticeMessage(L["Savings_GoalSaved"], Severity.Success);
+            message = new NoticeMessage(L["Savings_GoalSaved"], NoticeSeverity.Success);
             await LoadAsync();
         }
     }
@@ -308,17 +310,15 @@ else
         {
             return;
         }
-        var parameters = new DialogParameters<SavingsMoveDialog>
+        string title = L[kind == SavingsMoveKind.Deposit ? "SavingsMove_TitleDeposit" : "SavingsMove_TitleWithdrawal", goal.Name];
+        var parameters = new FormParameters<SavingsMoveDialog>()
+            .Add(x => x.Title, title)
+            .Add(x => x.Draft, SavingsMoveDraft.ForNew(kind, goal.Id, goal.Name, goal.AccountId, Today))
+            .Add(x => x.Accounts, accounts);
+        var outcome = await Forms.OpenAsync<SavingsMoveDialog, bool>(title, parameters);
+        if (outcome.Saved)
         {
-            { x => x.Draft, SavingsMoveDraft.ForNew(kind, goal.Id, goal.Name, goal.AccountId, Today) },
-            { x => x.Accounts, accounts },
-        };
-        var title = L[kind == SavingsMoveKind.Deposit ? "SavingsMove_TitleDeposit" : "SavingsMove_TitleWithdrawal", goal.Name];
-        var dialog = await DialogService.ShowAsync<SavingsMoveDialog>(title, parameters, Forms.Options());
-        var result = await dialog.Result;
-        if (result is { Canceled: false })
-        {
-            message = new NoticeMessage(L["Savings_MoveSaved"], Severity.Success);
+            message = new NoticeMessage(L["Savings_MoveSaved"], NoticeSeverity.Success);
             await LoadAsync();
         }
     }
@@ -341,16 +341,14 @@ else
 
     private async Task ShowDebtDialogAsync(DebtResponse? existing, string kind, string title)
     {
-        var parameters = new DialogParameters<DebtDialog>
+        var parameters = new FormParameters<DebtDialog>()
+            .Add(x => x.Title, title)
+            .Add(x => x.Existing, existing)
+            .Add(x => x.Kind, kind);
+        var outcome = await Forms.OpenAsync<DebtDialog, bool>(title, parameters);
+        if (outcome.Saved)
         {
-            { x => x.Existing, existing },
-            { x => x.Kind, kind },
-        };
-        var dialog = await DialogService.ShowAsync<DebtDialog>(title, parameters, Forms.Options());
-        var result = await dialog.Result;
-        if (result is { Canceled: false })
-        {
-            message = new NoticeMessage(L["Savings_DebtSaved"], Severity.Success);
+            message = new NoticeMessage(L["Savings_DebtSaved"], NoticeSeverity.Success);
             await LoadAsync();
         }
     }
@@ -369,19 +367,18 @@ else
         }
         if (debtCategoryId is not { } categoryId)
         {
-            message = new NoticeMessage(ErrorTexts.For(L, ErrorCodes.CategoryNotFound), Severity.Error);
+            message = new NoticeMessage(ErrorTexts.For(L, ErrorCodes.CategoryNotFound), NoticeSeverity.Error);
             return;
         }
-        var parameters = new DialogParameters<DebtPaymentDialog>
+        string title = L["DebtPayment_Title", debt.Name];
+        var parameters = new FormParameters<DebtPaymentDialog>()
+            .Add(x => x.Title, title)
+            .Add(x => x.Draft, DebtPaymentDraft.ForNew(debt.Id, debt.Name, categoryId, accounts.FirstOrDefault(a => a.IsDefault && a.Active)?.Id, Today))
+            .Add(x => x.Accounts, accounts);
+        var outcome = await Forms.OpenAsync<DebtPaymentDialog, bool>(title, parameters);
+        if (outcome.Saved)
         {
-            { x => x.Draft, DebtPaymentDraft.ForNew(debt.Id, debt.Name, categoryId, accounts.FirstOrDefault(a => a.IsDefault && a.Active)?.Id, Today) },
-            { x => x.Accounts, accounts },
-        };
-        var dialog = await DialogService.ShowAsync<DebtPaymentDialog>(L["DebtPayment_Title", debt.Name], parameters, Forms.Options());
-        var result = await dialog.Result;
-        if (result is { Canceled: false })
-        {
-            message = new NoticeMessage(L["Savings_PaymentSaved"], Severity.Success);
+            message = new NoticeMessage(L["Savings_PaymentSaved"], NoticeSeverity.Success);
             await LoadAsync();
         }
     }
@@ -394,8 +391,8 @@ else
         }
         var result = await DebtApi.DeleteAsync(debt.Id);
         message = result.Succeeded
-            ? new NoticeMessage(L["Savings_DebtDeleted"], Severity.Success)
-            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+            ? new NoticeMessage(L["Savings_DebtDeleted"], NoticeSeverity.Success)
+            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
         await LoadAsync();
     }
 
@@ -407,8 +404,8 @@ else
         }
         var result = await GoalApi.DeleteAsync(goal.Id);
         message = result.Succeeded
-            ? new NoticeMessage(L["Savings_GoalDeleted"], Severity.Success)
-            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+            ? new NoticeMessage(L["Savings_GoalDeleted"], NoticeSeverity.Success)
+            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
         await LoadAsync();
     }
 }

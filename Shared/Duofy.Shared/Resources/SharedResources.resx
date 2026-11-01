@@ -44,6 +44,10 @@
   <data name="Start_TogetherTitle"><value>Mit jemandem zusammen planen?</value></data>
   <data name="Start_TogetherText"><value>Im Haushalt plant ihr gemeinsam, und jede Person entscheidet selbst, was sie teilt. Deine Konten, Verträge und Pläne bleiben immer bei dir.</value></data>
   <data name="Start_TogetherLink"><value>Haushalt gründen oder beitreten</value></data>
+  <data name="Start_GuidelineTitle"><value>Richtwerte im Haushalt</value></data>
+  <data name="Start_GuidelineText"><value>In diesem Monat liegt bei {0} ein Anteil deutlich neben dem Richtwert. Das ist nur ein Anhaltspunkt, kein Fehler.</value></data>
+  <data name="Start_GuidelineOwnView"><value>Wechsle oben auf den Haushalt, dann siehst du die Richtwerte im Plan.</value></data>
+  <data name="Start_GuidelineLink"><value>Richtwerte im Haushaltsplan ansehen</value></data>
 
   <!-- Felder, die mehrere Seiten benutzen -->
   <data name="Field_FirstName"><value>Vorname</value></data>
@@ -267,6 +271,11 @@
   <data name="Accounts_MakeDefault"><value>{0} zum Standardkonto machen</value></data>
   <data name="Accounts_DefaultSet"><value>{0} ist jetzt dein Standardkonto.</value></data>
   <data name="Accounts_Edit"><value>Konto {0} ändern</value></data>
+  <data name="Accounts_CloseFor"><value>Konto {0} auflösen</value></data>
+  <data name="Accounts_CloseTitle"><value>Konto auflösen?</value></data>
+  <data name="Accounts_CloseText"><value>Das Konto {0} wird aufgelöst. Seine Buchungen bleiben erhalten, und du kannst es später wieder öffnen.</value></data>
+  <data name="Accounts_CloseConfirm"><value>Auflösen</value></data>
+  <data name="Accounts_CloseCancel"><value>Abbrechen</value></data>
   <data name="Accounts_Close"><value>Auflösen</value></data>
   <data name="Accounts_Closed"><value>Das Konto ist aufgelöst. Seine Buchungen bleiben erhalten.</value></data>
   <data name="Accounts_Reopen"><value>Wieder öffnen</value></data>
@@ -316,6 +325,7 @@
   <data name="Commitments_ShowEnded"><value>Beendete zeigen</value></data>
   <data name="Commitments_EndedHidden"><value>Beendete Verträge sind ausgeblendet. Schalte „Beendete zeigen“ ein, um sie zu sehen.</value></data>
   <data name="Commitments_Edit"><value>Vertrag {0} ändern</value></data>
+  <data name="Commitments_EndFor"><value>Vertrag {0} beenden</value></data>
   <data name="Commitments_End"><value>Beenden</value></data>
   <data name="Commitments_Ended"><value>Der Vertrag ist beendet. Seine letzte Zahlung steht im Vertrag; du kannst sie im Dialog wieder leeren.</value></data>
   <data name="Commitments_EndedOnly"><value>beendet</value></data>
@@ -394,6 +404,9 @@
   <data name="Savings_EditGoal"><value>Sparziel {0} ändern</value></data>
   <data name="Savings_DeleteGoal"><value>Sparziel {0} löschen</value></data>
   <data name="Savings_Deposit"><value>Einzahlen</value></data>
+  <data name="Savings_DepositTo"><value>Einzahlen auf {0}</value></data>
+  <data name="Savings_WithdrawFrom"><value>Entnehmen von {0}</value></data>
+  <data name="Savings_DebtPayFor"><value>Zahlung eintragen für {0}</value></data>
   <data name="Savings_Withdraw"><value>Entnehmen</value></data>
   <data name="Savings_Balance"><value>Stand: {0}</value></data>
   <data name="Savings_BalanceOf"><value>{0} von {1}</value></data>
@@ -558,6 +571,13 @@
   <data name="Plan_Unknown"><value>unbekannt</value></data>
   <data name="Plan_CarryOver"><value>Übertrag</value></data>
   <data name="Plan_CarryOverBooked"><value>Übertrag aus dem Vormonat: {0}</value></data>
+  <data name="Plan_DeleteTitle"><value>Posten löschen?</value></data>
+  <data name="Plan_DeleteText"><value>Der Posten {0} wird aus diesem Monat gelöscht.</value></data>
+  <data name="Plan_DeleteConfirm"><value>Löschen</value></data>
+  <data name="Plan_ConfirmCancel"><value>Abbrechen</value></data>
+  <data name="Plan_CarryOverRemoveTitle"><value>Übertrag entfernen?</value></data>
+  <data name="Plan_CarryOverRemoveText"><value>Der Übertrag in den nächsten Monat wird entfernt, die Beträge dort ändern sich entsprechend.</value></data>
+  <data name="Plan_CarryOverRemoveConfirm"><value>Entfernen</value></data>
   <data name="Plan_CarryOverRemove"><value>Übertrag entfernen</value></data>
   <data name="Plan_CarryOverSaved"><value>Der Übertrag wurde gebucht.</value></data>
   <data name="Plan_CarryOverRemoved"><value>Der Übertrag wurde entfernt.</value></data>

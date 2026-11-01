@@ -1,12 +1,10 @@
-using System.Globalization;
 using Duofy.Shared.Services;
-using MudBlazor.Utilities;
 
 namespace Duofy.Shared.Theme;
 
 /// <summary>
 /// Die gewählte Hell-Dunkel-Einstellung schon beim ersten Zeichnen (Issue 5). Im Browser kennt der Server die Wahl nicht
-/// (sie liegt im localStorage), und MudBlazor zeichnet beim Vorrendern erst einmal hell; die Wahl wird erst nach dem
+/// (sie liegt im localStorage), und das Vorrendern zeichnet erst einmal hell; die Wahl wird erst nach dem
 /// Verbinden angewendet. Darum steht im Kopf der Seite ein kleines eigenes Skript (ohne Fremdskript, ohne Datei, die erst
 /// geladen werden müsste), das noch vor dem ersten Zeichnen die Klasse <see cref="DarkClass"/> an <c>html</c> setzt, und ein
 /// Stil, der unter dieser Klasse die wichtigsten Farben des dunklen Themes setzt. Sobald das Layout selbst im richtigen Modus
@@ -33,34 +31,28 @@ public static class ThemeBoot
     public const string RemoveFunction = "document.documentElement.classList.remove";
 
     /// <summary>
-    /// Der Stil für die Zeit vor dem ersten richtigen Zeichnen: Unter der Klasse gelten die dunklen Farben des Themes
-    /// (Hintergrund, Flächen, Text, Linien) und der Browser zeichnet seine eigenen Elemente dunkel. Die Werte kommen aus
-    /// der Palette des Themes, damit sie nicht an zwei Stellen stehen.
+    /// Der Stil für die Zeit vor dem ersten richtigen Zeichnen: Unter der Klasse gelten die dunklen Farben des Themes,
+    /// und der Browser zeichnet seine eigenen Elemente dunkel. Die Werte kommen aus RadzenVariables, damit sie nicht an
+    /// zwei Stellen stehen.
     /// </summary>
     public static string Style
     {
         get
         {
-            var p = DuofyTheme.Instance.PaletteDark;
-            var vars = new (string Name, MudColor Value)[]
-            {
-                ("background", p.Background), ("surface", p.Surface),
-                ("appbar-background", p.AppbarBackground), ("appbar-text", p.AppbarText),
-                ("drawer-background", p.DrawerBackground), ("drawer-text", p.DrawerText),
-                ("text-primary", p.TextPrimary), ("text-secondary", p.TextSecondary),
-                ("lines-default", p.LinesDefault), ("lines-inputs", p.LinesInputs), ("divider", p.Divider),
-                ("action-default", p.ActionDefault), ("primary", p.Primary), ("primary-contrast-text", p.PrimaryContrastText),
-            };
-            var declarations = string.Join(";", vars.Select(v => $"--mud-palette-{v.Name}:{Css(v.Value)}"));
-            return $"html.{DarkClass}{{color-scheme:dark;background-color:{Css(p.Background)};{declarations}}}" +
-                   $"html.{DarkClass} body{{background-color:{Css(p.Background)};color:{Css(p.TextPrimary)}}}";
+            var background = RadzenVariables.Dark["--rz-body-background-color"];
+            var text = RadzenVariables.Dark["--rz-text-color"];
+            return $"html.{DarkClass}{{color-scheme:dark;background-color:{background}}}" +
+                   $"html.{DarkClass} body{{background-color:{background};color:{text}}}" +
+                   RadzenRule;
         }
     }
+
+    // Die dunklen Werte für die Radzen-Bausteine. Die Klasse macht die Regel schwerer als das html:root des hellen Stils,
+    // den der Server beim Vorrendern zeichnet und der im Dokument erst nach dieser Regel steht.
+    private static string RadzenRule =>
+        RadzenVariables.Css(dark: true).Replace("html:root{", $"html.{DarkClass}:root{{", StringComparison.Ordinal);
 
     /// <summary>Skript und Stil als fertiges Stück Kopf, das die Seite vor den Stylesheets einfügt.</summary>
     public static string HeadMarkup => $"<script>{Script}</script><style>{Style}</style>";
 
-    private static string Css(MudColor c) => c.A == 255
-        ? $"#{c.R:x2}{c.G:x2}{c.B:x2}"
-        : string.Create(CultureInfo.InvariantCulture, $"rgba({c.R},{c.G},{c.B},{c.A / 255.0:0.##})");
 }

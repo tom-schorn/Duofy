@@ -8,12 +8,17 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- The whole interface runs on Radzen Blazor 12.1.8 and Material Symbols; MudBlazor and the Tabler icons are gone, and a test keeps them out. Account and payment icons keep their stored names.
+- UI packages from ASP.NET Core and Microsoft.Extensions are on 10.0.14, as Radzen needs it; the backend stays on 10.0.12 because no advisory applies to its packages.
+- The app window is named after the brand of the chosen server.
 - The web container keeps its data protection keys on its own volume `web-keys`, so forms and page state survive a rebuild; browser sessions still end when the web container restarts, because they live in memory (issue #38)
 - From 1280 px the side bar shows the full menu directly instead of "Mehr" (accounts, contracts, household, user account, admin for admins, licences, legal texts, sign-out); phone and tablet keep the bottom bar unchanged (spec 10, amendment 2026-11-01)
 - From 1280 px plan, month overview, bookings, accounts, contracts and household use up to 1600 px: blocks in columns and lists as tables with columns; below 1280 px nothing changes
 
 ### Fixed
 
+- Amounts no longer depend on the language of the machine: in a container 12,34 became 1234,00 in the account and contract dialogs. The web host now sets de-DE itself.
+- Enter in the password field of sign-in and delete account sends what was just typed, not the value from when the field was last left.
 - Links and buttons show the focus outline, also in the app bar; MudBlazor had reset it.
 - Secondary text, notices and status text are readable: error, success and warning colours are only surfaces now, and the meaning stays in the word, the sign or the border.
 - Every page has one main heading, the app bar title is no heading, and a skip link leads past the navigation to the content.

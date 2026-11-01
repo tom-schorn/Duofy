@@ -3,7 +3,6 @@ using Duofy.Schemas;
 using Duofy.Shared.Pages;
 using Duofy.Shared.Services;
 using Microsoft.Extensions.DependencyInjection;
-using MudBlazor;
 
 namespace Duofy.Shared.Tests;
 
@@ -15,12 +14,11 @@ public class StartPageTests : PageTestContext
 {
     private const string NotShared = "Diese Person teilt diesen Bereich nicht mit dir.";
 
-    private readonly IRenderedComponent<MudDialogProvider> dialogs;
+    private readonly IRenderedComponent<Microsoft.AspNetCore.Components.IComponent> dialogs;
 
     public StartPageTests()
     {
-        Render<MudPopoverProvider>();
-        dialogs = Render<MudDialogProvider>();
+        dialogs = RenderRadzenHost();
         Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true));
     }
 
@@ -110,7 +108,7 @@ public class StartPageTests : PageTestContext
 
         cut.Find("[data-testid='start-new-booking']").Click();
 
-        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll(".mud-dialog")));
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll(".step-dialog")));
     }
 
     [Fact]
@@ -299,5 +297,92 @@ public class StartPageTests : PageTestContext
         Member.Choose(FakeHouseholdApi.BenId);
 
         cut.WaitForAssertion(() => Assert.Equal(FakeHouseholdApi.BenId, PlanApiFake.Owners.Last()));
+    }
+
+    // --- Richtwert-Hinweis (Issue #34) ------------------------------------------------------------------------------
+
+    private static HouseholdMemberResponse GuidelineMember(Guid id, string name, decimal needs, decimal wants, decimal savings) => new(
+        id, name, 3000m, true,
+        [
+            new HouseholdMemberQuotaResponse(PotKeys.Needs, 50, needs, needs - 50m),
+            new HouseholdMemberQuotaResponse(PotKeys.Wants, 30, wants, wants - 30m),
+            new HouseholdMemberQuotaResponse(PotKeys.Savings, 20, savings, savings - 20m),
+        ]);
+
+    private async Task<HouseholdResponse> SeedHouseholdPlanAsync(params HouseholdMemberResponse[] members)
+    {
+        var household = new HouseholdResponse(Guid.NewGuid(), "Haushalt von Anna", 50, 30, 20, [FakeHouseholdApi.Anna(), FakeHouseholdApi.Ben()]);
+        HouseholdApiFake.Household = household;
+        HouseholdApiFake.PlanMonths.Add(new HouseholdPlanMonth(2026, 10, 700m));
+        HouseholdApiFake.HouseholdPlans[(2026, 10)] = FakeHouseholdApi.EmptyPlan(household.Id, household.Name, 2026, 10) with { Free = 700m, Members = members };
+        await Member.LoadAsync();
+        return household;
+    }
+
+    [Fact]
+    public async Task In_the_household_view_a_person_far_from_the_guideline_gets_a_calm_hint_with_the_name()
+    {
+        await SeedHouseholdPlanAsync(GuidelineMember(FakeHouseholdApi.AnnaId, "Anna", 50m, 30m, 20m), GuidelineMember(FakeHouseholdApi.BenId, "Ben", 75m, 15m, 10m));
+        Member.ChooseHousehold();
+
+        var cut = OpenStart();
+
+        var hint = Text(cut, "start-guideline");
+        Assert.Contains("Ben", hint);
+        Assert.DoesNotContain("Anna", hint);
+        Assert.Contains("Anhaltspunkt", hint);
+        Assert.Equal($"/plan/2026/10", cut.Find("[data-testid='start-guideline-link']").GetAttribute("href"));
+        Assert.Single(HouseholdApiFake.PlanCalls);
+    }
+
+    [Fact]
+    public async Task Without_a_deviation_beyond_the_tolerance_there_is_no_hint()
+    {
+        await SeedHouseholdPlanAsync(GuidelineMember(FakeHouseholdApi.AnnaId, "Anna", 52m, 28m, 20m), GuidelineMember(FakeHouseholdApi.BenId, "Ben", 48m, 32m, 20m));
+        Member.ChooseHousehold();
+
+        var cut = OpenStart();
+
+        Assert.Empty(cut.FindAll("[data-testid='start-guideline']"));
+    }
+
+    [Fact]
+    public async Task A_person_without_income_gets_no_hint()
+    {
+        await SeedHouseholdPlanAsync(
+            GuidelineMember(FakeHouseholdApi.AnnaId, "Anna", 50m, 30m, 20m),
+            new HouseholdMemberResponse(FakeHouseholdApi.BenId, "Ben", 0m, false, []));
+        Member.ChooseHousehold();
+
+        var cut = OpenStart();
+
+        Assert.Empty(cut.FindAll("[data-testid='start-guideline']"));
+    }
+
+    [Fact]
+    public async Task In_the_own_view_of_a_household_member_the_hint_is_there_too()
+    {
+        SeedPlan(free: 340m);
+        var household = await SeedHouseholdPlanAsync(GuidelineMember(FakeHouseholdApi.AnnaId, "Anna", 80m, 10m, 10m), GuidelineMember(FakeHouseholdApi.BenId, "Ben", 50m, 30m, 20m));
+
+        var cut = OpenStart();
+
+        cut.WaitForAssertion(() => Assert.Contains("Anna", Text(cut, "start-guideline")));
+        Assert.Equal((household.Id, 2026, 10), Assert.Single(HouseholdApiFake.PlanCalls));
+    }
+
+    [Fact]
+    public async Task Without_a_household_plan_for_the_month_or_without_a_household_there_is_no_hint()
+    {
+        SeedPlan(free: 340m);
+        var cut = OpenStart();
+        Assert.Empty(cut.FindAll("[data-testid='start-guideline']"));
+        Assert.Empty(HouseholdApiFake.PlanCalls);
+
+        HouseholdApiFake.Household = new HouseholdResponse(Guid.NewGuid(), "Haushalt von Anna", 50, 30, 20, [FakeHouseholdApi.Anna(), FakeHouseholdApi.Ben()]);
+        await Member.LoadAsync();
+        var again = OpenStart();
+        Assert.Empty(again.FindAll("[data-testid='start-guideline']"));
+        Assert.Empty(HouseholdApiFake.PlanCalls);
     }
 }

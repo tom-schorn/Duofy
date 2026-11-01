@@ -1,13 +1,58 @@
+@using Radzen
+@using Radzen.Blazor
+@using Microsoft.JSInterop
+@using Microsoft.Extensions.Logging
+@inject IJSRuntime JS
+@inject ILogger<Notice> Log
 @* Eine kleine Meldung (Erfolg oder Fehler) über den Feldern eines Abschnitts.
    Eine eigene Komponente, damit die Kontoseite nicht dreimal dasselbe aufschreibt.
-   [Parameter] sind die Werte, die der Aufrufer hineinreicht: <Notice Message="..." /> *@
+   [Parameter] sind die Werte, die der Aufrufer hineinreicht: <Notice Message="..." />
+
+   Eine neue Meldung holt den Fokus zurück, wenn die Aktion ihn verloren hat (focus-notice.js); sonst fiele er auf BODY,
+   und wer mit der Tastatur arbeitet, finge oben auf der Seite von vorn an. *@
 
 @if (Message is not null)
 {
-    <MudAlert Severity="Message.Severity" Class="mb-2">@Message.Text</MudAlert>
+    <div @ref="box" tabindex="-1" class="rz-mb-2 focus-box" data-testid="notice">
+        <RadzenAlert AlertStyle="Style" Variant="Variant.Flat" AllowClose="false">@Message.Text</RadzenAlert>
+    </div>
 }
 
 @code {
     [Parameter]
     public NoticeMessage? Message { get; set; }
+
+    private ElementReference box;
+    private NoticeMessage? focused;
+
+    private AlertStyle Style => Message!.Severity switch
+    {
+        NoticeSeverity.Success => AlertStyle.Success,
+        NoticeSeverity.Error => AlertStyle.Danger,
+        NoticeSeverity.Warning => AlertStyle.Warning,
+        _ => AlertStyle.Info,
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Message is null)
+        {
+            focused = null;
+            return;
+        }
+        if (ReferenceEquals(Message, focused))
+        {
+            return;
+        }
+        focused = Message;
+        try
+        {
+            await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "./_content/Duofy.Shared/focus-notice.js");
+            await module.InvokeVoidAsync("focusIfLost", box);
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            Log.LogWarning(exception, "Der Fokus ließ sich nicht auf die Meldung setzen.");
+        }
+    }
 }

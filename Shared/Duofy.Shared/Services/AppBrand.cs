@@ -45,6 +45,17 @@ public sealed record AppBrand(
         FaviconType: "image/svg+xml");
 
     /// <summary>
+    /// Die Marke der App nach dem gewählten Server: der gehostete Dienst heißt Plagevo und zeigt das Logo, jeder eigene
+    /// Server Duofy ohne Logo. Die App fragt einmal beim Start; die Wahl eines anderen Servers gilt für die Marke beim
+    /// nächsten Start.
+    /// </summary>
+    public static AppBrand ForServer(global::Duofy.ApiClient.IServerStore servers)
+    {
+        ArgumentNullException.ThrowIfNull(servers);
+        return servers.IsHosted ? Plagevo : Duofy;
+    }
+
+    /// <summary>
     /// Wählt die Marke aus den Einstellungen des Hosts. Ein ausdrücklich gesetzter Name gewinnt: "Plagevo" und "Duofy"
     /// (egal wie geschrieben) wählen ihre Marke, jeder andere Name gilt ohne Logo. Ohne Namen gilt die gehostete Instanz
     /// (<c>Duofy:Hosted</c>, derselbe Wert wie bei der API) als Plagevo, jede andere als Duofy.

@@ -122,7 +122,7 @@ public class InvitationPageTests : PageTestContext
 
         cut.WaitForAssertion(() => Assert.Equal("/haushalt", CurrentPath));
         Assert.True(member.CanShowHousehold);
-        switcher.WaitForAssertion(() => Assert.Equal("button", switcher.Find("[data-testid='member-choice-household']").TagName.ToLowerInvariant()));
+        switcher.WaitForAssertion(() => Assert.Null(switcher.Find("[data-testid='member-choice-household']").GetAttribute("aria-disabled")));
     }
 
     // A8 (Seite): Trat Ben zur selben Zeit anderswo bei, lehnt die API trotzdem ab; die Seite sagt, warum.
@@ -138,5 +138,39 @@ public class InvitationPageTests : PageTestContext
 
         cut.WaitForAssertion(() => Assert.Contains("Du bist schon in einem Haushalt.", cut.Markup));
         Assert.Equal("/einladung/abc_DEF-1", CurrentPath);
+    }
+
+    // Radzen-Umstellung R12: Die Seite ist in Radzen gebaut, Anmelden und Registrieren sind Links im Aussehen von Knöpfen.
+    [Fact]
+    public void The_page_is_built_with_radzen_and_its_sign_in_and_register_links_look_like_buttons()
+    {
+        AddAuthorization().SetNotAuthorized();
+        var cut = Open();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='invitation-sign-in']")));
+
+        var signIn = cut.Find("a[data-testid='invitation-sign-in']");
+        Assert.Contains("rz-button", signIn.ClassList);
+        Assert.Contains("rz-variant-filled", signIn.ClassList);
+        var register = cut.Find("a[data-testid='invitation-register']");
+        Assert.Contains("rz-variant-outlined", register.ClassList);
+    }
+
+    [Fact]
+    public void The_join_button_and_its_greyed_out_state_are_radzen_buttons()
+    {
+        var cut = Open();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='invitation-join']")));
+
+        Assert.Contains("rz-button", cut.Find("[data-testid='invitation-join']").ClassList);
+    }
+
+    [Fact]
+    public void An_expired_invitation_shows_its_error_in_a_radzen_alert()
+    {
+        HouseholdApiFake.PreviewError = ErrorCodes.InvitationExpired;
+        var cut = Open();
+
+        cut.WaitForAssertion(() => Assert.Contains("Diese Einladung ist abgelaufen.", cut.Find("[data-testid='invitation-error']").TextContent));
+        Assert.Contains("rz-alert", cut.Find("[data-testid='invitation-error']").ClassList);
     }
 }

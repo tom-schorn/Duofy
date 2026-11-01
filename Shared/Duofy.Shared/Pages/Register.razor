@@ -1,4 +1,6 @@
 @page "/registrieren"
+@using Radzen
+@using Radzen.Blazor
 @layout AuthLayout
 @using Duofy.ApiClient
 @using Duofy.Schemas
@@ -28,96 +30,113 @@
 <PageTitle>@L["Register_Title"] · @Brand.Name</PageTitle>
 
 <div class="auth-header">
-    <MudText Typo="Typo.h2" HtmlTag="h1">@L["Register_Title"]</MudText>
+    <RadzenText TextStyle="TextStyle.H2" TagName="TagName.H1">@L["Register_Title"]</RadzenText>
     <p class="auth-lead">@L["Register_Lead"]</p>
 </div>
 
 @if (error is not null)
 {
-    <MudAlert Severity="Severity.Error" Class="mb-4">@error</MudAlert>
+    <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false" Class="rz-mb-4">@error</RadzenAlert>
 }
 
 @if (confirmTo is not null)
 {
-    <MudAlert Severity="Severity.Success" Class="mb-4" data-testid="register-confirm-notice">@L["Register_ConfirmNotice", confirmTo]</MudAlert>
-    <MudButton Href="@ReturnAddress.With("/anmelden", ReturnUrl)" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
-               data-testid="register-to-sign-in">@L["Auth_ToSignIn"]</MudButton>
+    <RadzenAlert AlertStyle="AlertStyle.Success" Variant="Variant.Flat" AllowClose="false" Class="rz-mb-4"
+                 data-testid="register-confirm-notice">@L["Register_ConfirmNotice", confirmTo]</RadzenAlert>
+    <LinkButton Href="@ReturnAddress.With("/anmelden", ReturnUrl)" FullWidth="true"
+                data-testid="register-to-sign-in">@L["Auth_ToSignIn"]</LinkButton>
 }
 else
 {
 
 @if (ModeNotice is { } notice)
 {
-    <MudAlert Severity="Severity.Info" Class="mb-4" id="register-mode-notice" data-testid="register-mode-notice">@notice</MudAlert>
+    <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" AllowClose="false" Class="rz-mb-4"
+                 id="register-mode-notice" data-testid="register-mode-notice">@notice</RadzenAlert>
 }
 
-<MudForm @ref="form">
+@* Die Prüfungen stehen als RadzenCustomValidator unter ihrem Feld (Name verbindet beide); die Texte kommen wie
+   vorher über den Fehlercode aus der Ressourcendatei. Alles, was geprüft wird, auch die Zustimmung, liegt im Formular. *@
+<RadzenTemplateForm TItem="Register" Data="@this" Submit="@(_ => SubmitAsync())" InvalidSubmit="@(_ => FocusFirstInvalidAsync())">
     <div class="field-stack">
         <div class="field-pair">
             <div class="field">
                 <FieldLabel For="register-first-name-input" Text="@L["Field_FirstName"]" />
-                <MudTextField @bind-Value="firstName" Variant="Variant.Outlined" InputId="register-first-name-input"
-                              MaxLength="AccountRules.NameMaxLength"
-                              Validation="@((Func<string, string?>)ValidateFirstName)" autocomplete="given-name"
-                              data-testid="register-first-name" />
+                <RadzenTextBox @ref="firstNameBox" @bind-Value="firstName" Name="firstName" id="register-first-name-input"
+                               aria-invalid="@Flag(ValidateFirstName(firstName))" aria-describedby="@Describe(null, "register-first-name", ValidateFirstName(firstName))"
+                               MaxLength="AccountRules.NameMaxLength" autocomplete="given-name"
+                               data-testid="register-first-name" />
+                <RadzenCustomValidator Component="firstName" Validator="@(() => ValidateFirstName(firstName) is null)"
+                                       Text="@ValidateFirstName("")" id="register-first-name-error" role="alert" />
             </div>
             <div class="field">
                 <FieldLabel For="register-last-name-input" Text="@L["Field_LastName"]" />
-                <MudTextField @bind-Value="lastName" Variant="Variant.Outlined" InputId="register-last-name-input"
-                              MaxLength="AccountRules.NameMaxLength"
-                              Validation="@((Func<string, string?>)ValidateLastName)" autocomplete="family-name"
-                              data-testid="register-last-name" />
+                <RadzenTextBox @ref="lastNameBox" @bind-Value="lastName" Name="lastName" id="register-last-name-input"
+                               aria-invalid="@Flag(ValidateLastName(lastName))" aria-describedby="@Describe(null, "register-last-name", ValidateLastName(lastName))"
+                               MaxLength="AccountRules.NameMaxLength" autocomplete="family-name"
+                               data-testid="register-last-name" />
+                <RadzenCustomValidator Component="lastName" Validator="@(() => ValidateLastName(lastName) is null)"
+                                       Text="@ValidateLastName("")" id="register-last-name-error" role="alert" />
             </div>
         </div>
         <div class="field">
             <FieldLabel For="register-email-input" Text="@L["Field_Email"]" />
-            <MudTextField @bind-Value="email" Variant="Variant.Outlined" InputId="register-email-input"
-                          InputType="InputType.Email" Placeholder="@L["Auth_EmailPlaceholder"]"
-                          Validation="@((Func<string, string?>)ValidateEmail)" autocomplete="email"
-                          data-testid="register-email" />
+            <RadzenTextBox @ref="emailBox" @bind-Value="email" Name="email" id="register-email-input" type="email"
+                           aria-invalid="@Flag(ValidateEmail(email))" aria-describedby="@Describe(null, "register-email", ValidateEmail(email))"
+                           Placeholder="@L["Auth_EmailPlaceholder"]" autocomplete="email"
+                           data-testid="register-email" />
+            <RadzenCustomValidator Component="email" Validator="@(() => ValidateEmail(email) is null)"
+                                   Text="@ValidateEmail("")" id="register-email-error" role="alert" />
         </div>
         <div class="field">
             <FieldLabel For="register-password-input" Text="@L["Field_Password"]" />
-            <MudTextField @bind-Value="password" Variant="Variant.Outlined" InputId="register-password-input"
-                          InputType="InputType.Password" HelperText="@L["Field_PasswordHint"]"
-                          Validation="@((Func<string, string?>)ValidatePassword)" autocomplete="new-password"
-                          data-testid="register-password" />
+            <RadzenPassword @ref="passwordBox" @bind-Value="password" Name="password" id="register-password-input" autocomplete="new-password"
+                            aria-invalid="@Flag(ValidatePassword(password))"
+                            aria-describedby="@Describe("register-password-hint", "register-password", ValidatePassword(password))" data-testid="register-password" />
+            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-display-block"
+                        id="register-password-hint">@L["Field_PasswordHint"]</RadzenText>
+            <RadzenCustomValidator Component="password" Validator="@(() => ValidatePassword(password) is null)"
+                                   Text="@ValidatePassword("")" id="register-password-error" role="alert" />
         </div>
         @if (instance?.SetupPending == true)
         {
             <div class="field">
                 <FieldLabel For="register-setup-code-input" Text="@L["Field_SetupCode"]" />
-                <MudTextField @bind-Value="setupCode" Variant="Variant.Outlined" InputId="register-setup-code-input"
-                              Immediate="true" HelperText="@L["Register_SetupCodeHint"]" autocomplete="off"
-                              data-testid="register-setup-code" />
+                <RadzenTextBox @bind-Value="setupCode" Name="setupCode" id="register-setup-code-input" Immediate="true"
+                               aria-describedby="register-setup-code-hint" autocomplete="off"
+                               data-testid="register-setup-code" />
+                <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-display-block"
+                            id="register-setup-code-hint">@L["Register_SetupCodeHint"]</RadzenText>
             </div>
         }
     </div>
-</MudForm>
 
-<MudCheckBox @bind-Value="acceptedTerms" Label="@L["Register_AcceptTerms"]" data-testid="register-terms" />
-@if (termsError is not null)
-{
-    <MudText Typo="Typo.caption">@termsError</MudText>
-}
+    <div class="rz-mt-2">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start" Gap="0.5rem">
+            <RadzenCheckBox @ref="termsBox" @bind-Value="acceptedTerms" Name="acceptedTerms" TValue="bool" data-testid="register-terms"
+                            AriaLabel="@L["Register_AcceptTerms"]" aria-invalid="@Flag(acceptedTerms ? null : "x")"
+                            aria-describedby="@Describe(null, "register-terms", acceptedTerms ? null : "x")" />
+            <RadzenLabel Component="acceptedTerms" Text="@L["Register_AcceptTerms"]" />
+        </RadzenStack>
+        <RadzenCustomValidator Component="acceptedTerms" Validator="@(() => acceptedTerms)"
+                               Text="@ErrorTexts.For(L, ErrorCodes.TermsNotAccepted)" id="register-terms-error" role="alert" />
+    </div>
 
-@if (Blocked)
-{
-    @* Der Modus lässt diese Registrierung nicht zu. Der Knopf ist ausgegraut und tut nichts, bleibt aber erreichbar:
-       aria-disabled statt disabled, damit ein Screenreader ihn findet und den Hinweis oben vorliest. *@
-    <MudButton Variant="Variant.Filled" FullWidth="true" Class="mt-4" Ripple="false" DropShadow="false"
-               Style="background: var(--mud-palette-action-disabled-background); color: var(--mud-palette-action-disabled); cursor: default;"
-               aria-disabled="true" aria-describedby="register-mode-notice" data-testid="register-submit">
-        @L["Register_Submit"]
-    </MudButton>
-}
-else
-{
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-4"
-               Disabled="busy" OnClick="SubmitAsync" data-testid="register-submit">
-        @(busy ? L["Register_Pending"] : L["Register_Submit"])
-    </MudButton>
-}
+    @if (Blocked)
+    {
+        @* Der Modus lässt diese Registrierung nicht zu. Der Knopf ist ausgegraut und tut nichts, bleibt aber erreichbar:
+           aria-disabled statt disabled, damit ein Screenreader ihn findet und den Hinweis oben vorliest. *@
+        <RadzenButton Text="@L["Register_Submit"]" ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Base"
+                      Class="rz-mt-4 unavailable rz-w-100"
+                      aria-disabled="true" aria-describedby="register-mode-notice" data-testid="register-submit" />
+    }
+    else
+    {
+        <RadzenButton Text="@(busy ? L["Register_Pending"] : L["Register_Submit"])" ButtonType="ButtonType.Submit"
+                      ButtonStyle="ButtonStyle.Primary" Class="rz-mt-4 rz-w-100" Disabled="busy"
+                      data-testid="register-submit" />
+    }
+</RadzenTemplateForm>
 
 <p class="auth-switch">
     @L["Register_HaveAccount"]
@@ -140,15 +159,19 @@ else
     private InstanceResponse? instance;
     private string setupCode = "";
 
-    private MudForm form = default!;
     private string firstName = "";
     private string lastName = "";
     private string email = "";
     private string password = "";
     private bool acceptedTerms;
+
+    // Erst nach dem ersten Abschicken zeigen die Felder, dass sie falsch sind (aria-invalid und der Verweis auf den Fehlertext).
+    private bool submitted;
+    private RadzenTextBox? firstNameBox, lastNameBox, emailBox;
+    private RadzenPassword? passwordBox;
+    private RadzenCheckBox<bool>? termsBox;
     private bool busy;
     private string? error;
-    private string? termsError;
 
     // Die Adresse, an die die Mail zum Bestätigen ging; gesetzt, sobald das Konto auf Bestätigung wartet.
     private string? confirmTo;
@@ -175,7 +198,8 @@ else
     }
 
     // Jede Prüfung liefert null, wenn alles passt, sonst den Text, der unter dem Feld steht.
-    // Die Texte kommen über den Fehlercode aus der Ressourcendatei (siehe ErrorTexts).
+    // Die Texte kommen über den Fehlercode aus der Ressourcendatei (siehe ErrorTexts). Mit einem leeren Wert
+    // aufgerufen, liefern sie den Text selbst: Er steht als Text des RadzenCustomValidator unter dem Feld.
     private string? ValidateFirstName(string value) =>
         string.IsNullOrWhiteSpace(value) ? ErrorTexts.For(L, ErrorCodes.FirstNameRequired) : null;
 
@@ -188,15 +212,39 @@ else
     private string? ValidatePassword(string value) =>
         value.Length >= AccountRules.PasswordMinLength ? null : ErrorTexts.For(L, ErrorCodes.PasswordTooShort);
 
+    private string? Flag(string? problem) => submitted && problem is not null ? "true" : null;
+
+    // Verweist auf den Hinweis unter dem Feld und, solange das Feld falsch ist, auch auf seinen Fehlertext.
+    private string? Describe(string? hintId, string fieldId, string? problem)
+    {
+        var ids = new List<string>();
+        if (hintId is not null) ids.Add(hintId);
+        if (submitted && problem is not null) ids.Add($"{fieldId}-error");
+        return ids.Count == 0 ? null : string.Join(' ', ids);
+    }
+
+    // Nach einem Abschicken mit Fehlern springt der Fokus auf das erste falsche Feld, in der Reihenfolge der Seite.
+    private async Task FocusFirstInvalidAsync()
+    {
+        submitted = true;
+        if (ValidateFirstName(firstName) is not null) await FocusAsync(firstNameBox);
+        else if (ValidateLastName(lastName) is not null) await FocusAsync(lastNameBox);
+        else if (ValidateEmail(email) is not null) await FocusAsync(emailBox);
+        else if (ValidatePassword(password) is not null) await FocusAsync(passwordBox);
+        else if (!acceptedTerms) await FocusAsync(termsBox);
+    }
+
+    private static async Task FocusAsync<T>(Radzen.FormComponent<T>? component)
+    {
+        if (component is not null) await component.FocusAsync();
+    }
+
     private async Task SubmitAsync()
     {
         if (Blocked) return;
         error = null;
-        termsError = acceptedTerms ? null : ErrorTexts.For(L, ErrorCodes.TermsNotAccepted);
 
-        await form.ValidateAsync();
-        if (!form.IsValid || !acceptedTerms) return;
-
+        // Das Formular ruft diese Methode nur, wenn alle Prüfungen bestanden sind.
         busy = true;
         try
         {

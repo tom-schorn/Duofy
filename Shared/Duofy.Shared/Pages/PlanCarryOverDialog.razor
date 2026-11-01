@@ -1,8 +1,11 @@
+@using Radzen
+@using Radzen.Blazor
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
 @inject IPlanApi PlanApi
 @inject ActiveMember Member
+@inject DialogService Dialogs
 @inject IStringLocalizer<SharedResources> L
 @inject IAppHost Host
 
@@ -12,69 +15,76 @@
    bietet zwei Wege: Buchungen nachtragen schließt ohne Änderung, als Ausgleich übernehmen bucht den Unterschied am
    letzten Tag des Vormonats. Ohne Abweichung bucht er sofort; leere Felder bleiben, wie sie sind. *@
 
-<MudDialog>
-    <DialogContent>
-        @if (Host.IsApp)
+<div>
+    @if (Host.IsApp)
+    {
+        <FullScreenFormHeader Title="@Title" SaveText="@L["PlanCarryOverDialog_Save"]" SaveTestId="carry-over-save"
+                              Busy="busy" ShowSave="!Reviewing" OnClose="Cancel" OnSave="SaveAsync" />
+    }
+    <RadzenStack Gap="1rem">
+        @if (error is not null)
         {
-            <FullScreenFormHeader Title="@MudDialog.Title" SaveText="@L["PlanCarryOverDialog_Save"]" SaveTestId="carry-over-save"
-                                  Busy="busy" ShowSave="!Reviewing" OnClose="Cancel" OnSave="SaveAsync" />
+            <ErrorAlert AlertStyle="AlertStyle.Danger" Text="@error" data-testid="carry-over-error" />
         }
-        <MudStack Spacing="3">
-            @if (error is not null)
-            {
-                <MudAlert Severity="Severity.Error" data-testid="carry-over-error">@error</MudAlert>
-            }
-            <MudText Typo="Typo.body2">@L["PlanCarryOverDialog_Lead"]</MudText>
-            <MudNumericField T="decimal?" @bind-Value="amount" Culture="German" Format="0.00"
-                             HideSpinButtons="true" Label="@L["Field_CarryOverAmount"]" data-testid="carry-over-amount" />
+        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-m-0">@L["PlanCarryOverDialog_Lead"]</RadzenText>
+        <div class="field">
+            <FieldLabel id="carry-over-amount-label" Text="@L["Field_CarryOverAmount"]" />
+            <RadzenNumeric TValue="decimal?" @bind-Value="amount" Culture="German" Format="0.00" ShowUpDown="false"
+                           InputAttributes="@(new Dictionary<string, object> { ["aria-labelledby"] = "carry-over-amount-label" })"
+                           data-testid="carry-over-amount" />
+        </div>
 
-            @foreach (var balance in CarryOver.Balances)
-            {
-                var accountId = balance.AccountId;
-                <MudNumericField T="decimal?" Value="@real.GetValueOrDefault(accountId)" ValueChanged="v => real[accountId] = v"
-                                 Culture="German" Format="0.00" HideSpinButtons="true"
-                                 Label="@L["Field_RealBalance", AccountName(accountId)]"
-                                 HelperText="@L["PlanCarryOverDialog_Computed", Money(balance.Balance)]"
-                                 data-testid="@($"carry-over-balance-{accountId}")" />
-            }
+        @foreach (var balance in CarryOver.Balances)
+        {
+            var accountId = balance.AccountId;
+            <div class="field">
+                <FieldLabel id="@($"carry-over-balance-{accountId}-label")" Text="@L["Field_RealBalance", AccountName(accountId)]" />
+                <RadzenNumeric TValue="decimal?" Value="@real.GetValueOrDefault(accountId)" ValueChanged="v => real[accountId] = v"
+                               Culture="German" Format="0.00" ShowUpDown="false"
+                               InputAttributes="@(new Dictionary<string, object> { ["aria-labelledby"] = $"carry-over-balance-{accountId}-label", ["aria-describedby"] = $"carry-over-balance-{accountId}-hint" })"
+                               data-testid="@($"carry-over-balance-{accountId}")" />
+                <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-m-0" id="@($"carry-over-balance-{accountId}-hint")">@L["PlanCarryOverDialog_Computed", Money(balance.Balance)]</RadzenText>
+            </div>
+        }
 
-            @if (Reviewing)
-            {
-                <MudAlert Severity="Severity.Warning" data-testid="carry-over-differences">
-                    <MudText Typo="Typo.body2">@L["PlanCarryOverDialog_DifferencesLead"]</MudText>
-                    @foreach (var difference in Differences)
-                    {
-                        <MudText Typo="Typo.body2" data-testid="@($"carry-over-difference-{difference.AccountId}")">@L["PlanCarryOverDialog_Difference", AccountName(difference.AccountId), Money(difference.Computed), Money(difference.Real), SignedMoney(difference.Real - difference.Computed)]</MudText>
-                    }
-                </MudAlert>
-                <MudStack Row="true" Justify="Justify.FlexEnd" Wrap="Wrap.Wrap" Spacing="2">
-                    <MudButton Variant="Variant.Outlined" Disabled="busy" OnClick="Cancel"
-                               data-testid="carry-over-backfill">@L["PlanCarryOverDialog_Backfill"]</MudButton>
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="busy" OnClick="BookAsync"
-                               data-testid="carry-over-adopt">@L["PlanCarryOverDialog_Adopt"]</MudButton>
-                </MudStack>
-            }
-        </MudStack>
-    </DialogContent>
-    <DialogActions>
+        @if (Reviewing)
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" AllowClose="false" data-testid="carry-over-differences">
+                @* Kein RadzenText und kein p: Das Theme gibt beiden die Textfarbe der Seite, die auf der Warnfläche nicht lesbar ist. *@
+                <div>@L["PlanCarryOverDialog_DifferencesLead"]</div>
+                @foreach (var difference in Differences)
+                {
+                    <div data-testid="@($"carry-over-difference-{difference.AccountId}")">@L["PlanCarryOverDialog_Difference", AccountName(difference.AccountId), Money(difference.Computed), Money(difference.Real), SignedMoney(difference.Real - difference.Computed)]</div>
+                }
+            </RadzenAlert>
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Wrap="FlexWrap.Wrap" Gap="0.5rem">
+                <RadzenButton Text="@L["PlanCarryOverDialog_Backfill"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary" Disabled="busy" Click="@(_ => Cancel())"
+                              data-testid="carry-over-backfill" />
+                <RadzenButton Text="@L["PlanCarryOverDialog_Adopt"]" ButtonStyle="ButtonStyle.Primary" Disabled="busy" Click="@(_ => BookAsync())"
+                              data-testid="carry-over-adopt" />
+            </RadzenStack>
+        }
+
         @if (!Host.IsApp)
         {
-            <MudButton OnClick="Cancel">@L["PlanDialog_Cancel"]</MudButton>
-            @if (!Reviewing)
-            {
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="busy" OnClick="SaveAsync"
-                           data-testid="carry-over-save">@L["PlanCarryOverDialog_Save"]</MudButton>
-            }
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+                <RadzenButton Text="@L["PlanDialog_Cancel"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Click="@(_ => Cancel())" />
+                @if (!Reviewing)
+                {
+                    <RadzenButton Text="@L["PlanCarryOverDialog_Save"]" ButtonStyle="ButtonStyle.Primary" Disabled="busy" Click="@(_ => SaveAsync())"
+                                  data-testid="carry-over-save" />
+                }
+            </RadzenStack>
         }
-    </DialogActions>
-</MudDialog>
+    </RadzenStack>
+</div>
 
 @code {
 
     private static readonly CultureInfo German = new("de-DE");
 
-    [CascadingParameter]
-    private IMudDialogInstance MudDialog { get; set; } = default!;
+    /// <summary>Der Titel für die Kopfzeile in der App; im Browser steht er in der Titelzeile des Fensters.</summary>
+    [Parameter] public string? Title { get; set; }
 
     [Parameter] public int Year { get; set; }
 
@@ -112,7 +122,7 @@
 
     private string AccountName(Guid id) => Accounts.FirstOrDefault(a => a.Id == id)?.Name ?? "";
 
-    private void Cancel() => MudDialog.Cancel();
+    private void Cancel() => Dialogs.Close();
 
     private async Task SaveAsync()
     {
@@ -138,7 +148,7 @@
             var result = await PlanApi.CreateCarryOverAsync(Year, Month, new CreateCarryOverRequest(amount ?? 0m, balances), owner);
             if (result.Succeeded)
             {
-                MudDialog.Close(DialogResult.Ok(true));
+                Dialogs.Close(true);
             }
             else
             {

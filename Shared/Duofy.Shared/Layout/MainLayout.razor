@@ -1,48 +1,50 @@
-﻿@inherits ThemedLayoutBase
+@using Radzen.Blazor
+@inherits ThemedLayoutBase
 @inject IStringLocalizer<SharedResources> L
 
-@* Das Layout des Browsers: App-Leiste oben, der Seiteninhalt in der Mitte und die Navigation, je nach Breite
-   links als Seitenleiste (ab 1280 px) oder unten als Leiste (Spec 10).
+@* Das Layout des Browsers in Radzen: Kopfzeile oben, der Seiteninhalt in der Mitte und die Navigation, je nach Breite
+   links als Seitenleiste (ab 1280 px) oder unten als Leiste (Spec 10). *@
 
-   Die vier "Provider" oben braucht MudBlazor einmal pro Anwendung: Sie bringen
-   Farben, Popups, Dialoge und Meldungen auf den Bildschirm. *@
-
-<MudThemeProvider @ref="ThemeProvider" Theme="DuofyTheme.Instance" @bind-IsDarkMode="IsDarkMode" ObserveSystemDarkModeChange="false" />
-<MudPopoverProvider />
-<MudDialogProvider />
-<MudSnackbarProvider />
+<RadzenComponents />
+<ThemeVariables Dark="IsDarkMode" DeviceDarkChanged="OnDeviceDarkChangedAsync" />
 
 <SkipLink Target="() => mainContent" />
 
-<MudLayout>
-    <MudAppBar Elevation="0">
-        @* Die obere Leiste ist in beiden Modi dunkel (DuofyTheme), das Logo also immer das für dunklen Grund. *@
-        <MudText Typo="Typo.h6" HtmlTag="div" Class="app-title"><BrandMark Dark="true" /></MudText>
-        <MudSpacer />
-        <AuthorizeView>
-            <Authorized>
-                <MemberSwitch />
-            </Authorized>
-        </AuthorizeView>
-        <ThemeChoiceSwitch Choice="Choice" ChoiceSelected="SelectChoiceAsync" />
-    </MudAppBar>
-
-    <SideNavigation>
-        <Footer>
-            <AuthorizeView>
-                <Authorized>
-                    <MemberSwitch Up="true" />
-                </Authorized>
-            </AuthorizeView>
-        </Footer>
-    </SideNavigation>
-
-    <MudMainContent Class="app-main">
-        <div class="app-page" id="@SkipLink.TargetId" tabindex="-1" @ref="mainContent">
-            @Body
+<RadzenLayout>
+    <RadzenHeader>
+        <div class="app-header">
+            @* Die obere Leiste ist in beiden Modi dunkel (RadzenVariables), das Logo also immer das für dunklen Grund. *@
+            <div class="app-title"><BrandMark Dark="true" /></div>
+            <div class="app-header-end">
+                <AuthorizeView>
+                    <Authorized>
+                        <MemberSwitch />
+                    </Authorized>
+                </AuthorizeView>
+                <ThemeChoiceSwitch Choice="Choice" ChoiceSelected="SelectChoiceAsync" />
+            </div>
         </div>
-    </MudMainContent>
-</MudLayout>
+    </RadzenHeader>
+
+    @* Ob die Leiste zu sehen ist, entscheidet das Stylesheet nach der Breite, damit es schon vor dem ersten Rechnen stimmt. *@
+    <RadzenSidebar Responsive="false" class="app-sidebar">
+        <SideNavigation>
+            <Footer>
+                <AuthorizeView>
+                    <Authorized>
+                        <MemberSwitch Up="true" />
+                    </Authorized>
+                </AuthorizeView>
+            </Footer>
+        </SideNavigation>
+    </RadzenSidebar>
+
+    <RadzenBody class="app-main">
+        <main class="app-page" id="@SkipLink.TargetId" tabindex="-1" @ref="mainContent">
+            @Body
+        </main>
+    </RadzenBody>
+</RadzenLayout>
 
 <BottomNavigation />
 

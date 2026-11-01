@@ -5,20 +5,18 @@ using Duofy.Schemas;
 using Duofy.Shared.Pages;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
-using MudBlazor;
 
 namespace Duofy.Shared.Tests;
 
 /// <summary>Die Seite /konten: Liste mit Stand und Standardkonto, aufgelöste Konten, Anlegen und Ändern (Spec 58).</summary>
 public class AccountsPageTests : PageTestContext
 {
-    // MudBlazor zeichnet Dialoge und Popups in diese beiden Bausteine (im echten Layout stehen sie im MainLayout).
-    private readonly IRenderedComponent<MudDialogProvider> dialogs;
+    // Radzen zeichnet Dialoge in RadzenComponents (im echten Layout stehen sie in jedem Layout).
+    private readonly IRenderedComponent<IComponent> dialogs;
 
     public AccountsPageTests()
     {
-        Render<MudPopoverProvider>();
-        dialogs = Render<MudDialogProvider>();
+        dialogs = RenderRadzenHost();
     }
 
     private IRenderedComponent<Accounts> OpenPage(params AccountResponse[] accounts)
@@ -83,6 +81,9 @@ public class AccountsPageTests : PageTestContext
         var cut = OpenPage(giro);
 
         cut.Find($"[data-testid='account-close-{giro.Id}']").Click();
+        dialogs.WaitForAssertion(() => Assert.Contains("Konto auflösen?", dialogs.Markup));
+        Assert.Empty(AccountApiFake.Updated);
+        dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Auflösen").Click();
 
         cut.WaitForAssertion(() => Assert.Empty(cut.FindAll($"[data-testid='account-{giro.Id}']")));
         Assert.Equal(new UpdateAccountRequest(Active: false), Assert.Single(AccountApiFake.Updated).Request);
@@ -92,6 +93,23 @@ public class AccountsPageTests : PageTestContext
 
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll($"[data-testid='account-{giro.Id}']")));
         Assert.Contains("aufgelöst", Row(cut, giro).TextContent);
+    }
+
+    // Mangel S1 und S13: Auflösen fragt nach und der Knopf nennt sein Konto.
+    [Fact]
+    public void Closing_asks_first_names_the_account_and_keeps_it_when_cancelled()
+    {
+        var giro = FakeAccountApi.Account("Giro", isDefault: true);
+        var cut = OpenPage(giro);
+
+        Assert.Equal("Konto Giro auflösen", cut.Find($"[data-testid='account-close-{giro.Id}']").GetAttribute("aria-label"));
+        cut.Find($"[data-testid='account-close-{giro.Id}']").Click();
+        dialogs.WaitForAssertion(() => Assert.Contains("Konto auflösen?", dialogs.Markup));
+        dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Abbrechen").Click();
+
+        dialogs.WaitForAssertion(() => Assert.DoesNotContain("Konto auflösen?", dialogs.Markup));
+        Assert.Empty(AccountApiFake.Updated);
+        Assert.NotEmpty(cut.FindAll($"[data-testid='account-{giro.Id}']"));
     }
 
     // A7 (Seite)
@@ -187,6 +205,25 @@ public class AccountsPageTests : PageTestContext
         cut.WaitForAssertion(() => Assert.Contains("Hauptkonto", cut.Markup));
     }
 
+    // Radzen-Umstellung R15
+    [Fact]
+    public void The_page_and_the_dialog_are_built_with_radzen_and_the_default_star_is_filled()
+    {
+        var giro = FakeAccountApi.Account("Giro", isDefault: true);
+        var other = FakeAccountApi.Account("Notgroschen", AccountTypes.Savings);
+        var cut = OpenPage(giro, other);
+        cut.WaitForAssertion(() => Assert.Contains("Giro", Row(cut, giro).TextContent));
+
+        Assert.Contains("rz-card", Row(cut, giro).ClassList);
+        Assert.Contains("icon-filled", Star(cut, giro).QuerySelector(".rzi")!.ClassList);
+        Assert.Equal("", Star(cut, other).QuerySelector(".rzi")!.GetAttribute("style") ?? "");
+
+        cut.Find("[data-testid='accounts-add']").Click();
+        dialogs.WaitForAssertion(() => Assert.Contains("Neues Konto", dialogs.Markup));
+        Assert.Equal("account-opening-balance-input-label", Input(dialogs, "account-opening-balance").GetAttribute("aria-labelledby"));
+        Assert.Equal("date", Input(dialogs, "account-opening-date").GetAttribute("type"));
+    }
+
     // --- Hilfen -------------------------------------------------------------
 
     private static IElement Row(IRenderedComponent<Accounts> cut, AccountResponse account) =>
@@ -195,7 +232,7 @@ public class AccountsPageTests : PageTestContext
     private static IElement Star(IRenderedComponent<Accounts> cut, AccountResponse account) =>
         cut.Find($"[data-testid='account-default-{account.Id}']");
 
-    private bool SwitchIsOn() => dialogs.FindComponent<MudSwitch<bool>>().Instance.Value;
+    private bool SwitchIsOn() => dialogs.Find("[data-testid='account-counts-as-available']").ClassList.Contains("rz-switch-checked");
 
     private static IElement Input(IRenderedComponent<IComponent> cut, string testId)
     {

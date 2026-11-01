@@ -1,37 +1,38 @@
+@using Radzen
+@using Radzen.Blazor
 @using System.Globalization
 @inject IShareService Share
+@inject DialogService Dialogs
 @inject IStringLocalizer<SharedResources> L
 
 @* Eine neue Einladung (R4): der Link, sein QR-Code zum Abscannen vom Bildschirm und Teilen. In der App
    öffnet Teilen den Teilen-Dialog von Android, im Browser kopiert es den Link. Der Link ist der
    Nachweis: Wer ihn hat, kann einmal beitreten. Ging eine Adresse mit, sagt der Dialog, dass die Einladung
-   unterwegs ist, falls die Adresse zu einem bestätigten Konto gehört. *@
+   unterwegs ist, falls die Adresse zu einem bestätigten Konto gehört.
 
-<MudDialog>
-    <DialogContent>
-        <MudStack Spacing="3" AlignItems="AlignItems.Center">
-            <MudText Typo="Typo.body2">@L["InviteDialog_Text", ExpiresAt.ToLocalTime().ToString("dd.MM.yyyy", German)]</MudText>
-            @if (Mailed)
-            {
-                <MudAlert Severity="Severity.Info" Dense="true" data-testid="invite-mail-note">@L["InviteDialog_MailNote"]</MudAlert>
-            }
-            <div role="img" aria-label="@L["InviteDialog_Qr"]" style="width: 240px; max-width: 100%; background: #ffffff;"
-                 data-testid="invite-qr">@((MarkupString)InvitationQr.Svg(Link))</div>
-            <MudText Typo="Typo.body2" Style="word-break: break-all;" data-testid="invite-link">@Link</MudText>
-        </MudStack>
-    </DialogContent>
-    <DialogActions>
-        <MudButton OnClick="Close">@L["InviteDialog_Close"]</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Share"
-                   OnClick="ShareAsync" data-testid="invite-share">@L["InviteDialog_Share"]</MudButton>
-    </DialogActions>
-</MudDialog>
+   Er geht über FormDialogs.OpenWindowAsync als Fenster auf (auch in der App); Schließen und Teilen stehen unten im Inhalt. *@
+
+<RadzenStack Gap="1rem" AlignItems="AlignItems.Center">
+    <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P">@L["InviteDialog_Text", ExpiresAt.ToLocalTime().ToString("dd.MM.yyyy", German)]</RadzenText>
+    @if (Mailed)
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" AllowClose="false" Size="AlertSize.Small"
+                     data-testid="invite-mail-note">@L["InviteDialog_MailNote"]</RadzenAlert>
+    }
+    @* Der QR-Code bleibt weiß, auch im Dunkelmodus, damit er sich scannen lässt. *@
+    <div role="img" aria-label="@L["InviteDialog_Qr"]" class="qr-code"
+         data-testid="invite-qr">@((MarkupString)InvitationQr.Svg(Link))</div>
+    <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="long-link" data-testid="invite-link">@Link</RadzenText>
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" Class="rz-w-100">
+        <RadzenButton Text="@L["InviteDialog_Close"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base"
+                      Click="@(_ => Close())" data-testid="invite-close" />
+        <RadzenButton Text="@L["InviteDialog_Share"]" Icon="share" ButtonStyle="ButtonStyle.Primary"
+                      Click="@(_ => ShareAsync())" data-testid="invite-share" />
+    </RadzenStack>
+</RadzenStack>
 
 @code {
     private static readonly CultureInfo German = new("de-DE");
-
-    [CascadingParameter]
-    private IMudDialogInstance MudDialog { get; set; } = default!;
 
     /// <summary>Der ganze Link, zum Beispiel https://duofy.example/einladung/abc.</summary>
     [Parameter] public string Link { get; set; } = "";
@@ -48,5 +49,5 @@
 
     private Task ShareAsync() => Share.ShareAsync(L["InviteDialog_ShareTitle", HouseholdName], Link);
 
-    private void Close() => MudDialog.Close(DialogResult.Ok(true));
+    private void Close() => Dialogs.Close(true);
 }

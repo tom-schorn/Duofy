@@ -38,7 +38,7 @@
         {
             <div data-testid="@($"month-pot-{pot.Pot}")">
                 <TargetActualBar Caption="@L["Plan_Quota", L[$"Pot_{pot.Pot}"], pot.Target, pot.Actual.ToString("0.#", German)]"
-                                 Target="pot.Target" Actual="pot.Actual" />
+                                 Target="pot.Target" Actual="pot.Actual" AsPercent="true" />
             </div>
         }
     </section>

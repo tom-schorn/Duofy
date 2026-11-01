@@ -1,30 +1,42 @@
+@using Radzen.Blazor
 @inherits DestinationNavigationBase
 @inject IStringLocalizer<SharedResources> L
 
 @* Die Seitenleiste für große Bildschirme (Spec 10): das volle Menü links untereinander, ohne den Umweg über "Mehr"
    (Tom, 01.11.2026). Die untere Leiste bleibt bei ihren vier Zielen; ab 1280 px zeigt das Stylesheet diese Leiste und
-   blendet die untere aus, darunter umgekehrt (siehe .app-side-nav in app.css). Einfache Links statt
-   MudBlazor-Knöpfen, damit Tab, Fokuskontur und aria-current ohne Umweg gelten.
+   blendet die untere aus, darunter umgekehrt (siehe .app-side-nav in app.css).
+
+   Das Menü ist RadzenPanelMenu ohne Trenner und ohne Balken (RadzenVariables): ein Tab-Halt, darin Pfeiltasten und Enter.
+   NavLink im Eintrag setzt aria-current auf dem offenen Ziel, auch bei Unterseiten.
 
    Die Einträge rollen, wenn der Bildschirm zu niedrig ist. Der Fuß steht außerhalb, weil das Rollen sonst das nach
    oben aufgehende Menü des Profil-Knopfs abschneiden würde (Spec 44). *@
 
 <nav class="app-side-nav" aria-label="@L["AppLayout_Navigation"]" data-testid="side-nav">
     <div class="app-side-list">
-        @foreach (var item in Destinations)
+        <RadzenPanelMenu>
+            @foreach (var item in Destinations)
+            {
+                <RadzenPanelMenuItem Text="@L[item.LabelKey]" Icon="@item.Icon" Path="@item.Href"
+                                     Match="@(item.Href == "/" ? NavLinkMatch.All : NavLinkMatch.Prefix)"
+                                     data-testid="@($"side-{item.Destination}".ToLowerInvariant())" />
+            }
+            <AuthorizeView>
+                <Authorized>
+                    <SideAccountEntries />
+                </Authorized>
+            </AuthorizeView>
+        </RadzenPanelMenu>
+        @if (Mode is not null)
         {
-            var active = IsOpen(item.Href);
-            <a href="@item.Href" class="@(active ? "app-side-item app-side-destination app-side-item-active" : "app-side-item app-side-destination")"
-               aria-current="@(active ? "page" : null)" data-testid="@($"side-{item.Destination}".ToLowerInvariant())">
-                <MudIcon Icon="@item.Icon" />
-                <span class="app-side-label">@L[item.LabelKey]</span>
-            </a>
+            <AuthorizeView>
+                <Authorized>
+                    <div class="app-side-mode" data-testid="side-mode">
+                        <ThemeChoiceSwitch Choice="Mode.Choice" ChoiceSelected="Mode.Select" />
+                    </div>
+                </Authorized>
+            </AuthorizeView>
         }
-        <AuthorizeView>
-            <Authorized>
-                <SideAccountEntries />
-            </Authorized>
-        </AuthorizeView>
     </div>
     @if (Footer is not null)
     {
@@ -38,4 +50,8 @@
     /// <summary>Was ganz unten in der Leiste steht, zum Beispiel der Profil-Knopf; ohne Angabe nichts.</summary>
     [Parameter]
     public RenderFragment? Footer { get; set; }
+
+    // Die App hat oben keinen Schalter für hell und dunkel; ohne "Mehr" steht er ab dem Desktop hier.
+    [CascadingParameter]
+    private ModeSwitch? Mode { get; set; }
 }

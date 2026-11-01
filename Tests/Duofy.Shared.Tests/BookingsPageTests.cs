@@ -6,7 +6,6 @@ using Duofy.Shared.Pages;
 using Duofy.Shared.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
-using MudBlazor;
 
 namespace Duofy.Shared.Tests;
 
@@ -18,13 +17,12 @@ public class BookingsPageTests : PageTestContext
     private readonly AccountChoice giro = new(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true);
     private readonly AccountChoice cash = new(Guid.NewGuid(), "Bargeld", IsDefault: false, Active: true);
 
-    // MudBlazor zeichnet Dialoge und Popups in diese beiden Bausteine (im echten Layout stehen sie im MainLayout).
-    private readonly IRenderedComponent<MudDialogProvider> dialogs;
+    // Radzen zeichnet Dialoge in RadzenComponents (im echten Layout stehen sie in jedem Layout).
+    private readonly IRenderedComponent<IComponent> dialogs;
 
     public BookingsPageTests()
     {
-        Render<MudPopoverProvider>();
-        dialogs = Render<MudDialogProvider>();
+        dialogs = RenderRadzenHost();
         Accounts.Accounts.AddRange([giro, cash]);
     }
 
@@ -450,6 +448,28 @@ public class BookingsPageTests : PageTestContext
         Assert.Equal(new SaveCategoryRequest("Friseur Kinder", "children", PotKeys.Needs), Categories.Created[0]);
         var created = Categories.All.Last();
         dialogs.WaitForAssertion(() => Assert.Equal(created.Id.ToString(), SelectedValue(dialogs, "booking-line-category-0")));
+    }
+
+    // Radzen-Umstellung R16
+    [Fact]
+    public void The_page_and_the_dialog_are_built_with_radzen_and_the_amount_is_german_with_a_numeric_keypad()
+    {
+        BookingApiFake.Bookings.Add(FakeBookingApi.Expense(giro.Id, new DateOnly(2026, 10, 5), 11m, FakeCategoryApi.Groceries, "Oktoberkauf"));
+        var booking = BookingApiFake.Bookings[0];
+        var cut = OpenPage();
+        cut.WaitForAssertion(() => Assert.Contains("Oktoberkauf", cut.Markup));
+
+        Assert.Contains("rz-card", cut.Find($"[data-testid='booking-{booking.Id}']").ClassList);
+
+        Click(cut, "bookings-add");
+        dialogs.WaitForAssertion(() => Assert.Contains("Neue Buchung", dialogs.Markup));
+
+        var amount = Input(dialogs, "booking-amount");
+        Assert.Equal("booking-amount-input-label", amount.GetAttribute("aria-labelledby"));
+        Assert.Equal("decimal", amount.GetAttribute("inputmode"));
+        amount.Change("1234,5");
+        dialogs.WaitForAssertion(() => Assert.Equal("1234,50", Input(dialogs, "booking-amount").GetAttribute("value")));
+        Assert.Equal("date", Input(dialogs, "booking-date").GetAttribute("type"));
     }
 
     // --- Hilfen -------------------------------------------------------------

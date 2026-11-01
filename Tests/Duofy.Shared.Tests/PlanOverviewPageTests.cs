@@ -7,7 +7,6 @@ using Duofy.Shared.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
-using MudBlazor;
 
 namespace Duofy.Shared.Tests;
 
@@ -20,8 +19,6 @@ public class PlanOverviewPageTests : PageTestContext
 {
     public PlanOverviewPageTests()
     {
-        Render<MudPopoverProvider>();
-        Render<MudDialogProvider>();
         Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true));
     }
 
@@ -280,7 +277,7 @@ public class PlanOverviewPageTests : PageTestContext
 
         var cut = Render<PlanOverview>();
 
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".mud-alert")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(AlertSelector)));
         Assert.Equal(["2027-1", "2026-12", "2026-11", "2026-10"], RowIds(cut));
     }
 }

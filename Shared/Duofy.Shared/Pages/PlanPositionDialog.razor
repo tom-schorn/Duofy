@@ -1,36 +1,40 @@
+@using Radzen
+@using Radzen.Blazor
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
 @using Duofy.Shared.Dialogs
 @inject IPlanApi PlanApi
 @inject ActiveMember Member
+@inject DialogService Dialogs
 @inject IStringLocalizer<SharedResources> L
 
 @* Der Dialog für einen Posten, auf dem Schritt-Dialog (Spec 11) mit einem Schritt (Issue #22): einen einmaligen anlegen (R3) oder einen vorhandenen ändern.
    Ein geänderter Posten aus einem Vertrag gilt danach als von Hand geändert; das entscheidet die API.
    Geprüft wird beim Speichern von der API; ihre Fehler stehen oben im Dialog. *@
 
-<StepDialog OnFinish="SaveAsync" FinishText="@L["PlanPositionDialog_Save"]" Busy="busy" FinishTestId="position-save">
+<StepDialog Title="@Title" OnFinish="SaveAsync" FinishText="@L["PlanPositionDialog_Save"]" Busy="busy" FinishTestId="position-save">
     <DialogStep Title="@L["PlanPositionDialog_StepAll"]">
         @if (error is not null)
         {
-            <MudAlert Severity="Severity.Error" data-testid="position-error">@error</MudAlert>
+            <ErrorAlert AlertStyle="AlertStyle.Danger" Text="@error" data-testid="position-error" />
         }
 
         <StepField Label="@L["Field_PositionLabel"]" InputId="position-label-input" TestId="position-label-field">
-            <MudTextField T="string" @bind-Value="label" Variant="Variant.Outlined" InputId="position-label-input"
-                          MaxLength="PlanRules.LabelMaxLength" data-testid="position-label" />
+            <RadzenTextBox @bind-Value="label" id="position-label-input" MaxLength="PlanRules.LabelMaxLength"
+                           data-testid="position-label" />
         </StepField>
 
-        <StepField Label="@L["Field_PlannedAmount"]" InputId="position-amount-input" TestId="position-amount-field">
-            <MudNumericField T="decimal?" @bind-Value="amount" Culture="German" Format="0.00" Min="0"
-                             HideSpinButtons="true" Variant="Variant.Outlined" InputId="position-amount-input"
-                             data-testid="position-amount" />
+        <StepField Label="@L["Field_PlannedAmount"]" InputId="position-amount-input" AriaLabelled="true" TestId="position-amount-field">
+            <RadzenNumeric TValue="decimal?" @bind-Value="amount" Culture="German" Format="0.00" Min="0" ShowUpDown="false"
+                           InputAttributes="@(new Dictionary<string, object> { ["aria-labelledby"] = "position-amount-input-label" })"
+                           data-testid="position-amount" />
         </StepField>
 
-        <StepField Label="@L["Field_DueDay"]" InputId="position-day-input" TestId="position-day-field">
-            <MudNumericField T="int?" @bind-Value="dueDay" Min="1" Max="DateTime.DaysInMonth(Year, Month)"
-                             Variant="Variant.Outlined" InputId="position-day-input" data-testid="position-day" />
+        <StepField Label="@L["Field_DueDay"]" InputId="position-day-input" AriaLabelled="true" TestId="position-day-field">
+            <RadzenNumeric TValue="int?" @bind-Value="dueDay" Min="1" Max="DateTime.DaysInMonth(Year, Month)" ShowUpDown="false"
+                           InputAttributes="@(new Dictionary<string, object> { ["aria-labelledby"] = "position-day-input-label" })"
+                           data-testid="position-day" />
         </StepField>
 
         <StepField Label="@L["Field_Pot"]" InputId="position-pot-input" TestId="position-pot-field">
@@ -71,8 +75,8 @@
 
     private static readonly CultureInfo German = new("de-DE");
 
-    [CascadingParameter]
-    private IMudDialogInstance MudDialog { get; set; } = default!;
+    /// <summary>Der Titel im Kopf des Schritt-Dialogs.</summary>
+    [Parameter] public string? Title { get; set; }
 
     [Parameter] public int Year { get; set; }
 
@@ -154,7 +158,7 @@
 
             if (result.Succeeded)
             {
-                MudDialog.Close(DialogResult.Ok(true));
+                Dialogs.Close(true);
             }
             else
             {

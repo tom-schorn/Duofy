@@ -1,4 +1,6 @@
 @page "/anmelden"
+@using Radzen
+@using Radzen.Blazor
 @layout AuthLayout
 @using Duofy.ApiClient
 @using Duofy.Schemas
@@ -20,33 +22,33 @@
 <PageTitle>@L["Login_Title"] · @Brand.Name</PageTitle>
 
 <div class="auth-header">
-    <MudText Typo="Typo.h2" HtmlTag="h1">@L["Login_Title"]</MudText>
+    <RadzenText TextStyle="TextStyle.H2" TagName="TagName.H1">@L["Login_Title"]</RadzenText>
     <p class="auth-lead">@L["Login_Lead"]</p>
 </div>
 
 @if (error is not null)
 {
-    <MudAlert Severity="Severity.Error" Class="mb-4">@error</MudAlert>
+    <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false" Class="rz-mb-4">@error</RadzenAlert>
 }
 
 @if (unconfirmed)
 {
-    <div class="mb-4">
+    <div class="rz-mb-4">
         <Notice Message="resendMessage" />
         @if (resent)
         {
             @* Ausgegraut statt angeboten und abgelehnt; aria-disabled statt disabled, damit ein Screenreader den Knopf
                findet und den Grund darunter vorliest. *@
-            <MudButton Variant="Variant.Outlined" Ripple="false"
-                       Style="color: var(--mud-palette-action-disabled); border-color: var(--mud-palette-action-disabled); cursor: default;"
-                       aria-disabled="true" aria-describedby="login-resend-reason" data-testid="login-resend">@L["Login_Resend"]</MudButton>
-            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-1" id="login-resend-reason"
-                     data-testid="login-resend-reason">@L["Login_ResendWait"]</MudText>
+            <RadzenButton Text="@L["Login_Resend"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Base"
+                          Class="unavailable"
+                          aria-disabled="true" aria-describedby="login-resend-reason" data-testid="login-resend" />
+            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-display-block rz-mt-1"
+                        id="login-resend-reason" data-testid="login-resend-reason">@L["Login_ResendWait"]</RadzenText>
         }
         else
         {
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="ResendAsync"
-                       data-testid="login-resend">@L["Login_Resend"]</MudButton>
+            <RadzenButton Text="@L["Login_Resend"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary"
+                          Click="@(_ => ResendAsync())" data-testid="login-resend" />
         }
     </div>
 }
@@ -54,48 +56,47 @@
 <div class="field-stack">
     <div class="field">
         <FieldLabel For="login-email-input" Text="@L["Field_Email"]" />
-        <MudTextField @bind-Value="email" Variant="Variant.Outlined" InputId="login-email-input"
-                      InputType="InputType.Email" Placeholder="@L["Auth_EmailPlaceholder"]"
-                      autocomplete="email" data-testid="login-email" />
+        <RadzenTextBox @bind-Value="email" Immediate="true" id="login-email-input" type="email" Placeholder="@L["Auth_EmailPlaceholder"]"
+                       autocomplete="email" data-testid="login-email" />
     </div>
     <div class="field">
         <FieldLabel For="login-password-input" Text="@L["Field_Password"]" />
-        <MudTextField @bind-Value="password" Variant="Variant.Outlined" InputId="login-password-input"
-                      InputType="InputType.Password" autocomplete="current-password"
-                      OnKeyDown="OnPasswordKeyDown" data-testid="login-password" />
+        <RadzenPassword @bind-Value="password" Immediate="true" id="login-password-input" autocomplete="current-password"
+                        @onkeydown="OnPasswordKeyDown" data-testid="login-password" />
     </div>
 </div>
 
-<MudButton Variant="Variant.Text" Size="Size.Small" Class="mt-1 px-0" OnClick="ToggleForgot"
-           aria-expanded="@(forgotOpen ? "true" : "false")" data-testid="login-forgot">@L["Login_Forgot"]</MudButton>
+<RadzenButton Text="@L["Login_Forgot"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small"
+              Class="rz-mt-1" Click="@(_ => ToggleForgot())"
+              aria-expanded="@(forgotOpen ? "true" : "false")" data-testid="login-forgot" />
 
 @if (forgotOpen)
 {
-    <MudPaper Class="pa-4 mt-2" Outlined="true" data-testid="login-forgot-panel">
+    <RadzenCard Variant="Variant.Outlined" Class="rz-mt-2" data-testid="login-forgot-panel">
         @if (instance?.Hosted == true)
         {
-            <MudText Typo="Typo.body2" Class="mb-2">@L["Login_ForgotLead"]</MudText>
+            <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-mb-2">@L["Login_ForgotLead"]</RadzenText>
             <Notice Message="forgotMessage" />
             <div class="field">
                 <FieldLabel For="login-forgot-email-input" Text="@L["Field_Email"]" />
-                <MudTextField @bind-Value="forgotEmail" Variant="Variant.Outlined" InputId="login-forgot-email-input"
-                              InputType="InputType.Email" Placeholder="@L["Auth_EmailPlaceholder"]" autocomplete="email"
-                              data-testid="login-forgot-email" />
+                <RadzenTextBox @bind-Value="forgotEmail" id="login-forgot-email-input" type="email"
+                               Placeholder="@L["Auth_EmailPlaceholder"]" autocomplete="email"
+                               data-testid="login-forgot-email" />
             </div>
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="mt-2" Disabled="forgotBusy"
-                       OnClick="ForgotAsync" data-testid="login-forgot-submit">@L["Login_ForgotSubmit"]</MudButton>
+            <RadzenButton Text="@L["Login_ForgotSubmit"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary"
+                          Class="rz-mt-2" Disabled="forgotBusy" Click="@(_ => ForgotAsync())"
+                          data-testid="login-forgot-submit" />
         }
         else
         {
-            <MudText Typo="Typo.body2" data-testid="login-forgot-note">@L["Login_ForgotSelfHosted"]</MudText>
+            <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" data-testid="login-forgot-note">@L["Login_ForgotSelfHosted"]</RadzenText>
         }
-    </MudPaper>
+    </RadzenCard>
 }
 
-<MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
-           Disabled="busy" OnClick="SubmitAsync" data-testid="login-submit">
-    @(busy ? L["Login_Pending"] : L["Login_Submit"])
-</MudButton>
+<RadzenButton Text="@(busy ? L["Login_Pending"] : L["Login_Submit"])" ButtonStyle="ButtonStyle.Primary"
+              Class="rz-mt-6 rz-w-100" Disabled="busy" Click="@(_ => SubmitAsync())"
+              data-testid="login-submit" />
 
 <p class="auth-switch">
     @L["Login_NoAccount"]
@@ -147,7 +148,7 @@
     {
         if (string.IsNullOrWhiteSpace(forgotEmail))
         {
-            forgotMessage = new NoticeMessage(ErrorTexts.For(L, ErrorCodes.EmailInvalid), Severity.Error);
+            forgotMessage = new NoticeMessage(ErrorTexts.For(L, ErrorCodes.EmailInvalid), NoticeSeverity.Error);
             return;
         }
         forgotBusy = true;
@@ -155,8 +156,8 @@
         {
             var result = await AuthApi.ForgotPasswordAsync(new ForgotPasswordRequest(forgotEmail.Trim()));
             forgotMessage = result.Succeeded
-                ? new NoticeMessage(L["Login_ForgotSent"], Severity.Success)
-                : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+                ? new NoticeMessage(L["Login_ForgotSent"], NoticeSeverity.Success)
+                : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
         }
         finally
         {
@@ -171,11 +172,11 @@
         if (result.Succeeded)
         {
             resent = true;
-            resendMessage = new NoticeMessage(L["Login_ResendSent"], Severity.Success);
+            resendMessage = new NoticeMessage(L["Login_ResendSent"], NoticeSeverity.Success);
         }
         else
         {
-            resendMessage = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+            resendMessage = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
         }
     }
 

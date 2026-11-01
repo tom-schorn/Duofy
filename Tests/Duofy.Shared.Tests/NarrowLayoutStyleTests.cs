@@ -48,7 +48,7 @@ public partial class NarrowLayoutStyleTests
     [Fact]
     public void All_five_bottom_bar_labels_fit_on_a_narrow_phone()
     {
-        Assert.Contains("padding-inline: 0;", Block(".app-bottom-item.mud-button-root"));
+        Assert.Contains("padding-inline: 0;", Block(".app-bottom-item"));
         Assert.Contains("--type-extra-size: min(0.875rem, 3.4vw);", Block(".app-bottom-bar"));
     }
 
@@ -101,12 +101,28 @@ public partial class NarrowLayoutStyleTests
     public void The_consent_banner_covers_neither_navigation_nor_profile_button()
     {
         var banner = Block(".consent-banner");
-        Assert.Contains("max-height: calc(100dvh - var(--consent-bottom, 0px) - var(--mud-appbar-height, 4rem));", banner);
+        Assert.Contains("max-height: calc(100dvh - var(--consent-bottom, 0px) - var(--app-header-height));", banner);
         Assert.Contains("overflow-y: auto;", banner);
         Assert.Contains("bottom: var(--consent-bottom, 0px);", banner);
 
         Assert.Contains("--consent-bottom: calc(var(--app-bottom-bar-height) + env(safe-area-inset-bottom, 0px));", Block("body:has(.app-bottom-bar)"));
-        Assert.Contains("inset-inline-start: var(--side-nav-width);", Block("body:has(.app-side-nav) .consent-banner"));
+        Assert.Contains("margin-inline-start: var(--side-nav-width);", Block("body:has(.app-side-nav) .consent-banner"));
+    }
+
+    // Auf dem schmalen Login verdeckte die feste Leiste den Anmelden-Knopf, weil die Seite nicht rollen konnte. Die Leiste
+    // steht deshalb im Fluss am Ende der Seite und bleibt nur beim Rollen am unteren Rand haften; die Knöpfe sind mindestens
+    // 44 px hoch (Radzen-Knöpfe).
+    [Fact]
+    public void The_consent_banner_sits_in_the_flow_and_its_buttons_are_at_least_44_px_high()
+    {
+        var banner = Block(".consent-banner");
+        Assert.Contains("position: sticky;", banner);
+        Assert.DoesNotContain("position: fixed;", banner);
+
+        var buttons = Block(".consent-actions .rz-button");
+        Assert.Contains("min-height: var(--tap-min);", buttons);
+        Assert.Contains("min-width: 8rem;", buttons);
+        Assert.Contains("min-height: var(--tap-min);", Block(".consent-change .rz-button"));
     }
 
     [GeneratedRegex(@"/\*.*?\*/", RegexOptions.Singleline)]

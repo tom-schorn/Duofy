@@ -1,3 +1,5 @@
+@using Radzen
+@using Radzen.Blazor
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
@@ -6,6 +8,7 @@
 @inject ICategoryApi CategoryApi
 @inject IPlanApi PlanApi
 @inject ActiveMember Member
+@inject DialogService Dialogs
 @inject IStringLocalizer<SharedResources> L
 
 @* Der Dialog zum Anlegen und Ändern einer Buchung, in zwei Schritten (Issue #21, Spec 22) auf dem Schritt-Dialog (Spec 11):
@@ -20,28 +23,30 @@
    (die erste Zeile nimmt den Rest, der Topf folgt der Kategorie). Der Dialog zeigt sie nur an. Weiter verlangt ein Konto
    (derselbe Satz wie zuvor beim Speichern); alles andere prüft wie bisher die API, ihre Fehler stehen oben in Schritt 2. *@
 
-<StepDialog OnFinish="SaveAsync" FinishText="@L["BookingDialog_Save"]" Busy="busy" FinishTestId="booking-save" NextTestId="booking-next">
+<StepDialog Title="@Title" OnFinish="SaveAsync" FinishText="@L["BookingDialog_Save"]" Busy="busy" FinishTestId="booking-save" NextTestId="booking-next">
     <DialogStep Title="@L["BookingDialog_StepWhat"]">
         @* Ausgabe, Einnahme oder Umbuchung. aria-pressed sagt Vorlesegeräten, welcher Knopf gewählt ist. *@
         <div class="booking-kinds" role="group" aria-label="@L["BookingDialog_KindLabel"]">
             @foreach (var kind in BookingKinds.All)
             {
                 var selected = draft.Kind == kind;
-                <MudButton Variant="@(selected ? Variant.Filled : Variant.Outlined)" Color="Color.Primary"
-                           OnClick="() => SetKind(kind)" aria-pressed="@(selected ? "true" : "false")"
-                           data-testid="@($"booking-kind-{kind}")">@L[$"BookingDialog_Kind_{kind}"]</MudButton>
+                <RadzenButton Text="@L[$"BookingDialog_Kind_{kind}"]" Variant="@(selected ? Variant.Filled : Variant.Outlined)"
+                              ButtonStyle="ButtonStyle.Primary" Click="@(_ => SetKind(kind))"
+                              aria-pressed="@(selected ? "true" : "false")" data-testid="@($"booking-kind-{kind}")" />
             }
         </div>
 
         @* Betrag und Datum. Der Betrag ist immer positiv; ob er abgeht oder hereinkommt, bestimmt die Art. *@
-        <StepField Label="@L["Field_Amount"]" InputId="booking-amount-input" TestId="booking-amount-field">
-            <MudNumericField T="decimal?" Value="draft.Amount" ValueChanged="OnAmountChanged" Culture="German"
-                             Format="0.00" Min="0" HideSpinButtons="true" Variant="Variant.Outlined" InputId="booking-amount-input"
-                             data-testid="booking-amount" />
+        @* Radzens Zahlenfeld lässt keine Id am input zu: Die Beschriftung hat die Id "{InputId}-label", das Feld verweist mit
+           aria-labelledby darauf (StepField AriaLabelled). Auf dem Handy öffnet inputmode="decimal" die Zifferntastatur. *@
+        <StepField Label="@L["Field_Amount"]" InputId="booking-amount-input" AriaLabelled="true" TestId="booking-amount-field">
+            <RadzenNumeric TValue="decimal?" Value="draft.Amount" ValueChanged="@(v => OnAmountChanged(v))" Culture="German"
+                           Format="0.00" Min="0" ShowUpDown="false"
+                           InputAttributes="@Labelled("booking-amount-input")" data-testid="booking-amount" />
         </StepField>
         <StepField Label="@L["Field_Date"]" InputId="booking-date-input" TestId="booking-date-field">
-            <MudTextField T="string" Value="@dateText" ValueChanged="OnDateChanged" InputType="InputType.Date"
-                          Variant="Variant.Outlined" InputId="booking-date-input" data-testid="booking-date" />
+            <RadzenTextBox Value="@dateText" ValueChanged="OnDateChanged" type="date" id="booking-date-input"
+                           data-testid="booking-date" />
         </StepField>
 
         @* Der Planmonat: in welchem Monat die Buchung im Plan zählt. Der Kontostand folgt immer dem Datum. *@
@@ -79,7 +84,7 @@
     <DialogStep Title="@L["BookingDialog_StepWhere"]">
         @if (error is not null)
         {
-            <MudAlert Severity="Severity.Error" data-testid="booking-error">@error</MudAlert>
+            <ErrorAlert AlertStyle="AlertStyle.Danger" Text="@error" data-testid="booking-error" />
         }
 
         @if (draft.Kind == BookingKinds.Transfer)
@@ -130,11 +135,11 @@
                     }
 
                     @* Die erste Zeile ist nicht bearbeitbar, solange es mehrere gibt: Sie zeigt, was übrig bleibt. *@
-                    <StepField Label="@L["Field_Amount"]" InputId="@($"booking-line-amount-{index}-input")">
-                        <MudNumericField T="decimal?" Value="line.Amount" ValueChanged="v => OnLineAmountChanged(index, v)"
-                                         Culture="German" Format="0.00" HideSpinButtons="true" Variant="Variant.Outlined"
-                                         ReadOnly="@(index == 0)" InputId="@($"booking-line-amount-{index}-input")"
-                                         data-testid="@($"booking-line-amount-{index}")" />
+                    <StepField Label="@L["Field_Amount"]" InputId="@($"booking-line-amount-{index}-input")" AriaLabelled="true">
+                        <RadzenNumeric TValue="decimal?" Value="line.Amount" ValueChanged="@(v => OnLineAmountChanged(index, v))"
+                                       Culture="German" Format="0.00" ShowUpDown="false" ReadOnly="@(index == 0)"
+                                       InputAttributes="@Labelled($"booking-line-amount-{index}-input")"
+                                       data-testid="@($"booking-line-amount-{index}")" />
                     </StepField>
 
                     <StepField Label="@L["Field_Category"]" InputId="@($"booking-line-category-{index}-input")">
@@ -183,14 +188,15 @@
                         @* Eigene Kategorien legt nur ihre Person an (Spec 68); für ein anderes Mitglied gibt es den Knopf nicht. *@
                         @if (owner is null)
                         {
-                            <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => OpenNewCategory(index)"
-                                       data-testid="booking-new-category">@L["BookingDialog_NewCategory"]</MudButton>
+                            <RadzenButton Text="@L["BookingDialog_NewCategory"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Primary"
+                                          Size="ButtonSize.Small" Click="@(_ => OpenNewCategory(index))"
+                                          data-testid="booking-new-category" />
                         }
                         @if (index > 0)
                         {
-                            <MudButton Variant="Variant.Text" Size="Size.Small"
-                                       OnClick="() => RemoveLine(index)"
-                                       data-testid="@($"booking-line-remove-{index}")">@L["BookingDialog_RemoveLine"]</MudButton>
+                            <RadzenButton Text="@L["BookingDialog_RemoveLine"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Primary"
+                                          Size="ButtonSize.Small" Click="@(_ => RemoveLine(index))"
+                                          data-testid="@($"booking-line-remove-{index}")" />
                         }
                     </div>
                 </div>
@@ -202,11 +208,11 @@
                 <div class="booking-line">
                     @if (newCategoryError is not null)
                     {
-                        <MudAlert Severity="Severity.Error">@newCategoryError</MudAlert>
+                        <ErrorAlert AlertStyle="AlertStyle.Danger" Text="@newCategoryError" />
                     }
                     <StepField Label="@L["Field_CategoryName"]" InputId="booking-new-category-name-input">
-                        <MudTextField T="string" @bind-Value="newCategoryName" Variant="Variant.Outlined" InputId="booking-new-category-name-input"
-                                      MaxLength="CategoryRules.NameMaxLength" data-testid="booking-new-category-name" />
+                        <RadzenTextBox @bind-Value="newCategoryName" id="booking-new-category-name-input"
+                                       MaxLength="CategoryRules.NameMaxLength" data-testid="booking-new-category-name" />
                     </StepField>
                     <StepField Label="@L["Field_Group"]" InputId="booking-new-category-group-input">
                         <NativeSelect @bind-Value="newCategoryGroup" id="booking-new-category-group-input"
@@ -227,21 +233,22 @@
                         </NativeSelect>
                     </StepField>
                     <div class="booking-line-actions">
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveNewCategoryAsync"
-                                   data-testid="booking-new-category-save">@L["BookingDialog_NewCategorySave"]</MudButton>
-                        <MudButton Variant="Variant.Text" OnClick="CloseNewCategory">@L["BookingDialog_Cancel"]</MudButton>
+                        <RadzenButton Text="@L["BookingDialog_NewCategorySave"]" ButtonStyle="ButtonStyle.Primary"
+                                      Click="@(_ => SaveNewCategoryAsync())" data-testid="booking-new-category-save" />
+                        <RadzenButton Text="@L["BookingDialog_Cancel"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base"
+                                      Click="@(_ => CloseNewCategory())" />
                     </div>
                 </div>
             }
 
             @* "Aufteilen" hängt eine Zeile an. Ihr Betrag geht von der ersten Zeile ab. *@
-            <MudButton Variant="Variant.Outlined" Disabled="@(!draft.CanAddLine)" OnClick="draft.AddLine"
-                       data-testid="booking-split">@L["BookingDialog_Split"]</MudButton>
+            <RadzenButton Text="@L["BookingDialog_Split"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary"
+                          Disabled="@(!draft.CanAddLine)" Click="@(_ => draft.AddLine())" data-testid="booking-split" />
         }
 
         <StepField Label="@L["Field_Note"]" InputId="booking-note-input" TestId="booking-note-field">
-            <MudTextField T="string" @bind-Value="draft.Note" Variant="Variant.Outlined" InputId="booking-note-input"
-                          MaxLength="BookingRules.NoteMaxLength" data-testid="booking-note" />
+            <RadzenTextBox @bind-Value="draft.Note" id="booking-note-input" MaxLength="BookingRules.NoteMaxLength"
+                           data-testid="booking-note" />
         </StepField>
     </DialogStep>
 </StepDialog>
@@ -250,9 +257,16 @@
 
     private static readonly CultureInfo German = new("de-DE");
 
-    // Der Dialog selbst, über den er sich schließen kann.
-    [CascadingParameter]
-    private IMudDialogInstance MudDialog { get; set; } = default!;
+    /// <summary>Der Titel im Kopf des Schritt-Dialogs ("Neue Buchung" oder "Buchung ändern").</summary>
+    [Parameter]
+    public string? Title { get; set; }
+
+    // Zahlenfelder von Radzen lassen keine Id am input zu: Das Feld verweist auf seine Beschriftung.
+    private static Dictionary<string, object> Labelled(string inputId) => new()
+    {
+        ["aria-labelledby"] = $"{inputId}-label",
+        ["inputmode"] = "decimal",
+    };
 
     /// <summary>Die Buchung, die geändert wird; null beim Anlegen.</summary>
     [Parameter]
@@ -434,7 +448,7 @@
 
             if (result.Succeeded)
             {
-                MudDialog.Close(DialogResult.Ok(true));
+                Dialogs.Close(true);
             }
             else
             {

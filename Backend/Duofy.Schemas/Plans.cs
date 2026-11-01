@@ -210,8 +210,11 @@ public sealed record PlanChangeItem(Guid? PositionId, Guid? CommitmentId);
 /// </summary>
 public sealed record ApplyPlanChangesRequest(IReadOnlyList<PlanChangeItem>? Items = null);
 
-/// <summary>Der echte Stand eines Kontos am letzten Tag des Vormonats.</summary>
-public sealed record RealBalance(Guid AccountId, decimal Balance);
+/// <summary>
+/// Der echte Stand eines Kontos am letzten Tag des Vormonats. Ohne Betrag (Feld fehlt) lehnt die API die Anfrage ab,
+/// statt 0 anzunehmen und das ganze Konto auszugleichen.
+/// </summary>
+public sealed record RealBalance(Guid AccountId, decimal? Balance);
 
 /// <summary>
 /// Der Übertrag in einen Monat (POST .../carry-over): der Betrag, der wirklich übrig ist, und

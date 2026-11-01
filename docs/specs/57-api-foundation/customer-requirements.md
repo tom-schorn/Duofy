@@ -2,6 +2,8 @@
 
 Format: 2
 
+> **Alt (Stand vor der Radzen-Umstellung, Issue 76):** Diese Spezifikation nennt die frühere Oberflächenbibliothek MudBlazor und die Tabler-Symbole. Heute gelten Radzen und Material Symbols, siehe `docs/plans/radzen-plan.md`. Fachliche Regeln und Abläufe bleiben gültig.
+
 ## Background
 
 The .NET rebuild of Duofy was set up as Blazor Hybrid: the web host reads the database directly and signs people in with a browser cookie, the MAUI app shares the pages but knows no signed-in user (issue 57). The original Duofy (Python/React, github.com/tom-schorn/Duofy) has its own API that the frontend talks to.

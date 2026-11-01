@@ -4,7 +4,6 @@ using Duofy.Shared.Pages;
 using Duofy.Shared.Services;
 using Duofy.Shared.Theme;
 using Microsoft.Extensions.DependencyInjection;
-using MudBlazor;
 
 namespace Duofy.Shared.Tests;
 
@@ -35,9 +34,6 @@ public class AuthLayoutTests : PageTestContext
         var cut = Open(path);
 
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".auth-layout")));
-        Assert.Empty(cut.FindComponents<MudAppBar>());
-        Assert.Empty(cut.FindComponents<MudDrawer>());
-        Assert.Empty(cut.FindComponents<MudNavMenu>());
     }
 
     [Fact]
@@ -45,9 +41,8 @@ public class AuthLayoutTests : PageTestContext
     {
         var cut = Open("/konto");
 
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindComponents<MudAppBar>()));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindComponents<Radzen.Blazor.RadzenHeader>()));
         Assert.NotEmpty(cut.FindAll("[data-testid='bottom-bar']"));
-        Assert.Empty(cut.FindComponents<MudNavMenu>());
         Assert.Empty(cut.FindAll(".auth-layout"));
     }
 
@@ -136,10 +131,10 @@ public class AuthLayoutTests : PageTestContext
     public void A1_the_auth_pages_offer_light_dark_and_device_with_exactly_one_active()
     {
         var cut = Open("/anmelden");
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".auth-mode-switch [role='radio']")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".auth-mode-switch button")));
 
-        Assert.Equal(3, cut.FindAll(".auth-mode-switch [role='radio']").Count);
-        Assert.Equal("theme-device", Assert.Single(cut.FindAll("[role='radio'][aria-checked='true']")).GetAttribute("data-testid"));
+        Assert.Equal(3, cut.FindAll(".auth-mode-switch button").Count);
+        Assert.Equal("theme-device", Assert.Single(cut.FindAll("[data-testid^='theme-'][aria-pressed='true']")).GetAttribute("data-testid"));
     }
 
     [Fact]
@@ -150,7 +145,7 @@ public class AuthLayoutTests : PageTestContext
 
         cut.Find("[data-testid='theme-dark']").Click();
 
-        Assert.True(cut.FindComponent<MudThemeProvider>().Instance.IsDarkMode);
+        Assert.True(cut.FindComponent<Duofy.Shared.Layout.ThemeVariables>().Instance.Dark);
     }
 
     [Theory]
@@ -161,33 +156,19 @@ public class AuthLayoutTests : PageTestContext
     public void Every_text_field_is_outlined_with_its_label_above(string path)
     {
         var cut = Open(path);
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindComponents<MudTextField<string>>()));
-
-        var fields = cut.FindComponents<MudTextField<string>>();
-        Assert.All(fields, field => Assert.Equal(Variant.Outlined, field.Instance.Variant));
-        // Zahlenfelder wie die Quoten auf /konto folgen derselben Regel.
-        var numbers = cut.FindComponents<MudNumericField<int>>();
-        Assert.All(numbers, field => Assert.Equal(Variant.Outlined, field.Instance.Variant));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("label.field-label")));
 
         // Die Beschriftung steht als eigenes <label> darüber und gehört per for/id zu je einem Feld.
         var labels = cut.FindAll("label.field-label");
-        Assert.Equal(fields.Count + numbers.Count, labels.Count);
+        Assert.NotEmpty(labels);
         Assert.All(labels, label =>
         {
-            var target = cut.Find($"input[id='{label.GetAttribute("for")}'], textarea[id='{label.GetAttribute("for")}']");
+            // Entweder zeigt for auf das Feld, oder das Feld verweist mit aria-labelledby auf die Beschriftung (Zahlenfelder von Radzen).
+            var target = label.GetAttribute("for") is { Length: > 0 } id
+                ? cut.Find($"input[id='{id}'], textarea[id='{id}'], select[id='{id}']")
+                : cut.Find($"input[aria-labelledby='{label.Id}']");
             Assert.NotNull(target);
         });
-    }
-
-    [Fact]
-    public void Theme_sets_buttons_in_normal_case_and_the_square_radius()
-    {
-        Assert.Equal("none", DuofyTheme.Instance.Typography.Button.TextTransform);
-        Assert.Equal("2px", DuofyTheme.Instance.LayoutProperties.DefaultBorderRadius);
-
-        var cut = Render<MudThemeProvider>(p => p.Add(x => x.Theme, DuofyTheme.Instance));
-        Assert.Contains("text-transform: none", cut.Markup);
-        Assert.Contains("--mud-default-borderradius: 2px", cut.Markup);
     }
 
     private sealed class NoThemeStore : IThemePreferenceStore

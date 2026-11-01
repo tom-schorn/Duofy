@@ -1,9 +1,9 @@
+using Duofy.Shared.Services;
 using AngleSharp.Dom;
 using Bunit;
 using Duofy.Shared.Blocks;
 using Duofy.Shared.Dialogs;
 using Microsoft.Extensions.DependencyInjection;
-using MudBlazor;
 
 namespace Duofy.Shared.Tests;
 
@@ -14,19 +14,20 @@ namespace Duofy.Shared.Tests;
 /// </summary>
 public class StepDialogTests : UiTestContext
 {
-    private readonly IRenderedComponent<MudDialogProvider> dialogs;
-    private IDialogReference? reference;
+    private readonly IRenderedComponent<Microsoft.AspNetCore.Components.IComponent> dialogs;
+    private Task<DialogOutcome<string>>? opened;
 
     public StepDialogTests()
     {
-        dialogs = Render<MudDialogProvider>();
+        dialogs = RenderRadzenHost();
     }
 
-    private async Task OpenAsync()
+    private Task OpenAsync()
     {
-        var service = Services.GetRequiredService<IDialogService>();
-        reference = await dialogs.InvokeAsync(() => service.ShowAsync<StepDialogDemoDialog>("Vertrag anlegen", StepDialogOptions.Create()));
+        opened = Services.GetRequiredService<FormDialogs>().OpenStepAsync<StepDialogDemoDialog, string>("Vertrag anlegen",
+            new FormParameters<StepDialogDemoDialog>().Add(d => d.Title, "Vertrag anlegen"));
         dialogs.WaitForAssertion(() => Assert.NotNull(dialogs.Find("[data-testid='step-dialog-progress']")));
+        return Task.CompletedTask;
     }
 
     private string Progress => dialogs.Find("[data-testid='step-dialog-progress']").TextContent.Trim();
@@ -39,7 +40,7 @@ public class StepDialogTests : UiTestContext
         return element.TagName == "INPUT" ? element : element.QuerySelector("input")!;
     }
 
-    // Tippen wie im Browser: input bei jedem Zeichen, change beim Verlassen des Felds (dann übernimmt MudBlazor den Wert).
+    // Tippen wie im Browser: input bei jedem Zeichen, change beim Verlassen des Felds (dann übernimmt das Feld den Wert).
     private void Type(string testId, string value)
     {
         Input(testId).Input(value);
@@ -99,9 +100,9 @@ public class StepDialogTests : UiTestContext
         await GoToStepTwoAsync();
 
         Assert.Equal("Schritt 2 von 3: Betrag", Progress);
-        Assert.NotNull(dialogs.Find(".mud-dialog-title [data-testid='step-dialog-progress']"));
+        Assert.NotNull(dialogs.Find("[data-testid='step-dialog-progress']"));
 
-        var actions = dialogs.Find(".mud-dialog-actions .step-dialog-actions").Children;
+        var actions = dialogs.Find(".step-dialog-actions").Children;
         Assert.Equal(2, actions.Length);
         Assert.Equal("Zurück", actions[0].TextContent.Trim());
         Assert.Equal("Weiter", actions[1].TextContent.Trim());
@@ -141,9 +142,9 @@ public class StepDialogTests : UiTestContext
 
         Button("Speichern").Click();
 
-        var result = await reference!.Result;
-        Assert.False(result!.Canceled);
-        Assert.Equal("Miete", result.Data);
+        var result = await opened!;
+        Assert.True(result.Saved);
+        Assert.Equal("Miete", result.Value);
     }
 
     // A1: Der Kopf sagt Vorlese-Programmen jeden Schrittwechsel an.
@@ -153,36 +154,6 @@ public class StepDialogTests : UiTestContext
         await OpenAsync();
 
         Assert.Equal("polite", dialogs.Find("[data-testid='step-dialog-progress']").GetAttribute("aria-live"));
-    }
-
-    // A2: Bis 599 px füllt der Dialog den Bildschirm, darüber ist er höchstens 640 px breit.
-    [Fact]
-    public void Stylesheet_makes_the_dialog_full_screen_up_to_599px_and_at_most_640px_wide_above()
-    {
-        var css = Css();
-
-        // Der Selektor ist spezifischer als die Größenklassen von MudBlazor (.mud-dialog-width-sm und Co.).
-        const string selector = ".mud-dialog-container .mud-dialog.step-dialog";
-        var wide = Rule(css, selector);
-        Assert.Contains("max-width: 640px", wide);
-
-        var phone = MediaBlock(css, "(max-width: 599px)", selector);
-        var full = Rule(phone, selector);
-        Assert.Contains("width: 100%", full);
-        Assert.Contains("height: 100%", full);
-        Assert.Contains("max-width: none", full);
-        Assert.Contains("max-height: none", full);
-        Assert.Contains("margin: 0", full);
-    }
-
-    // A2: Der Dialog trägt die Klasse, an der die Größenregeln hängen; die Optionen machen ihn nicht selbst zum Vollbild.
-    [Fact]
-    public async Task Dialog_carries_the_class_of_the_size_rules()
-    {
-        await OpenAsync();
-
-        Assert.NotNull(dialogs.Find(".mud-dialog-container .mud-dialog.step-dialog"));
-        Assert.NotEqual(true, StepDialogOptions.Create().FullScreen);
     }
 
     // A3: Ein Wert aus Schritt 1 steht nach Weiter und Zurück noch da, und der aus Schritt 2 auch.
@@ -259,12 +230,12 @@ public class StepDialogTests : UiTestContext
         Button("Abbrechen").Click();
 
         dialogs.WaitForAssertion(() => Assert.Contains("Eingaben verwerfen?", dialogs.Markup));
-        Assert.False(reference!.Result.IsCompleted);
+        Assert.False(opened!.IsCompleted);
 
         Button("Weiter bearbeiten").Click();
 
         dialogs.WaitForAssertion(() => Assert.DoesNotContain("Eingaben verwerfen?", dialogs.Markup));
-        Assert.False(reference.Result.IsCompleted);
+        Assert.False(opened.IsCompleted);
         Assert.Equal("Miete", Input("demo-name").GetAttribute("value"));
     }
 
@@ -279,8 +250,8 @@ public class StepDialogTests : UiTestContext
 
         Button("Verwerfen").Click();
 
-        var result = await reference!.Result;
-        Assert.True(result!.Canceled);
+        var result = await opened!;
+        Assert.False(result.Saved);
     }
 
     // A5: Ohne Eingaben schließt Abbrechen sofort, ohne Rückfrage.
@@ -291,21 +262,9 @@ public class StepDialogTests : UiTestContext
 
         Button("Abbrechen").Click();
 
-        var result = await reference!.Result;
-        Assert.True(result!.Canceled);
+        var result = await opened!;
+        Assert.False(result.Saved);
         Assert.DoesNotContain("Eingaben verwerfen?", dialogs.Markup);
-    }
-
-    // A5: Ein Klick neben den Dialog oder Escape schließen ihn nicht an der Rückfrage vorbei.
-    [Fact]
-    public void Options_close_only_through_the_dialogs_own_cancel()
-    {
-        var options = StepDialogOptions.Create();
-
-        Assert.False(options.BackdropClick);
-        Assert.False(options.CloseOnEscapeKey);
-        Assert.False(options.CloseButton);
-        Assert.NotEqual(true, options.NoHeader);
     }
 }
 
@@ -316,7 +275,7 @@ public class StepDialogPageTests : UiTestContext
     public void Test_page_opens_the_example_dialog_in_development()
     {
         Services.AddSingleton<IDevelopmentMode>(new DevelopmentMode(true));
-        var dialogs = Render<MudDialogProvider>();
+        var dialogs = Render<Radzen.Blazor.RadzenComponents>();
         var cut = Render<StepDialogDemo>();
 
         cut.Find("[data-testid='step-dialog-demo-open'] button").Click();

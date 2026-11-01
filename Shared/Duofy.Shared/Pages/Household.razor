@@ -1,4 +1,6 @@
 @page "/haushalt"
+@using Radzen
+@using Radzen.Blazor
 @attribute [Authorize]
 @using System.Globalization
 @using Duofy.ApiClient
@@ -8,7 +10,7 @@
 @inject IHouseholdApi HouseholdApi
 @inject ActiveMember Member
 @inject IInstanceApi InstanceApi
-@inject IDialogService DialogService
+@inject FormDialogs Forms
 @inject IAppHost Host
 @inject AppChrome Chrome
 @inject NavigationManager Navigation
@@ -33,7 +35,7 @@
 <AppPageHeading Text="@L["Household_Title"]" />
 @if (!Host.IsApp)
 {
-    <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-2">@L["Household_Title"]</MudText>
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" Class="rz-mb-2">@L["Household_Title"]</RadzenText>
 }
 
 <Notice Message="message" />
@@ -42,21 +44,27 @@
 {
     @* Ab 1280 px stehen Gründen und Einladungslink nebeneinander, darunter untereinander wie bisher. *@
     <div class="household-columns page-wide">
-    <MudPaper Class="pa-4 mb-4" Outlined="true" data-testid="household-none">
-        <MudText Typo="Typo.h6">@L["Household_NoneTitle"]</MudText>
-        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">@L["Household_NoneText"]</MudText>
-        <MudTextField @bind-Value="newName" Label="@L["HouseholdDialog_Name"]" HelperText="@L["Household_FoundNameHint"]"
-                      Variant="Variant.Outlined" MaxLength="100" data-testid="household-found-name" />
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Home" Class="mt-3"
-                   Disabled="busy" OnClick="FoundAsync" data-testid="household-found">@L["Household_Found"]</MudButton>
-    </MudPaper>
+    <RadzenCard Variant="Variant.Outlined" Class="rz-mb-4" data-testid="household-none">
+        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2">@L["Household_NoneTitle"]</RadzenText>
+        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-text-secondary-color rz-mb-2">@L["Household_NoneText"]</RadzenText>
+        <FieldLabel For="household-found-name-input" Text="@L["HouseholdDialog_Name"]" />
+        <RadzenTextBox @bind-Value="newName" id="household-found-name-input" MaxLength="100"
+                       aria-describedby="household-found-name-hint" data-testid="household-found-name" />
+        <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color"
+                    id="household-found-name-hint">@L["Household_FoundNameHint"]</RadzenText>
+        <RadzenButton Text="@L["Household_Found"]" Icon="home" ButtonStyle="ButtonStyle.Primary" Class="rz-mt-3"
+                      Disabled="busy" Click="@(_ => FoundAsync())" data-testid="household-found" />
+    </RadzenCard>
 
     @* Ein Link, den jemand per Messenger geschickt hat: Einfügen öffnet die Seite der Einladung. *@
-    <MudStack Row="true" AlignItems="AlignItems.End" Spacing="2" Class="household-paste-row">
-        <MudTextField @bind-Value="pasted" Label="@L["Household_PasteLabel"]" Variant="Variant.Outlined" Class="flex-grow-1"
-                      data-testid="household-paste" />
-        <MudButton Variant="Variant.Outlined" OnClick="OpenPasted" data-testid="household-paste-open">@L["Household_PasteOpen"]</MudButton>
-    </MudStack>
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.End" Gap="1rem" Class="household-paste-row">
+        <div class="flex-grow-1">
+            <FieldLabel For="household-paste-input" Text="@L["Household_PasteLabel"]" />
+            <RadzenTextBox @bind-Value="pasted" id="household-paste-input" data-testid="household-paste" />
+        </div>
+        <RadzenButton Text="@L["Household_PasteOpen"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Base"
+                      Click="@(_ => OpenPasted())" data-testid="household-paste-open" />
+    </RadzenStack>
     </div>
 }
 
@@ -65,88 +73,90 @@
     @* Ab 1280 px steht die Karte links, Mitglieder und Einladungen rechts; darunter untereinander wie bisher. *@
     <div class="household-columns page-wide">
     <div>
-    <MudPaper Class="pa-4 mb-4" Outlined="true" data-testid="household-card">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-            <MudText Typo="Typo.h6" Class="flex-grow-1" data-testid="household-name">@household.Name</MudText>
+    <RadzenCard Variant="Variant.Outlined" Class="rz-mb-4" data-testid="household-card">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+            <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="flex-grow-1" data-testid="household-name">@household.Name</RadzenText>
             @if (IsFounder)
             {
-                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="EditAsync"
-                               aria-label="@L["Household_Edit"]" data-testid="household-edit" />
+                <RadzenButton Icon="edit" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small"
+                              Click="@(_ => EditAsync())" aria-label="@L["Household_Edit"]" data-testid="household-edit" />
             }
-        </MudStack>
-        <MudText Typo="Typo.body2" Color="Color.Secondary">
+        </RadzenStack>
+        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-text-secondary-color">
             @(household.Members.Count == 1 ? L["Household_MemberCountOne"] : L["Household_MemberCount", household.Members.Count])
-        </MudText>
-        <MudText Typo="Typo.body2" Class="mt-1" data-testid="household-quota-line">@QuotaLine</MudText>
-        <MudStack Row="true" Spacing="2" Class="mt-3" Wrap="Wrap.Wrap">
-            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Lock" Href="/haushalt/freigaben"
-                       data-testid="household-grants">@L["Household_Grants"]</MudButton>
+        </RadzenText>
+        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-mt-1" data-testid="household-quota-line">@QuotaLine</RadzenText>
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" Wrap="FlexWrap.Wrap" Class="rz-mt-3">
+            <LinkButton Href="/haushalt/freigaben" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Base"
+                        data-testid="household-grants"><RadzenIcon Icon="lock" /> @L["Household_Grants"]</LinkButton>
             @if (IsFounder && InvitationsFull)
             {
                 @* Bei 10 offenen Einladungen antwortet die API too_many_invitations (A23). Ausgegraut wie Austreten:
                    aria-disabled statt disabled, damit ein Screenreader den Knopf findet und den Grund vorliest. *@
-                <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.PersonAdd" Ripple="false" DropShadow="false"
-                           Style="background-color: var(--mud-palette-action-disabled-background); color: var(--mud-palette-action-disabled); cursor: default;"
-                           aria-disabled="true" aria-describedby="household-invite-reason"
-                           data-testid="household-invite">@L["Household_Invite"]</MudButton>
+                <RadzenButton Text="@L["Household_Invite"]" Icon="person_add" ButtonStyle="ButtonStyle.Base"
+                              Class="unavailable"
+                              aria-disabled="true" aria-describedby="household-invite-reason"
+                              data-testid="household-invite" />
             }
             else if (IsFounder)
             {
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd"
-                           OnClick="InviteAsync" data-testid="household-invite">@L["Household_Invite"]</MudButton>
+                <RadzenButton Text="@L["Household_Invite"]" Icon="person_add" ButtonStyle="ButtonStyle.Primary"
+                              Click="@(_ => InviteAsync())" data-testid="household-invite" />
             }
             @if (IsFounder)
             {
-                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Tune"
-                           OnClick="EditAsync" data-testid="household-quotas">@L["Household_QuotasButton"]</MudButton>
+                <RadzenButton Text="@L["Household_QuotasButton"]" Icon="tune" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Base"
+                              Click="@(_ => EditAsync())" data-testid="household-quotas" />
             }
             @if (!IsFounder)
             {
-                <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Logout"
-                           OnClick="LeaveAsync" data-testid="household-leave">@L["Household_Leave"]</MudButton>
+                <RadzenButton Text="@L["Household_Leave"]" Icon="logout" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base"
+                              Click="@(_ => LeaveAsync())" data-testid="household-leave" />
             }
             else if (household.Members.Count == 1)
             {
-                <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.DeleteForever"
-                           OnClick="DissolveAsync" data-testid="household-dissolve">@L["Household_Dissolve"]</MudButton>
+                <RadzenButton Text="@L["Household_Dissolve"]" Icon="delete_forever" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base"
+                              Click="@(_ => DissolveAsync())" data-testid="household-dissolve" />
             }
             else
             {
                 @* Mit anderen im Haushalt antwortet die API founder_cannot_leave. Der Knopf ist deshalb ausgegraut
                    und tut nichts, bleibt aber erreichbar: aria-disabled statt disabled, damit ein Screenreader
                    ihn findet und den Grund darunter vorliest. *@
-                <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Logout" Ripple="false"
-                           Style="color: var(--mud-palette-action-disabled); cursor: default;"
-                           aria-disabled="true" aria-describedby="household-leave-reason"
-                           data-testid="household-leave">@L["Household_Leave"]</MudButton>
+                <RadzenButton Text="@L["Household_Leave"]" Icon="logout" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base"
+                              Class="unavailable"
+                              aria-disabled="true" aria-describedby="household-leave-reason"
+                              data-testid="household-leave" />
             }
-        </MudStack>
+        </RadzenStack>
         @if (IsFounder && InvitationsFull)
         {
-            <MudText Typo="Typo.caption" Color="Color.Secondary" id="household-invite-reason" Class="d-block"
-                     data-testid="household-invite-reason">@L["Error_too_many_invitations"]</MudText>
+            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-display-block"
+                        id="household-invite-reason" data-testid="household-invite-reason">@L["Error_too_many_invitations"]</RadzenText>
         }
         @if (IsFounder && household.Members.Count > 1)
         {
-            <MudText Typo="Typo.caption" Color="Color.Secondary" id="household-leave-reason"
-                     data-testid="household-leave-reason">@L["Household_FounderLeaveReason"]</MudText>
+            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color"
+                        id="household-leave-reason" data-testid="household-leave-reason">@L["Household_FounderLeaveReason"]</RadzenText>
         }
         @if (IsFounder && hosted)
         {
             @* Spec 53, R6: Auf der gehosteten Version geht der Link auf Wunsch per Mail, aber nur an ein bestätigtes Konto. *@
-            <div class="field mt-3">
+            <div class="field rz-mt-3">
                 <FieldLabel For="household-invite-email-input" Text="@L["Household_InviteEmail"]" />
-                <MudTextField @bind-Value="inviteEmail" Variant="Variant.Outlined" InputId="household-invite-email-input"
-                              InputType="InputType.Email" Placeholder="@L["Auth_EmailPlaceholder"]" HelperText="@L["Household_InviteEmailHint"]"
-                              autocomplete="off" data-testid="household-invite-email" />
+                <RadzenTextBox @bind-Value="inviteEmail" id="household-invite-email-input" type="email"
+                               Placeholder="@L["Auth_EmailPlaceholder"]" aria-describedby="household-invite-email-hint"
+                               autocomplete="off" data-testid="household-invite-email" />
+                <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color"
+                            id="household-invite-email-hint">@L["Household_InviteEmailHint"]</RadzenText>
             </div>
         }
-    </MudPaper>
+    </RadzenCard>
 
     </div>
     <div>
-    <MudText Typo="Typo.h6" Class="mb-2">@L["Household_MembersHeading"]</MudText>
-    <MudStack Spacing="2" Class="mb-4 data-table members-table">
+    <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-2">@L["Household_MembersHeading"]</RadzenText>
+    <RadzenStack Gap="0.5rem" Class="rz-mb-4 data-table members-table">
         <div class="data-table-head" aria-hidden="true">
             <span class="data-column-1">@L["Table_Name"]</span>
             <span class="data-column-2">@L["Table_Email"]</span>
@@ -154,43 +164,43 @@
         </div>
         @foreach (var member in household.Members)
         {
-            <MudPaper Class="pa-3 data-row-frame" Outlined="true" data-testid="@($"household-member-{member.UserId}")">
-                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="data-row">
-                    <MudStack Spacing="0" Class="flex-grow-1 data-cells">
-                        <MudText Class="data-column-1">@member.FirstName @member.LastName @(member.IsMe ? L["Household_Me"] : "")</MudText>
-                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="data-column-2">@member.Email</MudText>
-                    </MudStack>
-                    <MudChip T="string" Size="Size.Small" Color="@(member.Role == HouseholdRoles.Founder ? Color.Primary : Color.Default)" Class="data-column-3">
-                        @L[$"HouseholdRole_{member.Role}"]
-                    </MudChip>
+            <RadzenCard Variant="Variant.Outlined" Class="data-row-frame" data-testid="@($"household-member-{member.UserId}")">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Class="data-row">
+                    <RadzenStack Gap="0" Class="flex-grow-1 data-cells">
+                        <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="data-column-1">@member.FirstName @member.LastName @(member.IsMe ? L["Household_Me"] : "")</RadzenText>
+                        <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color data-column-2">@member.Email</RadzenText>
+                    </RadzenStack>
+                    <RadzenBadge BadgeStyle="@(member.Role == HouseholdRoles.Founder ? BadgeStyle.Primary : BadgeStyle.Base)" IsPill="true"
+                                 Text="@L[$"HouseholdRole_{member.Role}"].Value" Class="data-column-3" />
                     @* Sich selbst entfernt man nicht (cannot_remove_self); der Gründer löst auf, wenn er allein ist. *@
                     @if (IsFounder && !member.IsMe)
                     {
-                        <MudIconButton Icon="@Icons.Material.Filled.PersonRemove" Size="Size.Small"
-                                       OnClick="() => RemoveAsync(member)" Class="data-column-4"
-                                       aria-label="@L["Household_RemoveMember", member.FirstName]"
-                                       data-testid="@($"household-member-remove-{member.UserId}")" />
+                        <RadzenButton Icon="person_remove" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small"
+                                      Click="@(_ => RemoveAsync(member))" Class="data-column-4"
+                                      aria-label="@L["Household_RemoveMember", member.FirstName]"
+                                      data-testid="@($"household-member-remove-{member.UserId}")" />
                     }
-                </MudStack>
-            </MudPaper>
+                </RadzenStack>
+            </RadzenCard>
         }
-    </MudStack>
+    </RadzenStack>
 
     @if (IsFounder && invitations.Count > 0)
     {
-        <MudText Typo="Typo.h6" Class="mb-2">@L["Household_InvitationsHeading"]</MudText>
-        <MudStack Spacing="2" Class="mb-4">
+        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-2">@L["Household_InvitationsHeading"]</RadzenText>
+        <RadzenStack Gap="0.5rem" Class="rz-mb-4">
             @foreach (var invitation in invitations)
             {
-                <MudPaper Class="pa-3" Outlined="true" data-testid="@($"household-invitation-{invitation.Id}")">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                        <MudText Class="flex-grow-1">@L["Household_InvitationUntil", Day(invitation.ExpiresAt)]</MudText>
-                        <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => RevokeAsync(invitation)"
-                                   data-testid="@($"household-invitation-revoke-{invitation.Id}")">@L["Household_Revoke"]</MudButton>
-                    </MudStack>
-                </MudPaper>
+                <RadzenCard Variant="Variant.Outlined" data-testid="@($"household-invitation-{invitation.Id}")">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                        <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="flex-grow-1">@L["Household_InvitationUntil", Day(invitation.ExpiresAt)]</RadzenText>
+                        <RadzenButton Text="@L["Household_Revoke"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small"
+                                      Click="@(_ => RevokeAsync(invitation))"
+                                      data-testid="@($"household-invitation-revoke-{invitation.Id}")" />
+                    </RadzenStack>
+                </RadzenCard>
             }
-        </MudStack>
+        </RadzenStack>
     }
     </div>
     </div>
@@ -244,7 +254,7 @@
             loaded = result.ErrorCode == ClientErrorCodes.NotFound;
             if (!loaded)
             {
-                message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+                message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
             }
             return;
         }
@@ -261,7 +271,7 @@
             }
             else
             {
-                message = new NoticeMessage(ErrorTexts.For(L, open.ErrorCode), Severity.Error);
+                message = new NoticeMessage(ErrorTexts.For(L, open.ErrorCode), NoticeSeverity.Error);
             }
         }
     }
@@ -275,11 +285,11 @@
             var result = await HouseholdApi.CreateAsync(string.IsNullOrWhiteSpace(newName) ? null : newName.Trim());
             if (!result.Succeeded)
             {
-                message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+                message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
                 return;
             }
             newName = "";
-            message = new NoticeMessage(L["Household_Founded"], Severity.Success);
+            message = new NoticeMessage(L["Household_Founded"], NoticeSeverity.Success);
             await Member.RefreshAsync();
             await LoadAsync();
         }
@@ -299,21 +309,17 @@
         var created = await HouseholdApi.CreateInvitationAsync(household!.Id, address);
         if (!created.Succeeded || created.Value!.Url is not { } link)
         {
-            message = new NoticeMessage(ErrorTexts.For(L, created.Succeeded ? ErrorCodes.PublicUrlMissing : created.ErrorCode), Severity.Error);
+            message = new NoticeMessage(ErrorTexts.For(L, created.Succeeded ? ErrorCodes.PublicUrlMissing : created.ErrorCode), NoticeSeverity.Error);
             return;
         }
 
-        var parameters = new DialogParameters<InviteDialog>
-        {
-            { x => x.Link, link },
-            { x => x.ExpiresAt, created.Value!.ExpiresAt },
-            { x => x.HouseholdName, household.Name },
-            { x => x.Mailed, address is not null },
-        };
+        var parameters = new FormParameters<InviteDialog>()
+            .Add(x => x.Link, link)
+            .Add(x => x.ExpiresAt, created.Value!.ExpiresAt)
+            .Add(x => x.HouseholdName, household.Name)
+            .Add(x => x.Mailed, address is not null);
         inviteEmail = "";
-        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
-        var dialog = await DialogService.ShowAsync<InviteDialog>(L["InviteDialog_Title"], parameters, options);
-        await dialog.Result;
+        await Forms.OpenWindowAsync<InviteDialog, bool>(L["InviteDialog_Title"], parameters);
         await LoadAsync();
     }
 
@@ -325,8 +331,8 @@
         }
         var result = await HouseholdApi.RevokeInvitationAsync(household!.Id, invitation.Id);
         message = result.Succeeded
-            ? new NoticeMessage(L["Household_Revoked"], Severity.Success)
-            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+            ? new NoticeMessage(L["Household_Revoked"], NoticeSeverity.Success)
+            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
         await LoadAsync();
     }
 
@@ -337,26 +343,21 @@
             Navigation.NavigateTo($"/einladung/{token}");
             return;
         }
-        message = new NoticeMessage(L["Household_PasteInvalid"], Severity.Warning);
+        message = new NoticeMessage(L["Household_PasteInvalid"], NoticeSeverity.Warning);
     }
 
     // Folgenreiches fragt einmal nach; erst die Bestätigung führt es aus.
     private async Task<bool> ConfirmAsync(string title, string text, string yes) =>
-        await DialogService.ShowMessageBoxAsync(new MessageBoxOptions
-        {
-            Title = title,
-            Message = text,
-            YesText = yes,
-            CancelText = L["Household_Cancel"],
-        }) == true;
+        await Forms.ConfirmAsync(text, title, yes, L["Household_Cancel"]);
 
     private async Task EditAsync()
     {
-        var parameters = new DialogParameters<HouseholdDialog> { { x => x.Household, household! } };
-        var dialog = await DialogService.ShowAsync<HouseholdDialog>(L["HouseholdDialog_Title"], parameters, StepDialogOptions.Create());
-        if (await dialog.Result is { Canceled: false })
+        var title = L["HouseholdDialog_Title"];
+        var parameters = new FormParameters<HouseholdDialog>().Add(x => x.Title, title).Add(x => x.Household, household!);
+        var outcome = await Forms.OpenStepAsync<HouseholdDialog, bool>(title, parameters);
+        if (outcome.Saved)
         {
-            message = new NoticeMessage(L["Household_Saved"], Severity.Success);
+            message = new NoticeMessage(L["Household_Saved"], NoticeSeverity.Success);
             await LoadAsync();
         }
     }
@@ -369,8 +370,8 @@
         }
         var result = await HouseholdApi.LeaveAsync(household!.Id);
         message = result.Succeeded
-            ? new NoticeMessage(L["Household_Left"], Severity.Success)
-            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+            ? new NoticeMessage(L["Household_Left"], NoticeSeverity.Success)
+            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
         await RefreshSwitchAsync(result);
         await LoadAsync();
     }
@@ -384,8 +385,8 @@
         }
         var result = await HouseholdApi.LeaveAsync(household!.Id);
         message = result.Succeeded
-            ? new NoticeMessage(L["Household_Dissolved"], Severity.Success)
-            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+            ? new NoticeMessage(L["Household_Dissolved"], NoticeSeverity.Success)
+            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
         await RefreshSwitchAsync(result);
         await LoadAsync();
     }
@@ -398,8 +399,8 @@
         }
         var result = await HouseholdApi.RemoveMemberAsync(household!.Id, member.UserId);
         message = result.Succeeded
-            ? new NoticeMessage(L["Household_Removed", member.FirstName], Severity.Success)
-            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+            ? new NoticeMessage(L["Household_Removed", member.FirstName], NoticeSeverity.Success)
+            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
         await RefreshSwitchAsync(result);
         await LoadAsync();
     }

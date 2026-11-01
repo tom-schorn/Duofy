@@ -4,7 +4,7 @@ using Duofy.Schemas;
 using Duofy.Shared.Layout;
 using Duofy.Shared.Services;
 using Microsoft.Extensions.DependencyInjection;
-using MudBlazor;
+using Radzen.Blazor;
 
 namespace Duofy.Shared.Tests;
 
@@ -55,7 +55,11 @@ public class SideNavigationTests : PageTestContext
 
     private static IReadOnlyList<(string Text, string? Href)> Entries<T>(IRenderedComponent<T> cut, string testId)
         where T : Microsoft.AspNetCore.Components.IComponent =>
-        cut.FindAll($"[data-testid='{testId}'] a").Select(a => (a.TextContent.Trim(), a.GetAttribute("href"))).ToList();
+        cut.FindAll(testId == "side-nav" ? ".app-side-list a" : $"[data-testid='{testId}'] a").Select(a => (Label(a), a.GetAttribute("href"))).ToList();
+
+    // Der Text eines Eintrags ohne den Namen des Symbols, der in Radzen als Text im i-Element steht.
+    private static string Label(AngleSharp.Dom.IElement entry) =>
+        entry.QuerySelector(".rz-navigation-item-text, .app-bottom-label")!.TextContent.Trim();
 
     // A1 (R1): Das Stylesheet zeigt unter dem Desktop nur die untere Leiste und ab dem Desktop nur die Seitenleiste.
     [Fact]
@@ -78,7 +82,33 @@ public class SideNavigationTests : PageTestContext
 
         Assert.Single(cut.FindAll("[data-testid='side-nav']"));
         Assert.Single(cut.FindAll("[data-testid='bottom-bar']"));
-        Assert.Empty(cut.FindComponents<MudDrawer>());
+    }
+
+    // Radzen R7: Rahmen, Kopfzeile, Seitenleiste und Inhalt sind die Bausteine von Radzen.
+    [Fact]
+    public void The_web_layout_is_built_from_radzen_parts()
+    {
+        var cut = Render<MainLayout>();
+
+        Assert.Single(cut.FindComponents<RadzenLayout>());
+        Assert.Single(cut.FindComponents<RadzenHeader>());
+        Assert.Single(cut.FindComponents<RadzenSidebar>());
+        Assert.Single(cut.FindComponents<RadzenBody>());
+        Assert.Single(cut.FindAll(".rz-sidebar [data-testid='side-nav']"));
+        Assert.Single(cut.FindAll(".rz-body #main-content"));
+    }
+
+    // Die Breite entscheidet schon vor dem ersten Rechnen im Browser, deshalb im Stylesheet und nicht mit dem Sidebar-Schalter.
+    [Fact]
+    public void The_radzen_side_bar_stays_out_of_the_way_below_the_desktop()
+    {
+        var css = Css();
+        Assert.Contains("display: none", Rule(css, ".app-sidebar"));
+        Assert.Contains("display: block", Rule(DesktopMedia(css), ".app-sidebar"));
+
+        var cut = Render<MainLayout>();
+        Assert.False(cut.FindComponent<RadzenSidebar>().Instance.Responsive);
+        Assert.Contains("app-sidebar", cut.Find(".rz-sidebar").ClassList);
     }
 
     [Fact]
@@ -126,7 +156,7 @@ public class SideNavigationTests : PageTestContext
         Users.Me = Users.Me with { IsInstanceAdmin = true };
         var anna = Render<SideNavigation>();
 
-        anna.WaitForAssertion(() => Assert.Equal("/admin", anna.Find("[data-testid='side-admin']").GetAttribute("href")));
+        anna.WaitForAssertion(() => Assert.Equal("/admin", anna.Find("[data-testid='side-admin'] a").GetAttribute("href")));
     }
 
     [Fact]
@@ -136,7 +166,7 @@ public class SideNavigationTests : PageTestContext
 
         var cut = Render<SideNavigation>();
 
-        cut.WaitForAssertion(() => Assert.Equal("/rechtliches/impressum", cut.Find("[data-testid='side-legal-imprint']").GetAttribute("href")));
+        cut.WaitForAssertion(() => Assert.Equal("/rechtliches/impressum", cut.Find("[data-testid='side-legal-imprint'] a").GetAttribute("href")));
         Assert.Empty(cut.FindAll("[data-testid='side-legal-privacy']"));
     }
 
@@ -158,7 +188,7 @@ public class SideNavigationTests : PageTestContext
     {
         var app = Render<AppLayout>();
 
-        app.WaitForAssertion(() => Assert.Equal(3, app.FindAll("[data-testid='side-nav'] [data-testid='side-mode'] [role='radio']").Count));
+        app.WaitForAssertion(() => Assert.Equal(3, app.FindAll("[data-testid='side-nav'] [data-testid='side-mode'] button").Count));
     }
 
     [Fact]
@@ -191,12 +221,10 @@ public class SideNavigationTests : PageTestContext
         var cut = Render<SideNavigation>();
 
         var active = Assert.Single(cut.FindAll("a"), a => a.GetAttribute("aria-current") == "page");
-        Assert.Equal("Plan", active.TextContent.Trim());
-        Assert.Contains("app-side-item-active", active.ClassList);
-        // Die Markierung sieht man: Balken am Rand und fetter Text, nicht nur die Farbe.
-        var marker = Rule(Css(), ".app-side-item-active");
-        Assert.Contains("border-left", marker);
-        Assert.Contains("font-weight", marker);
+        Assert.Equal("Plan", Label(active));
+        // Tom, 30.10.: Das offene Ziel erkennt man an Fläche und Farbe, ohne Balken (Variablen in RadzenVariables).
+        Assert.Equal("transparent", Duofy.Shared.Theme.RadzenVariables.Common["--rz-panel-menu-item-active-indicator"]);
+        Assert.Contains("Plan", cut.Find(".rz-navigation-item-wrapper-active").TextContent);
     }
 
     [Fact]
@@ -208,7 +236,7 @@ public class SideNavigationTests : PageTestContext
         Navigation.NavigateTo("/konten");
 
         cut.WaitForAssertion(() =>
-            Assert.Equal("Konten", Assert.Single(cut.FindAll("a"), a => a.GetAttribute("aria-current") == "page").TextContent.Trim()));
+            Assert.Equal("Konten", Label(Assert.Single(cut.FindAll("a"), a => a.GetAttribute("aria-current") == "page"))));
     }
 
     // Unterseiten lassen ihren Eintrag leuchten; "/konto" ist nicht "/konten".
@@ -224,7 +252,7 @@ public class SideNavigationTests : PageTestContext
         var cut = Render<SideNavigation>();
 
         cut.WaitForAssertion(() =>
-            Assert.Equal(label, Assert.Single(cut.FindAll("a"), a => a.GetAttribute("aria-current") == "page").TextContent.Trim()));
+            Assert.Equal(label, Label(Assert.Single(cut.FindAll("a"), a => a.GetAttribute("aria-current") == "page"))));
     }
 
     // Unten leuchtet für dieselbe Seite weiter "Mehr".
@@ -235,7 +263,7 @@ public class SideNavigationTests : PageTestContext
 
         var cut = Render<BottomNavigation>();
 
-        Assert.Equal("Mehr", Assert.Single(cut.FindAll("a"), a => a.GetAttribute("aria-current") == "page").TextContent.Trim());
+        Assert.Equal("Mehr", Label(Assert.Single(cut.FindAll("a"), a => a.GetAttribute("aria-current") == "page")));
     }
 
     // A4 (R4)
@@ -247,19 +275,23 @@ public class SideNavigationTests : PageTestContext
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='side-licenses']")));
         var links = cut.FindAll("[data-testid='side-nav'] a");
         Assert.Equal(new[] { "/", "/plan", "/buchungen", "/sparen", "/konten", "/vertraege", "/haushalt", "/konto", "/lizenzen" }, links.Select(a => a.GetAttribute("href")));
-        Assert.All(links, a => Assert.True(a.GetAttribute("tabindex") is null or "0"));
 
-        var css = Css();
-        Assert.Contains("outline: 3px solid", Rule(css, ":focus-visible"));
-        Assert.DoesNotContain("outline: none", Rule(css, ".app-side-item"));
-        Assert.DoesNotContain("outline: 0", Rule(css, ".app-side-item"));
+        // Das Radzen-Menü ist ein Tab-Halt; darin führen die Pfeiltasten von Eintrag zu Eintrag, Enter öffnet das Ziel.
+        Assert.Equal("0", cut.Find("[data-testid='side-nav'] .rz-panel-menu").GetAttribute("tabindex"));
+        Assert.Contains("outline: 3px solid", Rule(Css(), ":focus-visible"));
     }
 
     // A4 (R4): Jeder Eintrag ist eine Tippfläche von mindestens 44 px.
     [Fact]
     public void Side_entries_are_at_least_44px_high()
     {
-        Assert.Contains("min-height: var(--tap-min)", Rule(Css(), ".app-side-item"));
+        // Zeilenhöhe 1,5 rem plus zweimal der Innenabstand ergibt 3,5 rem, also 56 px.
+        var css = File.ReadAllText(Path.Combine(
+            Environment.GetEnvironmentVariable("NUGET_PACKAGES") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".nuget", "packages"),
+            "radzen.blazor", "12.1.8", "staticwebassets", "css", "material-base.css"));
+
+        Assert.Contains("--rz-panel-menu-item-line-height: 1.5rem", css);
+        Assert.Contains("--rz-panel-menu-item-padding-block: 1rem", css);
     }
 
     // A5 (R5)
@@ -267,14 +299,13 @@ public class SideNavigationTests : PageTestContext
     public void An_additional_destination_appears_in_both_bars()
     {
         IReadOnlyList<(AppDestination Destination, string Href, string LabelKey, string Icon)> list =
-            [.. AppDestinations.All, (AppDestination.More, "/extra", "Nav_Extra", MudBlazor.Icons.Material.Filled.Star)];
+            [.. AppDestinations.All, (AppDestination.More, "/extra", "Nav_Extra", "star")];
 
         var side = Render<SideNavigation>(p => p.Add(c => c.Destinations, list));
         var bottom = Render<BottomNavigation>(p => p.Add(c => c.Destinations, list));
 
-        Assert.Equal(list.Count, side.FindAll("a.app-side-destination").Count);
+        Assert.Contains(side.FindAll("[data-testid='side-nav'] a"), a => a.GetAttribute("href") == "/extra");
         Assert.Equal(list.Count, bottom.FindAll("a").Count);
-        Assert.Equal("/extra", side.FindAll("a.app-side-destination").Last().GetAttribute("href"));
         Assert.Equal("/extra", bottom.FindAll("a").Last().GetAttribute("href"));
     }
 
@@ -302,7 +333,7 @@ public class SideNavigationTests : PageTestContext
 
         var cut = Render<MainLayout>();
 
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".mud-appbar [data-testid='member-switch']")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".rz-header [data-testid='member-switch']")));
     }
 
     // Spec 44, A6 (R5): Unten in der Seitenleiste steht der Profil-Knopf, auch wenn die Person allein ist, und
@@ -329,6 +360,16 @@ public class SideNavigationTests : PageTestContext
         Assert.Empty(side.FindAll("[data-testid='member-profile']"));
     }
 
+    // Ein langer Vorname darf die Kopfzeile am Handy nicht sprengen.
+    [Fact]
+    public void A_long_name_is_shortened_in_the_top_bar()
+    {
+        var css = Css();
+
+        Assert.Contains("text-overflow: ellipsis", Rule(css, ".member-profile-name"));
+        Assert.Contains("max-width: 8rem", Rule(css, ".rz-header .member-profile-name"));
+    }
+
     // Spec 44, A6 (R5): Ab dem Desktop steht der Knopf unten in der Seitenleiste und das Menü geht nach oben auf;
     // die obere Leiste zeigt ihn dann nicht doppelt.
     [Fact]
@@ -336,9 +377,9 @@ public class SideNavigationTests : PageTestContext
     {
         var desktop = DesktopMedia(Css());
 
-        Assert.Contains("display: none", Rule(desktop, ".mud-appbar .member-profile"));
+        Assert.Contains("display: none", Rule(desktop, ".rz-header .member-profile"));
         Assert.Contains("margin-top: auto", Rule(Css(), ".app-side-footer"));
-        Assert.Contains("bottom: 100%", Rule(Css(), ".member-profile-up .member-menu"));
+        Assert.Contains("bottom: 100%", Rule(Css(), ".member-profile-up ul.rz-profile-menu .rz-navigation-menu"));
     }
 
     private sealed class MemoryThemeStore : IThemePreferenceStore

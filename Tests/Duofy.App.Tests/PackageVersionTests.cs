@@ -25,6 +25,11 @@ public class PackageVersionTests
             .ToList();
 
         Assert.NotEmpty(references);
-        Assert.All(references, r => Assert.True(r.Version == "10.0.12", $"{r.Project}: {r.Package} {r.Version}"));
+        // Das Backend steht eigenständig auf seinem Stand; es hebt nur, wenn eine Sicherheitsmeldung dort gilt (Radzen verlangt 10.0.14 nur in der Oberfläche).
+        Assert.All(references, r =>
+        {
+            var expected = r.Project.Contains("Backend", StringComparison.Ordinal) ? "10.0.12" : "10.0.14";
+            Assert.True(r.Version == expected, $"{r.Project}: {r.Package} {r.Version}");
+        });
     }
 }

@@ -2,7 +2,6 @@ using Bunit;
 using Duofy.ApiClient;
 using Duofy.Schemas;
 using Duofy.Shared.Pages;
-using MudBlazor;
 
 namespace Duofy.Shared.Tests;
 
@@ -38,7 +37,7 @@ public class MailPagesTests : PageTestContext
     {
         Hosted();
         var cut = Render<Login>();
-        Field(cut, "login-email").Change("anna@example.org");
+        Field(cut, "login-email").Input("anna@example.org");
 
         cut.Find("[data-testid='login-forgot']").Click();
         cut.WaitForAssertion(() => Assert.True(Has(cut, "login-forgot-submit")));
@@ -55,8 +54,8 @@ public class MailPagesTests : PageTestContext
     {
         Auth.LoginResult = ApiResult.Failure(ErrorCodes.EmailNotConfirmed);
         var cut = Render<Login>();
-        Field(cut, "login-email").Change("anna@example.org");
-        Field(cut, "login-password").Change("ein-langes-passwort");
+        Field(cut, "login-email").Input("anna@example.org");
+        Field(cut, "login-password").Input("ein-langes-passwort");
 
         Field(cut, "login-submit").Click();
 
@@ -83,7 +82,7 @@ public class MailPagesTests : PageTestContext
         Field(cut, "register-last-name").Change("Muster");
         Field(cut, "register-email").Change("anna@example.org");
         Field(cut, "register-password").Change("ein-langes-passwort");
-        cut.FindComponent<MudCheckBox<bool>>().Find("input").Change(true);
+        Field(cut, "register-terms").Change(true);
 
         Field(cut, "register-submit").Click();
 
@@ -296,8 +295,7 @@ public class MailPagesTests : PageTestContext
     public void On_a_hosted_server_the_invitation_can_name_an_address_and_the_dialog_says_it_may_be_on_its_way()
     {
         Hosted();
-        Render<MudPopoverProvider>();
-        var dialogs = Render<MudDialogProvider>();
+        var dialogs = RenderRadzenHost();
         var cut = Render<Household>();
         cut.WaitForAssertion(() => Assert.True(Has(cut, "household-invite-email")));
         Field(cut, "household-invite-email").Change("ben@example.org");
@@ -312,8 +310,7 @@ public class MailPagesTests : PageTestContext
     [Fact]
     public void On_a_self_hosted_server_the_invitation_has_no_address_field()
     {
-        Render<MudPopoverProvider>();
-        var dialogs = Render<MudDialogProvider>();
+        var dialogs = RenderRadzenHost();
         var cut = Render<Household>();
         cut.WaitForAssertion(() => Assert.True(Has(cut, "household-invite")));
 
@@ -323,5 +320,89 @@ public class MailPagesTests : PageTestContext
         Assert.False(Has(cut, "household-invite-email"));
         Assert.Empty(dialogs.FindAll("[data-testid='invite-mail-note']"));
         Assert.Null(Assert.Single(HouseholdApiFake.InvitationEmails));
+    }
+}
+
+public class ResetPasswordRadzenTests : PageTestContext
+{
+    private bool Has(IRenderedComponent<ResetPassword> cut, string testId) => cut.FindAll($"[data-testid='{testId}']").Count > 0;
+
+    // Radzen-Umstellung R11: Passwort zurücksetzen in Radzen.
+    [Fact]
+    public void The_new_password_page_is_built_with_radzen_and_offers_a_link_to_sign_in_after_resetting()
+    {
+        Navigation.NavigateTo("/passwort-neu?link=abc_-1");
+        var cut = Render<ResetPassword>();
+
+        Assert.Equal("password", Field(cut, "reset-password").GetAttribute("type"));
+        Assert.Equal("new-password", Field(cut, "reset-password").GetAttribute("autocomplete"));
+        Assert.Equal("reset-password-input", Field(cut, "reset-password").Id);
+
+        Field(cut, "reset-password").Change("ganz-neues-passwort");
+        Field(cut, "reset-submit").Click();
+
+        cut.WaitForAssertion(() => Assert.True(Has(cut, "reset-sign-in")));
+        Assert.Equal("/anmelden", cut.Find("[data-testid='reset-sign-in']").GetAttribute("href"));
+    }
+
+    [Fact]
+    public void An_incomplete_new_password_link_shows_its_warning_in_a_radzen_alert()
+    {
+        Navigation.NavigateTo("/passwort-neu");
+        var cut = Render<ResetPassword>();
+
+        Assert.Contains("rz-alert", cut.Find("[data-testid='reset-incomplete']").ClassList);
+    }
+}
+
+/// <summary>Radzen-Umstellung R12: Die Bestätigungsseiten sind in Radzen gebaut.</summary>
+public class ConfirmPagesRadzenTests : PageTestContext
+{
+    [Fact]
+    public void The_confirmation_page_is_built_with_radzen_and_ends_with_a_link_to_sign_in()
+    {
+        Navigation.NavigateTo($"/bestaetigen?id={Guid.NewGuid()}&token=t");
+        var cut = Render<ConfirmEmail>();
+
+        Assert.Contains("rz-button", cut.Find("[data-testid='confirm-submit']").ClassList);
+        Assert.Equal("Adresse bestätigen", cut.Find("[data-testid='confirm-submit']").TextContent.Trim());
+
+        Field(cut, "confirm-submit").Click();
+
+        cut.WaitForAssertion(() => Assert.Equal("/anmelden", cut.Find("a[data-testid='confirm-sign-in']").GetAttribute("href")));
+        Assert.Contains("rz-alert", cut.Find(".rz-alert").ClassList);
+    }
+
+    [Fact]
+    public void An_incomplete_confirmation_link_shows_its_warning_in_a_radzen_alert()
+    {
+        Navigation.NavigateTo("/bestaetigen");
+        var cut = Render<ConfirmEmail>();
+
+        Assert.Contains("rz-alert", cut.Find("[data-testid='confirm-incomplete']").ClassList);
+        Assert.Contains("Dieser Link ist unvollständig.", cut.Find("[data-testid='confirm-incomplete']").TextContent);
+        Assert.Empty(cut.FindAll("[data-testid='confirm-submit']"));
+    }
+
+    [Fact]
+    public void The_email_change_page_is_built_with_radzen_and_ends_with_a_link_to_sign_in()
+    {
+        Navigation.NavigateTo($"/email-bestaetigen?id={Guid.NewGuid()}&email=anna%40neu.de&token=t");
+        var cut = Render<ConfirmEmailChange>();
+
+        Assert.Contains("anna@neu.de", cut.Find("[data-testid='email-confirm-address']").TextContent);
+
+        Field(cut, "email-confirm-submit").Click();
+
+        cut.WaitForAssertion(() => Assert.Equal("/anmelden", cut.Find("a[data-testid='email-confirm-sign-in']").GetAttribute("href")));
+    }
+
+    [Fact]
+    public void An_incomplete_email_change_link_shows_its_warning_in_a_radzen_alert()
+    {
+        Navigation.NavigateTo("/email-bestaetigen");
+        var cut = Render<ConfirmEmailChange>();
+
+        Assert.Contains("rz-alert", cut.Find("[data-testid='email-confirm-incomplete']").ClassList);
     }
 }

@@ -1,8 +1,11 @@
+@using Radzen
+@using Radzen.Blazor
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
 @inject IPlanApi PlanApi
 @inject ActiveMember Member
+@inject DialogService Dialogs
 @inject IStringLocalizer<SharedResources> L
 @inject IAppHost Host
 
@@ -10,40 +13,42 @@
    den Unterschied an, vorbelegt mit dem offenen Rest. 0 hakt ab, ohne etwas zu buchen; ein
    Unterschied zwischen geplant und gebucht darf bleiben. *@
 
-<MudDialog>
-    <DialogContent>
-        @if (Host.IsApp)
+<div>
+    @if (Host.IsApp)
+    {
+        <FullScreenFormHeader Title="@Title" SaveText="@L["PlanTickDialog_Save"]" SaveTestId="tick-save"
+                              Busy="busy" OnClose="Cancel" OnSave="SaveAsync" />
+    }
+    <RadzenStack Gap="1rem">
+        @if (error is not null)
         {
-            <FullScreenFormHeader Title="@MudDialog.Title" SaveText="@L["PlanTickDialog_Save"]" SaveTestId="tick-save"
-                                  Busy="busy" OnClose="Cancel" OnSave="SaveAsync" />
+            <ErrorAlert AlertStyle="AlertStyle.Danger" Text="@error" data-testid="tick-error" />
         }
-        <MudStack Spacing="3">
-            @if (error is not null)
-            {
-                <MudAlert Severity="Severity.Error" data-testid="tick-error">@error</MudAlert>
-            }
-            <MudText data-testid="tick-summary">@L["PlanTickDialog_Summary", Position.Label, Money(Position.AmountPlanned), Money(Position.Booked)]</MudText>
-            <MudNumericField T="decimal?" @bind-Value="amount" Culture="German" Format="0.00" Min="0"
-                             HideSpinButtons="true" Label="@L["Field_BalancingAmount"]"
-                             HelperText="@L["PlanTickDialog_Hint"]" data-testid="tick-amount" />
-        </MudStack>
-    </DialogContent>
-    <DialogActions>
+        <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-m-0" data-testid="tick-summary">@L["PlanTickDialog_Summary", Position.Label, Money(Position.AmountPlanned), Money(Position.Booked)]</RadzenText>
+        <div class="field">
+            <FieldLabel id="tick-amount-label" Text="@L["Field_BalancingAmount"]" />
+            <RadzenNumeric TValue="decimal?" @bind-Value="amount" Culture="German" Format="0.00" Min="0" ShowUpDown="false"
+                           InputAttributes="@(new Dictionary<string, object> { ["aria-labelledby"] = "tick-amount-label", ["aria-describedby"] = "tick-amount-hint" })"
+                           data-testid="tick-amount" />
+            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-m-0" id="tick-amount-hint">@L["PlanTickDialog_Hint"]</RadzenText>
+        </div>
         @if (!Host.IsApp)
         {
-            <MudButton OnClick="Cancel">@L["PlanDialog_Cancel"]</MudButton>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="busy" OnClick="SaveAsync"
-                       data-testid="tick-save">@L["PlanTickDialog_Save"]</MudButton>
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+                <RadzenButton Text="@L["PlanDialog_Cancel"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Click="@(_ => Cancel())" />
+                <RadzenButton Text="@L["PlanTickDialog_Save"]" ButtonStyle="ButtonStyle.Primary" Disabled="busy" Click="@(_ => SaveAsync())"
+                              data-testid="tick-save" />
+            </RadzenStack>
         }
-    </DialogActions>
-</MudDialog>
+    </RadzenStack>
+</div>
 
 @code {
 
     private static readonly CultureInfo German = new("de-DE");
 
-    [CascadingParameter]
-    private IMudDialogInstance MudDialog { get; set; } = default!;
+    /// <summary>Der Titel für die Kopfzeile in der App; im Browser steht er in der Titelzeile des Fensters.</summary>
+    [Parameter] public string? Title { get; set; }
 
     [Parameter] public int Year { get; set; }
 
@@ -64,7 +69,7 @@
         amount = PlanView.OpenAmount(Position);
     }
 
-    private void Cancel() => MudDialog.Cancel();
+    private void Cancel() => Dialogs.Close();
 
     private async Task SaveAsync()
     {
@@ -75,7 +80,7 @@
             var result = await PlanApi.TickAsync(Year, Month, Position.Id, new TickPositionRequest(Amount: amount ?? 0m), owner);
             if (result.Succeeded)
             {
-                MudDialog.Close(DialogResult.Ok(true));
+                Dialogs.Close(true);
             }
             else
             {

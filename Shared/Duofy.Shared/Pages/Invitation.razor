@@ -1,4 +1,6 @@
 @page "/einladung/{Token}"
+@using Radzen
+@using Radzen.Blazor
 @layout AuthLayout
 @using System.Globalization
 @using Duofy.ApiClient
@@ -20,49 +22,50 @@
 <PageTitle>@L["Invitation_Title"]</PageTitle>
 
 <div class="auth-header">
-    <MudText Typo="Typo.h2" HtmlTag="h1">@L["Invitation_Title"]</MudText>
+    <RadzenText TextStyle="TextStyle.H2" TagName="TagName.H1">@L["Invitation_Title"]</RadzenText>
 </div>
 
 @if (error is not null)
 {
-    <MudAlert Severity="Severity.Error" Class="mb-4" data-testid="invitation-error">@error</MudAlert>
+    <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false" Class="rz-mb-4"
+                 data-testid="invitation-error">@error</RadzenAlert>
 }
 
 @if (preview is not null)
 {
-    <MudStack Spacing="3">
-        <MudText>@L["Invitation_Text", preview.InvitedBy, preview.HouseholdName]</MudText>
-        <MudText Typo="Typo.body2" Color="Color.Secondary">
+    <RadzenStack Gap="0.75rem">
+        <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P">@L["Invitation_Text", preview.InvitedBy, preview.HouseholdName]</RadzenText>
+        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-text-secondary-color">
             @L["Invitation_Until", preview.ExpiresAt.ToLocalTime().ToString("dd.MM.yyyy", German)]
-        </MudText>
+        </RadzenText>
 
         <AuthorizeView>
             <Authorized>
                 @if (inHousehold)
                 {
                     @* aria-disabled statt disabled, damit ein Screenreader den Knopf findet und den Grund vorliest. *@
-                    <MudText Typo="Typo.body2" id="invitation-join-reason" data-testid="invitation-join-reason">@L["Error_already_in_household"]</MudText>
-                    <MudButton Variant="Variant.Filled" FullWidth="true" Ripple="false" DropShadow="false"
-                               Style="background-color: var(--mud-palette-action-disabled-background); color: var(--mud-palette-action-disabled); cursor: default;"
-                               aria-disabled="true" aria-describedby="invitation-join-reason"
-                               data-testid="invitation-join">@L["Invitation_Join"]</MudButton>
+                    <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" id="invitation-join-reason"
+                                data-testid="invitation-join-reason">@L["Error_already_in_household"]</RadzenText>
+                    <RadzenButton Text="@L["Invitation_Join"]" ButtonStyle="ButtonStyle.Base" Class="unavailable rz-w-100"
+                                  aria-disabled="true" aria-describedby="invitation-join-reason"
+                                  data-testid="invitation-join" />
                 }
                 else
                 {
-                    <MudText Typo="Typo.body2">@L["Invitation_JoinHint"]</MudText>
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Disabled="busy"
-                               OnClick="JoinAsync" data-testid="invitation-join">@L["Invitation_Join"]</MudButton>
+                    <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P">@L["Invitation_JoinHint"]</RadzenText>
+                    <RadzenButton Text="@L["Invitation_Join"]" ButtonStyle="ButtonStyle.Primary" Class="rz-w-100" Disabled="busy"
+                                  Click="@(_ => JoinAsync())" data-testid="invitation-join" />
                 }
             </Authorized>
             <NotAuthorized>
-                <MudText Typo="Typo.body2">@L["Invitation_SignInHint"]</MudText>
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
-                           Href="@ReturnAddress.With("/anmelden", Here)" data-testid="invitation-sign-in">@L["Invitation_SignIn"]</MudButton>
-                <MudButton Variant="Variant.Outlined" FullWidth="true"
-                           Href="@ReturnAddress.With("/registrieren", Here)" data-testid="invitation-register">@L["Invitation_Register"]</MudButton>
+                <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P">@L["Invitation_SignInHint"]</RadzenText>
+                <LinkButton Href="@ReturnAddress.With("/anmelden", Here)" FullWidth="true"
+                            data-testid="invitation-sign-in">@L["Invitation_SignIn"]</LinkButton>
+                <LinkButton Href="@ReturnAddress.With("/registrieren", Here)" Variant="Variant.Outlined" FullWidth="true"
+                            data-testid="invitation-register">@L["Invitation_Register"]</LinkButton>
             </NotAuthorized>
         </AuthorizeView>
-    </MudStack>
+    </RadzenStack>
 }
 
 @code {

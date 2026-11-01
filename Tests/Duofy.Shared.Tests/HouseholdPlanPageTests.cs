@@ -4,7 +4,6 @@ using Duofy.Shared.Layout;
 using Duofy.Shared.Pages;
 using Duofy.Shared.Services;
 using Microsoft.Extensions.DependencyInjection;
-using MudBlazor;
 
 namespace Duofy.Shared.Tests;
 
@@ -21,8 +20,7 @@ public class HouseholdPlanPageTests : PageTestContext
 
     public HouseholdPlanPageTests()
     {
-        Render<MudPopoverProvider>();
-        Render<MudDialogProvider>();
+        RenderRadzenHost();
         household = new HouseholdResponse(Guid.NewGuid(), "Haushalt von Anna", 50, 30, 20,
             [FakeHouseholdApi.Anna(isMe: false), FakeHouseholdApi.Ben(isMe: true)]);
         HouseholdApiFake.Household = household;
@@ -31,7 +29,7 @@ public class HouseholdPlanPageTests : PageTestContext
     private ActiveMember Member => Services.GetRequiredService<ActiveMember>();
 
     private static string Names(IRenderedComponent<MemberSwitch> cut) =>
-        string.Join(",", cut.FindAll("[data-testid^='member-choice-']").Select(o => o.TextContent.Trim()));
+        string.Join(",", cut.FindAll("[data-testid^='member-choice-'] .rz-navigation-item-text").Select(o => o.TextContent.Trim()));
 
     private static IRenderedComponent<MemberSwitch> Open(IRenderedComponent<MemberSwitch> cut)
     {
@@ -46,7 +44,7 @@ public class HouseholdPlanPageTests : PageTestContext
     {
         var cut = Open(Render<MemberSwitch>());
 
-        cut.WaitForAssertion(() => Assert.Equal("button", cut.Find("[data-testid='member-choice-household']").TagName.ToLowerInvariant()));
+        cut.WaitForAssertion(() => Assert.Null(cut.Find("[data-testid='member-choice-household']").GetAttribute("aria-disabled")));
         Assert.Equal("Ich,Haushalt", Names(cut));
     }
 
@@ -209,7 +207,7 @@ public class HouseholdPlanPageTests : PageTestContext
 
         var cut = Render<Plan>();
 
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".mud-alert")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(AlertSelector)));
     }
 
     // R9: Auf den anderen Seiten gibt es keine gemeinsame Sicht.

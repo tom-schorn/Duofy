@@ -2,14 +2,13 @@ using Bunit;
 using Duofy.Shared.Layout;
 using Duofy.Shared.Services;
 using Microsoft.Extensions.DependencyInjection;
-using MudBlazor;
 
 namespace Duofy.Shared.Tests;
 
 /// <summary>
 /// Spec 5 (Umschalter Hell, Dunkel und wie das Gerät): drei Möglichkeiten, die Wahl bleibt erhalten,
 /// ohne Wahl gilt das Gerät, die Anzeige folgt dem Gerät, alte Wahlen (hell, dunkel) bleiben gültig.
-/// Den Wechsel des Geräts spielt der Test über SystemDarkModeChangedAsync des MudThemeProvider nach,
+/// Den Wechsel des Geräts spielt der Test über RadzenMediaQuery nach,
 /// so wie das JavaScript im Browser ihn meldet. Der echte Browser ist damit nicht gesehen.
 /// </summary>
 public class ThemeSwitchTests : UiTestContext
@@ -24,11 +23,11 @@ public class ThemeSwitchTests : UiTestContext
 
     private IRenderedComponent<MainLayout> OpenLayout() => Render<MainLayout>();
 
-    private static bool IsDark(IRenderedComponent<MainLayout> cut) => cut.FindComponent<MudThemeProvider>().Instance.IsDarkMode;
+    private static bool IsDark(IRenderedComponent<MainLayout> cut) => cut.FindComponent<Duofy.Shared.Layout.ThemeVariables>().Instance.Dark;
 
     private static string Checked(IRenderedComponent<MainLayout> cut)
     {
-        var active = cut.FindAll("[role='radio'][aria-checked='true']");
+        var active = cut.FindAll("[data-testid^='theme-'][aria-pressed='true']");
         Assert.Single(active);
         return active[0].GetAttribute("data-testid")!;
     }
@@ -39,12 +38,13 @@ public class ThemeSwitchTests : UiTestContext
     {
         var cut = OpenLayout();
 
-        var radios = cut.FindAll("[data-testid='theme-choice'] [role='radio']");
+        var radios = cut.FindAll("[data-testid='theme-choice'] button");
         Assert.Equal(["Hell", "Dunkel", "Wie das Gerät"], radios.Select(r => r.GetAttribute("aria-label")).ToArray());
-        Assert.Equal("radiogroup", cut.Find("[data-testid='theme-choice']").GetAttribute("role"));
+        Assert.Equal("group", cut.Find("[data-testid='theme-choice']").GetAttribute("role"));
+        Assert.Empty(cut.FindAll("[data-testid='theme-choice'] [role]"));
         Assert.Equal("Darstellung", cut.Find("[data-testid='theme-choice']").GetAttribute("aria-label"));
-        Assert.Single(cut.FindAll("[role='radio'][aria-checked='true']"));
-        Assert.Equal(2, cut.FindAll("[role='radio'][aria-checked='false']").Count);
+        Assert.Single(cut.FindAll("[data-testid^='theme-'][aria-pressed='true']"));
+        Assert.Equal(2, cut.FindAll("[data-testid^='theme-'][aria-pressed='false']").Count);
     }
 
     // A1: Wer eine Möglichkeit antippt, macht genau diese aktiv.
@@ -132,12 +132,11 @@ public class ThemeSwitchTests : UiTestContext
         var cut = OpenLayout();
         cut.WaitForAssertion(() => Assert.Equal("theme-device", Checked(cut)));
         Assert.False(IsDark(cut));
-        var provider = cut.FindComponent<MudThemeProvider>().Instance;
 
-        await cut.InvokeAsync(() => provider.SystemDarkModeChangedAsync(true));
+        await cut.InvokeAsync(() => cut.FindComponent<Radzen.Blazor.RadzenMediaQuery>().Instance.OnChange(true));
         Assert.True(IsDark(cut));
 
-        await cut.InvokeAsync(() => provider.SystemDarkModeChangedAsync(false));
+        await cut.InvokeAsync(() => cut.FindComponent<Radzen.Blazor.RadzenMediaQuery>().Instance.OnChange(false));
         Assert.False(IsDark(cut));
     }
 
@@ -150,9 +149,8 @@ public class ThemeSwitchTests : UiTestContext
         store.Stored = choice;
         var cut = OpenLayout();
         cut.WaitForAssertion(() => Assert.Equal(choice == ThemeChoice.Dark, IsDark(cut)));
-        var provider = cut.FindComponent<MudThemeProvider>().Instance;
 
-        await cut.InvokeAsync(() => provider.SystemDarkModeChangedAsync(deviceDark));
+        await cut.InvokeAsync(() => cut.FindComponent<Radzen.Blazor.RadzenMediaQuery>().Instance.OnChange(deviceDark));
 
         Assert.Equal(expectedDark, IsDark(cut));
     }
@@ -164,8 +162,7 @@ public class ThemeSwitchTests : UiTestContext
         store.Stored = ThemeChoice.Light;
         var cut = OpenLayout();
         cut.WaitForAssertion(() => Assert.Equal("theme-light", Checked(cut)));
-        var provider = cut.FindComponent<MudThemeProvider>().Instance;
-        await cut.InvokeAsync(() => provider.SystemDarkModeChangedAsync(true));
+        await cut.InvokeAsync(() => cut.FindComponent<Radzen.Blazor.RadzenMediaQuery>().Instance.OnChange(true));
         Assert.False(IsDark(cut));
 
         cut.Find("[data-testid='theme-device']").Click();

@@ -751,6 +751,27 @@ public class PlanTests : IDisposable
         Assert.False((await PlanAsync(person, 2026, 11)).CarryOver.Exists);
     }
 
+    // Mangel S14: Ein Stand ohne Betrag (Feld vergessen oder falsch benannt) war 0 und glich das ganze Konto aus.
+    [Theory]
+    [InlineData("accountId only")]
+    [InlineData("misspelled field")]
+    public async Task A_real_balance_without_its_amount_is_refused_and_books_nothing(string shape)
+    {
+        var person = await SignUpAsync();
+        await BookAsync(person, Income(person, 3000.00m));
+        object body = shape == "accountId only"
+            ? new { amount = 100.00m, balances = new[] { new { accountId = person.Giro } } }
+            : new { amount = 100.00m, balances = new[] { new { accountId = person.Giro, realBalance = 3990.00m } } };
+
+        var refused = await SendAsync(HttpMethod.Post, $"{Plans}/2026/11/carry-over", person, body);
+
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        Assert.Equal(ErrorCodes.AmountInvalid, await refused.ReadCodeAsync());
+        Assert.Single(await BookingsInAsync(person, 2026, 10));
+        Assert.Empty(await BookingsInAsync(person, 2026, 11));
+        Assert.False((await PlanAsync(person, 2026, 11)).CarryOver.Exists);
+    }
+
     [Fact]
     public async Task Removing_the_carry_over_deletes_both_bookings_of_the_pair()
     {

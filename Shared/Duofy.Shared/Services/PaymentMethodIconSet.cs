@@ -11,11 +11,11 @@ public static class PaymentMethodIconSet
 {
     private static readonly IReadOnlyDictionary<string, string> Symbols = new Dictionary<string, string>
     {
-        [PaymentMethods.DirectDebit] = "credit-card",
+        [PaymentMethods.DirectDebit] = "credit_card",
         [PaymentMethods.StandingOrder] = "repeat",
-        [PaymentMethods.Transfer] = "arrows-exchange",
-        [PaymentMethods.Withdrawal] = "cash",
-        [PaymentMethods.Other] = "coins",
+        [PaymentMethods.Transfer] = "swap_horiz",
+        [PaymentMethods.Withdrawal] = "payments",
+        [PaymentMethods.Other] = "toll",
     };
 
     /// <summary>Der Name des Zeichens in der Sammlung; eine unbekannte Zahlungsart zeigt das Zeichen für "Sonstiges".</summary>

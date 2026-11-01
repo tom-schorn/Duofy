@@ -2,6 +2,8 @@
 
 Format: 2
 
+> **Alt (Stand vor der Radzen-Umstellung, Issue 76):** Diese Spezifikation nennt die frühere Oberflächenbibliothek MudBlazor und die Tabler-Symbole. Heute gelten Radzen und Material Symbols, siehe `docs/plans/radzen-plan.md`. Fachliche Regeln und Abläufe bleiben gültig.
+
 ## Summary
 
 Duofy gets its own API (`Duofy.Api`) that alone talks to the database. The browser version and the Android app become two thin hosts around the shared pages in `Duofy.Shared` and get their data only from that API. People can register, sign in, sign out, change their name and password and delete their account, on a MudBlazor interface that already looks like Duofy, and the Android app is set up for Google Play from the first build.

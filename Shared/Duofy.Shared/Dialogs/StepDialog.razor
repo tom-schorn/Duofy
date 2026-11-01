@@ -1,22 +1,39 @@
 @inject IStringLocalizer<SharedResources> L
-@inject IDialogService DialogService
+@inject Radzen.DialogService RadzenDialogs
+@inject FormDialogs Forms
+@inject IAppHost Host
 
-@* Der Rahmen für Dialoge in Schritten (Spec 11). Er ist die Wurzel eines Dialogs, der über den
-   IDialogService mit StepDialogOptions aufgeht, so wie andere Dialoge MudDialog als Wurzel haben.
+@* Der Rahmen für Dialoge in Schritten (Spec 11). Er ist die Wurzel eines Dialogs.
+
+   Der Dialog geht über FormDialogs.OpenStepAsync auf; der Rahmen zeichnet Kopf, Schritte und Knöpfe selbst in den
+   Radzen-Dialog, der Titel kommt als Parameter Title.
 
    Die Schritte stehen als DialogStep im Inhalt. Alle Schritte bleiben gezeichnet, nur der aktuelle
    ist sichtbar; so bleiben Eingaben beim Zurückgehen stehen, auch in Feldern ohne Bindung.
    Weiter prüft die Felder des aktuellen Schritts (StepField), im letzten Schritt ruft es OnFinish.
    Zurück steht links, Weiter rechts am unteren Rand; im ersten Schritt hält ein Platzhalter die Stelle frei.
 
-   Escape bricht ab wie der Knopf Abbrechen, also mit der Rückfrage bei Eingaben (Issue #22). MudBlazors eigenes
-   Escape ist aus (StepDialogOptions), damit die Rückfrage nicht umgangen wird. *@
+   Escape bricht ab wie der Knopf Abbrechen, also mit der Rückfrage bei Eingaben (Issue #22). Das eigene Escape der
+   Bibliothek ist aus (FormDialogs.StepOptions), damit die Rückfrage nicht umgangen wird. *@
 
-<MudDialog Class="step-dialog">
-    <TitleContent>
+@* Radzen zeichnet nur den Inhalt des Dialogs; Kopf und Knöpfe bleiben stehen, nur die Schritte rollen. *@
+<div class="@FrameClass" data-testid="step-dialog">
+    <div class="step-dialog-top">
+        @HeadContent
+    </div>
+    <div class="@StepsClass">
+        @StepsContent
+    </div>
+    <div class="step-dialog-foot">
+        @ActionsContent
+    </div>
+</div>
+
+@code {
+    private RenderFragment HeadContent => @<text>
         <div class="step-dialog-head" @onkeydown="OnKeyDown">
             <div class="step-dialog-heading">
-                <h2 class="step-dialog-title">@Dialog.Title</h2>
+                <h2 class="step-dialog-title">@Title</h2>
                 @* Mit nur einem Schritt gibt es nichts zu zählen: kein Fortschritt, kein Balken. *@
                 @if (steps.Count != 1)
                 {
@@ -34,8 +51,9 @@
                 }
             </div>
         }
-    </TitleContent>
-    <DialogContent>
+    </text>;
+
+    private RenderFragment StepsContent => @<text>
         @* Tippen, Auswählen und Ankreuzen lösen input aus, und input steigt in Blazor bis hierher auf
            (change nicht); daran merkt der Rahmen, dass etwas eingegeben ist. *@
         <div class="step-dialog-steps" @oninput="MarkInput" @onkeydown="OnKeyDown">
@@ -43,8 +61,9 @@
                 @ChildContent
             </CascadingValue>
         </div>
-    </DialogContent>
-    <DialogActions>
+    </text>;
+
+    private RenderFragment ActionsContent => @<text>
         <div class="step-dialog-actions" @onkeydown="OnKeyDown">
             @if (current > 0)
             {
@@ -56,13 +75,11 @@
             }
             <DuofyButton Kind="ButtonKind.Primary" Disabled="Busy" OnClick="NextAsync" TestId="@(IsLast ? FinishTestId : NextTestId)">@(IsLast ? FinishText ?? L["StepDialog_Finish"] : L["StepDialog_Next"])</DuofyButton>
         </div>
-    </DialogActions>
-</MudDialog>
+    </text>;
 
-@code {
-    // Der Dialog selbst; sein Titel steht im Kopf, über ihn schließt Abbrechen.
-    [CascadingParameter]
-    private IMudDialogInstance Dialog { get; set; } = default!;
+    /// <summary>Der Titel im Kopf.</summary>
+    [Parameter]
+    public string? Title { get; set; }
 
     /// <summary>Die Schritte als DialogStep, in ihrer Reihenfolge.</summary>
     [Parameter, EditorRequired]
@@ -99,6 +116,11 @@
     private int current;
     private bool typed;
 
+    // In der App füllt der Dialog den Bildschirm: Der Rahmen nimmt die ganze Höhe, und nur die Schritte rollen.
+    private string FrameClass => Host.IsApp ? "step-dialog step-dialog-app" : "step-dialog";
+
+    private string StepsClass => Host.IsApp ? "step-dialog-scroll step-dialog-scroll-app" : "step-dialog-scroll";
+
     private bool IsLast => current >= steps.Count - 1;
 
     private string ProgressText => steps.Count == 0
@@ -114,10 +136,6 @@
         steps.Add(step);
         StateHasChanged();
     }
-
-    // MudBlazor zeichnet Kopf, Inhalt und Knöpfe im Dialograhmen, nicht hier. Nach jedem Zeichnen
-    // (neuer Schritt, Weiter, Zurück, neue Werte des Aufrufers) muss deshalb auch der Rahmen neu zeichnen.
-    protected override void OnAfterRender(bool firstRender) => Dialog.StateHasChanged();
 
     internal void Remove(DialogStep step)
     {
@@ -160,18 +178,14 @@
     {
         if (typed || HasInput?.Invoke() == true)
         {
-            var discard = await DialogService.ShowMessageBoxAsync(new MessageBoxOptions
-            {
-                Title = L["StepDialog_DiscardTitle"],
-                Message = L["StepDialog_DiscardText"],
-                YesText = L["StepDialog_DiscardConfirm"],
-                CancelText = L["StepDialog_DiscardKeep"],
-            });
-            if (discard != true)
+            var discard = await Forms.ConfirmAsync(L["StepDialog_DiscardText"], L["StepDialog_DiscardTitle"],
+                L["StepDialog_DiscardConfirm"], L["StepDialog_DiscardKeep"]);
+            if (!discard)
             {
                 return;
             }
         }
-        Dialog.Cancel();
+
+        RadzenDialogs.Close();
     }
 }

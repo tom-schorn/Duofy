@@ -1,8 +1,10 @@
 @page "/schritt-dialog"
+@using Radzen
+@using Radzen.Blazor
 @using Duofy.Shared.Pages
 @inject IServiceProvider Services
 @inject NavigationManager Navigation
-@inject IDialogService DialogService
+@inject FormDialogs Forms
 
 @* Die Testseite des Schritt-Dialogs (Spec 11), wie die der Bausteine nur im Entwicklungsbetrieb da.
    Ohne Meldung des Hosts (Produktion, App) zeigt sie nichts und die Adresse gilt als nicht gefunden.
@@ -11,7 +13,7 @@
 @if (IsDevelopment)
 {
     <PageTitle>@Heading</PageTitle>
-    <h1 class="mud-typography mud-typography-h4 mb-4">@Heading</h1>
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1">@Heading</RadzenText>
 
     <div class="step-dialog-demo">
         <span data-testid="step-dialog-demo-open">
@@ -51,8 +53,8 @@ else
 
     private async Task OpenAsync()
     {
-        var dialog = await DialogService.ShowAsync<StepDialogDemoDialog>(DialogTitle, StepDialogOptions.Create());
-        var closed = await dialog.Result;
-        result = closed is null || closed.Canceled ? Cancelled : string.Format(Saved, closed.Data);
+        var closed = await Forms.OpenStepAsync<StepDialogDemoDialog, string>(DialogTitle,
+            new FormParameters<StepDialogDemoDialog>().Add(d => d.Title, DialogTitle));
+        result = closed.Saved ? string.Format(Saved, closed.Value) : Cancelled;
     }
 }

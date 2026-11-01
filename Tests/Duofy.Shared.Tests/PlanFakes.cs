@@ -19,6 +19,7 @@ public sealed class FakePlanApi : IPlanApi
     public List<Guid> Unticks { get; } = [];
     public List<ApplyPlanChangesRequest> AppliedChanges { get; } = [];
     public List<CreateCarryOverRequest> CarryOvers { get; } = [];
+    public List<(int Year, int Month)> DeletedCarryOvers { get; } = [];
     public string? Error { get; set; }
 
     /// <summary>Der Besitzer jedes Aufrufs, null für den eigenen Plan (Spec 68).</summary>
@@ -85,14 +86,21 @@ public sealed class FakePlanApi : IPlanApi
         return Task.FromResult(Change(year, month, id, p => p with { Label = request.Label ?? p.Label, AmountPlanned = request.Amount ?? p.AmountPlanned }));
     }
 
-    public Task<ApiResult> DeletePositionAsync(int year, int month, Guid id, Guid? owner = null, CancellationToken cancellationToken = default)
+    /// <summary>Hält das Löschen an, bis der Test die Aufgabe abschließt; so bleibt die Anfrage "unterwegs".</summary>
+    public Task? DeleteGate { get; set; }
+
+    public async Task<ApiResult> DeletePositionAsync(int year, int month, Guid id, Guid? owner = null, CancellationToken cancellationToken = default)
     {
+        if (DeleteGate is not null)
+        {
+            await DeleteGate;
+        }
         Owners.Add(owner);
         WriteOwners.Add(owner);
         DeletedPositions.Add(id);
         var plan = PlanFor(year, month);
         Plans[(year, month)] = plan with { Positions = plan.Positions.Where(p => p.Id != id).ToList() };
-        return Task.FromResult(ApiResult.Success());
+        return ApiResult.Success();
     }
 
     public Task<ApiResult<PlanPositionResponse>> TickAsync(int year, int month, Guid id, TickPositionRequest request, Guid? owner = null, CancellationToken cancellationToken = default)
@@ -140,6 +148,7 @@ public sealed class FakePlanApi : IPlanApi
     {
         Owners.Add(owner);
         WriteOwners.Add(owner);
+        DeletedCarryOvers.Add((year, month));
         var plan = PlanFor(year, month);
         Plans[(year, month)] = plan with { CarryOver = plan.CarryOver with { Exists = false, Amount = null } };
         return Task.FromResult(ApiResult.Success());

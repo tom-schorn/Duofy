@@ -2,6 +2,8 @@
 
 Format: 2
 
+> **Alt (Stand vor der Radzen-Umstellung, Issue 76):** Diese Spezifikation nennt die frühere Oberflächenbibliothek MudBlazor und die Tabler-Symbole. Heute gelten Radzen und Material Symbols, siehe `docs/plans/radzen-plan.md`. Fachliche Regeln und Abläufe bleiben gültig.
+
 ## Background
 
 Für Zahlart, Konten und Navigation sind Symbole gewählt (Tabler Icons, MIT). Heute nutzt die App die Symbole von MudBlazor (Material). Die Marken-Runde hat Tabler im Stil „outline“ bestätigt (29.10.2026).

@@ -1,4 +1,6 @@
 @page "/mehr"
+@using Radzen
+@using Radzen.Blazor
 @attribute [Authorize]
 @implements IDisposable
 @inject IAppHost Host
@@ -22,23 +24,25 @@
 <AppPageHeading Text="@L["Nav_More"]" />
 @if (!Host.IsApp)
 {
-    <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-2">@L["Nav_More"]</MudText>
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" Class="rz-mb-2">@L["Nav_More"]</RadzenText>
 }
 
-<MudPaper Outlined="true">
-    <MudStack Spacing="0">
-        <MudButton Href="/konten" Variant="Variant.Text" FullWidth="true" Class="more-item"
-                   StartIcon="@Icons.Material.Filled.AccountBalance" data-testid="more-accounts">@L["Nav_Accounts"]</MudButton>
-        <MudButton Href="/vertraege" Variant="Variant.Text" FullWidth="true" Class="more-item"
-                   StartIcon="@Icons.Material.Filled.Description" data-testid="more-contracts">@L["More_Contracts"]</MudButton>
-        <MudButton Href="/haushalt" Variant="Variant.Text" FullWidth="true" Class="more-item"
-                   StartIcon="@Icons.Material.Filled.Groups" data-testid="more-household">@L["More_Household"]</MudButton>
-        <MudButton Href="/konto" Variant="Variant.Text" FullWidth="true" Class="more-item"
-                   StartIcon="@Icons.Material.Filled.Person" data-testid="more-user-account">@L["More_UserAccount"]</MudButton>
+@* Radzens Knopf kann nicht zu einer Adresse führen, deshalb ist jeder Eintrag ein LinkButton (ein Link im Aussehen
+   eines Knopfs); nur das Abmelden ist ein echter Knopf. Das Symbol steht vor dem Text. *@
+<RadzenCard Variant="Variant.Outlined" Class="rz-p-2" data-testid="more-list">
+    <RadzenStack Gap="0">
+        <LinkButton Href="/konten" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Class="more-entry"
+                    data-testid="more-accounts"><RadzenIcon Icon="account_balance" /> @L["Nav_Accounts"]</LinkButton>
+        <LinkButton Href="/vertraege" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Class="more-entry"
+                    data-testid="more-contracts"><RadzenIcon Icon="description" /> @L["More_Contracts"]</LinkButton>
+        <LinkButton Href="/haushalt" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Class="more-entry"
+                    data-testid="more-household"><RadzenIcon Icon="groups" /> @L["More_Household"]</LinkButton>
+        <LinkButton Href="/konto" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Class="more-entry"
+                    data-testid="more-user-account"><RadzenIcon Icon="person" /> @L["More_UserAccount"]</LinkButton>
         @if (isAdmin)
         {
-            <MudButton Href="/admin" Variant="Variant.Text" FullWidth="true" Class="more-item"
-                       StartIcon="@Icons.Material.Filled.AdminPanelSettings" data-testid="more-admin">@L["More_Admin"]</MudButton>
+            <LinkButton Href="/admin" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Class="more-entry"
+                        data-testid="more-admin"><RadzenIcon Icon="admin_panel_settings" /> @L["More_Admin"]</LinkButton>
         }
         @if (Mode is not null)
         {
@@ -46,17 +50,17 @@
                 <ThemeChoiceSwitch Choice="Mode.Choice" ChoiceSelected="Mode.Select" />
             </div>
         }
-        <MudButton Href="/lizenzen" Variant="Variant.Text" FullWidth="true" Class="more-item"
-                   StartIcon="@Icons.Material.Filled.Gavel" data-testid="more-licenses">@L["More_Licenses"]</MudButton>
+        <LinkButton Href="/lizenzen" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Class="more-entry"
+                    data-testid="more-licenses"><RadzenIcon Icon="gavel" /> @L["More_Licenses"]</LinkButton>
         @foreach (var name in legalDocuments)
         {
-            <MudButton Href="@LegalPages.PathOf(name)" Variant="Variant.Text" FullWidth="true" Class="more-item"
-                       StartIcon="@Icons.Material.Filled.Article" data-testid="@($"more-legal-{name}")">@L[LegalPages.LabelKeyOf(name)]</MudButton>
+            <LinkButton Href="@LegalPages.PathOf(name)" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Class="more-entry"
+                        data-testid="@($"more-legal-{name}")"><RadzenIcon Icon="article" /> @L[LegalPages.LabelKeyOf(name)]</LinkButton>
         }
-        <MudButton OnClick="SignOutAsync" Variant="Variant.Text" FullWidth="true" Class="more-item"
-                   StartIcon="@Icons.Material.Filled.Logout" data-testid="more-sign-out">@L["Account_SignOut"]</MudButton>
-    </MudStack>
-</MudPaper>
+        <RadzenButton Click="SignOutAsync" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Class="more-entry"
+                      Icon="logout" Text="@L["Account_SignOut"]" data-testid="more-sign-out" />
+    </RadzenStack>
+</RadzenCard>
 
 @code {
     [CascadingParameter]

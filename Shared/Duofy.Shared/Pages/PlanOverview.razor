@@ -1,9 +1,10 @@
 @page "/plan"
+@using Radzen
+@using Radzen.Blazor
 @attribute [Authorize]
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
-@using Duofy.Shared.Icons
 @implements IDisposable
 @inject IPlanApi PlanApi
 @inject IHouseholdApi HouseholdApi
@@ -28,19 +29,19 @@
 <AppPageHeading Text="@L["Nav_Plan"]" />
 @if (!Host.IsApp)
 {
-    <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-2">@L["Nav_Plan"]</MudText>
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" Class="rz-mb-2">@L["Nav_Plan"]</RadzenText>
 }
 
 @if (Member.IsHousehold)
 {
-    <MudText Typo="Typo.h6" Class="mb-2" data-testid="household-name">@Member.Household?.Name</MudText>
+    <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-2" data-testid="household-name">@Member.Household?.Name</RadzenText>
 }
 
 <Notice Message="message" />
 
 @if (!SeesPlan)
 {
-    <MudText Color="Color.Secondary" data-testid="not-shared">@L["Grant_NotShared"]</MudText>
+    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color" data-testid="not-shared">@L["Grant_NotShared"]</RadzenText>
 }
 else if (rows is not null)
 {
@@ -60,7 +61,7 @@ else if (rows is not null)
                     @if (row.Free is { } free)
                     {
                         <span class="plan-month-free">
-                            <TablerIcon Name="coins" Size="20" />
+                            <RadzenIcon Icon="payments" aria-hidden="true" />
                             @L[row.WithCarryOver ? "PlanOverview_FreeWithCarryOver" : "PlanOverview_Free", MoneyText.Format(free)]
                         </span>
                     }
@@ -135,7 +136,7 @@ else if (rows is not null)
 
         if (errorCode is not null)
         {
-            message = new NoticeMessage(ErrorTexts.For(L, errorCode), Severity.Error);
+            message = new NoticeMessage(ErrorTexts.For(L, errorCode), NoticeSeverity.Error);
         }
 
         // Auch ohne Liste bleiben der laufende und die kommenden Monate wählbar.

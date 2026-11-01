@@ -1,7 +1,7 @@
-// Setzt Pflicht und Fehler an das Eingabefeld eines StepField. Das Feld kann von MudBlazor kommen; dessen <input>
+// Setzt Pflicht und Fehler an das Eingabefeld eines StepField. Das Feld kann von Radzen kommen; dessen <input>
 // erreicht StepField nur über die Id. Wird nur von StepField aufgerufen.
 export function markField(id, required, invalid, errorId) {
-    const field = document.getElementById(id);
+    const field = document.getElementById(id) ?? document.querySelector(`[aria-labelledby="${id}-label"]`);
     if (!field) {
         return;
     }

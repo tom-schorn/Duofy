@@ -1,4 +1,6 @@
 @page "/rechtliches/{Slug}"
+@using Radzen
+@using Radzen.Blazor
 @using Duofy.ApiClient
 @implements IDisposable
 @inject IAppHost Host
@@ -16,20 +18,20 @@
 <AppPageHeading Text="@Title" />
 @if (!Host.IsApp)
 {
-    <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-2">@Title</MudText>
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" Class="rz-mb-2">@Title</RadzenText>
 }
 
 @if (error is not null)
 {
-    <MudAlert Severity="Severity.Error" Class="mb-4">@error</MudAlert>
+    <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false" Class="rz-mb-4">@error</RadzenAlert>
 }
 else if (missing)
 {
-    <MudText data-testid="legal-missing">@L["Legal_Missing"]</MudText>
+    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" data-testid="legal-missing">@L["Legal_Missing"]</RadzenText>
 }
 else if (text is not null)
 {
-    <div data-testid="legal-text" style="white-space: pre-wrap; overflow-wrap: anywhere;">@text</div>
+    <div data-testid="legal-text" class="plain-text">@text</div>
 }
 
 @code {

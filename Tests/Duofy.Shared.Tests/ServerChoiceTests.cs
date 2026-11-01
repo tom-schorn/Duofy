@@ -119,7 +119,7 @@ public class ServerChoiceTests : PageTestContext
         cut.Find("[data-testid='server-save']").Click();
 
         cut.WaitForAssertion(() =>
-            Assert.Equal("Unter dieser Adresse antwortet kein Duofy-Server.", cut.Find("[data-testid='server-error']").TextContent.Trim()));
+            Assert.Contains("Unter dieser Adresse antwortet kein Duofy-Server.", cut.Find("[data-testid=\'server-error\']").TextContent));
         Assert.Equal("Server: Plagevo (gehostet)", LineOf(cut));
         Assert.NotEmpty(cut.FindAll("[data-testid='server-choice']"));
     }
@@ -139,7 +139,7 @@ public class ServerChoiceTests : PageTestContext
         cut.Find("[data-testid='server-save']").Click();
 
         cut.WaitForAssertion(() =>
-            Assert.Equal("Bitte eine https-Adresse eingeben.", cut.Find("[data-testid='server-error']").TextContent.Trim()));
+            Assert.Contains("Bitte eine https-Adresse eingeben.", cut.Find("[data-testid=\'server-error\']").TextContent));
     }
 
     // R2
@@ -215,5 +215,50 @@ public class ServerChoiceTests : PageTestContext
     {
         public Task<ThemeChoice> LoadAsync() => Task.FromResult(ThemeChoice.Device);
         public Task SaveAsync(ThemeChoice choice) => Task.CompletedTask;
+    }
+
+    // Radzen-Umstellung R5: Der Serverdialog geht über FormDialogs als Radzen-Dialog auf.
+    [Fact]
+    public void In_the_app_the_dialog_is_a_full_screen_radzen_dialog_with_its_own_header_and_cancel_changes_nothing()
+    {
+        RunAsApp();
+        var cut = Open("/anmelden");
+
+        OpenDialog(cut);
+
+        var dialog = cut.Find(".rz-dialog");
+        Assert.Empty(dialog.QuerySelectorAll(".rz-dialog-titlebar"));
+        Assert.StartsWith("width: 100%", dialog.GetAttribute("style"));
+        Assert.Equal("Server", dialog.QuerySelector("[data-testid='form-header'] .app-form-header-title")!.TextContent.Trim());
+        Assert.Equal("Übernehmen", dialog.QuerySelector("[data-testid='server-save']")!.TextContent.Trim());
+
+        cut.Find("[data-testid='form-close']").Click();
+
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[data-testid='server-choice']")));
+        Assert.Equal("Server: Plagevo (gehostet)", LineOf(cut));
+        Assert.Empty(selector.Tried);
+        Assert.Equal(0, selector.HostedCalls);
+    }
+
+    [Fact]
+    public async Task In_the_browser_the_dialog_is_a_window_with_a_title_and_a_save_button_and_returns_the_choice()
+    {
+        Services.AddSingleton<IServerStore>(store);
+        Services.AddSingleton<IServerSelector>(selector);
+        var host = Render<Radzen.Blazor.RadzenComponents>();
+
+        var opened = Services.GetRequiredService<FormDialogs>().OpenAsync<Duofy.Shared.Pages.ServerDialog, bool>("Server",
+            new FormParameters<Duofy.Shared.Pages.ServerDialog>().Add(d => d.Title, "Server"));
+        host.WaitForAssertion(() => Assert.NotEmpty(host.FindAll("[data-testid='server-choice']")));
+
+        Assert.Equal("Server", host.Find(".rz-dialog-titlebar").TextContent.Trim());
+        Assert.Empty(host.FindAll("[data-testid='form-header']"));
+
+        host.Find("[data-testid='server-save']").Click();
+        var outcome = await opened;
+
+        Assert.True(outcome.Saved);
+        Assert.True(outcome.Value);
+        Assert.Equal(1, selector.HostedCalls);
     }
 }

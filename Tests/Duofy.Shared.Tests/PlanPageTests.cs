@@ -6,7 +6,6 @@ using Duofy.Shared.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
-using MudBlazor;
 
 namespace Duofy.Shared.Tests;
 
@@ -17,12 +16,11 @@ namespace Duofy.Shared.Tests;
 /// </summary>
 public class PlanPageTests : PageTestContext
 {
-    private readonly IRenderedComponent<MudDialogProvider> dialogs;
+    private readonly IRenderedComponent<IComponent> dialogs;
 
     public PlanPageTests()
     {
-        Render<MudPopoverProvider>();
-        dialogs = Render<MudDialogProvider>();
+        dialogs = RenderRadzenHost();
         Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true));
     }
 
@@ -127,9 +125,63 @@ public class PlanPageTests : PageTestContext
 
         Assert.Empty(cut.FindAll($"[data-testid='plan-delete-{rent.Id}']"));
         cut.Find($"[data-testid='plan-delete-{gift.Id}']").Click();
+        dialogs.WaitForAssertion(() => Assert.Contains("Posten löschen?", dialogs.Markup));
+        dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Löschen").Click();
 
         cut.WaitForAssertion(() => Assert.Empty(cut.FindAll($"[data-testid='plan-position-{gift.Id}']")));
         Assert.Equal(gift.Id, Assert.Single(PlanApiFake.DeletedPositions));
+    }
+
+    // N7: Wer die Seite verlässt, während die Anfrage läuft, löst danach nichts mehr aus: kein Neuladen, keine Ausnahme.
+    [Fact]
+    public async Task Leaving_the_page_while_a_request_runs_does_not_reload_or_throw_afterwards()
+    {
+        var gift = FakePlanApi.Position("Geschenk", 50m, PotKeys.Wants);
+        var cut = OpenPage(gift);
+        var gate = new TaskCompletionSource();
+        PlanApiFake.DeleteGate = gate.Task;
+        cut.Find($"[data-testid='plan-delete-{gift.Id}']").Click();
+        dialogs.WaitForAssertion(() => Assert.Contains("Posten löschen?", dialogs.Markup));
+        dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Löschen").Click();
+        var loadsBefore = PlanApiFake.GetCalls.Count;
+
+        ((IDisposable)cut.Instance).Dispose();
+        gate.SetResult();
+        await Task.Delay(100);
+
+        Assert.Equal(loadsBefore, PlanApiFake.GetCalls.Count);
+    }
+
+    // Mangel S1: Löschen und Entfernen lassen sich nicht zurücknehmen, deshalb fragt die Seite erst nach.
+    [Fact]
+    public void Deleting_a_position_asks_first_and_keeps_it_when_cancelled()
+    {
+        var gift = FakePlanApi.Position("Geschenk", 50m, PotKeys.Wants);
+        var cut = OpenPage(gift);
+
+        cut.Find($"[data-testid='plan-delete-{gift.Id}']").Click();
+
+        dialogs.WaitForAssertion(() => Assert.Contains("Posten löschen?", dialogs.Markup));
+        Assert.Empty(PlanApiFake.DeletedPositions);
+        dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Abbrechen").Click();
+        dialogs.WaitForAssertion(() => Assert.DoesNotContain("Posten löschen?", dialogs.Markup));
+        Assert.Empty(PlanApiFake.DeletedPositions);
+        Assert.NotEmpty(cut.FindAll($"[data-testid='plan-position-{gift.Id}']"));
+    }
+
+    [Fact]
+    public void Removing_the_carry_over_asks_first_and_removes_it_only_after_confirming()
+    {
+        PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10) with { CarryOver = new PlanCarryOverResponse(230m, true, 230m, []) };
+        var cut = Render<Plan>();
+        OpenPlanTab(cut);
+
+        cut.WaitForAssertion(() => cut.Find("[data-testid='plan-carry-over-remove']").Click());
+
+        dialogs.WaitForAssertion(() => Assert.Contains("Übertrag entfernen?", dialogs.Markup));
+        Assert.Empty(PlanApiFake.DeletedCarryOvers);
+        dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Entfernen").Click();
+        cut.WaitForAssertion(() => Assert.NotEmpty(PlanApiFake.DeletedCarryOvers));
     }
 
     [Fact]
@@ -240,6 +292,19 @@ public class PlanPageTests : PageTestContext
         Assert.Empty(PlanApiFake.CarryOvers);
     }
 
+    // Die Schrift in der Warnung ist die der Meldung; die von RadzenText hätte auf der Warnfläche nur 3,4 zu 1.
+    [Fact]
+    public void The_difference_warning_keeps_the_text_colour_of_the_alert()
+    {
+        var giro = Accounts.Accounts[0].Id;
+        OpenCarryOver(giro);
+        Field(dialogs, $"carry-over-balance-{giro}").Change("1220,00");
+        dialogs.Find("[data-testid='carry-over-save']").Click();
+
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='carry-over-differences']")));
+        Assert.Empty(dialogs.Find("[data-testid='carry-over-differences']").QuerySelectorAll(".rz-text-body2, p"));
+    }
+
     [Fact]
     public void Correcting_the_real_balance_brings_the_normal_dialog_back()
     {
@@ -304,13 +369,12 @@ public class PlanPageTests : PageTestContext
 /// </summary>
 public class PlanPageInAppTests : PageTestContext
 {
-    private readonly IRenderedComponent<MudDialogProvider> dialogs;
+    private readonly IRenderedComponent<IComponent> dialogs;
 
     public PlanPageInAppTests()
     {
         Services.AddSingleton<IAppHost, AppHost>();
-        Render<MudPopoverProvider>();
-        dialogs = Render<MudDialogProvider>();
+        dialogs = RenderRadzenHost();
         Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true));
     }
 

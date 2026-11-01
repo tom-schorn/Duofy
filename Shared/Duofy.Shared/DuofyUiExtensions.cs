@@ -1,20 +1,20 @@
 using Duofy.Shared.Services;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using MudBlazor.Services;
+using Radzen;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
 public static class DuofyUiExtensions
 {
     /// <summary>
-    /// Meldet alles an, was die gemeinsame Oberfläche braucht: MudBlazor, die Texte aus
+    /// Meldet alles an, was die gemeinsame Oberfläche braucht: Radzen, die Texte aus
     /// der Ressourcendatei und die Ablage für den hellen/dunklen Modus. Web und App rufen
     /// diese eine Zeile auf. Die App ersetzt danach <see cref="IThemePreferenceStore"/>.
     /// Den Anmeldezustand für die Seiten bringt AddDuofyApiClient mit.
     /// </summary>
     public static IServiceCollection AddDuofyUi(this IServiceCollection services)
     {
-        services.AddMudServices();
+        services.AddRadzenComponents();
         services.AddLocalization();
         services.AddScoped<IThemePreferenceStore, LocalStorageThemePreferenceStore>();
         services.AddScoped<IConsentStore, LocalStorageConsentStore>();

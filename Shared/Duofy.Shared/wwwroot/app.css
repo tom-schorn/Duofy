@@ -1,3 +1,8 @@
+/* Eigene Stile (Issue #76, Toms Vorgabe: wenige eigene Stile, sonst reines Radzen). Alles in dieser Datei ist eine begründete Ausnahme:
+   Entweder hat Radzen keinen Baustein oder keine Variable dafür (Inter, QR-Code, native Auswahl, Seitenraster, untere Leiste mit
+   Sicherheitsabstand), oder die Gestalt gehört zur Marke (Farbblock, Linientabelle, Soll-Ist-Marke). Werte, die Radzen als Variable
+   kennt, stehen in Theme/RadzenVariables.cs und nicht hier. Inline-Stile und feste Farben sind verboten (RazorFilesTests). */
+
 /* Die Schrift Inter (SIL Open Font License, siehe fonts/LICENSE-Inter-OFL.txt).
    Eine Datei enthält alle Schriftstärken ("variable font"). */
 @font-face {
@@ -9,9 +14,22 @@
     unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-/* Ziffern gleicher Breite, damit Beträge in Listen und Spalten gerade untereinander stehen. */
+/* Ziffern gleicher Breite, damit Beträge in Listen und Spalten gerade untereinander stehen.
+   Die Schrift des Themes gilt auch für den Text, den kein Baustein von Radzen umgibt (Issue #54); sonst nähme der Browser
+   dort seine Standardschrift (Times). */
 body {
     font-variant-numeric: tabular-nums;
+    font-family: var(--rz-text-font-family);
+    color: var(--rz-text-color);
+    background-color: var(--rz-body-background-color);
+}
+
+/* Eingabefelder und Knöpfe bringen sonst die Schrift des Browsers mit. */
+button,
+input,
+select,
+textarea {
+    font-family: inherit;
 }
 
 h1:focus {
@@ -23,12 +41,13 @@ h1:focus {
    ein Test (ResponsiveScaffoldTests) prüft, dass die Umbruchstellen hier mit WidthRanges.cs übereinstimmen.
    Alle Randwerte und die Schriftskala des Rahmens stehen in diesem einen :root-Block und in den drei Bereichen
    darunter; die Layouts benutzen nur die Klasse app-page und die Rollen der Skala, keine eigenen Maße.
-   Die Schriftwerte sind die Skala aus DuofyTheme.TypeScale (Wert für den Desktop). */
+   Die Schriftwerte sind die Skala aus RadzenVariables.TypeScale (Wert für den Desktop). */
 :root {
     --page-gutter: 1rem;
     --block-gap: 1rem;
     --tap-min: 44px;
     --side-nav-width: 15rem;
+    --app-header-height: 4rem;
     --app-bottom-bar-height: 4rem;
 
     --type-title-size: clamp(2rem, 3vw, 3.25rem);
@@ -59,7 +78,7 @@ h1:focus {
     overflow-x: clip;
 }
 
-.mud-layout {
+.rz-layout {
     overflow-x: clip;
 }
 
@@ -99,109 +118,100 @@ h1:focus {
     }
 }
 
-/* Tippflächen sind mindestens 44 px hoch und breit (Daumen). */
-.mud-button-root {
-    min-height: var(--tap-min);
-}
-
-.mud-icon-button {
-    min-width: var(--tap-min);
-    min-height: var(--tap-min);
-}
-
 /* Der Titel in der oberen Leiste ist die Rolle "Abschnitt" der Schriftskala. */
-.mud-typography.app-title {
+.rz-header .app-title {
     font-size: var(--type-section-size);
     font-weight: var(--type-section-weight);
     line-height: var(--type-section-line);
 }
 
-/* Formensprache (Spec 3): Flächen und Linien statt Schatten-Karten. */
-.mud-paper,
-.mud-card,
-.mud-appbar,
-.mud-drawer,
-.mud-dialog,
-.mud-popover,
-.mud-fab {
-    box-shadow: none;
+/* Die Kopfzeile von Radzen: Marke links, Umschalter rechts, so hoch und so weit eingerückt wie der Rahmen der Seite. */
+.app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-height: var(--app-header-height);
+    padding-inline: var(--page-gutter);
 }
 
-/* Fliegende Flächen haben ohne Schatten eine Tintenlinie, damit sie sich vom Grund abheben. */
-.mud-dialog,
-.mud-popover {
-    border: 1px solid var(--mud-palette-lines-default);
+.app-header-start {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
 }
+
+.app-header-end {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.mode-switch {
+    display: flex;
+    align-items: center;
+}
+
+/* Tippflächen sind mindestens 44 px hoch und breit (Daumen). */
+.mode-switch .rz-button {
+    min-width: var(--tap-min);
+    min-height: var(--tap-min);
+}
+
+/* Der Link "Zurück zu den Monaten" ist eine Tippfläche wie ein Knopf. */
+.plan-back {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-min);
+}
+
+.app-page .rz-button,
+.rz-dialog-content .rz-button {
+    min-height: var(--tap-min);
+}
+
+.app-page .rz-button.rz-button-icon-only,
+.rz-dialog-content .rz-button.rz-button-icon-only {
+    min-width: var(--tap-min);
+}
+
+/* Radzen setzt die Farbe der Knöpfe fest; in der Kopfzeile gilt die Farbe der Kopfzeile. Die Regel nennt so viele Klassen
+   wie die des Themes, sonst verliert sie gegen den Knopf mit Rahmen. */
+.rz-header .mode-switch .rz-button.rz-base.rz-shade-default {
+    color: inherit;
+    border-color: currentColor;
+    background-color: transparent;
+}
+
 
 /* Fokus: 3 px Tintenkontur plus 3 px heller Abstand (Design-System, helle Flächen). */
 :focus-visible {
-    outline: 3px solid var(--mud-palette-text-primary);
+    outline: 3px solid var(--rz-text-title-color);
     outline-offset: 3px;
 }
 
-/* MudBlazor setzt die Kontur an Links und Knöpfen zurück; die Regel oben allein verliert dagegen. */
+/* Die Regel oben allein verliert gegen die Knöpfe und Links des Themes. */
 a:focus-visible,
 button:focus-visible {
-    outline: 3px solid var(--mud-palette-text-primary);
+    outline: 3px solid var(--rz-text-title-color);
     outline-offset: 3px;
 }
 
-/* Die App-Leiste ist in beiden Modi dunkel, die Kontur nimmt dort ihre Textfarbe. */
-.mud-appbar a:focus-visible,
-.mud-appbar button:focus-visible {
-    outline: 3px solid var(--mud-palette-appbar-text);
+/* Die obere Leiste ist in beiden Modi dunkel, die Kontur nimmt dort ihre Textfarbe. */
+.rz-header a:focus-visible,
+.rz-header button:focus-visible,
+.rz-header [role="button"]:focus-visible {
+    outline: 3px solid var(--rz-header-color);
     outline-offset: 3px;
-}
-
-/* Nebentexte sind in jeder Breite lesbar: die Textfarbe statt der Akzentfarbe. */
-.mud-typography.mud-secondary-text {
-    color: var(--mud-palette-text-secondary) !important;
-}
-
-/* Fehler sind Text mit Tintenlinie auf Korall; Korall als Schriftfarbe auf Papier wäre nicht lesbar. */
-.mud-input-error .mud-input-helper-text,
-.mud-input-helper-text.mud-input-error,
-.mud-input-control.mud-input-error .mud-input-label {
-    color: var(--mud-palette-text-primary);
-}
-
-.mud-alert-text-error,
-.mud-alert-outlined-error {
-    color: var(--mud-palette-text-primary);
-    border-left: 4px solid var(--mud-palette-text-primary);
-    background-color: var(--mud-palette-error);
-}
-
-/* Erfolg und Hinweis wie Fehler: Tintentext und Rand, die helle Farbe nur als Fläche. */
-.mud-alert-text-success,
-.mud-alert-outlined-success {
-    color: var(--mud-palette-text-primary);
-    border-left: 4px solid var(--mud-palette-text-primary);
-    background-color: var(--mud-palette-success);
-}
-
-.mud-alert-text-info,
-.mud-alert-outlined-info {
-    color: var(--mud-palette-text-primary);
-    border-left: 4px solid var(--mud-palette-text-primary);
-    background-color: var(--mud-palette-info);
-}
-
-/* Das Symbol im Hinweis hätte sonst die Flächenfarbe und wäre unsichtbar. */
-.mud-alert-text-error .mud-alert-icon,
-.mud-alert-outlined-error .mud-alert-icon,
-.mud-alert-text-success .mud-alert-icon,
-.mud-alert-outlined-success .mud-alert-icon,
-.mud-alert-text-info .mud-alert-icon,
-.mud-alert-outlined-info .mud-alert-icon {
-    color: inherit;
 }
 
 #blazor-error-ui {
-    background: #f6d55c;
-    color: #14213d;
+    background: var(--rz-warning);
+    color: var(--rz-on-warning);
     bottom: 0;
-    border-top: 2px solid #14213d;
+    border-top: 2px solid var(--rz-on-warning);
     display: none;
     left: 0;
     padding: 0.6rem 1.25rem 0.7rem 1.25rem;
@@ -230,10 +240,10 @@ button:focus-visible {
     left: 0.5rem;
     z-index: 2100;
     padding: 0.75rem 1rem;
-    border: 2px solid var(--mud-palette-text-primary);
-    border-radius: var(--mud-default-borderradius);
-    background-color: var(--mud-palette-surface);
-    color: var(--mud-palette-text-primary);
+    border: 2px solid var(--rz-text-title-color);
+    border-radius: var(--rz-border-radius);
+    background-color: var(--rz-card-background-color);
+    color: var(--rz-text-title-color);
     transform: translateY(-200%);
 }
 
@@ -255,6 +265,14 @@ button:focus-visible {
     line-height: 1;
 }
 
+/* Ausnahme: Texteingaben, Passwortfelder und Zahlenfelder füllen die Breite ihrer Zeile. Radzen macht sie nur so breit
+   wie ihren Inhalt (inline-block), und jedes Feld der App soll bündig mit seiner Beschriftung abschließen. Eine Regel
+   ersetzt den Inline-Stil, der an jedem Feld stand. */
+.rz-textbox,
+.rz-numeric {
+    width: 100%;
+}
+
 .field-stack {
     display: flex;
     flex-direction: column;
@@ -273,8 +291,8 @@ button:focus-visible {
     display: grid;
     min-height: 100vh;
     min-height: 100svh;
-    background-color: var(--mud-palette-background);
-    color: var(--mud-palette-text-primary);
+    background-color: var(--rz-body-background-color);
+    color: var(--rz-text-title-color);
 }
 
 .auth-brand {
@@ -338,20 +356,20 @@ button:focus-visible {
 .auth-lead {
     margin: 0;
     font-size: var(--type-extra-size);
-    color: var(--mud-palette-text-secondary);
+    color: var(--rz-text-secondary-color);
 }
 
 .auth-switch {
     margin: 1.5rem 0 0;
     text-align: center;
     font-size: var(--type-extra-size);
-    color: var(--mud-palette-text-secondary);
+    color: var(--rz-text-secondary-color);
 }
 
 .auth-switch a {
     margin-left: 0.25rem;
     font-weight: 500;
-    color: var(--mud-palette-text-primary);
+    color: var(--rz-text-title-color);
     text-decoration: underline;
     text-underline-offset: 4px;
 }
@@ -362,14 +380,14 @@ button:focus-visible {
     padding: 0.5rem 0.75rem;
     font: inherit;
     font-size: var(--type-extra-size);
-    color: var(--mud-palette-text-secondary);
+    color: var(--rz-text-secondary-color);
     cursor: pointer;
     text-decoration: underline;
     text-underline-offset: 4px;
 }
 
 .server-line:hover {
-    color: var(--mud-palette-text-primary);
+    color: var(--rz-text-title-color);
 }
 
 .auth-legal {
@@ -381,13 +399,13 @@ button:focus-visible {
 }
 
 .auth-legal a {
-    color: var(--mud-palette-text-secondary);
+    color: var(--rz-text-secondary-color);
     text-decoration: none;
     text-underline-offset: 4px;
 }
 
 .auth-legal a:hover {
-    color: var(--mud-palette-text-primary);
+    color: var(--rz-text-title-color);
     text-decoration: underline;
 }
 
@@ -405,8 +423,8 @@ button:focus-visible {
         flex-direction: column;
         justify-content: space-between;
         padding: 3rem;
-        background-color: #14213d;
-        color: #fbfaf6;
+        background-color: var(--rz-header-background-color);
+        color: var(--rz-header-color);
     }
 
     .auth-brand-name {
@@ -437,7 +455,7 @@ button:focus-visible {
         padding: 0;
         list-style: none;
         font-size: var(--type-extra-size);
-        color: #fbfaf6;
+        color: var(--rz-header-color);
     }
 
     .auth-pots li {
@@ -452,15 +470,15 @@ button:focus-visible {
         border-radius: 0;
     }
 
-    .pot-needs { background-color: #d9e1eb; }
-    .pot-wants { background-color: #f2b8a0; }
-    .pot-savings { background-color: #bfd8c8; }
+    .pot-needs { background-color: var(--rz-info); }
+    .pot-wants { background-color: var(--rz-warning); }
+    .pot-savings { background-color: var(--rz-success); }
 
     .auth-tagline {
         max-width: 20rem;
         margin: 0;
         font-size: var(--type-extra-size);
-        color: #fbfaf6;
+        color: var(--rz-header-color);
     }
 }
 
@@ -484,23 +502,33 @@ button:focus-visible {
     box-sizing: content-box;
     height: var(--app-bottom-bar-height);
     padding-bottom: env(safe-area-inset-bottom, 0px);
-    background-color: var(--mud-palette-surface);
-    border-top: 1px solid var(--mud-palette-lines-default);
+    background-color: var(--rz-card-background-color);
+    box-shadow: var(--rz-card-shadow);
 }
 
-.app-bottom-item.mud-button-root {
+.app-bottom-item {
+    display: flex;
     flex: 1 1 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.125rem;
+    box-sizing: border-box;
     min-width: var(--tap-min);
     padding-inline: 0;
     min-height: var(--tap-min);
     height: 100%;
-    border-radius: 0;
-    text-transform: none;
+    color: var(--rz-text-color);
+    text-decoration: none;
 }
 
-.app-bottom-item .mud-button-label {
-    flex-direction: column;
-    gap: 0.125rem;
+.app-bottom-item:hover {
+    background-color: var(--rz-primary-lighter);
+}
+
+/* Die Kontur liegt innen, weil die Leiste am Rand des Fensters steht und eine äußere Kontur abgeschnitten würde. */
+.app-bottom-item:focus-visible {
+    outline-offset: -3px;
 }
 
 .app-bottom-label {
@@ -508,12 +536,20 @@ button:focus-visible {
     line-height: 1;
 }
 
+/* Das offene Ziel: Farbe und fetter Text, nicht nur eine Farbe. */
+.app-bottom-item-active {
+    color: var(--rz-primary);
+}
+
 .app-bottom-item-active .app-bottom-label {
     font-weight: 600;
 }
 
-.app-fab.mud-fab {
+/* Der Plus-Knopf: RadzenFab liegt von sich aus im nächsten Rahmen, hier fest über der unteren Leiste. */
+.app-fab {
     position: fixed;
+    top: auto;
+    left: auto;
     right: 1rem;
     bottom: calc(var(--app-bottom-bar-height) + env(safe-area-inset-bottom, 0px) + 1rem);
     z-index: 1100;
@@ -525,104 +561,51 @@ button:focus-visible {
     display: none;
 }
 
-.app-side-item {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    box-sizing: border-box;
-    min-height: var(--tap-min);
-    padding: 0.5rem 1rem;
-    border-left: 4px solid transparent;
-    color: var(--mud-palette-text-primary);
-    font-size: var(--type-text-size);
-    text-decoration: none;
-}
-
-.app-side-item:hover {
-    background-color: var(--mud-palette-action-default-hover);
-}
-
 /* Die Einträge rollen auf niedrigen Bildschirmen; der Fuß mit dem Profil-Knopf steht außerhalb und bleibt sichtbar. */
-.app-side-list,
-.app-side-group {
+.app-side-list {
     display: flex;
+    flex: 1 1 auto;
     flex-direction: column;
     gap: 0.25rem;
-}
-
-.app-side-list {
-    flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
-}
-
-/* Lizenzen, Rechtstexte und Abmelden braucht man seltener; ein Strich trennt sie von den Seiten. */
-.app-side-group {
-    margin-top: 0.5rem;
-    padding-top: 0.5rem;
-    border-top: 1px solid var(--mud-palette-lines-default);
 }
 
 .app-side-mode {
     padding: 0.25rem 1rem;
 }
 
-/* Abmelden tut etwas und ist deshalb ein Knopf, sieht aber aus wie die Links daneben. */
-.app-side-sign-out {
-    width: 100%;
-    justify-content: flex-start;
-    border-top: 0;
-    border-right: 0;
-    border-bottom: 0;
-    background: transparent;
-    font-family: inherit;
-    text-align: left;
-    cursor: pointer;
-}
-
-/* Die Kontur liegt innen, weil die Leiste am Rand des Fensters steht und eine äußere Kontur abgeschnitten würde. */
-.app-side-item:focus-visible {
-    outline-offset: -3px;
-}
-
-/* Das offene Ziel: Balken am Rand und fetter Text, nicht nur eine Farbe. */
-.app-side-item-active {
-    border-left: 4px solid var(--mud-palette-text-primary);
-    background-color: var(--mud-palette-action-default-hover);
-    font-weight: 650;
+/* Die Leiste von Radzen ist erst ab dem Desktop da; das Menü des Profil-Knopfs darf aus ihr herausragen. */
+.app-sidebar {
+    display: none;
 }
 
 @media (min-width: 1280px) {
+    .app-sidebar {
+        display: block;
+        overflow: visible;
+    }
+
     .app-side-nav {
-        position: fixed;
-        top: var(--mud-appbar-height);
-        bottom: 0;
-        left: 0;
-        z-index: 1100;
         display: flex;
         flex-direction: column;
         gap: 0.25rem;
         box-sizing: border-box;
-        width: var(--side-nav-width);
-        padding-block: 1rem;
-        background-color: var(--mud-palette-surface);
-        border-right: 1px solid var(--mud-palette-lines-default);
+        height: 100%;
+        padding: 0.75rem;
     }
 
     .app-bottom-bar {
         display: none;
     }
-
-    .app-main {
-        padding-left: var(--side-nav-width);
-    }
 }
 
-.more-item.mud-button-root {
+/* Ausnahme: Ein Eintrag der Liste auf der Seite Mehr füllt die Zeile und beginnt links; Radzens Knopf zentriert seinen Text
+   und ist nur so breit wie dieser. */
+.more-entry.rz-button {
+    width: 100%;
     justify-content: flex-start;
-    padding: 0.875rem 1rem;
-    border-radius: 0;
-    text-transform: none;
+    text-align: left;
 }
 
 /* Vollbild-Formulare: die Kopfzeile bleibt oben stehen, wenn der Inhalt scrollt. */
@@ -635,34 +618,44 @@ button:focus-visible {
     gap: 0.5rem;
     margin: -0.5rem -1.5rem 1rem;
     padding: 0.5rem 0.5rem;
-    background-color: var(--mud-palette-surface);
-    border-bottom: 1px solid var(--mud-palette-lines-default);
+    background-color: var(--rz-card-background-color);
+    border-bottom: 1px solid var(--rz-input-line);
 }
 
 .app-form-header-title {
     flex: 1 1 auto;
 }
 
-/* Der Profil-Knopf mit dem Menü "wessen Zahlen" (Spec 44): in der oberen Leiste hell auf der Farbe der Leiste, unten
-   in der Seitenleiste auf der Fläche der Leiste, das Menü geht dort nach oben auf. */
+/* Das Profilfeld mit dem Menü "wessen Zahlen" (Spec 44): in der oberen Leiste auf der Farbe der Leiste, unten in der
+   Seitenleiste auf einer Karte in der Hauptfarbe; das Menü geht dort nach oben auf. Fläche, Farben und Rundung kommen aus
+   dem Theme. */
 .member-profile {
     position: relative;
+    min-width: 0;
 }
 
-.member-profile-button {
+.member-profile .rz-profile-menu > .rz-navigation-item > .rz-navigation-item-wrapper {
+    display: flex;
+    align-items: center;
+    min-height: var(--tap-min);
+    color: inherit;
+}
+
+.member-profile .rz-profile-menu > .rz-navigation-item > .rz-navigation-item-wrapper > .rz-navigation-item-link {
+    color: inherit;
+}
+
+.member-profile-field {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    box-sizing: border-box;
-    min-height: var(--tap-min);
-    max-width: 12rem;
-    padding: 0.375rem 0.75rem;
-    border: 1px solid currentColor;
-    border-radius: var(--mud-default-borderradius);
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    cursor: pointer;
+    min-width: 0;
+}
+
+.member-profile-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
 }
 
 .member-profile-name {
@@ -671,99 +664,99 @@ button:focus-visible {
     white-space: nowrap;
 }
 
-.member-menu-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 1190;
+.member-profile-hint {
+    font-size: var(--type-extra-size);
+    line-height: var(--type-extra-line);
 }
 
-.member-menu {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    z-index: 1200;
-    display: flex;
-    flex-direction: column;
-    min-width: 14rem;
-    max-width: min(20rem, 90vw);
-    padding: 0.25rem 0;
-    border: 1px solid var(--mud-palette-lines-default);
-    border-radius: var(--mud-default-borderradius);
-    background-color: var(--mud-palette-surface);
-    color: var(--mud-palette-text-primary);
-    box-shadow: var(--mud-elevation-8);
+/* In der Kopfzeile ist kein Platz für den Innenabstand der Karte, und ein langer Vorname wird abgekürzt. Am Handy fällt das
+   Symbol weg, damit "Haushalt" neben dem Schalter ganz zu lesen bleibt. */
+.rz-header .member-profile ul.rz-profile-menu {
+    padding: 0;
 }
 
-.member-profile-up .member-menu {
+.rz-header .member-profile-name {
+    max-width: 8rem;
+}
+
+@media (max-width: 599px) {
+    .rz-header .member-profile-name {
+        max-width: 5rem;
+    }
+
+    .rz-header .member-profile-field > .rzi {
+        display: none;
+    }
+}
+
+.member-profile-up .rz-card {
+    color: var(--rz-on-primary);
+}
+
+/* Die Karte ist in der Hauptfarbe; die Kontur der Tab-Taste nimmt dort die Farbe auf der Hauptfarbe, sonst sieht man sie nicht. */
+.member-profile-up .rz-profile-menu > .rz-navigation-item > .rz-navigation-item-wrapper:focus-visible {
+    outline: 3px solid var(--rz-on-primary);
+    outline-offset: -3px;
+}
+
+/* Unten in der Leiste füllt das Feld die Karte. */
+.member-profile-up ul.rz-profile-menu {
+    display: block;
+}
+
+/* Der Selektor ist so schwer wie der des Themes, sonst bliebe das Menü unter dem Rand des Fensters. */
+.member-profile-up ul.rz-profile-menu .rz-navigation-menu {
     top: auto;
     bottom: 100%;
     left: 0;
     right: auto;
+    margin-block-end: 0.25rem;
 }
 
-.member-menu-item {
-    display: block;
-    box-sizing: border-box;
-    width: 100%;
+/* Auch die Einträge des Menüs sind Tippflächen von mindestens 44 px. */
+.member-profile ul.rz-profile-menu .rz-navigation-menu .rz-navigation-item-wrapper {
+    display: flex;
+    align-items: center;
     min-height: var(--tap-min);
-    padding: 0.625rem 1rem;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    text-decoration: none;
-    cursor: pointer;
 }
 
-.member-menu-item[aria-checked="true"] {
+/* Die gewählte Sicht: fett, ohne Balken. */
+.member-menu-current {
     font-weight: 700;
-    border-left: 4px solid var(--mud-palette-primary);
-    padding-left: calc(1rem - 4px);
-}
-
-.member-menu-item:focus-visible {
-    outline: 2px solid var(--mud-palette-primary);
-    outline-offset: -2px;
 }
 
 .member-menu-reason {
     padding: 0 1rem 0.5rem;
     font-size: 0.8125rem;
-    color: var(--mud-palette-text-secondary);
+    color: var(--rz-text-secondary-color);
+    list-style: none;
 }
 
-.member-menu-separator {
-    width: 100%;
-    margin: 0.25rem 0;
-    border: 0;
-    border-top: 1px solid var(--mud-palette-lines-default);
-}
-
-/* Der Fuß der Seitenleiste mit dem Profil-Knopf (Spec 44): ganz unten. */
+/* Der Fuß der Seitenleiste mit dem Profil-Knopf (Spec 44): ganz unten, ohne Trenner. */
 .app-side-footer {
     margin-top: auto;
-    padding: 0.75rem 1rem 0;
-    border-top: 1px solid var(--mud-palette-lines-default);
-}
-
-.app-side-footer .member-profile-button {
-    width: 100%;
-    max-width: none;
+    padding-top: 0.75rem;
 }
 
 @media (min-width: 1280px) {
     /* Ab dem Desktop steht der Knopf in der Seitenleiste, nicht mehr in der oberen Leiste. */
-    .mud-appbar .member-profile {
+    .rz-header .member-profile {
         display: none;
     }
 }
 
+/* Ein Knopf, der gerade nichts bewirkt, aber erreichbar bleibt (aria-disabled statt disabled; der Grund steht daneben):
+   Schrift und Rand in der Farbe für Gesperrtes. !important, weil die Regeln des Themes für Knopfart und Variante schwerer wiegen. */
+.unavailable {
+    color: var(--rz-text-disabled-color) !important;
+    border-color: var(--rz-text-disabled-color) !important;
+    cursor: default;
+}
+
 /* Ein Knopf ohne Freigabe (Spec 68): ausgegraut und ohne Wirkung, aber erreichbar; der Grund steht daneben. */
-.grant-locked,
-.grant-locked.mud-button-root {
-    color: var(--mud-palette-action-disabled) !important;
-    background-color: var(--mud-palette-action-disabled-background) !important;
+.grant-locked {
+    color: var(--rz-text-disabled-color) !important;
+    background-color: var(--rz-primary-lighter) !important;
     cursor: default;
     box-shadow: none;
 }
@@ -789,25 +782,25 @@ button:focus-visible {
     min-width: 0;
 }
 
-/* Bausteine (Spec 6): Farbblock, Linientabelle, eckige Knöpfe. Alle Farben kommen aus der Palette des Themes,
+/* Bausteine (Spec 6): Farbblock und Linientabelle. Alle Farben kommen aus der Palette des Themes,
    so gelten dieselben Regeln hell und dunkel. Auf einem Block steht immer der Haupttext (nie der Nebentext). */
 .color-block {
     padding: 1rem 1.25rem;
-    border: 1px solid var(--mud-palette-lines-default);
-    border-radius: 2px;
-    color: var(--mud-palette-text-primary);
+    border: var(--rz-card-border);
+    border-radius: var(--rz-card-border-radius);
+    color: var(--rz-text-title-color);
 }
 
 .color-block--income {
-    background-color: var(--mud-palette-success);
+    background-color: color-mix(in srgb, var(--rz-success) 50%, var(--rz-card-background-color));
 }
 
 .color-block--fixed {
-    background-color: var(--mud-palette-error);
+    background-color: color-mix(in srgb, var(--rz-danger) 50%, var(--rz-card-background-color));
 }
 
 .color-block--free {
-    background-color: var(--mud-palette-warning);
+    background-color: color-mix(in srgb, var(--rz-warning) 50%, var(--rz-card-background-color));
 }
 
 .color-block-title {
@@ -835,8 +828,8 @@ button:focus-visible {
 .line-table {
     width: 100%;
     border-collapse: collapse;
-    color: var(--mud-palette-text-primary);
-    border-top: 1px solid var(--mud-palette-lines-default);
+    color: var(--rz-text-color);
+    border-top: 1px solid var(--rz-input-line);
 }
 
 .line-table-caption {
@@ -851,47 +844,13 @@ button:focus-visible {
     padding: 0.625rem 0.5rem;
     font-weight: 400;
     text-align: left;
-    border-bottom: 1px solid var(--mud-palette-lines-default);
+    border-bottom: 1px solid var(--rz-input-line);
 }
 
 .line-table-amount {
     text-align: right;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
-}
-
-/* Knöpfe: eckig, ohne Schatten; die Fokuskontur (3 px Tinte) gilt auch für Knöpfe, die MudBlazor sonst anders färbt. */
-.mud-button-root.duofy-button {
-    border-radius: 2px;
-    box-shadow: none;
-    border: 2px solid var(--mud-palette-text-primary);
-    font-weight: 600;
-    min-height: 2.75rem;
-}
-
-.mud-button-root.duofy-button:focus-visible {
-    outline: 3px solid var(--mud-palette-text-primary);
-    outline-offset: 3px;
-}
-
-.mud-button-root.duofy-button.duofy-button--primary {
-    background-color: var(--mud-palette-primary);
-    color: var(--mud-palette-primary-text);
-}
-
-.mud-button-root.duofy-button.duofy-button--secondary {
-    background-color: transparent;
-    color: var(--mud-palette-text-primary);
-}
-
-/* Gefährlich: Fehlerrot nur als Fläche mit Haupttext darauf, nie als Schriftfarbe auf Rosa. */
-.mud-button-root.duofy-button.duofy-button--danger {
-    background-color: var(--mud-palette-error);
-    color: var(--mud-palette-text-primary);
-}
-
-.mud-button-root.duofy-button.mud-button-disabled {
-    opacity: 0.5;
 }
 
 /* Testseite der Bausteine: hell und dunkel nebeneinander. */
@@ -903,12 +862,13 @@ button:focus-visible {
 
 .blocks-panel {
     padding: 1rem;
-    background-color: var(--mud-palette-background);
-    color: var(--mud-palette-text-primary);
-    border: 1px solid var(--mud-palette-lines-default);
+    background-color: var(--rz-body-background-color);
+    color: var(--rz-text-title-color);
+    border: 1px solid var(--rz-input-line);
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    border-radius: var(--rz-card-border-radius);
 }
 
 .blocks-panel-buttons {
@@ -917,15 +877,17 @@ button:focus-visible {
     gap: 0.75rem;
 }
 
-/* Diagramme (Spec 12): Balkendiagramm und Soll-Ist-Balken. Alle Farben kommen aus der Palette des Themes,
-   so gelten dieselben Regeln hell und dunkel. Die Füllungen tragen keinen Text; Zahlen stehen daneben im Haupttext.
-   Über 100 Prozent gibt es bewusst keine Alarmfarbe: der Überschuss ist ein Teil in der Farbe "Frei" (Gelb). */
+/* Diagramme (Spec 12): Balkendiagramm und Soll-Ist-Balken. Die Balken sind RadzenProgressBar in den Farben des Themes;
+   hier stehen nur Anordnung, Höhe und Rundung. Die Füllungen tragen keinen Text; Zahlen stehen daneben im Haupttext.
+   Über 100 Prozent gibt es bewusst keine Alarmfarbe: der Überschuss ist der blassere Teil desselben Balkens. */
 .chart {
     margin: 0;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    color: var(--mud-palette-text-primary);
+    color: var(--rz-text-title-color);
+    --rz-progressbar-height: 1.25rem;
+    --rz-progressbar-border-radius: var(--rz-border-radius);
 }
 
 .chart-caption {
@@ -937,10 +899,10 @@ button:focus-visible {
 .chart-empty {
     margin: 0;
     padding: 1rem;
-    border: 1px solid var(--mud-palette-lines-default);
-    border-radius: 2px;
-    background-color: var(--mud-palette-surface);
-    color: var(--mud-palette-text-secondary);
+    border: var(--rz-card-border);
+    border-radius: var(--rz-card-border-radius);
+    background-color: var(--rz-card-background-color);
+    color: var(--rz-text-secondary-color);
 }
 
 .chart-bars {
@@ -969,36 +931,16 @@ button:focus-visible {
     font-weight: 500;
 }
 
-/* Die Rinne: Fläche mit Linie; die Füllung liegt links darin. */
-.chart-bar-track {
-    position: relative;
-    display: flex;
-    height: 1.25rem;
-    border: 1px solid var(--mud-palette-lines-default);
-    border-radius: 2px;
-    background-color: var(--mud-palette-surface);
-    overflow: hidden;
-}
-
-.chart-bar-fill,
-.chart-target-fill {
-    display: block;
-    height: 100%;
-    background-color: var(--mud-palette-success);
-    border-right: 1px solid var(--mud-palette-lines-default);
-}
-
-.chart-target-over {
-    display: block;
-    height: 100%;
-    background-color: var(--mud-palette-warning);
-}
-
 .chart-target-bar {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 0.75rem;
+}
+
+.chart-target-track {
+    position: relative;
+    display: block;
 }
 
 /* Die Soll-Marke: eine Linie bei 100 Prozent, damit der Überschuss ohne Farbe lesbar bleibt. */
@@ -1008,7 +950,7 @@ button:focus-visible {
     bottom: 0;
     width: 2px;
     margin-left: -1px;
-    background-color: var(--mud-palette-text-primary);
+    background-color: var(--rz-text-title-color);
 }
 
 .chart-target-summary,
@@ -1019,15 +961,16 @@ button:focus-visible {
 }
 
 .chart-over-note {
-    color: var(--mud-palette-text-secondary);
+    color: var(--rz-text-secondary-color);
 }
+
 /* Plan-Übersicht (Spec 23): die Monate als Liste von Links. Linien statt Schatten wie in der Linientabelle; der laufende
-   Monat liegt auf der Fläche von Frei (Gelb) mit dem Haupttext darauf. Jede Zeile ist mindestens 3 rem hoch zum Tippen. */
+   Monat liegt auf der Fläche von Frei mit dem Haupttext darauf. Jede Zeile ist mindestens 3 rem hoch zum Tippen. */
 .plan-months {
     list-style: none;
     margin: 0;
     padding: 0;
-    border-top: 1px solid var(--mud-palette-lines-default);
+    border-top: 1px solid var(--rz-input-line);
 }
 
 .plan-month {
@@ -1037,18 +980,18 @@ button:focus-visible {
     gap: 1rem;
     min-height: 3rem;
     padding: 0.625rem 0.5rem;
-    border-bottom: 1px solid var(--mud-palette-lines-default);
-    color: var(--mud-palette-text-primary);
+    border-bottom: 1px solid var(--rz-input-line);
+    color: var(--rz-text-title-color);
     text-decoration: none;
 }
 
 .plan-month:hover {
-    background-color: var(--mud-palette-action-default-hover);
+    background-color: var(--rz-primary-lighter);
 }
 
 .plan-month--current,
 .plan-month--current:hover {
-    background-color: var(--mud-palette-warning);
+    background-color: color-mix(in srgb, var(--rz-warning) 50%, var(--rz-card-background-color));
 }
 
 .plan-month-name {
@@ -1073,30 +1016,16 @@ button:focus-visible {
 }
 
 .plan-month-free--none {
-    color: var(--mud-palette-text-secondary);
+    color: var(--rz-text-secondary-color);
 }
 
 .plan-month--current .plan-month-free--none {
-    color: var(--mud-palette-text-primary);
+    color: var(--rz-text-title-color);
 }
 
 /* ===== Dialog: Schritt-Dialog (Spec 11) =====
    Über 599 px ein Dialog von höchstens 640 px Breite, bis 599 px füllt er den Bildschirm.
-   Der Selektor schlägt die Größenklassen von MudBlazor (.mud-dialog-width-sm und Co.).
    Nur der Inhalt rollt; Kopf mit Fortschritt und die Knöpfe unten bleiben an ihrer Stelle. */
-.mud-dialog-container .mud-dialog.step-dialog {
-    width: calc(100% - 64px);
-    max-width: 640px;
-    overflow-y: hidden;
-}
-
-.step-dialog .mud-dialog-title {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    border-bottom: 1px solid var(--mud-palette-lines-default);
-}
-
 /* Der Abbrechen-Knopf behält seine Breite; die Überschrift daneben bricht um. */
 .step-dialog-head .duofy-button {
     flex: none;
@@ -1119,7 +1048,7 @@ button:focus-visible {
 
 .step-dialog-progress {
     margin: 0.25rem 0 0;
-    color: var(--mud-palette-text-primary);
+    color: var(--rz-text-title-color);
     font-size: 0.875rem;
 }
 
@@ -1132,17 +1061,11 @@ button:focus-visible {
 .step-dialog-bar-segment {
     flex: 1 1 0;
     height: 4px;
-    background-color: var(--mud-palette-lines-default);
+    background-color: var(--rz-input-line);
 }
 
 .step-dialog-bar-segment--reached {
-    background-color: var(--mud-palette-text-primary);
-}
-
-.step-dialog .mud-dialog-content {
-    overflow-y: auto;
-    padding-top: 1rem;
-    padding-bottom: 1rem;
+    background-color: var(--rz-text-title-color);
 }
 
 .step-dialog-step {
@@ -1164,15 +1087,10 @@ button:focus-visible {
 .step-field-error {
     margin-top: 0.375rem;
     padding: 0.25rem 0.5rem;
-    color: var(--mud-palette-text-primary);
-    background-color: var(--mud-palette-error);
-    border-left: 4px solid var(--mud-palette-text-primary);
+    color: var(--rz-text-title-color);
+    background-color: var(--rz-danger-lighter);
+    border-left: 4px solid var(--rz-text-title-color);
     font-size: 0.875rem;
-}
-
-.step-dialog .mud-dialog-actions {
-    padding: 0.75rem 1.5rem;
-    border-top: 1px solid var(--mud-palette-lines-default);
 }
 
 /* Zurück links, Weiter rechts; im ersten Schritt hält der Platzhalter die linke Stelle frei. */
@@ -1191,29 +1109,6 @@ button:focus-visible {
     gap: 1rem;
 }
 
-@media (max-width: 599px) {
-    .mud-dialog-container .mud-dialog.step-dialog {
-        width: 100%;
-        height: 100%;
-        max-width: none;
-        max-height: none;
-        margin: 0;
-        border: none;
-        border-radius: 0;
-    }
-
-    .step-dialog .mud-dialog-title,
-    .step-dialog .mud-dialog-content {
-        padding-left: 1rem;
-        padding-right: 1rem;
-    }
-
-    /* Auf dem Handy bleibt Platz über der Gestenleiste. */
-    .step-dialog .mud-dialog-actions {
-        padding: 0.75rem 1rem max(0.75rem, env(safe-area-inset-bottom));
-    }
-}
-
 /* Monatsseite (Spec 24): Tabs, Blöcke der Übersicht und ihre Listen. Alle Farben kommen aus der Palette des Themes. */
 .line-table-lead,
 .line-table-trail {
@@ -1224,7 +1119,7 @@ button:focus-visible {
 .line-table-detail {
     display: block;
     font-size: 0.875rem;
-    color: var(--mud-palette-text-secondary);
+    color: var(--rz-text-secondary-color);
 }
 
 /* Am schmalen Handy passen Bezeichnung, Betrag und Plakette oder Knöpfe nicht nebeneinander: Die letzte Spalte bekommt
@@ -1240,7 +1135,7 @@ button:focus-visible {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        border-bottom: 1px solid var(--mud-palette-lines-default);
+        border-bottom: 1px solid var(--rz-input-line);
     }
 
     .line-table th,
@@ -1273,7 +1168,7 @@ button:focus-visible {
     }
 
     /* Konten, Verträge, Buchungen: Was nicht in die Reihe passt, rutscht in die nächste, statt den Bildschirm zu verlassen.
-       Das !important schlägt die Hilfsklasse von MudBlazor. */
+       Das !important schlägt die Einstellung des Stapels. */
     .data-row-frame > * {
         flex-wrap: wrap !important;
     }
@@ -1290,7 +1185,7 @@ button:focus-visible {
     flex-wrap: wrap;
     gap: 0.25rem;
     margin: 0 0 1rem;
-    border-bottom: 1px solid var(--mud-palette-lines-default);
+    border-bottom: 1px solid var(--rz-input-line);
 }
 
 .month-tab {
@@ -1299,19 +1194,19 @@ button:focus-visible {
     border: 0;
     border-bottom: 3px solid transparent;
     background: none;
-    color: var(--mud-palette-text-primary);
+    color: var(--rz-text-title-color);
     font: inherit;
     font-weight: 500;
     cursor: pointer;
 }
 
 .month-tab[aria-selected="true"] {
-    border-bottom-color: var(--mud-palette-text-primary);
+    border-bottom-color: var(--rz-text-title-color);
     font-weight: 700;
 }
 
 .month-tab:focus-visible {
-    outline: 3px solid var(--mud-palette-text-primary);
+    outline: 3px solid var(--rz-text-title-color);
     outline-offset: -3px;
 }
 
@@ -1351,13 +1246,14 @@ button:focus-visible {
     display: inline-block;
     margin-left: 0.5rem;
     padding: 0 0.375rem;
-    border: 1px solid var(--mud-palette-text-primary);
+    border: 1px solid var(--rz-text-title-color);
+    border-radius: var(--rz-border-radius);
     font-size: 0.875rem;
     font-weight: 700;
 }
 
 .month-hint {
-    color: var(--mud-palette-text-secondary);
+    color: var(--rz-text-secondary-color);
     font-size: 0.875rem;
 }
 
@@ -1376,10 +1272,10 @@ button:focus-visible {
 }
 
 @media (min-width: 1280px) {
-    /* Die doppelten Klassen und !important schlagen die Hilfsklassen von MudBlazor (Anzeige und Abstand der Stapel). */
+    /* Die doppelten Klassen und !important schlagen Anzeige und Abstand der Stapel von Radzen. */
     .data-table.data-table {
         gap: 0 !important;
-        border-top: 1px solid var(--mud-palette-lines-default);
+        border-top: 1px solid var(--rz-input-line);
     }
 
     .data-row.data-row,
@@ -1392,8 +1288,8 @@ button:focus-visible {
 
     .data-table-head {
         padding: 0.5rem 0.75rem;
-        border-bottom: 1px solid var(--mud-palette-lines-default);
-        color: var(--mud-palette-text-secondary);
+        border-bottom: 1px solid var(--rz-input-line);
+        color: var(--rz-text-secondary-color);
         font-size: 0.875rem;
         font-weight: 650;
     }
@@ -1405,7 +1301,7 @@ button:focus-visible {
     }
 
     .data-row-frame:hover {
-        background-color: var(--mud-palette-action-default-hover);
+        background-color: var(--rz-primary-lighter);
     }
 
     .data-cells.data-cells {
@@ -1430,8 +1326,8 @@ button:focus-visible {
     .data-column-6 { grid-column: 6; }
     .data-column-7 { grid-column: 7; }
 
-    .data-row > .mud-button-root,
-    .data-row > .mud-chip {
+    .data-row > .rz-button,
+    .data-row > .rz-badge {
         justify-self: start;
     }
 
@@ -1480,12 +1376,12 @@ button:focus-visible {
         align-items: start;
     }
 
-    /* Monat, Tab Plan: Posten links, Summen und Übertrag rechts. Die erste Reihe bleibt ohne geänderte Verträge leer,
+    /* Monat, Tab Plan: Posten links, Summen und Übertrag rechts. Ohne geänderte Verträge beginnen beide Spalten oben,
        die letzte nimmt den Rest der Höhe, damit rechts keine Lücke zwischen den Kästen entsteht. */
     .plan-layout {
         display: grid;
         grid-template-columns: minmax(0, 1fr) 24rem;
-        grid-template-rows: auto auto auto 1fr;
+        grid-template-rows: auto auto auto auto 1fr;
         column-gap: var(--block-gap);
         align-items: start;
     }
@@ -1497,7 +1393,11 @@ button:focus-visible {
 
     .plan-layout > .plan-groups {
         grid-column: 1;
-        grid-row: 2 / span 3;
+        grid-row: 1 / span 5;
+    }
+
+    .plan-layout:has(> .plan-layout-top) > .plan-groups {
+        grid-row: 2 / span 5;
     }
 
     .plan-layout > .plan-layout-side {
@@ -1580,8 +1480,8 @@ button:focus-visible {
 .start-section {
     margin: 0 0 1.5rem;
     padding: 1rem 1.25rem;
-    border: 1px solid var(--mud-palette-lines-default);
-    border-radius: 2px;
+    border: 1px solid var(--rz-input-line);
+    border-radius: var(--rz-card-border-radius);
 }
 
 .start-grid .start-section {
@@ -1597,14 +1497,14 @@ button:focus-visible {
 .start-link {
     display: inline-block;
     margin-top: 0.75rem;
-    color: var(--mud-palette-text-primary);
+    color: var(--rz-text-title-color);
     font-weight: 650;
     text-decoration: underline;
     text-underline-offset: 0.2em;
 }
 
 .start-link:focus-visible {
-    outline: 3px solid var(--mud-palette-text-primary);
+    outline: 3px solid var(--rz-text-title-color);
     outline-offset: 2px;
 }
 
@@ -1616,12 +1516,13 @@ body:has(.app-bottom-bar) {
 }
 
 .consent-banner {
-    position: fixed;
-    inset-inline: 0;
+    /* Im Fluss am Ende der Seite, nicht fest über ihr: So verdeckt sie auf dem schmalen Login den Anmelden-Knopf nicht,
+       denn die Seite rollt bis über die Leiste. Beim Rollen bleibt sie am unteren Rand haften. */
+    position: sticky;
     bottom: var(--consent-bottom, 0px);
     z-index: 1400;
     box-sizing: border-box;
-    max-height: calc(100dvh - var(--consent-bottom, 0px) - var(--mud-appbar-height, 4rem));
+    max-height: calc(100dvh - var(--consent-bottom, 0px) - var(--app-header-height));
     overflow-y: auto;
     display: flex;
     flex-wrap: wrap;
@@ -1629,14 +1530,14 @@ body:has(.app-bottom-bar) {
     justify-content: space-between;
     gap: 0.75rem 1.5rem;
     padding: 1rem var(--page-gutter);
-    background-color: var(--mud-palette-surface);
-    color: var(--mud-palette-text-primary);
-    border-top: 1px solid var(--mud-palette-lines-default);
+    background-color: var(--rz-card-background-color);
+    color: var(--rz-text-title-color);
+    border-top: 1px solid var(--rz-input-line);
 }
 
 @media (min-width: 1280px) {
     body:has(.app-side-nav) .consent-banner {
-        inset-inline-start: var(--side-nav-width);
+        margin-inline-start: var(--side-nav-width);
     }
 }
 
@@ -1660,8 +1561,12 @@ body:has(.app-bottom-bar) {
     gap: 0.75rem;
 }
 
-.consent-actions .mud-button-root {
+.consent-actions .rz-button {
     min-width: 8rem;
+    min-height: var(--tap-min);
+}
+
+.consent-change .rz-button {
     min-height: var(--tap-min);
 }
 
@@ -1710,7 +1615,7 @@ body:has(.app-bottom-bar) {
 .account-select-legend {
     padding: 0;
     margin-bottom: 0.25rem;
-    color: var(--mud-palette-text-secondary);
+    color: var(--rz-text-secondary-color);
     font-size: 0.75rem;
 }
 
@@ -1727,9 +1632,9 @@ body:has(.app-bottom-bar) {
     gap: 0.5rem;
     min-width: 0;
     padding: 0.625rem 0.75rem;
-    border: 1px solid var(--mud-palette-lines-inputs);
-    border-radius: var(--mud-default-borderradius);
-    color: var(--mud-palette-text-primary);
+    border: 1px solid var(--rz-input-line);
+    border-radius: var(--rz-border-radius);
+    color: var(--rz-text-color);
     cursor: pointer;
 }
 
@@ -1754,7 +1659,7 @@ body:has(.app-bottom-bar) {
 }
 
 .account-option:has(input:checked) {
-    border: 2px solid var(--mud-palette-text-primary);
+    border: 2px solid var(--rz-text-color);
     padding: calc(0.625rem - 1px) calc(0.75rem - 1px);
     font-weight: 650;
 }
@@ -1765,7 +1670,7 @@ body:has(.app-bottom-bar) {
 }
 
 .account-option:has(input:focus-visible) {
-    outline: 3px solid var(--mud-palette-text-primary);
+    outline: 3px solid var(--rz-text-color);
     outline-offset: 2px;
 }
 
@@ -1794,9 +1699,9 @@ body:has(.app-bottom-bar) {
     gap: 0.375rem;
     min-width: 0;
     padding: 0.75rem 0.5rem;
-    border: 1px solid var(--mud-palette-lines-inputs);
-    border-radius: var(--mud-default-borderradius);
-    color: var(--mud-palette-text-primary);
+    border: 1px solid var(--rz-input-line);
+    border-radius: var(--rz-border-radius);
+    color: var(--rz-text-title-color);
     text-align: center;
     cursor: pointer;
 }
@@ -1822,7 +1727,7 @@ body:has(.app-bottom-bar) {
 }
 
 .payment-option:has(input:checked) {
-    border: 2px solid var(--mud-palette-text-primary);
+    border: 2px solid var(--rz-text-title-color);
     padding: calc(0.75rem - 1px) calc(0.5rem - 1px);
     font-weight: 650;
 }
@@ -1836,7 +1741,7 @@ body:has(.app-bottom-bar) {
 }
 
 .payment-option:has(input:focus-visible) {
-    outline: 3px solid var(--mud-palette-text-primary);
+    outline: 3px solid var(--rz-text-title-color);
     outline-offset: 2px;
 }
 
@@ -1852,7 +1757,8 @@ body:has(.app-bottom-bar) {
     flex-direction: column;
     gap: 1rem;
     padding: 1rem;
-    border: 1px solid var(--mud-palette-lines-default);
+    border: 1px solid var(--rz-input-line);
+    border-radius: var(--rz-card-border-radius);
 }
 
 .booking-line-title {
@@ -1865,4 +1771,119 @@ body:has(.app-bottom-bar) {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
+}
+
+/* Das Element nimmt den freien Platz in seinem Stapel. */
+.flex-grow-1 {
+    flex-grow: 1;
+}
+
+/* ===== Kleine Hilfsklassen ===== Radzen hat für diese Fälle keinen Baustein und keine Variable; jede Klasse nennt ihren Grund. */
+
+/* Der QR-Code bleibt weiß, auch im Dunkelmodus, damit er sich scannen lässt. Das ist die einzige feste Farbe außerhalb des Themes
+   (Tom, Issue #72). */
+.qr-code {
+    width: 240px;
+    max-width: 100%;
+    background: #ffffff;
+}
+
+.qr-code-small {
+    width: 160px;
+}
+
+/* Ein langer Link oder eine lange Adresse ohne Leerstellen bricht an jeder Stelle um, statt die Zeile zu sprengen. */
+.long-link {
+    word-break: break-all;
+}
+
+/* Ein Knopf in einer senkrechten Stapelung steht links statt über die ganze Breite gedehnt (RadzenStack kennt das nur für alle Kinder). */
+.align-start {
+    align-self: flex-start;
+}
+
+/* Ein Element in einer Zeile nimmt den freien Platz und darf schmaler werden als sein Inhalt (sonst läuft ein langer Name aus der Karte);
+   fill-wrap darf zusätzlich in die nächste Zeile umbrechen, wenn weniger als 10 rem bleiben. */
+.fill {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.fill-wrap {
+    flex: 1 1 10rem;
+    min-width: 0;
+}
+
+/* Rechtstexte und Lizenzen sind Fließtext mit Zeilenumbrüchen aus der Quelle; lange Wörter und Adressen brechen um. */
+.plain-text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.plain-text-small {
+    font-size: 0.75rem;
+    margin: 0.5rem 0 0;
+}
+
+/* Die Größe der Symbole neben dem Namen von Konto und Zahlart: RadzenIcon hat keinen Größenparameter. */
+.account-icon .rzi {
+    font-size: 22px;
+}
+
+.payment-icon .rzi {
+    font-size: 28px;
+}
+
+/* Der gefüllte Stern des Standardkontos: Material Symbols füllt ein Zeichen nur über diese Schrifteinstellung. */
+.rzi.icon-filled {
+    font-variation-settings: 'FILL' 1;
+}
+
+/* Ausnahme: Das Feld ist das echte select des Geräts (auf dem Handy öffnet sich die Auswahl des Systems, R6); RadzenDropDown kann das
+   nicht. Rand, Rundung und Abstand kommen aus den Variablen des Themes. */
+.native-select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--rz-base-400);
+    border-radius: var(--rz-input-border-radius);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+}
+
+/* Der Schritt-Dialog: Kopf und Knöpfe bleiben stehen, nur die Schritte rollen. Im Browser höchstens 60 vh hoch (Tom: darf als Ausnahme
+   bleiben, damit ein Dialog nie höher ist als der Bildschirm), in der App füllt er den ganzen Bildschirm. */
+.step-dialog {
+    display: flex;
+    flex-direction: column;
+}
+
+.step-dialog-app {
+    height: 100%;
+    padding: 0.5rem 0.25rem;
+}
+
+.step-dialog-top {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--rz-base-300);
+}
+
+.step-dialog-scroll {
+    overflow-y: auto;
+    max-height: 60vh;
+    padding: 1rem 0;
+}
+
+.step-dialog-scroll-app {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+}
+
+.step-dialog-foot {
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--rz-base-300);
 }

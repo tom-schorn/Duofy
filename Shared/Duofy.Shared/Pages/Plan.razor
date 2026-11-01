@@ -1,15 +1,15 @@
 @page "/plan/{Year:int}/{Month:int}"
+@using Radzen
+@using Radzen.Blazor
 @attribute [Authorize]
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
-@using Duofy.Shared.Dialogs
 @using Duofy.Shared.Pages.Month
 @implements IDisposable
 @inject IPlanApi PlanApi
 @inject ICategoryApi CategoryApi
 @inject IAccountChoices AccountChoices
-@inject IDialogService DialogService
 @inject BookingDialogLauncher Launcher
 @inject FormDialogs Forms
 @inject IAppHost Host
@@ -35,7 +35,7 @@
 <PageTitle>@L["Nav_Plan"]</PageTitle>
 
 @* Der Weg zurück zur Übersicht der Monate (Spec 23, R6); er gilt für den eigenen Plan wie für den des Haushalts. *@
-<MudLink Href="/plan" Class="d-inline-block mb-2" data-testid="plan-back">@L["Plan_BackToMonths"]</MudLink>
+<RadzenLink Path="/plan" Text="@L["Plan_BackToMonths"]" Class="plan-back rz-mb-2" data-testid="plan-back" />
 
 @* Mit "Haushalt" im Umschalter zeigt die Seite den Haushaltsplan (Spec 69), nur zum Lesen. *@
 @if (Member.IsHousehold)
@@ -47,33 +47,33 @@ else
 <AppPageHeading Text="@L["Nav_Plan"]" />
 @if (!Host.IsApp)
 {
-    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
-        <MudText Typo="Typo.h4" HtmlTag="h1">@L["Nav_Plan"]</MudText>
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-2">
+        <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1">@L["Nav_Plan"]</RadzenText>
         @if (SeesPlan)
         {
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-                       OnClick="AddAsync" Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)"
-                       data-testid="plan-add">@L["Plan_AddPosition"]</MudButton>
+            <RadzenButton Text="@L["Plan_AddPosition"]" Icon="add" ButtonStyle="ButtonStyle.Primary"
+                          Click="@(_ => AddAsync())" Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)"
+                          data-testid="plan-add" />
         }
-    </MudStack>
+    </RadzenStack>
 }
 
 @if (!SeesPlan)
 {
-    <MudText Color="Color.Secondary" data-testid="not-shared">@L["Grant_NotShared"]</MudText>
+    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color" data-testid="not-shared">@L["Grant_NotShared"]</RadzenText>
 }
 else
 {
 <GrantReason Show="AnyLocked" />
 
 @* Blättern zwischen den Monaten. *@
-<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2 month-nav">
-    <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" OnClick="() => MoveAsync(-1)"
-                   aria-label="@L["Plan_PreviousMonth"]" data-testid="plan-previous" />
-    <MudText Typo="Typo.h6" data-testid="plan-month">@MonthTitle</MudText>
-    <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" OnClick="() => MoveAsync(1)"
-                   aria-label="@L["Plan_NextMonth"]" data-testid="plan-next" />
-</MudStack>
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-2 month-nav">
+    <RadzenButton Icon="chevron_left" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Click="@(_ => MoveAsync(-1))"
+                  aria-label="@L["Plan_PreviousMonth"]" data-testid="plan-previous" />
+    <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-m-0" data-testid="plan-month">@MonthTitle</RadzenText>
+    <RadzenButton Icon="chevron_right" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Click="@(_ => MoveAsync(1))"
+                  aria-label="@L["Plan_NextMonth"]" data-testid="plan-next" />
+</RadzenStack>
 
 <Notice Message="message" />
 
@@ -94,7 +94,7 @@ else
         }
         else
         {
-            <MudText Color="Color.Secondary" data-testid="bookings-not-shared">@L["Grant_NotShared"]</MudText>
+            <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color" data-testid="bookings-not-shared">@L["Grant_NotShared"]</RadzenText>
         }
     }
     else if (tab == MonthTab.Review)
@@ -108,63 +108,65 @@ else
     @* Geänderte Verträge: vorher und nachher je Unterschied, alle oder einzeln übernehmen (R2). *@
     @if (plan.Changes.Count > 0)
     {
-        <MudPaper Outlined="true" Class="pa-3 mb-4 plan-layout-top" data-testid="plan-changes">
-            <MudText Typo="Typo.subtitle1" Class="mb-1">@L["Plan_ChangesHeading"]</MudText>
-            <MudStack Spacing="2">
+        <RadzenCard Variant="Variant.Outlined" Class="rz-mb-4 plan-layout-top" data-testid="plan-changes">
+            <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H3" Class="rz-mb-1">@L["Plan_ChangesHeading"]</RadzenText>
+            <RadzenStack Gap="0.5rem">
                 @foreach (var change in plan.Changes)
                 {
                     var current = change;
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" data-testid="plan-change">
-                        <MudStack Spacing="0" Class="flex-grow-1">
-                            <MudText>@L[$"Plan_Change_{change.Kind}", change.Label]</MudText>
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" data-testid="plan-change">
+                        <RadzenStack Gap="0" Class="fill">
+                            <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-m-0">@L[$"Plan_Change_{change.Kind}", change.Label]</RadzenText>
                             @foreach (var field in change.Fields)
                             {
-                                <MudText Typo="Typo.caption">@L["Plan_ChangeField", L[$"PlanField_{field.Field}"], FieldText(field.Field, field.Before), FieldText(field.Field, field.After)]</MudText>
+                                <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-m-0">@L["Plan_ChangeField", L[$"PlanField_{field.Field}"], FieldText(field.Field, field.Before), FieldText(field.Field, field.After)]</RadzenText>
                             }
                             @if (change.Protected)
                             {
-                                <MudText Typo="Typo.caption">@L["Plan_ChangeProtected"]</MudText>
+                                <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-m-0">@L["Plan_ChangeProtected"]</RadzenText>
                             }
-                        </MudStack>
-                        <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => ApplyAsync(current)"
-                                   Class="@GrantLock.Class(CanApplyChange(current))" @attributes="GrantLock.Attributes(CanApplyChange(current))"
-                                   data-testid="plan-change-apply">@L["Plan_ChangeApply"]</MudButton>
-                    </MudStack>
+                        </RadzenStack>
+                        <RadzenButton Text="@L["Plan_ChangeApply"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small"
+                                      Click="@(_ => ApplyAsync(current))"
+                                      Class="@GrantLock.Class(CanApplyChange(current))" @attributes="GrantLock.Attributes(CanApplyChange(current))"
+                                      data-testid="plan-change-apply" />
+                    </RadzenStack>
                 }
-            </MudStack>
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="@($"mt-2 {GrantLock.Class(CanApplyAll)}")" OnClick="() => ApplyAsync(null)"
-                       @attributes="GrantLock.Attributes(CanApplyAll)" data-testid="plan-changes-apply-all">@L["Plan_ChangesApplyAll"]</MudButton>
-        </MudPaper>
+            </RadzenStack>
+            <RadzenButton Text="@L["Plan_ChangesApplyAll"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary"
+                          Class="@($"rz-mt-2 {GrantLock.Class(CanApplyAll)}")" Click="@(_ => ApplyAsync(null))"
+                          @attributes="GrantLock.Attributes(CanApplyAll)" data-testid="plan-changes-apply-all" />
+        </RadzenCard>
     }
 
     @* Summen und Quoten. *@
-    <MudPaper Outlined="true" Class="pa-3 mb-4 plan-layout-side" data-testid="plan-sums">
-        <MudText>@L["Plan_SumsIncome", Money(plan.PlannedIncome), Money(plan.BookedIncome)]</MudText>
-        <MudText>@L["Plan_SumsExpenses", Money(plan.PlannedExpenses), Money(plan.BookedExpenses)]</MudText>
+    <RadzenCard Variant="Variant.Outlined" Class="rz-mb-4 plan-layout-side" data-testid="plan-sums">
+        <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-m-0">@L["Plan_SumsIncome", Money(plan.PlannedIncome), Money(plan.BookedIncome)]</RadzenText>
+        <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-m-0">@L["Plan_SumsExpenses", Money(plan.PlannedExpenses), Money(plan.BookedExpenses)]</RadzenText>
         @foreach (var quota in plan.Quotas)
         {
-            <MudText Typo="Typo.caption" Class="d-block" data-testid="@($"plan-quota-{quota.Pot}")">@L["Plan_Quota", L[$"Pot_{quota.Pot}"], quota.Target, quota.Actual.ToString("0.#", German)]</MudText>
+            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-m-0" data-testid="@($"plan-quota-{quota.Pot}")">@L["Plan_Quota", L[$"Pot_{quota.Pot}"], quota.Target, quota.Actual.ToString("0.#", German)]</RadzenText>
         }
-    </MudPaper>
+    </RadzenCard>
 
     <div class="plan-groups">
     @if (plan.Positions.Count == 0)
     {
-        <MudText Color="Color.Secondary" Class="mb-2" data-testid="plan-empty">@L["Plan_Empty"]</MudText>
+        <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color rz-mb-2" data-testid="plan-empty">@L["Plan_Empty"]</RadzenText>
     }
 
     @* Die Posten nach Topf, je Topf eine Linientabelle mit Haken (Spec 24, R5). *@
     @foreach (var group in PlanView.Groups(plan))
     {
         <div>
-            <MudText Typo="Typo.subtitle1" Class="mt-3 mb-1" data-testid="@($"plan-group-{group.Pot}")">@L[$"Pot_{group.Pot}"]</MudText>
+            <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H3" Class="rz-mt-3 rz-mb-1" data-testid="@($"plan-group-{group.Pot}")">@L[$"Pot_{group.Pot}"]</RadzenText>
             <LineTable Caption="@L[$"Pot_{group.Pot}"]" HideCaption="true" Rows="PositionRows(group.Positions)" />
         </div>
     }
     </div>
 
     @* Der Übertrag (R9): je eine eigene Zeile, in keinem Topf und keiner Quote; zurücknehmen und neu nur hier. *@
-    <MudPaper Outlined="true" Class="pa-3 mt-4 plan-layout-side" data-testid="plan-carry-over">
+    <RadzenCard Variant="Variant.Outlined" Class="rz-mt-4 plan-layout-side" data-testid="plan-carry-over">
         @{ var carryOvers = MonthView.CarryOverRows(plan.Overview?.CarryOvers); }
         @if (carryOvers.Count > 0)
         {
@@ -172,27 +174,25 @@ else
         }
         @if (plan.CarryOver.Exists)
         {
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                @if (carryOvers.Any(c => c.Incoming))
+            var incoming = carryOvers.Any(c => c.Incoming);
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem"
+                         JustifyContent="@(incoming ? JustifyContent.End : JustifyContent.SpaceBetween)">
+                @if (!incoming)
                 {
-                    <MudSpacer />
+                    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-m-0">@L["Plan_CarryOverBooked", Money(plan.CarryOver.Amount ?? 0m)]</RadzenText>
                 }
-                else
-                {
-                    <MudText Class="flex-grow-1">@L["Plan_CarryOverBooked", Money(plan.CarryOver.Amount ?? 0m)]</MudText>
-                }
-                <MudButton Variant="Variant.Text" OnClick="RemoveCarryOverAsync"
-                           Class="@GrantLock.Class(CanRemoveCarryOver)" @attributes="GrantLock.Attributes(CanRemoveCarryOver)"
-                           data-testid="plan-carry-over-remove">@L["Plan_CarryOverRemove"]</MudButton>
-            </MudStack>
+                <RadzenButton Text="@L["Plan_CarryOverRemove"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Primary" Click="@(_ => RemoveCarryOverAsync())"
+                              Class="@GrantLock.Class(CanRemoveCarryOver)" @attributes="GrantLock.Attributes(CanRemoveCarryOver)"
+                              data-testid="plan-carry-over-remove" />
+            </RadzenStack>
         }
         else
         {
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="CarryOverAsync"
-                       Class="@GrantLock.Class(CanCarryOver)" @attributes="GrantLock.Attributes(CanCarryOver)"
-                       data-testid="plan-carry-over-open">@L["Plan_CarryOver"]</MudButton>
+            <RadzenButton Text="@L["Plan_CarryOver"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary" Click="@(_ => CarryOverAsync())"
+                          Class="@GrantLock.Class(CanCarryOver)" @attributes="GrantLock.Attributes(CanCarryOver)"
+                          data-testid="plan-carry-over-open" />
         }
-    </MudPaper>
+    </RadzenCard>
     </div>
     }
 }
@@ -318,8 +318,12 @@ else
         }
     }
 
+    // Wer die Seite verlässt, während eine Anfrage läuft, soll danach nichts mehr auslösen: kein Neuladen, kein Zeichnen.
+    private bool disposed;
+
     public void Dispose()
     {
+        disposed = true;
         Member.Changed -= OnMemberChanged;
         Chrome.Release(this);
     }
@@ -329,7 +333,10 @@ else
     {
         message = null;
         await LoadAllAsync();
-        StateHasChanged();
+        if (!disposed)
+        {
+            StateHasChanged();
+        }
     });
 
     /// <summary>Kategorien, Konten und der Monat der gewählten Person; was sie nicht teilt, bleibt leer.</summary>
@@ -353,7 +360,7 @@ else
         accounts = accountResult.Succeeded ? accountResult.Value! : [];
         if (!categoryResult.Succeeded || !accountResult.Succeeded)
         {
-            message = new NoticeMessage(ErrorTexts.For(L, categoryResult.ErrorCode ?? accountResult.ErrorCode), Severity.Error);
+            message = new NoticeMessage(ErrorTexts.For(L, categoryResult.ErrorCode ?? accountResult.ErrorCode), NoticeSeverity.Error);
         }
         await LoadAsync();
     }
@@ -361,6 +368,10 @@ else
     private async Task LoadAsync()
     {
         var result = await PlanApi.GetAsync(year, month, Member.Owner);
+        if (disposed)
+        {
+            return;
+        }
         if (result.Succeeded)
         {
             plan = result.Value;
@@ -368,7 +379,7 @@ else
         else
         {
             plan = null;
-            message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+            message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
         }
     }
 
@@ -387,9 +398,13 @@ else
     /// <summary>Zeigt das Ergebnis einer Änderung und holt den Monat neu.</summary>
     private async Task AfterAsync(ApiResult result, string successKey)
     {
+        if (disposed)
+        {
+            return;
+        }
         message = result.Succeeded
-            ? new NoticeMessage(L[successKey], Severity.Success)
-            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+            ? new NoticeMessage(L[successKey], NoticeSeverity.Success)
+            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
         await LoadAsync();
     }
 
@@ -422,18 +437,17 @@ else
 
     private async Task ShowPositionDialogAsync(PlanPositionResponse? existing, string title)
     {
-        var parameters = new DialogParameters<PlanPositionDialog>
+        var parameters = new FormParameters<PlanPositionDialog>()
+            .Add(x => x.Title, title)
+            .Add(x => x.Year, year)
+            .Add(x => x.Month, month)
+            .Add(x => x.Existing, existing)
+            .Add(x => x.Categories, categories)
+            .Add(x => x.Accounts, accounts);
+        var outcome = await Forms.OpenStepAsync<PlanPositionDialog, bool>(title, parameters);
+        if (outcome.Saved)
         {
-            { x => x.Year, year },
-            { x => x.Month, month },
-            { x => x.Existing, existing },
-            { x => x.Categories, categories },
-            { x => x.Accounts, accounts },
-        };
-        var dialog = await DialogService.ShowAsync<PlanPositionDialog>(title, parameters, StepDialogOptions.Create());
-        if (await dialog.Result is { Canceled: false })
-        {
-            message = new NoticeMessage(L["Plan_PositionSaved"], Severity.Success);
+            message = new NoticeMessage(L["Plan_PositionSaved"], NoticeSeverity.Success);
             await LoadAsync();
         }
     }
@@ -462,23 +476,23 @@ else
             return;
         }
 
-        var parameters = new DialogParameters<PlanTickDialog>
+        string title = L["PlanTickDialog_Title"];
+        var parameters = new FormParameters<PlanTickDialog>()
+            .Add(x => x.Title, title)
+            .Add(x => x.Year, year)
+            .Add(x => x.Month, month)
+            .Add(x => x.Position, position);
+        var outcome = await Forms.OpenAsync<PlanTickDialog, bool>(title, parameters);
+        if (outcome.Saved)
         {
-            { x => x.Year, year },
-            { x => x.Month, month },
-            { x => x.Position, position },
-        };
-        var dialog = await DialogService.ShowAsync<PlanTickDialog>(L["PlanTickDialog_Title"], parameters, Forms.Options());
-        if (await dialog.Result is { Canceled: false })
-        {
-            message = new NoticeMessage(L["Plan_Ticked"], Severity.Success);
+            message = new NoticeMessage(L["Plan_Ticked"], NoticeSeverity.Success);
         }
         await LoadAsync();
     }
 
     private async Task DeleteAsync(PlanPositionResponse position)
     {
-        if (CanDelete)
+        if (CanDelete && await Forms.ConfirmAsync(L["Plan_DeleteText", position.Label], L["Plan_DeleteTitle"], L["Plan_DeleteConfirm"], L["Plan_ConfirmCancel"]))
         {
             await AfterAsync(await PlanApi.DeletePositionAsync(year, month, position.Id, Member.Owner), "Plan_PositionDeleted");
         }
@@ -498,11 +512,11 @@ else
         if (result.Succeeded)
         {
             plan = result.Value;
-            message = new NoticeMessage(L["Plan_ChangesApplied"], Severity.Success);
+            message = new NoticeMessage(L["Plan_ChangesApplied"], NoticeSeverity.Success);
         }
         else
         {
-            message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+            message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
             await LoadAsync();
         }
     }
@@ -513,24 +527,24 @@ else
         {
             return;
         }
-        var parameters = new DialogParameters<PlanCarryOverDialog>
+        string title = L["PlanCarryOverDialog_Title"];
+        var parameters = new FormParameters<PlanCarryOverDialog>()
+            .Add(x => x.Title, title)
+            .Add(x => x.Year, year)
+            .Add(x => x.Month, month)
+            .Add(x => x.CarryOver, plan!.CarryOver)
+            .Add(x => x.Accounts, accounts);
+        var outcome = await Forms.OpenAsync<PlanCarryOverDialog, bool>(title, parameters);
+        if (outcome.Saved)
         {
-            { x => x.Year, year },
-            { x => x.Month, month },
-            { x => x.CarryOver, plan!.CarryOver },
-            { x => x.Accounts, accounts },
-        };
-        var dialog = await DialogService.ShowAsync<PlanCarryOverDialog>(L["PlanCarryOverDialog_Title"], parameters, Forms.Options());
-        if (await dialog.Result is { Canceled: false })
-        {
-            message = new NoticeMessage(L["Plan_CarryOverSaved"], Severity.Success);
+            message = new NoticeMessage(L["Plan_CarryOverSaved"], NoticeSeverity.Success);
             await LoadAsync();
         }
     }
 
     private async Task RemoveCarryOverAsync()
     {
-        if (CanRemoveCarryOver)
+        if (CanRemoveCarryOver && await Forms.ConfirmAsync(L["Plan_CarryOverRemoveText"], L["Plan_CarryOverRemoveTitle"], L["Plan_CarryOverRemoveConfirm"], L["Plan_ConfirmCancel"]))
         {
             await AfterAsync(await PlanApi.DeleteCarryOverAsync(year, month, Member.Owner), "Plan_CarryOverRemoved");
         }
@@ -543,23 +557,23 @@ else
             Leading: TickBox(position), Trailing: PositionActions(position), TestId: $"plan-position-{position.Id}"))
         .ToList();
 
-    private RenderFragment TickBox(PlanPositionResponse position) => @<MudCheckBox T="bool" Value="position.DoneAt is not null" ValueChanged="_ => ToggleAsync(position)" Color="Color.Primary"
+    private RenderFragment TickBox(PlanPositionResponse position) => @<RadzenCheckBox TValue="bool" Value="position.DoneAt is not null" Change="@(_ => ToggleAsync(position))"
                      ReadOnly="!CanToggle(position)" Class="@GrantLock.Class(CanToggle(position))" @attributes="GrantLock.Attributes(CanToggle(position))"
-                     aria-label="@L[position.DoneAt is not null ? "Plan_Untick" : "Plan_Tick", position.Label]"
+                     AriaLabel="@L[position.DoneAt is not null ? "Plan_Untick" : "Plan_Tick", position.Label]"
                      data-testid="@($"plan-tick-{position.Id}")" />;
 
-    private RenderFragment PositionActions(PlanPositionResponse position) => @<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-        <MudText Typo="Typo.body2" data-testid="@($"plan-amounts-{position.Id}")">@L["Plan_Amounts", Money(position.AmountPlanned), Money(position.Booked)]</MudText>
-        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditAsync(position)"
-                       Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
-                       aria-label="@L["Plan_Edit", position.Label]" data-testid="@($"plan-edit-{position.Id}")" />
+    private RenderFragment PositionActions(PlanPositionResponse position) => @<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem" JustifyContent="JustifyContent.End">
+        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.Span" data-testid="@($"plan-amounts-{position.Id}")">@L["Plan_Amounts", Money(position.AmountPlanned), Money(position.Booked)]</RadzenText>
+        <RadzenButton Icon="edit" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small" Click="@(_ => EditAsync(position))"
+                      Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
+                      aria-label="@L["Plan_Edit", position.Label]" data-testid="@($"plan-edit-{position.Id}")" />
         @if (PlanView.CanDelete(position))
         {
-            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => DeleteAsync(position)"
-                           Class="@GrantLock.Class(CanDelete)" @attributes="GrantLock.Attributes(CanDelete)"
-                           aria-label="@L["Plan_Delete", position.Label]" data-testid="@($"plan-delete-{position.Id}")" />
+            <RadzenButton Icon="delete" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small" Click="@(_ => DeleteAsync(position))"
+                          Class="@GrantLock.Class(CanDelete)" @attributes="GrantLock.Attributes(CanDelete)"
+                          aria-label="@L["Plan_Delete", position.Label]" data-testid="@($"plan-delete-{position.Id}")" />
         }
-    </MudStack>;
+    </RadzenStack>;
 
     // Unter der Bezeichnung: der Tag, und ob der Posten einmalig, durchlaufend oder von Hand geändert ist.
     private string Caption(PlanPositionResponse position)

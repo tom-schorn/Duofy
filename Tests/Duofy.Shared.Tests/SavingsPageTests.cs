@@ -6,7 +6,6 @@ using Duofy.Shared.Pages;
 using Duofy.Shared.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
-using MudBlazor;
 
 namespace Duofy.Shared.Tests;
 
@@ -16,12 +15,11 @@ namespace Duofy.Shared.Tests;
 /// </summary>
 public class SavingsPageTests : PageTestContext
 {
-    private readonly IRenderedComponent<MudDialogProvider> dialogs;
+    private readonly IRenderedComponent<IComponent> dialogs;
 
     public SavingsPageTests()
     {
-        Render<MudPopoverProvider>();
-        dialogs = Render<MudDialogProvider>();
+        dialogs = RenderRadzenHost();
     }
 
     private ActiveMember Member => Services.GetRequiredService<ActiveMember>();
@@ -108,6 +106,38 @@ public class SavingsPageTests : PageTestContext
     }
 
     // Issue 30, Kriterium 1: Ziele mit Stand ansehen.
+    // Mangel S10 und S13: Der Balken ist nur Bild (aria-hidden), der Text daneben sagt den Stand; die Knöpfe nennen ihr Ziel.
+    [Fact]
+    public void The_progress_bars_are_hidden_from_screen_readers_and_the_buttons_name_their_goal_or_debt()
+    {
+        var holiday = Goal("Urlaub", 350m, 1200m);
+        var debt = Debt(DebtKinds.Claim, "Stromrechnung", 300m, 100m);
+        DebtApiFake.Debts.Add(debt);
+        var cut = OpenPage(holiday);
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll($"[data-testid='debt-progress-{debt.Id}']")));
+
+        Assert.Equal("true", cut.Find($"[data-testid='savings-goal-progress-{holiday.Id}']").GetAttribute("aria-hidden"));
+        Assert.Equal("true", cut.Find($"[data-testid='debt-progress-{debt.Id}']").GetAttribute("aria-hidden"));
+        Assert.Null(cut.Find($"[data-testid='savings-goal-progress-{holiday.Id}']").GetAttribute("aria-label"));
+        Assert.Equal("Einzahlen auf Urlaub", cut.Find($"[data-testid='savings-goal-deposit-{holiday.Id}']").GetAttribute("aria-label"));
+        Assert.Equal("Entnehmen von Urlaub", cut.Find($"[data-testid='savings-goal-withdraw-{holiday.Id}']").GetAttribute("aria-label"));
+        Assert.Equal("Zahlung eintragen für Stromrechnung", cut.Find($"[data-testid='debt-pay-{debt.Id}']").GetAttribute("aria-label"));
+    }
+
+    // N4: Eine bezahlte Forderung (Rest 0) bietet keinen Knopf "Zahlung eintragen" mehr.
+    [Fact]
+    public void A_settled_debt_offers_no_payment_button_and_an_open_one_does()
+    {
+        var settled = Debt(DebtKinds.Claim, "Bezahlt", 300m, 300m);
+        var open = Debt(DebtKinds.Claim, "Offen", 300m, 100m);
+        DebtApiFake.Debts.AddRange([settled, open]);
+        var cut = OpenPage();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll($"[data-testid='debt-pay-{open.Id}']")));
+
+        Assert.Empty(cut.FindAll($"[data-testid='debt-pay-{settled.Id}']"));
+        Assert.NotEmpty(cut.FindAll($"[data-testid='debt-settled-{settled.Id}']"));
+    }
+
     [Fact]
     public void Each_goal_shows_its_balance_of_the_target_and_a_progress_bar()
     {
@@ -308,8 +338,8 @@ public class SavingsPageTests : PageTestContext
         Assert.Contains("keine Rechtsberatung", help);
         // Kein Alarm: weder Fehler- noch Warnfarbe in den Abschnitten der Schulden.
         var sections = cut.Find("[data-testid='savings-section-debts']").InnerHtml + cut.Find("[data-testid='savings-section-loans']").InnerHtml;
-        Assert.DoesNotContain("mud-error", sections);
-        Assert.DoesNotContain("mud-warning", sections);
+        Assert.DoesNotContain("rz-danger", sections);
+        Assert.DoesNotContain("rz-warning", sections);
     }
 
     [Fact]

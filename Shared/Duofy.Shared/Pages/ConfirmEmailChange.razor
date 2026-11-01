@@ -1,4 +1,6 @@
 @page "/email-bestaetigen"
+@using Radzen
+@using Radzen.Blazor
 @layout AuthLayout
 @using Duofy.ApiClient
 @using Duofy.Schemas
@@ -12,7 +14,7 @@
 <PageTitle>@L["EmailConfirm_Title"]</PageTitle>
 
 <div class="auth-header">
-    <MudText Typo="Typo.h2" HtmlTag="h1">@L["EmailConfirm_Title"]</MudText>
+    <RadzenText TextStyle="TextStyle.H2" TagName="TagName.H1">@L["EmailConfirm_Title"]</RadzenText>
     @if (Complete)
     {
         <p class="auth-lead" data-testid="email-confirm-address">@L["EmailConfirm_Lead", NewEmail!]</p>
@@ -23,17 +25,17 @@
 
 @if (done)
 {
-    <MudButton Href="/anmelden" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
-               data-testid="email-confirm-sign-in">@L["Auth_ToSignIn"]</MudButton>
+    <LinkButton Href="/anmelden" FullWidth="true" data-testid="email-confirm-sign-in">@L["Auth_ToSignIn"]</LinkButton>
 }
 else if (!Complete)
 {
-    <MudAlert Severity="Severity.Warning" data-testid="email-confirm-incomplete">@L["Link_Incomplete"]</MudAlert>
+    <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" AllowClose="false"
+                 data-testid="email-confirm-incomplete">@L["Link_Incomplete"]</RadzenAlert>
 }
 else
 {
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Disabled="busy" OnClick="ConfirmAsync"
-               data-testid="email-confirm-submit">@L["EmailConfirm_Submit"]</MudButton>
+    <RadzenButton Text="@L["EmailConfirm_Submit"]" ButtonStyle="ButtonStyle.Primary" Class="rz-w-100"
+                  Disabled="busy" Click="@(_ => ConfirmAsync())" data-testid="email-confirm-submit" />
 }
 
 @code {
@@ -64,8 +66,8 @@ else
             var result = await AuthApi.ConfirmEmailChangeAsync(new ConfirmEmailChangeRequest(Guid.Parse(Id!), NewEmail!.Trim(), Token!));
             done = result.Succeeded;
             message = result.Succeeded
-                ? new NoticeMessage(L["EmailConfirm_Done"], Severity.Success)
-                : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+                ? new NoticeMessage(L["EmailConfirm_Done"], NoticeSeverity.Success)
+                : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
         }
         finally
         {

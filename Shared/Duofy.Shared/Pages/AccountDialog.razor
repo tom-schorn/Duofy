@@ -1,9 +1,12 @@
+@using Radzen
+@using Radzen.Blazor
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
 @using Duofy.Shared.Dialogs
 @inject IAccountApi AccountApi
 @inject ActiveMember Member
+@inject DialogService Dialogs
 @inject IStringLocalizer<SharedResources> L
 
 @* Der Dialog zum Anlegen und Ändern eines Kontos, auf dem Schritt-Dialog (Spec 11) mit einem Schritt (Issue #22, Spec 22).
@@ -12,16 +15,16 @@
    Dialogs: Die Art stellt den Schalter "zählt als verfügbar" vor, solange die Person ihn nicht
    selbst gestellt hat. Geprüft wird beim Speichern von der API; ihre Fehler stehen oben im Dialog. *@
 
-<StepDialog OnFinish="SaveAsync" FinishText="@L["AccountDialog_Save"]" Busy="busy" FinishTestId="account-save">
+<StepDialog Title="@Title" OnFinish="SaveAsync" FinishText="@L["AccountDialog_Save"]" Busy="busy" FinishTestId="account-save">
     <DialogStep Title="@L["AccountDialog_StepAll"]">
         @if (error is not null)
         {
-            <MudAlert Severity="Severity.Error" data-testid="account-error">@error</MudAlert>
+            <ErrorAlert AlertStyle="AlertStyle.Danger" Text="@error" data-testid="account-error" />
         }
 
         <StepField Label="@L["Field_AccountName"]" InputId="account-name-input" TestId="account-name-field">
-            <MudTextField T="string" @bind-Value="draft.Name" Variant="Variant.Outlined" InputId="account-name-input"
-                          MaxLength="MoneyAccountRules.NameMaxLength" data-testid="account-name" />
+            <RadzenTextBox @bind-Value="draft.Name" id="account-name-input" MaxLength="MoneyAccountRules.NameMaxLength"
+                           data-testid="account-name" />
         </StepField>
 
         <StepField Label="@L["Field_AccountType"]" InputId="account-type-input" TestId="account-type-field">
@@ -37,23 +40,26 @@
         <AccountIconPicker Value="@draft.Icon" ValueChanged="OnIconChanged" TestId="account-icon" />
 
         @* Startbetrag und Starttag gehören zusammen: der Stand am Ende dieses Tages. *@
-        <StepField Label="@L["Field_OpeningBalance"]" InputId="account-opening-balance-input" TestId="account-opening-balance-field">
-            <MudNumericField T="decimal?" @bind-Value="draft.OpeningBalance" Culture="German" Format="0.00"
-                             HideSpinButtons="true" Variant="Variant.Outlined" InputId="account-opening-balance-input"
-                             HelperText="@L["Field_OpeningBalanceHint"]" data-testid="account-opening-balance" />
+        <StepField Label="@L["Field_OpeningBalance"]" InputId="account-opening-balance-input" AriaLabelled="true" TestId="account-opening-balance-field">
+            <RadzenNumeric TValue="decimal?" Culture="German" @bind-Value="draft.OpeningBalance" Format="0.00" ShowUpDown="false"
+                           InputAttributes="@OpeningBalanceAttributes" data-testid="account-opening-balance" />
+            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color"
+                        id="account-opening-balance-hint">@L["Field_OpeningBalanceHint"]</RadzenText>
         </StepField>
         <StepField Label="@L["Field_OpeningDate"]" InputId="account-opening-date-input" TestId="account-opening-date-field">
-            <MudTextField T="string" Value="@dateText" ValueChanged="OnDateChanged" InputType="InputType.Date"
-                          Variant="Variant.Outlined" InputId="account-opening-date-input" data-testid="account-opening-date" />
+            <RadzenTextBox Value="@dateText" ValueChanged="OnDateChanged" type="date" id="account-opening-date-input"
+                           data-testid="account-opening-date" />
         </StepField>
 
-        <MudSwitch T="bool" Value="draft.CountsAsAvailable" ValueChanged="OnCountsAsAvailableChanged"
-                   Color="Color.Primary" Label="@L["Field_CountsAsAvailable"]"
-                   data-testid="account-counts-as-available" />
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+            <RadzenSwitch Value="draft.CountsAsAvailable" ValueChanged="OnCountsAsAvailableChanged" Name="account-counts-as-available"
+                          data-testid="account-counts-as-available" />
+            <RadzenLabel Component="account-counts-as-available" Text="@L["Field_CountsAsAvailable"]" />
+        </RadzenStack>
 
         <StepField Label="@L["Field_Iban"]" InputId="account-iban-input" TestId="account-iban-field">
-            <MudTextField T="string" @bind-Value="draft.Iban" Variant="Variant.Outlined" InputId="account-iban-input"
-                          MaxLength="42" data-testid="account-iban" />
+            <RadzenTextBox @bind-Value="draft.Iban" id="account-iban-input" MaxLength="42"
+                           data-testid="account-iban" />
         </StepField>
     </DialogStep>
 </StepDialog>
@@ -62,9 +68,16 @@
 
     private static readonly CultureInfo German = new("de-DE");
 
-    // Der Dialog selbst, über den er sich schließen kann.
-    [CascadingParameter]
-    private IMudDialogInstance MudDialog { get; set; } = default!;
+    /// <summary>Der Titel im Kopf des Schritt-Dialogs ("Neues Konto" oder "Konto ändern").</summary>
+    [Parameter]
+    public string? Title { get; set; }
+
+    // Zahlenfelder von Radzen lassen keine Id am input zu: Das Feld verweist auf Beschriftung und Hinweis.
+    private static readonly Dictionary<string, object> OpeningBalanceAttributes = new()
+    {
+        ["aria-labelledby"] = "account-opening-balance-input-label",
+        ["aria-describedby"] = "account-opening-balance-hint",
+    };
 
     /// <summary>Das Konto, das geändert wird; null beim Anlegen.</summary>
     [Parameter]
@@ -116,7 +129,7 @@
 
             if (result.Succeeded)
             {
-                MudDialog.Close(DialogResult.Ok(true));
+                Dialogs.Close(true);
             }
             else
             {

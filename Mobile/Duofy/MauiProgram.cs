@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using Duofy.ApiClient;
 using Duofy.Services;
 using Duofy.Shared.Services;
@@ -26,8 +26,18 @@ namespace Duofy
 
             builder.Services.AddMauiBlazorWebView();
 
-            // MudBlazor, Texte und die Ablage für hell/dunkel aus Duofy.Shared. Die App
+            // Radzen, Texte und die Ablage für hell/dunkel aus Duofy.Shared. Die App
             // ersetzt danach die Ablage durch eine, die die Preferences des Telefons benutzt.
+            // Die Marke (Name und Logo) folgt dem gewählten Server: der gehostete Dienst heißt Plagevo, jeder eigene
+            // Server Duofy. Sie steht vor AddDuofyUi, weil dort nur ein Standard eingetragen wird, wenn noch keine da ist.
+            // Die Adresse der API steht in appsettings.json (Release: der gehostete Dienst Plagevo, https://api.plagevo.de/)
+            // oder appsettings.Debug.json (Debug: die API auf dem PC).
+            var apiAddress = builder.Configuration["Api:BaseAddress"]
+                ?? throw new InvalidOperationException("Api:BaseAddress fehlt in appsettings.json.");
+            var hostedAddress = new Uri(apiAddress);
+            var serverStore = new ServerStore(hostedAddress, new PreferencesServerPreference());
+            builder.Services.AddSingleton(AppBrand.ForServer(serverStore));
+
             builder.Services.AddDuofyUi();
             builder.Services.AddScoped<IThemePreferenceStore, PreferencesThemePreferenceStore>();
 
@@ -37,11 +47,7 @@ namespace Duofy
             // Teilen öffnet in der App den Teilen-Dialog von Android, zum Beispiel für eine Einladung.
             builder.Services.AddSingleton<IShareService, MauiShareService>();
 
-            // Die Verbindung zur API. Die Adresse steht in appsettings.json (Release: der gehostete
-            // Dienst Plagevo, https://api.plagevo.de/) oder appsettings.Debug.json (Debug: die API auf dem PC).
-            var apiAddress = builder.Configuration["Api:BaseAddress"]
-                ?? throw new InvalidOperationException("Api:BaseAddress fehlt in appsettings.json.");
-            var hostedAddress = new Uri(apiAddress);
+            // Die Verbindung zur API; die Adresse (hostedAddress) steht oben.
             builder.Services.AddDuofyApiClient(hostedAddress);
 
             // Die Person kann auf der Anmeldeseite einen eigenen Server wählen. Die Wahl steht in den
@@ -52,7 +58,7 @@ namespace Duofy
             allowHttp = true;
 #endif
             builder.Services.AddDuofyServerChoice(
-                new ServerStore(hostedAddress, new PreferencesServerPreference()),
+                serverStore,
                 new ServerSelectorOptions { AllowHttp = allowHttp });
 
             // Die Tokens liegen im SecureStorage des Telefons. Dadurch bleibt die App nach

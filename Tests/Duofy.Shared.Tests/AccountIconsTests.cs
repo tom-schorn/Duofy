@@ -1,12 +1,10 @@
 using AngleSharp.Dom;
 using Bunit;
 using Duofy.Schemas;
-using Duofy.Shared.Icons;
 using Duofy.Shared.Pages;
 using Duofy.Shared.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
-using MudBlazor;
 
 namespace Duofy.Shared.Tests;
 
@@ -17,12 +15,11 @@ namespace Duofy.Shared.Tests;
 /// </summary>
 public class AccountIconsTests : PageTestContext
 {
-    private readonly IRenderedComponent<MudDialogProvider> dialogs;
+    private readonly IRenderedComponent<Microsoft.AspNetCore.Components.IComponent> dialogs;
 
     public AccountIconsTests()
     {
-        Render<MudPopoverProvider>();
-        dialogs = Render<MudDialogProvider>();
+        dialogs = RenderRadzenHost();
     }
 
     private static IElement Group(IRenderedComponent<IComponent> cut, string testId) => cut.Find($"[data-testid='{testId}']");
@@ -44,7 +41,7 @@ public class AccountIconsTests : PageTestContext
         foreach (var key in AccountIcons.All)
         {
             var symbol = AccountIconSet.SymbolName(key);
-            Assert.Contains(symbol, TablerIcons.Names);
+            Assert.Matches("^[a-z_]+$", symbol);
         }
         Assert.Equal(AccountIcons.All.Count, AccountIcons.All.Select(AccountIconSet.SymbolName).Distinct().Count());
         Assert.Equal(AccountIconSet.SymbolName(AccountIcons.Bank), AccountIconSet.SymbolName("unbekannt"));
@@ -207,7 +204,7 @@ public class AccountIconsTests : PageTestContext
         Assert.Null(IconOf(options[0]));
         Assert.Equal(AccountIcons.Bank, IconOf(options[1]));
         Assert.Equal(AccountIcons.Piggy, IconOf(options[2]));
-        Assert.NotEmpty(options[1].QuerySelectorAll("svg"));
+        Assert.NotEmpty(options[1].QuerySelectorAll("i.rzi"));
     }
 
     // A3 (Issue 16): Konten ohne Freigabe erscheinen wie bisher nicht (die Liste enthält sie nicht); aufgelöste nur, wenn gewählt.

@@ -4,7 +4,6 @@ using Duofy.Shared.Layout;
 using Duofy.Shared.Pages;
 using Duofy.Shared.Services;
 using Microsoft.Extensions.DependencyInjection;
-using MudBlazor;
 
 namespace Duofy.Shared.Tests;
 
@@ -44,8 +43,8 @@ public class AccessibilityMarkupTests : UiTestContext
     {
         var source = Page(name);
 
-        Assert.Matches("""<MudText Typo="Typo.h4" HtmlTag="h1""", source);
-        Assert.DoesNotMatch("""<MudText Typo="Typo.h4"(?! HtmlTag="h1")""", source);
+        Assert.Matches("""<RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1""", source);
+        Assert.DoesNotMatch("""<RadzenText TextStyle="TextStyle.H4"(?! TagName="TagName.H1")""", source);
         Assert.Contains("<AppPageHeading ", source);
     }
 
@@ -64,11 +63,12 @@ public class AccessibilityMarkupTests : UiTestContext
         Assert.Contains("visually-hidden", heading.ClassList);
     }
 
-    [Theory]
-    [InlineData("AppLayout")]
-    [InlineData("MainLayout")]
-    public void The_title_in_the_app_bar_is_no_heading(string layout) =>
-        Assert.Matches("""<MudText Typo="Typo.h6" HtmlTag="div" Class="app-title""", LayoutFile(layout));
+    [Fact]
+    public void The_title_in_the_app_bar_is_no_heading()
+    {
+        Assert.Contains("""<div class="app-title" data-testid="app-title">""", LayoutFile("AppLayout"));
+        Assert.Contains("""<div class="app-title">""", LayoutFile("MainLayout"));
+    }
 
     // S1: Der Überspringen-Link kommt vor Leiste und Seitenleiste; das Ziel kann den Fokus annehmen.
     [Fact]
@@ -92,7 +92,7 @@ public class AccessibilityMarkupTests : UiTestContext
     {
         var layout = LayoutFile("AppLayout");
 
-        Assert.True(layout.IndexOf("<SkipLink", StringComparison.Ordinal) < layout.IndexOf("<MudLayout", StringComparison.Ordinal));
+        Assert.True(layout.IndexOf("<SkipLink", StringComparison.Ordinal) < layout.IndexOf("<RadzenLayout", StringComparison.Ordinal));
         Assert.Contains("id=\"@SkipLink.TargetId\"", layout);
     }
 
@@ -131,15 +131,14 @@ public class AccessibilityMarkupTests : UiTestContext
         Assert.DoesNotContain("<span class=\"dismiss\"", source);
     }
 
-    // S11: Das Feld selbst sagt, dass es Pflicht ist und ob es einen Fehler hat. Es kann ein Eingabefeld von MudBlazor
+    // S11: Das Feld selbst sagt, dass es Pflicht ist und ob es einen Fehler hat. Es kann ein Eingabefeld von Radzen
     // sein, an das StepField nicht herankommt; darum geht das über die Id im Browser.
     [Fact]
     public async Task A_required_field_is_marked_and_turns_invalid_after_next()
     {
         var module = JSInterop.SetupModule("./_content/Duofy.Shared/step-field.js");
-        var dialogs = Render<MudDialogProvider>();
-        var service = Services.GetRequiredService<IDialogService>();
-        await dialogs.InvokeAsync(() => service.ShowAsync<StepDialogDemoDialog>("Vertrag anlegen", StepDialogOptions.Create()));
+        var dialogs = RenderRadzenHost();
+        _ = Services.GetRequiredService<FormDialogs>().OpenStepAsync<StepDialogDemoDialog, string>("Vertrag anlegen");
 
         dialogs.WaitForAssertion(() => Assert.Contains(module.Invocations, i => Marks(i, "demo-name-input", required: true, invalid: false)));
 

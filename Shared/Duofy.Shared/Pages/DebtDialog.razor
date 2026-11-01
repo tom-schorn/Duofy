@@ -1,8 +1,11 @@
+@using Radzen
+@using Radzen.Blazor
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
 @inject IDebtApi DebtApi
 @inject ActiveMember Member
+@inject DialogService Dialogs
 @inject IStringLocalizer<SharedResources> L
 @inject IAppHost Host
 
@@ -11,47 +14,59 @@
    später nicht. Geprüft wird beim Speichern von der API; ihre Fehler stehen oben im Dialog, ruhig und ohne Warnfarbe
    im Text. *@
 
-<MudDialog>
-    <DialogContent>
-        @if (Host.IsApp)
+<div>
+    @if (Host.IsApp)
         {
-            <FullScreenFormHeader Title="@MudDialog.Title" SaveText="@L["DebtDialog_Save"]" SaveTestId="debt-save"
+            <FullScreenFormHeader Title="@Title" SaveText="@L["DebtDialog_Save"]" SaveTestId="debt-save"
                                   Busy="busy" OnClose="Cancel" OnSave="SaveAsync" />
         }
-        <MudStack Spacing="3">
+        <RadzenStack Gap="1rem">
             @if (error is not null)
             {
-                <MudAlert Severity="Severity.Normal" data-testid="debt-error">@error</MudAlert>
+                <ErrorAlert AlertStyle="AlertStyle.Base" Text="@error" data-testid="debt-error" />
             }
 
-            <MudTextField T="string" @bind-Value="name" Label="@L["Field_DebtName"]"
-                          MaxLength="DebtRules.NameMaxLength" data-testid="debt-name" />
-            <MudTextField T="string" @bind-Value="creditor" Label="@L["Field_DebtCreditor"]"
-                          MaxLength="DebtRules.CreditorMaxLength" data-testid="debt-creditor" />
-            <MudNumericField T="decimal?" @bind-Value="amount" Culture="German" Format="0.00" HideSpinButtons="true"
-                             Label="@L["Field_DebtAmount"]" data-testid="debt-amount" />
-            <MudTextField T="string" Value="@dateText" ValueChanged="OnDateChanged" InputType="InputType.Date"
-                          Label="@L["Field_DebtDueDate"]" data-testid="debt-due-date" />
-            <MudTextField T="string" @bind-Value="note" Label="@L["Field_DebtNote"]"
-                          MaxLength="DebtRules.NoteMaxLength" data-testid="debt-note" />
-        </MudStack>
-    </DialogContent>
-    <DialogActions>
-        @if (!Host.IsApp)
-        {
-            <MudButton OnClick="Cancel">@L["SavingsGoalDialog_Cancel"]</MudButton>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="busy" OnClick="SaveAsync"
-                       data-testid="debt-save">@L["DebtDialog_Save"]</MudButton>
-        }
-    </DialogActions>
-</MudDialog>
+            <div class="field">
+                <FieldLabel For="debt-name-input" Text="@L["Field_DebtName"]" />
+                <RadzenTextBox @bind-Value="name" id="debt-name-input" MaxLength="DebtRules.NameMaxLength" data-testid="debt-name" />
+            </div>
+            <div class="field">
+                <FieldLabel For="debt-creditor-input" Text="@L["Field_DebtCreditor"]" />
+                <RadzenTextBox @bind-Value="creditor" id="debt-creditor-input" MaxLength="DebtRules.CreditorMaxLength" data-testid="debt-creditor" />
+            </div>
+            <div class="field">
+                <FieldLabel id="debt-amount-label" Text="@L["Field_DebtAmount"]" />
+                <RadzenNumeric TValue="decimal?" @bind-Value="amount" Culture="German" Format="0.00" ShowUpDown="false"
+                               InputAttributes="@(new Dictionary<string, object> { ["aria-labelledby"] = "debt-amount-label" })"
+                               data-testid="debt-amount" />
+            </div>
+            <div class="field">
+                <FieldLabel For="debt-due-date-input" Text="@L["Field_DebtDueDate"]" />
+                <RadzenTextBox Value="@dateText" ValueChanged="OnDateChanged" type="date" id="debt-due-date-input" data-testid="debt-due-date" />
+            </div>
+            <div class="field">
+                <FieldLabel For="debt-note-input" Text="@L["Field_DebtNote"]" />
+                <RadzenTextBox @bind-Value="note" id="debt-note-input" MaxLength="DebtRules.NoteMaxLength" data-testid="debt-note" />
+            </div>
+
+            @if (!Host.IsApp)
+            {
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+                    <RadzenButton Text="@L["SavingsGoalDialog_Cancel"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Click="@(_ => Cancel())" />
+                    <RadzenButton Text="@L["DebtDialog_Save"]" ButtonStyle="ButtonStyle.Primary" Disabled="busy" Click="@(_ => SaveAsync())"
+                                  data-testid="debt-save" />
+                </RadzenStack>
+            }
+        </RadzenStack>
+</div>
 
 @code {
 
     private static readonly CultureInfo German = new("de-DE");
 
-    [CascadingParameter]
-    private IMudDialogInstance MudDialog { get; set; } = default!;
+    /// <summary>Der Titel für die Kopfzeile in der App; im Browser steht er in der Titelzeile des Fensters.</summary>
+    [Parameter]
+    public string? Title { get; set; }
 
     /// <summary>Der Eintrag, der geändert wird; null beim Anlegen.</summary>
     [Parameter]
@@ -93,7 +108,7 @@
         date = DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed) ? parsed : null;
     }
 
-    private void Cancel() => MudDialog.Cancel();
+    private void Cancel() => Dialogs.Close();
 
     private async Task SaveAsync()
     {
@@ -110,7 +125,7 @@
 
             if (result.Succeeded)
             {
-                MudDialog.Close(DialogResult.Ok(true));
+                Dialogs.Close(true);
             }
             else
             {

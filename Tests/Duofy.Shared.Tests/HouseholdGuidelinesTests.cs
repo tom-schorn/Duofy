@@ -3,7 +3,6 @@ using Duofy.Schemas;
 using Duofy.Shared.Pages;
 using Duofy.Shared.Services;
 using Microsoft.Extensions.DependencyInjection;
-using MudBlazor;
 
 namespace Duofy.Shared.Tests;
 
@@ -17,8 +16,6 @@ public class HouseholdGuidelinesTests : PageTestContext
 {
     public HouseholdGuidelinesTests()
     {
-        Render<MudPopoverProvider>();
-        Render<MudDialogProvider>();
     }
 
     private ActiveMember Member => Services.GetRequiredService<ActiveMember>();
@@ -158,8 +155,8 @@ public class HouseholdGuidelinesTests : PageTestContext
         var cut = await OpenSpecExampleAsync();
 
         Assert.Contains("Anhaltspunkt", Text(cut, "guideline-intro"));
-        Assert.Empty(cut.FindAll("[data-testid='household-guidelines'] .mud-alert"));
-        Assert.Empty(cut.FindAll("[data-testid='household-guidelines'] .mud-error-text"));
+        Assert.Empty(cut.FindAll("[data-testid='household-guidelines'] .rz-alert"));
+        Assert.Empty(cut.FindAll("[data-testid='household-guidelines'] .rz-color-danger"));
     }
 
     // Jede Tabelle hat eine Beschriftung und Kopfzellen für Vorlese-Programme.

@@ -1,8 +1,14 @@
+using System.Globalization;
 using Duofy.Shared.Blocks;
 using Duofy.Shared.Services;
 using Duofy.Web.Components;
 using Duofy.Web.Services;
 using Duofy.Web.Session;
+
+// Das Image setzt keine Sprache. Ohne feste Standardsprache hingen Zahlen und Daten vom Rechner ab (Review von Issue 41).
+var german = new CultureInfo("de-DE");
+CultureInfo.DefaultThreadCurrentCulture = german;
+CultureInfo.DefaultThreadCurrentUICulture = german;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,7 +27,7 @@ builder.Services.AddSingleton(AppBrand.FromSettings(
     builder.Configuration.GetValue("Duofy:Hosted", false)));
 
 // --- Gemeinsame Oberfläche -------------------------------------------------
-// MudBlazor, Texte und Hell/Dunkel aus Duofy.Shared.
+// Radzen, Texte und Hell/Dunkel aus Duofy.Shared.
 builder.Services.AddDuofyUi();
 // Nur im Entwicklungsbetrieb ist die Testseite der Bausteine erreichbar (Spec 6).
 builder.Services.AddSingleton<IDevelopmentMode>(new DevelopmentMode(builder.Environment.IsDevelopment()));

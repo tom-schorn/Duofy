@@ -2,6 +2,8 @@
 
 Format: 2
 
+> **Alt (Stand vor der Radzen-Umstellung, Issue 76):** Diese Spezifikation nennt die frühere Oberflächenbibliothek MudBlazor und die Tabler-Symbole. Heute gelten Radzen und Material Symbols, siehe `docs/plans/radzen-plan.md`. Fachliche Regeln und Abläufe bleiben gültig.
+
 ## Summary
 
 Es gibt einen Symbol-Baustein mit einem kleinen, festen Bestand von Tabler-Symbolen. Die Seiten stellen später darauf um.

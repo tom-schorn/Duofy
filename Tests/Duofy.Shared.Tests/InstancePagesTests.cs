@@ -4,7 +4,6 @@ using Duofy.Schemas;
 using Duofy.Shared.Layout;
 using Duofy.Shared.Pages;
 using Microsoft.AspNetCore.Components;
-using MudBlazor;
 
 namespace Duofy.Shared.Tests;
 
@@ -14,12 +13,11 @@ namespace Duofy.Shared.Tests;
 /// </summary>
 public class InstancePagesTests : PageTestContext
 {
-    private readonly IRenderedComponent<MudDialogProvider> dialogs;
+    private readonly IRenderedComponent<IComponent> dialogs;
 
     public InstancePagesTests()
     {
-        Render<MudPopoverProvider>();
-        dialogs = Render<MudDialogProvider>();
+        dialogs = RenderRadzenHost();
     }
 
     private void Mode(string mode, bool setupPending = false) =>
@@ -71,8 +69,8 @@ public class InstancePagesTests : PageTestContext
 
         var cut = OpenRegister();
 
-        cut.WaitForAssertion(() => Assert.Equal("Registrieren geht auf diesem Server nur mit Einladung.",
-            cut.Find("[data-testid='register-mode-notice']").TextContent.Trim()));
+        cut.WaitForAssertion(() => Assert.Contains("Registrieren geht auf diesem Server nur mit Einladung.",
+            cut.Find("[data-testid='register-mode-notice']").TextContent));
         var submit = cut.Find("[data-testid='register-submit']");
         Assert.Equal("true", submit.GetAttribute("aria-disabled"));
         Assert.Equal("register-mode-notice", submit.GetAttribute("aria-describedby"));
@@ -87,8 +85,8 @@ public class InstancePagesTests : PageTestContext
 
         var cut = OpenRegister();
 
-        cut.WaitForAssertion(() => Assert.Equal("Auf diesem Server ist keine Registrierung möglich.",
-            cut.Find("[data-testid='register-mode-notice']").TextContent.Trim()));
+        cut.WaitForAssertion(() => Assert.Contains("Auf diesem Server ist keine Registrierung möglich.",
+            cut.Find("[data-testid='register-mode-notice']").TextContent));
         Assert.Equal("true", cut.Find("[data-testid='register-submit']").GetAttribute("aria-disabled"));
     }
 
@@ -224,7 +222,8 @@ public class InstancePagesTests : PageTestContext
         anna.WaitForAssertion(() => Assert.NotEmpty(anna.FindAll("[data-testid='more-admin']")));
         var entry = anna.Find("[data-testid='more-admin']");
         Assert.Equal("/admin", entry.GetAttribute("href"));
-        Assert.Equal("Admin", entry.TextContent.Trim());
+        // Radzen schreibt den Namen des Symbols als Text vor die Beschriftung.
+        Assert.EndsWith("Admin", entry.TextContent.Trim());
     }
 
     [Fact]
@@ -259,9 +258,28 @@ public class InstancePagesTests : PageTestContext
         Assert.Contains("Gültig bis 28.10.2026", cut.Markup);
 
         var share = cut.Find($"[data-testid='admin-invitation-share-{invitation.Id}']");
-        Assert.Equal("Teilen", share.TextContent.Trim());
+        Assert.EndsWith("Teilen", share.TextContent.Trim());
         share.Click();
         cut.WaitForAssertion(() => Assert.Equal(("Einladung zu Duofy", link), Assert.Single(ShareFake.Shared)));
+    }
+
+    // Am Handy schob eine lange Adresse ohne Leerstellen den Knopf Zurückziehen aus der Karte (Gesamtdurchlauf #76).
+    [Fact]
+    public void A_long_address_of_an_invitation_may_break_so_the_revoke_button_stays_in_the_card()
+    {
+        var cut = OpenAdmin();
+
+        Field(cut, "admin-email").Input("eine.sehr.lange.adresse.ohne.leerstellen@example.de");
+        Field(cut, "admin-create").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            var address = Assert.Single(cut.FindAll("p"), p => p.TextContent.Trim() == "eine.sehr.lange.adresse.ohne.leerstellen@example.de");
+            Assert.Contains("long-link", address.ClassList);
+            // Radzens Knopf schrumpft sonst und schneidet seinen Text ab; er rutscht besser in die nächste Zeile.
+            var revoke = cut.Find("[data-testid^='admin-invitation-revoke-']");
+            Assert.Contains("flex-wrap:wrap", revoke.ParentElement!.GetAttribute("style"));
+        });
     }
 
     [Fact]
@@ -292,6 +310,24 @@ public class InstancePagesTests : PageTestContext
 
         cut.WaitForAssertion(() => Assert.Equal([invitation.Id], AdminApiFake.Revoked));
         cut.WaitForAssertion(() => Assert.DoesNotContain("Gültig bis 30.10.2026", cut.Markup));
+    }
+
+    // Radzen-Umstellung R23
+    [Fact]
+    public void The_admin_page_is_built_with_radzen_and_keeps_the_qr_code_white()
+    {
+        AdminApiFake.Invitations.Add(new RegistrationInvitationResponse(Guid.NewGuid(), "offen", null,
+            new DateTimeOffset(2026, 10, 30, 12, 0, 0, TimeSpan.Zero), $"{FakeAdminApi.PublicUrl}/registrieren?einladung=offen"));
+        var invitation = AdminApiFake.Invitations[0];
+
+        var cut = OpenAdmin();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll($"[data-testid='admin-invitation-qr-{invitation.Id}']")));
+
+        Assert.Contains("rz-card", cut.Find($"[data-testid='admin-invitation-{invitation.Id}']").ClassList);
+        Assert.Contains("rz-button", cut.Find("[data-testid='admin-create']").ClassList);
+        Assert.Equal("admin-email-input", cut.Find("label[for='admin-email-input']").GetAttribute("for"));
+        Assert.Equal("email", Field(cut, "admin-email").GetAttribute("type"));
+        Assert.Contains("qr-code", cut.Find($"[data-testid='admin-invitation-qr-{invitation.Id}']").ClassList);
     }
 
     [Fact]

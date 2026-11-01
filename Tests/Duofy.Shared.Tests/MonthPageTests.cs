@@ -3,7 +3,7 @@ using Duofy.Schemas;
 using Duofy.Shared.Pages;
 using Duofy.Shared.Services;
 using Microsoft.Extensions.DependencyInjection;
-using MudBlazor;
+using Microsoft.AspNetCore.Components;
 
 namespace Duofy.Shared.Tests;
 
@@ -14,14 +14,13 @@ namespace Duofy.Shared.Tests;
 /// </summary>
 public class MonthPageTests : PageTestContext
 {
-    private readonly IRenderedComponent<MudDialogProvider> dialogs;
+    private readonly IRenderedComponent<Microsoft.AspNetCore.Components.IComponent> dialogs;
 
     private ActiveMember Member => Services.GetRequiredService<ActiveMember>();
 
     public MonthPageTests()
     {
-        Render<MudPopoverProvider>();
-        dialogs = Render<MudDialogProvider>();
+        dialogs = RenderRadzenHost();
         Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true));
     }
 
@@ -199,8 +198,8 @@ public class MonthPageTests : PageTestContext
         var cut = Open(2026, 10, Overview());
 
         cut.Find("[data-testid='month-action-booking']").Click();
-        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll(".mud-dialog")));
-        dialogs.Find("button[data-testid='booking-cancel'],button.mud-button-text").Click();
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll(".step-dialog")));
+        dialogs.Find("[data-testid='step-dialog-cancel']").Click();
 
         cut.Find("[data-testid='month-action-tick']").Click();
         Assert.True(Selected(cut, "plan"));

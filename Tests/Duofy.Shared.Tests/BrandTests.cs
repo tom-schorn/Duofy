@@ -46,6 +46,18 @@ public class BrandTests : PageTestContext
         Assert.Equal(expectedLogo, brand.HasLogo);
     }
 
+    // Die App wählt die Marke beim Start nach dem gewählten Server: der gehostete Dienst heißt Plagevo, jeder eigene Server Duofy.
+    [Fact]
+    public void The_app_brand_follows_the_chosen_server()
+    {
+        var hostedAddress = new Uri("https://api.plagevo.de/");
+        var hosted = new Duofy.ApiClient.ServerStore(hostedAddress, new Duofy.ApiClient.InMemoryServerPreference());
+        var own = new Duofy.ApiClient.ServerStore(hostedAddress, new Duofy.ApiClient.InMemoryServerPreference("https://duofy.example.org/"));
+
+        Assert.Same(AppBrand.Plagevo, AppBrand.ForServer(hosted));
+        Assert.Same(AppBrand.Duofy, AppBrand.ForServer(own));
+    }
+
     [Fact]
     public void Every_file_a_brand_names_exists_in_the_shared_assets()
     {
@@ -140,7 +152,7 @@ public class BrandTests : PageTestContext
 
         var cut = Render<MainLayout>();
 
-        var logo = Assert.Single(cut.FindAll(".mud-appbar img[data-testid='brand-logo']"));
+        var logo = Assert.Single(cut.FindAll(".rz-header img[data-testid='brand-logo']"));
         // Die Leiste ist auch im hellen Modus dunkel, also das Logo für dunklen Grund.
         Assert.EndsWith("brand/plagevo-wortmarke-dunkel.svg", logo.GetAttribute("src"));
         Assert.Equal("Plagevo", logo.GetAttribute("alt"));
@@ -156,7 +168,7 @@ public class BrandTests : PageTestContext
         var cut = Render<MainLayout>();
 
         cut.WaitForAssertion(() =>
-            Assert.EndsWith("brand/plagevo-wortmarke-dunkel.svg", cut.Find(".mud-appbar img[data-testid='brand-logo']").GetAttribute("src")));
+            Assert.EndsWith("brand/plagevo-wortmarke-dunkel.svg", cut.Find(".rz-header img[data-testid='brand-logo']").GetAttribute("src")));
     }
 
     [Fact]
@@ -167,7 +179,7 @@ public class BrandTests : PageTestContext
         var cut = Render<MainLayout>();
 
         Assert.Empty(cut.FindAll("[data-testid='brand-logo']"));
-        Assert.Equal("Duofy", cut.Find(".mud-appbar .app-title").TextContent.Trim());
+        Assert.Equal("Duofy", cut.Find(".rz-header .app-title").TextContent.Trim());
     }
 
     [Fact]
@@ -178,8 +190,8 @@ public class BrandTests : PageTestContext
 
         var cut = Open("/konto");
 
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".mud-appbar img[data-testid='brand-logo']")));
-        var symbol = cut.Find(".mud-appbar img[data-testid='brand-logo']");
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".rz-header img[data-testid='brand-logo']")));
+        var symbol = cut.Find(".rz-header img[data-testid='brand-logo']");
         Assert.EndsWith("brand/plagevo-symbol-dunkel.svg", symbol.GetAttribute("src"));
         Assert.Equal("", symbol.GetAttribute("alt"));
         Assert.NotEmpty(cut.Find("[data-testid='app-title']").TextContent);

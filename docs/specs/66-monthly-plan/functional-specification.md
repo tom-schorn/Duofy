@@ -48,7 +48,7 @@ The tab Plan shows a month: its positions grouped by pot with planned and booked
 | `POST /api/v1/plans/{year}/{month}/positions/{id}/tick` | `{ amount?, date?, accountId? }` | `200`; `404` |
 | `DELETE /api/v1/plans/{year}/{month}/positions/{id}/tick` | – | `200`; `404` |
 | `POST /api/v1/plans/{year}/{month}/changes/apply` | `{ items?: [...] }` | `200 PlanResponse` |
-| `POST /api/v1/plans/{year}/{month}/carry-over` | `{ amount, balances?: [{ accountId, realBalance }] }` | `201`; `400`; `409` |
+| `POST /api/v1/plans/{year}/{month}/carry-over` | `{ amount, balances?: [{ accountId, balance }] }` | `201`; `400`; `409` |
 | `DELETE /api/v1/plans/{year}/{month}/carry-over` | – | `204`; `404` |
 | `GET/PUT /api/v1/users/me/quotas` | `{ needs, wants, savings }` | `200`; `400 quota_invalid` |
 

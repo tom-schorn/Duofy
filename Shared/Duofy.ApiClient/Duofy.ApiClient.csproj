@@ -13,8 +13,8 @@
 
   <ItemGroup>
     <!-- Dieselbe Version wie in Duofy.Shared, sonst meldet NuGet dort eine Herabstufung. -->
-    <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="10.0.12" />
-    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.12" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="10.0.14" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.14" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,3 +1,5 @@
+@using Radzen
+@using Radzen.Blazor
 @inject ActiveMember Member
 @inject IStringLocalizer<SharedResources> L
 
@@ -7,8 +9,8 @@
 
 @if (Member.Name is { } name && Show)
 {
-    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mb-2" id="@GrantLock.ReasonId"
-             data-testid="grant-reason">@L["Grant_NotGranted", name]</MudText>
+    <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-display-block rz-mb-2" id="@GrantLock.ReasonId"
+                data-testid="grant-reason">@L["Grant_NotGranted", name]</RadzenText>
 }
 
 @code {

@@ -4,19 +4,19 @@ namespace Duofy.Shared.Services;
 
 /// <summary>
 /// Die einzige Stelle, die den Namen eines Kontosymbols aus der API (<see cref="AccountIcons"/>) einem Zeichen der
-/// Symbolsammlung zuordnet (Issue 14). Heute sind es Tabler-Symbole; wechselt die Oberfläche die Sammlung (etwa zu
-/// Material Symbols), ändert sich nur diese Tabelle, nicht die Daten und nicht die Seiten.
+/// Symbolsammlung zuordnet (Issue 14). Es sind die Material Symbols, die Radzen mitbringt; wechselt
+/// die Oberfläche die Sammlung, ändert sich nur diese Tabelle, nicht die Daten und nicht die Seiten.
 /// </summary>
 public static class AccountIconSet
 {
     private static readonly IReadOnlyDictionary<string, string> Symbols = new Dictionary<string, string>
     {
-        [AccountIcons.Bank] = "building-bank",
-        [AccountIcons.Piggy] = "pig-money",
-        [AccountIcons.Cash] = "cash",
-        [AccountIcons.Card] = "credit-card",
-        [AccountIcons.Wallet] = "wallet",
-        [AccountIcons.Coins] = "coins",
+        [AccountIcons.Bank] = "account_balance",
+        [AccountIcons.Piggy] = "savings",
+        [AccountIcons.Cash] = "payments",
+        [AccountIcons.Card] = "credit_card",
+        [AccountIcons.Wallet] = "account_balance_wallet",
+        [AccountIcons.Coins] = "toll",
     };
 
     /// <summary>Der Name des Zeichens in der Sammlung; ein unbekannter Name zeigt das Zeichen der Bank.</summary>

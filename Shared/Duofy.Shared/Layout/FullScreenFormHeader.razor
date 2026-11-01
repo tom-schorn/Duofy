@@ -1,3 +1,5 @@
+@using Radzen
+@using Radzen.Blazor
 @inject IStringLocalizer<SharedResources> L
 
 @* Die Kopfzeile eines Vollbild-Formulars in der App: Schließen links, der Titel in der Mitte,
@@ -5,13 +7,13 @@
    gewohnte Kopf- und Fußzeile. *@
 
 <div class="app-form-header" data-testid="form-header">
-    <MudIconButton Icon="@Icons.Material.Filled.Close" OnClick="OnClose" aria-label="@L["AppLayout_Close"]"
-                   data-testid="form-close" />
-    <MudText Typo="Typo.h6" Class="app-form-header-title">@Title</MudText>
+    <RadzenButton Icon="close" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Click="@(_ => OnClose.InvokeAsync())"
+                  aria-label="@L["AppLayout_Close"]" data-testid="form-close" />
+    <RadzenText TextStyle="TextStyle.H6" TagName="TagName.Div" Class="app-form-header-title">@Title</RadzenText>
     @if (ShowSave)
     {
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="Busy" OnClick="OnSave"
-                   data-testid="@SaveTestId">@SaveText</MudButton>
+        <RadzenButton Text="@SaveText" ButtonStyle="ButtonStyle.Primary" Disabled="Busy" Click="@(_ => OnSave.InvokeAsync())"
+                      data-testid="@SaveTestId" />
     }
 </div>
 

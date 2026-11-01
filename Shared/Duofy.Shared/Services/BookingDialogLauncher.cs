@@ -4,7 +4,6 @@ using Duofy.Shared.Dialogs;
 using Duofy.Shared.Pages;
 using Duofy.Shared.Resources;
 using Microsoft.Extensions.Localization;
-using MudBlazor;
 
 namespace Duofy.Shared.Services;
 
@@ -14,7 +13,7 @@ namespace Duofy.Shared.Services;
 /// reicht sie sie mit, sonst holt der Dienst sie selbst.
 /// </summary>
 public sealed class BookingDialogLauncher(
-    IDialogService dialogs,
+    FormDialogs forms,
     IAccountChoices accountChoices,
     ICategoryApi categoryApi,
     ActiveMember member,
@@ -37,7 +36,7 @@ public sealed class BookingDialogLauncher(
             var accountResult = await accountChoices.ListAsync(member.Owner);
             if (!accountResult.Succeeded)
             {
-                return new NoticeMessage(ErrorTexts.For(l, accountResult.ErrorCode), Severity.Error);
+                return new NoticeMessage(ErrorTexts.For(l, accountResult.ErrorCode), NoticeSeverity.Error);
             }
             accounts = accountResult.Value!;
         }
@@ -45,7 +44,7 @@ public sealed class BookingDialogLauncher(
         // Ohne offenes Konto gibt es nichts Neues zu buchen.
         if (existing is null && !accounts.Any(a => a.Active))
         {
-            return new NoticeMessage(l["Bookings_NoAccounts"], Severity.Info);
+            return new NoticeMessage(l["Bookings_NoAccounts"], NoticeSeverity.Info);
         }
 
         if (categories is null)
@@ -53,7 +52,7 @@ public sealed class BookingDialogLauncher(
             var categoryResult = await categoryApi.ListAsync(member.Owner);
             if (!categoryResult.Succeeded)
             {
-                return new NoticeMessage(ErrorTexts.For(l, categoryResult.ErrorCode), Severity.Error);
+                return new NoticeMessage(ErrorTexts.For(l, categoryResult.ErrorCode), NoticeSeverity.Error);
             }
             categories = categoryResult.Value!.ToList();
         }
@@ -61,19 +60,18 @@ public sealed class BookingDialogLauncher(
         var today = DateOnly.FromDateTime(time.GetLocalNow().DateTime);
 
         // Die Parameter des Dialogs; die Schreibweise mit x => x.Name prüft schon beim Übersetzen, ob es sie gibt.
-        var parameters = new DialogParameters<BookingDialog>
-        {
-            { x => x.Existing, existing },
-            { x => x.Accounts, accounts },
-            { x => x.Categories, categories },
-            { x => x.Today, today },
-            { x => x.PlanMonth, planMonth },
-        };
+        var title = l[existing is null ? "BookingDialog_TitleNew" : "BookingDialog_TitleEdit"].Value;
+        var parameters = new FormParameters<BookingDialog>()
+            .Add(x => x.Title, title)
+            .Add(x => x.Existing, existing)
+            .Add(x => x.Accounts, accounts)
+            .Add(x => x.Categories, categories)
+            .Add(x => x.Today, today)
+            .Add(x => x.PlanMonth, planMonth);
 
-        var title = l[existing is null ? "BookingDialog_TitleNew" : "BookingDialog_TitleEdit"];
-        var dialog = await dialogs.ShowAsync<BookingDialog>(title, parameters, StepDialogOptions.Create());
-        var result = await dialog.Result;
+        // Im Browser ein Fenster, in der App der ganze Bildschirm; der Dialog zeichnet Titel und Abbrechen selbst.
+        var outcome = await forms.OpenStepAsync<BookingDialog, bool>(title, parameters);
 
-        return result is { Canceled: false } ? new NoticeMessage(l["Bookings_Saved"], Severity.Success) : null;
+        return outcome.Saved ? new NoticeMessage(l["Bookings_Saved"], NoticeSeverity.Success) : null;
     }
 }

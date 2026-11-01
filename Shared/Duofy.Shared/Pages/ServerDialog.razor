@@ -1,50 +1,70 @@
 @using Duofy.ApiClient
+@using Radzen
+@using Radzen.Blazor
 @inject IServerStore Servers
 @inject IServerSelector Selector
+@inject IAppHost Host
+@inject DialogService Dialogs
 @inject IStringLocalizer<SharedResources> L
 
 @* Der Dialog zur Wahl des Servers: der gehostete Dienst Plagevo oder ein eigener Server mit Adresse.
    Beim Übernehmen prüft der IServerSelector die Adresse; antwortet dort kein Duofy-Server
-   oder fehlt https, steht der Grund oben im Dialog und der bisherige Server bleibt. Der
-   Dialog läuft nur in der App und hat deshalb immer die Vollbild-Kopfzeile. *@
+   oder fehlt https, steht der Grund oben im Dialog und der bisherige Server bleibt.
 
-<MudDialog>
-    <DialogContent>
-        <FullScreenFormHeader Title="@MudDialog.Title" SaveText="@L["Server_Save"]" SaveTestId="server-save"
+   Er geht über FormDialogs auf (Title kommt als Parameter mit). In der App zeichnet er die Vollbild-Kopfzeile
+   selbst; im Browser hat das Fenster die Titelzeile von Radzen, und Übernehmen steht unten. Schließt er sich
+   ohne Ergebnis (Schließen, Esc), hat sich nichts geändert.
+
+   Muster für die folgenden Formulare (Plan R5): data-testid, id und aria-* an einem RadzenTextBox landen am
+   input selbst; bei RadzenNumeric sitzen data-testid und id am Rahmen darum (Field() in den Tests findet das input). *@
+
+<div>
+    @if (Host.IsApp)
+    {
+        <FullScreenFormHeader Title="@Title" SaveText="@L["Server_Save"]" SaveTestId="server-save"
                               Busy="busy" OnClose="Cancel" OnSave="SaveAsync" />
-        <MudStack Spacing="3">
+    }
+    <RadzenStack Gap="1rem">
 
-            @if (error is not null)
-            {
-                <MudAlert Severity="Severity.Error" data-testid="server-error">@error</MudAlert>
-            }
+        @if (error is not null)
+        {
+            <ErrorAlert AlertStyle="AlertStyle.Danger" Text="@error" data-testid="server-error" />
+        }
 
-            <NativeSelect Value="@choice" ValueChanged="OnChoiceChanged" Label="@L["Server_Choice"]"
-                          data-testid="server-choice">
-                <option value="@Hosted">@L["Server_ChoiceHosted"]</option>
-                <option value="@Own">@L["Server_ChoiceOwn"]</option>
-            </NativeSelect>
+        <NativeSelect Value="@choice" ValueChanged="OnChoiceChanged" Label="@L["Server_Choice"]"
+                      data-testid="server-choice">
+            <option value="@Hosted">@L["Server_ChoiceHosted"]</option>
+            <option value="@Own">@L["Server_ChoiceOwn"]</option>
+        </NativeSelect>
 
-            @if (choice == Own)
-            {
-                <div class="field">
-                    <FieldLabel For="server-address-input" Text="@L["Server_Address"]" />
-                    <MudTextField @bind-Value="address" Variant="Variant.Outlined" InputId="server-address-input"
-                                  InputType="InputType.Url" Placeholder="@L["Server_AddressPlaceholder"]"
-                                  autocomplete="url" data-testid="server-address" />
-                </div>
-            }
-        </MudStack>
-    </DialogContent>
-</MudDialog>
+        @if (choice == Own)
+        {
+            <div class="field">
+                <FieldLabel For="server-address-input" Text="@L["Server_Address"]" />
+                <RadzenTextBox @bind-Value="address" id="server-address-input" type="url"
+                               Placeholder="@L["Server_AddressPlaceholder"]" autocomplete="url"
+                               data-testid="server-address" />
+            </div>
+        }
+
+        @if (!Host.IsApp)
+        {
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                <RadzenButton Text="@L["Server_Save"]" ButtonStyle="ButtonStyle.Primary" Disabled="busy"
+                              Click="@(_ => SaveAsync())" data-testid="server-save" />
+            </RadzenStack>
+        }
+    </RadzenStack>
+</div>
 
 @code {
 
     private const string Hosted = "hosted";
     private const string Own = "own";
 
-    [CascadingParameter]
-    private IMudDialogInstance MudDialog { get; set; } = default!;
+    /// <summary>Der Titel für die Kopfzeile in der App; im Browser steht er in der Titelzeile des Fensters.</summary>
+    [Parameter]
+    public string? Title { get; set; }
 
     private string choice = Hosted;
     private string address = "";
@@ -67,7 +87,7 @@
         error = null;
     }
 
-    private void Cancel() => MudDialog.Cancel();
+    private void Cancel() => Dialogs.Close();
 
     private async Task SaveAsync()
     {
@@ -78,7 +98,7 @@
             if (choice == Hosted)
             {
                 await Selector.UseHostedAsync();
-                MudDialog.Close(DialogResult.Ok(true));
+                Dialogs.Close(true);
                 return;
             }
 
@@ -86,7 +106,7 @@
             switch (outcome)
             {
                 case ServerChoiceOutcome.Taken:
-                    MudDialog.Close(DialogResult.Ok(true));
+                    Dialogs.Close(true);
                     break;
                 case ServerChoiceOutcome.NeedsHttps:
                     error = L["Server_NeedsHttps"];

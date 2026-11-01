@@ -6,7 +6,6 @@ using Duofy.Shared.Pages;
 using Duofy.Shared.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
-using MudBlazor;
 
 namespace Duofy.Shared.Tests;
 
@@ -15,13 +14,12 @@ public class CommitmentsPageTests : PageTestContext
 {
     private static readonly DateOnly Today = new(2026, 10, 21);
 
-    // MudBlazor zeichnet Dialoge und Popups in diese beiden Bausteine (im echten Layout stehen sie im MainLayout).
-    private readonly IRenderedComponent<MudDialogProvider> dialogs;
+    // Radzen zeichnet Dialoge in RadzenComponents (im echten Layout stehen sie in jedem Layout).
+    private readonly IRenderedComponent<IComponent> dialogs;
 
     public CommitmentsPageTests()
     {
-        Render<MudPopoverProvider>();
-        dialogs = Render<MudDialogProvider>();
+        dialogs = RenderRadzenHost();
         Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true));
     }
 
@@ -142,7 +140,7 @@ public class CommitmentsPageTests : PageTestContext
         cut.WaitForAssertion(() => Assert.True(Shows(cut, running)));
         Assert.False(Shows(cut, ended));
 
-        Input(cut, "commitments-show-ended").Change(true);
+        cut.Find("[data-testid='commitments-show-ended']").Click();
 
         cut.WaitForAssertion(() => Assert.True(Shows(cut, ended)));
         Assert.True(Shows(cut, running));
@@ -158,10 +156,21 @@ public class CommitmentsPageTests : PageTestContext
         cut.WaitForAssertion(() => Assert.Contains("Beendete Verträge sind ausgeblendet.", cut.Markup));
         Assert.DoesNotContain("Du hast noch keinen Vertrag.", cut.Markup);
 
-        Input(cut, "commitments-show-ended").Change(true);
+        cut.Find("[data-testid='commitments-show-ended']").Click();
 
         cut.WaitForAssertion(() => Assert.True(Shows(cut, ended)));
         Assert.DoesNotContain("Beendete Verträge sind ausgeblendet.", cut.Markup);
+    }
+
+    // Mangel S13: Der Knopf nennt seinen Vertrag.
+    [Fact]
+    public void The_end_button_names_its_contract()
+    {
+        var gym = FakeCommitmentApi.Commitment("Fitness");
+        var cut = OpenPage(gym);
+        cut.WaitForAssertion(() => Assert.True(Shows(cut, gym)));
+
+        Assert.Equal("Vertrag Fitness beenden", cut.Find($"[data-testid='commitment-end-{gym.Id}']").GetAttribute("aria-label"));
     }
 
     // R8 (Seite), A16
@@ -421,7 +430,7 @@ public class CommitmentsPageTests : PageTestContext
         SelectIn(dialogs, "commitment-account", giro.Id.ToString());
         SelectIn(dialogs, "commitment-counter-account", savings.Id.ToString());
         SelectIn(dialogs, "commitment-payment-method", PaymentMethods.StandingOrder);
-        Input(dialogs, "commitment-pass-through").Change(true);
+        dialogs.Find("[data-testid='commitment-pass-through']").Click();
 
         Button("Speichern").Click();
 
@@ -608,5 +617,25 @@ public class CommitmentsPageTests : PageTestContext
 
         Next("Schritt 2 von 3: Wann");
         Next("Schritt 3 von 3: Wer und Wohin");
+    }
+
+    // Radzen-Umstellung R17: Seite und Dialog sind in Radzen gebaut; die Zahlenfelder verweisen per aria-labelledby auf ihre Beschriftung.
+    [Fact]
+    public void The_page_and_the_dialog_are_built_with_radzen()
+    {
+        var commitment = FakeCommitmentApi.Commitment("Miete");
+        var cut = OpenPage(commitment);
+        cut.WaitForAssertion(() => Assert.True(Shows(cut, commitment)));
+
+        Assert.Contains("rz-card", Row(cut, commitment).ClassList);
+        Assert.Contains("rz-button", cut.Find($"[data-testid='commitment-edit-{commitment.Id}']").ClassList);
+        Assert.Contains("rz-button", cut.Find($"[data-testid='commitment-end-{commitment.Id}']").ClassList);
+
+        OpenNewDialog(cut);
+
+        Assert.Equal("commitment-amount-input-label", Input(dialogs, "commitment-amount").GetAttribute("aria-labelledby"));
+        Assert.Equal("Betrag pro Zahlung in Euro", dialogs.Find("label#commitment-amount-input-label").TextContent.Trim());
+        Assert.Equal("commitment-name-input", Input(dialogs, "commitment-name").Id);
+        Assert.Equal("date", Input(dialogs, "commitment-first-due").GetAttribute("type"));
     }
 }

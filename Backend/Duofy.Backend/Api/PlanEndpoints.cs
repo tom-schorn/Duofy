@@ -574,7 +574,7 @@ internal static class PlanEndpoints
             }
             accountInfos.Add(info);
         }
-        if (balances.Any(b => decimal.Round(b.Balance, 2) != b.Balance || Math.Abs(b.Balance) > MoneyAccountRules.MaxOpeningBalance))
+        if (balances.Any(b => b.Balance is not { } stand || decimal.Round(stand, 2) != stand || Math.Abs(stand) > MoneyAccountRules.MaxOpeningBalance))
         {
             return ApiErrors.BadRequest(ErrorCodes.AmountInvalid);
         }
@@ -584,7 +584,7 @@ internal static class PlanEndpoints
         var previous = (lastOfPrevious.Year, lastOfPrevious.Month);
         foreach (var real in balances)
         {
-            var difference = real.Balance - computed.GetValueOrDefault(real.AccountId);
+            var difference = real.Balance!.Value - computed.GetValueOrDefault(real.AccountId);
             if (difference != 0m)
             {
                 Add(db, ownerId, real.AccountId, lastOfPrevious, previous, Math.Abs(difference), income: difference > 0, "Ausgleich", now, expensePot: PotKeys.Wants);

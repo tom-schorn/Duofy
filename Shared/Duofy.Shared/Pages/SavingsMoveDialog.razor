@@ -1,8 +1,11 @@
+@using Radzen
+@using Radzen.Blazor
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
 @inject IBookingApi BookingApi
 @inject ActiveMember Member
+@inject DialogService Dialogs
 @inject IStringLocalizer<SharedResources> L
 @inject IAppHost Host
 
@@ -10,21 +13,24 @@
    Sparkonto und einem anderen Konto, deren Zeile dem Ziel zugeordnet ist; der Stand des Ziels kommt danach neu von der
    API. Die Eingaben stehen in `draft`, einem SavingsMoveDraft. *@
 
-<MudDialog>
-    <DialogContent>
-        @if (Host.IsApp)
+<div>
+    @if (Host.IsApp)
         {
-            <FullScreenFormHeader Title="@MudDialog.Title" SaveText="@L["SavingsMove_Save"]" SaveTestId="savings-move-save"
+            <FullScreenFormHeader Title="@Title" SaveText="@L["SavingsMove_Save"]" SaveTestId="savings-move-save"
                                   Busy="busy" OnClose="Cancel" OnSave="SaveAsync" />
         }
-        <MudStack Spacing="3">
+        <RadzenStack Gap="1rem">
             @if (error is not null)
             {
-                <MudAlert Severity="Severity.Error" data-testid="savings-move-error">@error</MudAlert>
+                <ErrorAlert AlertStyle="AlertStyle.Danger" Text="@error" data-testid="savings-move-error" />
             }
 
-            <MudNumericField T="decimal?" @bind-Value="draft.Amount" Culture="German" Format="0.00" HideSpinButtons="true"
-                             Label="@L["Field_Amount"]" data-testid="savings-move-amount" />
+            <div class="field">
+                <FieldLabel id="savings-move-amount-label" Text="@L["Field_Amount"]" />
+                <RadzenNumeric TValue="decimal?" @bind-Value="draft.Amount" Culture="German" Format="0.00" ShowUpDown="false"
+                               InputAttributes="@(new Dictionary<string, object> { ["aria-labelledby"] = "savings-move-amount-label" })"
+                               data-testid="savings-move-amount" />
+            </div>
 
             <NativeSelect Value="@Key(draft.OtherAccountId)" ValueChanged="OnOtherChanged"
                           Label="@L[draft.Kind == SavingsMoveKind.Deposit ? "SavingsMove_From" : "SavingsMove_To"]"
@@ -51,24 +57,25 @@
                 <option value="@PotKeys.Needs">@L["Pot_needs"]</option>
                 <option value="@PotKeys.Wants">@L["Pot_wants"]</option>
             </NativeSelect>
-        </MudStack>
-    </DialogContent>
-    <DialogActions>
-        @if (!Host.IsApp)
-        {
-            <MudButton OnClick="Cancel">@L["SavingsGoalDialog_Cancel"]</MudButton>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="busy" OnClick="SaveAsync"
-                       data-testid="savings-move-save">@L["SavingsMove_Save"]</MudButton>
-        }
-    </DialogActions>
-</MudDialog>
+
+            @if (!Host.IsApp)
+            {
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+                    <RadzenButton Text="@L["SavingsGoalDialog_Cancel"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Click="@(_ => Cancel())" />
+                    <RadzenButton Text="@L["SavingsMove_Save"]" ButtonStyle="ButtonStyle.Primary" Disabled="busy" Click="@(_ => SaveAsync())"
+                                  data-testid="savings-move-save" />
+                </RadzenStack>
+            }
+        </RadzenStack>
+</div>
 
 @code {
 
     private static readonly CultureInfo German = new("de-DE");
 
-    [CascadingParameter]
-    private IMudDialogInstance MudDialog { get; set; } = default!;
+    /// <summary>Der Titel für die Kopfzeile in der App; im Browser steht er in der Titelzeile des Fensters.</summary>
+    [Parameter]
+    public string? Title { get; set; }
 
     /// <summary>Die Eingaben, vorbelegt mit Ziel, Richtung, Sparkonto des Ziels und Datum von heute.</summary>
     [Parameter, EditorRequired]
@@ -99,7 +106,7 @@
 
     private void OnPotChanged(string value) => draft.SetPot(value);
 
-    private void Cancel() => MudDialog.Cancel();
+    private void Cancel() => Dialogs.Close();
 
     private async Task SaveAsync()
     {
@@ -121,7 +128,7 @@
             var result = await BookingApi.CreateAsync(draft.ToRequest(owner));
             if (result.Succeeded)
             {
-                MudDialog.Close(DialogResult.Ok(true));
+                Dialogs.Close(true);
             }
             else
             {

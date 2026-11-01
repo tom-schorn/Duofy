@@ -26,10 +26,11 @@ public class AndroidProjectTests
     }
 
     [Fact]
-    public void Package_name_is_de_tomschorn_duofy_and_display_name_is_duofy()
+    public void Package_name_is_de_tomschorn_duofy_and_display_name_is_plagevo()
     {
+        // Der Paketname bleibt (er lässt sich nach der Veröffentlichung nicht ändern); unter dem Symbol steht Plagevo.
         Assert.Equal("de.tomschorn.duofy", Property("ApplicationId"));
-        Assert.Equal("Duofy", Property("ApplicationTitle"));
+        Assert.Equal("Plagevo", Property("ApplicationTitle"));
     }
 
     [Fact]
@@ -43,6 +44,22 @@ public class AndroidProjectTests
         Assert.NotNull(uses);
         Assert.Equal("24", (string?)uses!.Attribute(android + "minSdkVersion"));
         Assert.Equal("36", (string?)uses.Attribute(android + "targetSdkVersion"));
+    }
+
+    // Ohne Schlüsseldatei darf der Release-Build nicht an einem leeren Pfad scheitern (apksigner endet dann mit Code 2,
+    // MSB6006): Die Signatur-Einstellungen gelten nur, wenn DUOFY_KEYSTORE_PATH gesetzt ist; sonst signiert das SDK mit dem
+    // Debug-Schlüssel, nur zum Testen.
+    [Fact]
+    public void Release_signing_applies_only_when_a_keystore_path_is_set()
+    {
+        var signing = Project.Descendants("PropertyGroup")
+            .Single(g => g.Elements("AndroidSigningKeyStore").Any());
+
+        var condition = (string?)signing.Attribute("Condition") ?? "";
+        Assert.Contains("Release", condition);
+        Assert.Contains("DUOFY_KEYSTORE_PATH", condition);
+        Assert.Contains("!= ''", condition);
+        Assert.DoesNotContain(Project.Descendants("PropertyGroup").Where(g => g != signing), g => g.Elements("AndroidKeyStore").Any());
     }
 
     [Fact]

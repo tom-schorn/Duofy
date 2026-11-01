@@ -1,9 +1,12 @@
+@using Radzen
+@using Radzen.Blazor
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
 @using Duofy.Shared.Dialogs
 @inject ICommitmentApi CommitmentApi
 @inject ActiveMember Member
+@inject DialogService Dialogs
 @inject IStringLocalizer<SharedResources> L
 
 @* Der Dialog zum Anlegen und Ändern eines Vertrags, in drei Schritten (Spec 17) auf dem Schritt-Dialog (Spec 11):
@@ -17,12 +20,12 @@
    Weiter prüft die Felder des Schritts mit denselben Regeln und Texten wie die API; was nur die API prüfen kann
    (gehört das Konto der Person, gibt es die Kategorie noch), steht nach dem Speichern oben in Schritt 3. *@
 
-<StepDialog OnFinish="SaveAsync" FinishText="@L["CommitmentDialog_Save"]" Busy="busy">
+<StepDialog Title="@Title" OnFinish="SaveAsync" FinishText="@L["CommitmentDialog_Save"]" Busy="busy">
     <DialogStep Title="@L["CommitmentDialog_StepWhat"]">
         <StepField Label="@L["Field_CommitmentName"]" InputId="commitment-name-input" Required
                    IsFilled="() => !string.IsNullOrWhiteSpace(draft.Name)" TestId="commitment-name-field">
-            <MudTextField T="string" @bind-Value="draft.Name" MaxLength="CommitmentRules.NameMaxLength" Variant="Variant.Outlined"
-                          InputId="commitment-name-input" aria-describedby="commitment-name-input-error" data-testid="commitment-name" />
+            <RadzenTextBox @bind-Value="draft.Name" MaxLength="CommitmentRules.NameMaxLength" id="commitment-name-input"
+                           aria-describedby="commitment-name-input-error" data-testid="commitment-name" />
         </StepField>
 
         <StepField Label="@L["Field_CommitmentType"]" InputId="commitment-type-input" TestId="commitment-type-field">
@@ -38,16 +41,16 @@
             else
             {
                 @* Ein gespeichertes Sparziel oder eine Schuld behält ihre Art; anlegen lassen sie sich hier nicht mehr. *@
-                <MudTextField T="string" Value="@L[$"CommitmentType_{draft.Type}"]" ReadOnly="true" Variant="Variant.Outlined"
-                              InputId="commitment-type-input" data-testid="commitment-type-fixed" />
+                <RadzenTextBox Value="@L[$"CommitmentType_{draft.Type}"].Value" ReadOnly="true" id="commitment-type-input"
+                               data-testid="commitment-type-fixed" />
             }
         </StepField>
 
-        <StepField Label="@L["Field_CommitmentAmount"]" InputId="commitment-amount-input" Required IsFilled="() => draft.Amount is not null"
+        <StepField Label="@L["Field_CommitmentAmount"]" InputId="commitment-amount-input" AriaLabelled="true" Required IsFilled="() => draft.Amount is not null"
                    Validate="AmountError" TestId="commitment-amount-field">
-            <MudNumericField T="decimal?" @bind-Value="draft.Amount" Culture="German" Format="0.00" Min="0" HideSpinButtons="true"
-                             Variant="Variant.Outlined" InputId="commitment-amount-input" aria-describedby="commitment-amount-input-error"
-                             data-testid="commitment-amount" />
+            <RadzenNumeric TValue="decimal?" Culture="German" @bind-Value="draft.Amount" Format="0.00" Min="0" ShowUpDown="false"
+                           InputAttributes="@(Describe("commitment-amount-input"))"
+                           data-testid="commitment-amount" />
         </StepField>
 
         @* Die Kategorie war schon vorher Pflicht, bevor etwas an die API ging; ihr Satz bleibt derselbe. *@
@@ -73,8 +76,10 @@
             @if (draft.PotIsFixed)
             {
                 @* Die Einnahme hat ihren Topf fest; er steht nur zur Ansicht da. *@
-                <MudTextField T="string" Value="@L[$"Pot_{draft.Pot}"]" ReadOnly="true" Variant="Variant.Outlined"
-                              HelperText="@L["Field_PotFixedHint"]" InputId="commitment-pot-input" data-testid="commitment-pot-fixed" />
+                <RadzenTextBox Value="@L[$"Pot_{draft.Pot}"].Value" ReadOnly="true" id="commitment-pot-input"
+                               aria-describedby="commitment-pot-hint" data-testid="commitment-pot-fixed" />
+                <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color"
+                            id="commitment-pot-hint">@L["Field_PotFixedHint"]</RadzenText>
             }
             else
             {
@@ -89,49 +94,52 @@
     </DialogStep>
 
     <DialogStep Title="@L["CommitmentDialog_StepWhen"]">
-        <StepField Label="@L["Field_IntervalMonths"]" InputId="commitment-interval-input" Required
+        <StepField Label="@L["Field_IntervalMonths"]" InputId="commitment-interval-input" AriaLabelled="true" Required
                    IsFilled="() => draft.IntervalMonths is not null"
                    Validate="@(() => draft.HasValidInterval ? null : ErrorTexts.For(L, ErrorCodes.CommitmentIntervalInvalid))"
                    TestId="commitment-interval-field">
-            <MudNumericField T="int?" @bind-Value="draft.IntervalMonths" Min="1" Max="CommitmentRules.MaxIntervalMonths"
-                             HelperText="@L["Field_IntervalMonthsHint"]" Variant="Variant.Outlined" InputId="commitment-interval-input"
-                             aria-describedby="commitment-interval-input-error" data-testid="commitment-interval" />
+            <RadzenNumeric TValue="int?" @bind-Value="draft.IntervalMonths" Min="1" Max="CommitmentRules.MaxIntervalMonths"
+                           ShowUpDown="false" InputAttributes="@(Describe("commitment-interval-input", "commitment-interval-hint"))"
+                           data-testid="commitment-interval" />
+            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color"
+                        id="commitment-interval-hint">@L["Field_IntervalMonthsHint"]</RadzenText>
         </StepField>
 
         @* Die erste Zahlung legt auch den Zahltag fest; die letzte ist freiwillig. *@
         <StepField Label="@L["Field_FirstDueDate"]" InputId="commitment-first-due-input" TestId="commitment-first-due-field">
-            <MudTextField T="string" Value="@DateText(draft.FirstDueDate)" ValueChanged="OnFirstDueDateChanged" InputType="InputType.Date"
-                          Variant="Variant.Outlined" InputId="commitment-first-due-input" data-testid="commitment-first-due" />
+            <RadzenTextBox Value="@DateText(draft.FirstDueDate)" ValueChanged="OnFirstDueDateChanged" type="date"
+                           id="commitment-first-due-input" data-testid="commitment-first-due" />
         </StepField>
 
         @* Die letzte Zahlung eines bestehenden Vertrags zu setzen oder zu leeren, beendet ihn oder holt ihn zurück;
            das braucht die Freigabe Löschen (Spec 68, A17). Ohne sie ist das Feld nur lesbar und nennt den Grund. *@
         <StepField Label="@L["Field_LastDueDate"]" InputId="commitment-last-due-input" Validate="EndError" TestId="commitment-last-due-field">
-            <MudTextField T="string" Value="@DateText(draft.LastDueDate)" ValueChanged="OnLastDueDateChanged" InputType="InputType.Date"
-                          HelperText="@L["Field_LastDueDateHint"]" Variant="Variant.Outlined" ReadOnly="endLocked"
-                          Class="@GrantLock.Class(!endLocked)" InputId="commitment-last-due-input"
-                          aria-describedby="@LastDueDescribedBy" data-testid="commitment-last-due" />
+            <RadzenTextBox Value="@DateText(draft.LastDueDate)" ValueChanged="OnLastDueDateChanged" type="date"
+                           ReadOnly="endLocked" Class="@GrantLock.Class(!endLocked)" id="commitment-last-due-input"
+                           aria-describedby="@LastDueDescribedBy" data-testid="commitment-last-due" />
+            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color"
+                        id="commitment-last-due-hint">@L["Field_LastDueDateHint"]</RadzenText>
             @if (endLocked)
             {
-                <MudText Typo="Typo.caption" Color="Color.Secondary" id="@LastDueReasonId"
-                         data-testid="commitment-last-due-reason">@L["Grant_NotGranted", ownerName ?? ""]</MudText>
+                <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color" id="@LastDueReasonId"
+                            data-testid="commitment-last-due-reason">@L["Grant_NotGranted", ownerName ?? ""]</RadzenText>
             }
         </StepField>
 
         @if (draft.HasValidInterval)
         {
-            <p class="mud-typography mud-typography-body1" aria-live="polite" data-testid="commitment-next-due">
+            <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" aria-live="polite" data-testid="commitment-next-due">
                 @(draft.NextDueDate(Today) is { } next
                     ? L["CommitmentDialog_NextDue", next.ToString("dd.MM.yyyy", German)]
                     : L["CommitmentDialog_NoNextDue"])
-            </p>
+            </RadzenText>
         }
     </DialogStep>
 
     <DialogStep Title="@L["CommitmentDialog_StepWhereTo"]">
         @if (error is not null)
         {
-            <MudAlert Severity="Severity.Error" data-testid="commitment-error">@error</MudAlert>
+            <ErrorAlert AlertStyle="AlertStyle.Danger" Text="@error" data-testid="commitment-error" />
         }
 
         @* Leer heißt beim zahlenden Konto: das Standardkonto, und zwar das, das am Tag der Zahlung Standard ist.
@@ -149,7 +157,7 @@
                 <CommitmentAccountSelect Value="draft.CounterAccountId" ValueChanged="OnCounterAccountChanged" Accounts="Accounts"
                                          EmptyText="@L["CommitmentDialog_PaidToOutside"]" InputId="commitment-counter-account-input"
                                          Label="@L["CommitmentDialog_PaidTo"]" TestId="commitment-counter-account" />
-                <MudText Typo="Typo.caption" Color="Color.Secondary">@L["CommitmentDialog_PaidToHint"]</MudText>
+                <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color">@L["CommitmentDialog_PaidToHint"]</RadzenText>
             </StepField>
             @* Ein Sparziel gibt es nur, wenn die Person welche hat: Die Rate fließt dann dem Ziel zu (Issue 32). *@
             @* Eine Schuld oder ein Kredit: Die Rate zahlt dann darauf ein; sie geht an den Gläubiger, nicht auf ein eigenes Konto (Issue 31). *@
@@ -164,7 +172,7 @@
                             <option value="@debt.Id">@debt.Name</option>
                         }
                     </NativeSelect>
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["CommitmentDialog_DebtHint"]</MudText>
+                    <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color">@L["CommitmentDialog_DebtHint"]</RadzenText>
                 </StepField>
             }
             @if (draft.OffersSavingsGoal && SavingsGoals.Count > 0)
@@ -179,7 +187,7 @@
                             <option value="@goal.Id">@goal.Name</option>
                         }
                     </NativeSelect>
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["CommitmentDialog_GoalHint"]</MudText>
+                    <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color">@L["CommitmentDialog_GoalHint"]</RadzenText>
                 </StepField>
             }
         }
@@ -199,8 +207,10 @@
                                            TestId="commitment-payment-method" />
         </StepField>
 
-        <MudSwitch T="bool" @bind-Value="draft.PassThrough" Color="Color.Primary" Label="@L["Field_PassThrough"]"
-                   data-testid="commitment-pass-through" />
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+            <RadzenSwitch @bind-Value="draft.PassThrough" Name="commitment-pass-through" data-testid="commitment-pass-through" />
+            <RadzenLabel Component="commitment-pass-through" Text="@L["Field_PassThrough"]" />
+        </RadzenStack>
 
         <table class="line-table" data-testid="commitment-summary">
             <caption class="line-table-caption">@L["CommitmentDialog_Summary"]</caption>
@@ -266,9 +276,9 @@
 
     private static readonly CultureInfo German = new("de-DE");
 
-    // Der Dialog selbst, über den er sich nach dem Speichern schließt.
-    [CascadingParameter]
-    private IMudDialogInstance MudDialog { get; set; } = default!;
+    /// <summary>Der Titel im Kopf des Schritt-Dialogs ("Neuer Vertrag" oder "Vertrag ändern").</summary>
+    [Parameter]
+    public string? Title { get; set; }
 
     /// <summary>Der Vertrag, der geändert wird; null beim Anlegen.</summary>
     [Parameter]
@@ -320,6 +330,14 @@
         endLocked = Existing is not null && !Member.Allows(GrantAreas.Commitments, AccessLevelKeys.Delete);
         draft = Existing is null ? CommitmentDraft.ForNew(Today) : CommitmentDraft.From(Existing);
     }
+
+    // Die Verweise eines Zahlenfelds (RadzenNumeric lässt keine Id am input zu): auf seine Beschriftung, seinen Fehler und
+    // auf einen Hinweis darunter, wenn es einen gibt.
+    private static Dictionary<string, object> Describe(string inputId, string? hintId = null) => new()
+    {
+        ["aria-labelledby"] = $"{inputId}-label",
+        ["aria-describedby"] = hintId is null ? $"{inputId}-error" : $"{inputId}-error {hintId}",
+    };
 
     // Leere Auswahl heißt "", sonst die Kennung als Text. So lassen sich Auswahlfelder an Guid? binden.
     private static string Key(Guid? id) => id?.ToString() ?? "";
@@ -431,7 +449,7 @@
 
             if (result.Succeeded)
             {
-                MudDialog.Close(DialogResult.Ok(true));
+                Dialogs.Close(true);
             }
             else
             {

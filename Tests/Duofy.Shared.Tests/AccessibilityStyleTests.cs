@@ -54,33 +54,55 @@ public partial class AccessibilityStyleTests
         }
     }
 
-    // M1: MudBlazor setzt die Kontur an a und button zurück und schlägt damit eine Regel nur für :focus-visible.
+    // M1: Das Theme setzt die Kontur an a und button zurück und schlägt damit eine Regel nur für :focus-visible.
     [Theory]
     [InlineData("a:focus-visible")]
     [InlineData("button:focus-visible")]
     public void Links_and_buttons_show_the_focus_outline(string selector) =>
-        AssertRule(selector, "outline: 3px solid var(--mud-palette-text-primary)", "outline-offset: 3px");
+        AssertRule(selector, "outline: 3px solid var(--rz-text-title-color)", "outline-offset: 3px");
 
     [Theory]
-    [InlineData(".mud-appbar a:focus-visible")]
-    [InlineData(".mud-appbar button:focus-visible")]
+    [InlineData(".rz-header a:focus-visible")]
+    [InlineData(".rz-header button:focus-visible")]
     public void The_app_bar_shows_the_focus_outline_in_its_own_text_colour(string selector) =>
-        AssertRule(selector, "outline: 3px solid var(--mud-palette-appbar-text)", "outline-offset: 3px");
+        AssertRule(selector, "outline: 3px solid var(--rz-header-color)", "outline-offset: 3px");
 
-    // M2: Nebentexte sind in jeder Breite lesbar, nicht erst auf der breiten Seite.
+    // S5: Das Profilfeld unten in der Seitenleiste liegt auf der Hauptfarbe; die Kontur in Tintenfarbe wäre dort unsichtbar.
     [Fact]
-    public void Secondary_text_uses_the_reading_colour_at_every_width() =>
-        AssertRule(".mud-typography.mud-secondary-text", "color: var(--mud-palette-text-secondary) !important");
+    public void The_profile_field_on_the_primary_card_shows_a_focus_outline_in_the_colour_on_primary() =>
+        AssertRule(".member-profile-up .rz-profile-menu > .rz-navigation-item > .rz-navigation-item-wrapper:focus-visible",
+            "outline: 3px solid var(--rz-on-primary)", "outline-offset: -3px");
 
-    // M3: Hinweise sehen aus wie Fehler: Tintentext, Rand, die helle Farbe nur als Fläche.
-    [Theory]
-    [InlineData("success")]
-    [InlineData("info")]
-    public void Alerts_have_ink_text_a_border_and_the_light_colour_as_surface(string kind) =>
-        AssertRule($".mud-alert-text-{kind}",
-            "color: var(--mud-palette-text-primary)",
-            "border-left: 4px solid var(--mud-palette-text-primary)",
-            $"background-color: var(--mud-palette-{kind})");
+    // S15: Der Weg zurück zu den Monaten ist eine Tippfläche von mindestens 44 px Höhe.
+    [Fact]
+    public void The_back_link_of_the_plan_page_is_a_tap_target()
+    {
+        AssertRule(".plan-back", "display: inline-flex", "align-items: center", "min-height: var(--tap-min)");
+        Assert.Matches(@"<RadzenLink[^>]*Class=""plan-back[ ""][^>]*data-testid=""plan-back""", Read("Shared", "Duofy.Shared", "Pages", "Plan.razor"));
+    }
+
+    // S12: RadzenText mit einer Überschriftgröße zeichnet ohne TagName eine h6; unter der h1 der Seite wäre das ein Sprung über vier Ebenen.
+    [Fact]
+    public void No_text_in_a_heading_size_leaves_its_tag_to_the_default()
+    {
+        var pages = RepositoryFiles.Path("Shared", "Duofy.Shared");
+        var hits = new List<string>();
+        foreach (var file in Directory.EnumerateFiles(pages, "*.razor", SearchOption.AllDirectories)
+                     .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
+                                 && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")))
+        {
+            foreach (Match tag in TagPattern().Matches(File.ReadAllText(file)))
+            {
+                if (tag.Value.StartsWith("<RadzenText", StringComparison.Ordinal)
+                    && HeadingSizePattern().IsMatch(tag.Value) && !tag.Value.Contains("TagName", StringComparison.Ordinal))
+                {
+                    hits.Add($"{Path.GetFileName(file)}: {tag.Value[..Math.Min(tag.Value.Length, 80)]}");
+                }
+            }
+        }
+
+        Assert.True(hits.Count == 0, string.Join(Environment.NewLine, hits));
+    }
 
     // M3: Text, Text- und Umrissknöpfe sowie Symbolknöpfe zeichnen ihre Farbe auf Papier. Nur gefüllte Knöpfe dürfen sie tragen.
     [Fact]
@@ -93,7 +115,7 @@ public partial class AccessibilityStyleTests
                                  && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")))
         {
             var source = File.ReadAllText(file);
-            foreach (Match tag in MudTagPattern().Matches(source))
+            foreach (Match tag in TagPattern().Matches(source))
             {
                 if (StatusColourPattern().IsMatch(tag.Value) && !tag.Value.Contains("Variant.Filled", StringComparison.Ordinal))
                 {
@@ -122,15 +144,18 @@ public partial class AccessibilityStyleTests
         Assert.Contains("viewport-fit=cover", page);
     }
 
+    [GeneratedRegex(@"TextStyle=""TextStyle.H[1-6]""")]
+    private static partial Regex HeadingSizePattern();
+
     [GeneratedRegex(@"/\*.*?\*/", RegexOptions.Singleline)]
     private static partial Regex CommentPattern();
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex WhitespacePattern();
 
-    // Ein MudText oder Knopf samt Attributen, bis zur nächsten Komponente. Attribute können selbst "<" enthalten (a < 0).
-    [GeneratedRegex(@"<Mud(?:Text|Button|IconButton)\b.*?(?=<Mud|</Mud)", RegexOptions.Singleline)]
-    private static partial Regex MudTagPattern();
+    // Ein Text oder Knopf samt Attributen, bis zur nächsten Komponente. Attribute können selbst "<" enthalten (a < 0).
+    [GeneratedRegex(@"<Radzen(?:Text|Button)\b.*?(?=<Radzen|</Radzen)", RegexOptions.Singleline)]
+    private static partial Regex TagPattern();
 
     [GeneratedRegex(@"Color\.(?:Error|Success|Warning)\b")]
     private static partial Regex StatusColourPattern();

@@ -60,8 +60,9 @@ public class ConsentBannerTests : UiTestContext
         var accept = cut.Find("[data-testid='consent-accept']");
         var decline = cut.Find("[data-testid='consent-decline']");
 
-        Assert.Equal(accept.ClassList.Where(c => c.StartsWith("mud-button-")).Order(),
-                     decline.ClassList.Where(c => c.StartsWith("mud-button-")).Order());
+        Assert.Equal(accept.ClassList.Where(c => c.StartsWith("rz-")).Order(),
+                     decline.ClassList.Where(c => c.StartsWith("rz-")).Order());
+        Assert.Contains("rz-button", accept.ClassList);
         Assert.Equal("Ablehnen", decline.TextContent.Trim());
         Assert.Equal("Zustimmen", accept.TextContent.Trim());
         Assert.Equal(decline.OuterHtml, accept.NextElementSibling!.OuterHtml);
@@ -259,8 +260,9 @@ public class ConsentBannerTests : UiTestContext
         var accept = cut.WaitForElement("[data-testid='consent-chat-accept']");
         var decline = cut.Find("[data-testid='consent-chat-decline']");
 
-        Assert.Equal(accept.ClassList.Where(c => c.StartsWith("mud-button-")).Order(),
-                     decline.ClassList.Where(c => c.StartsWith("mud-button-")).Order());
+        Assert.Equal(accept.ClassList.Where(c => c.StartsWith("rz-")).Order(),
+                     decline.ClassList.Where(c => c.StartsWith("rz-")).Order());
+        Assert.Contains("rz-button", accept.ClassList);
         Assert.Equal(decline.OuterHtml, accept.NextElementSibling!.OuterHtml);
 
         decline.Click();

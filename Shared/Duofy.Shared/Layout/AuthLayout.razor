@@ -1,3 +1,4 @@
+@using Radzen.Blazor
 @inherits ThemedLayoutBase
 @inject IStringLocalizer<SharedResources> L
 @inject IAppHost Host
@@ -9,10 +10,8 @@
    Schalter für hell/dunkel sitzt oben rechts, damit man auch vor der Anmeldung den
    Modus wechseln kann. *@
 
-<MudThemeProvider @ref="ThemeProvider" Theme="DuofyTheme.Instance" @bind-IsDarkMode="IsDarkMode" ObserveSystemDarkModeChange="false" />
-<MudPopoverProvider />
-<MudDialogProvider />
-<MudSnackbarProvider />
+<RadzenComponents />
+<ThemeVariables Dark="IsDarkMode" DeviceDarkChanged="OnDeviceDarkChangedAsync" />
 
 <div class="auth-layout">
     <aside class="auth-brand" data-testid="auth-brand">

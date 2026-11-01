@@ -1,9 +1,10 @@
+@using Radzen.Blazor
 @inherits DestinationNavigationBase
 @inject IStringLocalizer<SharedResources> L
 
-@* Die untere Leiste der App: vier Ziele mit Symbol und Beschriftung, das aktuelle ist hervorgehoben.
-   MudBlazor hat keine fertige Leiste dafür, sie besteht aus MudButtons. Ziele und Adresswechsel
-   kommen aus DestinationNavigationBase, wie bei der Seitenleiste (SideNavigation).
+@* Die untere Leiste: vier Ziele und "Mehr" mit Symbol und Beschriftung, das aktuelle ist hervorgehoben.
+   Radzen hat keine fertige Leiste dafür (Plan, Frage 1), sie besteht aus einfachen Links mit Radzen-Symbolen. Ziele und
+   Adresswechsel kommen aus DestinationNavigationBase, wie bei der Seitenleiste (SideNavigation).
 
    Unten kommt der Abstand zur Systemleiste dazu (siehe .app-bottom-bar in app.css). *@
 
@@ -11,11 +12,10 @@
     @foreach (var item in Destinations)
     {
         var active = item.Destination == Current;
-        <MudButton Href="@item.Href" Variant="Variant.Text" Color="@(active ? Color.Primary : Color.Default)"
-                   Class="@(active ? "app-bottom-item app-bottom-item-active" : "app-bottom-item")"
-                   aria-current="@(active ? "page" : null)" data-testid="@($"bottom-{item.Destination}".ToLowerInvariant())">
-            <MudIcon Icon="@item.Icon" />
+        <a href="@item.Href" class="@(active ? "app-bottom-item app-bottom-item-active" : "app-bottom-item")"
+           aria-current="@(active ? "page" : null)" data-testid="@($"bottom-{item.Destination}".ToLowerInvariant())">
+            <RadzenIcon Icon="@item.Icon" />
             <span class="app-bottom-label">@L[item.LabelKey]</span>
-        </MudButton>
+        </a>
     }
 </nav>

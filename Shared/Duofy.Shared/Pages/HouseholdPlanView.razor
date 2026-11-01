@@ -1,3 +1,5 @@
+@using Radzen
+@using Radzen.Blazor
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
@@ -22,20 +24,20 @@
 <AppPageHeading Text="@L["Nav_Plan"]" />
 @if (!Host.IsApp)
 {
-    <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-2">@L["Nav_Plan"]</MudText>
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" Class="rz-mb-2">@L["Nav_Plan"]</RadzenText>
 }
 
-<MudText Typo="Typo.h6" data-testid="household-name">@(plan?.HouseholdName ?? Member.Household?.Name)</MudText>
-<MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mb-2" data-testid="household-read-only">@L["HouseholdPlan_ReadOnly"]</MudText>
+<RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-m-0" data-testid="household-name">@(plan?.HouseholdName ?? Member.Household?.Name)</RadzenText>
+<RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-mb-2" data-testid="household-read-only">@L["HouseholdPlan_ReadOnly"]</RadzenText>
 
 @* Blättern zwischen den Monaten. *@
-<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2 month-nav">
-    <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" OnClick="() => MoveAsync(-1)"
-                   aria-label="@L["Plan_PreviousMonth"]" data-testid="plan-previous" />
-    <MudText Typo="Typo.h6" data-testid="plan-month">@MonthTitle</MudText>
-    <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" OnClick="() => MoveAsync(1)"
-                   aria-label="@L["Plan_NextMonth"]" data-testid="plan-next" />
-</MudStack>
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-2 month-nav">
+    <RadzenButton Icon="chevron_left" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Click="@(_ => MoveAsync(-1))"
+                  aria-label="@L["Plan_PreviousMonth"]" data-testid="plan-previous" />
+    <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H3" Class="rz-m-0" data-testid="plan-month">@MonthTitle</RadzenText>
+    <RadzenButton Icon="chevron_right" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Click="@(_ => MoveAsync(1))"
+                  aria-label="@L["Plan_NextMonth"]" data-testid="plan-next" />
+</RadzenStack>
 
 <Notice Message="message" />
 
@@ -61,48 +63,48 @@
     @* Ab 1280 px stehen die Posten links, Summen und Konten rechts daneben, wie im Plan einer Person. *@
     <div class="plan-layout page-wide">
     @* Summen und Quoten. *@
-    <MudPaper Outlined="true" Class="pa-3 mb-4 plan-layout-side" data-testid="plan-sums">
-        <MudText>@L["HouseholdPlan_SumsIncome", Money(plan.Income)]</MudText>
+    <RadzenCard Variant="Variant.Outlined" Class="rz-mb-4 plan-layout-side" data-testid="plan-sums">
+        <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-m-0">@L["HouseholdPlan_SumsIncome", Money(plan.Income)]</RadzenText>
         @foreach (var pot in plan.Pots)
         {
-            <MudText>@L["HouseholdPlan_SumsPot", L[$"Pot_{pot.Pot}"], Money(pot.Planned), Money(pot.Booked)]</MudText>
+            <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-m-0">@L["HouseholdPlan_SumsPot", L[$"Pot_{pot.Pot}"], Money(pot.Planned), Money(pot.Booked)]</RadzenText>
         }
-        <MudText>@L["HouseholdPlan_SumsUnpaid", Money(plan.Unpaid)]</MudText>
+        <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-m-0">@L["HouseholdPlan_SumsUnpaid", Money(plan.Unpaid)]</RadzenText>
         @foreach (var quota in plan.Quotas)
         {
-            <MudText Typo="Typo.caption" Class="d-block" data-testid="@($"plan-quota-{quota.Pot}")">@L["Plan_Quota", L[$"Pot_{quota.Pot}"], quota.Target, quota.Actual.ToString("0.#", German)]</MudText>
+            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-m-0" data-testid="@($"plan-quota-{quota.Pot}")">@L["Plan_Quota", L[$"Pot_{quota.Pot}"], quota.Target, quota.Actual.ToString("0.#", German)]</RadzenText>
         }
-        <MudText Typo="Typo.caption" Class="d-block" data-testid="household-unplanned">
+        <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-m-0" data-testid="household-unplanned">
             @L["HouseholdPlan_Unplanned", Money(plan.Unplanned.Income), Money(plan.Unplanned.Needs), Money(plan.Unplanned.Wants), Money(plan.Unplanned.Savings)]
-        </MudText>
-    </MudPaper>
+        </RadzenText>
+    </RadzenCard>
 
     <div class="plan-groups">
     @if (plan.Positions.Count == 0)
     {
-        <MudText Color="Color.Secondary" Class="mb-2" data-testid="plan-empty">@L["HouseholdPlan_Empty"]</MudText>
+        <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color rz-mb-2" data-testid="plan-empty">@L["HouseholdPlan_Empty"]</RadzenText>
     }
 
     @* Die Posten nach Topf, jeder mit dem Vornamen seiner Person. *@
     @foreach (var group in Groups(plan))
     {
         <div>
-        <MudText Typo="Typo.subtitle1" Class="mt-3 mb-1" data-testid="@($"plan-group-{group.Pot}")">@L[$"Pot_{group.Pot}"]</MudText>
-        <MudStack Spacing="2">
+        <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H3" Class="rz-mt-3 rz-mb-1" data-testid="@($"plan-group-{group.Pot}")">@L[$"Pot_{group.Pot}"]</RadzenText>
+        <RadzenStack Gap="0.5rem">
             @foreach (var position in group.Positions)
             {
                 var done = position.DoneAt is not null;
-                <MudPaper Class="pa-3" Outlined="true" data-testid="@($"household-position-{position.Id}")">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                        <MudStack Spacing="0" Class="flex-grow-1">
-                            <MudText Color="@(done ? Color.Secondary : Color.Default)">@position.Label</MudText>
-                            <MudText Typo="Typo.caption" Color="Color.Secondary" data-testid="@($"household-owner-{position.Id}")">@Caption(position)</MudText>
-                        </MudStack>
-                        <MudText Typo="Typo.body2">@L["Plan_Amounts", Money(position.AmountPlanned), Money(position.Booked)]</MudText>
-                    </MudStack>
-                </MudPaper>
+                <RadzenCard Variant="Variant.Outlined" data-testid="@($"household-position-{position.Id}")">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                        <RadzenStack Gap="0" Class="fill-wrap">
+                            <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="@(done ? "rz-text-secondary-color rz-m-0" : "rz-m-0")">@position.Label</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-m-0" data-testid="@($"household-owner-{position.Id}")">@Caption(position)</RadzenText>
+                        </RadzenStack>
+                        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.Span">@L["Plan_Amounts", Money(position.AmountPlanned), Money(position.Booked)]</RadzenText>
+                    </RadzenStack>
+                </RadzenCard>
             }
-        </MudStack>
+        </RadzenStack>
         </div>
     }
     </div>
@@ -110,7 +112,7 @@
     @* Die Überträge als eigene Zeilen, nur von denen, die ihre Buchungen freigegeben haben (Spec 66, R9). *@
     @if (plan.CarryOvers is { Count: > 0 })
     {
-        <div class="mt-4 plan-layout-side" data-testid="household-carry-overs">
+        <div class="rz-mt-4 plan-layout-side" data-testid="household-carry-overs">
             <LineTable Caption="@L["Plan_CarryOver"]" HideCaption="true" Rows="MonthCarryOverText.Rows(MonthView.CarryOverRows(plan.CarryOvers), L)" />
         </div>
     }
@@ -118,22 +120,22 @@
     @* Die Konten der Mitglieder, die sie freigegeben haben (R8); wer fehlt, steht mit Namen darunter. *@
     @if (plan.Accounts.Count > 0)
     {
-        <MudPaper Outlined="true" Class="pa-3 mt-4 plan-layout-side" data-testid="household-accounts">
-            <MudText Typo="Typo.subtitle1" Class="mb-1">@L["HouseholdPlan_Accounts"]</MudText>
+        <RadzenCard Variant="Variant.Outlined" Class="rz-mt-4 plan-layout-side" data-testid="household-accounts">
+            <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H3" Class="rz-mb-1">@L["HouseholdPlan_Accounts"]</RadzenText>
             @foreach (var account in plan.Accounts)
             {
-                <MudStack Row="true" Justify="Justify.SpaceBetween">
-                    <MudText>@account.Name <MudText Typo="Typo.caption" Color="Color.Secondary" Inline="true">(@account.OwnerFirstName)</MudText></MudText>
-                    <MudText>@Money(account.Balance)</MudText>
-                </MudStack>
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+                    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-m-0">@account.Name <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.Span" Class="rz-text-secondary-color">(@account.OwnerFirstName)</RadzenText></RadzenText>
+                    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-m-0">@Money(account.Balance)</RadzenText>
+                </RadzenStack>
             }
-        </MudPaper>
+        </RadzenCard>
     }
     @if (plan.AccountsMissing.Count > 0)
     {
-        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-2 plan-layout-side" data-testid="household-accounts-missing">
+        <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-mt-2 plan-layout-side" data-testid="household-accounts-missing">
             @L["HouseholdPlan_AccountsMissing", string.Join(", ", plan.AccountsMissing)]
-        </MudText>
+        </RadzenText>
     }
     </div>
     }
@@ -202,7 +204,7 @@
         else
         {
             plan = null;
-            message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+            message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
         }
     }
 

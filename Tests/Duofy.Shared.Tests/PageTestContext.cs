@@ -74,7 +74,7 @@ public abstract class PageTestContext : UiTestContext
     protected string CurrentPath => new Uri(Navigation.Uri).PathAndQuery;
 
     /// <summary>
-    /// Findet ein Eingabefeld über sein data-testid. MudBlazor setzt das Attribut je nach
+    /// Findet ein Eingabefeld über sein data-testid. Radzen setzt das Attribut je nach
     /// Komponente auf das Feld selbst oder auf den Rahmen darum; wir suchen in beiden.
     /// </summary>
     protected static IElement Field(IRenderedComponent<IComponent> cut, string testId)

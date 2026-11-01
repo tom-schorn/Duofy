@@ -1,8 +1,8 @@
 @* Ein Auswahlfeld mit der Auswahl des Geräts: Auf dem Handy öffnet sich das Auswahlfenster des
-   Systems, im Browser die gewohnte Liste. MudBlazor hat in dieser Version kein solches Feld, und
-   das eigene MudSelect öffnet ein Fenster im Fenster, das auf dem Handy umständlich ist.
+   Systems, im Browser die gewohnte Liste. Radzen hat kein solches Feld, und
+   das eigene RadzenDropDown öffnet ein Fenster im Fenster, das auf dem Handy umständlich ist.
 
-   So benutzt man es, genau wie ein MudTextField:
+   So benutzt man es, genau wie ein Textfeld:
 
        <NativeSelect Label="Konto" @bind-Value="kontoId">
            <option value="a">Girokonto</option>
@@ -11,13 +11,12 @@
    Die Auswahl ist immer ein Text; leer ist "". Weitere Attribute (zum Beispiel data-testid)
    landen am <select>-Element selbst. *@
 
-<div class="mb-2">
+<div class="rz-mb-2">
     @if (Label is not null)
     {
         <FieldLabel For="@SelectId" Text="@Label" />
     }
-    <select value="@Value" @onchange="OnChangeAsync" @attributes="AdditionalAttributes" id="@SelectId"
-            style="width: 100%; padding: 12px; border: 1px solid var(--mud-palette-lines-inputs); border-radius: var(--mud-default-borderradius); background: transparent; color: inherit; font: inherit;">
+    <select value="@Value" @onchange="OnChangeAsync" @attributes="AdditionalAttributes" id="@SelectId" class="native-select">
         @ChildContent
     </select>
 </div>

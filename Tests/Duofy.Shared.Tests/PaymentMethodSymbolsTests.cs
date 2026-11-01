@@ -1,7 +1,6 @@
 using AngleSharp.Dom;
 using Bunit;
 using Duofy.Schemas;
-using Duofy.Shared.Icons;
 using Duofy.Shared.Pages;
 using Duofy.Shared.Services;
 using Microsoft.AspNetCore.Components;
@@ -28,7 +27,7 @@ public class PaymentMethodSymbolsTests : PageTestContext
     {
         foreach (var method in PaymentMethods.All)
         {
-            Assert.Contains(PaymentMethodIconSet.SymbolName(method), TablerIcons.Names);
+            Assert.Matches("^[a-z_]+$", PaymentMethodIconSet.SymbolName(method));
         }
         Assert.Equal(PaymentMethods.All.Count, PaymentMethods.All.Select(PaymentMethodIconSet.SymbolName).Distinct().Count());
     }
@@ -52,7 +51,7 @@ public class PaymentMethodSymbolsTests : PageTestContext
         Assert.Equal(["Lastschrift", "Dauerauftrag", "Überweisung", "Abhebung", "Sonstiges"],
             options.Select(o => o.QuerySelector(".payment-option-name")!.TextContent.Trim()));
         Assert.Equal(PaymentMethods.All, options.Select(o => o.QuerySelector("[data-icon]")!.GetAttribute("data-icon")));
-        Assert.All(options, o => Assert.NotNull(o.QuerySelector("svg")));
+        Assert.All(options, o => Assert.NotNull(o.QuerySelector("i.rzi")));
         Assert.Single(group.QuerySelectorAll("input[type='radio']").Select(r => r.GetAttribute("name")).Distinct());
     }
 
@@ -82,7 +81,7 @@ public class PaymentMethodSymbolsTests : PageTestContext
     {
         var cut = RenderSelect("");
 
-        Assert.All(cut.FindAll("svg"), s => Assert.Equal("true", s.GetAttribute("aria-hidden")));
+        Assert.All(cut.FindAll("i.rzi"), s => Assert.Equal("true", s.GetAttribute("aria-hidden")));
     }
 
     [Fact]

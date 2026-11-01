@@ -1,5 +1,6 @@
-﻿@using Duofy.Shared.Services
+@using Duofy.Shared.Services
 @using Duofy.Shared.Theme
+@using Radzen.Blazor
 <!DOCTYPE html>
 <html lang="de">
 
@@ -10,7 +11,8 @@
     @* Issue 5: Die gewählte Hell-Dunkel-Einstellung gilt schon beim ersten Zeichnen; eigenes Skript, kein Fremdskript. *@
     @((MarkupString)ThemeBoot.HeadMarkup)
     <ResourcePreloader />
-    <link rel="stylesheet" href="_content/MudBlazor/MudBlazor.min.css" />
+    @* Die Theme-Datei von Radzen. Sie steht hier und nicht im Layout, damit sie beim Wechsel des Layouts nicht neu lädt. *@
+    <RadzenTheme Theme="@RadzenVariables.LightTheme" @rendermode="PageRenderMode" />
     <link rel="stylesheet" href="_content/Duofy.Shared/app.css" />
     <link rel="stylesheet" href="Duofy.Web.styles.css" />
     <ImportMap />
@@ -30,7 +32,7 @@
 <body>
     <WebRoutes @rendermode="PageRenderMode" />
     <ReconnectModal />
-    <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+    <script src="_content/Radzen.Blazor/Radzen.Blazor.js"></script>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 

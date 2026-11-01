@@ -105,3 +105,78 @@ public class AccountPageTests : PageTestContext
         Assert.Equal("/konto/loeschen", cut.Find("[data-testid='account-delete-link']").GetAttribute("href"));
     }
 }
+
+/// <summary>Radzen-Umstellung R22: Die Kontoseite ist in Radzen gebaut, jeder Abschnitt eine Karte mit eigener Meldung.</summary>
+public class AccountPageRadzenTests : PageTestContext
+{
+    [Fact]
+    public void The_page_is_built_with_radzen_and_every_section_is_a_card()
+    {
+        var cut = Render<Account>();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='account-names']")));
+
+        foreach (var section in new[] { "account-names", "account-email", "account-quotas", "account-sessions" })
+        {
+            Assert.Contains("rz-card", cut.Find($"[data-testid='{section}']").ClassList);
+        }
+        // Die Zahlenfelder (Quoten) lassen keine Id am input zu: Ihre Beschriftung hat eine eigene Id, und das Feld verweist per aria-labelledby darauf.
+        Assert.Equal(["account-first-name-input", "account-last-name-input", "account-new-email-input", "account-email-password-input",
+            null, null, null, "account-current-password-input", "account-new-password-input"],
+            cut.FindAll("label.field-label").Select(l => l.GetAttribute("for")));
+        foreach (var pot in new[] { "needs", "wants", "savings" })
+        {
+            Assert.Equal($"account-quota-{pot}-label", Field(cut, $"account-quota-{pot}").GetAttribute("aria-labelledby"));
+            Assert.NotNull(cut.Find($"label#account-quota-{pot}-label"));
+        }
+    }
+
+    [Fact]
+    public void The_fields_keep_their_types_and_autocomplete_hints()
+    {
+        var cut = Render<Account>();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='account-names']")));
+
+        Assert.Equal("email", Field(cut, "account-new-email").GetAttribute("type"));
+        Assert.Equal("password", Field(cut, "account-email-password").GetAttribute("type"));
+        Assert.Equal("password", Field(cut, "account-current-password").GetAttribute("type"));
+        Assert.Equal("new-password", Field(cut, "account-new-password").GetAttribute("autocomplete"));
+        Assert.Equal("account-new-password-input", Field(cut, "account-new-password").Id);
+    }
+
+    [Fact]
+    public void Each_section_saves_on_its_own_and_shows_its_own_message()
+    {
+        var cut = Render<Account>();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='account-names']")));
+        Field(cut, "account-first-name").Change("Anna");
+        Field(cut, "account-last-name").Change("Neu");
+
+        Field(cut, "account-names-save").Click();
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.Find("[data-testid='account-names']").QuerySelectorAll(".rz-alert")));
+        Assert.Empty(cut.Find("[data-testid='account-quotas']").QuerySelectorAll(".rz-alert"));
+        Assert.Empty(cut.Find("[data-testid='account-sessions']").QuerySelectorAll(".rz-alert"));
+    }
+
+    [Fact]
+    public void The_delete_link_leads_to_the_delete_page_as_a_link_styled_as_a_button()
+    {
+        var cut = Render<Account>();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='account-delete-link']")));
+
+        var link = cut.Find("a[data-testid='account-delete-link']");
+
+        Assert.Equal("/konto/loeschen", link.GetAttribute("href"));
+        Assert.Contains("rz-variant-outlined", link.ClassList);
+    }
+
+    [Fact]
+    public void The_sign_out_buttons_are_radzen_buttons()
+    {
+        var cut = Render<Account>();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='account-sign-out']")));
+
+        Assert.Contains("rz-button", cut.Find("[data-testid='account-sign-out']").ClassList);
+        Assert.Contains("rz-button", cut.Find("[data-testid='account-sign-out-everywhere']").ClassList);
+    }
+}

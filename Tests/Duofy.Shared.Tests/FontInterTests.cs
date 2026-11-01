@@ -17,11 +17,10 @@ public partial class FontInterTests
     [Fact]
     public void Theme_uses_inter_as_first_font_family()
     {
-        var families = DuofyTheme.Instance.Typography.Default.FontFamily;
+        var family = RadzenVariables.Common["--rz-text-font-family"];
 
-        Assert.NotNull(families);
-        Assert.Equal("Inter Variable", families![0]);
-        Assert.DoesNotContain(families, f => f.Contains("Geist", StringComparison.OrdinalIgnoreCase));
+        Assert.StartsWith("'Inter Variable'", family);
+        Assert.DoesNotContain("Geist", family, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -37,9 +36,9 @@ public partial class FontInterTests
     [Fact]
     public void Font_list_ends_in_a_system_fallback()
     {
-        var families = DuofyTheme.Instance.Typography.Default.FontFamily!;
+        var family = RadzenVariables.Common["--rz-text-font-family"];
 
-        Assert.Equal("sans-serif", families[^1]);
+        Assert.EndsWith("sans-serif", family);
     }
 
     // A2: Keine Anfrage an einen fremden Host: weder @import noch url() mit Adresse in app.css.
@@ -72,6 +71,15 @@ public partial class FontInterTests
     public void Css_sets_tabular_figures()
     {
         Assert.Matches(@"font-variant-numeric:\s*tabular-nums", Css());
+    }
+
+    // Issue #54: Das Theme legt nur die Variable fest; Radzen setzt sie nur an eigenen Bausteinen. Der übrige Text (Absätze,
+    // Beschriftungen, Rohtext in der App) bekäme ohne diese Regel die Standardschrift des Browsers (Times). Die Regel steht
+    // in der gemeinsamen app.css, die Web und App beide laden.
+    [Fact]
+    public void Body_text_uses_the_theme_font_family()
+    {
+        Assert.Matches(@"(?m)^body\s*\{[^}]*font-family:\s*var\(--rz-text-font-family\)", Css());
     }
 
     // A5: Keine Geist-Schriftdatei und keine Geist-Lizenz mehr im Repository.

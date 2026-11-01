@@ -1,4 +1,6 @@
 @page "/lizenzen"
+@using Radzen
+@using Radzen.Blazor
 @implements IDisposable
 @inject IAppHost Host
 @inject AppChrome Chrome
@@ -12,21 +14,21 @@
 <AppPageHeading Text="@L["Licenses_Title"]" />
 @if (!Host.IsApp)
 {
-    <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-2">@L["Licenses_Title"]</MudText>
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1">@L["Licenses_Title"]</RadzenText>
 }
 
-<MudText Class="mb-4">@L["Licenses_Intro"]</MudText>
+<RadzenText TextStyle="TextStyle.Body1">@L["Licenses_Intro"]</RadzenText>
 
-<MudStack Spacing="2">
+<RadzenStack Gap="1rem">
     @foreach (var license in ThirdPartyLicenses.All)
     {
-        <MudPaper Class="pa-4" Outlined="true" data-testid="@($"license-{license.Name}")">
-            <MudText Typo="Typo.h6">@license.Name @license.Version</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Secondary">@license.License · @license.Url</MudText>
-            <pre style="white-space: pre-wrap; font-size: 0.75rem; margin: 0.5rem 0 0;">@license.Text</pre>
-        </MudPaper>
+        <RadzenCard Variant="Variant.Outlined" data-testid="@($"license-{license.Name}")">
+            <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2">@license.Name @license.Version</RadzenText>
+            <RadzenText TextStyle="TextStyle.Body2">@license.License · @license.Url</RadzenText>
+            <pre class="plain-text plain-text-small">@license.Text</pre>
+        </RadzenCard>
     }
-</MudStack>
+</RadzenStack>
 
 @code {
     protected override void OnInitialized() => Chrome.Set(this, L["Licenses_Title"]);

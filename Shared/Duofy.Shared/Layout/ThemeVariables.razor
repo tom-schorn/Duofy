@@ -1,0 +1,19 @@
+@using Radzen.Blazor
+
+@* Macht das freigegebene Aussehen zum Teil der Seite: die Werte aus RadzenVariables als fertiger Stil, schon beim ersten
+   Zeichnen und ohne JavaScript. Zum Wechsel des Modus reicht ein neuer Wert von Dark.
+
+   Dazu kommt die Frage ans Gerät, ob es dunkel eingestellt ist: RadzenMediaQuery antwortet beim Start und bei jeder Änderung. *@
+
+<style>@((MarkupString)RadzenVariables.Css(Dark))</style>
+<RadzenMediaQuery Query="(prefers-color-scheme: dark)" Change="DeviceDarkChanged" />
+
+@code {
+    /// <summary>True, wenn die dunklen Werte gelten sollen.</summary>
+    [Parameter]
+    public bool Dark { get; set; }
+
+    /// <summary>Meldet, ob das Gerät dunkel eingestellt ist.</summary>
+    [Parameter]
+    public EventCallback<bool> DeviceDarkChanged { get; set; }
+}

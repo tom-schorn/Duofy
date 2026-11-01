@@ -1,4 +1,6 @@
 @page "/vertraege"
+@using Radzen
+@using Radzen.Blazor
 @attribute [Authorize]
 @using System.Globalization
 @using Duofy.ApiClient
@@ -10,7 +12,7 @@
 @inject ICategoryApi CategoryApi
 @inject IAccountChoices AccountChoices
 @implements IDisposable
-@inject IDialogService DialogService
+@inject FormDialogs Forms
 @inject IAppHost Host
 @inject AppChrome Chrome
 @inject ActiveMember Member
@@ -34,15 +36,15 @@
 <AppPageHeading Text="@L["Commitments_Title"]" />
 @if (!Host.IsApp)
 {
-    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
-        <MudText Typo="Typo.h4" HtmlTag="h1">@L["Commitments_Title"]</MudText>
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-2">
+        <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1">@L["Commitments_Title"]</RadzenText>
         @if (Sees)
         {
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-                       OnClick="AddAsync" Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)"
-                       data-testid="commitments-add">@L["Commitments_Add"]</MudButton>
+            <RadzenButton Text="@L["Commitments_Add"]" Icon="add" ButtonStyle="ButtonStyle.Primary"
+                          Click="@(_ => AddAsync())" Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)"
+                          data-testid="commitments-add" />
         }
-    </MudStack>
+    </RadzenStack>
 }
 
 <Notice Message="message" />
@@ -55,21 +57,24 @@ else
 {
 <GrantReason Show="@(!(CanAdd && CanEdit && CanEnd))" />
 
-<MudSwitch T="bool" @bind-Value="showEnded" Color="Color.Primary" Label="@L["Commitments_ShowEnded"]"
-           data-testid="commitments-show-ended" />
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+    <RadzenSwitch @bind-Value="showEnded" Name="commitments-show-ended" data-testid="commitments-show-ended" />
+    <RadzenLabel Component="commitments-show-ended" Text="@L["Commitments_ShowEnded"]" />
+</RadzenStack>
 
 @if (loaded && all.Count == 0)
 {
-    <MudText Color="Color.Secondary" Class="mb-2">@L["Commitments_Empty"]</MudText>
+    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color rz-mb-2">@L["Commitments_Empty"]</RadzenText>
 }
 else if (loaded && !Shown.Any())
 {
     @* Es gibt nur beendete Verträge und der Schalter ist aus: sonst sähe die Seite leer aus. *@
-    <MudText Color="Color.Secondary" Class="mb-2" data-testid="commitments-ended-hidden">@L["Commitments_EndedHidden"]</MudText>
+    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color rz-mb-2"
+                data-testid="commitments-ended-hidden">@L["Commitments_EndedHidden"]</RadzenText>
 }
 
 @* Ab 1280 px eine Tabelle mit Spalten (siehe .data-table in app.css), darunter Karten wie bisher. *@
-<MudStack Spacing="2" Class="mt-2 data-table commitments-table page-wide">
+<RadzenStack Gap="0.5rem" Class="rz-mt-2 data-table commitments-table page-wide">
     @if (Shown.Any())
     {
         <div class="data-table-head" aria-hidden="true">
@@ -82,33 +87,35 @@ else if (loaded && !Shown.Any())
     }
     @foreach (var commitment in Shown)
     {
-        <MudPaper Class="pa-3 data-row-frame" Outlined="true" data-testid="@($"commitment-{commitment.Id}")">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="data-row">
-                <MudStack Spacing="0" Class="flex-grow-1 data-cells">
-                    <MudText Color="@(commitment.Running ? Color.Default : Color.Secondary)" Class="data-column-1">@commitment.Name</MudText>
+        <RadzenCard Variant="Variant.Outlined" Class="data-row-frame" data-testid="@($"commitment-{commitment.Id}")">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Class="data-row">
+                <RadzenStack Gap="0" Class="flex-grow-1 data-cells">
+                    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="@($"data-column-1{(commitment.Running ? "" : " rz-text-secondary-color")}")">@commitment.Name</RadzenText>
                     @* Liest sich wie eine Zeile; ab 1280 px sind die Teile Spalten und die Punkte dazwischen ausgeblendet. *@
-                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="data-cells"><span class="data-column-2">@L[$"CommitmentType_{commitment.Type}"]</span><span class="data-separator"> · </span><span class="data-column-3">@IntervalTexts.For(L, commitment.IntervalMonths)</span>@if (!commitment.Running)
+                    <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color data-cells"><span class="data-column-2">@L[$"CommitmentType_{commitment.Type}"]</span><span class="data-separator"> · </span><span class="data-column-3">@IntervalTexts.For(L, commitment.IntervalMonths)</span>@if (!commitment.Running)
                         {<span class="data-separator"> · </span><span class="data-column-4">@L["Commitments_EndedOnly"]</span>}
                         else if (commitment.NextDueDate is { } next)
-                        {<span class="data-separator"> · </span><span class="data-column-4"><span class="data-separator">@($"{L["Commitments_NextDueLabel"]} ")</span>@next.ToString("dd.MM.yyyy", German)</span>}</MudText>
-                </MudStack>
-                <MudText Typo="Typo.subtitle1" Color="@(commitment.Running ? Color.Default : Color.Secondary)" Class="data-column-5 data-amount">@Money(commitment.Amount)</MudText>
+                        {<span class="data-separator"> · </span><span class="data-column-4"><span class="data-separator">@($"{L["Commitments_NextDueLabel"]} ")</span>@next.ToString("dd.MM.yyyy", German)</span>}</RadzenText>
+                </RadzenStack>
+                <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.P" Class="@($"data-column-5 data-amount{(commitment.Running ? "" : " rz-text-secondary-color")}")">@Money(commitment.Amount)</RadzenText>
                 @if (CommitmentDraft.OfferedTypes.Contains(commitment.Type))
                 {
-                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditAsync(commitment)"
-                                   Class="@($"data-column-6 {GrantLock.Class(CanEdit)}")" @attributes="GrantLock.Attributes(CanEdit)"
-                                   aria-label="@L["Commitments_Edit", commitment.Name]" data-testid="@($"commitment-edit-{commitment.Id}")" />
+                    <RadzenButton Icon="edit" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small"
+                                  Click="@(_ => EditAsync(commitment))"
+                                  Class="@($"data-column-6 {GrantLock.Class(CanEdit)}")" @attributes="GrantLock.Attributes(CanEdit)"
+                                  aria-label="@L["Commitments_Edit", commitment.Name]" data-testid="@($"commitment-edit-{commitment.Id}")" />
                 }
                 @if (commitment.Running)
                 {
-                    <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => EndAsync(commitment)"
-                               Class="@($"data-column-7 {GrantLock.Class(CanEnd)}")" @attributes="GrantLock.Attributes(CanEnd)"
-                               data-testid="@($"commitment-end-{commitment.Id}")">@L["Commitments_End"]</MudButton>
+                    <RadzenButton Text="@L["Commitments_End"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small"
+                                  Click="@(_ => EndAsync(commitment))"
+                                  Class="@($"data-column-7 {GrantLock.Class(CanEnd)}")" @attributes="GrantLock.Attributes(CanEnd)"
+                                  aria-label="@L["Commitments_EndFor", commitment.Name]" data-testid="@($"commitment-end-{commitment.Id}")" />
                 }
-            </MudStack>
-        </MudPaper>
+            </RadzenStack>
+        </RadzenCard>
     }
-</MudStack>
+</RadzenStack>
 }
 
 @code {
@@ -176,7 +183,7 @@ else if (loaded && !Shown.Any())
         accounts = accountResult.Succeeded ? accountResult.Value! : [];
         if (!categoryResult.Succeeded || !accountResult.Succeeded)
         {
-            message = new NoticeMessage(ErrorTexts.For(L, categoryResult.ErrorCode ?? accountResult.ErrorCode), Severity.Error);
+            message = new NoticeMessage(ErrorTexts.For(L, categoryResult.ErrorCode ?? accountResult.ErrorCode), NoticeSeverity.Error);
         }
         await LoadAsync();
     }
@@ -191,7 +198,7 @@ else if (loaded && !Shown.Any())
         }
         else
         {
-            message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+            message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
         }
         loaded = true;
     }
@@ -236,23 +243,21 @@ else if (loaded && !Shown.Any())
 
     private async Task ShowDialogAsync(CommitmentResponse? existing, string title)
     {
-        var parameters = new DialogParameters<CommitmentDialog>
-        {
-            { x => x.Existing, existing },
-            { x => x.Categories, categories },
-            { x => x.Accounts, accounts },
-            { x => x.SavingsGoals, await LoadGoalsAsync() },
-            { x => x.Debts, await LoadDebtsAsync(existing?.DebtId) },
-            { x => x.Today, Today },
-        };
+        var parameters = new FormParameters<CommitmentDialog>()
+            .Add(x => x.Title, title)
+            .Add(x => x.Existing, existing)
+            .Add(x => x.Categories, categories)
+            .Add(x => x.Accounts, accounts)
+            .Add(x => x.SavingsGoals, await LoadGoalsAsync())
+            .Add(x => x.Debts, await LoadDebtsAsync(existing?.DebtId))
+            .Add(x => x.Today, Today);
 
-        // Der Dialog hat Schritte (Spec 17); er geht wie jeder Schritt-Dialog auf und füllt auf dem Handy den Bildschirm.
-        var dialog = await DialogService.ShowAsync<CommitmentDialog>(title, parameters, StepDialogOptions.Create());
-        var result = await dialog.Result;
+        // Der Dialog hat Schritte (Spec 17); er geht wie jeder Schritt-Dialog auf und füllt in der App den Bildschirm.
+        var outcome = await Forms.OpenStepAsync<CommitmentDialog, bool>(title, parameters);
 
-        if (result is { Canceled: false })
+        if (outcome.Saved)
         {
-            message = new NoticeMessage(L["Commitments_Saved"], Severity.Success);
+            message = new NoticeMessage(L["Commitments_Saved"], NoticeSeverity.Success);
             await LoadAsync();
         }
     }
@@ -265,22 +270,17 @@ else if (loaded && !Shown.Any())
             return;
         }
         // Beenden fragt einmal nach (A16); Abbrechen lässt den Vertrag laufen.
-        var confirmed = await DialogService.ShowMessageBoxAsync(new MessageBoxOptions
-        {
-            Title = L["Commitments_EndTitle"],
-            Message = L["Commitments_EndText", commitment.Name],
-            YesText = L["Commitments_EndConfirm"],
-            CancelText = L["Commitments_EndCancel"],
-        });
-        if (confirmed != true)
+        var confirmed = await Forms.ConfirmAsync(L["Commitments_EndText", commitment.Name], L["Commitments_EndTitle"],
+            L["Commitments_EndConfirm"], L["Commitments_EndCancel"]);
+        if (!confirmed)
         {
             return;
         }
 
         var result = await CommitmentApi.EndAsync(commitment.Id);
         message = result.Succeeded
-            ? new NoticeMessage(L["Commitments_Ended"], Severity.Success)
-            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+            ? new NoticeMessage(L["Commitments_Ended"], NoticeSeverity.Success)
+            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
         await LoadAsync();
     }
 

@@ -1,3 +1,4 @@
+@using Radzen.Blazor
 @using Duofy.ApiClient
 @implements IDisposable
 @inject ActiveMember Member
@@ -5,62 +6,81 @@
 @inject NavigationManager Navigation
 @inject IStringLocalizer<SharedResources> L
 
-@* Der Profil-Knopf mit dem Menü "wessen Zahlen" (Spec 44, Spec 68 R8). Er ist für jede angemeldete Person da, auch
-   allein: Das Menü bietet "Ich" und jedes Mitglied, das mir in irgendeinem Bereich mindestens Ansehen freigegeben hat,
-   dann "Haushalt" (Spec 69, R9), das Konto und Abmelden. Der Knopf trägt die Beschriftung der gewählten Sicht, damit
-   von jeder Seite aus zu sehen ist, wessen Zahlen gerade offen sind.
+@* Das Profilfeld mit dem Menü "wessen Zahlen" (Spec 44, Spec 68 R8), gebaut mit dem Profilmenü von Radzen. Es ist für jede
+   angemeldete Person da, auch allein: Das Menü bietet "Ich" und jedes Mitglied, das mir in irgendeinem Bereich mindestens
+   Ansehen freigegeben hat, dann "Haushalt" (Spec 69, R9), das Konto und Abmelden. Das Feld trägt die Beschriftung der
+   gewählten Sicht, damit von jeder Seite aus zu sehen ist, wessen Zahlen gerade offen sind.
 
    "Haushalt" gibt es nur ab zwei Mitgliedern; sonst steht er als nicht verfügbar im Menü, nennt den Grund und führt
    zur Haushalt-Seite. Die Auswahl ändert keine Rechte: Wer nichts freigegeben hat, steht gar nicht in der Liste.
 
-   Der Knopf steht in der Seitenleiste ganz unten (das Menü öffnet nach oben) und in der oberen Leiste; welcher von
-   beiden zu sehen ist, entscheidet das Stylesheet nach der Breite. Einfache Elemente statt MudMenu, damit das Menü
-   ohne Popup-Anbieter an Ort und Stelle bleibt und Tastatur und Screenreader (Menü, Escape) ohne Umweg gelten. *@
+   Das Feld steht in der Seitenleiste ganz unten auf einer Karte in der Hauptfarbe (das Menü öffnet nach oben) und in der
+   oberen Leiste; welches von beiden zu sehen ist, entscheidet das Stylesheet nach der Breite. Tastatur und Screenreader
+   (Pfeile, Enter, Escape, Rollen) bringt das Radzen-Menü mit. *@
 
-<div class="@(Up ? "member-profile member-profile-up" : "member-profile")" data-testid="member-switch" @onkeydown="OnKeyDown">
-    <button type="button" class="member-profile-button" aria-haspopup="menu" aria-expanded="@(open ? "true" : "false")"
-            aria-label="@($"{L["MemberSwitch_Label"]}: {ViewLabel}")" data-testid="member-profile" @onclick="Toggle">
-        <MudIcon Icon="@Icons.Material.Filled.AccountCircle" />
-        <span class="member-profile-name">@ViewLabel</span>
-    </button>
-
-    @if (open)
+<div class="@(Up ? "member-profile member-profile-up" : "member-profile")" data-testid="member-switch">
+    @if (Up)
     {
-        <div class="member-menu-backdrop" @onclick="Close"></div>
-        <div class="member-menu" role="menu" aria-label="@L["MemberSwitch_Label"]" data-testid="member-menu">
-            <button type="button" role="menuitemradio" aria-checked="@Checked(!Member.IsHousehold && Member.Owner is null)"
-                    class="member-menu-item" data-testid="member-choice-me" @onclick="() => ChooseMember(null)">@L["MemberSwitch_Me"]</button>
-            @foreach (var person in Member.Sharing)
-            {
-                <button type="button" role="menuitemradio" aria-checked="@Checked(!Member.IsHousehold && Member.Owner == person.UserId)"
-                        class="member-menu-item" data-testid="@($"member-choice-{person.UserId}")"
-                        @onclick="() => ChooseMember(person.UserId)">@person.FirstName</button>
-            }
-            @if (Member.CanShowHousehold)
-            {
-                <button type="button" role="menuitemradio" aria-checked="@Checked(Member.IsHousehold)"
-                        class="member-menu-item" data-testid="member-choice-household" @onclick="ChooseHousehold">@L["MemberSwitch_Household"]</button>
-            }
-            else
-            {
-                @* Nicht verfügbar, aber erreichbar: ausgegraut, mit dem Grund und dem Weg zur Haushalt-Seite. *@
-                <a href="/haushalt" role="menuitem" class="member-menu-item grant-locked" aria-disabled="true"
-                   aria-describedby="member-household-reason" data-testid="member-choice-household" @onclick="Close">@L["MemberSwitch_Household"]</a>
-                <span id="member-household-reason" class="member-menu-reason">@L["MemberSwitch_HouseholdReason"]</span>
-            }
-            <hr class="member-menu-separator" />
-            <a href="/konto" role="menuitem" class="member-menu-item" data-testid="member-account" @onclick="Close">@L["Account_Title"]</a>
-            <button type="button" role="menuitem" class="member-menu-item" data-testid="member-sign-out" @onclick="SignOutAsync">@L["Account_SignOut"]</button>
-        </div>
+        <RadzenCard class="rz-background-color-primary rz-p-0">@Menu</RadzenCard>
+    }
+    else
+    {
+        @Menu
     }
 </div>
 
 @code {
-    /// <summary>True, wenn das Menü nach oben aufgeht, weil der Knopf unten in der Seitenleiste steht.</summary>
+    private const string MeValue = "me";
+    private const string HouseholdValue = "household";
+    private const string SignOutValue = "sign-out";
+
+    /// <summary>True, wenn das Feld unten in der Seitenleiste steht und das Menü deshalb nach oben aufgeht.</summary>
     [Parameter]
     public bool Up { get; set; }
 
-    private bool open;
+    private RadzenProfileMenu? menu;
+
+    private RenderFragment Menu =>
+    @<RadzenProfileMenu @ref="menu" Click="OnChosenAsync" ToggleAriaLabel="@($"{L["MemberSwitch_Label"]}: {ViewLabel}")"
+                        aria-label="@L["MemberSwitch_Label"]" data-testid="member-menu">
+        <Template>
+            <span class="member-profile-field">
+                <RadzenIcon Icon="@(Member.IsHousehold ? "home" : "account_circle")" />
+                <span class="member-profile-text">
+                    <span class="member-profile-name" data-testid="member-profile">@ViewLabel</span>
+                    @if (Up)
+                    {
+                        <span class="member-profile-hint" data-testid="member-profile-hint">@L["MemberSwitch_Label"]</span>
+                    }
+                </span>
+            </span>
+        </Template>
+        <ChildContent>
+            <RadzenProfileMenuItem Text="@L["MemberSwitch_Me"]" Icon="person" Value="@MeValue" aria-current="@Current(!Member.IsHousehold && Member.Owner is null)"
+                                   class="@CurrentClass(!Member.IsHousehold && Member.Owner is null)" data-testid="member-choice-me" />
+            @foreach (var person in Member.Sharing)
+            {
+                <RadzenProfileMenuItem @key="person.UserId" Text="@person.FirstName" Icon="person" Value="@person.UserId.ToString()"
+                                       aria-current="@Current(!Member.IsHousehold && Member.Owner == person.UserId)"
+                                       class="@CurrentClass(!Member.IsHousehold && Member.Owner == person.UserId)"
+                                       data-testid="@($"member-choice-{person.UserId}")" />
+            }
+            @if (Member.CanShowHousehold)
+            {
+                <RadzenProfileMenuItem Text="@L["MemberSwitch_Household"]" Icon="home" Value="@HouseholdValue" aria-current="@Current(Member.IsHousehold)"
+                                       class="@CurrentClass(Member.IsHousehold)" data-testid="member-choice-household" />
+            }
+            else
+            {
+                @* Nicht verfügbar, aber erreichbar: ausgegraut, mit dem Grund und dem Weg zur Haushalt-Seite. *@
+                <RadzenProfileMenuItem Text="@L["MemberSwitch_Household"]" Icon="home" Path="/haushalt" class="grant-locked" aria-disabled="true"
+                                       aria-describedby="member-household-reason" data-testid="member-choice-household" />
+                <li role="none" class="member-menu-reason"><span id="member-household-reason">@L["MemberSwitch_HouseholdReason"]</span></li>
+            }
+            <RadzenProfileMenuItem Text="@L["Account_Title"]" Icon="manage_accounts" Path="/konto" data-testid="member-account" />
+            <RadzenProfileMenuItem Text="@L["Account_SignOut"]" Icon="logout" Value="@SignOutValue" data-testid="member-sign-out" />
+        </ChildContent>
+    </RadzenProfileMenu>;
 
     protected override async Task OnInitializedAsync()
     {
@@ -71,37 +91,31 @@
     // Die Beschriftung der gewählten Sicht: Ich, der Vorname oder Haushalt.
     private string ViewLabel => Member.IsHousehold ? L["MemberSwitch_Household"] : Member.Name ?? L["MemberSwitch_Me"];
 
-    private static string Checked(bool value) => value ? "true" : "false";
+    private static string? Current(bool value) => value ? "true" : null;
 
-    private void Toggle() => open = !open;
+    private static string? CurrentClass(bool value) => value ? "member-menu-current" : null;
 
-    private void Close() => open = false;
-
-    private void OnKeyDown(KeyboardEventArgs e)
+    private async Task OnChosenAsync(RadzenProfileMenuItem item)
     {
-        if (e.Key == "Escape")
+        switch (item.Value)
         {
-            open = false;
+            case MeValue:
+                Member.Choose(null);
+                break;
+            case HouseholdValue:
+                Member.ChooseHousehold();
+                break;
+            case SignOutValue:
+                menu?.Close();
+                await AuthApi.LogoutAsync();
+                Navigation.NavigateTo("/anmelden");
+                return;
+            case { } value when Guid.TryParse(value, out var userId):
+                Member.Choose(userId);
+                break;
         }
-    }
 
-    private void ChooseMember(Guid? userId)
-    {
-        Member.Choose(userId);
-        open = false;
-    }
-
-    private void ChooseHousehold()
-    {
-        Member.ChooseHousehold();
-        open = false;
-    }
-
-    private async Task SignOutAsync()
-    {
-        open = false;
-        await AuthApi.LogoutAsync();
-        Navigation.NavigateTo("/anmelden");
+        menu?.Close();
     }
 
     private void OnMemberChanged() => InvokeAsync(StateHasChanged);

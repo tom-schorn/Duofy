@@ -46,6 +46,14 @@ public class MemberSwitchTests : PageTestContext
     private static string ProfileText(IRenderedComponent<MemberSwitch> cut) =>
         cut.Find("[data-testid='member-profile']").TextContent.Trim();
 
+    // Das Radzen-Menü bleibt im Dokument; offen oder zu steht am Knopf und an der Liste.
+    private static bool MenuIsOpen(IRenderedComponent<MemberSwitch> cut) =>
+        cut.Find("[aria-haspopup='menu']").GetAttribute("aria-expanded") == "true" && cut.Find(".rz-navigation-menu").GetAttribute("aria-hidden") == "false";
+
+    // Der Text eines Eintrags ohne den Namen des Symbols, der in Radzen als Text im i-Element steht.
+    private static string ItemText(IRenderedComponent<MemberSwitch> cut, string testId) =>
+        cut.Find($"[data-testid='{testId}'] .rz-navigation-item-text").TextContent.Trim();
+
     private static List<string> Choices(IRenderedComponent<MemberSwitch> cut) =>
         cut.FindAll("[data-testid^='member-choice-']").Select(i => i.GetAttribute("data-testid")!).ToList();
 
@@ -85,9 +93,8 @@ public class MemberSwitchTests : PageTestContext
         cut.WaitForAssertion(() => Assert.Equal(1, HouseholdApiFake.MineCalls));
 
         var entry = cut.Find("[data-testid='member-choice-household']");
-        Assert.Equal("a", entry.TagName.ToLowerInvariant());
         Assert.Equal("true", entry.GetAttribute("aria-disabled"));
-        Assert.Equal("/haushalt", entry.GetAttribute("href"));
+        Assert.Equal("/haushalt", entry.QuerySelector("a")!.GetAttribute("href"));
         Assert.Equal("member-household-reason", entry.GetAttribute("aria-describedby"));
         Assert.Contains("mindestens zwei", cut.Find("#member-household-reason").TextContent);
     }
@@ -110,14 +117,15 @@ public class MemberSwitchTests : PageTestContext
     {
         Household(GrantLevels.None);
         var cut = OpenMenu();
-        cut.WaitForAssertion(() => Assert.Equal("button", cut.Find("[data-testid='member-choice-household']").TagName.ToLowerInvariant()));
+        cut.WaitForAssertion(() => Assert.Null(cut.Find("[data-testid='member-choice-household']").GetAttribute("aria-disabled")));
 
         cut.Find("[data-testid='member-choice-household']").Click();
 
         Assert.True(Member.IsHousehold);
         Assert.Null(Member.Owner);
         Assert.Equal("Haushalt", ProfileText(cut));
-        Assert.Empty(cut.FindAll("[data-testid='member-menu']"));
+        Assert.False(MenuIsOpen(cut));
+        Assert.Equal("true", cut.Find("[data-testid='member-choice-household']").GetAttribute("aria-current"));
     }
 
     // A4 (R3): Anna steht mit Vornamen im Menü; Wählen macht sie zum Besitzer, Ich nimmt es zurück.
@@ -129,7 +137,7 @@ public class MemberSwitchTests : PageTestContext
         var cut = OpenMenu();
         var annaChoice = $"member-choice-{FakeHouseholdApi.AnnaId}";
         cut.WaitForAssertion(() => Assert.Equal(["member-choice-me", annaChoice, "member-choice-household"], Choices(cut)));
-        Assert.Equal("Anna", cut.Find($"[data-testid='{annaChoice}']").TextContent.Trim());
+        Assert.Equal("Anna", ItemText(cut, annaChoice));
         Assert.Equal("Wessen Zahlen", cut.Find("[data-testid='member-menu']").GetAttribute("aria-label"));
 
         cut.Find($"[data-testid='{annaChoice}']").Click();
@@ -172,7 +180,7 @@ public class MemberSwitchTests : PageTestContext
 
         var items = cut.FindAll("[data-testid='member-menu'] [role^='menuitem']").Select(i => i.GetAttribute("data-testid")).ToList();
         Assert.Equal(["member-choice-me", "member-choice-household", "member-account", "member-sign-out"], items);
-        Assert.Equal("/konto", cut.Find("[data-testid='member-account']").GetAttribute("href"));
+        Assert.Equal("/konto", cut.Find("[data-testid='member-account'] a").GetAttribute("href"));
     }
 
     // A6 (R5): Abmelden meldet ab und führt zur Anmeldung.
@@ -192,14 +200,53 @@ public class MemberSwitchTests : PageTestContext
     public void The_menu_closes_with_escape_and_with_a_second_tap()
     {
         var cut = OpenMenu();
-        Assert.Equal("true", cut.Find("[data-testid='member-profile']").GetAttribute("aria-expanded"));
+        Assert.True(MenuIsOpen(cut));
 
-        cut.Find("[data-testid='member-switch']").KeyDown("Escape");
-        Assert.Empty(cut.FindAll("[data-testid='member-menu']"));
+        cut.Find("[aria-haspopup='menu']").KeyDown(Key.Escape);
+        Assert.False(MenuIsOpen(cut));
 
         cut.Find("[data-testid='member-profile']").Click();
+        Assert.True(MenuIsOpen(cut));
         cut.Find("[data-testid='member-profile']").Click();
-        Assert.Empty(cut.FindAll("[data-testid='member-menu']"));
+        Assert.False(MenuIsOpen(cut));
+    }
+
+    // Radzen R8: Das Feld ist das Profilmenü von Radzen. Es nennt die Sicht auch für Screenreader; unten in der Seitenleiste
+    // steht es auf einer Karte in der Hauptfarbe und sagt, wofür es da ist, wie im freigegebenen Entwurf.
+    [Fact]
+    public void The_field_is_the_radzen_profile_menu_and_names_the_view()
+    {
+        Household(PlanView);
+
+        var cut = Render<MemberSwitch>();
+
+        cut.WaitForAssertion(() => Assert.Equal(1, HouseholdApiFake.MineCalls));
+        Assert.Single(cut.FindComponents<Radzen.Blazor.RadzenProfileMenu>());
+        Assert.Equal("Wessen Zahlen: Ich", cut.Find("[aria-haspopup='menu']").GetAttribute("aria-label"));
+        Assert.Empty(cut.FindAll(".rz-card"));
+    }
+
+    [Fact]
+    public void At_the_bottom_of_the_side_bar_the_field_sits_on_a_card_and_says_what_it_is_for()
+    {
+        var cut = Render<MemberSwitch>(p => p.Add(c => c.Up, true));
+
+        Assert.Single(cut.FindAll(".member-profile-up .rz-card .rz-profile-menu"));
+        Assert.Contains("rz-background-color-primary", cut.Find(".rz-card").ClassList);
+        Assert.Equal("Wessen Zahlen", cut.Find("[data-testid='member-profile-hint']").TextContent.Trim());
+    }
+
+    [Fact]
+    public void The_current_view_is_marked_in_the_menu()
+    {
+        Household(PlanView);
+        var cut = OpenMenu();
+        cut.WaitForAssertion(() => Assert.Equal("true", cut.Find("[data-testid='member-choice-me']").GetAttribute("aria-current")));
+
+        cut.Find($"[data-testid='member-choice-{FakeHouseholdApi.AnnaId}']").Click();
+
+        Assert.Null(cut.Find("[data-testid='member-choice-me']").GetAttribute("aria-current"));
+        Assert.Equal("true", cut.Find($"[data-testid='member-choice-{FakeHouseholdApi.AnnaId}']").GetAttribute("aria-current"));
     }
 
     // A7 (R6): Ohne Freigabe steht Anna nicht im Menü; wird sie trotzdem gewählt, bleibt es bei Ich und es gibt

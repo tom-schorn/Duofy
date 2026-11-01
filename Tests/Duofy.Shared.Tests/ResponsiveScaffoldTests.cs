@@ -127,15 +127,12 @@ public class ResponsiveScaffoldTests : PageTestContext
         Assert.Contains($"--tap-min: {WidthRanges.TapTargetMin}px", css);
         Assert.Equal(44, WidthRanges.TapTargetMin);
 
-        var item = Rule(css, ".app-bottom-item.mud-button-root");
+        var item = Rule(css, ".app-bottom-item");
         Assert.Contains("min-width: var(--tap-min)", item);
         Assert.Contains("min-height: var(--tap-min)", item);
 
-        var buttons = Rule(css, ".mud-button-root");
-        Assert.Contains("min-height: var(--tap-min)", buttons);
-        var iconButtons = Rule(css, ".mud-icon-button");
-        Assert.Contains("min-width: var(--tap-min)", iconButtons);
-        Assert.Contains("min-height: var(--tap-min)", iconButtons);
+        Assert.Contains(".app-page .rz-button,", css);
+        Assert.Contains("min-width: var(--tap-min)", css);
     }
 
     // A3 (R3): Auf dem Handy bleiben die vier Ziele der unteren Leiste.
@@ -144,7 +141,7 @@ public class ResponsiveScaffoldTests : PageTestContext
     {
         var cut = Render<BottomNavigation>();
 
-        Assert.Equal(["Start", "Plan", "Buchungen", "Sparen", "Mehr"], cut.FindAll("a").Select(a => a.TextContent.Trim()));
+        Assert.Equal(["Start", "Plan", "Buchungen", "Sparen", "Mehr"], cut.FindAll("a .app-bottom-label").Select(a => a.TextContent.Trim()));
     }
 
     // A4 (R4)
@@ -156,7 +153,7 @@ public class ResponsiveScaffoldTests : PageTestContext
         Assert.Contains("max-width: 100%", frame);
         Assert.Contains("overflow-x: clip", frame);
 
-        var layout = Rule(css, ".mud-layout");
+        var layout = Rule(css, ".rz-layout");
         Assert.Contains("overflow-x: clip", layout);
 
         // Im Rahmen (app-/auth-Regeln) steht keine Breite über 100 Prozent oder 100 Bildschirmbreiten.
@@ -226,7 +223,7 @@ public class ResponsiveScaffoldTests : PageTestContext
     [InlineData("Extra", "extra")]
     public void The_type_scale_of_the_theme_is_what_the_frame_uses_on_desktop(string role, string name)
     {
-        var style = DuofyTheme.TypeScale[role];
+        var style = RadzenVariables.TypeScale[role];
         var desktop = Media(Css(), $"(min-width: {WidthRanges.DesktopMin}px)");
         var scope = desktop.Contains($"--type-{name}-size:") ? desktop : Rule(Css(), ":root");
 
@@ -242,7 +239,7 @@ public class ResponsiveScaffoldTests : PageTestContext
         var css = Css();
         var phone = Regex.Match(Media(css, $"(max-width: {WidthRanges.PhoneMax}px)"), @"--type-section-size:\s*([\d.]+)rem").Groups[1].Value;
         var tablet = Regex.Match(Media(css, $"(min-width: {WidthRanges.TabletMin}px)"), @"--type-section-size:\s*([\d.]+)rem").Groups[1].Value;
-        var desktopRem = double.Parse(Regex.Match(DuofyTheme.TypeScale["Section"].Size, @"([\d.]+)rem").Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+        var desktopRem = double.Parse(Regex.Match(RadzenVariables.TypeScale["Section"].Size, @"([\d.]+)rem").Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
         var phoneRem = double.Parse(phone, System.Globalization.CultureInfo.InvariantCulture);
         var tabletRem = double.Parse(tablet, System.Globalization.CultureInfo.InvariantCulture);
 
@@ -276,7 +273,7 @@ public class ResponsiveScaffoldTests : PageTestContext
         var cut = Render<Routes>();
 
         Assert.Contains("app-title", cut.Find("[data-testid='app-title']").ClassList);
-        Assert.Contains("font-size: var(--type-section-size)", Rule(Css(), ".mud-typography.app-title"));
+        Assert.Contains("font-size: var(--type-section-size)", Rule(Css(), ".rz-header .app-title"));
     }
 
     private sealed class MemoryThemeStore : IThemePreferenceStore

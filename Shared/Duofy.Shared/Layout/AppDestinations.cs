@@ -20,14 +20,14 @@ public enum AppDestination
 /// </summary>
 public static class AppDestinations
 {
-    /// <summary>Die Ziele in der Reihenfolge der Leiste: Ziel, Adresse, Textschlüssel, Symbol.</summary>
+    /// <summary>Die Ziele in der Reihenfolge der Leiste: Ziel, Adresse, Textschlüssel, Name des Symbols in Material Symbols.</summary>
     public static IReadOnlyList<(AppDestination Destination, string Href, string LabelKey, string Icon)> All { get; } =
     [
-        (AppDestination.Start, "/", "Nav_Start", MudBlazor.Icons.Material.Filled.Home),
-        (AppDestination.Plan, "/plan", "Nav_Plan", MudBlazor.Icons.Material.Filled.CalendarMonth),
-        (AppDestination.Bookings, "/buchungen", "Nav_Bookings", MudBlazor.Icons.Material.Filled.Receipt),
-        (AppDestination.Savings, "/sparen", "Nav_Savings", MudBlazor.Icons.Material.Filled.Savings),
-        (AppDestination.More, "/mehr", "Nav_More", MudBlazor.Icons.Material.Filled.MoreHoriz),
+        (AppDestination.Start, "/", "Nav_Start", "home"),
+        (AppDestination.Plan, "/plan", "Nav_Plan", "calendar_month"),
+        (AppDestination.Bookings, "/buchungen", "Nav_Bookings", "receipt"),
+        (AppDestination.Savings, "/sparen", "Nav_Savings", "savings"),
+        (AppDestination.More, "/mehr", "Nav_More", "more_horiz"),
     ];
 
     /// <summary>
@@ -36,14 +36,14 @@ public static class AppDestinations
     /// </summary>
     public static IReadOnlyList<(AppDestination Destination, string Href, string LabelKey, string Icon)> Side { get; } =
     [
-        (AppDestination.Start, "/", "Nav_Start", MudBlazor.Icons.Material.Filled.Home),
-        (AppDestination.Plan, "/plan", "Nav_Plan", MudBlazor.Icons.Material.Filled.CalendarMonth),
-        (AppDestination.Bookings, "/buchungen", "Nav_Bookings", MudBlazor.Icons.Material.Filled.Receipt),
-        (AppDestination.Savings, "/sparen", "Nav_Savings", MudBlazor.Icons.Material.Filled.Savings),
-        (AppDestination.Accounts, "/konten", "Nav_Accounts", MudBlazor.Icons.Material.Filled.AccountBalance),
-        (AppDestination.Contracts, "/vertraege", "More_Contracts", MudBlazor.Icons.Material.Filled.Description),
-        (AppDestination.Household, "/haushalt", "More_Household", MudBlazor.Icons.Material.Filled.Groups),
-        (AppDestination.UserAccount, "/konto", "More_UserAccount", MudBlazor.Icons.Material.Filled.Person),
+        (AppDestination.Start, "/", "Nav_Start", "home"),
+        (AppDestination.Plan, "/plan", "Nav_Plan", "calendar_month"),
+        (AppDestination.Bookings, "/buchungen", "Nav_Bookings", "receipt"),
+        (AppDestination.Savings, "/sparen", "Nav_Savings", "savings"),
+        (AppDestination.Accounts, "/konten", "Nav_Accounts", "account_balance"),
+        (AppDestination.Contracts, "/vertraege", "More_Contracts", "description"),
+        (AppDestination.Household, "/haushalt", "More_Household", "groups"),
+        (AppDestination.UserAccount, "/konto", "More_UserAccount", "person"),
     ];
 
     /// <param name="path">Der Pfad ohne Rechnername, zum Beispiel "/konten" oder "konten".</param>

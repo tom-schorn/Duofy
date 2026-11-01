@@ -3,7 +3,6 @@ using Duofy.Shared.Layout;
 using Duofy.Shared.Services;
 using Duofy.Shared.Theme;
 using Microsoft.Extensions.DependencyInjection;
-using MudBlazor;
 
 namespace Duofy.Shared.Tests;
 
@@ -45,12 +44,11 @@ public class ThemeFirstPaintTests : UiTestContext
     public void The_head_style_uses_the_dark_colours_of_the_theme_under_the_class()
     {
         var style = ThemeBoot.Style;
-        var dark = DuofyTheme.Instance.PaletteDark;
 
         Assert.Contains($"html.{ThemeBoot.DarkClass}", style);
         Assert.Contains("color-scheme:dark", style);
-        Assert.Contains($"--mud-palette-background:#{dark.Background.R:x2}{dark.Background.G:x2}{dark.Background.B:x2}", style);
-        Assert.Contains("--mud-palette-text-primary:", style);
+        Assert.Contains($"background-color:{RadzenVariables.Dark["--rz-body-background-color"]}", style);
+        Assert.Contains($"color:{RadzenVariables.Dark["--rz-text-color"]}", style);
     }
 
     [Fact]
@@ -72,7 +70,7 @@ public class ThemeFirstPaintTests : UiTestContext
 
         var cut = Render<MainLayout>();
 
-        cut.WaitForAssertion(() => Assert.True(cut.FindComponent<MudThemeProvider>().Instance.IsDarkMode));
+        cut.WaitForAssertion(() => Assert.True(cut.FindComponent<Duofy.Shared.Layout.ThemeVariables>().Instance.Dark));
         cut.WaitForAssertion(() => Assert.Contains(JSInterop.Invocations,
             i => i.Identifier == ThemeBoot.RemoveFunction && i.Arguments.Count == 1 && (string?)i.Arguments[0] == ThemeBoot.DarkClass));
     }
@@ -87,13 +85,14 @@ public class ThemeFirstPaintTests : UiTestContext
     public void A_store_that_knows_the_choice_at_once_makes_the_layout_draw_it_in_the_first_render(ThemeChoice choice, bool systemIsDark, bool expectedDark)
     {
         // LoadAsync kommt nie zurück: Was das Layout zeigt, hat es aus LoadImmediately, also vor dem ersten Zeichnen.
+        JSInterop.Setup<bool>("Radzen.mediaQuery", _ => true).SetResult(systemIsDark);
         var store = new Store(choice, systemIsDark, neverLoadsLater: true);
         Services.AddSingleton<IThemePreferenceStore>(store);
 
         var cut = Render<MainLayout>();
 
-        Assert.Equal(expectedDark, cut.FindComponent<MudThemeProvider>().Instance.IsDarkMode);
-        Assert.Equal(expectedDark, cut.Markup.Contains("--mud-palette-background: rgba(15,23,41,1)", StringComparison.Ordinal));
+        Assert.Equal(expectedDark, cut.FindComponent<Duofy.Shared.Layout.ThemeVariables>().Instance.Dark);
+        Assert.Contains(RadzenVariables.Css(expectedDark), cut.Markup);
     }
 
     [Fact]
@@ -104,7 +103,7 @@ public class ThemeFirstPaintTests : UiTestContext
 
         var cut = Render<MainLayout>();
 
-        Assert.False(cut.FindComponent<MudThemeProvider>().Instance.IsDarkMode);
+        Assert.False(cut.FindComponent<Duofy.Shared.Layout.ThemeVariables>().Instance.Dark);
     }
 
     [Fact]
@@ -122,7 +121,7 @@ public class ThemeFirstPaintTests : UiTestContext
         var css = File.ReadAllText(RepositoryFiles.Path("Mobile", "Duofy", "wwwroot", "app.css"));
 
         Assert.Contains("@media (prefers-color-scheme: dark)", css);
-        Assert.Contains("background-color: #0f1729", css);
+        Assert.Contains("background-color: #0b0e14", css);
     }
 
     private sealed class Store(ThemeChoice choice, bool systemIsDark = false, bool immediate = true, bool neverLoadsLater = false) : IThemePreferenceStore

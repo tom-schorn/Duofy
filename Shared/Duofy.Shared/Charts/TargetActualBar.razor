@@ -1,31 +1,34 @@
+@using Radzen
+@using Radzen.Blazor
 @using Duofy.Shared.Charts
 @inject IStringLocalizer<SharedResources> L
 
 @* Der Soll-Ist-Balken: zeigt Ist von Soll als Prozentwert (Text) und als Länge. Bis 100 Prozent füllt der Balken
    den Anteil des Solls; darüber wird der ganze Bereich auf das Ist gedehnt, die Soll-Marke bleibt als Linie bei 100
-   und der Überschuss ist ein ruhiger Teil in der Flächenfarbe mit Hinweistext, ohne Fehlerfarbe.
+   und der Überschuss ist der blassere Teil des RadzenProgressBar mit Hinweistext, ohne Fehlerfarbe.
    Ohne brauchbares Soll (0 oder weniger) steht der Leerzustand da. Der gemalte Teil ist für Vorlese-Programme
    verborgen; eine Tabelle mit Soll, Ist und Anteil ersetzt ihn. *@
 <figure class="chart">
     <figcaption class="chart-caption">@Caption</figcaption>
-    @if (Target <= 0m)
+    @if (Target <= 0m && Actual <= 0m)
     {
         <p class="chart-empty" role="status">@L["Chart_Empty"]</p>
     }
     else
     {
+        @if (Target > 0m)
+        {
         <div class="chart-target-bar" aria-hidden="true">
-            <span class="chart-bar-track">
-                <span class="chart-target-fill" style="@ChartMath.WidthStyle(BaseWidth)"></span>
-                @if (IsOver)
-                {
-                    <span class="chart-target-over" style="@ChartMath.WidthStyle(OverWidth)"></span>
-                }
+            <span class="chart-target-track">
+                <RadzenProgressBar Class="chart-target-fill" Value="@ChartMath.BarValue(BaseWidth)"
+                                   BufferValue="@(IsOver ? 100d : null)" ShowValue="false" ProgressBarStyle="ProgressBarStyle.Success" />
+                @* Der einzige Inline-Stil: Die Lage der Marke steht erst zur Laufzeit fest. *@
                 <span class="chart-target-mark" style="left: @ChartMath.CssPercent(MarkPosition)"></span>
             </span>
             <span class="chart-percent">@ChartMath.Percent(Percent)</span>
         </div>
-        <p class="chart-target-summary">@L["Chart_Summary", ChartMath.Amount(Actual), ChartMath.Amount(Target)]</p>
+        }
+        <p class="chart-target-summary">@L["Chart_Summary", Written(Actual), Written(Target)]</p>
         @if (IsOver)
         {
             <p class="chart-over-note">@L["Chart_OverTarget"]</p>
@@ -34,8 +37,8 @@
             <table>
                 <caption>@Caption</caption>
                 <tbody>
-                    <tr><th scope="row">@L["Chart_Target"]</th><td>@ChartMath.Amount(Target)</td></tr>
-                    <tr><th scope="row">@L["Chart_Actual"]</th><td>@ChartMath.Amount(Actual)</td></tr>
+                    <tr><th scope="row">@L["Chart_Target"]</th><td>@Written(Target)</td></tr>
+                    <tr><th scope="row">@L["Chart_Actual"]</th><td>@Written(Actual)</td></tr>
                     <tr><th scope="row">@L["Chart_Percent"]</th><td>@ChartMath.Percent(Percent)</td></tr>
                 </tbody>
             </table>
@@ -48,12 +51,16 @@
     [Parameter, EditorRequired] public decimal Target { get; set; }
     [Parameter, EditorRequired] public decimal Actual { get; set; }
 
-    private decimal Percent => Actual <= 0m ? 0m : Actual / Target * 100m;
+    /// <summary>True bei einer Quote: Soll und Ist sind dann Prozent und werden so geschrieben, nicht wie ein Betrag.</summary>
+    [Parameter] public bool AsPercent { get; set; }
+
+    private string Written(decimal value) => AsPercent ? ChartMath.PercentValue(value) : ChartMath.Amount(value);
+
+    private decimal Percent => Actual <= 0m || Target <= 0m ? 0m : Actual / Target * 100m;
     private bool IsOver => Percent > 100m;
 
     // Der Bereich zeigt mindestens 100 Prozent; darüber wächst er mit dem Ist, damit der Balken in der Fläche bleibt.
     private decimal Scale => Math.Max(100m, Percent);
     private decimal BaseWidth => Math.Min(Percent, 100m) / Scale * 100m;
-    private decimal OverWidth => IsOver ? (Percent - 100m) / Scale * 100m : 0m;
     private decimal MarkPosition => 100m / Scale * 100m;
 }

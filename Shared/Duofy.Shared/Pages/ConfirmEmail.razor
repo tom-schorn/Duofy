@@ -1,4 +1,6 @@
 @page "/bestaetigen"
+@using Radzen
+@using Radzen.Blazor
 @layout AuthLayout
 @using Duofy.ApiClient
 @using Duofy.Schemas
@@ -12,7 +14,7 @@
 <PageTitle>@L["Confirm_Title"]</PageTitle>
 
 <div class="auth-header">
-    <MudText Typo="Typo.h2" HtmlTag="h1">@L["Confirm_Title"]</MudText>
+    <RadzenText TextStyle="TextStyle.H2" TagName="TagName.H1">@L["Confirm_Title"]</RadzenText>
     <p class="auth-lead">@L["Confirm_Lead"]</p>
 </div>
 
@@ -20,17 +22,18 @@
 
 @if (done)
 {
-    <MudButton Href="/anmelden" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
-               data-testid="confirm-sign-in">@L["Auth_ToSignIn"]</MudButton>
+    <LinkButton Href="/anmelden" FullWidth="true" data-testid="confirm-sign-in">@L["Auth_ToSignIn"]</LinkButton>
 }
 else if (!Complete)
 {
-    <MudAlert Severity="Severity.Warning" data-testid="confirm-incomplete">@L["Link_Incomplete"]</MudAlert>
+    <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" AllowClose="false"
+                 data-testid="confirm-incomplete">@L["Link_Incomplete"]</RadzenAlert>
 }
 else
 {
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Disabled="busy" OnClick="ConfirmAsync"
-               data-testid="confirm-submit">@(busy ? L["Confirm_Pending"] : L["Confirm_Submit"])</MudButton>
+    <RadzenButton Text="@(busy ? L["Confirm_Pending"] : L["Confirm_Submit"])" ButtonStyle="ButtonStyle.Primary"
+                  Class="rz-w-100" Disabled="busy" Click="@(_ => ConfirmAsync())"
+                  data-testid="confirm-submit" />
 }
 
 @code {
@@ -57,8 +60,8 @@ else
             var result = await AuthApi.ConfirmEmailAsync(new ConfirmEmailRequest(Guid.Parse(Id!), Token!));
             done = result.Succeeded;
             message = result.Succeeded
-                ? new NoticeMessage(L["Confirm_Done"], Severity.Success)
-                : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+                ? new NoticeMessage(L["Confirm_Done"], NoticeSeverity.Success)
+                : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
         }
         finally
         {

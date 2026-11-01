@@ -3,7 +3,6 @@ using Duofy.Shared.Layout;
 using Duofy.Shared.Services;
 using Duofy.Shared.Theme;
 using Microsoft.Extensions.DependencyInjection;
-using MudBlazor;
 
 namespace Duofy.Shared.Tests;
 
@@ -27,9 +26,8 @@ public class MainLayoutTests : UiTestContext
     {
         var cut = Render<MainLayout>();
 
-        var themeProvider = cut.FindComponent<MudThemeProvider>();
-        Assert.Same(DuofyTheme.Instance, themeProvider.Instance.Theme);
-        Assert.NotEmpty(cut.FindComponents<MudAppBar>());
+        Assert.NotEmpty(cut.FindComponents<Duofy.Shared.Layout.ThemeVariables>());
+        Assert.NotEmpty(cut.FindComponents<Radzen.Blazor.RadzenHeader>());
         Assert.NotEmpty(cut.FindAll("[data-testid='side-nav']"));
     }
 
@@ -37,11 +35,11 @@ public class MainLayoutTests : UiTestContext
     public void Choosing_dark_turns_dark_mode_on_and_passes_choice_to_store()
     {
         var cut = Render<MainLayout>();
-        Assert.False(cut.FindComponent<MudThemeProvider>().Instance.IsDarkMode);
+        Assert.False(cut.FindComponent<Duofy.Shared.Layout.ThemeVariables>().Instance.Dark);
 
         cut.Find("[data-testid='theme-dark']").Click();
 
-        Assert.True(cut.FindComponent<MudThemeProvider>().Instance.IsDarkMode);
+        Assert.True(cut.FindComponent<Duofy.Shared.Layout.ThemeVariables>().Instance.Dark);
         Assert.Equal(ThemeChoice.Dark, store.Saved);
     }
 
@@ -53,7 +51,7 @@ public class MainLayoutTests : UiTestContext
         var cut = Render<MainLayout>();
 
         cut.WaitForAssertion(() =>
-            Assert.True(cut.FindComponent<MudThemeProvider>().Instance.IsDarkMode));
+            Assert.True(cut.FindComponent<Duofy.Shared.Layout.ThemeVariables>().Instance.Dark));
     }
 
     private sealed class FakeThemePreferenceStore : IThemePreferenceStore
@@ -68,5 +66,15 @@ public class MainLayoutTests : UiTestContext
             Saved = choice;
             return Task.CompletedTask;
         }
+    }
+
+    // Mangel S9: Der Seiteninhalt steht in einem main-Element, sonst fehlt Screenreadern der Sprung zum Hauptinhalt.
+    [Fact]
+    public void The_page_content_sits_in_one_main_element_that_the_skip_link_targets()
+    {
+        var cut = Render<MainLayout>();
+
+        var main = Assert.Single(cut.FindAll("main"));
+        Assert.Equal("main-content", main.Id);
     }
 }

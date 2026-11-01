@@ -1,4 +1,6 @@
 @page "/haushalt/freigaben"
+@using Radzen
+@using Radzen.Blazor
 @attribute [Authorize]
 @using Duofy.ApiClient
 @using Duofy.Schemas
@@ -18,26 +20,26 @@
 
 <PageTitle>@L["Grants_Title"]</PageTitle>
 
-<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-2">
-    <MudIcon Icon="@Icons.Material.Filled.ArrowBack" Size="Size.Small" />
-    <MudLink Href="/haushalt" data-testid="grants-back">@L["Grants_Back"]</MudLink>
-</MudStack>
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem" Class="rz-mb-2">
+    <RadzenIcon Icon="arrow_back" />
+    <RadzenLink Path="/haushalt" Text="@L["Grants_Back"]" data-testid="grants-back" />
+</RadzenStack>
 
 <AppPageHeading Text="@L["Grants_Title"]" />
 @if (!Host.IsApp)
 {
-    <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-2">@L["Grants_Title"]</MudText>
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" Class="rz-mb-2">@L["Grants_Title"]</RadzenText>
 }
-<MudText Color="Color.Secondary" Class="mb-4">@L["Grants_Lead"]</MudText>
+<RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color rz-mb-4">@L["Grants_Lead"]</RadzenText>
 
 <Notice Message="message" />
 
 @if (loaded && Others.Count == 0)
 {
-    <MudText Color="Color.Secondary" data-testid="grants-empty">@L["Grants_Empty"]</MudText>
+    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color" data-testid="grants-empty">@L["Grants_Empty"]</RadzenText>
 }
 
-<MudStack Spacing="4">
+<RadzenStack Gap="1rem">
     @foreach (var member in Others)
     {
         var current = member;
@@ -45,27 +47,27 @@
         var preset = GrantPresets.PresetOf(levels);
         var locked = saving.Contains(member.UserId);
         var headingId = $"grants-heading-{member.UserId}";
-        <MudPaper Class="pa-4" Outlined="true" aria-labelledby="@headingId" data-testid="@($"grants-card-{member.UserId}")">
-            <MudText Typo="Typo.h6" id="@headingId" Class="mb-2">@member.FirstName @member.LastName</MudText>
+        <RadzenCard Variant="Variant.Outlined" aria-labelledby="@headingId" data-testid="@($"grants-card-{member.UserId}")">
+            <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" id="@headingId" Class="rz-mb-2">@member.FirstName @member.LastName</RadzenText>
 
             <fieldset class="grants-presets">
                 <legend class="visually-hidden">@L["Grants_PresetsFor", member.FirstName]</legend>
-                <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap" AlignItems="AlignItems.Center">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap" AlignItems="AlignItems.Center">
                     @foreach (var key in GrantPresets.Order)
                     {
                         var chosen = preset == key;
-                        <MudButton Variant="@(chosen ? Variant.Filled : Variant.Outlined)" Size="Size.Small"
-                                   Color="@(chosen ? Color.Primary : Color.Default)"
-                                   OnClick="() => SetAsync(current, Request(GrantPresets.Levels(key)))"
-                                   aria-pressed="@(chosen ? "true" : "false")" @attributes="Busy(locked)"
-                                   data-testid="@($"grants-{member.UserId}-preset-{key}")">@L[$"Grants_Preset_{key}"]</MudButton>
+                        <RadzenButton Text="@L[$"Grants_Preset_{key}"].Value" Variant="@(chosen ? Variant.Filled : Variant.Outlined)"
+                                      Size="ButtonSize.Small" ButtonStyle="@(chosen ? ButtonStyle.Primary : ButtonStyle.Base)"
+                                      Click="@(_ => SetAsync(current, Request(GrantPresets.Levels(key))))"
+                                      aria-pressed="@(chosen ? "true" : "false")" @attributes="Busy(locked)"
+                                      data-testid="@($"grants-{member.UserId}-preset-{key}")" />
                     }
                     @if (preset is null)
                     {
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                                 data-testid="@($"grants-{member.UserId}-own-choice")">@L["Grants_OwnChoice"]</MudChip>
+                        <RadzenBadge Variant="Variant.Outlined" BadgeStyle="BadgeStyle.Base" IsPill="true" Text="@L["Grants_OwnChoice"].Value"
+                                     data-testid="@($"grants-{member.UserId}-own-choice")" />
                     }
-                </MudStack>
+                </RadzenStack>
             </fieldset>
 
             @foreach (var area in GrantAreas.All)
@@ -89,13 +91,13 @@
             <div aria-live="polite">
                 @foreach (var hint in GrantPresets.Hints(levels))
                 {
-                    <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2"
-                              data-testid="@($"grants-{member.UserId}-hint")">@L[hint, member.FirstName]</MudAlert>
+                    <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" AllowClose="false" Size="AlertSize.Small" Class="rz-mt-2"
+                                 data-testid="@($"grants-{member.UserId}-hint")">@L[hint, member.FirstName]</RadzenAlert>
                 }
             </div>
-        </MudPaper>
+        </RadzenCard>
     }
-</MudStack>
+</RadzenStack>
 
 @code {
     private HouseholdResponse? household;
@@ -140,7 +142,7 @@
         else if (result.ErrorCode != ClientErrorCodes.NotFound)
         {
             // Ohne Haushalt (NotFound) gibt es niemanden, dem man etwas freigibt; das sagt der leere Zustand.
-            message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+            message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
         }
         loaded = true;
     }
@@ -163,11 +165,11 @@
             {
                 var saved = result.Value!;
                 household = household with { Members = household.Members.Select(m => m.UserId == saved.UserId ? saved : m).ToList() };
-                message = new NoticeMessage(L["Grants_Saved", member.FirstName], Severity.Success);
+                message = new NoticeMessage(L["Grants_Saved", member.FirstName], NoticeSeverity.Success);
             }
             else
             {
-                message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+                message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
                 ShowStored(member.UserId);
             }
         }

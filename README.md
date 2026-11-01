@@ -19,7 +19,7 @@ eines Postens erzeugt die Buchung.
 | `Backend/Duofy.Schemas` | Anfragen und Antworten der API, gemeinsam für API, Web, App und Tests |
 | `Shared/Duofy.ApiClient` | Clients für die API mit Token-Ablage und automatischem Token-Refresh |
 | `Shared/Duofy.Shared` | Seiten und Komponenten, die Web und App gemeinsam nutzen |
-| `Web/Duofy.Web` | Web-Variante (Blazor), ohne Datenbank; holt alles von der API |
+| `Web/Duofy.Web` | Web-Variante (Blazor mit Radzen), ohne Datenbank; holt alles von der API |
 | `Mobile/Duofy` | App für Android, iOS, Mac und Windows (.NET MAUI) |
 | `Tests/Duofy.Backend.Tests` | Tests des Backends: die API gegen eine echte PostgreSQL in Docker (Testcontainers) und die Fachregeln unter `Domain/` (xUnit) |
 | `Tests/Duofy.ApiClient.Tests` | Tests der Clients |
@@ -88,7 +88,7 @@ Die Anwendung setzt die Schrift Inter 5.3.0 (Variable, Latin) in der Version aus
 
 ## Symbole
 
-Die Symbole sind Tabler Icons im Stil outline aus dem npm-Paket `@tabler/icons` 3.50.0 (MIT). Quelle: https://github.com/tabler/tabler-icons. Ausgeliefert werden nur die Symbole der Liste in `Shared/Duofy.Shared/Icons/TablerIcons.cs` (Dateien in `Icons/svg/`, eingebettet in das Assembly), zusammen mit dem Lizenztext `Icons/LICENSE-Tabler-MIT.txt`. Der Baustein `TablerIcon` gibt das SVG inline aus und erbt die Textfarbe. Es gibt keinen Aufruf an einen Fremdserver.
+Die Symbole sind Material Symbols (Apache-2.0), die im Paket Radzen.Blazor mitkommen; es gibt keine Anfrage an fremde Server. Die Oberfläche baut auf Radzen Blazor 12.1.8 (MIT). Welches Symbol zu einem Konto oder einer Zahlungsart gehört, steht in `Shared/Duofy.Shared/Services/AccountIconSet.cs` und `PaymentMethodIconSet.cs`.
 
 ## Regeln
 
@@ -144,3 +144,13 @@ Ein signiertes Release-Bundle für Google Play entsteht mit den Umgebungsvariabl
 ```bash
 dotnet publish Mobile/Duofy -f net10.0-android -c Release
 ```
+
+Ohne `DUOFY_KEYSTORE_PATH` signiert das SDK mit dem Debug-Schlüssel. Das genügt, um einen Release-Build auf dem eigenen
+Telefon zu testen (als APK, nicht für Google Play):
+
+```bash
+dotnet publish Mobile/Duofy -f net10.0-android -c Release -p:AndroidPackageFormat=apk
+```
+
+Die Datei liegt danach unter `Mobile/Duofy/bin/Release/net10.0-android/publish/` (`de.tomschorn.duofy-Signed.apk`). Die
+App heißt auf dem Telefon Plagevo und nutzt ohne weitere Einstellung den gehosteten Dienst `https://api.plagevo.de/`.

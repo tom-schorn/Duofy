@@ -1,23 +1,25 @@
+@using Radzen
+@using Radzen.Blazor
 @using System.Globalization
+@inject Radzen.DialogService RadzenDialogs
 
 @* Der Beispieldialog der Testseite (Spec 11): drei Schritte, zwei davon mit Pflichtfeld.
    Er zeigt, wie ein Dialog den StepDialog benutzt; ein echter Dialog hält seine Werte genauso
    in eigenen Feldern und schließt sich in OnFinish mit dem Ergebnis. *@
 
-<StepDialog OnFinish="Finish">
+<StepDialog Title="@Title" OnFinish="Finish">
     <DialogStep Title="@NameStep">
         <StepField Label="@NameLabel" InputId="demo-name-input" Required IsFilled="() => !string.IsNullOrWhiteSpace(name)"
                    TestId="demo-name-field">
-            <MudTextField T="string" @bind-Value="name" Variant="Variant.Outlined" InputId="demo-name-input"
-                          aria-describedby="demo-name-input-error" data-testid="demo-name" />
+            <RadzenTextBox @bind-Value="name" id="demo-name-input" aria-describedby="demo-name-input-error"
+                           data-testid="demo-name" />
         </StepField>
     </DialogStep>
     <DialogStep Title="@AmountStep">
-        <StepField Label="@AmountLabel" InputId="demo-amount-input" Required IsFilled="() => amount is not null"
+        <StepField Label="@AmountLabel" InputId="demo-amount-input" AriaLabelled="true" Required IsFilled="() => amount is not null"
                    TestId="demo-amount-field">
-            <MudNumericField T="decimal?" @bind-Value="amount" Culture="German" Format="0.00" HideSpinButtons="true"
-                             Variant="Variant.Outlined" InputId="demo-amount-input"
-                             aria-describedby="demo-amount-input-error" data-testid="demo-amount" />
+            <RadzenNumeric TValue="decimal?" Culture="German" @bind-Value="amount" Format="0.00" ShowUpDown="false"
+                           InputAttributes="@AmountInputAttributes" data-testid="demo-amount" />
         </StepField>
     </DialogStep>
     <DialogStep Title="@CheckStep">
@@ -26,10 +28,9 @@
 </StepDialog>
 
 @code {
-    private static readonly CultureInfo German = new("de-DE");
-
-    [CascadingParameter]
-    private IMudDialogInstance Dialog { get; set; } = default!;
+    /// <summary>Der Titel im Kopf.</summary>
+    [Parameter]
+    public string? Title { get; set; }
 
     // Die Testseite ist nur für das Team: Ihre Texte stehen hier statt in den Textdateien (SharedResources).
     private const string NameStep = "Name";
@@ -38,10 +39,18 @@
     private const string AmountLabel = "Betrag im Monat";
     private const string CheckStep = "Prüfen";
 
+    private static readonly Dictionary<string, object> AmountInputAttributes = new()
+    {
+        ["aria-labelledby"] = "demo-amount-input-label",
+        ["aria-describedby"] = "demo-amount-input-error",
+    };
+
     private string name = "";
+    private static readonly CultureInfo German = new("de-DE");
+
     private decimal? amount;
 
     private LineTableRow[] Summary => [new(name, amount ?? 0m)];
 
-    private void Finish() => Dialog.Close(DialogResult.Ok(name));
+    private void Finish() => RadzenDialogs.Close(name);
 }

@@ -8,19 +8,17 @@ using Duofy.Shared.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
-using MudBlazor;
 
 namespace Duofy.Shared.Tests;
 
 /// <summary>Die Seite /haushalt (Spec 67): Gründen, Mitglieder, Knöpfe des Gründers, Einladen, Entfernen, Austreten.</summary>
 public class HouseholdPageTests : PageTestContext
 {
-    private readonly IRenderedComponent<MudDialogProvider> dialogs;
+    private readonly IRenderedComponent<IComponent> dialogs;
 
     public HouseholdPageTests()
     {
-        Render<MudPopoverProvider>();
-        dialogs = Render<MudDialogProvider>();
+        dialogs = RenderRadzenHost();
     }
 
     private IRenderedComponent<Household> OpenPage()
@@ -519,13 +517,12 @@ public class HouseholdPageTests : PageTestContext
 /// </summary>
 public class HouseholdPageInAppTests : PageTestContext
 {
-    private readonly IRenderedComponent<MudDialogProvider> dialogs;
+    private readonly IRenderedComponent<IComponent> dialogs;
 
     public HouseholdPageInAppTests()
     {
         Services.AddSingleton<IAppHost, AppHost>();
-        Render<MudPopoverProvider>();
-        dialogs = Render<MudDialogProvider>();
+        dialogs = RenderRadzenHost();
     }
 
     [Fact]
@@ -539,5 +536,62 @@ public class HouseholdPageInAppTests : PageTestContext
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='invite-link']")));
         var token = Assert.Single(HouseholdApiFake.Invitations).Token;
         Assert.Equal($"https://duofy.example.de/einladung/{token}", dialogs.Find("[data-testid='invite-link']").TextContent.Trim());
+    }
+}
+
+/// <summary>Radzen-Umstellung R20: Der Haushaltsdialog (Name und Richtwerte) ist ein Schritt-Dialog in Radzen.</summary>
+public class HouseholdDialogRadzenTests : PageTestContext
+{
+    private readonly IRenderedComponent<IComponent> host;
+
+    public HouseholdDialogRadzenTests()
+    {
+        host = RenderRadzenHost();
+    }
+
+    private Task<DialogOutcome<bool>> Open() =>
+        Services.GetRequiredService<FormDialogs>().OpenStepAsync<HouseholdDialog, bool>("Haushalt bearbeiten",
+            new FormParameters<HouseholdDialog>()
+                .Add(d => d.Title, "Haushalt bearbeiten")
+                .Add(d => d.Household, new HouseholdResponse(Guid.NewGuid(), "Haushalt von Anna", 50, 30, 20, [FakeHouseholdApi.Anna(isMe: true)])));
+
+    [Fact]
+    public void The_dialog_is_one_step_on_the_scaffold_and_built_with_radzen()
+    {
+        _ = Open();
+        host.WaitForAssertion(() => Assert.NotEmpty(host.FindAll("[data-testid='household-dialog-save']")));
+
+        Assert.Single(host.FindAll("[data-testid^='step-dialog-step-']"));
+        Assert.Empty(host.FindAll("[data-testid='step-dialog-progress']"));
+        Assert.Equal("Speichern", host.Find("[data-testid='household-dialog-save']").TextContent.Trim());
+        Assert.Equal(3, host.FindAll("[data-testid^='household-dialog-quota-']").Count);
+        Assert.Equal("Haushalt von Anna", Field(host, "household-dialog-name").GetAttribute("value"));
+        Assert.Equal("household-dialog-quota-needs-input-label", Field(host, "household-dialog-quota-needs").GetAttribute("aria-labelledby"));
+    }
+
+    [Fact]
+    public async Task Saving_closes_the_dialog_with_a_result_for_the_page()
+    {
+        var opened = Open();
+        host.WaitForAssertion(() => Assert.NotEmpty(host.FindAll("[data-testid='household-dialog-save']")));
+
+        host.Find("[data-testid='household-dialog-save']").Click();
+
+        Assert.True((await opened).Saved);
+        Assert.Single(HouseholdApiFake.Updates);
+    }
+
+    // Escape fragt wie der Knopf Abbrechen nach, sobald etwas eingegeben ist (Spec 22, A4).
+    [Fact]
+    public void Escape_asks_before_discarding_input()
+    {
+        _ = Open();
+        host.WaitForAssertion(() => Assert.NotEmpty(host.FindAll("[data-testid='household-dialog-name']")));
+        host.Find("[data-testid='household-dialog-name']").Input("Neuer Name");
+
+        host.Find(".step-dialog-steps").KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Escape" });
+
+        host.WaitForAssertion(() => Assert.Contains("Eingaben verwerfen?", host.Markup));
+        Assert.NotEmpty(host.FindAll(".step-dialog"));
     }
 }

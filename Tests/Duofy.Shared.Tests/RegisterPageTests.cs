@@ -90,4 +90,96 @@ public class RegisterPageTests : PageTestContext
         cut.WaitForAssertion(() => Assert.Contains("Bitte stimme der Datenschutzerklärung", cut.Markup));
         Assert.Empty(Auth.Registered);
     }
+
+    // Radzen-Umstellung R11: Die Registrierung ist in Radzen gebaut, die Prüfungen melden dieselben Texte unter den Feldern.
+    [Fact]
+    public void The_page_is_built_with_radzen_and_keeps_its_field_types_and_hints()
+    {
+        var cut = Render<Register>();
+
+        Assert.Equal("email", Field(cut, "register-email").GetAttribute("type"));
+        Assert.Equal("password", Field(cut, "register-password").GetAttribute("type"));
+        Assert.Equal("new-password", Field(cut, "register-password").GetAttribute("autocomplete"));
+        Assert.Equal("given-name", Field(cut, "register-first-name").GetAttribute("autocomplete"));
+        Assert.Equal("family-name", Field(cut, "register-last-name").GetAttribute("autocomplete"));
+        Assert.Equal("register-password-input", Field(cut, "register-password").Id);
+        Assert.Equal(["register-first-name-input", "register-last-name-input", "register-email-input", "register-password-input"],
+            cut.FindAll("label.field-label").Select(l => l.GetAttribute("for")!));
+        Assert.False(string.IsNullOrWhiteSpace(cut.Find("#register-password-hint").TextContent));
+        Assert.Equal("register-password-hint", Field(cut, "register-password").GetAttribute("aria-describedby"));
+    }
+
+    [Fact]
+    public void An_empty_form_names_every_problem_under_its_field_and_sends_nothing()
+    {
+        var cut = Render<Register>();
+
+        Field(cut, "register-submit").Click();
+
+        cut.WaitForAssertion(() => Assert.Equal(5, cut.FindAll(".rz-messages-error").Count));
+        var messages = cut.FindAll(".rz-messages-error").Select(m => m.TextContent.Trim()).ToList();
+        Assert.Contains(messages, m => m.Contains("Vorname"));
+        Assert.Contains(messages, m => m.Contains("Nachname"));
+        Assert.Contains(messages, m => m.Contains("E-Mail"));
+        Assert.Contains(messages, m => m.Contains("mindestens 10 Zeichen"));
+        Assert.Contains(messages, m => m.Contains("Datenschutzerklärung"));
+        Assert.Empty(Auth.Registered);
+    }
+
+    [Fact]
+    public void A_wrong_email_form_is_named_and_the_message_goes_once_the_field_is_right()
+    {
+        var cut = Fill();
+        Field(cut, "register-email").Change("keine-adresse");
+
+        Field(cut, "register-submit").Click();
+        cut.WaitForAssertion(() => Assert.Single(cut.FindAll(".rz-messages-error")));
+        Assert.Empty(Auth.Registered);
+
+        Field(cut, "register-email").Change("anna@example.org");
+        Field(cut, "register-submit").Click();
+
+        cut.WaitForAssertion(() => Assert.Single(Auth.Registered));
+    }
+
+    // Mangel S2: Der Haken hat einen Namen (Text der Zustimmung), nicht nur ein Label ohne Verbindung.
+    [Fact]
+    public void The_consent_checkbox_has_the_consent_text_as_its_name()
+    {
+        var cut = Render<Register>();
+
+        var box = cut.Find("[data-testid='register-terms']");
+        var name = box.GetAttribute("aria-label");
+        Assert.False(string.IsNullOrWhiteSpace(name));
+        Assert.Contains(cut.Find(".rz-label, label[for]:not(.field-label)").TextContent.Trim(), name);
+    }
+
+    // Mangel S3: Ein falsches Feld sagt es dem Screenreader (aria-invalid, aria-describedby auf den Fehlertext mit role=alert),
+    // und der Fokus springt auf das erste falsche Feld.
+    [Fact]
+    public void A_wrong_field_is_marked_invalid_points_to_its_alert_and_takes_the_focus()
+    {
+        var cut = Render<Register>();
+        // bUnit zeigt die Kennung eines Elements nur im ersten Zeichnen; deshalb wird sie vor dem Ausfüllen gelesen.
+        var emailReference = Field(cut, "register-email").GetAttribute("blazor:elementreference");
+        Field(cut, "register-first-name").Change("Anna");
+        Field(cut, "register-last-name").Change("Muster");
+        Field(cut, "register-email").Change("keine-adresse");
+        Field(cut, "register-password").Change("kurz");
+        Field(cut, "register-terms").Change(true);
+
+        Field(cut, "register-submit").Click();
+
+        cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll(".rz-messages-error").Count));
+        var email = Field(cut, "register-email");
+        Assert.Equal("true", email.GetAttribute("aria-invalid"));
+        var error = cut.Find("#" + email.GetAttribute("aria-describedby"));
+        Assert.Equal("alert", error.GetAttribute("role"));
+        Assert.Contains("E-Mail", error.TextContent);
+        var password = Field(cut, "register-password");
+        Assert.Equal("true", password.GetAttribute("aria-invalid"));
+        Assert.Contains("register-password-hint", password.GetAttribute("aria-describedby"));
+        Assert.NotEqual("true", Field(cut, "register-first-name").GetAttribute("aria-invalid"));
+        Assert.Equal(emailReference, ((ElementReference)JSInterop.VerifyFocusAsyncInvoke().Arguments[0]!).Id);
+    }
 }

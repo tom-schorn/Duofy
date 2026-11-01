@@ -2,8 +2,8 @@ using Bunit;
 using Duofy.Schemas;
 using Duofy.Shared.Pages;
 using Duofy.Shared.Services;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
-using MudBlazor;
 
 namespace Duofy.Shared.Tests;
 
@@ -19,12 +19,11 @@ public class GrantedPagesTests : PageTestContext
 
     private static readonly Guid Anna = FakeHouseholdApi.AnnaId;
 
-    private readonly IRenderedComponent<MudDialogProvider> dialogs;
+    private readonly IRenderedComponent<IComponent> dialogs;
 
     public GrantedPagesTests()
     {
-        Render<MudPopoverProvider>();
-        dialogs = Render<MudDialogProvider>();
+        dialogs = RenderRadzenHost();
         Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Annas Giro", IsDefault: true, Active: true));
     }
 
@@ -117,7 +116,7 @@ public class GrantedPagesTests : PageTestContext
         cut.Find("[data-testid='plan-add']").Click();
         cut.Find($"[data-testid='plan-edit-{rent.Id}']").Click();
 
-        Assert.Empty(dialogs.FindAll(".mud-dialog"));
+        Assert.Empty(dialogs.FindAll(DialogSelector));
         Assert.Empty(PlanApiFake.Ticks);
     }
 
@@ -323,12 +322,12 @@ public class GrantedPagesTests : PageTestContext
         Field(dialogs, "commitment-amount").Change("890");
         dialogs.Find("[data-testid='commitment-category']").Change(FakeCategoryApi.Groceries.Id.ToString());
         // Der Vertragsdialog hat drei Schritte (Spec 17): zweimal Weiter, dann Speichern.
-        ClickInDialog("Weiter");
+        dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Weiter").Click();
         dialogs.WaitForAssertion(() => Assert.StartsWith("Schritt 2", dialogs.Find("[data-testid='step-dialog-progress']").TextContent));
-        ClickInDialog("Weiter");
+        dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Weiter").Click();
         dialogs.WaitForAssertion(() => Assert.StartsWith("Schritt 3", dialogs.Find("[data-testid='step-dialog-progress']").TextContent));
         dialogs.Find($"[data-testid='commitment-payment-method-{PaymentMethods.StandingOrder}']").Change(true);
-        ClickInDialog("Speichern");
+        dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Speichern").Click();
 
         dialogs.WaitForAssertion(() => Assert.Equal(Anna, Assert.Single(CommitmentApiFake.Created).OwnerId));
     }
@@ -418,7 +417,6 @@ public class GrantedPagesTests : PageTestContext
         CommitmentApiFake.Commitments.Add(rent);
         var cut = Render<Commitments>();
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll($"[data-testid='commitment-edit-{rent.Id}']")));
-
         cut.Find($"[data-testid='commitment-edit-{rent.Id}']").Click();
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='commitment-name']")));
 
@@ -436,7 +434,6 @@ public class GrantedPagesTests : PageTestContext
         await ChooseAnnaAsync(GrantLevels.None with { Commitments = AccessLevelKeys.Create });
         var cut = Render<Commitments>();
         cut.WaitForAssertion(() => Assert.Equal(Anna, Assert.Single(CommitmentApiFake.ListOwners)));
-
         cut.Find("[data-testid='commitments-add']").Click();
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='commitment-name']")));
 

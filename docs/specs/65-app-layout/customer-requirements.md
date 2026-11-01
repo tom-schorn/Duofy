@@ -2,6 +2,8 @@
 
 Format: 2
 
+> **Alt (Stand vor der Radzen-Umstellung, Issue 76):** Diese Spezifikation nennt die frühere Oberflächenbibliothek MudBlazor und die Tabler-Symbole. Heute gelten Radzen und Material Symbols, siehe `docs/plans/radzen-plan.md`. Fachliche Regeln und Abläufe bleiben gültig.
+
 ## Background
 
 The Android app shows the shared pages inside the same layout as the browser: a top bar with a menu button, a side drawer and centered dialogs. On 2026-10-23, during the phone test of the accounts, the human asked for the app to look like a proper Android app. The lead looked up Material Design 3 and how finance apps place their main action; the human then decided the details one at a time. The web version is the human's own part and stays as it is.
