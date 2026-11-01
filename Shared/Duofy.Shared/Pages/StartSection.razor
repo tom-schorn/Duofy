@@ -1,0 +1,21 @@
+@* Ein Block der Startseite (Spec 33, R7): Überschrift, Inhalt und ein Link zur passenden Seite. Der Link ist ein
+   gewöhnlicher Link, darum geht er mit Tastatur und Vorlese-Programm; der Text nennt das Ziel (nicht "hier"). Die
+   Kennung des Blocks ergibt die des Links: "{TestId}-link". *@
+<section class="start-section" aria-labelledby="@HeadingId" data-testid="@TestId">
+    <h2 class="month-section-title" id="@HeadingId">@Title</h2>
+    @ChildContent
+    @if (Href is not null && LinkText is not null)
+    {
+        <a class="start-link" href="@Href" data-testid="@($"{TestId}-link")">@LinkText</a>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter, EditorRequired] public string TestId { get; set; } = "";
+    [Parameter] public string? Href { get; set; }
+    [Parameter] public string? LinkText { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string HeadingId => $"{TestId}-heading";
+}

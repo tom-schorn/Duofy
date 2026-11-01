@@ -142,22 +142,53 @@
             <StepField Label="@L["CommitmentDialog_PaidFrom"]" InputId="commitment-account-input" TestId="commitment-account-field">
                 <CommitmentAccountSelect Value="draft.AccountId" ValueChanged="OnAccountChanged" Accounts="Accounts"
                                          EmptyText="@L["CommitmentDialog_DefaultAccount"]" InputId="commitment-account-input"
-                                         TestId="commitment-account" />
+                                         Label="@L["CommitmentDialog_PaidFrom"]" TestId="commitment-account" />
             </StepField>
             <StepField Label="@L["CommitmentDialog_PaidTo"]" InputId="commitment-counter-account-input" Validate="SameAccountError"
                        TestId="commitment-counter-account-field">
                 <CommitmentAccountSelect Value="draft.CounterAccountId" ValueChanged="OnCounterAccountChanged" Accounts="Accounts"
                                          EmptyText="@L["CommitmentDialog_PaidToOutside"]" InputId="commitment-counter-account-input"
-                                         TestId="commitment-counter-account" />
+                                         Label="@L["CommitmentDialog_PaidTo"]" TestId="commitment-counter-account" />
                 <MudText Typo="Typo.caption" Color="Color.Secondary">@L["CommitmentDialog_PaidToHint"]</MudText>
             </StepField>
+            @* Ein Sparziel gibt es nur, wenn die Person welche hat: Die Rate fließt dann dem Ziel zu (Issue 32). *@
+            @* Eine Schuld oder ein Kredit: Die Rate zahlt dann darauf ein; sie geht an den Gläubiger, nicht auf ein eigenes Konto (Issue 31). *@
+            @if (draft.OffersSavingsGoal && Debts.Count > 0 && draft.CounterAccountId is null)
+            {
+                <StepField Label="@L["CommitmentDialog_Debt"]" InputId="commitment-debt-input" TestId="commitment-debt-field">
+                    <NativeSelect Value="@Key(draft.DebtId)" ValueChanged="OnDebtChanged" id="commitment-debt-input"
+                                  aria-describedby="commitment-debt-input-error" data-testid="commitment-debt">
+                        <option value="">@L["CommitmentDialog_NoDebt"]</option>
+                        @foreach (var debt in Debts)
+                        {
+                            <option value="@debt.Id">@debt.Name</option>
+                        }
+                    </NativeSelect>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["CommitmentDialog_DebtHint"]</MudText>
+                </StepField>
+            }
+            @if (draft.OffersSavingsGoal && SavingsGoals.Count > 0)
+            {
+                <StepField Label="@L["CommitmentDialog_Goal"]" InputId="commitment-goal-input" Validate="GoalError"
+                           TestId="commitment-goal-field">
+                    <NativeSelect Value="@Key(draft.SavingsGoalId)" ValueChanged="OnGoalChanged" id="commitment-goal-input"
+                                  aria-describedby="commitment-goal-input-error" data-testid="commitment-goal">
+                        <option value="">@L["CommitmentDialog_NoGoal"]</option>
+                        @foreach (var goal in SavingsGoals)
+                        {
+                            <option value="@goal.Id">@goal.Name</option>
+                        }
+                    </NativeSelect>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["CommitmentDialog_GoalHint"]</MudText>
+                </StepField>
+            }
         }
         else
         {
             <StepField Label="@L["CommitmentDialog_PaidTo"]" InputId="commitment-account-input" TestId="commitment-account-field">
                 <CommitmentAccountSelect Value="draft.AccountId" ValueChanged="OnAccountChanged" Accounts="Accounts"
                                          EmptyText="@L["CommitmentDialog_DefaultAccount"]" InputId="commitment-account-input"
-                                         TestId="commitment-account" />
+                                         Label="@L["CommitmentDialog_PaidTo"]" TestId="commitment-account" />
             </StepField>
         }
 
@@ -200,6 +231,20 @@
                         <th scope="row">@L["CommitmentDialog_PaidTo"]</th>
                         <td>@AccountText(draft.CounterAccountId, L["CommitmentDialog_PaidToOutside"])</td>
                     </tr>
+                    @if (draft.EffectiveDebtId is { } debtId)
+                    {
+                        <tr data-testid="commitment-summary-debt">
+                            <th scope="row">@L["CommitmentDialog_Debt"]</th>
+                            <td>@DebtName(debtId)</td>
+                        </tr>
+                    }
+                    @if (draft.EffectiveSavingsGoalId is { } goalId)
+                    {
+                        <tr data-testid="commitment-summary-goal">
+                            <th scope="row">@L["CommitmentDialog_Goal"]</th>
+                            <td>@GoalName(goalId)</td>
+                        </tr>
+                    }
                 }
                 else
                 {
@@ -236,6 +281,14 @@
     /// <summary>Alle Konten der Person. Aufgelöste werden nicht zur Wahl angeboten.</summary>
     [Parameter]
     public IReadOnlyList<AccountChoice> Accounts { get; set; } = [];
+
+    /// <summary>Die Sparziele der Person für die Wahl im Schritt "Wer und Wohin"; leer, wenn es keine gibt oder die Person sie nicht sehen darf.</summary>
+    [Parameter]
+    public IReadOnlyList<SavingsGoalResponse> SavingsGoals { get; set; } = [];
+
+    /// <summary>Die Schulden und Kredite der Person für die Wahl im Schritt "Wer und Wohin"; leer, wenn es keine gibt oder die Person sie nicht sehen darf.</summary>
+    [Parameter]
+    public IReadOnlyList<DebtResponse> Debts { get; set; } = [];
 
     /// <summary>Das Datum von heute; so ist die erste Zahlung beim Anlegen vorbelegt, und ab heute zählt der nächste Termin.</summary>
     [Parameter]
@@ -281,6 +334,8 @@
 
     private string KindText => draft.IsOfferedType ? L[$"CommitmentDialog_Kind_{draft.Type}"] : L[$"CommitmentType_{draft.Type}"];
 
+    private string GoalName(Guid id) => SavingsGoals.FirstOrDefault(g => g.Id == id)?.Name ?? string.Empty;
+
     private string AccountText(Guid? id, string empty) => id is null ? empty : Accounts.FirstOrDefault(a => a.Id == id)?.Name ?? empty;
 
     // Dieselbe Regel und derselbe Satz wie in der API: größer als 0, höchstens zwei Nachkommastellen, nicht zu groß.
@@ -324,7 +379,21 @@
 
     private void OnAccountChanged(Guid? id) => draft.AccountId = id;
 
-    private void OnCounterAccountChanged(Guid? id) => draft.CounterAccountId = id;
+    private void OnCounterAccountChanged(Guid? id) => draft.ChooseCounterAccount(id);
+
+    private void OnDebtChanged(string value) => draft.ChooseDebt(ParseId(value));
+
+    private string DebtName(Guid id) => Debts.FirstOrDefault(d => d.Id == id)?.Name ?? string.Empty;
+
+    private void OnGoalChanged(string value)
+    {
+        var goal = SavingsGoals.FirstOrDefault(g => g.Id == ParseId(value));
+        draft.ChooseSavingsGoal(goal?.Id, goal?.AccountId);
+    }
+
+    // Ein Sparziel braucht das Zielkonto, auf das die Rate geht.
+    private string? GoalError() =>
+        draft.GoalNeedsTargetAccount ? ErrorTexts.For(L, ErrorCodes.CommitmentGoalInvalid) : null;
 
     // Die erste Zahlung ist Pflicht; ein halb getipptes Datum lässt den alten Wert stehen.
     private void OnFirstDueDateChanged(string value)

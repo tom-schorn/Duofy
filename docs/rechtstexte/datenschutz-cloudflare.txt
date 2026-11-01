@@ -1,0 +1,50 @@
+Vorlage für die Datenschutzerklärung von Plagevo: die Abschnitte zu Cloudflare (Issue #43)
+=========================================================================================
+
+So geht es weiter: Die Abschnitte unten kommen in die Datei deploy/legal/datenschutz.txt auf dem Server
+(Schritt 6 in docs/betrieb.md). Alles in eckigen Klammern mit "OFFEN" ist noch nicht belegt; es muss vor dem
+Veröffentlichen mit einem echten Wert ersetzt oder die Zeile gestrichen werden. Der Text ist keine Rechtsberatung;
+eine fachkundige Stelle sollte ihn vor dem Start prüfen.
+
+Stand der Quellen: Angaben zur Webauswertung nach der FAQ von Cloudflare
+(https://developers.cloudflare.com/web-analytics/faq/, Stand der Seite 14.07.2026, abgerufen 01.11.2026) und der
+Seite "About" (https://developers.cloudflare.com/web-analytics/about/, Stand 17.04.2026).
+
+-------------------------------------------------------------------------------------------------------------
+
+Cloudflare als Dienstleister (Auslieferung und Sicherheit)
+
+Plagevo läuft hinter Cloudflare. Cloudflare nimmt deine Anfrage entgegen, leitet sie über einen verschlüsselten
+Tunnel an unseren Server weiter, verwaltet die Domain (DNS) und schützt vor Missbrauch, zum Beispiel durch eine
+Firewall und eine Begrenzung der Anfragen je Gerät. Dabei verarbeitet Cloudflare technisch erforderliche
+Verbindungsdaten, insbesondere deine IP-Adresse, den Zeitpunkt, die angeforderte Adresse, Browserinformationen und
+Sicherheitsmerkmale.
+
+Zweck: Auslieferung und Sicherheit von Plagevo. Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO (unser Interesse an
+einem sicheren und erreichbaren Angebot).
+
+Anbieter: Cloudflare, Inc., USA. Mit Cloudflare besteht ein Vertrag zur Auftragsverarbeitung nach Art. 28 DSGVO
+[OFFEN: Abschluss durch Tom im Cloudflare-Konto bestätigen, dann diesen Satz stehen lassen].
+Ort der Verarbeitung und Grundlage für Übermittlungen in Drittländer: [OFFEN: nach dem Auftragsverarbeitungsvertrag
+von Cloudflare, Abschnitt "Data transfers from the EEA, Switzerland, and the UK", von Tom bestätigen lassen].
+Aufbewahrung der Zugriffsprotokolle bei Cloudflare: [OFFEN: Dauer ist nicht bekannt und wird nicht geschätzt;
+belegen oder diesen Satz streichen].
+
+Statistik (nur mit deiner Zustimmung)
+
+Wenn du im Hinweis "Einwilligung" zustimmst, lädt Plagevo das Skript von Cloudflare Web Analytics
+(static.cloudflareinsights.com) und lässt Seitenaufrufe und technische Leistungsdaten zählen. Nach Angaben von
+Cloudflare erhebt und nutzt der Dienst keine personenbezogenen Daten der Besucher. Cloudflare speichert die
+Messdaten 7 Tage ungekürzt; danach werden sie auf etwa 10 Prozent zusammengefasst. Ohne deine Zustimmung wird das
+Skript nicht geladen, und nichts davon wird an Cloudflare gesendet.
+
+Rechtsgrundlage ist deine Einwilligung (Art. 6 Abs. 1 lit. a DSGVO und § 25 Abs. 1 TDDDG). Du kannst sie jederzeit
+über "Statistik-Einwilligung ändern" am Seitenende widerrufen; der Widerruf gilt für die Zukunft. Die Seite wird
+dann neu geladen, damit das Skript nicht mehr läuft.
+
+Speicherung deiner Wahl
+
+Ob du zugestimmt oder abgelehnt hast, speichert Plagevo im lokalen Speicher deines Browsers (Eintrag
+"duofy-consent-statistics", Wert "granted" oder "denied"). Das ist nötig, damit deine Wahl beim nächsten Besuch
+gilt (§ 25 Abs. 2 Nr. 2 TDDDG). Der Eintrag bleibt auf deinem Gerät und wird nicht an uns oder Cloudflare gesendet;
+du kannst ihn in den Einstellungen deines Browsers löschen.

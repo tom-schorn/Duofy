@@ -109,7 +109,7 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
         var lastDay = new DateOnly(year, month, DateTime.DaysInMonth(year, month));
         var commitments = firstOpening is { } opening && lastDay < opening
             ? []
-            : await db.Commitments.AsNoTracking().Where(c => c.OwnerId == ownerId).ToListAsync(cancellationToken);
+            : await SavingsGoalEndpoints.PlanCommitmentsAsync(db, ownerId, cancellationToken);
 
         var plan = Plan.CreateFrom(commitments, year, month);
         plan.Id = Guid.NewGuid();
@@ -222,10 +222,18 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
         var sums = MonthBook.SumsOf(bookings.Where(b => !carryOverIds.Contains(b.Id)), accountId: null);
 
         var commitments = sight.Commitments
-            ? await db.Commitments.AsNoTracking().Where(c => c.OwnerId == plan.OwnerId).ToListAsync(cancellationToken)
+            ? await SavingsGoalEndpoints.PlanCommitmentsAsync(db, plan.OwnerId, cancellationToken)
+            : [];
+        HashSet<Guid> hidden = sight.Commitments && !sight.Savings
+            ? await SavingsGoalEndpoints.SavingsTypeCommitmentIdsAsync(db, plan.OwnerId, cancellationToken)
+            : [];
+        HashSet<Guid> goalLinked = sight.Commitments && !sight.Savings
+            ? await SavingsGoalEndpoints.GoalLinkedCommitmentIdsAsync(db, plan.OwnerId, cancellationToken)
             : [];
         var changes = sight.Commitments
             ? PlanChanges.Compare(plan, commitments, await FirstOpeningAsync(plan.OwnerId, cancellationToken))
+                .Where(change => !hidden.Contains(change.CommitmentId)
+                    && !(change.Kind == PlanChangeKind.NoLongerDue && goalLinked.Contains(change.CommitmentId)))
                 .Select(change => ToResponse(change, plan, commitments)).ToList()
             : [];
 
@@ -379,10 +387,11 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
 /// Welche anderen Bereiche ein Plan zeigen darf (Spec 68, R4): die eigenen alle, bei einem anderen Mitglied nur
 /// die, die es mindestens zum Ansehen freigegeben hat.
 /// </summary>
-internal readonly record struct PlanSight(bool Book, bool Accounts, bool Commitments)
+internal readonly record struct PlanSight(bool Book, bool Accounts, bool Commitments, bool Savings = true)
 {
     public static async Task<PlanSight> OfAsync(IAccess access, Guid ownerId, CancellationToken cancellationToken) => new(
         (await access.LevelAsync(ownerId, Area.Book, cancellationToken)).Includes(AccessLevel.View),
         (await access.LevelAsync(ownerId, Area.Accounts, cancellationToken)).Includes(AccessLevel.View),
-        (await access.LevelAsync(ownerId, Area.Commitments, cancellationToken)).Includes(AccessLevel.View));
+        (await access.LevelAsync(ownerId, Area.Commitments, cancellationToken)).Includes(AccessLevel.View),
+        (await access.LevelAsync(ownerId, Area.Savings, cancellationToken)).Includes(AccessLevel.View));
 }

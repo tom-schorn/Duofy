@@ -1,4 +1,5 @@
 using Duofy.ApiClient;
+using Duofy.Schemas;
 
 namespace Duofy.Shared.Services;
 
@@ -7,7 +8,8 @@ namespace Duofy.Shared.Services;
 /// <param name="Name">Der Name, unter dem das Konto angezeigt wird.</param>
 /// <param name="IsDefault">True beim Standardkonto: Es ist beim Buchen vorgewählt.</param>
 /// <param name="Active">False bei einem aufgelösten Konto: Es erscheint im Filter, aber nicht bei neuen Buchungen.</param>
-public sealed record AccountChoice(Guid Id, string Name, bool IsDefault, bool Active);
+/// <param name="Icon">Das Symbol des Kontos (<see cref="AccountIcons"/>), das neben dem Namen steht (Issue 16).</param>
+public sealed record AccountChoice(Guid Id, string Name, bool IsDefault, bool Active, string Icon = AccountIcons.Bank);
 
 /// <summary>
 /// Liefert der Buchungsseite die Konten der angemeldeten Person.
@@ -37,6 +39,6 @@ public sealed class ApiAccountChoices(IAccountApi accounts) : IAccountChoices
             return ApiResult<IReadOnlyList<AccountChoice>>.Failure(result.ErrorCode!);
         }
         return ApiResult<IReadOnlyList<AccountChoice>>.Success(
-            result.Value!.Select(a => new AccountChoice(a.Id, a.Name, a.IsDefault, a.Active)).ToList());
+            result.Value!.Select(a => new AccountChoice(a.Id, a.Name, a.IsDefault, a.Active, a.Icon)).ToList());
     }
 }

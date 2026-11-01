@@ -44,6 +44,19 @@ public class DuofyDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Gui
     public DbSet<Commitment> Commitments => Set<Commitment>();
 
     /// <summary>
+    /// Die Tabelle der Sparziele (Issue 30). Sie enthält die Ziele aller Benutzer; wer hier liest, schränkt selbst auf
+    /// den gemeinten Besitzer ein, der Besitzer-Filter darunter zeigt ohnehin nur sichtbare Besitzer (Spec 56). Den Stand
+    /// eines Ziels gibt es hier nicht; er wird aus den zugeordneten Buchungszeilen ausgerechnet.
+    /// </summary>
+    public DbSet<SavingsGoal> SavingsGoals => Set<SavingsGoal>();
+
+    /// <summary>
+    /// Die Tabelle der Schulden und Kredite (Issue 31). Sie enthält die Einträge aller Benutzer; wer hier liest, schränkt selbst
+    /// auf den gemeinten Besitzer ein. Das Gezahlte gibt es hier nicht; es wird aus den zugeordneten Ausgaben ausgerechnet.
+    /// </summary>
+    public DbSet<Debt> Debts => Set<Debt>();
+
+    /// <summary>
     /// Die Tabelle der Kategorien. Sie enthält die eingebauten (ohne Besitzer, von der
     /// Migration angelegt) und die eigenen Kategorien aller Benutzer. Wer hier liest,
     /// zeigt nur eingebaute und die eigenen des gemeinten Besitzers; der Besitzer-Filter
@@ -147,6 +160,8 @@ public class DuofyDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Gui
             table.HasCheckConstraint("ck_users_quotas", "quota_needs + quota_wants + quota_savings = 100"));
 
         ConfigureCommitments(modelBuilder);
+        ConfigureSavingsGoals(modelBuilder);
+        ConfigureDebts(modelBuilder);
         ConfigureCategories(modelBuilder);
         ConfigureAccounts(modelBuilder);
         ConfigureBookings(modelBuilder);
@@ -171,6 +186,8 @@ public class DuofyDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Gui
         modelBuilder.Entity<Account>().HasQueryFilter(a => OwnerFilterOff || VisibleOwnerIds.Contains(a.OwnerId));
         modelBuilder.Entity<Booking>().HasQueryFilter(b => OwnerFilterOff || VisibleOwnerIds.Contains(b.OwnerId));
         modelBuilder.Entity<Commitment>().HasQueryFilter(c => OwnerFilterOff || VisibleOwnerIds.Contains(c.OwnerId));
+        modelBuilder.Entity<SavingsGoal>().HasQueryFilter(g => OwnerFilterOff || VisibleOwnerIds.Contains(g.OwnerId));
+        modelBuilder.Entity<Debt>().HasQueryFilter(d => OwnerFilterOff || VisibleOwnerIds.Contains(d.OwnerId));
         modelBuilder.Entity<Plan>().HasQueryFilter(p => OwnerFilterOff || VisibleOwnerIds.Contains(p.OwnerId));
         modelBuilder.Entity<Category>().HasQueryFilter(c =>
             OwnerFilterOff || (c.OwnerId == null ? SignedIn : VisibleOwnerIds.Contains(c.OwnerId.Value)));
@@ -238,7 +255,7 @@ public class DuofyDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Gui
         grant.ToTable("grants", table =>
         {
             table.HasCheckConstraint("ck_grants_not_self", "granter_id <> grantee_id");
-            table.HasCheckConstraint("ck_grants_area", "area IN ('plan', 'book', 'accounts', 'commitments')");
+            table.HasCheckConstraint("ck_grants_area", "area IN ('plan', 'book', 'accounts', 'commitments', 'savings')");
             table.HasCheckConstraint("ck_grants_level", "level IN ('view', 'create', 'edit', 'delete')");
         });
         grant.HasKey(g => new { g.GranterId, g.GranteeId, g.Area });
@@ -472,6 +489,76 @@ public class DuofyDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Gui
             .WithMany()
             .HasForeignKey(c => c.CounterAccountId)
             .OnDelete(DeleteBehavior.NoAction);
+        commitment.HasIndex(c => c.SavingsGoalId);
+        commitment.HasOne<SavingsGoal>()
+            .WithMany()
+            .HasForeignKey(c => c.SavingsGoalId)
+            .OnDelete(DeleteBehavior.NoAction);
+    }
+
+    /// <summary>
+    /// Die Tabelle "debts" (Issue 31). Jeder Eintrag gehört einer Person und verschwindet mit ihr. Buchungszeilen und Verträge
+    /// zeigen mit NO ACTION auf einen Eintrag: Einer mit Zuordnungen lässt sich nicht löschen.
+    /// </summary>
+    private static void ConfigureDebts(ModelBuilder modelBuilder)
+    {
+        var debt = modelBuilder.Entity<Debt>();
+        debt.ToTable("debts", table =>
+        {
+            table.HasCheckConstraint("ck_debts_amount_positive", "original_amount > 0");
+            table.HasCheckConstraint("ck_debts_kind", "kind IN ('claim', 'loan')");
+        });
+        debt.Property(d => d.Kind).HasMaxLength(10)
+            .HasConversion(kind => kind.ToString().ToLowerInvariant(), key => Enum.Parse<DebtKind>(key, ignoreCase: true));
+        debt.Property(d => d.Name).HasMaxLength(100);
+        debt.Property(d => d.Creditor).HasMaxLength(100);
+        debt.Property(d => d.Note).HasMaxLength(200);
+        debt.Property(d => d.OriginalAmount).HasPrecision(12, 2);
+        debt.HasIndex(d => d.OwnerId);
+        debt.HasOne<AppUser>().WithMany().HasForeignKey(d => d.OwnerId).OnDelete(DeleteBehavior.Cascade);
+
+        var line = modelBuilder.Entity<BookingLine>();
+        line.HasIndex(l => l.DebtId);
+        line.HasOne<Debt>().WithMany().HasForeignKey(l => l.DebtId).OnDelete(DeleteBehavior.NoAction);
+
+        var commitment = modelBuilder.Entity<Commitment>();
+        commitment.HasIndex(c => c.DebtId);
+        commitment.HasOne<Debt>().WithMany().HasForeignKey(c => c.DebtId).OnDelete(DeleteBehavior.NoAction);
+    }
+
+    /// <summary>
+    /// Die Tabelle "savings_goals" (Issue 30). Jedes Ziel gehört einer Person und verschwindet mit ihr. Das Konto darf nie
+    /// unter einem Ziel verschwinden (NO ACTION). Buchungszeilen und Verträge zeigen mit NO ACTION auf ein Ziel: Ein Ziel
+    /// mit Zuordnungen lässt die API nicht löschen.
+    /// </summary>
+    private static void ConfigureSavingsGoals(ModelBuilder modelBuilder)
+    {
+        var goal = modelBuilder.Entity<SavingsGoal>();
+        goal.ToTable("savings_goals", table =>
+        {
+            table.HasCheckConstraint("ck_savings_goals_target_positive", "target_amount IS NULL OR target_amount > 0");
+            table.HasCheckConstraint("ck_savings_goals_start_not_negative", "start_amount >= 0");
+        });
+        goal.Property(g => g.Name).HasMaxLength(100);
+        goal.Property(g => g.TargetAmount).HasPrecision(12, 2);
+        goal.Property(g => g.StartAmount).HasPrecision(12, 2).HasDefaultValue(0m);
+        goal.HasIndex(g => g.OwnerId);
+        goal.HasIndex(g => g.AccountId);
+        goal.HasOne<AppUser>()
+            .WithMany()
+            .HasForeignKey(g => g.OwnerId)
+            .OnDelete(DeleteBehavior.Cascade);
+        goal.HasOne<Account>()
+            .WithMany()
+            .HasForeignKey(g => g.AccountId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        var line = modelBuilder.Entity<BookingLine>();
+        line.HasIndex(l => l.SavingsGoalId);
+        line.HasOne<SavingsGoal>()
+            .WithMany()
+            .HasForeignKey(l => l.SavingsGoalId)
+            .OnDelete(DeleteBehavior.NoAction);
     }
 
     /// <summary>
@@ -570,6 +657,7 @@ public class DuofyDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Gui
         account.Property(a => a.Name).HasMaxLength(100);
         account.Property(a => a.OpeningBalance).HasPrecision(12, 2);
         account.Property(a => a.Iban).HasMaxLength(Iban.MaxLength);
+        account.Property(a => a.Icon).HasMaxLength(20);
 
         account.Property(a => a.Type)
             .HasMaxLength(20)

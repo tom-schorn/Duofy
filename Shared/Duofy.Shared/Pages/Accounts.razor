@@ -3,10 +3,10 @@
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
+@using Duofy.Shared.Dialogs
 @inject IAccountApi AccountApi
 @implements IDisposable
 @inject IDialogService DialogService
-@inject FormDialogs Forms
 @inject IAppHost Host
 @inject AppChrome Chrome
 @inject ActiveMember Member
@@ -25,10 +25,11 @@
 <PageTitle>@L["Accounts_Title"]</PageTitle>
 
 @* In der App steht der Titel in der oberen Leiste und das Plus im Layout (AppChrome). *@
+<AppPageHeading Text="@L["Accounts_Title"]" />
 @if (!Host.IsApp)
 {
     <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
-        <MudText Typo="Typo.h4">@L["Accounts_Title"]</MudText>
+        <MudText Typo="Typo.h4" HtmlTag="h1">@L["Accounts_Title"]</MudText>
         @if (Sees)
         {
             <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
@@ -53,29 +54,38 @@ else
     <MudText Color="Color.Secondary" Class="mb-2">@L["Accounts_Empty"]</MudText>
 }
 
-<MudStack Spacing="2">
+@* Ab 1280 px eine Tabelle mit Spalten (siehe .data-table in app.css), darunter Karten wie bisher. *@
+<MudStack Spacing="2" Class="data-table accounts-table page-wide">
+    @if (open.Count > 0)
+    {
+        <div class="data-table-head" aria-hidden="true">
+            <span class="data-column-3">@L["Table_Name"]</span>
+            <span class="data-column-4">@L["Table_Type"]</span>
+            <span class="data-column-5 data-amount">@L["Table_Balance"]</span>
+        </div>
+    }
     @foreach (var account in open)
     {
-        <MudPaper Class="pa-3" Outlined="true" data-testid="@($"account-{account.Id}")">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+        <MudPaper Class="pa-3 data-row-frame" Outlined="true" data-testid="@($"account-{account.Id}")">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="data-row">
                 @* Der Stern: gefüllt beim Standardkonto. Ein Klick auf einen leeren Stern macht dieses Konto zum Standardkonto. *@
                 <MudIconButton Icon="@(account.IsDefault ? Icons.Material.Filled.Star : Icons.Material.Filled.StarBorder)"
-                               Color="@(account.IsDefault ? Color.Warning : Color.Default)"
                                OnClick="() => MakeDefaultAsync(account)"
-                               Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
+                               Class="@($"data-column-1 {GrantLock.Class(CanEdit)}")" @attributes="GrantLock.Attributes(CanEdit)"
                                aria-pressed="@(account.IsDefault ? "true" : "false")"
-                               aria-label="@L[account.IsDefault ? "Accounts_IsDefault" : "Accounts_MakeDefault"]"
+                               aria-label="@L[account.IsDefault ? "Accounts_IsDefault" : "Accounts_MakeDefault", account.Name]"
                                data-testid="@($"account-default-{account.Id}")" />
-                <MudStack Spacing="0" Class="flex-grow-1">
-                    <MudText>@account.Name</MudText>
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L[$"AccountType_{account.Type}"]</MudText>
+                <AccountIconMark Icon="@account.Icon" />
+                <MudStack Spacing="0" Class="flex-grow-1 data-cells">
+                    <MudText Class="data-column-3">@account.Name</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="data-column-4">@L[$"AccountType_{account.Type}"]</MudText>
                 </MudStack>
-                <MudText Typo="Typo.subtitle1" Color="@(account.Balance < 0 ? Color.Error : Color.Default)">@Money(account.Balance)</MudText>
+                <MudText Typo="Typo.subtitle1" Class="data-column-5 data-amount">@Money(account.Balance)</MudText>
                 <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditAsync(account)"
-                               Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
-                               aria-label="@L["Accounts_Edit"]" data-testid="@($"account-edit-{account.Id}")" />
+                               Class="@($"data-column-6 {GrantLock.Class(CanEdit)}")" @attributes="GrantLock.Attributes(CanEdit)"
+                               aria-label="@L["Accounts_Edit", account.Name]" data-testid="@($"account-edit-{account.Id}")" />
                 <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => SetActiveAsync(account, false)"
-                           Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
+                           Class="@($"data-column-7 {GrantLock.Class(CanEdit)}")" @attributes="GrantLock.Attributes(CanEdit)"
                            data-testid="@($"account-close-{account.Id}")">@L["Accounts_Close"]</MudButton>
             </MudStack>
         </MudPaper>
@@ -92,18 +102,19 @@ else
 
     @if (showClosed)
     {
-        <MudStack Spacing="2" Class="mt-2">
+        <MudStack Spacing="2" Class="mt-2 data-table accounts-table">
             @foreach (var account in closed)
             {
-                <MudPaper Class="pa-3" Outlined="true" data-testid="@($"account-{account.Id}")">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                        <MudStack Spacing="0" Class="flex-grow-1">
-                            <MudText Color="Color.Secondary">@account.Name</MudText>
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Accounts_ClosedMark", L[$"AccountType_{account.Type}"]]</MudText>
+                <MudPaper Class="pa-3 data-row-frame" Outlined="true" data-testid="@($"account-{account.Id}")">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="data-row">
+                        <AccountIconMark Icon="@account.Icon" />
+                        <MudStack Spacing="0" Class="flex-grow-1 data-cells">
+                            <MudText Color="Color.Secondary" Class="data-column-3">@account.Name</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="data-column-4">@L["Accounts_ClosedMark", L[$"AccountType_{account.Type}"]]</MudText>
                         </MudStack>
-                        <MudText Typo="Typo.subtitle1" Color="Color.Secondary">@Money(account.Balance)</MudText>
+                        <MudText Typo="Typo.subtitle1" Color="Color.Secondary" Class="data-column-5 data-amount">@Money(account.Balance)</MudText>
                         <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => SetActiveAsync(account, true)"
-                                   Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
+                                   Class="@($"data-column-7 {GrantLock.Class(CanEdit)}")" @attributes="GrantLock.Attributes(CanEdit)"
                                    data-testid="@($"account-reopen-{account.Id}")">@L["Accounts_Reopen"]</MudButton>
                     </MudStack>
                 </MudPaper>
@@ -202,7 +213,7 @@ else
             { x => x.Today, Today },
         };
 
-        var dialog = await DialogService.ShowAsync<AccountDialog>(title, parameters, Forms.Options());
+        var dialog = await DialogService.ShowAsync<AccountDialog>(title, parameters, StepDialogOptions.Create());
         var result = await dialog.Result;
 
         if (result is { Canceled: false })

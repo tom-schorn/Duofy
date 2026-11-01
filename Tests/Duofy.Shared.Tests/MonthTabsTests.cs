@@ -69,12 +69,12 @@ public class MonthTabsTests : PageTestContext
     public void The_left_arrow_goes_round_from_the_first_tab_to_the_last()
     {
         var cut = Render<Host>();
-        var bookings = ReferenceOf(cut, "bookings");
+        var review = ReferenceOf(cut, "review");
 
         Press(cut, "overview", "ArrowLeft");
 
-        Assert.True(Selected(cut, "bookings"));
-        Assert.Equal(bookings, FocusedReference(JSInterop.VerifyFocusAsyncInvoke()));
+        Assert.True(Selected(cut, "review"));
+        Assert.Equal(review, FocusedReference(JSInterop.VerifyFocusAsyncInvoke()));
     }
 
     [Fact]

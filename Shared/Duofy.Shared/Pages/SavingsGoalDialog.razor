@@ -1,0 +1,140 @@
+@using System.Globalization
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@inject ISavingsGoalApi GoalApi
+@inject ActiveMember Member
+@inject IStringLocalizer<SharedResources> L
+@inject IAppHost Host
+
+@* Der Dialog zum Anlegen und Ändern eines Sparziels (Issue 30): Name, Zielbetrag und Zieldatum sind freiwillig bis auf
+   den Namen, dazu das Sparkonto, auf dem das Geld liegt. Geprüft wird beim Speichern von der API; ihre Fehler stehen
+   oben im Dialog. *@
+
+<MudDialog>
+    <DialogContent>
+        @if (Host.IsApp)
+        {
+            <FullScreenFormHeader Title="@MudDialog.Title" SaveText="@L["SavingsGoalDialog_Save"]" SaveTestId="savings-goal-save"
+                                  Busy="busy" OnClose="Cancel" OnSave="SaveAsync" />
+        }
+        <MudStack Spacing="3">
+            @if (error is not null)
+            {
+                <MudAlert Severity="Severity.Error" data-testid="savings-goal-error">@error</MudAlert>
+            }
+
+            <MudTextField T="string" @bind-Value="name" Label="@L["Field_SavingsGoalName"]"
+                          MaxLength="SavingsGoalRules.NameMaxLength" data-testid="savings-goal-name" />
+
+            <MudNumericField T="decimal?" @bind-Value="start" Culture="German" Format="0.00" HideSpinButtons="true"
+                             Label="@L["Field_SavingsGoalStart"]" HelperText="@L["Field_SavingsGoalStartHint"]"
+                             data-testid="savings-goal-start" />
+
+            <MudNumericField T="decimal?" @bind-Value="target" Culture="German" Format="0.00" HideSpinButtons="true"
+                             Label="@L["Field_SavingsGoalTarget"]" HelperText="@L["Field_SavingsGoalTargetHint"]"
+                             data-testid="savings-goal-target" />
+
+            <MudTextField T="string" Value="@dateText" ValueChanged="OnDateChanged" InputType="InputType.Date"
+                          Label="@L["Field_SavingsGoalDate"]" data-testid="savings-goal-date" />
+
+            <NativeSelect Value="@(accountId?.ToString() ?? "")" ValueChanged="OnAccountChanged"
+                          Label="@L["Field_SavingsGoalAccount"]" data-testid="savings-goal-account">
+                <option value="">@L["Field_SavingsGoalNoAccount"]</option>
+                @foreach (var account in Accounts.Where(a => a.Active || a.Id == accountId))
+                {
+                    <option value="@account.Id">@account.Name</option>
+                }
+            </NativeSelect>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        @if (!Host.IsApp)
+        {
+            <MudButton OnClick="Cancel">@L["SavingsGoalDialog_Cancel"]</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="busy" OnClick="SaveAsync"
+                       data-testid="savings-goal-save">@L["SavingsGoalDialog_Save"]</MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+
+    private static readonly CultureInfo German = new("de-DE");
+
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    /// <summary>Das Ziel, das geändert wird; null beim Anlegen.</summary>
+    [Parameter]
+    public SavingsGoalResponse? Existing { get; set; }
+
+    /// <summary>Die Konten der Person für die Wahl des Sparkontos.</summary>
+    [Parameter]
+    public IReadOnlyList<AccountChoice> Accounts { get; set; } = [];
+
+    private string name = "";
+    private decimal? target;
+    private decimal? start = 0m;
+    private DateOnly? date;
+    private string dateText = "";
+    private Guid? accountId;
+    private string? error;
+    private bool busy;
+
+    // Die Person, für die der Dialog geöffnet wurde; sie bleibt, auch wenn der Umschalter inzwischen woanders steht.
+    private Guid? owner;
+
+    protected override void OnInitialized()
+    {
+        owner = Member.Owner;
+        if (Existing is { } existing)
+        {
+            name = existing.Name;
+            target = existing.TargetAmount;
+            start = existing.StartAmount;
+            date = existing.TargetDate;
+            accountId = existing.AccountId;
+            dateText = date?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "";
+        }
+    }
+
+    private void OnAccountChanged(string value) => accountId = Guid.TryParse(value, out var id) ? id : null;
+
+    private void OnDateChanged(string value)
+    {
+        dateText = value;
+        date = DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed) ? parsed : null;
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SaveAsync()
+    {
+        error = null;
+        busy = true;
+        try
+        {
+            var result = Existing is null
+                ? await GoalApi.CreateAsync(new CreateSavingsGoalRequest(name, target, date, accountId, owner, start ?? 0m))
+                : await GoalApi.UpdateAsync(Existing.Id, new UpdateSavingsGoalRequest(
+                    name, target, date, accountId,
+                    ClearTargetAmount: target is null && Existing.TargetAmount is not null ? true : null,
+                    ClearTargetDate: date is null && Existing.TargetDate is not null ? true : null,
+                    ClearAccountId: accountId is null && Existing.AccountId is not null ? true : null,
+                    StartAmount: start ?? 0m));
+
+            if (result.Succeeded)
+            {
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                error = ErrorTexts.For(L, result.ErrorCode);
+            }
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

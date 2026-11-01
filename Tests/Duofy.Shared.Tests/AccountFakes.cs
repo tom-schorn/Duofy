@@ -35,7 +35,8 @@ public sealed class FakeAccountApi : IAccountApi
         }
         var saved = new AccountResponse(
             Guid.NewGuid(), request.Name!, request.Type!, request.OpeningBalance, request.OpeningDate,
-            request.CountsAsAvailable ?? true, request.Iban, false, true, request.OpeningBalance);
+            request.CountsAsAvailable ?? true, request.Iban, false, true, request.OpeningBalance,
+            AccountIcons.Effective(request.Type, request.Icon));
         Accounts.Add(saved);
         return Task.FromResult(ApiResult<AccountResponse>.Success(saved));
     }
@@ -65,6 +66,7 @@ public sealed class FakeAccountApi : IAccountApi
             OpeningDate = request.OpeningDate ?? old.OpeningDate,
             CountsAsAvailable = request.CountsAsAvailable ?? old.CountsAsAvailable,
             Iban = request.Iban is null ? old.Iban : request.Iban.Length == 0 ? null : request.Iban,
+            Icon = request.Icon is null ? old.Icon : AccountIcons.Effective(request.Type ?? old.Type, request.Icon.Length == 0 ? null : request.Icon),
             Active = active,
             IsDefault = active && (request.IsDefault ?? old.IsDefault),
         };
@@ -74,5 +76,5 @@ public sealed class FakeAccountApi : IAccountApi
 
     public static AccountResponse Account(string name, string type = AccountTypes.Checking, decimal balance = 0m,
         bool isDefault = false, bool active = true) =>
-        new(Guid.NewGuid(), name, type, balance, new DateOnly(2026, 10, 1), type != AccountTypes.Savings, null, isDefault, active, balance);
+        new(Guid.NewGuid(), name, type, balance, new DateOnly(2026, 10, 1), type != AccountTypes.Savings, null, isDefault, active, balance, AccountIcons.DefaultFor(type));
 }

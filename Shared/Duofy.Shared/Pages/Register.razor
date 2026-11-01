@@ -4,6 +4,7 @@
 @using Duofy.Schemas
 @inject IAuthApi AuthApi
 @inject IInstanceApi InstanceApi
+@inject AppBrand Brand
 @inject NavigationManager Navigation
 @inject IStringLocalizer<SharedResources> L
 
@@ -24,7 +25,7 @@
    Auf der gehosteten Version (Spec 53) gilt das Konto erst mit bestätigter Adresse: Die Anmeldung gleich nach der
    Registrierung antwortet dann email_not_confirmed, und die Seite sagt, dass eine Mail mit dem Link unterwegs ist. *@
 
-<PageTitle>@L["Register_Title"]</PageTitle>
+<PageTitle>@L["Register_Title"] · @Brand.Name</PageTitle>
 
 <div class="auth-header">
     <MudText Typo="Typo.h2" HtmlTag="h1">@L["Register_Title"]</MudText>
@@ -97,7 +98,7 @@ else
 <MudCheckBox @bind-Value="acceptedTerms" Label="@L["Register_AcceptTerms"]" data-testid="register-terms" />
 @if (termsError is not null)
 {
-    <MudText Color="Color.Error" Typo="Typo.caption">@termsError</MudText>
+    <MudText Typo="Typo.caption">@termsError</MudText>
 }
 
 @if (Blocked)

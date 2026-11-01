@@ -51,6 +51,7 @@ public static class ErrorCodes
     public const string AccountNameRequired = "account_name_required";
     public const string AccountNameTooLong = "account_name_too_long";
     public const string AccountTypeInvalid = "account_type_invalid";
+    public const string AccountIconInvalid = "account_icon_invalid";
     public const string OpeningBalanceInvalid = "opening_balance_invalid";
     public const string OpeningDateInFuture = "opening_date_in_future";
     public const string OpeningDateAfterBooking = "opening_date_after_booking";
@@ -80,6 +81,29 @@ public static class ErrorCodes
     public const string CommitmentTargetAmountInvalid = "commitment_target_amount_invalid";
     public const string PaymentMethodInvalid = "payment_method_invalid";
     public const string CommitmentNotFound = "commitment_not_found";
+
+    // Sparziele (Issue 30)
+    public const string SavingsGoalNotFound = "savings_goal_not_found";
+    public const string SavingsGoalNameRequired = "savings_goal_name_required";
+    public const string SavingsGoalNameTooLong = "savings_goal_name_too_long";
+    public const string SavingsGoalTargetInvalid = "savings_goal_target_invalid";
+    public const string SavingsGoalStartInvalid = "savings_goal_start_invalid";
+    public const string SavingsGoalBookingInvalid = "savings_goal_booking_invalid";
+    public const string SavingsGoalHasBookings = "savings_goal_has_bookings";
+    public const string CommitmentGoalInvalid = "commitment_goal_invalid";
+
+    // Schulden und Kredite (Issue 31)
+    public const string DebtNotFound = "debt_not_found";
+    public const string DebtKindInvalid = "debt_kind_invalid";
+    public const string DebtNameRequired = "debt_name_required";
+    public const string DebtNameTooLong = "debt_name_too_long";
+    public const string DebtCreditorRequired = "debt_creditor_required";
+    public const string DebtCreditorTooLong = "debt_creditor_too_long";
+    public const string DebtAmountInvalid = "debt_amount_invalid";
+    public const string DebtNoteTooLong = "debt_note_too_long";
+    public const string DebtBookingInvalid = "debt_booking_invalid";
+    public const string DebtHasBookings = "debt_has_bookings";
+    public const string CommitmentDebtInvalid = "commitment_debt_invalid";
 
     // Monatsplan
     public const string PlanNotFound = "plan_not_found";

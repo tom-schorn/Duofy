@@ -31,7 +31,7 @@ internal static class CommitmentEndpoints
     private static IResult NotFound() =>
         Results.Json(new ErrorResponse(ErrorCodes.CommitmentNotFound), statusCode: StatusCodes.Status404NotFound);
 
-    private static CommitmentResponse ToResponse(Commitment commitment, DateOnly today) => new(
+    private static CommitmentResponse ToResponse(Commitment commitment, DateOnly today, bool seesSavings = true) => new(
         commitment.Id,
         CommitmentTypeKey.ToKey(commitment.Type),
         commitment.Name,
@@ -48,7 +48,9 @@ internal static class CommitmentEndpoints
         commitment.TargetAmount,
         commitment.TargetDate,
         commitment.NextPaymentOnOrAfter(today),
-        Runs(commitment, today));
+        Runs(commitment, today),
+        seesSavings ? commitment.SavingsGoalId : null,
+        seesSavings ? commitment.DebtId : null);
 
     /// <summary>
     /// Ob der Vertrag heute läuft (R8). Ein Vertrag, der vor seiner ersten Zahlung beendet wurde (letzte Zahlung
@@ -88,8 +90,11 @@ internal static class CommitmentEndpoints
             .Where(c => includeEnded == true || c.LastDueDate == null || (c.LastDueDate >= today && c.LastDueDate >= c.FirstDueDate))
             .ToListAsync(cancellationToken);
 
+        // Sparziele und Schulden unter den Verträgen zeigt nur, wer auch den Bereich Sparen ansehen darf.
+        var seesSavings = await SeesSavingsAsync(access, ownerId, cancellationToken);
         var sorted = commitments
-            .Select(c => ToResponse(c, today))
+            .Where(c => seesSavings || !IsSavingsType(c.Type))
+            .Select(c => ToResponse(c, today, seesSavings))
             .OrderBy(c => c.NextDueDate is null)
             .ThenBy(c => c.NextDueDate)
             .ThenBy(c => c.Name, StringComparer.CurrentCultureIgnoreCase)
@@ -131,6 +136,18 @@ internal static class CommitmentEndpoints
 
         var now = time.GetUtcNow();
         var value = check.Value!;
+        if (await SavingsTypeRefusalAsync(access, ownerId, AccessLevel.Create, cancellationToken, value.Type) is { } notSavings)
+        {
+            return notSavings;
+        }
+        if (await CheckGoalAsync(request.SavingsGoalId, null, value, ownerId, access, db, cancellationToken) is { } badGoal)
+        {
+            return badGoal;
+        }
+        if (await CheckDebtAsync(request.DebtId, null, request.SavingsGoalId, value, ownerId, access, db, cancellationToken) is { } badDebt)
+        {
+            return badDebt;
+        }
         var commitment = new Commitment
         {
             Id = Guid.NewGuid(),
@@ -142,13 +159,13 @@ internal static class CommitmentEndpoints
             FirstDueDate = value.FirstDueDate,
             CreatedAt = now,
         };
-        Apply(commitment, value, now);
+        Apply(commitment, value, request.SavingsGoalId, request.DebtId, now);
         db.Commitments.Add(commitment);
         await db.SaveChangesAsync(cancellationToken);
 
         loggers.CreateLogger(LogCategory).LogInformation(
             "Vertrag {CommitmentId} für {OwnerId} von {UserId} angelegt.", commitment.Id, ownerId, callerId);
-        return Results.Created($"/api/v1/commitments/{commitment.Id}", ToResponse(commitment, Berlin.Today(time)));
+        return Results.Created($"/api/v1/commitments/{commitment.Id}", ToResponse(commitment, Berlin.Today(time), await SeesSavingsAsync(access, ownerId, cancellationToken)));
     }
 
     /// <summary>
@@ -216,9 +233,28 @@ internal static class CommitmentEndpoints
             return ApiErrors.BadRequest(error);
         }
 
-        Apply(commitment, check.Value!, time.GetUtcNow());
+        // Sparziele und Schulden brauchen im Bereich Sparen Ändern; eine neue oder geleerte letzte Zahlung beendet sie oder
+        // holt sie zurück und braucht dort Löschen, genau wie in den Verträgen.
+        var savingsLevel = input.LastDueDate != commitment.LastDueDate ? AccessLevel.Delete : AccessLevel.Edit;
+        if (await SavingsTypeRefusalAsync(access, ownerId, savingsLevel, cancellationToken, commitment.Type, check.Value!.Type) is { } notSavings)
+        {
+            return notSavings;
+        }
+        var goalId = request.SavingsGoalId ?? (request.ClearSavingsGoalId == true ? null : commitment.SavingsGoalId);
+        if (await CheckGoalAsync(goalId, commitment.SavingsGoalId, check.Value!, ownerId, access, db, cancellationToken) is { } badGoal)
+        {
+            return badGoal;
+        }
+
+        var debtId = request.DebtId ?? (request.ClearDebtId == true ? null : commitment.DebtId);
+        if (await CheckDebtAsync(debtId, commitment.DebtId, goalId, check.Value!, ownerId, access, db, cancellationToken) is { } badDebt)
+        {
+            return badDebt;
+        }
+
+        Apply(commitment, check.Value!, goalId, debtId, time.GetUtcNow());
         await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(ToResponse(commitment, Berlin.Today(time)));
+        return Results.Ok(ToResponse(commitment, Berlin.Today(time), await SeesSavingsAsync(access, ownerId, cancellationToken)));
     }
 
     /// <summary>
@@ -250,6 +286,11 @@ internal static class CommitmentEndpoints
             return refused;
         }
 
+        if (await SavingsTypeRefusalAsync(access, commitment.OwnerId, AccessLevel.Delete, cancellationToken, commitment.Type) is { } notSavings)
+        {
+            return notSavings;
+        }
+
         var today = Berlin.Today(time);
         commitment.LastDueDate = commitment.LastPaymentOnOrBefore(today) ?? commitment.FirstDueDate.AddDays(-1);
         commitment.UpdatedAt = time.GetUtcNow();
@@ -258,7 +299,83 @@ internal static class CommitmentEndpoints
         loggers.CreateLogger(LogCategory).LogInformation(
             "Vertrag {CommitmentId} von {OwnerId} durch {UserId} beendet, letzte Zahlung {LastDueDate}.",
             commitment.Id, commitment.OwnerId, callerId, commitment.LastDueDate);
-        return Results.Ok(ToResponse(commitment, today));
+        return Results.Ok(ToResponse(commitment, today, await SeesSavingsAsync(access, commitment.OwnerId, cancellationToken)));
+    }
+
+    /// <summary>Ob die angemeldete Person den Bereich Sparen dieses Besitzers ansehen darf; sonst bleibt auch die Kennung eines Ziels verborgen.</summary>
+    private static async Task<bool> SeesSavingsAsync(IAccess access, Guid ownerId, CancellationToken cancellationToken) =>
+        (await access.LevelAsync(ownerId, Area.Savings, cancellationToken)).Includes(AccessLevel.View);
+
+    /// <summary>Ob die Art zum Bereich Sparen gehört: Sparziele und Schulden aus der Zeit vor dem eigenen Bereich (Issue 29).</summary>
+    private static bool IsSavingsType(CommitmentType type) => type is CommitmentType.SavingsGoal or CommitmentType.Debt;
+
+    /// <summary>
+    /// Sparziele und Schulden unter den Verträgen gehören zum Bereich Sparen. Wer sie ansehen, anlegen, ändern oder
+    /// beenden will, braucht dafür die Stufe im Bereich Sparen, nicht nur die in den Verträgen; ohne sie sieht der
+    /// Vertrag aus wie ein unbekannter (404). Bei einer Änderung zählt auch die neue Art. Eigene Daten gehen immer.
+    /// </summary>
+    private static async Task<IResult?> SavingsTypeRefusalAsync(
+        IAccess access, Guid ownerId, AccessLevel needed, CancellationToken cancellationToken, params CommitmentType[] types) =>
+        types.Any(IsSavingsType)
+            ? (await access.RequireAsync(ownerId, Area.Savings, needed, cancellationToken)).Refusal(NotFound)
+            : null;
+
+    /// <summary>
+    /// Prüft das Sparziel eines Vertrags (Issue 32): Es gehört der Person, die Art ist Ausgabe und der Vertrag hat ein
+    /// Zielkonto, auf das die Rate geht. Ein Ziel zu setzen braucht im Bereich Sparen Anlegen, es zu ändern oder zu lösen
+    /// Ändern; wer das nicht darf, bekommt dieselbe Antwort wie bei einem unbekannten Ziel.
+    /// </summary>
+    private static async Task<IResult?> CheckGoalAsync(
+        Guid? goalId, Guid? storedGoalId, CheckedCommitment value, Guid ownerId, IAccess access, DuofyDbContext db, CancellationToken cancellationToken)
+    {
+        if (goalId != storedGoalId)
+        {
+            var needed = storedGoalId is null ? AccessLevel.Create : AccessLevel.Edit;
+            if ((await access.RequireAsync(ownerId, Area.Savings, needed, cancellationToken)).Outcome != AccessOutcome.Allowed)
+            {
+                return ApiErrors.BadRequest(ErrorCodes.SavingsGoalNotFound);
+            }
+            if (goalId is { } wanted && !await db.SavingsGoals.AnyAsync(g => g.Id == wanted && g.OwnerId == ownerId, cancellationToken))
+            {
+                return ApiErrors.BadRequest(ErrorCodes.SavingsGoalNotFound);
+            }
+        }
+        if (goalId is null)
+        {
+            return null;
+        }
+        return value.Type == CommitmentType.Contract && value.CounterAccountId is not null
+            ? null
+            : ApiErrors.BadRequest(ErrorCodes.CommitmentGoalInvalid);
+    }
+
+    /// <summary>
+    /// Prüft die Schuld eines Vertrags (Issue 31): Sie gehört der Person, die Art ist Ausgabe, der Vertrag hat kein Zielkonto (die
+    /// Rate geht an den Gläubiger) und zugleich kein Sparziel. Eine Schuld zu setzen braucht im Bereich Sparen Anlegen, sie zu
+    /// ändern oder zu lösen Ändern; wer das nicht darf, bekommt dieselbe Antwort wie bei einer unbekannten Schuld.
+    /// </summary>
+    private static async Task<IResult?> CheckDebtAsync(
+        Guid? debtId, Guid? storedDebtId, Guid? goalId, CheckedCommitment value, Guid ownerId, IAccess access, DuofyDbContext db, CancellationToken cancellationToken)
+    {
+        if (debtId != storedDebtId)
+        {
+            var needed = storedDebtId is null ? AccessLevel.Create : AccessLevel.Edit;
+            if ((await access.RequireAsync(ownerId, Area.Savings, needed, cancellationToken)).Outcome != AccessOutcome.Allowed)
+            {
+                return ApiErrors.BadRequest(ErrorCodes.DebtNotFound);
+            }
+            if (debtId is { } wanted && !await db.Debts.AnyAsync(d => d.Id == wanted && d.OwnerId == ownerId, cancellationToken))
+            {
+                return ApiErrors.BadRequest(ErrorCodes.DebtNotFound);
+            }
+        }
+        if (debtId is null)
+        {
+            return null;
+        }
+        return value.Type == CommitmentType.Contract && value.CounterAccountId is null && goalId is null
+            ? null
+            : ApiErrors.BadRequest(ErrorCodes.CommitmentDebtInvalid);
     }
 
     /// <summary>Das heutige Standardkonto der Person, falls es eines gibt.</summary>
@@ -270,7 +387,7 @@ internal static class CommitmentEndpoints
             .FirstOrDefaultAsync(cancellationToken);
 
     /// <summary>Überträgt die geprüften Werte auf den Vertrag.</summary>
-    private static void Apply(Commitment commitment, CheckedCommitment value, DateTimeOffset now)
+    private static void Apply(Commitment commitment, CheckedCommitment value, Guid? savingsGoalId, Guid? debtId, DateTimeOffset now)
     {
         commitment.Type = value.Type;
         commitment.Name = value.Name;
@@ -286,6 +403,8 @@ internal static class CommitmentEndpoints
         commitment.PaymentMethod = value.PaymentMethod;
         commitment.TargetAmount = value.TargetAmount;
         commitment.TargetDate = value.TargetDate;
+        commitment.SavingsGoalId = savingsGoalId;
+        commitment.DebtId = debtId;
         commitment.UpdatedAt = now;
     }
 }

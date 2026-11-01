@@ -178,10 +178,11 @@ public class GrantedPagesTests : PageTestContext
         AssertLocked(cut, $"booking-delete-{booking.Id}");
 
         cut.Find("[data-testid='bookings-add']").Click();
-        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-save']")));
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-next']")));
         Assert.Empty(dialogs.FindAll("[data-testid='booking-new-category']"));
         Field(dialogs, "booking-amount").Change("42");
         dialogs.Find("[data-testid='booking-line-category-0']").Change(FakeCategoryApi.Groceries.Id.ToString());
+        dialogs.Find("[data-testid='booking-next']").Click();
         dialogs.Find("[data-testid='booking-save']").Click();
 
         dialogs.WaitForAssertion(() => Assert.Equal(Anna, Assert.Single(BookingApiFake.Created).OwnerId));
@@ -294,11 +295,12 @@ public class GrantedPagesTests : PageTestContext
         var cut = Render<Bookings>();
         cut.WaitForAssertion(() => Assert.Equal(Anna, Assert.Single(BookingApiFake.ListOwners)));
         cut.Find("[data-testid='bookings-add']").Click();
-        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-save']")));
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-next']")));
 
         await cut.InvokeAsync(() => Member.Choose(null));
         Field(dialogs, "booking-amount").Change("42");
         dialogs.Find("[data-testid='booking-line-category-0']").Change(FakeCategoryApi.Groceries.Id.ToString());
+        dialogs.Find("[data-testid='booking-next']").Click();
         dialogs.Find("[data-testid='booking-save']").Click();
 
         dialogs.WaitForAssertion(() => Assert.Equal(Anna, Assert.Single(BookingApiFake.Created).OwnerId));
@@ -325,7 +327,7 @@ public class GrantedPagesTests : PageTestContext
         dialogs.WaitForAssertion(() => Assert.StartsWith("Schritt 2", dialogs.Find("[data-testid='step-dialog-progress']").TextContent));
         ClickInDialog("Weiter");
         dialogs.WaitForAssertion(() => Assert.StartsWith("Schritt 3", dialogs.Find("[data-testid='step-dialog-progress']").TextContent));
-        dialogs.Find("[data-testid='commitment-payment-method']").Change(PaymentMethods.StandingOrder);
+        dialogs.Find($"[data-testid='commitment-payment-method-{PaymentMethods.StandingOrder}']").Change(true);
         ClickInDialog("Speichern");
 
         dialogs.WaitForAssertion(() => Assert.Equal(Anna, Assert.Single(CommitmentApiFake.Created).OwnerId));

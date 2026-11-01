@@ -1,6 +1,6 @@
 @inject IStringLocalizer<SharedResources> L
 
-@* Die Tabs der Monatsseite: eine Leiste mit drei Knöpfen (Übersicht, Plan, Buchungen). Der gewählte hat die Rolle
+@* Die Tabs der Monatsseite: eine Leiste mit vier Knöpfen (Übersicht, Plan, Buchungen, Auswertung). Der gewählte hat die Rolle
    "ausgewählt" und eine Linie darunter, nicht nur eine Farbe. Mit den Pfeiltasten wechselt man vom gewählten Tab zum
    Nachbarn, und der Fokus geht mit; nur der gewählte Tab ist mit der Tabulatortaste erreichbar. Der Inhalt
    steht darunter in der Seite, die den gewählten Tab hält (so bleibt er beim Blättern zwischen Monaten). *@
@@ -16,7 +16,7 @@
 </div>
 
 @code {
-    private static readonly MonthTab[] Tabs = [MonthTab.Overview, MonthTab.Plan, MonthTab.Bookings];
+    private static readonly MonthTab[] Tabs = [MonthTab.Overview, MonthTab.Plan, MonthTab.Bookings, MonthTab.Review];
 
     private readonly Dictionary<MonthTab, ElementReference> buttons = [];
 

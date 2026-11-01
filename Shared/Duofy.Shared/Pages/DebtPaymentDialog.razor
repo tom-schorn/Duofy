@@ -1,0 +1,120 @@
+@using System.Globalization
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@inject IBookingApi BookingApi
+@inject ActiveMember Member
+@inject IStringLocalizer<SharedResources> L
+@inject IAppHost Host
+
+@* Der Dialog "Zahlung eintragen" bei einer Schuld oder einem Kredit (Issue 31): Daraus entsteht eine Ausgabe, deren Zeile
+   dem Eintrag zugeordnet ist. Was danach noch offen ist, kommt neu von der API. *@
+
+<MudDialog>
+    <DialogContent>
+        @if (Host.IsApp)
+        {
+            <FullScreenFormHeader Title="@MudDialog.Title" SaveText="@L["DebtPayment_Save"]" SaveTestId="debt-payment-save"
+                                  Busy="busy" OnClose="Cancel" OnSave="SaveAsync" />
+        }
+        <MudStack Spacing="3">
+            @if (error is not null)
+            {
+                <MudAlert Severity="Severity.Normal" data-testid="debt-payment-error">@error</MudAlert>
+            }
+
+            <MudNumericField T="decimal?" @bind-Value="draft.Amount" Culture="German" Format="0.00" HideSpinButtons="true"
+                             Label="@L["Field_Amount"]" data-testid="debt-payment-amount" />
+
+            <NativeSelect Value="@Key(draft.AccountId)" ValueChanged="OnAccountChanged"
+                          Label="@L["DebtPayment_Account"]" data-testid="debt-payment-account">
+                <option value="">@L["SavingsMove_ChooseAccount"]</option>
+                @foreach (var account in Accounts.Where(a => a.Active))
+                {
+                    <option value="@account.Id">@account.Name</option>
+                }
+            </NativeSelect>
+
+            <NativeSelect Value="@draft.Pot" ValueChanged="OnPotChanged" Label="@L["DebtPayment_Pot"]"
+                          data-testid="debt-payment-pot">
+                <option value="@PotKeys.Needs">@L["Pot_needs"]</option>
+                <option value="@PotKeys.Wants">@L["Pot_wants"]</option>
+            </NativeSelect>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        @if (!Host.IsApp)
+        {
+            <MudButton OnClick="Cancel">@L["SavingsGoalDialog_Cancel"]</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="busy" OnClick="SaveAsync"
+                       data-testid="debt-payment-save">@L["DebtPayment_Save"]</MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+
+    private static readonly CultureInfo German = new("de-DE");
+
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    /// <summary>Die Eingaben, vorbelegt mit Eintrag, Kategorie, Konto und Datum von heute.</summary>
+    [Parameter, EditorRequired]
+    public DebtPaymentDraft Draft { get; set; } = default!;
+
+    /// <summary>Die Konten der Person.</summary>
+    [Parameter]
+    public IReadOnlyList<AccountChoice> Accounts { get; set; } = [];
+
+    private DebtPaymentDraft draft = default!;
+    private string? error;
+    private bool busy;
+    private Guid? owner;
+
+    protected override void OnInitialized()
+    {
+        owner = Member.Owner;
+        draft = Draft;
+    }
+
+    private static string Key(Guid? id) => id?.ToString() ?? "";
+
+    private void OnAccountChanged(string value) => draft = draft with { AccountId = Guid.TryParse(value, out var id) ? id : null };
+
+    private void OnPotChanged(string value) => draft.SetPot(value);
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SaveAsync()
+    {
+        error = null;
+        if (!draft.IsAmountValid)
+        {
+            error = ErrorTexts.For(L, ErrorCodes.AmountInvalid);
+            return;
+        }
+        if (draft.AccountId is null)
+        {
+            error = L["DebtPayment_NeedAccount"];
+            return;
+        }
+
+        busy = true;
+        try
+        {
+            var result = await BookingApi.CreateAsync(draft.ToRequest(owner));
+            if (result.Succeeded)
+            {
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                error = ErrorTexts.For(L, result.ErrorCode);
+            }
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

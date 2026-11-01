@@ -1,0 +1,127 @@
+@using System.Globalization
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@inject IDebtApi DebtApi
+@inject ActiveMember Member
+@inject IStringLocalizer<SharedResources> L
+@inject IAppHost Host
+
+@* Der Dialog zum Anlegen und Ändern einer Forderung oder eines Kredits (Issue 31): Name, Gläubiger und Betrag sind
+   Pflicht, Fälligkeit und Notiz freiwillig. Die Art (Forderung oder Kredit) steht beim Anlegen fest und ändert sich
+   später nicht. Geprüft wird beim Speichern von der API; ihre Fehler stehen oben im Dialog, ruhig und ohne Warnfarbe
+   im Text. *@
+
+<MudDialog>
+    <DialogContent>
+        @if (Host.IsApp)
+        {
+            <FullScreenFormHeader Title="@MudDialog.Title" SaveText="@L["DebtDialog_Save"]" SaveTestId="debt-save"
+                                  Busy="busy" OnClose="Cancel" OnSave="SaveAsync" />
+        }
+        <MudStack Spacing="3">
+            @if (error is not null)
+            {
+                <MudAlert Severity="Severity.Normal" data-testid="debt-error">@error</MudAlert>
+            }
+
+            <MudTextField T="string" @bind-Value="name" Label="@L["Field_DebtName"]"
+                          MaxLength="DebtRules.NameMaxLength" data-testid="debt-name" />
+            <MudTextField T="string" @bind-Value="creditor" Label="@L["Field_DebtCreditor"]"
+                          MaxLength="DebtRules.CreditorMaxLength" data-testid="debt-creditor" />
+            <MudNumericField T="decimal?" @bind-Value="amount" Culture="German" Format="0.00" HideSpinButtons="true"
+                             Label="@L["Field_DebtAmount"]" data-testid="debt-amount" />
+            <MudTextField T="string" Value="@dateText" ValueChanged="OnDateChanged" InputType="InputType.Date"
+                          Label="@L["Field_DebtDueDate"]" data-testid="debt-due-date" />
+            <MudTextField T="string" @bind-Value="note" Label="@L["Field_DebtNote"]"
+                          MaxLength="DebtRules.NoteMaxLength" data-testid="debt-note" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        @if (!Host.IsApp)
+        {
+            <MudButton OnClick="Cancel">@L["SavingsGoalDialog_Cancel"]</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="busy" OnClick="SaveAsync"
+                       data-testid="debt-save">@L["DebtDialog_Save"]</MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+
+    private static readonly CultureInfo German = new("de-DE");
+
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    /// <summary>Der Eintrag, der geändert wird; null beim Anlegen.</summary>
+    [Parameter]
+    public DebtResponse? Existing { get; set; }
+
+    /// <summary>Beim Anlegen die Art: Forderung oder Kredit (<see cref="DebtKinds"/>).</summary>
+    [Parameter]
+    public string Kind { get; set; } = DebtKinds.Claim;
+
+    private string name = "";
+    private string creditor = "";
+    private decimal? amount;
+    private DateOnly? date;
+    private string dateText = "";
+    private string note = "";
+    private string? error;
+    private bool busy;
+
+    // Die Person, für die der Dialog geöffnet wurde; sie bleibt, auch wenn der Umschalter inzwischen woanders steht.
+    private Guid? owner;
+
+    protected override void OnInitialized()
+    {
+        owner = Member.Owner;
+        if (Existing is { } existing)
+        {
+            name = existing.Name;
+            creditor = existing.Creditor;
+            amount = existing.OriginalAmount;
+            date = existing.DueDate;
+            note = existing.Note ?? "";
+            dateText = date?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "";
+        }
+    }
+
+    private void OnDateChanged(string value)
+    {
+        dateText = value;
+        date = DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed) ? parsed : null;
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SaveAsync()
+    {
+        error = null;
+        busy = true;
+        try
+        {
+            var result = Existing is null
+                ? await DebtApi.CreateAsync(new CreateDebtRequest(Kind, name, creditor, amount ?? 0m, date, NullIfEmpty(note), owner))
+                : await DebtApi.UpdateAsync(Existing.Id, new UpdateDebtRequest(
+                    name, creditor, amount ?? 0m, date, NullIfEmpty(note),
+                    ClearDueDate: date is null && Existing.DueDate is not null ? true : null,
+                    ClearNote: NullIfEmpty(note) is null && Existing.Note is not null ? true : null));
+
+            if (result.Succeeded)
+            {
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                error = ErrorTexts.For(L, result.ErrorCode);
+            }
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private static string? NullIfEmpty(string value) => value.Trim().Length == 0 ? null : value;
+}

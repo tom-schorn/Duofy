@@ -29,9 +29,9 @@ public class GrantTests
     }
 
     [Fact]
-    public void There_are_exactly_the_four_areas_plan_book_accounts_and_commitments()
+    public void There_are_exactly_the_five_areas_plan_book_accounts_commitments_and_savings()
     {
-        Assert.Equal([Area.Plan, Area.Book, Area.Accounts, Area.Commitments], Enum.GetValues<Area>());
+        Assert.Equal([Area.Plan, Area.Book, Area.Accounts, Area.Commitments, Area.Savings], Enum.GetValues<Area>());
     }
 
     [Fact]
@@ -47,5 +47,6 @@ public class GrantTests
         Assert.Equal(AccessLevel.None, levels[Area.Plan]);
         Assert.Equal(AccessLevel.None, levels[Area.Accounts]);
         Assert.Equal(AccessLevel.None, levels[Area.Commitments]);
+        Assert.Equal(AccessLevel.None, levels[Area.Savings]);
     }
 }

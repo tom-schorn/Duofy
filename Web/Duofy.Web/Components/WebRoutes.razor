@@ -1,3 +1,5 @@
+@inject IConfiguration Configuration
+
 @* Der Router der Web-Anwendung: Er entscheidet, welche Seite zu einer Adresse
    gehört.
 
@@ -7,7 +9,11 @@
    Öffnet jemand ohne Anmeldung eine Seite, die mit [Authorize] geschützt ist,
    wird er zur Anmeldeseite geschickt. Beim ersten Aufruf einer Adresse erledigt
    das schon der Server (Session/SessionAuthentication.cs), beim Wechsel innerhalb
-   der laufenden Seite RedirectToSignIn aus Duofy.Shared. *@
+   der laufenden Seite RedirectToSignIn aus Duofy.Shared.
+
+   Unter dem Router sitzt der Einwilligungs-Baustein (Issue #35, #43). Die Webauswertung von Cloudflare gibt es nur
+   mit einem Token aus Duofy:Analytics:Token (Umgebungsvariable Duofy__Analytics__Token) und lädt erst nach
+   Zustimmung; ohne Token zeigt der Baustein nichts. *@
 
 <Router AppAssembly="typeof(MainLayout).Assembly"
         AdditionalAssemblies="[typeof(App).Assembly]"
@@ -21,3 +27,5 @@
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
 </Router>
+
+<ConsentBanner StatisticsToken="@Configuration["Duofy:Analytics:Token"]" ChatWebsiteId="@Configuration["Crisp:WebsiteId"]" />

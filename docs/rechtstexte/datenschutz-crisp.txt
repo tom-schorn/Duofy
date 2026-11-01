@@ -1,0 +1,118 @@
+Vorlage für die Datenschutzerklärung von Plagevo: der Abschnitt zum Chat von Crisp (Issue #37)
+===============================================================================================
+
+So geht es weiter: Der Abschnitt unten kommt in die Datei deploy/legal/datenschutz.txt auf dem Server (Schritt 6 in
+docs/betrieb.md), zusammen mit den Abschnitten zu Cloudflare aus datenschutz-cloudflare.txt. Alles in eckigen Klammern
+mit "OFFEN" ist noch nicht belegt; es muss vor dem Veröffentlichen mit einem echten Wert ersetzt oder die Zeile
+gestrichen werden. Der Text ist keine Rechtsberatung; die rechtliche Prüfung bleibt bei Tom.
+
+Quellen und Abrufdatum: Alle Angaben zu Crisp stammen aus den offiziellen Seiten von Crisp und wurden am 01.11.2026
+abgerufen. Was eine Seite nicht sagt, steht hier nicht oder als OFFEN.
+- Unterauftragnehmer: https://crisp.chat/de/sub-processors/ (Stand der Seite 15.07.2026)
+- Datenschutzerklärung von Crisp: https://crisp.chat/de/privacy/ (Stand 15.07.2026)
+- Cookie-Richtlinie von Crisp: https://crisp.chat/de/cookies/ (Stand 15.07.2026)
+- Hilfeartikel "Crisp EU GDPR compliance status": https://help.crisp.chat/en/article/crisp-eu-gdpr-compliance-status-nhv54c/
+  (Stand 26.10.2026)
+- Hilfeartikel "Crisp Cookie Policy" (Cookies und IP-Adressen des Chats):
+  https://help.crisp.chat/en/article/crisp-chatbox-cookie-ip-policy-1147xor/ (Stand 26.10.2026)
+- Hilfeartikel "Where do I find my GDPR Data Processing Agreement (DPA)?":
+  https://help.crisp.chat/en/article/where-do-i-find-my-gdpr-data-processing-agreement-dpa-1wfmngo/ (Stand 26.10.2026)
+- Entwicklerseite zum Laden des Chats (autoload false, Crisp.load()):
+  https://docs.crisp.chat/guides/chatbox-sdks/web-sdk/npm/
+
+Der Einwilligungstext im Hinweis "Einwilligung" steht in Shared/Duofy.Shared/Resources/SharedResources.resx
+(Schlüssel Consent_ChatText) und ist unten im Abschnitt "Chat (nur mit deiner Zustimmung)" sinngemäß wiedergegeben.
+
+-------------------------------------------------------------------------------------------------------------
+
+Chat (nur mit deiner Zustimmung)
+
+Wenn du im Hinweis "Einwilligung" dem Chat zustimmst, lädt Plagevo das Skript von Crisp (client.crisp.chat) und zeigt
+ein Chat-Fenster, in dem du uns Fragen stellen kannst. Ohne deine Zustimmung wird das Skript nicht geladen, und nichts
+davon wird an Crisp gesendet. Du kannst auch ablehnen und Plagevo genauso nutzen. Die Wahl für den Chat gilt getrennt
+von der Wahl für die Statistik.
+
+Was Plagevo an Crisp übergibt: Plagevo übergibt Crisp keine Daten über dich aus deinem Konto, also weder deine
+E-Mail-Adresse noch deinen Namen noch eine Kennung. Crisp sieht dich als anonyme Person. Was du selbst in den Chat
+schreibst, und was dein Browser beim Laden des Chats technisch an Crisp sendet, siehst du unten.
+
+Welche Daten Crisp verarbeitet: Wenn der Chat geladen wird, verarbeitet Crisp technische Verbindungsdaten, insbesondere
+deine IP-Adresse, den Zeitpunkt, den Browser (User-Agent) und die Seite, auf der der Chat steht. Schreibst du eine
+Nachricht, verarbeitet Crisp zusätzlich den Inhalt deiner Nachricht und die Angaben, die du darin machst.
+[OFFEN: Welche weiteren Angaben der Chat von Crisp erhebt (zum Beispiel Gerät, Seiten, Ort), steht in der
+Datenschutzerklärung von Crisp nur allgemein ("Geräte- und Browserinformationen, besuchte Seiten, Aktivität auf der
+Website", dort für Cookies der Website von Crisp selbst). Für den Chat auf Plagevo vor dem Veröffentlichen mit dem
+Datenverarbeitungsvertrag von Crisp abgleichen.]
+
+Adresse der Seite: Crisp erfährt, auf welcher Seite von Plagevo der Chat steht (die Adresse der Seite). Auf den Seiten,
+die du über einen Link aus einer E-Mail öffnest und deren Adresse ein Geheimnis enthält (Bestätigung der E-Mail-Adresse,
+neues Passwort, Einladung), lädt Plagevo den Chat deshalb nicht. [OFFEN: Wechselst du innerhalb von Plagevo ohne
+Neuladen auf eine andere Seite, sieht Crisp auch deren Adresse. Das betrifft Seiten ohne Geheimnis in der Adresse;
+von Tom prüfen lassen, ob das genügt.]
+
+Cookies: Der Chat speichert ein Cookie in deinem Browser ("crisp-client/*"). Es ist nötig, damit dein Gesprächsverlauf
+beim Wechsel der Seite und beim nächsten Besuch erhalten bleibt. Nach Angaben von Crisp setzt der Chat keine
+Tracking-Cookies, das Cookie läuft standardmäßig nach 6 Monaten ab und wird bei einem erneuten Besuch verlängert;
+Crisp nutzt dafür bewusst Cookies und nicht den lokalen Speicher. Wenn du nie schreibst, entfernt Crisp die Sitzung samt
+IP-Adresse 30 Minuten nach deinem letzten Zugriff auf dem Server. Hast du ein Gespräch begonnen, bleiben die Sitzung und
+deine IP-Adresse nach Angaben von Crisp bestehen (siehe unten, "Ort der Verarbeitung").
+[OFFEN: Ob wir in unserem Crisp-Konto den "Total Privacy Mode" einschalten (Einstellungen, Chatbox, Sicherheit); dann
+setzt Crisp erst ein Cookie, wenn du das Chat-Fenster öffnest. Tom entscheidet; den Satz danach anpassen.]
+
+Zweck: Du kannst uns Fragen zu Plagevo stellen und wir können dir antworten.
+
+Rechtsgrundlage: Deine Einwilligung (Art. 6 Abs. 1 lit. a DSGVO und § 25 Abs. 1 TDDDG). Du kannst sie jederzeit über
+den Knopf am Seitenende ("Einwilligungen ändern" beziehungsweise "Chat-Einwilligung ändern") widerrufen; der Widerruf
+gilt für die Zukunft. Plagevo bittet Crisp dabei, die Sitzung des Chats zurückzusetzen, löscht die Cookies des Chats
+("crisp-client/*") in deinem Browser und lädt die Seite neu, damit das Skript nicht mehr läuft. Für die Beantwortung deiner Nachrichten, wenn du uns im Chat schreibst: [OFFEN: Rechtsgrundlage festlegen
+und prüfen lassen, in Frage kommt Art. 6 Abs. 1 lit. b oder lit. f DSGVO.]
+
+Anbieter und Auftragsverarbeitung: Crisp IM SAS, 2 Boulevard de Launay, 44100 Nantes, Frankreich (SIREN 833085806),
+Kontakt zum Datenschutz: dpo@crisp.chat. Für die Daten, die der Chat verarbeitet, ist Crisp nach eigenen Angaben
+Auftragsverarbeiter nach Art. 28 DSGVO. Mit Crisp besteht ein Vertrag zur Auftragsverarbeitung; Tom hat am 31.10.2026
+mitgeteilt, dass er unterschrieben ist. [OFFEN: Das unterschriebene Exemplar, das Datum der Unterschrift und der Ort in
+der Ablage (Crisp-Konto, Einstellungen, Arbeitsbereich, Daten und rechtliche Angaben, Vertragsvereinbarungen) sind
+von Tom zu bestätigen; der Satz zur Unterschrift beruht allein auf seiner Aussage.]
+
+Ort der Verarbeitung: Nach den Hilfeseiten von Crisp liegen alle Daten auf Servern in der Europäischen Union; die
+Nachrichten in den Niederlanden, die Daten der Zusatzmodule in Deutschland; als Hosting nennt Crisp DigitalOcean.
+Crisp nutzt außerdem Vermittlungsserver (Relay) in den USA, im Vereinigten Königreich und in Singapur, die nach Angaben
+von Crisp keine Daten speichern außer Verbindungsprotokollen (IP-Adresse, Zeitpunkt, Browser und Herkunftsseite).
+Zur IP-Adresse sagt Crisp: Systemprotokolle mit IP-Adressen bewahrt Crisp höchstens ein Jahr auf (französisches
+Recht). Hat jemand im Chat ein Gespräch begonnen, bleibt die IP-Adresse nach Angaben von Crisp zum Schutz vor Spam und
+Botnetzen unbefristet gespeichert.
+[OFFEN: Rechtsgrundlage für die Übermittlung in Länder außerhalb der EU und des EWR (Angemessenheitsbeschluss oder
+Standardvertragsklauseln). Die Seiten von Crisp sagen dazu nur, dass Übermittlungen unter Kapitel V der DSGVO fallen
+"und, wo anwendbar, Standardvertragsklauseln"; im Vertrag zur Auftragsverarbeitung nachsehen und von Tom bestätigen
+lassen.]
+
+Weitere Dienstleister von Crisp (Unterauftragnehmer), Stand der Liste von Crisp 15.07.2026, abgerufen 01.11.2026:
+DigitalOcean (Hosting, Hauptserver, Daten in den Niederlanden und Deutschland), Amazon Web Services (verschlüsselte
+Sicherungen, Daten in Irland), Scaleway (Hosting, Frankreich), Vultr (E-Mail-Weiterleitung, keine gespeicherten
+Daten), Cloudflare (DNS, Auslieferung und Schutz vor Angriffen, keine gespeicherten Daten), Stripe und PayPal
+(Zahlungsabwicklung; [OFFEN: ob Besucher des Chats davon berührt sind, nennt die Liste nicht]), und, nur wenn der Kunde sie einschaltet, Google
+(Push-Mitteilungen), Microsoft Azure (Übersetzung und KI-Verarbeitung von Nachrichten) sowie OpenAI, Gemini, Anthropic
+und Mistral (KI-Verarbeitung von Nachrichten). Für Plagevo gilt: [OFFEN: Plagevo schaltet in Crisp keine
+KI-Funktionen, Übersetzung oder Push-Mitteilungen ein; von Tom im Crisp-Konto bestätigen lassen. Wird etwas
+eingeschaltet, müssen die genannten Anbieter in die Erklärung als Empfänger.]
+
+Speicherdauer: [OFFEN: Wie lange wir Gespräche im Crisp-Konto aufbewahren, legt Tom fest. Crisp nennt dafür keine
+feste Dauer, sondern lässt die Kunden löschen. Dauer festlegen, dann hier eintragen.] Für die Daten von Crisp selbst
+(Systemprotokolle mit IP-Adresse höchstens ein Jahr, Cookie 6 Monate) siehe oben.
+
+Speicherung deiner Wahl
+
+Ob du dem Chat zugestimmt oder ihn abgelehnt hast, speichert Plagevo im lokalen Speicher deines Browsers (Eintrag
+"duofy-consent-chat", Wert "granted" oder "denied"). Das ist nötig, damit deine Wahl beim nächsten Besuch gilt
+(§ 25 Abs. 2 Nr. 2 TDDDG). Der Eintrag bleibt auf deinem Gerät und wird nicht an uns oder Crisp gesendet; du kannst ihn
+in den Einstellungen deines Browsers löschen. (Der Eintrag für die Statistik heißt "duofy-consent-statistics".)
+
+Nur Web: Der Chat gehört zur Webversion. Die App auf dem Telefon lädt den Chat nicht und fragt nicht danach.
+
+-------------------------------------------------------------------------------------------------------------
+
+Zum Einwilligungstext (Issue #37, Kriterium 3): Der Text im Hinweis nennt, was geladen wird (Chat von Crisp), dass erst
+nach Zustimmung geladen wird, dass Ablehnen genauso möglich ist und dass die Wahl jederzeit geändert werden kann. Er
+passt damit zum Baustein aus Issue #35 und zu den Abschnitten oben. Der Hinweis nennt noch nicht, wer Crisp ist und wo
+die Daten liegen; das steht oben in der Erklärung. [OFFEN: Tom entscheidet, ob der Hinweis selbst einen Link zur
+Datenschutzerklärung bekommt; das ist heute für keinen Dienst der Fall.]

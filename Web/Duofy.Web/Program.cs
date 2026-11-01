@@ -13,6 +13,13 @@ builder.Services.AddRazorComponents()
 // Add device-specific services used by the Duofy.Shared project
 builder.Services.AddSingleton<IFormFactor, FormFactor>();
 
+// --- Name und Logo ---------------------------------------------------------
+// Duofy:AppName (Umgebungsvariable Duofy__AppName) nennt die Marke ausdrücklich; ohne sie gilt Duofy:Hosted, derselbe
+// Wert wie bei der API: gehostet heißt Plagevo, sonst Duofy. Vor AddDuofyUi, das nur eine Voreinstellung anmeldet.
+builder.Services.AddSingleton(AppBrand.FromSettings(
+    builder.Configuration["Duofy:AppName"],
+    builder.Configuration.GetValue("Duofy:Hosted", false)));
+
 // --- Gemeinsame Oberfläche -------------------------------------------------
 // MudBlazor, Texte und Hell/Dunkel aus Duofy.Shared.
 builder.Services.AddDuofyUi();
@@ -31,6 +38,9 @@ if (!Uri.TryCreate(apiBaseAddress, UriKind.Absolute, out var apiUri))
         $"Duofy:ApiBaseAddress ist keine gültige Adresse: '{apiBaseAddress}'. Siehe .env.example.");
 }
 builder.Services.AddDuofyApiClient(apiUri);
+
+// Die Schlüssel für Formulare und den Zustand der Seiten überleben mit Duofy:KeysDirectory einen Neubau (siehe WebKeyRing).
+builder.Services.AddWebKeyRing();
 
 // --- Anmeldung -------------------------------------------------------------
 // Die Tokens der API liegen in der Sitzung auf diesem Server, der Browser hält

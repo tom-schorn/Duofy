@@ -51,8 +51,23 @@ public class CommitmentsPageTests : PageTestContext
         return element.TagName is "INPUT" or "TEXTAREA" ? element : element.QuerySelector("input,textarea")!;
     }
 
-    private static void SelectIn(IRenderedComponent<IComponent> cut, string testId, string value) =>
-        cut.Find($"[data-testid='{testId}']").Change(value);
+    // Ein Auswahlfeld (select) ändert sich mit Change, die Kontoauswahl (Gruppe von Optionsfeldern, Issue 16) mit dem Optionsfeld.
+    private static void SelectIn(IRenderedComponent<IComponent> cut, string testId, string value)
+    {
+        var element = cut.Find($"[data-testid='{testId}']");
+        if (element.TagName == "FIELDSET")
+        {
+            element.QuerySelector($"input[type='radio'][value='{value}']")!.Change(true);
+        }
+        else
+        {
+            element.Change(value);
+        }
+    }
+
+    // Die Wahl der Kontoauswahl: der Wert des angekreuzten Optionsfelds ("" bei der leeren Wahl).
+    private static string ChosenAccount(IRenderedComponent<IComponent> cut, string testId) =>
+        cut.Find($"[data-testid='{testId}']").QuerySelectorAll("input[type='radio']").Single(i => i.HasAttribute("checked")).GetAttribute("value")!;
 
     // Der Kopf des Schritt-Dialogs (Spec 11), etwa "Schritt 2 von 3: Wann".
     private string Progress => dialogs.Find("[data-testid='step-dialog-progress']").TextContent.Trim();
@@ -421,6 +436,100 @@ public class CommitmentsPageTests : PageTestContext
         Assert.Empty(CommitmentApiFake.Updated);
     }
 
+    // Issue 32: Im Schritt "Wer und Wohin" kann ein Sparziel gewählt werden; die Rate geht dann an das Ziel.
+    [Fact]
+    public void Step_three_offers_the_savings_goals_and_a_chosen_goal_sets_its_account_and_is_sent()
+    {
+        var giro = Accounts.Accounts[0];
+        var savings = new AccountChoice(Guid.NewGuid(), "Tagesgeld", IsDefault: false, Active: true);
+        Accounts.Accounts.Add(savings);
+        var goal = new SavingsGoalResponse(Guid.NewGuid(), "Urlaub", 1200m, null, savings.Id, 0m, false);
+        SavingsGoalApiFake.Goals.Add(goal);
+        var cut = OpenPage();
+        OpenNewDialog(cut);
+
+        FillWhat("Rate Urlaub", "200");
+        Next("Schritt 2 von 3: Wann");
+        Next("Schritt 3 von 3: Wer und Wohin");
+        Assert.Equal([("", "(kein Sparziel)"), (goal.Id.ToString(), "Urlaub")], Options("commitment-goal"));
+        SelectIn(dialogs, "commitment-goal", goal.Id.ToString());
+        SelectIn(dialogs, "commitment-payment-method", PaymentMethods.StandingOrder);
+
+        Assert.True(dialogs.Find($"[data-testid='commitment-counter-account-{savings.Id}']").HasAttribute("checked"));
+        Assert.Equal("Urlaub", dialogs.Find("[data-testid='commitment-summary-goal'] td").TextContent.Trim());
+        Button("Speichern").Click();
+
+        cut.WaitForAssertion(() => Assert.Single(CommitmentApiFake.Created));
+        Assert.Equal((goal.Id, savings.Id, giro.Id == Guid.Empty), (CommitmentApiFake.Created[0].SavingsGoalId, CommitmentApiFake.Created[0].CounterAccountId, false));
+    }
+
+    [Fact]
+    public void Without_savings_goals_the_step_has_no_goal_field_and_an_income_never_has_one()
+    {
+        var cut = OpenPage();
+        OpenNewDialog(cut);
+        FillWhat();
+        Next("Schritt 2 von 3: Wann");
+        Next("Schritt 3 von 3: Wer und Wohin");
+
+        Assert.Empty(dialogs.FindAll("[data-testid='commitment-goal']"));
+    }
+
+    [Fact]
+    public void A_goal_without_an_account_asks_for_the_target_account_before_saving()
+    {
+        var goal = new SavingsGoalResponse(Guid.NewGuid(), "Notgroschen", null, null, null, 0m, false);
+        SavingsGoalApiFake.Goals.Add(goal);
+        var cut = OpenPage();
+        OpenNewDialog(cut);
+        FillWhat("Rate", "50");
+        Next("Schritt 2 von 3: Wann");
+        Next("Schritt 3 von 3: Wer und Wohin");
+        SelectIn(dialogs, "commitment-goal", goal.Id.ToString());
+        SelectIn(dialogs, "commitment-payment-method", PaymentMethods.StandingOrder);
+
+        Button("Speichern").Click();
+
+        dialogs.WaitForAssertion(() => Assert.Contains("Zielkonto", FieldError("commitment-goal-field")));
+        Assert.Empty(CommitmentApiFake.Created);
+    }
+
+    // Issue 31: Im Schritt "Wer und Wohin" kann eine Rate einer Schuld zugeordnet werden.
+    [Fact]
+    public void Step_three_offers_open_debts_and_a_chosen_debt_is_sent_without_a_target_account()
+    {
+        var open = new DebtResponse(Guid.NewGuid(), DebtKinds.Loan, "Autokredit", "Bank", 5000m, null, null, 0m, 5000m, false);
+        var settled = new DebtResponse(Guid.NewGuid(), DebtKinds.Claim, "Alt", "Bank", 50m, null, null, 50m, 0m, true);
+        DebtApiFake.Debts.AddRange(open, settled);
+        var cut = OpenPage();
+        OpenNewDialog(cut);
+
+        FillWhat("Rate Kredit", "150");
+        Next("Schritt 2 von 3: Wann");
+        Next("Schritt 3 von 3: Wer und Wohin");
+        Assert.Equal([("", "(keine Schuld)"), (open.Id.ToString(), "Autokredit")], Options("commitment-debt"));
+        SelectIn(dialogs, "commitment-debt", open.Id.ToString());
+        SelectIn(dialogs, "commitment-payment-method", PaymentMethods.StandingOrder);
+
+        Assert.Equal("Autokredit", dialogs.Find("[data-testid='commitment-summary-debt'] td").TextContent.Trim());
+        Button("Speichern").Click();
+
+        cut.WaitForAssertion(() => Assert.Single(CommitmentApiFake.Created));
+        Assert.Equal((open.Id, (Guid?)null), (CommitmentApiFake.Created[0].DebtId, CommitmentApiFake.Created[0].CounterAccountId));
+    }
+
+    [Fact]
+    public void Without_debts_the_step_has_no_debt_field()
+    {
+        var cut = OpenPage();
+        OpenNewDialog(cut);
+        FillWhat();
+        Next("Schritt 2 von 3: Wann");
+        Next("Schritt 3 von 3: Wer und Wohin");
+
+        Assert.Empty(dialogs.FindAll("[data-testid='commitment-debt']"));
+    }
+
     [Fact]
     public void An_error_of_the_api_stays_in_the_dialog()
     {
@@ -470,9 +579,9 @@ public class CommitmentsPageTests : PageTestContext
         Assert.Equal("2027-01-01", Input(dialogs, "commitment-last-due").GetAttribute("value"));
         Next("Schritt 3 von 3: Wer und Wohin");
 
-        Assert.Equal(giro.Id.ToString(), dialogs.Find("[data-testid='commitment-account']").GetAttribute("value"));
-        Assert.Equal("", dialogs.Find("[data-testid='commitment-counter-account']").GetAttribute("value"));
-        Assert.Equal(PaymentMethods.StandingOrder, dialogs.Find("[data-testid='commitment-payment-method']").GetAttribute("value"));
+        Assert.Equal(giro.Id.ToString(), ChosenAccount(dialogs, "commitment-account"));
+        Assert.Equal("", ChosenAccount(dialogs, "commitment-counter-account"));
+        Assert.Equal(PaymentMethods.StandingOrder, ChosenAccount(dialogs, "commitment-payment-method"));
         Button("Speichern").Click();
 
         cut.WaitForAssertion(() => Assert.Single(CommitmentApiFake.Updated));

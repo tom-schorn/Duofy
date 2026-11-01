@@ -1,0 +1,81 @@
+@inherits DestinationNavigationBase
+@inject IAuthApi AuthApi
+@inject IUserApi UserApi
+@inject ILegalApi LegalApi
+@inject NavigationManager Navigation
+@inject IStringLocalizer<SharedResources> L
+@using Duofy.ApiClient
+@using Duofy.Shared.Services
+
+@* Der Teil des Menüs der Seitenleiste, der den Server fragt oder etwas tut (Spec 10, Änderung vom 01.11.2026):
+   Admin nur für Personen, die den Server verwalten, die Rechtstexte dieses Servers, der Schalter für hell und dunkel
+   in der App und das Abmelden. Dieselben Einträge stehen am Handy auf der Seite "Mehr".
+
+   Steht nur für angemeldete Personen im Layout (AuthorizeView in SideNavigation), damit vor der Anmeldung niemand
+   den Server nach dem Benutzerkonto fragt. *@
+
+@if (isAdmin)
+{
+    <a href="/admin" class="@ItemClass("/admin")" aria-current="@AriaCurrent("/admin")" data-testid="side-admin">
+        <MudIcon Icon="@Icons.Material.Filled.AdminPanelSettings" />
+        <span class="app-side-label">@L["More_Admin"]</span>
+    </a>
+}
+
+<div class="app-side-group">
+    @if (Mode is not null)
+    {
+        <div class="app-side-mode" data-testid="side-mode">
+            <ThemeChoiceSwitch Choice="Mode.Choice" ChoiceSelected="Mode.Select" />
+        </div>
+    }
+    <a href="/lizenzen" class="@ItemClass("/lizenzen")" aria-current="@AriaCurrent("/lizenzen")" data-testid="side-licenses">
+        <MudIcon Icon="@Icons.Material.Filled.Gavel" />
+        <span class="app-side-label">@L["More_Licenses"]</span>
+    </a>
+    @foreach (var name in legalDocuments)
+    {
+        var href = LegalPages.PathOf(name);
+        <a href="@href" class="@ItemClass(href)" aria-current="@AriaCurrent(href)" data-testid="@($"side-legal-{name}")">
+            <MudIcon Icon="@Icons.Material.Filled.Article" />
+            <span class="app-side-label">@L[LegalPages.LabelKeyOf(name)]</span>
+        </a>
+    }
+    <button type="button" class="app-side-item app-side-sign-out" @onclick="SignOutAsync" data-testid="side-sign-out">
+        <MudIcon Icon="@Icons.Material.Filled.Logout" />
+        <span class="app-side-label">@L["Account_SignOut"]</span>
+    </button>
+</div>
+
+@code {
+    [CascadingParameter]
+    private ModeSwitch? Mode { get; set; }
+
+    // Die Rechtstexte, die dieser Server anbietet (Spec 70, R8); ohne Antwort des Servers gibt es keine Links.
+    private IReadOnlyList<string> legalDocuments = [];
+
+    // Ob die Person den Server verwaltet; ohne Antwort des Servers nicht.
+    private bool isAdmin;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await LegalApi.ListAsync();
+        if (result.Succeeded)
+        {
+            legalDocuments = LegalPages.Known(result.Value!.Documents);
+        }
+
+        var me = await UserApi.GetMeAsync();
+        isAdmin = me.Succeeded && me.Value!.IsInstanceAdmin;
+    }
+
+    private string ItemClass(string href) => IsOpen(href) ? "app-side-item app-side-item-active" : "app-side-item";
+
+    private string? AriaCurrent(string href) => IsOpen(href) ? "page" : null;
+
+    private async Task SignOutAsync()
+    {
+        await AuthApi.LogoutAsync();
+        Navigation.NavigateTo("/anmelden");
+    }
+}

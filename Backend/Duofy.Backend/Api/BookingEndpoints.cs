@@ -60,7 +60,7 @@ internal static class BookingEndpoints
         booking.PaymentDate,
         booking.Amount,
         booking.Note,
-        booking.Lines.Select(l => new BookingLineResponse(l.Id, l.Amount, PotKey.ToKey(l.Pot), l.CategoryId, l.PositionId)).ToList(),
+        booking.Lines.Select(l => new BookingLineResponse(l.Id, l.Amount, PotKey.ToKey(l.Pot), l.CategoryId, l.PositionId, l.SavingsGoalId, l.DebtId)).ToList(),
         booking.PlanYear,
         booking.PlanMonth,
         booking.TargetPot is { } target ? PotKey.ToKey(target) : null);
@@ -148,6 +148,15 @@ internal static class BookingEndpoints
             return refused;
         }
 
+        if (await SavingsGoalEndpoints.CheckBookingAsync(request, ownerId, new Dictionary<Guid, decimal>(), access, db, cancellationToken) is { } goalRefused)
+        {
+            return goalRefused;
+        }
+        if (await DebtEndpoints.CheckBookingAsync(request, ownerId, new Dictionary<Guid, decimal>(), access, db, cancellationToken) is { } debtRefused)
+        {
+            return debtRefused;
+        }
+
         var booking = Add(db, ownerId, request, check, time.GetUtcNow());
         await db.SaveChangesAsync(cancellationToken);
 
@@ -201,6 +210,16 @@ internal static class BookingEndpoints
             return refused;
         }
 
+        var storedGoals = SavingsGoalEndpoints.EffectsOf(booking);
+        if (await SavingsGoalEndpoints.CheckBookingAsync(request, ownerId, storedGoals, access, db, cancellationToken) is { } goalRefused)
+        {
+            return goalRefused;
+        }
+        if (await DebtEndpoints.CheckBookingAsync(request, ownerId, DebtEndpoints.EffectsOf(booking), access, db, cancellationToken) is { } debtRefused)
+        {
+            return debtRefused;
+        }
+
         // Die alten Zeilen fallen weg (die Datenbank löscht sie), die neuen kommen in der Reihenfolge der Anfrage.
         booking.Lines.Clear();
         Apply(booking, request, check, time.GetUtcNow());
@@ -237,6 +256,12 @@ internal static class BookingEndpoints
         if (await IsCarryOverAsync(db, ownerId.Value, id, cancellationToken))
         {
             return CarryOverConflict();
+        }
+        // Eine Buchung, die einem Sparziel zugeordnet ist, ändert dessen Stand; sie zu löschen braucht dort Löschen.
+        if (await db.Bookings.AnyAsync(b => b.Id == id && b.Lines.Any(l => l.SavingsGoalId != null || l.DebtId != null), cancellationToken)
+            && (await access.RequireAsync(ownerId.Value, Area.Savings, AccessLevel.Delete, cancellationToken)).Refusal(() => Results.NotFound()) is { } noSavings)
+        {
+            return noSavings;
         }
 
         var deleted = await db.Bookings
@@ -306,7 +331,7 @@ internal static class BookingEndpoints
             // Der Topf ist geprüft; TryParse kann hier nicht mehr scheitern.
             PotKey.TryParse(line.Pot, out var pot);
             // Ohne Kennung: EF Core erkennt die Zeile so als neu und vergibt die Kennung selbst.
-            booking.Lines.Add(new BookingLine { Amount = line.Amount, Pot = pot, CategoryId = line.CategoryId, PositionId = line.PositionId });
+            booking.Lines.Add(new BookingLine { Amount = line.Amount, Pot = pot, CategoryId = line.CategoryId, PositionId = line.PositionId, SavingsGoalId = line.SavingsGoalId, DebtId = line.DebtId });
         }
     }
 

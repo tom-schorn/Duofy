@@ -23,7 +23,7 @@ A Docker Compose setup in `deploy/` with images for the API and the web version,
 - **Client address**: API and web use forwarded headers and take the client address from `CF-Connecting-IP` only when the request comes from the tunnel container's network; the API's rate limit partitions by that address.
 - **Keys**: ASP.NET data protection persists to a volume (`/keys`); the application name is fixed so restarts keep tokens valid.
 - **Hosted checks**: with `Duofy:Hosted` true the API stops at start when PublicUrl is not https or Mail:UseTls is false, naming the setting.
-- **Analytics**: setting `Duofy:Analytics:Token`; when set, the web host adds Cloudflare's Web Analytics beacon to every page.
+- **Analytics**: setting `Duofy:Analytics:Token`; when set, the web page asks for consent (consent banner, #35) and loads Cloudflare's Web Analytics beacon only after agreement; the served page never carries the beacon. Without a token nothing is asked and nothing loads (#43).
 - **Guide**: `docs/betrieb.md` in German, step by step, plus a README section "Plagevo betreiben".
 
 ## Behaviour
@@ -48,7 +48,7 @@ External input: yes
 - [ ] A2 (R4): Given the API behind a trusted proxy network, when two requests carry different CF-Connecting-IP values, then they count in separate rate limit partitions; when the header comes from an untrusted address, it is ignored.
 - [ ] A3 (R5): Given a data protection key ring in a directory, when the API is started twice with the same directory, then a refresh token issued by the first run is accepted by the second.
 - [ ] A4 (R6): Given Hosted true, when PublicUrl is http://app.plagevo.de or Mail:UseTls is false, then the API stops at start and the log names the setting.
-- [ ] A7 (R8): Given an analytics token, when a page of the web version is rendered, then it contains the beacon with that token; without a token it does not.
+- [ ] A7 (R8, #35, #43): Given an analytics token, when a page of the web version is served, then it does not contain the beacon; the browser loads it only after the person agreed in the consent banner (Tests/Duofy.Shared.Tests/ConsentBannerTests.cs); without a token nothing is asked and nothing loads.
 - [ ] A8 (R9): Given the backup service, when it runs, then a dump file with the date appears and files older than 14 days are removed; the guide's restore command restores it into an empty database, tested once by hand and noted in the guide.
 - [ ] A9 (R3, R10): Given docs/betrieb.md, when it is read, then it covers the Cloudflare steps (domain, tunnel with app and api, one rate limit rule, Turnstile, analytics), the environment file, mail through noreply@example.org, first start with the setup code, update, backup and restore.
 

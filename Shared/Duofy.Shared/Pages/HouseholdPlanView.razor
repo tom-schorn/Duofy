@@ -19,16 +19,17 @@
    Seit Spec 24 hat der Haushaltsmonat dieselben drei Tabs wie der Monat einer Person (Übersicht, Plan, Buchungen),
    alle nur zum Lesen. *@
 
+<AppPageHeading Text="@L["Nav_Plan"]" />
 @if (!Host.IsApp)
 {
-    <MudText Typo="Typo.h4" Class="mb-2">@L["Nav_Plan"]</MudText>
+    <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-2">@L["Nav_Plan"]</MudText>
 }
 
 <MudText Typo="Typo.h6" data-testid="household-name">@(plan?.HouseholdName ?? Member.Household?.Name)</MudText>
 <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mb-2" data-testid="household-read-only">@L["HouseholdPlan_ReadOnly"]</MudText>
 
 @* Blättern zwischen den Monaten. *@
-<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2 month-nav">
     <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" OnClick="() => MoveAsync(-1)"
                    aria-label="@L["Plan_PreviousMonth"]" data-testid="plan-previous" />
     <MudText Typo="Typo.h6" data-testid="plan-month">@MonthTitle</MudText>
@@ -39,21 +40,28 @@
 <Notice Message="message" />
 
 <MonthTabs Active="tab" ActiveChanged="SelectTab" />
-<div role="tabpanel" id="month-panel" aria-labelledby="@($"month-tab-{MonthTabs.Key(tab)}")">
+<div role="tabpanel" id="month-panel" class="page-wide" aria-labelledby="@($"month-tab-{MonthTabs.Key(tab)}")">
 @if (plan is not null)
 {
     @if (tab == MonthTab.Overview)
     {
         <MonthOverview Model="MonthView.ForHousehold(plan, Today)" ReadOnly="true" BookingsMissing="plan.BookingsMissing ?? []" />
+        <HouseholdGuidelines Model="GuidelineView.From(plan)" />
     }
     else if (tab == MonthTab.Bookings)
     {
         <MonthBookings Rows="MonthView.HouseholdBookingRows(plan)" Missing="plan.BookingsMissing ?? []" CarryOvers="MonthView.CarryOverRows(plan.CarryOvers)" />
     }
+    else if (tab == MonthTab.Review)
+    {
+        <MonthReview Model="MonthView.ForHousehold(plan, Today)" BookingsMissing="plan.BookingsMissing ?? []" />
+    }
     else
     {
+    @* Ab 1280 px stehen die Posten links, Summen und Konten rechts daneben, wie im Plan einer Person. *@
+    <div class="plan-layout page-wide">
     @* Summen und Quoten. *@
-    <MudPaper Outlined="true" Class="pa-3 mb-4" data-testid="plan-sums">
+    <MudPaper Outlined="true" Class="pa-3 mb-4 plan-layout-side" data-testid="plan-sums">
         <MudText>@L["HouseholdPlan_SumsIncome", Money(plan.Income)]</MudText>
         @foreach (var pot in plan.Pots)
         {
@@ -69,6 +77,7 @@
         </MudText>
     </MudPaper>
 
+    <div class="plan-groups">
     @if (plan.Positions.Count == 0)
     {
         <MudText Color="Color.Secondary" Class="mb-2" data-testid="plan-empty">@L["HouseholdPlan_Empty"]</MudText>
@@ -77,6 +86,7 @@
     @* Die Posten nach Topf, jeder mit dem Vornamen seiner Person. *@
     @foreach (var group in Groups(plan))
     {
+        <div>
         <MudText Typo="Typo.subtitle1" Class="mt-3 mb-1" data-testid="@($"plan-group-{group.Pot}")">@L[$"Pot_{group.Pot}"]</MudText>
         <MudStack Spacing="2">
             @foreach (var position in group.Positions)
@@ -93,12 +103,14 @@
                 </MudPaper>
             }
         </MudStack>
+        </div>
     }
+    </div>
 
     @* Die Überträge als eigene Zeilen, nur von denen, die ihre Buchungen freigegeben haben (Spec 66, R9). *@
     @if (plan.CarryOvers is { Count: > 0 })
     {
-        <div class="mt-4" data-testid="household-carry-overs">
+        <div class="mt-4 plan-layout-side" data-testid="household-carry-overs">
             <LineTable Caption="@L["Plan_CarryOver"]" HideCaption="true" Rows="MonthCarryOverText.Rows(MonthView.CarryOverRows(plan.CarryOvers), L)" />
         </div>
     }
@@ -106,7 +118,7 @@
     @* Die Konten der Mitglieder, die sie freigegeben haben (R8); wer fehlt, steht mit Namen darunter. *@
     @if (plan.Accounts.Count > 0)
     {
-        <MudPaper Outlined="true" Class="pa-3 mt-4" data-testid="household-accounts">
+        <MudPaper Outlined="true" Class="pa-3 mt-4 plan-layout-side" data-testid="household-accounts">
             <MudText Typo="Typo.subtitle1" Class="mb-1">@L["HouseholdPlan_Accounts"]</MudText>
             @foreach (var account in plan.Accounts)
             {
@@ -119,10 +131,11 @@
     }
     @if (plan.AccountsMissing.Count > 0)
     {
-        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-2" data-testid="household-accounts-missing">
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-2 plan-layout-side" data-testid="household-accounts-missing">
             @L["HouseholdPlan_AccountsMissing", string.Join(", ", plan.AccountsMissing)]
         </MudText>
     }
+    </div>
     }
 }
 </div>

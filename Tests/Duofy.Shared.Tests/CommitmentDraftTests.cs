@@ -205,4 +205,112 @@ public class CommitmentDraftTests
         draft.LastDueDate = null;
         Assert.False(draft.EndsBeforeStart);
     }
+
+    // Issue 32: Das Sparziel eines Vertrags.
+    [Fact]
+    public void Choosing_a_goal_with_an_account_sets_that_account_as_the_target_when_none_is_chosen()
+    {
+        var draft = CommitmentDraft.ForNew(Today);
+        var goal = Guid.NewGuid();
+        var savings = Guid.NewGuid();
+
+        draft.ChooseSavingsGoal(goal, savings);
+
+        Assert.Equal((goal, savings, goal), (draft.SavingsGoalId, draft.CounterAccountId, draft.EffectiveSavingsGoalId));
+    }
+
+    [Fact]
+    public void A_chosen_target_account_stays_when_a_goal_is_chosen_and_a_goal_without_account_needs_one()
+    {
+        var draft = CommitmentDraft.ForNew(Today);
+        var own = Guid.NewGuid();
+        draft.ChooseCounterAccount(own);
+
+        draft.ChooseSavingsGoal(Guid.NewGuid(), Guid.NewGuid());
+        Assert.Equal(own, draft.CounterAccountId);
+
+        var noAccount = CommitmentDraft.ForNew(Today);
+        noAccount.ChooseSavingsGoal(Guid.NewGuid(), null);
+        Assert.True(noAccount.GoalNeedsTargetAccount);
+        Assert.Null(noAccount.EffectiveSavingsGoalId);
+    }
+
+    [Fact]
+    public void Clearing_the_target_account_or_choosing_income_drops_the_goal()
+    {
+        var draft = CommitmentDraft.ForNew(Today);
+        draft.ChooseSavingsGoal(Guid.NewGuid(), Guid.NewGuid());
+        draft.ChooseCounterAccount(null);
+        Assert.Null(draft.SavingsGoalId);
+
+        draft.ChooseSavingsGoal(Guid.NewGuid(), Guid.NewGuid());
+        draft.SetType(CommitmentTypes.Income);
+        Assert.Null(draft.SavingsGoalId);
+        Assert.False(draft.OffersSavingsGoal);
+    }
+
+    [Fact]
+    public void The_requests_carry_the_goal_and_an_update_clears_a_stored_one_that_is_gone()
+    {
+        var goal = Guid.NewGuid();
+        var savings = Guid.NewGuid();
+        var draft = CommitmentDraft.ForNew(Today);
+        draft.Name = "Rate";
+        draft.Amount = 50m;
+        draft.ChooseSavingsGoal(goal, savings);
+        Assert.Equal(goal, draft.ToCreateRequest().SavingsGoalId);
+
+        var saved = Saved() with { SavingsGoalId = goal, CounterAccountId = savings };
+        var kept = CommitmentDraft.From(saved);
+        Assert.Equal((goal, (bool?)null), (kept.ToUpdateRequest(saved).SavingsGoalId, kept.ToUpdateRequest(saved).ClearSavingsGoalId));
+
+        kept.ChooseSavingsGoal(null, null);
+        var cleared = kept.ToUpdateRequest(saved);
+        Assert.Equal((null, true), (cleared.SavingsGoalId, cleared.ClearSavingsGoalId));
+    }
+
+    // Issue 31: Die Schuld eines Vertrags.
+    [Fact]
+    public void Choosing_a_debt_drops_the_target_account_and_the_goal_and_is_sent()
+    {
+        var debt = Guid.NewGuid();
+        var draft = CommitmentDraft.ForNew(Today);
+        draft.ChooseSavingsGoal(Guid.NewGuid(), Guid.NewGuid());
+
+        draft.ChooseDebt(debt);
+
+        Assert.Equal((debt, null, null), (draft.EffectiveDebtId, draft.CounterAccountId, draft.SavingsGoalId));
+        Assert.Equal(debt, draft.ToCreateRequest().DebtId);
+    }
+
+    [Fact]
+    public void Choosing_a_goal_or_a_target_account_or_income_drops_the_debt()
+    {
+        var draft = CommitmentDraft.ForNew(Today);
+        draft.ChooseDebt(Guid.NewGuid());
+        draft.ChooseSavingsGoal(Guid.NewGuid(), Guid.NewGuid());
+        Assert.Null(draft.DebtId);
+
+        draft.ChooseDebt(Guid.NewGuid());
+        draft.ChooseCounterAccount(Guid.NewGuid());
+        Assert.Null(draft.DebtId);
+
+        draft.ChooseDebt(Guid.NewGuid());
+        draft.SetType(CommitmentTypes.Income);
+        Assert.Null(draft.DebtId);
+    }
+
+    [Fact]
+    public void An_update_clears_a_stored_debt_that_is_gone()
+    {
+        var debt = Guid.NewGuid();
+        var saved = Saved() with { DebtId = debt };
+        var draft = CommitmentDraft.From(saved);
+        Assert.Equal((debt, (bool?)null), (draft.ToUpdateRequest(saved).DebtId, draft.ToUpdateRequest(saved).ClearDebtId));
+
+        draft.ChooseDebt(null);
+        var cleared = draft.ToUpdateRequest(saved);
+
+        Assert.Equal((null, true), (cleared.DebtId, cleared.ClearDebtId));
+    }
 }

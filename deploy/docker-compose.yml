@@ -85,8 +85,16 @@ services:
       <<: *dotnet-env
       # An der festen Adresse der API; die API erkennt die Web-Variante an deren fester Adresse 172.30.10.12.
       Duofy__ApiBaseAddress: http://172.30.10.11:8080/
+      # Name und Logo: gehostet heißt Plagevo (derselbe Wert wie bei der API), Duofy__AppName nennt die Marke ausdrücklich.
+      Duofy__Hosted: ${Duofy__Hosted:-${DUOFY_HOSTED:-true}}
+      Duofy__AppName: ${Duofy__AppName:-${DUOFY_APP_NAME:-}}
       Duofy__TrustedProxies: ${Duofy__TrustedProxies:-${TRUSTED_PROXIES:-172.30.10.2/32}}
       Duofy__Analytics__Token: ${Duofy__Analytics__Token:-${CLOUDFLARE_ANALYTICS_TOKEN:-}}
+      Crisp__WebsiteId: ${Crisp__WebsiteId:-${CRISP_WEBSITE_ID:-}}
+      Duofy__KeysDirectory: /keys
+    volumes:
+      # Eigene Schlüssel für Formulare und den Zustand der Seiten; die der API schützen Tokens und bleiben getrennt.
+      - web-keys:/keys
     networks:
       plagevo:
         ipv4_address: 172.30.10.12
@@ -130,6 +138,7 @@ services:
 
 volumes:
   keys:
+  web-keys:
 
 networks:
   # Das eigene Netz von Plagevo mit festem Namen, damit das Compose-Projekt des Tunnels es als externes Netz findet.

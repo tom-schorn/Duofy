@@ -159,5 +159,5 @@ internal static class GrantKeys
     }
 
     public static GrantLevels ToResponse(IReadOnlyDictionary<Area, AccessLevel> levels) => new(
-        ToKey(levels[Area.Plan]), ToKey(levels[Area.Book]), ToKey(levels[Area.Accounts]), ToKey(levels[Area.Commitments]));
+        ToKey(levels[Area.Plan]), ToKey(levels[Area.Book]), ToKey(levels[Area.Accounts]), ToKey(levels[Area.Commitments]), ToKey(levels[Area.Savings]));
 }

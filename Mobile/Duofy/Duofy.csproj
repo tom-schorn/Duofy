@@ -1,7 +1,8 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+<Project Sdk="Microsoft.NET.Sdk.Razor">
 
-  <!-- Ausgeliefert wird die App vorerst nur für Android (iOS und Mac sind nicht geplant).
-       Das Windows-Ziel gibt es nur zum Testen am PC, und nur auf Windows. -->
+  <!-- Ausgeliefert wird die App für Android (Google Play) und Windows (Microsoft Store, Issue #40; iOS und Mac sind
+       nicht geplant). Das Windows-Ziel gibt es nur auf Windows: unverpackt zum Testen am PC, als MSIX-Paket nur mit
+       -p:DuofyStorePackage=true (siehe docs/store/README.md). -->
   <PropertyGroup>
     <TargetFrameworks>net10.0-android</TargetFrameworks>
 
@@ -47,6 +48,20 @@
     <WindowsPackageType>None</WindowsPackageType>
   </PropertyGroup>
 
+  <!-- Microsoft Store (Issue #40): nur mit -p:DuofyStorePackage=true wird ein MSIX-Paket gebaut. Das Manifest ist
+       Platforms\Windows\Package.appxmanifest; die Werte aus dem Partner Center stehen dort als ERSETZEN-Platzhalter.
+       Die Signatur übernimmt der Store, im Repository liegt kein Schlüssel. Ohne den Schalter bleibt alles wie oben.
+       Der Befehl steht in docs/store/README.md. -->
+  <PropertyGroup Condition="$(TargetFramework.Contains('-windows')) And '$(DuofyStorePackage)' == 'true'">
+    <WindowsPackageType>MSIX</WindowsPackageType>
+    <GenerateAppxPackageOnBuild>true</GenerateAppxPackageOnBuild>
+    <AppxPackageSigningEnabled>false</AppxPackageSigningEnabled>
+    <UapAppxPackageBuildMode>StoreUpload</UapAppxPackageBuildMode>
+    <AppxBundle>Never</AppxBundle>
+    <!-- Das Symbolpaket braucht Visual-Studio-Werkzeuge (mspdbcmf.exe); der Store verlangt es nicht. -->
+    <AppxSymbolPackageEnabled>false</AppxSymbolPackageEnabled>
+  </PropertyGroup>
+
   <!-- Release: signiertes App-Bundle (AAB) für Google Play. Schlüsseldatei und Passwörter
        kommen aus Umgebungsvariablen und stehen nie im Repository. Bei "env:" liest MSBuild
        das Passwort selbst aus der Umgebungsvariable, es taucht nicht im Befehl auf. -->
@@ -68,10 +83,10 @@
 
   <ItemGroup>
     <!-- App Icon -->
-    <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
+    <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#14213D" />
 
     <!-- Splash Screen -->
-    <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
+    <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#14213D" BaseSize="128,128" />
 
     <!-- Images -->
     <MauiImage Include="Resources\Images\*" />

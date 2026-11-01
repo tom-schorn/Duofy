@@ -4,13 +4,12 @@ using Microsoft.AspNetCore.Mvc.Testing;
 namespace Duofy.Web.Tests;
 
 /// <summary>
-/// Cloudflare Web Analytics (Spec 79, R8): Mit Duofy:Analytics:Token trägt jede Seite der Web-Variante den Beacon mit
-/// diesem Token; er zählt Seitenaufrufe ohne Cookies. Ohne Token gibt es keinen.
+/// Cloudflare Web Analytics (Spec 79, R8; Issue #43): Das Skript von Cloudflare steht nie in der ausgelieferten Seite.
+/// Es wird erst im Browser nachgeladen, wenn die Person zugestimmt hat (ConsentBanner, Issue #35); ohne Token
+/// gibt es den Dienst gar nicht. Den Baustein selbst prüfen die Tests in Duofy.Shared.Tests.
 /// </summary>
 public class AnalyticsTests : IClassFixture<WebApplicationFactory<Program>>
 {
-    private const string Beacon = "https://static.cloudflareinsights.com/beacon.min.js";
-
     private readonly WebApplicationFactory<Program> factory;
 
     public AnalyticsTests(WebApplicationFactory<Program> factory)
@@ -18,32 +17,25 @@ public class AnalyticsTests : IClassFixture<WebApplicationFactory<Program>>
         this.factory = factory;
     }
 
-    // A7
+    // Auch mit Token liefert der Server das Skript nicht aus: Ohne Zustimmung lädt nichts von Cloudflare.
     [Fact]
-    public async Task With_a_token_every_page_carries_the_beacon_with_that_token()
+    public async Task Even_with_a_token_the_served_page_carries_no_cloudflare_script()
     {
         var page = await PageAsync(token: "0123456789abcdef0123456789abcdef");
 
-        Assert.Contains($"src=\"{Beacon}\"", page);
-        Assert.Contains("data-cf-beacon=\"{&quot;token&quot;:&quot;0123456789abcdef0123456789abcdef&quot;}\"", page);
+        Assert.DoesNotContain("cloudflareinsights", page);
+        Assert.DoesNotContain("data-cf-beacon", page);
+        Assert.DoesNotContain("0123456789abcdef0123456789abcdef", page);
     }
 
-    // A7
+    // Ohne Token lädt das Skript weiterhin nicht (Abnahmekriterium von Issue #43).
     [Fact]
     public async Task Without_a_token_there_is_no_beacon()
     {
         var page = await PageAsync(token: "");
 
         Assert.DoesNotContain("cloudflareinsights", page);
-    }
-
-    // Das Token kommt aus der Umgebung; es kann die Seite trotzdem nicht verändern.
-    [Fact]
-    public async Task A_token_cannot_break_out_of_the_attribute()
-    {
-        var page = await PageAsync(token: "x\"><script>alert(1)</script>");
-
-        Assert.DoesNotContain("<script>alert(1)</script>", page);
+        Assert.DoesNotContain("data-cf-beacon", page);
     }
 
     private async Task<string> PageAsync(string token)

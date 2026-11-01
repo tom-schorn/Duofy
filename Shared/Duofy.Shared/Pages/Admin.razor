@@ -27,9 +27,10 @@
 
 <PageTitle>@L["Admin_Title"]</PageTitle>
 
+<AppPageHeading Text="@L["Admin_Title"]" />
 @if (!Host.IsApp)
 {
-    <MudText Typo="Typo.h4" Class="mb-2">@L["Admin_Title"]</MudText>
+    <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-2">@L["Admin_Title"]</MudText>
 }
 
 <Notice Message="message" />
@@ -103,7 +104,7 @@
                             <MudText>@(invitation.Email ?? L["Admin_Anyone"])</MudText>
                             <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Admin_ValidUntil", Day(invitation.ExpiresAt)]</MudText>
                         </MudStack>
-                        <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Error" OnClick="() => RevokeAsync(invitation)"
+                        <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => RevokeAsync(invitation)"
                                    data-testid="@($"admin-invitation-revoke-{invitation.Id}")">@L["Admin_Revoke"]</MudButton>
                     </MudStack>
                     @if (invitation.Url is { } link)

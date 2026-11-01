@@ -1,0 +1,183 @@
+@implements IAsyncDisposable
+@inject IConsentStore Store
+@inject IJSRuntime Js
+@inject NavigationManager Navigation
+@inject IStringLocalizer<SharedResources> L
+
+@* Der Einwilligungs-Baustein (Issue #35, #36): fragt, ob ein optionaler Fremddienst geladen werden darf. Es gibt zwei
+   Dienste, jeder mit eigener Kategorie und eigener Wahl: die Webauswertung von Cloudflare (Statistik) und den Chat von
+   Crisp. Ohne Token beziehungsweise Website-ID gibt es den Dienst nicht, dann zeigt der Baustein dazu nichts und rührt
+   weder Speicher noch Skript an. Solange nicht zugestimmt wurde, lädt nichts: Standard ist "nicht einverstanden".
+   Gefragt wird nur nach den Diensten, über die noch nicht entschieden ist. Zustimmen und Ablehnen sind gleich
+   gestaltet. Die Wahl liegt im Browser und lässt sich über den Knopf danach ändern. Ein schon geladenes Skript nimmt
+   nur ein Neuladen der Seite wieder weg. *@
+
+@if (HasAny)
+{
+    @if (asking.Count > 0)
+    {
+        <section class="consent-banner" role="region" aria-label="@L["Consent_Region"]" data-testid="consent-banner">
+            @foreach (var category in Categories.Where(asking.Contains))
+            {
+                var c = category;
+                <div class="consent-item" data-testid="@($"consent-item-{Slug(c)}")">
+                    <p class="consent-text">@L[TextKey(c)]</p>
+                    <div class="consent-actions">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => ChooseAsync(c, true))"
+                                   data-testid="@TestId(c, "accept")">@L["Consent_Accept"]</MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => ChooseAsync(c, false))"
+                                   data-testid="@TestId(c, "decline")">@L["Consent_Decline"]</MudButton>
+                    </div>
+                </div>
+            }
+        </section>
+    }
+    else if (decided)
+    {
+        <div class="consent-change">
+            <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Default" OnClick="Reopen"
+                       data-testid="consent-change">@L[HasChat && HasStatistics ? "Consent_ChangeAll" : HasChat ? "Consent_ChangeChat" : "Consent_Change"]</MudButton>
+        </div>
+    }
+}
+
+@code {
+    private IJSObjectReference? module;
+    private bool decided;
+    private readonly HashSet<ConsentCategory> asking = [];
+    private readonly HashSet<ConsentCategory> loaded = [];
+
+    /// <summary>Der Token der Webauswertung. Leer oder fehlend: es gibt keinen Dienst, also keine Frage.</summary>
+    [Parameter]
+    public string? StatisticsToken { get; set; }
+
+    /// <summary>Die Website-ID des Chats (Crisp, Einstellung Crisp:WebsiteId). Leer oder fehlend: kein Chat, keine Frage.</summary>
+    [Parameter]
+    public string? ChatWebsiteId { get; set; }
+
+    private bool HasStatistics => !string.IsNullOrWhiteSpace(StatisticsToken);
+
+    private bool HasChat => !string.IsNullOrWhiteSpace(ChatWebsiteId);
+
+    private bool HasAny => HasStatistics || HasChat;
+
+    // Die Reihenfolge, in der der Hinweis fragt.
+    private static readonly ConsentCategory[] Categories = [ConsentCategory.Statistics, ConsentCategory.Chat];
+
+    private IEnumerable<ConsentCategory> Offered => Categories.Where(Has);
+
+    private bool Has(ConsentCategory category) => category == ConsentCategory.Statistics ? HasStatistics : HasChat;
+
+    private static string Slug(ConsentCategory category) => category.ToString().ToLowerInvariant();
+
+    // Die Kennungen der Statistik bleiben, wie sie waren (consent-accept); der Chat hängt seinen Namen ein.
+    private static string TestId(ConsentCategory category, string action) =>
+        category == ConsentCategory.Statistics ? $"consent-{action}" : $"consent-{Slug(category)}-{action}";
+
+    private static string TextKey(ConsentCategory category) =>
+        category == ConsentCategory.Statistics ? "Consent_Text" : "Consent_ChatText";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Erst nach dem ersten Zeichnen im Browser: Beim Vorrendern auf dem Server gibt es keinen localStorage.
+        if (!firstRender || !HasAny)
+        {
+            return;
+        }
+
+        foreach (var category in Offered)
+        {
+            var stored = await Store.LoadAsync(category);
+            if (stored is null)
+            {
+                asking.Add(category);
+            }
+            else
+            {
+                decided = true;
+                if (stored == true)
+                {
+                    await LoadAsync(category);
+                }
+            }
+        }
+        StateHasChanged();
+    }
+
+    private async Task ChooseAsync(ConsentCategory category, bool granted)
+    {
+        var withdrawing = !granted && loaded.Contains(category);
+        await Store.SaveAsync(category, granted);
+        decided = true;
+        asking.Remove(category);
+        if (granted)
+        {
+            await LoadAsync(category);
+        }
+        else if (withdrawing)
+        {
+            // Ein geladenes Fremdskript lässt sich nicht aus der Seite nehmen; neu laden entfernt es.
+            if (category == ConsentCategory.Chat)
+            {
+                await ResetChatAsync();
+            }
+            Navigation.NavigateTo(Navigation.Uri, forceLoad: true);
+        }
+    }
+
+    // Beim Ändern fragt der Hinweis wieder nach allen angebotenen Diensten.
+    private void Reopen()
+    {
+        foreach (var category in Offered)
+        {
+            asking.Add(category);
+        }
+    }
+
+    private async Task LoadAsync(ConsentCategory category)
+    {
+        if (!loaded.Add(category))
+        {
+            return;
+        }
+        module ??= await Js.InvokeAsync<IJSObjectReference>("import", "./_content/Duofy.Shared/consent.js");
+        if (category == ConsentCategory.Statistics)
+        {
+            await module.InvokeVoidAsync("loadBeacon", StatisticsToken!.Trim());
+        }
+        else
+        {
+            // Nur die Website-ID geht an Crisp, keine Daten der Person (Issue #36).
+            await module.InvokeVoidAsync("loadChat", ChatWebsiteId!.Trim());
+        }
+    }
+
+    // Beendet die Chat-Sitzung beim Widerruf, damit Crisp keine Unterhaltung im Browser weiterführt.
+    private async Task ResetChatAsync()
+    {
+        try
+        {
+            module ??= await Js.InvokeAsync<IJSObjectReference>("import", "./_content/Duofy.Shared/consent.js");
+            await module.InvokeVoidAsync("resetChat");
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException or JSDisconnectedException)
+        {
+            // Ohne laufenden Chat ist nichts zurückzusetzen; das Neuladen entfernt das Skript trotzdem.
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (module is not null)
+        {
+            try
+            {
+                await module.DisposeAsync();
+            }
+            catch (Exception ex) when (ex is JSDisconnectedException or JSException or InvalidOperationException)
+            {
+                // Die Verbindung zum Browser ist schon weg; es gibt nichts mehr aufzuräumen.
+            }
+        }
+    }
+}

@@ -87,7 +87,7 @@ public static class DuofyTheme
             TextPrimary = "#f2efe8",
             TextSecondary = "#b8c2d4",
             LinesDefault = "#3a4863",
-            LinesInputs = "#3a4863",
+            LinesInputs = "#7482a0",
             Divider = "#3a4863",
             ActionDefault = "#b8c2d4",
             // MudBlazor setzt hier sonst reines Weiß oder Schwarz (R3): stattdessen Texttöne und Linie, durchscheinend wie vorher.

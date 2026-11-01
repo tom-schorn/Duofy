@@ -1,46 +1,49 @@
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
+@using Duofy.Shared.Dialogs
 @inject IPlanApi PlanApi
 @inject ActiveMember Member
 @inject IStringLocalizer<SharedResources> L
-@inject IAppHost Host
 
-@* Der Dialog für einen Posten: einen einmaligen anlegen (R3) oder einen vorhandenen ändern.
+@* Der Dialog für einen Posten, auf dem Schritt-Dialog (Spec 11) mit einem Schritt (Issue #22): einen einmaligen anlegen (R3) oder einen vorhandenen ändern.
    Ein geänderter Posten aus einem Vertrag gilt danach als von Hand geändert; das entscheidet die API.
    Geprüft wird beim Speichern von der API; ihre Fehler stehen oben im Dialog. *@
 
-<MudDialog>
-    <DialogContent>
-        @if (Host.IsApp)
+<StepDialog OnFinish="SaveAsync" FinishText="@L["PlanPositionDialog_Save"]" Busy="busy" FinishTestId="position-save">
+    <DialogStep Title="@L["PlanPositionDialog_StepAll"]">
+        @if (error is not null)
         {
-            <FullScreenFormHeader Title="@MudDialog.Title" SaveText="@L["PlanPositionDialog_Save"]" SaveTestId="position-save"
-                                  Busy="busy" OnClose="Cancel" OnSave="SaveAsync" />
+            <MudAlert Severity="Severity.Error" data-testid="position-error">@error</MudAlert>
         }
-        <MudStack Spacing="3">
 
-            @if (error is not null)
-            {
-                <MudAlert Severity="Severity.Error" data-testid="position-error">@error</MudAlert>
-            }
-
-            <MudTextField T="string" @bind-Value="label" Label="@L["Field_PositionLabel"]"
+        <StepField Label="@L["Field_PositionLabel"]" InputId="position-label-input" TestId="position-label-field">
+            <MudTextField T="string" @bind-Value="label" Variant="Variant.Outlined" InputId="position-label-input"
                           MaxLength="PlanRules.LabelMaxLength" data-testid="position-label" />
+        </StepField>
 
+        <StepField Label="@L["Field_PlannedAmount"]" InputId="position-amount-input" TestId="position-amount-field">
             <MudNumericField T="decimal?" @bind-Value="amount" Culture="German" Format="0.00" Min="0"
-                             HideSpinButtons="true" Label="@L["Field_PlannedAmount"]" data-testid="position-amount" />
+                             HideSpinButtons="true" Variant="Variant.Outlined" InputId="position-amount-input"
+                             data-testid="position-amount" />
+        </StepField>
 
+        <StepField Label="@L["Field_DueDay"]" InputId="position-day-input" TestId="position-day-field">
             <MudNumericField T="int?" @bind-Value="dueDay" Min="1" Max="DateTime.DaysInMonth(Year, Month)"
-                             Label="@L["Field_DueDay"]" data-testid="position-day" />
+                             Variant="Variant.Outlined" InputId="position-day-input" data-testid="position-day" />
+        </StepField>
 
-            <NativeSelect Value="@pot" ValueChanged="OnPotChanged" Label="@L["Field_Pot"]" data-testid="position-pot">
+        <StepField Label="@L["Field_Pot"]" InputId="position-pot-input" TestId="position-pot-field">
+            <NativeSelect Value="@pot" ValueChanged="OnPotChanged" id="position-pot-input" data-testid="position-pot">
                 @foreach (var key in PlanView.PotOrder)
                 {
                     <option value="@key">@L[$"Pot_{key}"]</option>
                 }
             </NativeSelect>
+        </StepField>
 
-            <NativeSelect Value="@Key(categoryId)" ValueChanged="OnCategoryChanged" Label="@L["Field_Category"]"
+        <StepField Label="@L["Field_Category"]" InputId="position-category-input" TestId="position-category-field">
+            <NativeSelect Value="@Key(categoryId)" ValueChanged="OnCategoryChanged" id="position-category-input"
                           data-testid="position-category">
                 <option value="">@L["PlanPositionDialog_Choose"]</option>
                 @foreach (var group in OfferedCategories())
@@ -53,27 +56,16 @@
                     </optgroup>
                 }
             </NativeSelect>
+        </StepField>
 
-            @* Ohne Konto zahlt das Standardkonto. *@
-            <NativeSelect Value="@Key(accountId)" ValueChanged="OnAccountChanged" Label="@L["Field_PayingAccount"]"
-                          data-testid="position-account">
-                <option value="">@L["PlanPositionDialog_DefaultAccount"]</option>
-                @foreach (var account in Accounts.Where(a => a.Active || a.Id == accountId))
-                {
-                    <option value="@account.Id">@account.Name</option>
-                }
-            </NativeSelect>
-        </MudStack>
-    </DialogContent>
-    <DialogActions>
-        @if (!Host.IsApp)
-        {
-            <MudButton OnClick="Cancel">@L["PlanDialog_Cancel"]</MudButton>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="busy" OnClick="SaveAsync"
-                       data-testid="position-save">@L["PlanPositionDialog_Save"]</MudButton>
-        }
-    </DialogActions>
-</MudDialog>
+        @* Ohne Konto zahlt das Standardkonto. *@
+        <StepField Label="@L["Field_PayingAccount"]" InputId="position-account-input" TestId="position-account-field">
+            <AccountSelect Value="accountId" ValueChanged="OnAccountChosen" Accounts="Accounts"
+                           Label="@L["Field_PayingAccount"]" HideLabel="true" EmptyText="@L["PlanPositionDialog_DefaultAccount"]"
+                           InputId="position-account-input" TestId="position-account" />
+        </StepField>
+    </DialogStep>
+</StepDialog>
 
 @code {
 
@@ -144,9 +136,7 @@
         }
     }
 
-    private void OnAccountChanged(string value) => accountId = ParseId(value);
-
-    private void Cancel() => MudDialog.Cancel();
+    private void OnAccountChosen(Guid? id) => accountId = id;
 
     private async Task SaveAsync()
     {

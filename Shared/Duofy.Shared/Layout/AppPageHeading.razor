@@ -1,0 +1,12 @@
+@inject IAppHost Host
+
+@* In der App zeigt die obere Leiste den Titel der Seite und ist selbst keine Überschrift. Damit Vorlese-Programme die
+   Seite trotzdem an ihrer Hauptüberschrift erkennen, steht sie hier unsichtbar; im Browser zeigt die Seite sie selbst. *@
+@if (Host.IsApp)
+{
+    <h1 class="visually-hidden">@Text</h1>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Text { get; set; } = "";
+}

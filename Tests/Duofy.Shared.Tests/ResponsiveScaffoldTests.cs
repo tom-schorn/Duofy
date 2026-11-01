@@ -144,7 +144,7 @@ public class ResponsiveScaffoldTests : PageTestContext
     {
         var cut = Render<BottomNavigation>();
 
-        Assert.Equal(["Start", "Plan", "Buchungen", "Mehr"], cut.FindAll("a").Select(a => a.TextContent.Trim()));
+        Assert.Equal(["Start", "Plan", "Buchungen", "Sparen", "Mehr"], cut.FindAll("a").Select(a => a.TextContent.Trim()));
     }
 
     // A4 (R4)

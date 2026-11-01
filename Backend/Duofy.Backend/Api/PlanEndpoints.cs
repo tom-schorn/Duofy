@@ -320,7 +320,24 @@ internal static class PlanEndpoints
                 return ApiErrors.BadRequest(ErrorCodes.DefaultAccountRequired);
             }
 
-            var booking = TickBooking(position, year, month, amount, accountId.Value, request.Date ?? TickDate(position, year, month, Berlin.Today(time)));
+            // Hängt der Vertrag hinter dem Posten an einem Sparziel, fließt die Rate dem Ziel zu (Issue 32).
+            var links = position.CommitmentId is { } commitmentId
+                ? await db.Commitments.AsNoTracking()
+                    .Where(c => c.Id == commitmentId && c.OwnerId == ownerId)
+                    .Select(c => new { c.SavingsGoalId, c.DebtId })
+                    .FirstOrDefaultAsync(cancellationToken)
+                : null;
+            var goalId = position.CounterAccountId is not null ? links?.SavingsGoalId : null;
+            // Eine Rate, die eine Schuld zurückzahlt, ist eine Ausgabe und trägt die Schuld an ihrer Zeile (Issue 31).
+            var debtId = position.CounterAccountId is null && position.Pot != Pot.Income ? links?.DebtId : null;
+            // Eine Rate an ein Sparziel oder auf eine Schuld verändert deren Stand; das braucht im Bereich Sparen Anlegen. Ohne
+            // diese Freigabe bricht das Abhaken ab, statt die Verknüpfung still wegzulassen.
+            if ((goalId is not null || debtId is not null)
+                && (await access.RequireAsync(ownerId, Area.Savings, AccessLevel.Create, cancellationToken)).Refusal(() => NotFound(ErrorCodes.PositionNotFound)) is { } noSavings)
+            {
+                return noSavings;
+            }
+            var booking = TickBooking(position, year, month, amount, accountId.Value, request.Date ?? TickDate(position, year, month, Berlin.Today(time)), goalId, debtId);
             var check = await BookingValidator.CheckAsync(booking, ownerId, accounts, categories, positions, time, cancellationToken);
             if (BookingEndpoints.Refusal(check) is { } refused)
             {
@@ -367,6 +384,13 @@ internal static class PlanEndpoints
 
         if (position.TickBookingId is { } bookingId)
         {
+            // Die Buchung vom Abhaken kann einem Sparziel oder einer Schuld zugeordnet sein; sie zu löschen ändert deren Stand und
+            // braucht im Bereich Sparen Löschen, genau wie das Löschen einer solchen Buchung.
+            if (await db.Bookings.AnyAsync(b => b.Id == bookingId && b.OwnerId == ownerId && b.Lines.Any(l => l.SavingsGoalId != null || l.DebtId != null), cancellationToken)
+                && (await access.RequireAsync(ownerId, Area.Savings, AccessLevel.Delete, cancellationToken)).Refusal(() => NotFound(ErrorCodes.PositionNotFound)) is { } noSavings)
+            {
+                return noSavings;
+            }
             await db.Bookings.Where(b => b.Id == bookingId && b.OwnerId == ownerId).ExecuteDeleteAsync(cancellationToken);
             loggers.CreateLogger(LogCategory).LogInformation(
                 "Haken an Posten {PositionId} von {UserId} entfernt, Buchung {BookingId} gelöscht.", position.Id, ownerId, bookingId);
@@ -410,8 +434,14 @@ internal static class PlanEndpoints
         }
 
         var plan = await plans.GetOrCreateAsync(ownerId, year, month, cancellationToken);
-        var commitments = await db.Commitments.AsNoTracking().Where(c => c.OwnerId == ownerId).ToListAsync(cancellationToken);
-        var changes = PlanChanges.Compare(plan, commitments, await plans.FirstOpeningAsync(ownerId, cancellationToken));
+        var commitments = await SavingsGoalEndpoints.PlanCommitmentsAsync(db, ownerId, cancellationToken);
+        // Unterschiede aus Sparzielen und Schulden unter den Verträgen übernimmt nur, wer den Bereich Sparen ansehen darf.
+        var seesSavings = (await PlanSight.OfAsync(access, ownerId, cancellationToken)).Savings;
+        HashSet<Guid> hidden = seesSavings ? [] : await SavingsGoalEndpoints.SavingsTypeCommitmentIdsAsync(db, ownerId, cancellationToken);
+        HashSet<Guid> goalLinked = seesSavings ? [] : await SavingsGoalEndpoints.GoalLinkedCommitmentIdsAsync(db, ownerId, cancellationToken);
+        var changes = PlanChanges.Compare(plan, commitments, await plans.FirstOpeningAsync(ownerId, cancellationToken))
+            .Where(change => !hidden.Contains(change.CommitmentId)
+                && !(change.Kind == PlanChangeKind.NoLongerDue && goalLinked.Contains(change.CommitmentId))).ToList();
         var items = request?.Items;
         var chosen = items is null
             ? changes.Where(c => !c.Protected).ToList()
@@ -638,21 +668,24 @@ internal static class PlanEndpoints
 
     /// <summary>
     /// Die Buchung zum Abhaken, vorbelegt aus dem Posten. Ihre Zeile füllt immer den eigenen Posten.
-    /// Mit Zielkonto ist sie eine Umbuchung; Quell- und Zieltopf sind beide der Topf des Postens (Spec 72, R9),
+    /// Mit Zielkonto ist sie eine Umbuchung; Quell- und Zieltopf sind beide der Topf des Postens (Spec 72, R9), bei einem Vertrag mit Sparziel ist der Zieltopf Sparen,
     /// und eine Umbuchung darf jeden Posten mit eigenem Zielkonto füllen (R6), von Hand genauso.
     /// </summary>
-    private static SaveBookingRequest TickBooking(PlanPosition position, int year, int month, decimal amount, Guid accountId, DateOnly date)
+    private static SaveBookingRequest TickBooking(
+        PlanPosition position, int year, int month, decimal amount, Guid accountId, DateOnly date, Guid? savingsGoalId = null, Guid? debtId = null)
     {
         if (position.CounterAccountId is { } counter)
         {
             var pot = PotKey.ToKey(position.Pot);
+            // Mit Sparziel geht das Geld in den Topf Sparen und die Zeile trägt das Ziel; sonst bleibt der Zieltopf der des Postens.
+            var targetPot = savingsGoalId is null ? pot : PotKeys.Savings;
             return new SaveBookingRequest(BookingKinds.Transfer, accountId, counter, date, amount, position.Label,
-                [new SaveBookingLine(amount, pot, null, position.Id)], year, month, TargetPot: pot);
+                [new SaveBookingLine(amount, pot, null, position.Id, savingsGoalId)], year, month, TargetPot: targetPot);
         }
 
         var kind = position.Pot == Pot.Income ? BookingKinds.Income : BookingKinds.Expense;
         return new SaveBookingRequest(kind, accountId, null, date, amount, position.Label,
-            [new SaveBookingLine(amount, PotKey.ToKey(position.Pot), position.CategoryId, position.Id)], year, month);
+            [new SaveBookingLine(amount, PotKey.ToKey(position.Pot), position.CategoryId, position.Id, DebtId: debtId)], year, month);
     }
 
     /// <summary>Eine Buchung des Übertrags oder Ausgleichs, ohne die Prüfung für Buchungen von Hand (die Daten sind schon geprüft).</summary>

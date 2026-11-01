@@ -117,6 +117,18 @@ public class Commitment
     /// <summary>Nur bei einem Sparziel: der Tag, bis zu dem das Ziel erreicht sein soll. Freiwillig.</summary>
     public DateOnly? TargetDate { get; set; }
 
+    /// <summary>
+    /// Das Sparziel, dem die Rate zufließt (Issue 32); null, wenn der Vertrag keinem Ziel zugeordnet ist. Ist das Ziel
+    /// erreicht, verlangt der Plan die Rate nicht mehr (Issue 30).
+    /// </summary>
+    public Guid? SavingsGoalId { get; set; }
+
+    /// <summary>
+    /// Die Schuld oder der Kredit, den die Rate zurückzahlt (Issue 31); null, wenn keiner. Ist alles gezahlt, verlangt der
+    /// Plan die Rate nicht mehr.
+    /// </summary>
+    public Guid? DebtId { get; set; }
+
     /// <summary>Wann der Vertrag angelegt wurde.</summary>
     public DateTimeOffset CreatedAt { get; set; }
 

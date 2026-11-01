@@ -1,0 +1,12 @@
+@using Duofy.Shared.Icons
+
+@* Das Symbol eines Kontos neben seinem Namen. Es ist Schmuck: Der Name steht immer daneben, darum bleibt das Zeichen
+   für Vorlese-Programme stumm. data-icon trägt den Namen aus der API (bank, piggy ...), unabhängig von der Sammlung. *@
+<span class="account-icon" data-icon="@Icon"><TablerIcon Name="@AccountIconSet.SymbolName(Icon)" Size="@Size" /></span>
+
+@code {
+    /// <summary>Der Name des Symbols aus <c>AccountIcons</c>.</summary>
+    [Parameter, EditorRequired] public string Icon { get; set; } = "";
+
+    [Parameter] public int Size { get; set; } = 22;
+}

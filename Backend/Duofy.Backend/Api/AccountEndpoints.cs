@@ -40,7 +40,8 @@ internal static class AccountEndpoints
         account.Iban,
         account.IsDefault,
         account.Active,
-        account.Balance(today));
+        account.Balance(today),
+        AccountIcons.Effective(AccountTypeKey.ToKey(account.Type), account.Icon));
 
     /// <summary>
     /// Alle Konten der Person, das Standardkonto zuerst, dann nach Namen. Mit <c>?active=true</c>
@@ -120,6 +121,10 @@ internal static class AccountEndpoints
         {
             return ApiErrors.BadRequest(ibanError);
         }
+        if (AccountInput.CheckIcon(request.Icon, out var icon) is { } iconError)
+        {
+            return ApiErrors.BadRequest(iconError);
+        }
 
         var now = time.GetUtcNow();
         var account = new Account
@@ -132,6 +137,7 @@ internal static class AccountEndpoints
             OpeningDate = request.OpeningDate,
             CountsAsAvailable = request.CountsAsAvailable ?? Account.CountsAsAvailableFor(type),
             Iban = iban,
+            Icon = icon,
             Active = true,
             CreatedAt = now,
             UpdatedAt = now,
@@ -233,6 +239,12 @@ internal static class AccountEndpoints
             return ApiErrors.BadRequest(ibanError);
         }
 
+        var storedIcon = account.Icon;
+        if (request.Icon is not null && AccountInput.CheckIcon(request.Icon, out storedIcon) is { } iconError)
+        {
+            return ApiErrors.BadRequest(iconError);
+        }
+
         var active = request.Active ?? account.Active;
         if (request.IsDefault == true && !active)
         {
@@ -252,6 +264,7 @@ internal static class AccountEndpoints
         account.OpeningDate = request.OpeningDate ?? account.OpeningDate;
         account.CountsAsAvailable = request.CountsAsAvailable ?? account.CountsAsAvailable;
         account.Iban = iban;
+        account.Icon = storedIcon;
         account.Active = active;
         account.IsDefault = active && (request.IsDefault ?? account.IsDefault);
         account.UpdatedAt = time.GetUtcNow();
@@ -326,6 +339,22 @@ internal static class AccountInput
     /// <summary>Der Starttag darf heute sein, aber nicht in der Zukunft.</summary>
     public static string? CheckOpeningDate(DateOnly date, DateOnly today) =>
         date > today ? ErrorCodes.OpeningDateInFuture : null;
+
+    /// <summary>Eine leere Eingabe heißt "kein eigenes Symbol" (null, das Standardsymbol der Art); sonst muss es ein bekannter Name sein.</summary>
+    public static string? CheckIcon(string? raw, out string? icon)
+    {
+        icon = null;
+        if (string.IsNullOrEmpty(raw))
+        {
+            return null;
+        }
+        if (!AccountIcons.IsKnown(raw))
+        {
+            return ErrorCodes.AccountIconInvalid;
+        }
+        icon = raw;
+        return null;
+    }
 
     /// <summary>Eine leere Eingabe heißt "keine IBAN" (null); sonst muss sie gültig sein.</summary>
     public static string? CheckIban(string? raw, out string? iban)

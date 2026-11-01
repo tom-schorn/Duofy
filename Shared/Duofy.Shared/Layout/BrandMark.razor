@@ -1,0 +1,26 @@
+@inject AppBrand Brand
+
+@* Der Name der Anwendung in einer Leiste (Issue 8): mit Logo die Wortmarke oder, schmal, nur das Zeichen, ohne Logo
+   der Name als Text. Hell oder dunkel ergibt sich aus dem Grund, auf dem es steht (Dark); die Wortmarke trägt den
+   Namen selbst als Alternativtext, das Zeichen allein ist Schmuck neben dem Titel der Seite und bleibt für
+   Vorlese-Programme stumm. *@
+@if (!Brand.HasLogo)
+{
+    <span class="brand-name">@Brand.Name</span>
+}
+else if (Symbol)
+{
+    <img class="brand-logo brand-logo--symbol" src="@(Dark ? Brand.SymbolDark : Brand.SymbolLight)" alt="" width="28" height="28" data-testid="brand-logo" />
+}
+else
+{
+    <img class="brand-logo" src="@(Dark ? Brand.WordmarkDark : Brand.WordmarkLight)" alt="@Brand.Name" width="120" height="40" data-testid="brand-logo" />
+}
+
+@code {
+    /// <summary>True, wenn der Grund dunkel ist.</summary>
+    [Parameter] public bool Dark { get; set; }
+
+    /// <summary>True: nur das Zeichen statt der Wortmarke.</summary>
+    [Parameter] public bool Symbol { get; set; }
+}

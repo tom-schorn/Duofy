@@ -115,7 +115,7 @@ public sealed class OwnerSaveCheck : SaveChangesInterceptor
     }
 
     /// <summary>True für die Datensätze mit eigenem Besitzer, auch für eingebaute Kategorien (Besitzer null).</summary>
-    private static bool HasOwner(object entity) => entity is Account or Booking or Commitment or Plan or Category;
+    private static bool HasOwner(object entity) => entity is Account or Booking or Commitment or Plan or Category or SavingsGoal or Debt;
 
     /// <summary>Der Besitzer, wie er geladen wurde oder wie er gespeichert würde; null bei eingebauten Kategorien.</summary>
     private static Guid? Owner(EntityEntry entry, bool original)

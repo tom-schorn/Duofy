@@ -30,6 +30,8 @@
         </div>
     }
 
+    @* Die vier Abschnitte stehen ab 1280 px in zwei Spalten, darunter untereinander wie bisher. *@
+    <div class="month-sections page-wide">
     <section class="month-section" aria-labelledby="month-pots-heading" data-testid="month-pots">
         <h2 class="month-section-title" id="month-pots-heading">@L["Month_PotsHeading"]</h2>
         @foreach (var pot in Model.Pots)
@@ -87,6 +89,7 @@
             <LineTable Caption="@L["Month_DueCaption"]" HideCaption="true" Rows="DueRows" />
         }
     </section>
+    </div>
 </div>
 
 @code {

@@ -71,6 +71,7 @@ public class BookingDialogPlanTests : PageTestContext
 
         Field(dialogs, "booking-amount").Change("42");
         dialogs.Find("[data-testid='booking-line-position-0']").Change(groceries.Id.ToString());
+        dialogs.Find("[data-testid='booking-next']").Click();
         dialogs.Find("[data-testid='booking-save']").Click();
 
         dialogs.WaitForAssertion(() => Assert.Single(BookingApiFake.Created));
@@ -96,6 +97,7 @@ public class BookingDialogPlanTests : PageTestContext
         Assert.Contains((2026, 11), PlanApiFake.GetCalls);
         Field(dialogs, "booking-amount").Change("890");
         dialogs.Find("[data-testid='booking-line-category-0']").Change(FakeCategoryApi.Groceries.Id.ToString());
+        dialogs.Find("[data-testid='booking-next']").Click();
         dialogs.Find("[data-testid='booking-save']").Click();
 
         dialogs.WaitForAssertion(() => Assert.Equal((2026, 11), (BookingApiFake.Created.Single().PlanYear, BookingApiFake.Created.Single().PlanMonth)));

@@ -57,6 +57,12 @@ public class Account
     public string? Iban { get; set; }
 
     /// <summary>
+    /// Das Symbol, das die Person für das Konto gewählt hat (Name aus <see cref="Duofy.Schemas.AccountIcons"/>); null, solange sie
+    /// keines gewählt hat. Dann zeigt das Konto das Standardsymbol seiner Art. Bestehende Konten sind so ohne Änderung der Daten versorgt.
+    /// </summary>
+    public string? Icon { get; set; }
+
+    /// <summary>
     /// True beim Standardkonto: Es ist beim Buchen vorgewählt. Eine Person hat höchstens
     /// ein Standardkonto, und es ist immer ein aktives.
     /// </summary>

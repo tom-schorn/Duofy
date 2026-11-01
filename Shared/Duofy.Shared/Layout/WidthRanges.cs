@@ -23,6 +23,9 @@ public static class WidthRanges
     /// <summary>Höchste Breite des Inhalts auf dem Desktop in Pixeln.</summary>
     public const int ContentMaxWidth = 1180;
 
+    /// <summary>Höchste Breite von Seiten mit Spalten auf dem Desktop in Pixeln (Klasse page-wide, Tom 01.11.2026).</summary>
+    public const int WideContentMaxWidth = 1600;
+
     /// <summary>Kleinste Höhe und Breite einer Tippfläche in Pixeln.</summary>
     public const int TapTargetMin = 44;
 }

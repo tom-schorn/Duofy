@@ -1,0 +1,26 @@
+@implements IDisposable
+@inject NavigationManager Navigation
+@inject IStringLocalizer<SharedResources> L
+
+@* Der erste Halt der Tastatur: springt über Leiste und Navigation zum Inhalt und ist nur sichtbar, solange er den
+   Fokus hat. Die Adresse enthält die aktuelle Seite, weil base href="/" einen reinen Anker zur Startseite machen würde;
+   sie gilt, bevor die Seite interaktiv ist. Danach setzt der Klick den Fokus selbst, das Ziel hat tabindex -1. *@
+<a class="skip-link" href="@Href" @onclick="MoveFocusAsync" @onclick:preventDefault="true" data-testid="skip-link">@L["Layout_SkipToContent"]</a>
+
+@code {
+    /// <summary>Die Id des Inhalts, zu dem der Link springt.</summary>
+    public const string TargetId = "main-content";
+
+    /// <summary>Liefert das Ziel erst beim Klick; beim ersten Zeichnen des Layouts gibt es den Verweis noch nicht.</summary>
+    [Parameter, EditorRequired] public Func<ElementReference> Target { get; set; } = default!;
+
+    private string Href => $"{Navigation.Uri.Split('#')[0]}#{TargetId}";
+
+    protected override void OnInitialized() => Navigation.LocationChanged += OnLocationChanged;
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e) => InvokeAsync(StateHasChanged);
+
+    private async Task MoveFocusAsync() => await Target().FocusAsync();
+
+    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
+}

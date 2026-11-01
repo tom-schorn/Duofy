@@ -24,9 +24,10 @@
 
 <PageTitle>@L["Account_Title"]</PageTitle>
 
+<AppPageHeading Text="@L["Account_Title"]" />
 @if (!Host.IsApp)
 {
-    <MudText Typo="Typo.h4" Class="mb-1">@L["Account_Title"]</MudText>
+    <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-1">@L["Account_Title"]</MudText>
 }
 @if (email is not null)
 {
@@ -158,7 +159,7 @@
         }
         else
         {
-            <MudButton Href="/konto/loeschen" Variant="Variant.Outlined" Color="Color.Error"
+            <MudButton Href="/konto/loeschen" Variant="Variant.Outlined"
                        data-testid="account-delete-link">@L["Account_DeleteLink"]</MudButton>
         }
     </MudPaper>

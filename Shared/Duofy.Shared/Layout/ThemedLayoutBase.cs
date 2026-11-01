@@ -1,5 +1,7 @@
 using Duofy.Shared.Services;
+using Duofy.Shared.Theme;
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 using MudBlazor;
 
 namespace Duofy.Shared.Layout;
@@ -13,6 +15,8 @@ public abstract class ThemedLayoutBase : LayoutComponentBase
 {
     [Inject] private IThemePreferenceStore ThemeStore { get; set; } = default!;
 
+    [Inject] private IJSRuntime Js { get; set; } = default!;
+
     /// <summary>Wird im Layout per @ref an den MudThemeProvider gehängt.</summary>
     protected MudThemeProvider? ThemeProvider { get; set; }
 
@@ -23,6 +27,17 @@ public abstract class ThemedLayoutBase : LayoutComponentBase
 
     private bool systemIsDark;
 
+    // Issue 5: Kennt der Speicher die Wahl schon jetzt (in der App: Preferences), gilt sie vor dem ersten Zeichnen und
+    // nicht erst danach. Im Browser gibt es null; dort setzt das Skript im Kopf der Seite (ThemeBoot) die Farbe früh.
+    protected override void OnInitialized()
+    {
+        if (ThemeStore.LoadImmediately() is not { } start) return;
+
+        Choice = start.Choice;
+        systemIsDark = start.SystemIsDark;
+        ApplyChoice();
+    }
+
     // Erst nach dem ersten Zeichnen gibt es einen Browser, den man fragen kann.
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -32,10 +47,25 @@ public abstract class ThemedLayoutBase : LayoutComponentBase
         systemIsDark = await ThemeProvider.GetSystemDarkModeAsync();
         ApplyChoice();
         StateHasChanged();
+        await DropBootClassAsync();
 
         // Der Provider selbst beobachtet das Gerät nicht (ObserveSystemDarkModeChange="false" im Layout),
         // sonst würde ein Wechsel am Gerät auch eine gewählte Hell- oder Dunkel-Wahl überschreiben.
         await ThemeProvider.WatchSystemDarkModeAsync(OnSystemDarkModeChangedAsync);
+    }
+
+    // Ab jetzt zeichnet das Layout selbst in der richtigen Farbe; die frühe Klasse der Seite würde eine spätere Wahl
+    // (etwa von Dunkel auf Hell) überstimmen und muss weg. In der App und beim Vorrendern gibt es sie nicht.
+    private async Task DropBootClassAsync()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync(ThemeBoot.RemoveFunction, ThemeBoot.DarkClass);
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException or JSDisconnectedException)
+        {
+            // Ohne Browser (Test, Vorrendern) ist nichts zu entfernen.
+        }
     }
 
     protected async Task SelectChoiceAsync(ThemeChoice choice)

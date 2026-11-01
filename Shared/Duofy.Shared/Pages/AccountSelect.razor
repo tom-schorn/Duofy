@@ -1,0 +1,58 @@
+@* Die Wahl eines Kontos mit Symbol und Namen (Issue 16). Ein Auswahlfeld kann keine Symbole zeigen; darum ist es eine
+   Gruppe von Optionsfeldern: Tastatur (Pfeiltasten, Tab) und Vorlese-Programme ("Girokonto, Optionsfeld, 1 von 3")
+   kommen vom Browser, die Gruppe trägt die Beschriftung als legend. Lange Namen brechen um.
+
+   Angeboten werden die Konten der Liste, also nur die, die die Person sehen darf; aufgelöste nicht, außer das gewählte,
+   damit es beim Ändern sichtbar bleibt. Die erste Option ist die leere Wahl mit EmptyText ("Standardkonto" ...); ohne
+   EmptyText fehlt sie. *@
+<fieldset class="account-select" role="radiogroup" id="@InputId" data-testid="@TestId" aria-describedby="@DescribedBy">
+    <legend class="@(HideLabel ? "visually-hidden" : "account-select-legend")">@Label</legend>
+    <div class="account-options">
+        @if (EmptyText is not null)
+        {
+            <label class="account-option">
+                <input type="radio" name="@group" value="" checked="@(Value is null)" @onchange="() => ChooseAsync(null)"
+                       data-testid="@($"{TestId}-none")" />
+                <span class="account-option-name">@EmptyText</span>
+            </label>
+        }
+        @foreach (var account in Accounts.Where(a => a.Active || a.Id == Value))
+        {
+            var id = account.Id;
+            <label class="account-option">
+                <input type="radio" name="@group" value="@id" checked="@(Value == id)" @onchange="() => ChooseAsync(id)"
+                       data-testid="@($"{TestId}-{id}")" />
+                <AccountIconMark Icon="@account.Icon" />
+                <span class="account-option-name">@account.Name</span>
+            </label>
+        }
+    </div>
+</fieldset>
+
+@code {
+    private readonly string group = $"account-select-{Guid.NewGuid():N}";
+
+    /// <summary>Das gewählte Konto; null heißt die leere Wahl.</summary>
+    [Parameter] public Guid? Value { get; set; }
+
+    [Parameter] public EventCallback<Guid?> ValueChanged { get; set; }
+
+    [Parameter] public IReadOnlyList<AccountChoice> Accounts { get; set; } = [];
+
+    /// <summary>Was die leere Wahl bedeutet, etwa "Standardkonto" oder "(kein eigenes Konto)"; null lässt sie weg.</summary>
+    [Parameter] public string? EmptyText { get; set; }
+
+    /// <summary>Die Beschriftung der Gruppe.</summary>
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+
+    /// <summary>True, wenn die Beschriftung schon daneben steht (im Schritt-Dialog); sie bleibt dann für Vorlese-Programme.</summary>
+    [Parameter] public bool HideLabel { get; set; }
+
+    [Parameter] public string? InputId { get; set; }
+
+    [Parameter] public string? DescribedBy { get; set; }
+
+    [Parameter] public string? TestId { get; set; }
+
+    private Task ChooseAsync(Guid? id) => ValueChanged.InvokeAsync(id);
+}

@@ -1,20 +1,34 @@
 @using Duofy.Schemas
+@using Duofy.Shared.Icons
+@using Duofy.Shared.Services
 @inject IStringLocalizer<SharedResources> L
 
-@* Die Wahl der Zahlungsart im Vertragsdialog (Schritt 3, Spec 17). Vorerst ein Auswahlfeld; die
-   Symbol-Knöpfe (#15) ersetzen nur diese Datei, der Dialog gibt den Wert hinein und bekommt die Wahl
-   über ValueChanged zurück. Leer ("") heißt: noch nicht gewählt. *@
+@* Die Wahl der Zahlungsart im Vertragsdialog (Schritt 3, Spec 17, Issue 15): Symbol über dem Text, je Zahlungsart ein
+   Knopf. Wie bei der Kontoauswahl ist es eine Gruppe von Optionsfeldern: Tastatur (Pfeiltasten, Tab) und Vorlese-Programme
+   ("Dauerauftrag, Optionsfeld, 2 von 5") kommen vom Browser. Die Beschriftung steht im StepField darüber; die Gruppe
+   trägt sie als legend für Vorlese-Programme noch einmal. Die Wahl ist nicht nur an der Farbe zu erkennen (dicker Rand,
+   fetter Text, Häkchen). Der Dialog gibt den Wert hinein und bekommt die Wahl über ValueChanged zurück; leer ("")
+   heißt: noch nicht gewählt, dann ist kein Knopf gewählt. *@
 
-<NativeSelect Value="@Value" ValueChanged="ValueChanged" id="@InputId" aria-describedby="@($"{InputId}-error")"
-              data-testid="@TestId">
-    <option value="">@L["CommitmentDialog_Choose"]</option>
-    @foreach (var method in PaymentMethods.All)
-    {
-        <option value="@method">@L[$"PaymentMethod_{method}"]</option>
-    }
-</NativeSelect>
+<fieldset class="payment-select" role="radiogroup" id="@InputId" data-testid="@TestId" aria-describedby="@($"{InputId}-error")">
+    <legend class="visually-hidden">@L["Field_PaymentMethod"]</legend>
+    <div class="payment-options">
+        @foreach (var method in PaymentMethods.All)
+        {
+            var key = method;
+            <label class="payment-option">
+                <input type="radio" name="@group" value="@key" checked="@(Value == key)" @onchange="() => ChooseAsync(key)"
+                       data-testid="@($"{TestId}-{key}")" />
+                <span class="payment-icon" data-icon="@key"><TablerIcon Name="@PaymentMethodIconSet.SymbolName(key)" Size="28" /></span>
+                <span class="payment-option-name">@L[$"PaymentMethod_{key}"]</span>
+            </label>
+        }
+    </div>
+</fieldset>
 
 @code {
+    private readonly string group = $"payment-select-{Guid.NewGuid():N}";
+
     /// <summary>Die gewählte Zahlungsart, siehe <see cref="PaymentMethods"/>; "" solange keine gewählt ist.</summary>
     [Parameter]
     public string Value { get; set; } = "";
@@ -28,4 +42,6 @@
 
     [Parameter]
     public string? TestId { get; set; }
+
+    private Task ChooseAsync(string key) => ValueChanged.InvokeAsync(key);
 }

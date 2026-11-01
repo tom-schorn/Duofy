@@ -34,12 +34,16 @@ RUN apt-get update \
     && apt-get install --yes --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Der Ordner der Schlüssel (Duofy__KeysDirectory) gehört dem Benutzer app, damit das Volume darüber ihm gehört.
+RUN mkdir /keys && chown "$APP_UID" /keys
+
 WORKDIR /app
 COPY --from=build /app ./
 
 # Nicht als root: Das Image bringt den Benutzer app mit (APP_UID).
 USER $APP_UID
-ENV ASPNETCORE_HTTP_PORTS=8080
+ENV ASPNETCORE_HTTP_PORTS=8080 \
+    Duofy__KeysDirectory=/keys
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \

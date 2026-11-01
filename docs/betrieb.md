@@ -154,15 +154,34 @@ Turnstile (der Schutz der Formulare vor Bots) ist auf Version 2 verschoben: Die 
 
 ### 2.5 Web Analytics
 
-Web Analytics zählt Seitenaufrufe ohne Cookies, deshalb braucht es keinen Cookie-Hinweis. Im Dashboard unter Analytics
-& Logs, Web Analytics, "Add a site": als Hostname `portal.plagevo.de` eintragen und die automatische Einrichtung
-eingeschaltet lassen. Weil der Hostname über Cloudflare läuft, fügt Cloudflare das kleine Skript (den "Beacon") dann
-selbst in jede Seite ein, die durch den Tunnel geht. `CLOUDFLARE_ANALYTICS_TOKEN` bleibt dabei leer; stünde es auch
-drin, zählte jeder Seitenaufruf doppelt.
+Web Analytics zählt Seitenaufrufe. Plagevo lädt das Skript von Cloudflare (den "Beacon") erst, wenn die Person im
+Hinweis "Einwilligung" zugestimmt hat; ohne Zustimmung und ohne Token lädt nichts. Deshalb darf Cloudflare das Skript
+nicht selbst in die Seiten einfügen, sonst liefe es auch bei denen, die abgelehnt haben.
 
-Das Token ist nur der Notweg, falls die automatische Einrichtung nicht geht oder ausgeschaltet ist: Dann zeigt
-Cloudflare einen Schnipsel mit `data-cf-beacon='{"token": "..."}'`, und nur den Wert hinter `token` trägst du als
-`CLOUDFLARE_ANALYTICS_TOKEN` ein. Die Web-Variante fügt das Skript dann selbst ein.
+So stellst du es ein:
+
+1. Im Dashboard unter Analytics & Logs, Web Analytics, "Add a site": als Hostname `portal.plagevo.de` eintragen.
+2. Die automatische Einrichtung (Cloudflare fügt das Skript selbst ein, "Enable automatic setup") ausschalten, also die
+   manuelle Einrichtung wählen. Gibt es für den Hostnamen schon eine Site mit automatischer Einrichtung, dort die
+   automatische Einrichtung abschalten oder die Site löschen und neu anlegen.
+3. Cloudflare zeigt jetzt einen Schnipsel mit `data-cf-beacon='{"token": "..."}'`. Nur den Wert hinter `token` trägst du
+   in der `.env` als `CLOUDFLARE_ANALYTICS_TOKEN` ein (Schritt 4), dann `docker compose up -d`.
+
+Ohne Token fragt Plagevo gar nicht erst nach der Einwilligung und lädt nichts. Was die Datenschutzerklärung dazu sagen
+muss, steht als Vorlage in `docs/rechtstexte/datenschutz-cloudflare.txt` (Schritt 6).
+
+### 2.6 Chat (Crisp)
+
+Der Chat kommt von Crisp. Plagevo lädt das Skript von Crisp erst, wenn die Person im Hinweis "Einwilligung" dem Chat
+zugestimmt hat (eigene Wahl, getrennt von der Statistik). Ohne Website-ID gibt es keinen Chat und keine Frage.
+
+1. Im Crisp-Konto die Website anlegen und die Website-ID kopieren (Settings, Website Settings, Setup instructions).
+2. Die ID in der `.env` als `CRISP_WEBSITE_ID` eintragen, dann `docker compose up -d`.
+3. Das Bild des Chats (das Logo) stellst du im Crisp-Konto ein (Chatbox-Einstellungen, Aussehen); das Skript von
+   Plagevo setzt es nicht.
+
+Plagevo übergibt keine Nutzerdaten an Crisp: keine E-Mail, keinen Namen, keine Kennung. Was die Datenschutzerklärung
+dazu sagen muss, steht als Vorlage in `docs/rechtstexte/datenschutz-crisp.txt` (Schritt 6).
 
 ## 3. Datenbank bei dir zu Hause über Tailscale
 
@@ -277,7 +296,8 @@ Was hinein muss:
 | `PLAGEVO_NETWORK` | der Name des eigenen Netzes, `plagevo`; nur ändern, wenn der Name schon vergeben ist, dann auch beim Tunnel |
 | `TRUSTED_PROXIES` | `172.30.10.2/32`, die Adresse des Tunnels; so steht es schon im Beispiel |
 | `TUNNEL_TOKEN` | nur in Fall B; in Fall A weglassen oder leer lassen |
-| `CLOUDFLARE_ANALYTICS_TOKEN` | leer, wenn Cloudflare das Skript selbst einfügt (Schritt 2.5) |
+| `CRISP_WEBSITE_ID` | Website-ID des Crisp-Chats (Schritt 2.6); leer heißt: kein Chat, keine Frage nach der Einwilligung |
+| `CLOUDFLARE_ANALYTICS_TOKEN` | Token der Web Analytics aus der manuellen Einrichtung (Schritt 2.5); leer heißt: keine Statistik, keine Frage nach der Einwilligung |
 | `BACKUP_UID`, `BACKUP_GID` | dein Benutzer auf dem Server (`id -u`, `id -g`); ihm gehört der Ordner der Sicherungen |
 
 `TRUSTED_PROXIES` ist wichtig: Nur von dieser Adresse darf eine Anfrage sagen, von welcher Adresse die Person kommt
@@ -320,6 +340,9 @@ nano legal/impressum.txt
 nano legal/datenschutz.txt
 nano legal/nutzungsbedingungen.txt
 ```
+
+In die Datenschutzerklärung gehören die Abschnitte zu Cloudflare aus `docs/rechtstexte/datenschutz-cloudflare.txt`.
+Die mit "OFFEN" markierten Stellen musst du vorher ausfüllen oder streichen.
 
 Die Namen müssen zu `DUOFY_IMPRINT_FILE`, `DUOFY_PRIVACY_FILE` und `DUOFY_TERMS_FILE` passen. Ein Text, der fehlt, leer
 oder größer als 200 KB ist, gilt als nicht vorhanden; das Log nennt dann seinen Namen.
@@ -437,8 +460,10 @@ Der Speicher: `docker stats --no-stream` zeigt, was jeder Container braucht.
    docker builder prune -f
    ```
 
-Die Anmeldungen bleiben über ein Update erhalten: Die Schlüssel der Tokens liegen im Volume `keys`. Wer dieses Volume
-lesen kann, kann Tokens fälschen; es bleibt auf dem Server und kommt in keine Sicherung nach außen.
+In der App bleibt die Anmeldung über ein Update erhalten: Die Schlüssel der Tokens liegen im Volume `keys`. Im Browser
+meldet ein Neustart der Web-Variante ab, denn ihre Sitzungen liegen im Arbeitsspeicher. Das Volume `web-keys` hält nur
+die Schlüssel für Formulare und den Zustand der Seiten. Wer `keys` lesen kann, kann Tokens fälschen; beide Volumes
+bleiben auf dem Server und kommen in keine Sicherung nach außen.
 
 Reicht der Arbeitsspeicher beim Bauen nicht (der Bau bricht mit "Killed" ab), vorher die Web-Variante anhalten:
 `docker compose --env-file .env stop web`, dann wie oben bauen und starten.
@@ -562,4 +587,4 @@ gelten nur für diese eigene Datenbank.
 | Die Seiten laden, aber kein Knopf reagiert; `check-web.sh` meldet `/_framework/blazor.web.js` mit HTTP 404 | Dem Image fehlt das Skript von Blazor. Den neuesten Stand holen und `web` neu bauen: `docker compose --env-file .env build --no-cache web`, dann `up -d web` und `sh check-web.sh`. |
 | Viele Anmeldungen der App enden mit 429 | `TRUSTED_PROXIES` passt nicht zur Adresse des Tunnels (Schritt 4), oder der Tunnel hat nicht `172.30.10.2`. |
 | `backup` schreibt nichts, "Permission denied" | Der Ordner `backups` gehört nicht `BACKUP_UID`: `sudo chown "$(id -u):$(id -g)" backups`. |
-| Nach einem Update ist jeder abgemeldet | Das Volume `keys` ist verloren gegangen, zum Beispiel durch `docker compose down -v`. Dann einmal neu anmelden; `-v` nie benutzen, mit `own-db.yml` löscht es auch die Datenbank. |
+| Nach einem Update ist jeder auch in der App abgemeldet | Das Volume `keys` ist verloren gegangen, zum Beispiel durch `docker compose down -v`. Dann einmal neu anmelden; `-v` nie benutzen, mit `own-db.yml` löscht es auch die Datenbank. |

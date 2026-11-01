@@ -313,7 +313,7 @@ internal static class HouseholdEndpoints
         var levels = new Dictionary<Area, AccessLevel>();
         foreach (var (area, key) in new[]
         {
-            (Area.Plan, request.Plan), (Area.Book, request.Book), (Area.Accounts, request.Accounts), (Area.Commitments, request.Commitments),
+            (Area.Plan, request.Plan), (Area.Book, request.Book), (Area.Accounts, request.Accounts), (Area.Commitments, request.Commitments), (Area.Savings, request.Savings),
         })
         {
             if (key is null)

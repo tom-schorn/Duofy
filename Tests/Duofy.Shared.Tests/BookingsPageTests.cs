@@ -343,6 +343,8 @@ public class BookingsPageTests : PageTestContext
         SelectIn(dialogs, "booking-line-category-0", FakeCategoryApi.Groceries.Id.ToString());
         var callsBefore = BookingApiFake.ListCalls.Count;
 
+        dialogs.Find("[data-testid='booking-next']").Click();
+
         dialogs.Find("[data-testid='booking-save']").Click();
 
         cut.WaitForAssertion(() => Assert.Single(BookingApiFake.Created));
@@ -365,6 +367,8 @@ public class BookingsPageTests : PageTestContext
         dialogs.WaitForAssertion(() => Assert.Contains("Neue Buchung", dialogs.Markup));
         Input(dialogs, "booking-amount").Change("42");
 
+        dialogs.Find("[data-testid='booking-next']").Click();
+
         dialogs.Find("[data-testid='booking-save']").Click();
 
         dialogs.WaitForAssertion(() => Assert.Contains("Die Zeilen ergeben zusammen nicht den Betrag der Buchung.", dialogs.Markup));
@@ -384,6 +388,7 @@ public class BookingsPageTests : PageTestContext
         dialogs.WaitForAssertion(() => Assert.Contains("Buchung ändern", dialogs.Markup));
         Assert.Equal("11,00", Input(dialogs, "booking-amount").GetAttribute("value"));
         Input(dialogs, "booking-amount").Change("12");
+        dialogs.Find("[data-testid='booking-next']").Click();
         dialogs.Find("[data-testid='booking-save']").Click();
 
         cut.WaitForAssertion(() => Assert.Single(BookingApiFake.Updated));
@@ -416,6 +421,7 @@ public class BookingsPageTests : PageTestContext
         SelectIn(dialogs, "booking-transfer-source-pot", PotKeys.Savings);
         SelectIn(dialogs, "booking-transfer-target-pot", PotKeys.Wants);
         Input(dialogs, "booking-amount").Change("100");
+        dialogs.Find("[data-testid='booking-next']").Click();
         dialogs.Find("[data-testid='booking-save']").Click();
 
         cut.WaitForAssertion(() => Assert.Single(BookingApiFake.Created));
@@ -463,10 +469,26 @@ public class BookingsPageTests : PageTestContext
     private static void Select(IRenderedComponent<Bookings> cut, string testId, string value) =>
         cut.Find($"[data-testid='{testId}']").Change(value);
 
-    private static void SelectIn(IRenderedComponent<IComponent> cut, string testId, string value) =>
-        cut.Find($"[data-testid='{testId}']").Change(value);
+    // Ein Auswahlfeld (select) ändert sich mit Change, die Kontoauswahl (Gruppe von Optionsfeldern, Issue 16) mit dem Optionsfeld.
+    private static void SelectIn(IRenderedComponent<IComponent> cut, string testId, string value)
+    {
+        var element = cut.Find($"[data-testid='{testId}']");
+        if (element.TagName == "FIELDSET")
+        {
+            element.QuerySelector($"input[type='radio'][value='{value}']")!.Change(true);
+        }
+        else
+        {
+            element.Change(value);
+        }
+    }
 
-    // Blazor schreibt die Auswahl als value-Attribut an das select-Element.
-    private static string? SelectedValue(IRenderedComponent<IComponent> cut, string testId) =>
-        cut.Find($"[data-testid='{testId}']").GetAttribute("value");
+    // Blazor schreibt die Auswahl als value-Attribut an das select-Element; bei Optionsfeldern ist es das angekreuzte.
+    private static string? SelectedValue(IRenderedComponent<IComponent> cut, string testId)
+    {
+        var element = cut.Find($"[data-testid='{testId}']");
+        return element.TagName == "FIELDSET"
+            ? element.QuerySelectorAll("input[type='radio']").Single(i => i.HasAttribute("checked")).GetAttribute("value")
+            : element.GetAttribute("value");
+    }
 }

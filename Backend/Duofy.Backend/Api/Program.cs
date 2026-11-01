@@ -155,6 +155,8 @@ v1.MapCategoryEndpoints();
 v1.MapAccountEndpoints();
 v1.MapBookingEndpoints();
 v1.MapCommitmentEndpoints();
+v1.MapSavingsGoalEndpoints();
+v1.MapDebtEndpoints();
 v1.MapPlanEndpoints();
 v1.MapHouseholdEndpoints();
 v1.MapHouseholdPlanEndpoints();

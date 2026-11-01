@@ -12,7 +12,7 @@ public static class BookingKinds
 
 /// <summary>Eine Zeile einer neuen oder geänderten Buchung: Betrag, Topf, Kategorie und freiwillig der Posten, den sie füllt.</summary>
 /// <param name="PositionId">Ein Posten im Planmonat der Buchung, dessen Topf zur Zeile passt; null heißt: keinem Posten zugeordnet.</param>
-public sealed record SaveBookingLine(decimal Amount, string? Pot, Guid? CategoryId, Guid? PositionId = null);
+public sealed record SaveBookingLine(decimal Amount, string? Pot, Guid? CategoryId, Guid? PositionId = null, Guid? SavingsGoalId = null, Guid? DebtId = null);
 
 /// <summary>
 /// Eine neue oder geänderte Buchung (POST und PUT /api/v1/bookings).
@@ -56,7 +56,7 @@ public sealed record SaveBookingRequest(
     string? TargetPot = null);
 
 /// <summary>Eine gespeicherte Zeile einer Buchung.</summary>
-public sealed record BookingLineResponse(Guid Id, decimal Amount, string Pot, Guid? CategoryId, Guid? PositionId = null);
+public sealed record BookingLineResponse(Guid Id, decimal Amount, string Pot, Guid? CategoryId, Guid? PositionId = null, Guid? SavingsGoalId = null, Guid? DebtId = null);
 
 /// <summary>Eine gespeicherte Buchung.</summary>
 public sealed record BookingResponse(

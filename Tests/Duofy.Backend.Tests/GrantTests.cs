@@ -63,6 +63,24 @@ public class GrantTests
         Assert.Equal(3, await fixture.Factory.WithDbAsync(db => db.Grants.CountAsync(g => g.GranterId == anna.Id)));
     }
 
+    // Issue 29: Sparen ist ein eigener Bereich; die Stufe wird gespeichert, ist für beide sichtbar und ändert die anderen nicht.
+    [Fact]
+    public async Task The_savings_area_is_stored_and_seen_from_both_sides_without_touching_the_others()
+    {
+        var (anna, ben) = await client.AnnaAndBenAsync();
+        var id = (await client.MineAsync(anna)).Id;
+
+        var answer = await client.GrantAsync(anna, ben, new UpdateGrantsRequest(Savings: AccessLevelKeys.Edit));
+
+        Assert.Equal(new GrantLevels(AccessLevelKeys.None, AccessLevelKeys.None, AccessLevelKeys.None, AccessLevelKeys.None, AccessLevelKeys.Edit), answer.MyGrants);
+        Assert.Equal(AccessLevelKeys.Edit, EntryFor(await client.MineAsync(ben), anna).GrantsToMe.Savings);
+        Assert.Equal(1, await fixture.Factory.WithDbAsync(db => db.Grants.CountAsync(g => g.GranterId == anna.Id && g.Area == Domain.Area.Savings)));
+
+        var withdrawn = await client.GrantAsync(anna, ben, new UpdateGrantsRequest(Savings: AccessLevelKeys.None));
+        Assert.Equal(GrantLevels.None, withdrawn.MyGrants);
+        Assert.False(await AnyGrantOfAsync(anna));
+    }
+
     // R2: Was Ben Anna gibt, ist seine eigene Entscheidung und ändert Annas nicht.
     [Fact]
     public async Task Each_side_sets_only_its_own_grants()

@@ -1,6 +1,7 @@
 @inherits ThemedLayoutBase
 @inject IStringLocalizer<SharedResources> L
 @inject IAppHost Host
+@inject AppBrand Brand
 
 @* Das Layout für Anmelden und Registrieren, nach dem Vorbild von AuthLayout.tsx im
    ursprünglichen Duofy: ohne App-Leiste und ohne Navigation. Auf dem Handy nur das
@@ -15,10 +16,10 @@
 
 <div class="auth-layout">
     <aside class="auth-brand" data-testid="auth-brand">
-        <span class="auth-brand-name">@L["App_Name"]</span>
+        <span class="auth-brand-name"><BrandMark Dark="true" /></span>
 
         <div class="auth-brand-middle">
-            <blockquote class="auth-claim">@L["Auth_Claim"]</blockquote>
+            <blockquote class="auth-claim">@L["Auth_Claim", Brand.Name]</blockquote>
             <ul class="auth-pots">
                 <li><span class="auth-pot-square pot-needs"></span>@L["Auth_PotNeeds"]</li>
                 <li><span class="auth-pot-square pot-wants"></span>@L["Auth_PotWants"]</li>
@@ -34,6 +35,9 @@
             <ThemeChoiceSwitch Choice="Choice" ChoiceSelected="SelectChoiceAsync" />
         </div>
 
+        @* Die Markenfläche links gibt es erst ab 1024 px; davor steht die Marke über dem Formular. *@
+        <div class="auth-mobile-brand"><BrandMark Dark="IsDarkMode" /></div>
+
         <div class="auth-form">@Body</div>
 
         @* Nur die Rechtstexte, die der Server anbietet (Spec 70, R8). *@
@@ -47,8 +51,8 @@
     </main>
 </div>
 
-<div id="blazor-error-ui" data-nosnippet>
+<div id="blazor-error-ui" data-nosnippet role="alert">
     @L["Layout_ErrorMessage"]
     <a href="." class="reload">@L["Layout_Reload"]</a>
-    <span class="dismiss">&#10005;</span>
+    <button type="button" class="dismiss" aria-label="@L["Layout_Dismiss"]">&#10005;</button>
 </div>

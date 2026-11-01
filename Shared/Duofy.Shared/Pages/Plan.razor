@@ -3,6 +3,7 @@
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
+@using Duofy.Shared.Dialogs
 @using Duofy.Shared.Pages.Month
 @implements IDisposable
 @inject IPlanApi PlanApi
@@ -43,10 +44,11 @@
 }
 else
 {
+<AppPageHeading Text="@L["Nav_Plan"]" />
 @if (!Host.IsApp)
 {
     <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
-        <MudText Typo="Typo.h4">@L["Nav_Plan"]</MudText>
+        <MudText Typo="Typo.h4" HtmlTag="h1">@L["Nav_Plan"]</MudText>
         @if (SeesPlan)
         {
             <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
@@ -65,7 +67,7 @@ else
 <GrantReason Show="AnyLocked" />
 
 @* Blättern zwischen den Monaten. *@
-<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2 month-nav">
     <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" OnClick="() => MoveAsync(-1)"
                    aria-label="@L["Plan_PreviousMonth"]" data-testid="plan-previous" />
     <MudText Typo="Typo.h6" data-testid="plan-month">@MonthTitle</MudText>
@@ -76,7 +78,7 @@ else
 <Notice Message="message" />
 
 <MonthTabs Active="tab" ActiveChanged="SelectTab" />
-<div role="tabpanel" id="month-panel" aria-labelledby="@($"month-tab-{MonthTabs.Key(tab)}")">
+<div role="tabpanel" id="month-panel" class="page-wide" aria-labelledby="@($"month-tab-{MonthTabs.Key(tab)}")">
 @if (plan is not null)
 {
     @if (tab == MonthTab.Overview)
@@ -95,12 +97,18 @@ else
             <MudText Color="Color.Secondary" data-testid="bookings-not-shared">@L["Grant_NotShared"]</MudText>
         }
     }
+    else if (tab == MonthTab.Review)
+    {
+        <MonthReview Model="MonthView.ForPerson(plan, Today, AccountName)" SeesBookings="SeesBookings" />
+    }
     else
     {
+    @* Ab 1280 px stehen die Posten links, Summen und Übertrag rechts daneben; darunter untereinander wie bisher. *@
+    <div class="plan-layout page-wide">
     @* Geänderte Verträge: vorher und nachher je Unterschied, alle oder einzeln übernehmen (R2). *@
     @if (plan.Changes.Count > 0)
     {
-        <MudPaper Outlined="true" Class="pa-3 mb-4" data-testid="plan-changes">
+        <MudPaper Outlined="true" Class="pa-3 mb-4 plan-layout-top" data-testid="plan-changes">
             <MudText Typo="Typo.subtitle1" Class="mb-1">@L["Plan_ChangesHeading"]</MudText>
             <MudStack Spacing="2">
                 @foreach (var change in plan.Changes)
@@ -115,7 +123,7 @@ else
                             }
                             @if (change.Protected)
                             {
-                                <MudText Typo="Typo.caption" Color="Color.Warning">@L["Plan_ChangeProtected"]</MudText>
+                                <MudText Typo="Typo.caption">@L["Plan_ChangeProtected"]</MudText>
                             }
                         </MudStack>
                         <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => ApplyAsync(current)"
@@ -130,7 +138,7 @@ else
     }
 
     @* Summen und Quoten. *@
-    <MudPaper Outlined="true" Class="pa-3 mb-4" data-testid="plan-sums">
+    <MudPaper Outlined="true" Class="pa-3 mb-4 plan-layout-side" data-testid="plan-sums">
         <MudText>@L["Plan_SumsIncome", Money(plan.PlannedIncome), Money(plan.BookedIncome)]</MudText>
         <MudText>@L["Plan_SumsExpenses", Money(plan.PlannedExpenses), Money(plan.BookedExpenses)]</MudText>
         @foreach (var quota in plan.Quotas)
@@ -139,6 +147,7 @@ else
         }
     </MudPaper>
 
+    <div class="plan-groups">
     @if (plan.Positions.Count == 0)
     {
         <MudText Color="Color.Secondary" Class="mb-2" data-testid="plan-empty">@L["Plan_Empty"]</MudText>
@@ -147,12 +156,15 @@ else
     @* Die Posten nach Topf, je Topf eine Linientabelle mit Haken (Spec 24, R5). *@
     @foreach (var group in PlanView.Groups(plan))
     {
-        <MudText Typo="Typo.subtitle1" Class="mt-3 mb-1" data-testid="@($"plan-group-{group.Pot}")">@L[$"Pot_{group.Pot}"]</MudText>
-        <LineTable Caption="@L[$"Pot_{group.Pot}"]" HideCaption="true" Rows="PositionRows(group.Positions)" />
+        <div>
+            <MudText Typo="Typo.subtitle1" Class="mt-3 mb-1" data-testid="@($"plan-group-{group.Pot}")">@L[$"Pot_{group.Pot}"]</MudText>
+            <LineTable Caption="@L[$"Pot_{group.Pot}"]" HideCaption="true" Rows="PositionRows(group.Positions)" />
+        </div>
     }
+    </div>
 
     @* Der Übertrag (R9): je eine eigene Zeile, in keinem Topf und keiner Quote; zurücknehmen und neu nur hier. *@
-    <MudPaper Outlined="true" Class="pa-3 mt-4" data-testid="plan-carry-over">
+    <MudPaper Outlined="true" Class="pa-3 mt-4 plan-layout-side" data-testid="plan-carry-over">
         @{ var carryOvers = MonthView.CarryOverRows(plan.Overview?.CarryOvers); }
         @if (carryOvers.Count > 0)
         {
@@ -169,7 +181,7 @@ else
                 {
                     <MudText Class="flex-grow-1">@L["Plan_CarryOverBooked", Money(plan.CarryOver.Amount ?? 0m)]</MudText>
                 }
-                <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="RemoveCarryOverAsync"
+                <MudButton Variant="Variant.Text" OnClick="RemoveCarryOverAsync"
                            Class="@GrantLock.Class(CanRemoveCarryOver)" @attributes="GrantLock.Attributes(CanRemoveCarryOver)"
                            data-testid="plan-carry-over-remove">@L["Plan_CarryOverRemove"]</MudButton>
             </MudStack>
@@ -181,6 +193,7 @@ else
                        data-testid="plan-carry-over-open">@L["Plan_CarryOver"]</MudButton>
         }
     </MudPaper>
+    </div>
     }
 }
 </div>
@@ -417,7 +430,7 @@ else
             { x => x.Categories, categories },
             { x => x.Accounts, accounts },
         };
-        var dialog = await DialogService.ShowAsync<PlanPositionDialog>(title, parameters, Forms.Options());
+        var dialog = await DialogService.ShowAsync<PlanPositionDialog>(title, parameters, StepDialogOptions.Create());
         if (await dialog.Result is { Canceled: false })
         {
             message = new NoticeMessage(L["Plan_PositionSaved"], Severity.Success);
@@ -532,19 +545,19 @@ else
 
     private RenderFragment TickBox(PlanPositionResponse position) => @<MudCheckBox T="bool" Value="position.DoneAt is not null" ValueChanged="_ => ToggleAsync(position)" Color="Color.Primary"
                      ReadOnly="!CanToggle(position)" Class="@GrantLock.Class(CanToggle(position))" @attributes="GrantLock.Attributes(CanToggle(position))"
-                     aria-label="@L[position.DoneAt is not null ? "Plan_Untick" : "Plan_Tick"]"
+                     aria-label="@L[position.DoneAt is not null ? "Plan_Untick" : "Plan_Tick", position.Label]"
                      data-testid="@($"plan-tick-{position.Id}")" />;
 
     private RenderFragment PositionActions(PlanPositionResponse position) => @<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
         <MudText Typo="Typo.body2" data-testid="@($"plan-amounts-{position.Id}")">@L["Plan_Amounts", Money(position.AmountPlanned), Money(position.Booked)]</MudText>
         <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditAsync(position)"
                        Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
-                       aria-label="@L["Plan_Edit"]" data-testid="@($"plan-edit-{position.Id}")" />
+                       aria-label="@L["Plan_Edit", position.Label]" data-testid="@($"plan-edit-{position.Id}")" />
         @if (PlanView.CanDelete(position))
         {
             <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => DeleteAsync(position)"
                            Class="@GrantLock.Class(CanDelete)" @attributes="GrantLock.Attributes(CanDelete)"
-                           aria-label="@L["Plan_Delete"]" data-testid="@($"plan-delete-{position.Id}")" />
+                           aria-label="@L["Plan_Delete", position.Label]" data-testid="@($"plan-delete-{position.Id}")" />
         }
     </MudStack>;
 

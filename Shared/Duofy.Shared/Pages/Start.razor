@@ -1,21 +1,33 @@
 @page "/"
 @attribute [Authorize]
+@using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
+@using Duofy.Shared.Charts
 @implements IDisposable
 @inject IUserApi UserApi
-@inject IAppHost Host
+@inject IPlanApi PlanApi
+@inject IHouseholdApi HouseholdApi
 @inject AppChrome Chrome
 @inject ActiveMember Member
 @inject BookingDialogLauncher Launcher
+@inject TimeProvider Time
+@inject AppBrand Brand
 @inject IStringLocalizer<SharedResources> L
 
-@* Die Startseite. Vorerst begrüßt sie nur die Person mit dem Vornamen.
-   [Authorize] heißt: Nur wer angemeldet ist, sieht die Seite; alle anderen
-   schickt der Router zur Anmeldung. Das Plus der App bucht für die Person, deren Zahlen gerade offen sind
-   (Spec 68); ohne deren Freigabe ist es ausgegraut. *@
+@* Die Startseite (Spec 33): Begrüßung und Frei-Betrag des laufenden Monats im Farbblock, der Weg zu einer neuen
+   Buchung, was in den nächsten Tagen fällig ist, die Soll-Ist-Balken der Töpfe und, solange es keinen Haushalt gibt,
+   der Hinweis darauf. Jeder Block führt zur passenden Seite. Am PC stehen die Blöcke in zwei Spalten, am Handy in einer.
 
-<PageTitle>@L["App_Name"]</PageTitle>
+   Die Seite rechnet nichts: Die Zahlen schickt die API, MonthView wählt aus (wie in der Monatsübersicht). Sie legt
+   auch keinen Monat an, nur weil jemand die Startseite sieht: Erst fragt sie die Liste der Monate, und nur wenn der
+   laufende darin steht, holt sie ihn; sonst steht der Leerzustand mit dem Weg zum Anlegen da.
+
+   Die Zahlen sind die der Person, die im Umschalter gewählt ist, oder die des Haushalts (Spec 68, Spec 69).
+   [Authorize] heißt: Nur wer angemeldet ist, sieht die Seite; alle anderen schickt der Router zur Anmeldung.
+   Das Plus der App bucht für die Person, deren Zahlen gerade offen sind; ohne deren Freigabe ist es ausgegraut. *@
+
+<PageTitle>@Brand.Name</PageTitle>
 
 <Notice Message="message" />
 
@@ -27,18 +39,126 @@
 }
 else if (firstName is not null)
 {
-    <MudText Typo="Typo.h4" Class="mb-2">@L["Start_Greeting", firstName]</MudText>
-    <MudText>@L["Start_Text"]</MudText>
+    @* page-wide: Ab 1280 px nutzt die Seite die Breite wie die anderen Hauptseiten (docs/layout.md). *@
+    <div class="page-wide">
+    @if (!SeesPlan)
+    {
+        <h1 class="start-greeting">@L["Start_Greeting", firstName]</h1>
+        <p class="month-hint" data-testid="start-not-shared">@L["Grant_NotShared"]</p>
+    }
+    else if (!loaded || failed)
+    {
+        <h1 class="start-greeting">@L["Start_Greeting", firstName]</h1>
+    }
+    else if (model is null)
+    {
+        <h1 class="start-greeting">@L["Start_Greeting", firstName]</h1>
+        <StartSection Title="@L["Start_NoPlanTitle", MonthName].Value" TestId="start-empty"
+                      Href="@(Member.Owner is null && !Member.IsHousehold ? MonthHref : null)" LinkText="@L["Start_NoPlanLink", MonthName].Value">
+            <p>@(Member.Owner is null && !Member.IsHousehold ? L["Start_NoPlanText"].Value : L["Start_NoPlanOther", ViewName ?? ""].Value)</p>
+        </StartSection>
+    }
+    else
+    {
+        <StartHero Greeting="@L["Start_Greeting", firstName].Value" Title="@L["Start_FreeIn", MonthName].Value"
+                   Amount="model.Free" AmountText="@(model.Free == 0m ? L["Month_AllPlanned"].Value : null)"
+                   Note="@StartFreeNote.For(model, bookingsMissing, L)"
+                   ViewOf="@(ViewName is null ? null : L["Start_ViewOf", ViewName].Value)"
+                   Href="@MonthHref" LinkText="@L["Start_OpenMonth", MonthName].Value" />
+
+        @if (!Member.IsHousehold)
+        {
+            <div class="month-actions" data-testid="start-actions">
+                <DuofyButton Kind="ButtonKind.Primary" Disabled="!CanBook" OnClick="AddBookingAsync"><span data-testid="start-new-booking">@L["Month_ActionBooking"]</span></DuofyButton>
+            </div>
+        }
+
+        <div class="start-grid">
+            <StartSection Title="@L["Month_DueHeading"].Value" TestId="start-due" Href="@MonthHref" LinkText="@L["Start_OpenPlan"].Value">
+                @if (!SeesBookings)
+                {
+                    <p class="month-hint">@L["Grant_NotShared"]</p>
+                }
+                else if (model.Due.Count == 0)
+                {
+                    <p class="month-hint">@L["Month_DueEmpty"]</p>
+                }
+                else
+                {
+                    <LineTable Caption="@L["Month_DueCaption"]" HideCaption="true" Rows="DueRows" />
+                }
+            </StartSection>
+
+            <StartSection Title="@L["Start_TargetActual"].Value" TestId="start-bars" Href="@MonthHref" LinkText="@L["Start_OpenPots"].Value">
+                <div class="start-bars">
+                    @foreach (var pot in model.Pots)
+                    {
+                        <TargetActualBar Caption="@L["Plan_Quota", L[$"Pot_{pot.Pot}"], pot.Target, pot.Actual.ToString("0.#", German)]"
+                                         Target="pot.Target" Actual="pot.Actual" />
+                    }
+                </div>
+            </StartSection>
+        </div>
+    }
+
+    @if (loaded && Member.Household is null)
+    {
+        <StartSection Title="@L["Start_TogetherTitle"].Value" TestId="start-household-hint" Href="/haushalt" LinkText="@L["Start_TogetherLink"].Value">
+            <p>@L["Start_TogetherText"]</p>
+        </StartSection>
+    }
+    </div>
 }
 
 @code {
+    // Wie viele Zahlungen die Startseite zeigt; alle weiteren stehen im Plan.
+    private const int DueShown = 5;
+
+    private static readonly CultureInfo German = new("de-DE");
+
     private string? firstName;
     private string? error;
     private NoticeMessage? message;
+    private bool loaded;
+    private bool failed;
+    private MonthOverviewModel? model;
+    private IReadOnlyList<string> bookingsMissing = [];
+    private DateOnly today;
+
+    private bool SeesPlan => Member.IsHousehold || Member.Allows(GrantAreas.Plan, AccessLevelKeys.View);
+
+    // Gebuchtes und Fälliges zeigt die API nur mit Sicht auf die Buchungen (Spec 68); der Haushalt sagt selbst, wessen fehlt.
+    private bool SeesBookings => Member.IsHousehold || Member.Allows(GrantAreas.Book, AccessLevelKeys.View);
 
     // Buchen braucht die Freigabe Anlegen der Buchungen und die Konten (Spec 68); bei "Ich" geht es immer.
     private bool CanBook =>
         Member.Allows(GrantAreas.Book, AccessLevelKeys.Create) && Member.Allows(GrantAreas.Accounts, AccessLevelKeys.View);
+
+    private string MonthName => new DateOnly(today.Year, today.Month, 1).ToString("MMMM", German);
+
+    private string MonthHref => $"/plan/{today.Year}/{today.Month}";
+
+    // Wessen Zahlen es sind, wenn nicht die eigenen: das gewählte Mitglied oder der Haushalt.
+    private string? ViewName => Member.IsHousehold ? Member.Household?.Name : Member.Name;
+
+    private IReadOnlyList<LineTableRow> DueRows => model!.Due
+        .Take(DueShown)
+        .Select(d => new LineTableRow(
+            d.Label,
+            d.Open,
+            string.Join(" · ", new[] { L["Month_DueOn", d.Due.ToString("d", German)].Value, d.Owner }.OfType<string>()),
+            Trailing: Badge(d.Overdue),
+            TestId: $"start-due-item-{(d.Overdue ? "overdue" : "upcoming")}"))
+        .ToList();
+
+    // Beides ist gekennzeichnet, getrennt durch das Wort und nicht nur durch eine Farbe.
+    private RenderFragment Badge(bool overdue) => builder =>
+    {
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "class", "month-due-badge");
+        builder.AddContent(2, L[overdue ? "Month_Overdue" : "Month_Upcoming"].Value);
+        builder.CloseElement();
+    };
 
     // In der App ist das Plus der Startseite die neue Buchung. Im Browser sieht niemand den Dienst.
     protected override void OnInitialized() => Chrome.Set(this, L["Nav_Start"], AddBookingAsync, L["Bookings_Add"]);
@@ -57,9 +177,11 @@ else if (firstName is not null)
         Chrome.Release(this);
     }
 
-    private void OnMemberChanged() => _ = InvokeAsync(() =>
+    // Ein anderes Mitglied oder der Haushalt gewählt: das Plus neu sperren und die Zahlen der neuen Sicht holen.
+    private void OnMemberChanged() => _ = InvokeAsync(async () =>
     {
         Chrome.LockPlus(this, CanBook ? null : GrantLock.ReasonId);
+        await LoadAsync();
         StateHasChanged();
     });
 
@@ -78,5 +200,89 @@ else if (firstName is not null)
         {
             error = ErrorTexts.For(L, me.ErrorCode);
         }
+
+        await LoadAsync();
+    }
+
+    // Holt den laufenden Monat der gewählten Sicht, ohne einen Monat anzulegen: erst die Liste der Monate fragen.
+    private async Task LoadAsync()
+    {
+        today = DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
+        model = null;
+        bookingsMissing = [];
+        message = null;
+        loaded = false;
+        failed = false;
+        if (!SeesPlan)
+        {
+            return;
+        }
+
+        if (Member.IsHousehold)
+        {
+            await LoadHouseholdAsync();
+        }
+        else
+        {
+            await LoadPersonAsync();
+        }
+        loaded = true;
+    }
+
+    // Ein Fehler beim Laden zeigt die Meldung und keinen Leerzustand: Der würde sagen, es gäbe keinen Plan.
+    private void Fail(string? errorCode)
+    {
+        failed = true;
+        message = new NoticeMessage(ErrorTexts.For(L, errorCode), Severity.Error);
+    }
+
+    private async Task LoadPersonAsync()
+    {
+        var months = await PlanApi.ListMonthsAsync(Member.Owner);
+        if (!months.Succeeded)
+        {
+            Fail(months.ErrorCode);
+            return;
+        }
+        if (!months.Value!.Any(m => m.Year == today.Year && m.Month == today.Month))
+        {
+            return;
+        }
+
+        var plan = await PlanApi.GetAsync(today.Year, today.Month, Member.Owner);
+        if (!plan.Succeeded)
+        {
+            Fail(plan.ErrorCode);
+            return;
+        }
+        model = MonthView.ForPerson(plan.Value!, today, _ => null);
+    }
+
+    private async Task LoadHouseholdAsync()
+    {
+        if (Member.Household is not { } household)
+        {
+            return;
+        }
+
+        var months = await HouseholdApi.ListPlansAsync(household.Id);
+        if (!months.Succeeded)
+        {
+            Fail(months.ErrorCode);
+            return;
+        }
+        if (!months.Value!.Any(m => m.Year == today.Year && m.Month == today.Month))
+        {
+            return;
+        }
+
+        var plan = await HouseholdApi.GetPlanAsync(household.Id, today.Year, today.Month);
+        if (!plan.Succeeded)
+        {
+            Fail(plan.ErrorCode);
+            return;
+        }
+        model = MonthView.ForHousehold(plan.Value!, today);
+        bookingsMissing = plan.Value!.BookingsMissing ?? [];
     }
 }

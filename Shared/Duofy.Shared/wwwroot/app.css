@@ -91,6 +91,12 @@ h1:focus {
         max-width: 1180px;
         margin-inline: auto;
     }
+
+    /* Seiten mit Spalten nutzen die Breite (Klasse page-wide, Tom 01.11.2026); Formulare und Texte bleiben schmal.
+       Ohne :has in einem alten Browser bleibt es bei 1180 px, nichts geht kaputt. */
+    .app-page:has(.page-wide) {
+        max-width: 1600px;
+    }
 }
 
 /* Tippflächen sind mindestens 44 px hoch und breit (Daumen). */
@@ -133,6 +139,25 @@ h1:focus {
     outline-offset: 3px;
 }
 
+/* MudBlazor setzt die Kontur an Links und Knöpfen zurück; die Regel oben allein verliert dagegen. */
+a:focus-visible,
+button:focus-visible {
+    outline: 3px solid var(--mud-palette-text-primary);
+    outline-offset: 3px;
+}
+
+/* Die App-Leiste ist in beiden Modi dunkel, die Kontur nimmt dort ihre Textfarbe. */
+.mud-appbar a:focus-visible,
+.mud-appbar button:focus-visible {
+    outline: 3px solid var(--mud-palette-appbar-text);
+    outline-offset: 3px;
+}
+
+/* Nebentexte sind in jeder Breite lesbar: die Textfarbe statt der Akzentfarbe. */
+.mud-typography.mud-secondary-text {
+    color: var(--mud-palette-text-secondary) !important;
+}
+
 /* Fehler sind Text mit Tintenlinie auf Korall; Korall als Schriftfarbe auf Papier wäre nicht lesbar. */
 .mud-input-error .mud-input-helper-text,
 .mud-input-helper-text.mud-input-error,
@@ -145,6 +170,31 @@ h1:focus {
     color: var(--mud-palette-text-primary);
     border-left: 4px solid var(--mud-palette-text-primary);
     background-color: var(--mud-palette-error);
+}
+
+/* Erfolg und Hinweis wie Fehler: Tintentext und Rand, die helle Farbe nur als Fläche. */
+.mud-alert-text-success,
+.mud-alert-outlined-success {
+    color: var(--mud-palette-text-primary);
+    border-left: 4px solid var(--mud-palette-text-primary);
+    background-color: var(--mud-palette-success);
+}
+
+.mud-alert-text-info,
+.mud-alert-outlined-info {
+    color: var(--mud-palette-text-primary);
+    border-left: 4px solid var(--mud-palette-text-primary);
+    background-color: var(--mud-palette-info);
+}
+
+/* Das Symbol im Hinweis hätte sonst die Flächenfarbe und wäre unsichtbar. */
+.mud-alert-text-error .mud-alert-icon,
+.mud-alert-outlined-error .mud-alert-icon,
+.mud-alert-text-success .mud-alert-icon,
+.mud-alert-outlined-success .mud-alert-icon,
+.mud-alert-text-info .mud-alert-icon,
+.mud-alert-outlined-info .mud-alert-icon {
+    color: inherit;
 }
 
 #blazor-error-ui {
@@ -164,7 +214,36 @@ h1:focus {
     cursor: pointer;
     position: absolute;
     right: 0.75rem;
+    top: 0.25rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+}
+
+/* Der Überspringen-Link liegt über allem und erscheint nur, solange er den Fokus hat. */
+.skip-link {
+    position: fixed;
     top: 0.5rem;
+    left: 0.5rem;
+    z-index: 2100;
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--mud-palette-text-primary);
+    border-radius: var(--mud-default-borderradius);
+    background-color: var(--mud-palette-surface);
+    color: var(--mud-palette-text-primary);
+    transform: translateY(-200%);
+}
+
+.skip-link:focus {
+    transform: none;
+}
+
+/* Das Ziel des Links nimmt den Fokus nur an; die Kontur um die ganze Seite hilft niemandem. */
+.app-page:focus-visible {
+    outline: none;
 }
 
 /* Eingabefelder: Beschriftung über dem umrandeten Feld, wie im Original. */
@@ -200,6 +279,32 @@ h1:focus {
 
 .auth-brand {
     display: none;
+}
+
+/* Name und Logo (Issue 8): Die Wortmarke ist eine SVG-Datei mit festem Seitenverhältnis 3:1, das Zeichen allein ist quadratisch. */
+.brand-logo {
+    display: block;
+    height: 2.25rem;
+    width: auto;
+}
+
+.brand-logo--symbol {
+    height: 1.75rem;
+    margin-right: 0.5rem;
+}
+
+.auth-mobile-brand {
+    align-self: flex-start;
+    margin-bottom: 1.5rem;
+}
+
+.auth-mobile-brand .brand-name {
+    font-size: var(--type-section-size);
+    font-weight: 600;
+}
+
+.auth-brand .brand-logo {
+    height: 3rem;
 }
 
 .auth-main {
@@ -291,6 +396,10 @@ h1:focus {
         grid-template-columns: 1fr 1fr;
     }
 
+    .auth-mobile-brand {
+        display: none;
+    }
+
     .auth-brand {
         display: flex;
         flex-direction: column;
@@ -364,6 +473,8 @@ h1:focus {
 }
 
 .app-bottom-bar {
+    /* Fünf Einträge auf 360 px: Der längste Text ("Buchungen") muss in ein Fünftel der Breite passen. */
+    --type-extra-size: min(0.875rem, 3.4vw);
     position: fixed;
     left: 0;
     right: 0;
@@ -380,6 +491,7 @@ h1:focus {
 .app-bottom-item.mud-button-root {
     flex: 1 1 0;
     min-width: var(--tap-min);
+    padding-inline: 0;
     min-height: var(--tap-min);
     height: 100%;
     border-radius: 0;
@@ -408,7 +520,7 @@ h1:focus {
 }
 
 /* Seitenleiste (Layout/SideNavigation.razor, Spec 10): unter 1280 px ausgeblendet, ab dem Desktop links fest unter der
-   oberen Leiste. Die untere Leiste und die Seitenleiste lesen dieselbe Liste der Ziele. */
+   oberen Leiste. Sie zeigt das volle Menü, die untere Leiste vier Ziele mit "Mehr" (Tom, 01.11.2026). */
 .app-side-nav {
     display: none;
 }
@@ -428,6 +540,44 @@ h1:focus {
 
 .app-side-item:hover {
     background-color: var(--mud-palette-action-default-hover);
+}
+
+/* Die Einträge rollen auf niedrigen Bildschirmen; der Fuß mit dem Profil-Knopf steht außerhalb und bleibt sichtbar. */
+.app-side-list,
+.app-side-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.app-side-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* Lizenzen, Rechtstexte und Abmelden braucht man seltener; ein Strich trennt sie von den Seiten. */
+.app-side-group {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--mud-palette-lines-default);
+}
+
+.app-side-mode {
+    padding: 0.25rem 1rem;
+}
+
+/* Abmelden tut etwas und ist deshalb ein Knopf, sieht aber aus wie die Links daneben. */
+.app-side-sign-out {
+    width: 100%;
+    justify-content: flex-start;
+    border-top: 0;
+    border-right: 0;
+    border-bottom: 0;
+    background: transparent;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
 }
 
 /* Die Kontur liegt innen, weil die Leiste am Rand des Fensters steht und eine äußere Kontur abgeschnitten würde. */
@@ -801,13 +951,15 @@ h1:focus {
 
 .chart-bar-row {
     display: grid;
-    grid-template-columns: minmax(5rem, 1fr) minmax(0, 2fr) auto;
+    grid-template-columns: minmax(6.5rem, 1fr) minmax(0, 2fr) auto;
     align-items: center;
     gap: 0.75rem;
 }
 
+/* Die Spalte fasst "Grundbedarf" am schmalen Handy; längere Namen trennen an der Silbe statt mitten im Wort. */
 .chart-bar-label {
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
+    hyphens: auto;
 }
 
 .chart-bar-value,
@@ -945,6 +1097,12 @@ h1:focus {
     border-bottom: 1px solid var(--mud-palette-lines-default);
 }
 
+/* Der Abbrechen-Knopf behält seine Breite; die Überschrift daneben bricht um. */
+.step-dialog-head .duofy-button {
+    flex: none;
+    white-space: nowrap;
+}
+
 .step-dialog-head {
     display: flex;
     align-items: flex-start;
@@ -1069,8 +1227,67 @@ h1:focus {
     color: var(--mud-palette-text-secondary);
 }
 
+/* Am schmalen Handy passen Bezeichnung, Betrag und Plakette oder Knöpfe nicht nebeneinander: Die letzte Spalte bekommt
+   eine eigene Zeile. Die Rollen im Markup von LineTable halten die Tabelle für Vorlese-Programme zusammen. */
+@media (max-width: 479.98px) {
+    .line-table,
+    .line-table tbody,
+    .line-table-caption {
+        display: block;
+    }
+
+    .line-table tr {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        border-bottom: 1px solid var(--mud-palette-lines-default);
+    }
+
+    .line-table th,
+    .line-table td {
+        border-bottom: 0;
+    }
+
+    .line-table-label {
+        flex: 1 1 0;
+        min-width: 0;
+        overflow-wrap: break-word;
+        hyphens: auto;
+    }
+
+    .line-table-lead {
+        flex: none;
+        width: auto;
+    }
+
+    .line-table-trail {
+        flex: 1 0 100%;
+        width: auto;
+        padding-top: 0;
+        white-space: normal;
+    }
+
+    /* Ohne Inhalt nimmt die Betragsspalte keinen Platz weg. */
+    .line-table-amount:empty {
+        display: none;
+    }
+
+    /* Konten, Verträge, Buchungen: Was nicht in die Reihe passt, rutscht in die nächste, statt den Bildschirm zu verlassen.
+       Das !important schlägt die Hilfsklasse von MudBlazor. */
+    .data-row-frame > * {
+        flex-wrap: wrap !important;
+    }
+
+    .data-row-frame > * > .flex-grow-1 {
+        flex: 1 1 8rem;
+        min-width: 0;
+    }
+}
+
+/* Vier Tabs passen am schmalen Handy nicht in eine Reihe; sie brechen um, statt abgeschnitten zu werden. */
 .month-tabs {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.25rem;
     margin: 0 0 1rem;
     border-bottom: 1px solid var(--mud-palette-lines-default);
@@ -1142,4 +1359,510 @@ h1:focus {
 .month-hint {
     color: var(--mud-palette-text-secondary);
     font-size: 0.875rem;
+}
+
+/* ===== Breite Seiten ab 1280 px (Tom, 01.11.2026) =====
+   Darunter zeigt keine dieser Regeln Wirkung: Karten und Reihenfolge bleiben wie auf dem Handy. Die Seiten behalten
+   ihren Aufbau; die Tabellen entstehen aus denselben Elementen. data-row wird ein Raster, data-cells löst sich darin
+   auf, damit seine Kinder Spalten werden, und data-column-N legt die Spalte fest (auch wenn ein Knopf einmal fehlt).
+   Die Kopfzeile ist nur fürs Auge: Vorlese-Programme lesen jede Zeile wie auf dem Handy. */
+.data-table-head {
+    display: none;
+}
+
+/* Ein Betrag bricht nie zwischen Zahl und Währung. */
+.data-amount {
+    white-space: nowrap;
+}
+
+@media (min-width: 1280px) {
+    /* Die doppelten Klassen und !important schlagen die Hilfsklassen von MudBlazor (Anzeige und Abstand der Stapel). */
+    .data-table.data-table {
+        gap: 0 !important;
+        border-top: 1px solid var(--mud-palette-lines-default);
+    }
+
+    .data-row.data-row,
+    .data-table-head {
+        display: grid !important;
+        grid-template-columns: var(--data-columns);
+        column-gap: 1rem;
+        align-items: center;
+    }
+
+    .data-table-head {
+        padding: 0.5rem 0.75rem;
+        border-bottom: 1px solid var(--mud-palette-lines-default);
+        color: var(--mud-palette-text-secondary);
+        font-size: 0.875rem;
+        font-weight: 650;
+    }
+
+    .data-row-frame.data-row-frame {
+        padding: 0.25rem 0.75rem !important;
+        border-width: 0 0 1px;
+        border-radius: 0;
+    }
+
+    .data-row-frame:hover {
+        background-color: var(--mud-palette-action-default-hover);
+    }
+
+    .data-cells.data-cells {
+        display: contents !important;
+    }
+
+    .data-separator {
+        display: none;
+    }
+
+    .data-amount.data-amount {
+        justify-self: end;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .data-column-1 { grid-column: 1; }
+    .data-column-2 { grid-column: 2; }
+    .data-column-3 { grid-column: 3; }
+    .data-column-4 { grid-column: 4; }
+    .data-column-5 { grid-column: 5; }
+    .data-column-6 { grid-column: 6; }
+    .data-column-7 { grid-column: 7; }
+
+    .data-row > .mud-button-root,
+    .data-row > .mud-chip {
+        justify-self: start;
+    }
+
+    /* Das Symbol hat eine eigene Spalte zwischen Stern und Name. */
+    .accounts-table .account-icon {
+        grid-column: 2;
+    }
+
+    .accounts-table {
+        --data-columns: 2.75rem 2rem minmax(0, 2fr) minmax(0, 1fr) 10rem 2.75rem 8rem;
+    }
+
+    .commitments-table {
+        --data-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr) 8rem 2.75rem 7rem;
+    }
+
+    .bookings-table {
+        --data-columns: 7rem minmax(0, 2fr) minmax(0, 2fr) 9rem 2.75rem 2.75rem;
+    }
+
+    .members-table {
+        --data-columns: minmax(0, 1.2fr) minmax(0, 1.2fr) 7rem 2.75rem;
+    }
+
+    /* Buchungen: Monat, Filter und Summen in einer Reihe. */
+    .bookings-top {
+        display: grid;
+        grid-template-columns: minmax(16rem, 1fr) minmax(16rem, 1fr) minmax(24rem, 2fr);
+        column-gap: var(--block-gap);
+        align-items: center;
+        margin-bottom: var(--block-gap);
+    }
+
+    /* Die Monate als mehrere Spalten. */
+    .plan-months.page-wide {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(24rem, 1fr));
+        column-gap: var(--block-gap);
+    }
+
+    /* Monatsübersicht: die Abschnitte in zwei Spalten. */
+    .month-sections {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        column-gap: calc(var(--block-gap) * 2);
+        align-items: start;
+    }
+
+    /* Monat, Tab Plan: Posten links, Summen und Übertrag rechts. Die erste Reihe bleibt ohne geänderte Verträge leer,
+       die letzte nimmt den Rest der Höhe, damit rechts keine Lücke zwischen den Kästen entsteht. */
+    .plan-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 24rem;
+        grid-template-rows: auto auto auto 1fr;
+        column-gap: var(--block-gap);
+        align-items: start;
+    }
+
+    .plan-layout > .plan-layout-top {
+        grid-column: 1 / -1;
+        grid-row: 1;
+    }
+
+    .plan-layout > .plan-groups {
+        grid-column: 1;
+        grid-row: 2 / span 3;
+    }
+
+    .plan-layout > .plan-layout-side {
+        grid-column: 2;
+    }
+
+    /* Die Töpfe nebeneinander, sobald zwei hineinpassen. */
+    .plan-groups {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(26rem, 1fr));
+        column-gap: var(--block-gap);
+        align-items: start;
+    }
+
+    /* Blättern zwischen den Monaten: Die Pfeile bleiben beim Monat, statt an die Ränder der breiten Seite zu rücken. */
+    .month-nav.month-nav {
+        justify-content: center !important;
+        gap: 1.5rem;
+    }
+
+    /* Der Betrag bleibt am rechten Rand, die Bezeichnung nimmt den freien Platz. */
+    .line-table-amount {
+        width: 1%;
+    }
+
+    /* Bezeichnung und Nebentext einer Zeile in eigenen Spalten, wo die Tabelle Platz hat; die Posten im Plan tragen
+       rechts schon Beträge und Knöpfe, dort bleibt der Nebentext unter der Bezeichnung. */
+    .month-sections .line-table-text,
+    .month-bookings .line-table-text {
+        display: grid;
+        grid-template-columns: minmax(7rem, 2fr) minmax(0, 3fr);
+        column-gap: 1rem;
+        align-items: baseline;
+    }
+
+    /* Haushalt: die Karte links, Mitglieder und Einladungen rechts. */
+    .household-columns {
+        display: grid;
+        grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+        column-gap: var(--block-gap);
+        align-items: start;
+    }
+
+    .household-paste-row {
+        align-self: start;
+    }
+}
+
+/* Die Startseite (Spec 33): Begrüßung im Farbblock, darunter die Blöcke. Am Handy eine Spalte, ab dem Desktop (1280 px) zwei. */
+.start-greeting {
+    margin: 0 0 0.5rem;
+    font-size: clamp(1.5rem, 2.2vw, 2.25rem);
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.start-hero {
+    margin-bottom: 1rem;
+}
+
+.start-hero .start-greeting {
+    margin-bottom: 0.75rem;
+}
+
+/* minmax(0, ...): Sonst bestimmt eine breite Tabelle die Spalte, und der Kasten läuft am Handy aus dem Bild. */
+.start-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+@media (min-width: 1280px) {
+    .start-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 2rem;
+    }
+}
+
+.start-section {
+    margin: 0 0 1.5rem;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: 2px;
+}
+
+.start-grid .start-section {
+    margin-bottom: 0;
+}
+
+.start-bars {
+    display: grid;
+    gap: 0.75rem;
+}
+
+/* Der Link eines Blocks: unterstrichen, damit er auch ohne Farbe als Link zu erkennen ist. */
+.start-link {
+    display: inline-block;
+    margin-top: 0.75rem;
+    color: var(--mud-palette-text-primary);
+    font-weight: 650;
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+}
+
+.start-link:focus-visible {
+    outline: 3px solid var(--mud-palette-text-primary);
+    outline-offset: 2px;
+}
+
+/* Einwilligungs-Baustein (Issue #35): am unteren Rand, beide Knöpfe gleich groß. */
+/* Die Leiste kann zwei Dienste zeigen und wird hoch: Sie endet über der unteren Leiste, neben der Seitenleiste und unter
+   der App-Leiste, damit Navigation und Profilknopf erreichbar bleiben. Was nicht passt, rollt in ihr selbst. */
+body:has(.app-bottom-bar) {
+    --consent-bottom: calc(var(--app-bottom-bar-height) + env(safe-area-inset-bottom, 0px));
+}
+
+.consent-banner {
+    position: fixed;
+    inset-inline: 0;
+    bottom: var(--consent-bottom, 0px);
+    z-index: 1400;
+    box-sizing: border-box;
+    max-height: calc(100dvh - var(--consent-bottom, 0px) - var(--mud-appbar-height, 4rem));
+    overflow-y: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1.5rem;
+    padding: 1rem var(--page-gutter);
+    background-color: var(--mud-palette-surface);
+    color: var(--mud-palette-text-primary);
+    border-top: 1px solid var(--mud-palette-lines-default);
+}
+
+@media (min-width: 1280px) {
+    body:has(.app-side-nav) .consent-banner {
+        inset-inline-start: var(--side-nav-width);
+    }
+}
+
+/* Jeder angebotene Dienst ist eine Zeile mit eigenem Text und eigenen Knöpfen (Issue #36). */
+.consent-item {
+    display: flex;
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1.5rem;
+}
+
+.consent-text {
+    flex: 1 1 24rem;
+    margin: 0;
+}
+
+.consent-actions {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.consent-actions .mud-button-root {
+    min-width: 8rem;
+    min-height: var(--tap-min);
+}
+
+.consent-change {
+    display: flex;
+    justify-content: center;
+    padding-block: 0.25rem;
+    font-size: var(--type-extra-size);
+}
+
+/* Richtwerte je Person im Haushaltsplan (Issue #28): untereinander, am PC (ab 1280 px) nebeneinander. Keine Warnfarben. */
+.guideline-summary {
+    margin: 0 0 1rem;
+}
+
+.guideline-people {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.guideline-person-name {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+@media (min-width: 1280px) {
+    .guideline-people {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+        align-items: start;
+    }
+}
+
+/* Konten mit Symbol (Issues 14 und 16): Eine Gruppe von Optionsfeldern, die Optionsfelder selbst bleiben für Tastatur und
+   Vorlese-Programme da (versteckt, nicht entfernt). Der Name bricht um und wird nie abgeschnitten. Die gewählte Option hat
+   einen dickeren Rand, fetten Namen und ein Häkchen, nicht nur eine Farbe. */
+.account-select {
+    min-width: 0;
+    margin: 0 0 0.5rem;
+    padding: 0;
+    border: 0;
+}
+
+.account-select-legend {
+    padding: 0;
+    margin-bottom: 0.25rem;
+    color: var(--mud-palette-text-secondary);
+    font-size: 0.75rem;
+}
+
+.account-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+    gap: 0.5rem;
+}
+
+.account-option {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    padding: 0.625rem 0.75rem;
+    border: 1px solid var(--mud-palette-lines-inputs);
+    border-radius: var(--mud-default-borderradius);
+    color: var(--mud-palette-text-primary);
+    cursor: pointer;
+}
+
+.account-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    cursor: pointer;
+}
+
+.account-icon {
+    display: inline-flex;
+    flex: 0 0 auto;
+}
+
+.account-option-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.account-option:has(input:checked) {
+    border: 2px solid var(--mud-palette-text-primary);
+    padding: calc(0.625rem - 1px) calc(0.75rem - 1px);
+    font-weight: 650;
+}
+
+.account-option:has(input:checked)::after {
+    content: "\2713";
+    margin-left: auto;
+}
+
+.account-option:has(input:focus-visible) {
+    outline: 3px solid var(--mud-palette-text-primary);
+    outline-offset: 2px;
+}
+
+/* Zahlungsart als Symbol-Knöpfe (Issue 15): Symbol über dem Text, wie die Konten eine Gruppe von Optionsfeldern, die für
+   Tastatur und Vorlese-Programme da bleiben (versteckt, nicht entfernt). Der Text bricht um. Die gewählte Option hat
+   einen dickeren Rand, fetten Text und ein Häkchen, nicht nur eine Farbe. */
+.payment-select {
+    min-width: 0;
+    margin: 0 0 0.5rem;
+    padding: 0;
+    border: 0;
+}
+
+.payment-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+    gap: 0.5rem;
+}
+
+.payment-option {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.375rem;
+    min-width: 0;
+    padding: 0.75rem 0.5rem;
+    border: 1px solid var(--mud-palette-lines-inputs);
+    border-radius: var(--mud-default-borderradius);
+    color: var(--mud-palette-text-primary);
+    text-align: center;
+    cursor: pointer;
+}
+
+.payment-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    cursor: pointer;
+}
+
+.payment-icon {
+    display: inline-flex;
+}
+
+.payment-option-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 0.875rem;
+}
+
+.payment-option:has(input:checked) {
+    border: 2px solid var(--mud-palette-text-primary);
+    padding: calc(0.75rem - 1px) calc(0.5rem - 1px);
+    font-weight: 650;
+}
+
+.payment-option:has(input:checked)::after {
+    content: "\2713";
+    position: absolute;
+    top: 0.125rem;
+    right: 0.375rem;
+    font-size: 0.875rem;
+}
+
+.payment-option:has(input:focus-visible) {
+    outline: 3px solid var(--mud-palette-text-primary);
+    outline-offset: 2px;
+}
+
+/* Buchungsdialog (Issue #21): die Art als Reihe, jede Zeile der Buchung als abgesetzter Block. */
+.booking-kinds {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.booking-line {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--mud-palette-lines-default);
+}
+
+.booking-line-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.booking-line-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
 }

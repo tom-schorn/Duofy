@@ -9,9 +9,9 @@ using MudBlazor;
 namespace Duofy.Shared.Tests;
 
 /// <summary>
-/// Spec 10, die Seitennavigation für den Desktop: ab 1280 px links eine Seitenleiste, darunter die untere
-/// Leiste, beide aus derselben Liste der Ziele. Ein echter Browser fehlt; ob eine Leiste sichtbar ist, steht
-/// im Text des Stylesheets, was sie zeigt, in der gezeichneten Struktur.
+/// Spec 10, die Seitennavigation für den Desktop: ab 1280 px links eine Seitenleiste mit dem vollen Menü (Tom,
+/// 01.11.2026), darunter die untere Leiste mit vier Zielen und "Mehr". Ein echter Browser fehlt; ob eine Leiste
+/// sichtbar ist, steht im Text des Stylesheets, was sie zeigt, in der gezeichneten Struktur.
 /// </summary>
 public class SideNavigationTests : PageTestContext
 {
@@ -90,17 +90,96 @@ public class SideNavigationTests : PageTestContext
         Assert.Single(cut.FindAll("[data-testid='bottom-bar']"));
     }
 
-    // A2 (R2)
+    // Spec 10, Änderung vom 01.11.2026: Die untere Leiste bleibt wie sie ist, die Seitenleiste zeigt direkt, was
+    // unten hinter "Mehr" liegt, und kein "Mehr".
     [Fact]
-    public void Both_bars_show_the_same_entries_in_the_same_order_as_the_list()
+    public void The_bottom_bar_keeps_its_four_entries()
     {
-        (string, string?)[] expected = [("Start", "/"), ("Plan", "/plan"), ("Buchungen", "/buchungen"), ("Mehr", "/mehr")];
+        (string, string?)[] expected = [("Start", "/"), ("Plan", "/plan"), ("Buchungen", "/buchungen"), ("Sparen", "/sparen"), ("Mehr", "/mehr")];
         Assert.Equal(expected.Select(e => e.Item2), AppDestinations.All.Select(d => d.Href));
 
         var cut = Render<MainLayout>();
 
-        Assert.Equal(expected, Entries(cut, "side-nav"));
         Assert.Equal(expected, Entries(cut, "bottom-bar"));
+    }
+
+    [Fact]
+    public void The_side_bar_shows_everything_directly_and_no_more_entry()
+    {
+        var cut = Render<MainLayout>();
+
+        cut.WaitForAssertion(() => Assert.Equal(
+            [("Start", "/"), ("Plan", "/plan"), ("Buchungen", "/buchungen"), ("Sparen", "/sparen"), ("Konten", "/konten"), ("Verträge", "/vertraege"),
+             ("Haushalt", "/haushalt"), ("Benutzerkonto", "/konto"), ("Lizenzen", "/lizenzen")],
+            Entries(cut, "side-nav")));
+        Assert.Empty(cut.FindAll("[data-testid='side-more']"));
+        Assert.Contains("Abmelden", cut.Find("[data-testid='side-sign-out']").TextContent);
+    }
+
+    [Fact]
+    public void The_side_bar_shows_admin_only_to_admins()
+    {
+        var ben = Render<SideNavigation>();
+        ben.WaitForAssertion(() => Assert.NotEmpty(ben.FindAll("[data-testid='side-licenses']")));
+        Assert.Empty(ben.FindAll("[data-testid='side-admin']"));
+
+        Users.Me = Users.Me with { IsInstanceAdmin = true };
+        var anna = Render<SideNavigation>();
+
+        anna.WaitForAssertion(() => Assert.Equal("/admin", anna.Find("[data-testid='side-admin']").GetAttribute("href")));
+    }
+
+    [Fact]
+    public void The_side_bar_lists_the_legal_texts_of_the_server()
+    {
+        LegalApiFake.Documents["imprint"] = "Max Muster";
+
+        var cut = Render<SideNavigation>();
+
+        cut.WaitForAssertion(() => Assert.Equal("/rechtliches/impressum", cut.Find("[data-testid='side-legal-imprint']").GetAttribute("href")));
+        Assert.Empty(cut.FindAll("[data-testid='side-legal-privacy']"));
+    }
+
+    [Fact]
+    public void Sign_out_in_the_side_bar_signs_out_and_leads_to_the_sign_in()
+    {
+        var cut = Render<SideNavigation>();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='side-sign-out']")));
+
+        cut.Find("[data-testid='side-sign-out']").Click();
+
+        cut.WaitForAssertion(() => Assert.Equal("/anmelden", CurrentPath));
+        Assert.Null(Tokens.Tokens);
+    }
+
+    // Die App hat oben keinen Schalter für hell und dunkel; ohne "Mehr" steht er ab dem Desktop in der Seitenleiste.
+    [Fact]
+    public void The_app_shows_the_mode_switch_in_the_side_bar()
+    {
+        var app = Render<AppLayout>();
+
+        app.WaitForAssertion(() => Assert.Equal(3, app.FindAll("[data-testid='side-nav'] [data-testid='side-mode'] [role='radio']").Count));
+    }
+
+    [Fact]
+    public void The_browser_keeps_the_mode_switch_in_the_top_bar_only()
+    {
+        var web = Render<MainLayout>();
+
+        web.WaitForAssertion(() => Assert.NotEmpty(web.FindAll("[data-testid='side-licenses']")));
+        Assert.Empty(web.FindAll("[data-testid='side-mode']"));
+    }
+
+    // Viele Einträge auf einem niedrigen Bildschirm: Die Liste rollt, der Fuß mit dem Profil-Knopf bleibt stehen.
+    [Fact]
+    public void The_entries_scroll_and_the_footer_stays()
+    {
+        Assert.Contains("overflow-y: auto", Rule(Css(), ".app-side-list"));
+
+        var cut = Render<SideNavigation>(p => p.Add(c => c.Footer, (Microsoft.AspNetCore.Components.RenderFragment)(b => b.AddContent(0, "Fuß"))));
+
+        Assert.Empty(cut.FindAll(".app-side-list .app-side-footer"));
+        Assert.NotEmpty(cut.FindAll(".app-side-list a"));
     }
 
     // A3 (R3)
@@ -129,7 +208,34 @@ public class SideNavigationTests : PageTestContext
         Navigation.NavigateTo("/konten");
 
         cut.WaitForAssertion(() =>
-            Assert.Equal("Mehr", Assert.Single(cut.FindAll("a"), a => a.GetAttribute("aria-current") == "page").TextContent.Trim()));
+            Assert.Equal("Konten", Assert.Single(cut.FindAll("a"), a => a.GetAttribute("aria-current") == "page").TextContent.Trim()));
+    }
+
+    // Unterseiten lassen ihren Eintrag leuchten; "/konto" ist nicht "/konten".
+    [Theory]
+    [InlineData("/konto/loeschen", "Benutzerkonto")]
+    [InlineData("/haushalt/freigaben", "Haushalt")]
+    [InlineData("/plan/2026/11", "Plan")]
+    [InlineData("/lizenzen", "Lizenzen")]
+    public void Sub_pages_mark_their_entry(string path, string label)
+    {
+        Navigation.NavigateTo(path);
+
+        var cut = Render<SideNavigation>();
+
+        cut.WaitForAssertion(() =>
+            Assert.Equal(label, Assert.Single(cut.FindAll("a"), a => a.GetAttribute("aria-current") == "page").TextContent.Trim()));
+    }
+
+    // Unten leuchtet für dieselbe Seite weiter "Mehr".
+    [Fact]
+    public void The_bottom_bar_still_marks_more_for_the_accounts_page()
+    {
+        Navigation.NavigateTo("/konten");
+
+        var cut = Render<BottomNavigation>();
+
+        Assert.Equal("Mehr", Assert.Single(cut.FindAll("a"), a => a.GetAttribute("aria-current") == "page").TextContent.Trim());
     }
 
     // A4 (R4)
@@ -138,8 +244,9 @@ public class SideNavigationTests : PageTestContext
     {
         var cut = Render<SideNavigation>();
 
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='side-licenses']")));
         var links = cut.FindAll("[data-testid='side-nav'] a");
-        Assert.Equal(AppDestinations.All.Select(d => d.Href), links.Select(a => a.GetAttribute("href")));
+        Assert.Equal(new[] { "/", "/plan", "/buchungen", "/sparen", "/konten", "/vertraege", "/haushalt", "/konto", "/lizenzen" }, links.Select(a => a.GetAttribute("href")));
         Assert.All(links, a => Assert.True(a.GetAttribute("tabindex") is null or "0"));
 
         var css = Css();
@@ -165,9 +272,9 @@ public class SideNavigationTests : PageTestContext
         var side = Render<SideNavigation>(p => p.Add(c => c.Destinations, list));
         var bottom = Render<BottomNavigation>(p => p.Add(c => c.Destinations, list));
 
-        Assert.Equal(list.Count, side.FindAll("a").Count);
+        Assert.Equal(list.Count, side.FindAll("a.app-side-destination").Count);
         Assert.Equal(list.Count, bottom.FindAll("a").Count);
-        Assert.Equal("/extra", side.FindAll("a").Last().GetAttribute("href"));
+        Assert.Equal("/extra", side.FindAll("a.app-side-destination").Last().GetAttribute("href"));
         Assert.Equal("/extra", bottom.FindAll("a").Last().GetAttribute("href"));
     }
 

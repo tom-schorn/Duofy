@@ -4,7 +4,7 @@
 @* Der Tab Buchungen (Spec 24): die Buchungen, die diesem Planmonat zugeordnet sind, neueste zuerst, mit Datum, Betrag und
    Konto (im Haushalt mit dem Vornamen). Liegt das Datum in einem anderen Monat als dem Planmonat, steht das daneben.
    Ein Übertrag ist keine Buchung und steht als eigene Zeile darüber (Spec 66, R9). *@
-<div data-testid="month-bookings">
+<div class="month-bookings" data-testid="month-bookings">
     @if (Rows.Count == 0 && CarryOvers.Count == 0)
     {
         <p class="month-hint" data-testid="month-bookings-empty">@L["Month_BookingsEmpty"]</p>

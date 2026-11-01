@@ -1,0 +1,105 @@
+@using System.Globalization
+@inject IStringLocalizer<SharedResources> L
+
+@* Richtwerte je Person im Haushaltsplan (Issue #28, Zahlen aus Spec 27): oben ein Satz, ob der gemeinsame Plan aufgeht, dann
+   je Mitglied eine kleine Tabelle mit Anteil, Richtwert und Abweichung als Text und, wo die Person deutlich abweicht, ein
+   ruhiger Satz dazu. Der Richtwert ist ein Anhaltspunkt, keine Vorgabe und keine Bewertung; es gibt keine Warnfarbe, die
+   Abweichung steht in Worten (darüber, darunter, wie der Richtwert). Die Seite rechnet nichts (siehe GuidelineView).
+   Am PC stehen die Personen nebeneinander (Stylesheet, ab 1280 px), sonst untereinander. *@
+@if (Model.People.Count > 0)
+{
+    <section class="month-section" aria-labelledby="household-guidelines-heading" data-testid="household-guidelines">
+        <h2 class="month-section-title" id="household-guidelines-heading">@L["Guideline_Heading"]</h2>
+        <p class="month-hint" data-testid="guideline-intro">@L["Guideline_Intro"]</p>
+        <p class="guideline-summary" role="status" data-testid="guideline-summary">@Summary</p>
+
+        <div class="guideline-people">
+            @foreach (var person in Model.People)
+            {
+                <div class="guideline-person" data-testid="@($"guideline-person-{person.UserId}")">
+                    <h3 class="guideline-person-name">@person.Name</h3>
+                    @if (!person.HasIncome)
+                    {
+                        <p class="month-hint">@L["Guideline_NoIncomePerson", person.Name]</p>
+                    }
+                    else
+                    {
+                        <table class="line-table">
+                            <caption class="line-table-caption">@L["Guideline_TableCaption", person.Name]</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">@L["Guideline_ColumnPot"]</th>
+                                    <th scope="col">@L["Guideline_ColumnShare"]</th>
+                                    <th scope="col">@L["Guideline_ColumnTarget"]</th>
+                                    <th scope="col">@L["Guideline_ColumnDeviation"]</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in person.Rows)
+                                {
+                                    <tr data-testid="@($"guideline-row-{person.UserId}-{row.Pot}")">
+                                        <th scope="row">@L[$"Pot_{row.Pot}"]</th>
+                                        <td>@Percent(row.Actual)</td>
+                                        <td>@row.Target %</td>
+                                        <td>@DeviationText(row)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                        @if (person.OutsideRows.Count > 0)
+                        {
+                            <p class="month-hint" data-testid="@($"guideline-note-{person.UserId}")">@Note(person)</p>
+                        }
+                    }
+                </div>
+            }
+        </div>
+    </section>
+}
+
+@code {
+    private static readonly CultureInfo German = new("de-DE");
+
+    [Parameter, EditorRequired] public GuidelineModel Model { get; set; } = default!;
+
+    private static string Percent(decimal value) => value.ToString("0.0", German) + " %";
+
+    private string PotName(string pot) => L[$"Pot_{pot}"].Value;
+
+    private string Summary
+    {
+        get
+        {
+            if (!Model.AnyIncome)
+            {
+                return L["Guideline_SummaryNoIncome"];
+            }
+            return Model.HouseholdFits
+                ? L["Guideline_SummaryFits"]
+                : L["Guideline_SummaryOff", string.Join(", ", Model.HouseholdOutsidePots.Select(PotName))];
+        }
+    }
+
+    private string DeviationText(GuidelineRow row)
+    {
+        var points = Math.Abs(row.Deviation).ToString("0.0", German);
+        return row.Side switch
+        {
+            GuidelineSide.Over => L["Guideline_Over", points],
+            GuidelineSide.Under => L["Guideline_Under", points],
+            _ => L["Guideline_Equal"],
+        };
+    }
+
+    // Ein Satz je Topf außerhalb der Toleranz; geht der gemeinsame Plan auf, sagt der letzte Satz es dazu.
+    private string Note(GuidelinePerson person)
+    {
+        var sentences = person.OutsideRows.Select(row =>
+        {
+            var points = Math.Abs(row.Deviation).ToString("0.0", German);
+            return L[row.Side == GuidelineSide.Over ? "Guideline_NoteOver" : "Guideline_NoteUnder", person.Name, PotName(row.Pot), points].Value;
+        });
+        var text = string.Join(" ", sentences);
+        return Model.HouseholdFits ? text + " " + L["Guideline_NoteFits"].Value : text;
+    }
+}

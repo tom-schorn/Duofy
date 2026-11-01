@@ -70,7 +70,9 @@ public sealed record CreateCommitmentRequest(
     string? PaymentMethod = null,
     decimal? TargetAmount = null,
     DateOnly? TargetDate = null,
-    Guid? OwnerId = null);
+    Guid? OwnerId = null,
+    Guid? SavingsGoalId = null,
+    Guid? DebtId = null);
 
 /// <summary>
 /// Eine Änderung an einem Vertrag (PATCH /api/v1/commitments/{id}). Jedes Feld ist freiwillig;
@@ -98,7 +100,11 @@ public sealed record UpdateCommitmentRequest(
     bool? ClearLastDueDate = null,
     bool? ClearAccountId = null,
     bool? ClearCounterAccountId = null,
-    bool? ClearTarget = null);
+    bool? ClearTarget = null,
+    Guid? SavingsGoalId = null,
+    bool? ClearSavingsGoalId = null,
+    Guid? DebtId = null,
+    bool? ClearDebtId = null);
 
 /// <summary>Ein Vertrag in der Antwort der API.</summary>
 /// <param name="AccountId">Das Zahlkonto; null heißt: das Standardkonto am Tag der Zahlung.</param>
@@ -121,7 +127,9 @@ public sealed record CommitmentResponse(
     decimal? TargetAmount,
     DateOnly? TargetDate,
     DateOnly? NextDueDate,
-    bool Running);
+    bool Running,
+    Guid? SavingsGoalId = null,
+    Guid? DebtId = null);
 
 /// <summary>Die Regeln für Verträge. Die API prüft sie, die Oberfläche kann sie schon beim Tippen anzeigen.</summary>
 public static class CommitmentRules

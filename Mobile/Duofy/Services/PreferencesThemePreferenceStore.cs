@@ -22,6 +22,14 @@ namespace Duofy.Services
             return Task.FromResult(choice);
         }
 
+        // Issue 5: Preferences und Systemdarstellung sind sofort da, das Layout wendet sie vor dem ersten Zeichnen an.
+        public ThemeStart? LoadImmediately()
+        {
+            var choice = LoadAsync().GetAwaiter().GetResult();
+            var systemIsDark = AppInfo.Current.RequestedTheme == AppTheme.Dark;
+            return new ThemeStart(choice, systemIsDark);
+        }
+
         public Task SaveAsync(ThemeChoice choice)
         {
             if (choice == ThemeChoice.Device)

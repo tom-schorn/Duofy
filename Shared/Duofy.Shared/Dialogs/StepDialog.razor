@@ -7,35 +7,45 @@
    Die Schritte stehen als DialogStep im Inhalt. Alle Schritte bleiben gezeichnet, nur der aktuelle
    ist sichtbar; so bleiben Eingaben beim Zurückgehen stehen, auch in Feldern ohne Bindung.
    Weiter prüft die Felder des aktuellen Schritts (StepField), im letzten Schritt ruft es OnFinish.
-   Zurück steht links, Weiter rechts am unteren Rand; im ersten Schritt hält ein Platzhalter die Stelle frei. *@
+   Zurück steht links, Weiter rechts am unteren Rand; im ersten Schritt hält ein Platzhalter die Stelle frei.
+
+   Escape bricht ab wie der Knopf Abbrechen, also mit der Rückfrage bei Eingaben (Issue #22). MudBlazors eigenes
+   Escape ist aus (StepDialogOptions), damit die Rückfrage nicht umgangen wird. *@
 
 <MudDialog Class="step-dialog">
     <TitleContent>
-        <div class="step-dialog-head">
+        <div class="step-dialog-head" @onkeydown="OnKeyDown">
             <div class="step-dialog-heading">
                 <h2 class="step-dialog-title">@Dialog.Title</h2>
-                <p class="step-dialog-progress" aria-live="polite" data-testid="step-dialog-progress">@ProgressText</p>
+                @* Mit nur einem Schritt gibt es nichts zu zählen: kein Fortschritt, kein Balken. *@
+                @if (steps.Count != 1)
+                {
+                    <p class="step-dialog-progress" aria-live="polite" data-testid="step-dialog-progress">@ProgressText</p>
+                }
             </div>
-            <DuofyButton Kind="ButtonKind.Secondary" OnClick="CancelAsync">@L["StepDialog_Cancel"]</DuofyButton>
+            <DuofyButton Kind="ButtonKind.Secondary" OnClick="CancelAsync" TestId="step-dialog-cancel">@L["StepDialog_Cancel"]</DuofyButton>
         </div>
-        <div class="step-dialog-bar" aria-hidden="true">
-            @for (var i = 0; i < steps.Count; i++)
-            {
-                <span class="@(i <= current ? "step-dialog-bar-segment step-dialog-bar-segment--reached" : "step-dialog-bar-segment")"></span>
-            }
-        </div>
+        @if (steps.Count != 1)
+        {
+            <div class="step-dialog-bar" aria-hidden="true">
+                @for (var i = 0; i < steps.Count; i++)
+                {
+                    <span class="@(i <= current ? "step-dialog-bar-segment step-dialog-bar-segment--reached" : "step-dialog-bar-segment")"></span>
+                }
+            </div>
+        }
     </TitleContent>
     <DialogContent>
         @* Tippen, Auswählen und Ankreuzen lösen input aus, und input steigt in Blazor bis hierher auf
            (change nicht); daran merkt der Rahmen, dass etwas eingegeben ist. *@
-        <div class="step-dialog-steps" @oninput="MarkInput">
+        <div class="step-dialog-steps" @oninput="MarkInput" @onkeydown="OnKeyDown">
             <CascadingValue Value="this" IsFixed="true">
                 @ChildContent
             </CascadingValue>
         </div>
     </DialogContent>
     <DialogActions>
-        <div class="step-dialog-actions">
+        <div class="step-dialog-actions" @onkeydown="OnKeyDown">
             @if (current > 0)
             {
                 <DuofyButton Kind="ButtonKind.Secondary" OnClick="Back">@L["StepDialog_Back"]</DuofyButton>
@@ -44,7 +54,7 @@
             {
                 <span class="step-dialog-actions-spacer"></span>
             }
-            <DuofyButton Kind="ButtonKind.Primary" Disabled="Busy" OnClick="NextAsync">@(IsLast ? FinishText ?? L["StepDialog_Finish"] : L["StepDialog_Next"])</DuofyButton>
+            <DuofyButton Kind="ButtonKind.Primary" Disabled="Busy" OnClick="NextAsync" TestId="@(IsLast ? FinishTestId : NextTestId)">@(IsLast ? FinishText ?? L["StepDialog_Finish"] : L["StepDialog_Next"])</DuofyButton>
         </div>
     </DialogActions>
 </MudDialog>
@@ -65,6 +75,14 @@
     /// <summary>Text des Knopfs im letzten Schritt; ohne Angabe "Speichern".</summary>
     [Parameter]
     public string? FinishText { get; set; }
+
+    /// <summary>Die Kennung (data-testid) des Knopfs im letzten Schritt, zum Beispiel "booking-save".</summary>
+    [Parameter]
+    public string? FinishTestId { get; set; }
+
+    /// <summary>Die Kennung (data-testid) des Knopfs "Weiter" in den Schritten davor.</summary>
+    [Parameter]
+    public string? NextTestId { get; set; }
 
     /// <summary>Sperrt Weiter, etwa während gespeichert wird.</summary>
     [Parameter]
@@ -109,6 +127,10 @@
     }
 
     private void MarkInput() => typed = true;
+
+    // Escape wirkt wie Abbrechen, auch mit der Rückfrage. Ein Escape, das nur ein offenes Auswahlfeld schließt, kommt
+    // hier ebenfalls an; die Rückfrage erscheint dann nur, wenn schon etwas eingegeben ist.
+    private Task OnKeyDown(KeyboardEventArgs e) => e.Key == "Escape" ? CancelAsync() : Task.CompletedTask;
 
     private void Back()
     {

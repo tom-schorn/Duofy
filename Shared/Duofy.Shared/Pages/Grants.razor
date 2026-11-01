@@ -23,9 +23,10 @@
     <MudLink Href="/haushalt" data-testid="grants-back">@L["Grants_Back"]</MudLink>
 </MudStack>
 
+<AppPageHeading Text="@L["Grants_Title"]" />
 @if (!Host.IsApp)
 {
-    <MudText Typo="Typo.h4" Class="mb-2">@L["Grants_Title"]</MudText>
+    <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-2">@L["Grants_Title"]</MudText>
 }
 <MudText Color="Color.Secondary" Class="mb-4">@L["Grants_Lead"]</MudText>
 
@@ -117,14 +118,15 @@
 
     private static IReadOnlyDictionary<string, object> Busy(bool locked) => locked ? Locked : Free;
 
-    private static UpdateGrantsRequest Request(GrantLevels levels) => new(levels.Plan, levels.Book, levels.Accounts, levels.Commitments);
+    private static UpdateGrantsRequest Request(GrantLevels levels) => new(levels.Plan, levels.Book, levels.Accounts, levels.Commitments, levels.Savings);
 
     private static UpdateGrantsRequest Request(string area, string level) => area switch
     {
         GrantAreas.Plan => new(Plan: level),
         GrantAreas.Book => new(Book: level),
         GrantAreas.Accounts => new(Accounts: level),
-        _ => new(Commitments: level),
+        GrantAreas.Commitments => new(Commitments: level),
+        _ => new(Savings: level),
     };
 
     protected override async Task OnInitializedAsync()

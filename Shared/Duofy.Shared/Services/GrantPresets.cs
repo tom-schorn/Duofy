@@ -5,7 +5,7 @@ namespace Duofy.Shared.Services;
 /// <summary>
 /// Die Vorlagen und Hinweise der Freigaben-Seite (Spec 68, R6, R7).
 ///
-/// Eine Vorlage ist nur eine Abkürzung: Sie setzt ihre vier Stufen, und wer danach einen Bereich ändert, hat eine
+/// Eine Vorlage ist nur eine Abkürzung: Sie setzt ihre Stufen, und wer danach einen Bereich ändert, hat eine
 /// eigene Auswahl. Ein Hinweis ändert nie etwas von selbst; eine Seite, die still eine zweite Stufe anhebt, gäbe
 /// mehr frei, als gewählt wurde.
 /// </summary>
@@ -19,11 +19,11 @@ public static class GrantPresets
     /// <summary>Die Vorlagen in der Reihenfolge auf der Seite.</summary>
     public static readonly IReadOnlyList<string> Order = [Partner, Read, Kid, Nothing];
 
-    /// <summary>Die vier Stufen einer Vorlage.</summary>
+    /// <summary>Die Stufen einer Vorlage.</summary>
     public static GrantLevels Levels(string preset) => preset switch
     {
-        Partner => new(AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.Delete),
-        Read => new(AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View),
+        Partner => new(AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.Delete),
+        Read => new(AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View),
         Kid => GrantLevels.None with { Plan = AccessLevelKeys.View },
         Nothing => GrantLevels.None,
         _ => throw new ArgumentOutOfRangeException(nameof(preset), preset, "Unbekannte Vorlage."),

@@ -24,7 +24,7 @@ public class Grant
     public AccessLevel Level { get; set; }
 
     /// <summary>
-    /// Die Stufen aller vier Bereiche aus den Zeilen zwischen zwei Personen; ein Bereich ohne Zeile ist
+    /// Die Stufen aller Bereiche aus den Zeilen zwischen zwei Personen; ein Bereich ohne Zeile ist
     /// <see cref="AccessLevel.None"/>.
     /// </summary>
     public static Dictionary<Area, AccessLevel> LevelsOf(IEnumerable<Grant> rows)
@@ -52,6 +52,9 @@ public enum Area
 
     /// <summary>Die Verträge.</summary>
     Commitments,
+
+    /// <summary>Sparen: Sparziele, Schulden und Kredite (Spec 29).</summary>
+    Savings,
 }
 
 /// <summary>

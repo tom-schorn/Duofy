@@ -9,13 +9,14 @@
        {0} und {1} sind Platzhalter, die beim Anzeigen ersetzt werden. -->
 
   <!-- Rahmen -->
-  <data name="App_Name"><value>Duofy</value></data>
   <data name="Layout_ThemeLabel"><value>Darstellung</value></data>
   <data name="Layout_ThemeLight"><value>Hell</value></data>
   <data name="Layout_ThemeDark"><value>Dunkel</value></data>
   <data name="Layout_ThemeDevice"><value>Wie das Gerät</value></data>
   <data name="Layout_ErrorMessage"><value>Es ist ein Fehler aufgetreten.</value></data>
   <data name="Layout_Reload"><value>Neu laden</value></data>
+  <data name="Layout_Dismiss"><value>Meldung schließen</value></data>
+  <data name="Layout_SkipToContent"><value>Zum Inhalt springen</value></data>
 
   <!-- Navigation -->
   <data name="Nav_Start"><value>Start</value></data>
@@ -30,7 +31,19 @@
 
   <!-- Start -->
   <data name="Start_Greeting"><value>Hallo, {0}!</value></data>
-  <data name="Start_Text"><value>Hier entsteht bald deine Übersicht.</value></data>
+  <data name="Start_FreeIn"><value>Frei im {0}</value></data>
+  <data name="Start_ViewOf"><value>Zahlen von {0}</value></data>
+  <data name="Start_OpenMonth"><value>{0} öffnen</value></data>
+  <data name="Start_OpenPlan"><value>Zum Plan</value></data>
+  <data name="Start_OpenPots"><value>Töpfe im Plan ansehen</value></data>
+  <data name="Start_TargetActual"><value>Soll und Ist</value></data>
+  <data name="Start_NoPlanTitle"><value>Für {0} gibt es noch keinen Plan</value></data>
+  <data name="Start_NoPlanText"><value>Im Plan siehst du, was frei bleibt und was bald fällig ist. Er entsteht aus deinen Verträgen.</value></data>
+  <data name="Start_NoPlanOther"><value>{0} hat dafür noch keinen Plan.</value></data>
+  <data name="Start_NoPlanLink"><value>Plan für {0} anlegen</value></data>
+  <data name="Start_TogetherTitle"><value>Mit jemandem zusammen planen?</value></data>
+  <data name="Start_TogetherText"><value>Im Haushalt plant ihr gemeinsam, und jede Person entscheidet selbst, was sie teilt. Deine Konten, Verträge und Pläne bleiben immer bei dir.</value></data>
+  <data name="Start_TogetherLink"><value>Haushalt gründen oder beitreten</value></data>
 
   <!-- Felder, die mehrere Seiten benutzen -->
   <data name="Field_FirstName"><value>Vorname</value></data>
@@ -43,7 +56,7 @@
   <data name="Validation_Required"><value>Bitte ausfüllen.</value></data>
 
   <!-- Anmelden und Registrieren: Rahmen mit Markenfläche (aus frontend/src/locales/de.json, auth.*) -->
-  <data name="Auth_Claim"><value>Duofy plant Geld, es zählt es nicht.</value></data>
+  <data name="Auth_Claim"><value>{0} plant Geld, es zählt es nicht.</value></data>
   <data name="Auth_Tagline"><value>Gemeinsam planen, getrennt besitzen.</value></data>
   <data name="Auth_EmailPlaceholder"><value>name@beispiel.de</value></data>
   <data name="Auth_PotNeeds"><value>Grundbedarf</value></data>
@@ -54,6 +67,16 @@
   <data name="Legal_Privacy"><value>Datenschutz</value></data>
   <data name="Legal_Terms"><value>Nutzungsbedingungen</value></data>
   <data name="Legal_Missing"><value>Diesen Text gibt es auf diesem Server nicht.</value></data>
+
+  <!-- Einwilligung in optionale Fremddienste (Issue #35) -->
+  <data name="Consent_Region"><value>Einwilligung</value></data>
+  <data name="Consent_Text"><value>Wir möchten mit Cloudflare Web Analytics zählen, wie oft Seiten aufgerufen werden (Statistik). Das Skript von Cloudflare wird erst geladen, wenn du zustimmst. Du kannst auch ablehnen und Plagevo genauso nutzen, und du kannst deine Wahl jederzeit ändern.</value></data>
+  <data name="Consent_Accept"><value>Zustimmen</value></data>
+  <data name="Consent_Decline"><value>Ablehnen</value></data>
+  <data name="Consent_Change"><value>Statistik-Einwilligung ändern</value></data>
+  <data name="Consent_ChatText"><value>Wir bieten einen Chat an, in dem du uns Fragen stellen kannst. Der Chat kommt von Crisp. Das Skript von Crisp wird erst geladen, wenn du zustimmst. Du kannst auch ablehnen und Plagevo genauso nutzen, und du kannst deine Wahl jederzeit ändern.</value></data>
+  <data name="Consent_ChangeChat"><value>Chat-Einwilligung ändern</value></data>
+  <data name="Consent_ChangeAll"><value>Einwilligungen ändern</value></data>
 
   <!-- Serverwahl (nur in der App) -->
   <data name="Server_Line"><value>Server: {0}</value></data>
@@ -170,8 +193,8 @@
   <data name="Bookings_Empty"><value>In diesem Monat gibt es noch keine Buchungen.</value></data>
   <data name="Bookings_NoAccounts"><value>Lege zuerst ein Konto an, dann kannst du buchen.</value></data>
   <data name="Bookings_Add"><value>Buchung hinzufügen</value></data>
-  <data name="Bookings_Edit"><value>Buchung ändern</value></data>
-  <data name="Bookings_Delete"><value>Buchung löschen</value></data>
+  <data name="Bookings_Edit"><value>Buchung {0} ändern</value></data>
+  <data name="Bookings_Delete"><value>Buchung {0} löschen</value></data>
   <data name="Bookings_Split"><value>aufgeteilt</value></data>
   <data name="Bookings_Transfer"><value>Umbuchung: {0} → {1}</value></data>
   <data name="Bookings_TransferPots"><value>Topf: {0} → {1}</value></data>
@@ -198,6 +221,12 @@
   <data name="BookingDialog_RemoveLine"><value>Zeile entfernen</value></data>
   <data name="BookingDialog_NewCategory"><value>Eigene Kategorie anlegen</value></data>
   <data name="BookingDialog_NewCategorySave"><value>Kategorie anlegen</value></data>
+  <data name="AccountDialog_StepAll"><value>Konto</value></data>
+  <data name="HouseholdDialog_StepAll"><value>Haushalt</value></data>
+  <data name="PlanPositionDialog_StepAll"><value>Posten</value></data>
+  <data name="BookingDialog_StepWhat"><value>Was und wann</value></data>
+  <data name="BookingDialog_StepWhere"><value>Einordnung</value></data>
+  <data name="BookingDialog_KindLabel"><value>Art der Buchung</value></data>
   <data name="BookingDialog_Save"><value>Speichern</value></data>
   <data name="BookingDialog_Cancel"><value>Abbrechen</value></data>
   <data name="Field_Amount"><value>Betrag in Euro</value></data>
@@ -234,10 +263,10 @@
   <data name="Accounts_Title"><value>Konten</value></data>
   <data name="Accounts_Add"><value>Konto anlegen</value></data>
   <data name="Accounts_Empty"><value>Du hast noch kein Konto. Lege dein erstes an, zum Beispiel dein Girokonto.</value></data>
-  <data name="Accounts_IsDefault"><value>Standardkonto: beim Buchen vorgewählt</value></data>
-  <data name="Accounts_MakeDefault"><value>Zum Standardkonto machen</value></data>
+  <data name="Accounts_IsDefault"><value>{0} ist das Standardkonto: beim Buchen vorgewählt</value></data>
+  <data name="Accounts_MakeDefault"><value>{0} zum Standardkonto machen</value></data>
   <data name="Accounts_DefaultSet"><value>{0} ist jetzt dein Standardkonto.</value></data>
-  <data name="Accounts_Edit"><value>Konto ändern</value></data>
+  <data name="Accounts_Edit"><value>Konto {0} ändern</value></data>
   <data name="Accounts_Close"><value>Auflösen</value></data>
   <data name="Accounts_Closed"><value>Das Konto ist aufgelöst. Seine Buchungen bleiben erhalten.</value></data>
   <data name="Accounts_Reopen"><value>Wieder öffnen</value></data>
@@ -248,6 +277,13 @@
   <data name="AccountType_checking"><value>Girokonto</value></data>
   <data name="AccountType_savings"><value>Sparkonto</value></data>
   <data name="AccountType_cash"><value>Bargeld</value></data>
+  <data name="Field_AccountIcon"><value>Symbol</value></data>
+  <data name="AccountIcon_bank"><value>Bank</value></data>
+  <data name="AccountIcon_piggy"><value>Sparschwein</value></data>
+  <data name="AccountIcon_cash"><value>Bargeld</value></data>
+  <data name="AccountIcon_card"><value>Karte</value></data>
+  <data name="AccountIcon_wallet"><value>Geldbeutel</value></data>
+  <data name="AccountIcon_coins"><value>Münzen</value></data>
 
   <!-- Kontodialog -->
   <data name="AccountDialog_TitleNew"><value>Neues Konto</value></data>
@@ -264,6 +300,7 @@
   <data name="Error_account_name_required"><value>Bitte gib dem Konto einen Namen.</value></data>
   <data name="Error_account_name_too_long"><value>Der Name darf höchstens 100 Zeichen lang sein.</value></data>
   <data name="Error_account_type_invalid"><value>Bitte wähle Girokonto, Sparkonto oder Bargeld.</value></data>
+  <data name="Error_account_icon_invalid"><value>Dieses Symbol gibt es nicht. Bitte wähle eines aus der Liste.</value></data>
   <data name="Error_opening_balance_invalid"><value>Der Kontostand darf höchstens zwei Stellen nach dem Komma haben.</value></data>
   <data name="Error_opening_date_in_future"><value>Der Starttag darf nicht in der Zukunft liegen.</value></data>
   <data name="Error_opening_date_after_booking"><value>Der Starttag muss vor der ersten Buchung dieses Kontos liegen.</value></data>
@@ -278,15 +315,15 @@
   <data name="Commitments_Empty"><value>Du hast noch keinen Vertrag. Lege deinen ersten an, zum Beispiel die Miete oder dein Gehalt.</value></data>
   <data name="Commitments_ShowEnded"><value>Beendete zeigen</value></data>
   <data name="Commitments_EndedHidden"><value>Beendete Verträge sind ausgeblendet. Schalte „Beendete zeigen“ ein, um sie zu sehen.</value></data>
-  <data name="Commitments_Edit"><value>Vertrag ändern</value></data>
+  <data name="Commitments_Edit"><value>Vertrag {0} ändern</value></data>
   <data name="Commitments_End"><value>Beenden</value></data>
   <data name="Commitments_Ended"><value>Der Vertrag ist beendet. Seine letzte Zahlung steht im Vertrag; du kannst sie im Dialog wieder leeren.</value></data>
-  <data name="Commitments_EndedMark"><value>{0} · beendet</value></data>
+  <data name="Commitments_EndedOnly"><value>beendet</value></data>
   <data name="Commitments_EndTitle"><value>Vertrag beenden?</value></data>
   <data name="Commitments_EndText"><value>„{0}“ wird beendet und steht dann nur noch unter „Beendete zeigen“. Rückgängig machen kannst du das im Dialog, indem du die letzte Zahlung wieder leerst.</value></data>
   <data name="Commitments_EndConfirm"><value>Beenden</value></data>
   <data name="Commitments_EndCancel"><value>Abbrechen</value></data>
-  <data name="Commitments_NextDue"><value>nächste Zahlung {0}</value></data>
+  <data name="Commitments_NextDueLabel"><value>nächste Zahlung</value></data>
   <data name="Commitments_Saved"><value>Der Vertrag wurde gespeichert.</value></data>
   <data name="CommitmentType_contract"><value>Vertrag</value></data>
   <data name="CommitmentType_income"><value>Einnahme</value></data>
@@ -345,6 +382,103 @@
   <data name="Error_commitment_not_found"><value>Den Vertrag gibt es nicht mehr. Bitte lade die Seite neu.</value></data>
   <!-- App-Layout (Spec 65) -->
   <data name="Nav_Plan"><value>Plan</value></data>
+  <data name="Nav_Savings"><value>Sparen</value></data>
+  <data name="Savings_Title"><value>Sparen</value></data>
+  <data name="Savings_Section_goals"><value>Sparziele</value></data>
+  <data name="Savings_Section_debts"><value>Schulden</value></data>
+  <data name="Savings_Section_loans"><value>Kredite</value></data>
+  <data name="Savings_Empty_goals"><value>Noch kein Sparziel. Wenn du etwas Bestimmtes zurücklegen möchtest, legst du hier ein Ziel an.</value></data>
+  <data name="Savings_Empty_debts"><value>Keine Forderung eingetragen. Das ist in Ordnung, hier steht nur, was du eintragen möchtest.</value></data>
+  <data name="Savings_Empty_loans"><value>Kein Kredit eingetragen.</value></data>
+  <data name="Savings_AddGoal"><value>Neues Sparziel</value></data>
+  <data name="Savings_EditGoal"><value>Sparziel {0} ändern</value></data>
+  <data name="Savings_DeleteGoal"><value>Sparziel {0} löschen</value></data>
+  <data name="Savings_Deposit"><value>Einzahlen</value></data>
+  <data name="Savings_Withdraw"><value>Entnehmen</value></data>
+  <data name="Savings_Balance"><value>Stand: {0}</value></data>
+  <data name="Savings_BalanceOf"><value>{0} von {1}</value></data>
+  <data name="Savings_Progress"><value>Fortschritt von {0}</value></data>
+  <data name="Savings_Reached"><value>Geschafft. Das Ziel ist erreicht.</value></data>
+  <data name="Savings_TargetDate"><value>Bis {0}</value></data>
+  <data name="Savings_OnAccount"><value>Liegt auf: {0}</value></data>
+  <data name="Savings_GoalSaved"><value>Sparziel gespeichert.</value></data>
+  <data name="Savings_GoalDeleted"><value>Sparziel gelöscht.</value></data>
+  <data name="Savings_MoveSaved"><value>Gebucht.</value></data>
+  <data name="SavingsGoalDialog_TitleNew"><value>Neues Sparziel</value></data>
+  <data name="SavingsGoalDialog_TitleEdit"><value>Sparziel ändern</value></data>
+  <data name="SavingsGoalDialog_Save"><value>Speichern</value></data>
+  <data name="SavingsGoalDialog_Cancel"><value>Abbrechen</value></data>
+  <data name="Field_SavingsGoalName"><value>Wofür sparst du?</value></data>
+  <data name="Field_SavingsGoalStart"><value>Schon angespart (Euro)</value></data>
+  <data name="Field_SavingsGoalStartHint"><value>Was für dieses Ziel schon da ist. Das ist nur eine Angabe, es wird nichts gebucht.</value></data>
+  <data name="Error_savings_goal_start_invalid"><value>Der Betrag bei "Schon angespart" darf nicht negativ sein, mit höchstens zwei Nachkommastellen.</value></data>
+  <data name="Field_SavingsGoalTarget"><value>Zielbetrag in Euro (freiwillig)</value></data>
+  <data name="Field_SavingsGoalTargetHint"><value>Ohne Zielbetrag zählt das Ziel einfach mit, was du zurücklegst.</value></data>
+  <data name="Field_SavingsGoalDate"><value>Bis wann (freiwillig)</value></data>
+  <data name="Field_SavingsGoalAccount"><value>Sparkonto</value></data>
+  <data name="Field_SavingsGoalNoAccount"><value>(kein bestimmtes Konto)</value></data>
+  <data name="SavingsMove_TitleDeposit"><value>In {0} einzahlen</value></data>
+  <data name="SavingsMove_TitleWithdrawal"><value>Aus {0} entnehmen</value></data>
+  <data name="SavingsMove_From"><value>Von Konto</value></data>
+  <data name="SavingsMove_To"><value>Auf Konto</value></data>
+  <data name="SavingsMove_SavingsAccount"><value>Sparkonto</value></data>
+  <data name="SavingsMove_ChooseAccount"><value>Bitte wählen</value></data>
+  <data name="SavingsMove_PotFrom"><value>Aus welchem Topf kommt das Geld?</value></data>
+  <data name="SavingsMove_PotTo"><value>In welchen Topf geht das Geld?</value></data>
+  <data name="SavingsMove_NeedAccounts"><value>Wähle zwei verschiedene Konten: das Sparkonto und das andere Konto.</value></data>
+  <data name="SavingsMove_Save"><value>Buchen</value></data>
+  <data name="Error_savings_goal_not_found"><value>Das Sparziel gibt es nicht mehr. Bitte lade die Seite neu.</value></data>
+  <data name="Error_savings_goal_name_required"><value>Bitte gib dem Sparziel einen Namen.</value></data>
+  <data name="Error_savings_goal_name_too_long"><value>Der Name ist zu lang. Es sind höchstens 100 Zeichen erlaubt.</value></data>
+  <data name="Error_savings_goal_target_invalid"><value>Der Zielbetrag muss größer als 0 sein, mit höchstens zwei Nachkommastellen.</value></data>
+  <data name="Error_savings_goal_booking_invalid"><value>Diese Buchung bewegt kein Geld in den Topf Sparen oder aus ihm heraus und lässt sich keinem Sparziel zuordnen.</value></data>
+  <data name="Error_savings_goal_has_bookings"><value>An diesem Sparziel hängen Buchungen oder Verträge. Löse erst die Zuordnung, dann lässt es sich löschen.</value></data>
+  <data name="Error_commitment_goal_invalid"><value>Ein Sparziel geht nur bei einer Ausgabe mit einem Zielkonto.</value></data>
+  <data name="CommitmentDialog_Goal"><value>Sparziel</value></data>
+  <data name="CommitmentDialog_NoGoal"><value>(kein Sparziel)</value></data>
+  <data name="CommitmentDialog_GoalHint"><value>Mit Sparziel fließt die Rate dem Ziel zu, sobald du den Posten im Plan abhakst. Sie geht auf das Zielkonto.</value></data>
+  <data name="Savings_Add_debts"><value>Forderung eintragen</value></data>
+  <data name="Savings_Add_loans"><value>Kredit eintragen</value></data>
+  <data name="Savings_DebtTo"><value>An: {0}</value></data>
+  <data name="Savings_DebtOpen"><value>Noch offen: {0} von {1}</value></data>
+  <data name="Savings_DebtProgress"><value>Bezahlt von {0}</value></data>
+  <data name="Savings_DebtSettled"><value>Bezahlt. Das ist geschafft.</value></data>
+  <data name="Savings_DebtDue"><value>Fällig bis {0}</value></data>
+  <data name="Savings_DebtPay"><value>Zahlung eintragen</value></data>
+  <data name="Savings_EditDebt"><value>Eintrag {0} ändern</value></data>
+  <data name="Savings_DeleteDebt"><value>Eintrag {0} löschen</value></data>
+  <data name="Savings_DebtSaved"><value>Eintrag gespeichert.</value></data>
+  <data name="Savings_DebtDeleted"><value>Eintrag gelöscht.</value></data>
+  <data name="Savings_PaymentSaved"><value>Zahlung gebucht.</value></data>
+  <data name="Savings_Help"><value>Schulden sind kein Makel, und du musst damit nicht allein bleiben. Eine Schuldnerberatung hilft kostenlos und unabhängig, zum Beispiel über die Verbraucherzentrale, die Caritas oder die Diakonie in deiner Nähe. Diese Seite ordnet nur, was du einträgst, und ersetzt keine Rechtsberatung.</value></data>
+  <data name="DebtDialog_TitleNewClaim"><value>Forderung eintragen</value></data>
+  <data name="DebtDialog_TitleNewLoan"><value>Kredit eintragen</value></data>
+  <data name="DebtDialog_TitleEdit"><value>Eintrag ändern</value></data>
+  <data name="DebtDialog_Save"><value>Speichern</value></data>
+  <data name="Field_DebtName"><value>Wofür? (zum Beispiel Stromrechnung)</value></data>
+  <data name="Field_DebtCreditor"><value>An wen musst du zahlen?</value></data>
+  <data name="Field_DebtAmount"><value>Betrag in Euro</value></data>
+  <data name="Field_DebtDueDate"><value>Fällig bis (freiwillig)</value></data>
+  <data name="Field_DebtNote"><value>Notiz (freiwillig)</value></data>
+  <data name="DebtPayment_Title"><value>Zahlung auf {0}</value></data>
+  <data name="DebtPayment_Account"><value>Von welchem Konto?</value></data>
+  <data name="DebtPayment_Pot"><value>Aus welchem Topf?</value></data>
+  <data name="DebtPayment_NeedAccount"><value>Bitte wähle das Konto, von dem du zahlst.</value></data>
+  <data name="DebtPayment_Save"><value>Buchen</value></data>
+  <data name="Error_debt_not_found"><value>Den Eintrag gibt es nicht mehr. Bitte lade die Seite neu.</value></data>
+  <data name="Error_debt_kind_invalid"><value>Bitte wähle Forderung oder Kredit.</value></data>
+  <data name="Error_debt_name_required"><value>Bitte gib dem Eintrag einen Namen.</value></data>
+  <data name="Error_debt_name_too_long"><value>Der Name ist zu lang. Es sind höchstens 100 Zeichen erlaubt.</value></data>
+  <data name="Error_debt_creditor_required"><value>Bitte sag, an wen gezahlt werden muss.</value></data>
+  <data name="Error_debt_creditor_too_long"><value>Der Name ist zu lang. Es sind höchstens 100 Zeichen erlaubt.</value></data>
+  <data name="Error_debt_amount_invalid"><value>Der Betrag muss größer als 0 sein, mit höchstens zwei Nachkommastellen.</value></data>
+  <data name="Error_debt_note_too_long"><value>Die Notiz ist zu lang. Es sind höchstens 200 Zeichen erlaubt.</value></data>
+  <data name="Error_debt_booking_invalid"><value>Nur eine Ausgabe lässt sich einer Schuld zuordnen.</value></data>
+  <data name="Error_debt_has_bookings"><value>An diesem Eintrag hängen Zahlungen oder Verträge. Löse erst die Zuordnung, dann lässt er sich löschen.</value></data>
+  <data name="Error_commitment_debt_invalid"><value>Eine Schuld geht nur bei einer Ausgabe ohne Zielkonto und ohne Sparziel.</value></data>
+  <data name="CommitmentDialog_Debt"><value>Schuld oder Kredit</value></data>
+  <data name="CommitmentDialog_NoDebt"><value>(keine Schuld)</value></data>
+  <data name="CommitmentDialog_DebtHint"><value>Mit Schuld zahlt die Rate darauf ein, sobald du den Posten im Plan abhakst. Sie geht an den Gläubiger, nicht auf ein eigenes Konto.</value></data>
   <data name="Nav_More"><value>Mehr</value></data>
   <data name="AppLayout_Navigation"><value>Hauptnavigation</value></data>
   <data name="AppLayout_Close"><value>Schließen</value></data>
@@ -377,13 +511,13 @@
   <data name="Plan_SumsExpenses"><value>Ausgaben: {0} geplant, {1} gebucht</value></data>
   <data name="Plan_Quota"><value>{0}: Ziel {1} %, Ist {2} %</value></data>
   <data name="Plan_Empty"><value>In diesem Monat ist nichts geplant. Lege Verträge an oder füge einen Posten hinzu.</value></data>
-  <data name="Plan_Tick"><value>Abhaken</value></data>
-  <data name="Plan_Untick"><value>Haken entfernen</value></data>
+  <data name="Plan_Tick"><value>{0} abhaken</value></data>
+  <data name="Plan_Untick"><value>Haken bei {0} entfernen</value></data>
   <data name="Plan_Ticked"><value>Der Posten ist abgehakt.</value></data>
   <data name="Plan_Unticked"><value>Der Haken ist entfernt.</value></data>
   <data name="Plan_Amounts"><value>{0} geplant · {1} gebucht</value></data>
-  <data name="Plan_Edit"><value>Posten bearbeiten</value></data>
-  <data name="Plan_Delete"><value>Posten löschen</value></data>
+  <data name="Plan_Edit"><value>Posten {0} bearbeiten</value></data>
+  <data name="Plan_Delete"><value>Posten {0} löschen</value></data>
   <data name="Plan_PositionSaved"><value>Der Posten wurde gespeichert.</value></data>
   <data name="Plan_PositionDeleted"><value>Der Posten wurde gelöscht.</value></data>
   <data name="Plan_DueDay"><value>am {0}.</value></data>
@@ -394,6 +528,23 @@
   <data name="HouseholdPlan_SumsUnpaid"><value>Noch offen: {0}</value></data>
   <data name="HouseholdPlan_SumsPot"><value>{0}: {1} geplant, {2} gebucht</value></data>
   <data name="HouseholdPlan_Unplanned"><value>Ohne Posten gebucht: Einnahmen {0}, Grundbedarf {1}, Wünsche {2}, Sparen {3}</value></data>
+  <data name="Guideline_Heading"><value>Richtwerte je Person</value></data>
+  <data name="Guideline_Intro"><value>Der Richtwert ist ein Anhaltspunkt für die Verteilung der Einnahmen auf Grundbedarf, Wünsche und Sparen, keine Vorgabe. Jeder Anteil ist der Teil der gebuchten Einnahmen der Person.</value></data>
+  <data name="Guideline_SummaryFits"><value>Der gemeinsame Plan geht auf: Grundbedarf, Wünsche und Sparen liegen nah am Richtwert.</value></data>
+  <data name="Guideline_SummaryOff"><value>Der gemeinsame Plan weicht bei {0} vom Richtwert ab.</value></data>
+  <data name="Guideline_SummaryNoIncome"><value>In diesem Monat gibt es noch keine Einnahmen, deshalb zeigt der Richtwert noch nichts.</value></data>
+  <data name="Guideline_NoIncomePerson"><value>{0} hat in diesem Monat keine Einnahmen, deshalb gibt es keine Anteile.</value></data>
+  <data name="Guideline_TableCaption"><value>Anteile von {0} an den Einnahmen</value></data>
+  <data name="Guideline_ColumnPot"><value>Topf</value></data>
+  <data name="Guideline_ColumnShare"><value>Anteil</value></data>
+  <data name="Guideline_ColumnTarget"><value>Richtwert</value></data>
+  <data name="Guideline_ColumnDeviation"><value>Abweichung</value></data>
+  <data name="Guideline_Over"><value>{0} Punkte darüber</value></data>
+  <data name="Guideline_Under"><value>{0} Punkte darunter</value></data>
+  <data name="Guideline_Equal"><value>wie der Richtwert</value></data>
+  <data name="Guideline_NoteOver"><value>{0} liegt bei {1} {2} Punkte über dem Richtwert.</value></data>
+  <data name="Guideline_NoteUnder"><value>{0} liegt bei {1} {2} Punkte unter dem Richtwert.</value></data>
+  <data name="Guideline_NoteFits"><value>Das ist nur ein Anhaltspunkt; gemeinsam geht der Plan trotzdem auf.</value></data>
   <data name="HouseholdPlan_Empty"><value>In diesem Monat gibt es im Haushalt noch keine Posten.</value></data>
   <data name="HouseholdPlan_Accounts"><value>Konten</value></data>
   <data name="HouseholdPlan_AccountsMissing"><value>Ohne Freigabe der Konten fehlen hier: {0}.</value></data>
@@ -565,6 +716,7 @@
   <data name="Grants_Area_book"><value>Buchungen</value></data>
   <data name="Grants_Area_accounts"><value>Konten</value></data>
   <data name="Grants_Area_commitments"><value>Verträge</value></data>
+  <data name="Grants_Area_savings"><value>Sparen und Schulden</value></data>
   <data name="Grants_Level_none"><value>Nichts</value></data>
   <data name="Grants_Level_view"><value>Ansehen</value></data>
   <data name="Grants_Level_create"><value>Anlegen</value></data>
@@ -698,6 +850,14 @@
   <data name="Month_TabOverview"><value>Übersicht</value></data>
   <data name="Month_TabPlan"><value>Plan</value></data>
   <data name="Month_TabBookings"><value>Buchungen</value></data>
+  <data name="Month_TabReview"><value>Auswertung</value></data>
+  <data name="Month_ReviewEmpty"><value>Für diesen Monat gibt es noch nichts auszuwerten. Sobald Posten geplant oder Buchungen da sind, zeigt diese Seite, wohin das Geld ging.</value></data>
+  <data name="Month_ReviewTotal"><value>Insgesamt gebucht: {0}, geplant: {1}.</value></data>
+  <data name="Month_ReviewDistributionHeading"><value>Wohin das Geld ging</value></data>
+  <data name="Month_ReviewDistributionCaption"><value>Gebuchte Beträge je Topf in Euro</value></data>
+  <data name="Month_ReviewLargest"><value>Den größten Anteil hat {0} mit {1} Prozent.</value></data>
+  <data name="Month_ReviewNothingBooked"><value>Gebucht wurde in diesem Monat noch nichts.</value></data>
+  <data name="Month_ReviewVersusHeading"><value>Geplant gegen gebucht</value></data>
   <data name="Month_Income"><value>Einnahmen</value></data>
   <data name="Month_Fixed"><value>Festes</value></data>
   <data name="Month_Free"><value>Frei</value></data>
@@ -727,4 +887,15 @@
   <data name="Month_CarryOverIn"><value>Übertrag aus {0}</value></data>
   <data name="Month_CarryOverOut"><value>Übertrag nach {0}</value></data>
   <data name="Month_BookingsMissing"><value>Nicht freigegebene Buchungen von: {0}</value></data>
+  <data name="Table_Name"><value>Name</value></data>
+  <data name="Table_Label"><value>Bezeichnung</value></data>
+  <data name="Table_Date"><value>Datum</value></data>
+  <data name="Table_Details"><value>Details</value></data>
+  <data name="Table_Amount"><value>Betrag</value></data>
+  <data name="Table_Balance"><value>Stand</value></data>
+  <data name="Table_Type"><value>Art</value></data>
+  <data name="Table_Interval"><value>Abstand</value></data>
+  <data name="Table_NextDue"><value>Nächste Zahlung</value></data>
+  <data name="Table_Email"><value>E-Mail</value></data>
+  <data name="Table_Role"><value>Rolle</value></data>
 </root>

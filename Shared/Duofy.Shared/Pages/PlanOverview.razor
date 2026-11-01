@@ -25,9 +25,10 @@
 
 <PageTitle>@L["Nav_Plan"]</PageTitle>
 
+<AppPageHeading Text="@L["Nav_Plan"]" />
 @if (!Host.IsApp)
 {
-    <MudText Typo="Typo.h4" Class="mb-2">@L["Nav_Plan"]</MudText>
+    <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-2">@L["Nav_Plan"]</MudText>
 }
 
 @if (Member.IsHousehold)
@@ -43,7 +44,7 @@
 }
 else if (rows is not null)
 {
-    <ul class="plan-months" aria-label="@L["PlanOverview_Months"]" data-testid="plan-months">
+    <ul class="plan-months page-wide" aria-label="@L["PlanOverview_Months"]" data-testid="plan-months">
         @foreach (var row in rows)
         {
             <li>

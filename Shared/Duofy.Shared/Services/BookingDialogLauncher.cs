@@ -1,5 +1,6 @@
 using Duofy.ApiClient;
 using Duofy.Schemas;
+using Duofy.Shared.Dialogs;
 using Duofy.Shared.Pages;
 using Duofy.Shared.Resources;
 using Microsoft.Extensions.Localization;
@@ -14,7 +15,6 @@ namespace Duofy.Shared.Services;
 /// </summary>
 public sealed class BookingDialogLauncher(
     IDialogService dialogs,
-    FormDialogs forms,
     IAccountChoices accountChoices,
     ICategoryApi categoryApi,
     ActiveMember member,
@@ -71,7 +71,7 @@ public sealed class BookingDialogLauncher(
         };
 
         var title = l[existing is null ? "BookingDialog_TitleNew" : "BookingDialog_TitleEdit"];
-        var dialog = await dialogs.ShowAsync<BookingDialog>(title, parameters, forms.Options());
+        var dialog = await dialogs.ShowAsync<BookingDialog>(title, parameters, StepDialogOptions.Create());
         var result = await dialog.Result;
 
         return result is { Canceled: false } ? new NoticeMessage(l["Bookings_Saved"], Severity.Success) : null;

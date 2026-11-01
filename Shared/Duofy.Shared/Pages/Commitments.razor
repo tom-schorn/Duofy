@@ -5,6 +5,8 @@
 @using Duofy.Schemas
 @using Duofy.Shared.Dialogs
 @inject ICommitmentApi CommitmentApi
+@inject ISavingsGoalApi GoalApi
+@inject IDebtApi DebtApi
 @inject ICategoryApi CategoryApi
 @inject IAccountChoices AccountChoices
 @implements IDisposable
@@ -29,10 +31,11 @@
 <PageTitle>@L["Commitments_Title"]</PageTitle>
 
 @* In der App steht der Titel in der oberen Leiste und das Plus im Layout (AppChrome). *@
+<AppPageHeading Text="@L["Commitments_Title"]" />
 @if (!Host.IsApp)
 {
     <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
-        <MudText Typo="Typo.h4">@L["Commitments_Title"]</MudText>
+        <MudText Typo="Typo.h4" HtmlTag="h1">@L["Commitments_Title"]</MudText>
         @if (Sees)
         {
             <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
@@ -65,26 +68,41 @@ else if (loaded && !Shown.Any())
     <MudText Color="Color.Secondary" Class="mb-2" data-testid="commitments-ended-hidden">@L["Commitments_EndedHidden"]</MudText>
 }
 
-<MudStack Spacing="2" Class="mt-2">
+@* Ab 1280 px eine Tabelle mit Spalten (siehe .data-table in app.css), darunter Karten wie bisher. *@
+<MudStack Spacing="2" Class="mt-2 data-table commitments-table page-wide">
+    @if (Shown.Any())
+    {
+        <div class="data-table-head" aria-hidden="true">
+            <span class="data-column-1">@L["Table_Name"]</span>
+            <span class="data-column-2">@L["Table_Type"]</span>
+            <span class="data-column-3">@L["Table_Interval"]</span>
+            <span class="data-column-4">@L["Table_NextDue"]</span>
+            <span class="data-column-5 data-amount">@L["Table_Amount"]</span>
+        </div>
+    }
     @foreach (var commitment in Shown)
     {
-        <MudPaper Class="pa-3" Outlined="true" data-testid="@($"commitment-{commitment.Id}")">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                <MudStack Spacing="0" Class="flex-grow-1">
-                    <MudText Color="@(commitment.Running ? Color.Default : Color.Secondary)">@commitment.Name</MudText>
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">@Caption(commitment)</MudText>
+        <MudPaper Class="pa-3 data-row-frame" Outlined="true" data-testid="@($"commitment-{commitment.Id}")">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="data-row">
+                <MudStack Spacing="0" Class="flex-grow-1 data-cells">
+                    <MudText Color="@(commitment.Running ? Color.Default : Color.Secondary)" Class="data-column-1">@commitment.Name</MudText>
+                    @* Liest sich wie eine Zeile; ab 1280 px sind die Teile Spalten und die Punkte dazwischen ausgeblendet. *@
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="data-cells"><span class="data-column-2">@L[$"CommitmentType_{commitment.Type}"]</span><span class="data-separator"> · </span><span class="data-column-3">@IntervalTexts.For(L, commitment.IntervalMonths)</span>@if (!commitment.Running)
+                        {<span class="data-separator"> · </span><span class="data-column-4">@L["Commitments_EndedOnly"]</span>}
+                        else if (commitment.NextDueDate is { } next)
+                        {<span class="data-separator"> · </span><span class="data-column-4"><span class="data-separator">@($"{L["Commitments_NextDueLabel"]} ")</span>@next.ToString("dd.MM.yyyy", German)</span>}</MudText>
                 </MudStack>
-                <MudText Typo="Typo.subtitle1" Color="@(commitment.Running ? Color.Default : Color.Secondary)">@Money(commitment.Amount)</MudText>
+                <MudText Typo="Typo.subtitle1" Color="@(commitment.Running ? Color.Default : Color.Secondary)" Class="data-column-5 data-amount">@Money(commitment.Amount)</MudText>
                 @if (CommitmentDraft.OfferedTypes.Contains(commitment.Type))
                 {
                     <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditAsync(commitment)"
-                                   Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
-                                   aria-label="@L["Commitments_Edit"]" data-testid="@($"commitment-edit-{commitment.Id}")" />
+                                   Class="@($"data-column-6 {GrantLock.Class(CanEdit)}")" @attributes="GrantLock.Attributes(CanEdit)"
+                                   aria-label="@L["Commitments_Edit", commitment.Name]" data-testid="@($"commitment-edit-{commitment.Id}")" />
                 }
                 @if (commitment.Running)
                 {
                     <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => EndAsync(commitment)"
-                               Class="@GrantLock.Class(CanEnd)" @attributes="GrantLock.Attributes(CanEnd)"
+                               Class="@($"data-column-7 {GrantLock.Class(CanEnd)}")" @attributes="GrantLock.Attributes(CanEnd)"
                                data-testid="@($"commitment-end-{commitment.Id}")">@L["Commitments_End"]</MudButton>
                 }
             </MudStack>
@@ -194,6 +212,28 @@ else if (loaded && !Shown.Any())
         }
     }
 
+    // Die Sparziele für die Wahl im Dialog (Issue 32); ohne Freigabe im Bereich Sparen oder bei einem Fehler gibt es keine zur Wahl.
+    private async Task<IReadOnlyList<SavingsGoalResponse>> LoadGoalsAsync()
+    {
+        if (!Member.Allows(GrantAreas.Savings, AccessLevelKeys.View))
+        {
+            return [];
+        }
+        var result = await GoalApi.ListAsync(Member.Owner);
+        return result.Succeeded ? result.Value! : [];
+    }
+
+    // Die Schulden für die Wahl im Dialog (Issue 31): die noch offenen und die schon gewählte; ohne Freigabe im Bereich Sparen keine.
+    private async Task<IReadOnlyList<DebtResponse>> LoadDebtsAsync(Guid? stored)
+    {
+        if (!Member.Allows(GrantAreas.Savings, AccessLevelKeys.View))
+        {
+            return [];
+        }
+        var result = await DebtApi.ListAsync(Member.Owner);
+        return result.Succeeded ? result.Value!.Where(d => !d.Settled || d.Id == stored).ToList() : [];
+    }
+
     private async Task ShowDialogAsync(CommitmentResponse? existing, string title)
     {
         var parameters = new DialogParameters<CommitmentDialog>
@@ -201,6 +241,8 @@ else if (loaded && !Shown.Any())
             { x => x.Existing, existing },
             { x => x.Categories, categories },
             { x => x.Accounts, accounts },
+            { x => x.SavingsGoals, await LoadGoalsAsync() },
+            { x => x.Debts, await LoadDebtsAsync(existing?.DebtId) },
             { x => x.Today, Today },
         };
 
@@ -240,22 +282,6 @@ else if (loaded && !Shown.Any())
             ? new NoticeMessage(L["Commitments_Ended"], Severity.Success)
             : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
         await LoadAsync();
-    }
-
-    // Unter dem Namen: Art, Abstand in Worten und nächste Zahlung, bei beendeten der Hinweis darauf.
-    private string Caption(CommitmentResponse commitment)
-    {
-        var type = L[$"CommitmentType_{commitment.Type}"];
-        var parts = new List<string> { $"{type} · {IntervalTexts.For(L, commitment.IntervalMonths)}" };
-        if (!commitment.Running)
-        {
-            return L["Commitments_EndedMark", parts[0]];
-        }
-        if (commitment.NextDueDate is { } next)
-        {
-            parts.Add(L["Commitments_NextDue", next.ToString("dd.MM.yyyy", German)]);
-        }
-        return string.Join(" · ", parts);
     }
 
     private static string Money(decimal amount) => amount.ToString("N2", German) + " €";

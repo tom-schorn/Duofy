@@ -19,9 +19,10 @@
 
 <PageTitle>@L["Nav_More"]</PageTitle>
 
+<AppPageHeading Text="@L["Nav_More"]" />
 @if (!Host.IsApp)
 {
-    <MudText Typo="Typo.h4" Class="mb-2">@L["Nav_More"]</MudText>
+    <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-2">@L["Nav_More"]</MudText>
 }
 
 <MudPaper Outlined="true">
@@ -52,7 +53,7 @@
             <MudButton Href="@LegalPages.PathOf(name)" Variant="Variant.Text" FullWidth="true" Class="more-item"
                        StartIcon="@Icons.Material.Filled.Article" data-testid="@($"more-legal-{name}")">@L[LegalPages.LabelKeyOf(name)]</MudButton>
         }
-        <MudButton OnClick="SignOutAsync" Variant="Variant.Text" FullWidth="true" Class="more-item" Color="Color.Error"
+        <MudButton OnClick="SignOutAsync" Variant="Variant.Text" FullWidth="true" Class="more-item"
                    StartIcon="@Icons.Material.Filled.Logout" data-testid="more-sign-out">@L["Account_SignOut"]</MudButton>
     </MudStack>
 </MudPaper>

@@ -1,6 +1,7 @@
 @inherits ThemedLayoutBase
 @implements IDisposable
 @inject AppChrome Chrome
+@inject AppBrand Brand
 @inject IStringLocalizer<SharedResources> L
 
 @* Das Layout der Android-App: obere Leiste mit dem Titel der Seite, der Inhalt, unten die
@@ -16,9 +17,13 @@
 <MudDialogProvider />
 <MudSnackbarProvider />
 
+<SkipLink Target="() => mainContent" />
+
 <MudLayout>
     <MudAppBar Elevation="0">
-        <MudText Typo="Typo.h6" HtmlTag="h1" Class="app-title" data-testid="app-title">@(Chrome.Title ?? L["App_Name"])</MudText>
+        @* Die obere Leiste ist in beiden Modi dunkel (DuofyTheme), das Zeichen also immer das für dunklen Grund. *@
+        <BrandMark Dark="true" Symbol="true" />
+        <MudText Typo="Typo.h6" HtmlTag="div" Class="app-title" data-testid="app-title">@(Chrome.Title ?? Brand.Name)</MudText>
         <MudSpacer />
         <AuthorizeView>
             <Authorized>
@@ -27,18 +32,21 @@
         </AuthorizeView>
     </MudAppBar>
 
-    <SideNavigation>
-        <Footer>
-            <AuthorizeView>
-                <Authorized>
-                    <MemberSwitch Up="true" />
-                </Authorized>
-            </AuthorizeView>
-        </Footer>
-    </SideNavigation>
+    @* Der Schalter für hell und dunkel steht unten auf "Mehr"; die Seitenleiste zeigt "Mehr" nicht und braucht ihn selbst. *@
+    <CascadingValue Value="@(new ModeSwitch(Choice, SelectChoiceAsync))">
+        <SideNavigation>
+            <Footer>
+                <AuthorizeView>
+                    <Authorized>
+                        <MemberSwitch Up="true" />
+                    </Authorized>
+                </AuthorizeView>
+            </Footer>
+        </SideNavigation>
+    </CascadingValue>
 
     <MudMainContent Class="app-main">
-        <div class="app-page">
+        <div class="app-page" id="@SkipLink.TargetId" tabindex="-1" @ref="mainContent">
             <CascadingValue Value="@(new ModeSwitch(Choice, SelectChoiceAsync))">
                 @Body
             </CascadingValue>
@@ -60,13 +68,15 @@ else if (Chrome.PlusAction is not null)
 
 <BottomNavigation />
 
-<div id="blazor-error-ui" data-nosnippet>
+<div id="blazor-error-ui" data-nosnippet role="alert">
     @L["Layout_ErrorMessage"]
     <a href="." class="reload">@L["Layout_Reload"]</a>
-    <span class="dismiss">&#10005;</span>
+    <button type="button" class="dismiss" aria-label="@L["Layout_Dismiss"]">&#10005;</button>
 </div>
 
 @code {
+    private ElementReference mainContent;
+
     protected override void OnInitialized() => Chrome.Changed += OnChromeChanged;
 
     private void OnChromeChanged() => InvokeAsync(StateHasChanged);

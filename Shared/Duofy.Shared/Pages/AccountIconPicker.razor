@@ -1,0 +1,30 @@
+@inject IStringLocalizer<SharedResources> L
+@using Duofy.Schemas
+
+@* Die Wahl des Symbols im Kontodialog (Issue 14): die sechs Symbole als Optionsfelder mit ihrem Namen. Die Namen stehen im
+   Text, nicht nur im Zeichen. Das Symbol der Art ist vorgewählt, solange die Person nichts anderes wählt (siehe AccountDraft). *@
+<fieldset class="account-select" data-testid="@TestId">
+    <legend class="account-select-legend">@L["Field_AccountIcon"]</legend>
+    <div class="account-options">
+        @foreach (var icon in AccountIcons.All)
+        {
+            var key = icon;
+            <label class="account-option">
+                <input type="radio" name="@group" value="@key" checked="@(Value == key)" @onchange="() => ValueChanged.InvokeAsync(key)"
+                       data-testid="@($"{TestId}-{key}")" />
+                <AccountIconMark Icon="@key" />
+                <span class="account-option-name">@L[$"AccountIcon_{key}"]</span>
+            </label>
+        }
+    </div>
+</fieldset>
+
+@code {
+    private readonly string group = $"account-icon-{Guid.NewGuid():N}";
+
+    [Parameter] public string Value { get; set; } = AccountIcons.Bank;
+
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+
+    [Parameter] public string? TestId { get; set; }
+}

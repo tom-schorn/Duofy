@@ -43,7 +43,7 @@ public class AppLayoutTests : PageTestContext
 
     // A1
     [Fact]
-    public void Bookings_open_inside_the_app_layout_with_four_entries_and_bookings_highlighted()
+    public void Bookings_open_inside_the_app_layout_with_five_entries_and_bookings_highlighted()
     {
         var cut = Open("/buchungen");
 
@@ -51,7 +51,7 @@ public class AppLayoutTests : PageTestContext
         Assert.Single(cut.FindComponents<AppLayout>());
         Assert.Empty(cut.FindComponents<MainLayout>());
         Assert.Equal(
-            [("Start", "/", false), ("Plan", "/plan", false), ("Buchungen", "/buchungen", true), ("Mehr", "/mehr", false)],
+            [("Start", "/", false), ("Plan", "/plan", false), ("Buchungen", "/buchungen", true), ("Sparen", "/sparen", false), ("Mehr", "/mehr", false)],
             BottomBar(cut));
     }
 
@@ -195,35 +195,39 @@ public class AppLayoutTests : PageTestContext
 
     // A6
     [Fact]
-    public void In_the_app_the_booking_dialog_is_full_screen_with_close_and_save_in_its_header()
+    public void In_the_app_the_booking_dialog_is_the_step_dialog_with_cancel_in_its_head_and_next_below()
     {
+        // Seit Issue #21 hat der Buchungsdialog das Dialog-Gerüst (Spec 11): Abbrechen im Kopf, Weiter unten.
+        // Auf dem Handy füllt das Gerüst den Bildschirm über das Stylesheet (max-width 599 px), nicht über MudBlazor.
         var cut = Open("/buchungen");
         WaitForPlus(cut);
 
         cut.Find("[data-testid='app-plus']").Click();
 
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".mud-dialog-fullscreen")));
-        var header = cut.Find("[data-testid='form-header']");
-        Assert.NotNull(header.QuerySelector("[data-testid='form-close']"));
-        Assert.Equal("Speichern", header.QuerySelector("[data-testid='booking-save']")!.TextContent.Trim());
-        Assert.Contains("Neue Buchung", header.TextContent);
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".step-dialog")));
+        var head = cut.Find(".step-dialog-head");
+        Assert.Equal("Abbrechen", head.QuerySelector("[data-testid='step-dialog-cancel']")!.TextContent.Trim());
+        Assert.Contains("Neue Buchung", head.TextContent);
+        Assert.Equal("Weiter", cut.Find("[data-testid='booking-next']").TextContent.Trim());
+        Assert.Empty(cut.FindAll("[data-testid='form-header']"));
     }
 
     [Fact]
-    public void In_the_app_the_header_saves_with_the_same_checks_and_closing_cancels()
+    public void In_the_app_the_dialog_saves_with_the_same_checks_and_cancel_closes()
     {
         BookingApiFake.CreateError = Duofy.Schemas.ErrorCodes.LinesSumMismatch;
         var cut = Open("/buchungen");
         WaitForPlus(cut);
         cut.Find("[data-testid='app-plus']").Click();
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='form-header']")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='booking-next']")));
 
         // Lehnt die API ab, steht der Fehler im Dialog wie im Browser.
+        cut.Find("[data-testid='booking-next']").Click();
         cut.Find("[data-testid='booking-save']").Click();
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='booking-error']")));
 
-        cut.Find("[data-testid='form-close']").Click();
-        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[data-testid='form-header']")));
+        cut.Find("[data-testid='step-dialog-cancel']").Click();
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll(".step-dialog")));
     }
 
     [Fact]
@@ -242,7 +246,7 @@ public class AppLayoutTests : PageTestContext
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-amount']")));
         Assert.Empty(dialogs.FindAll(".mud-dialog-fullscreen"));
         Assert.Empty(dialogs.FindAll("[data-testid='form-header']"));
-        Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-save']"));
+        Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-next']"));
     }
 
     // Spec 65 R4/R5/R6 für Verträge, nachdem Spec 64 gemerged ist.
@@ -329,13 +333,15 @@ public class AppLayoutTests : PageTestContext
         cut.WaitForAssertion(() => Assert.Equal("Konten", cut.Find("[data-testid='app-title']").TextContent.Trim()));
         Assert.Empty(cut.FindAll("button[aria-label='Menü öffnen oder schließen']"));
         Assert.Empty(cut.FindComponents<MudDrawer>());
-        Assert.Empty(cut.FindAll(".mode-switch"));
+        // Der Schalter steht nicht in der oberen Leiste und nicht auf der Seite; ab dem Desktop in der Seitenleiste (Spec 10).
+        Assert.Empty(cut.FindAll(".mud-appbar .mode-switch"));
+        Assert.Empty(cut.FindAll(".app-page .mode-switch"));
         // Der Titel steht nur einmal da: in der Leiste, nicht noch einmal als Überschrift der Seite.
         Assert.Empty(cut.FindAll(".mud-typography-h4"));
     }
 
     // A8 (seit Spec 10): Der Browser behält MainLayout, hat aber keine ausklappbare Seitenleiste mehr; die Navigation
-    // sind die Seitenleiste (ab 1280 px) und die untere Leiste, beide aus derselben Liste.
+    // sind die Seitenleiste (ab 1280 px, volles Menü) und die untere Leiste (vier Ziele).
     [Fact]
     public void The_browser_keeps_main_layout_with_side_bar_and_bottom_bar_and_no_drawer()
     {

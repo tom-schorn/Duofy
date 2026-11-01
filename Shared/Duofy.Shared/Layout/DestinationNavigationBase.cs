@@ -4,9 +4,8 @@ using Microsoft.AspNetCore.Components.Routing;
 namespace Duofy.Shared.Layout;
 
 /// <summary>
-/// Der gemeinsame Teil der unteren Leiste und der Seitenleiste (Spec 10, R2 und R5): Beide lesen dieselbe Liste
-/// der Ziele und leuchten für dasselbe Ziel. Sie hören selbst auf Adresswechsel, weil das Layout sie sonst nicht
-/// neu zeichnet.
+/// Der gemeinsame Teil der unteren Leiste und der Seitenleiste (Spec 10, R5): Beide lesen ihre Ziele aus
+/// AppDestinations und hören selbst auf Adresswechsel, weil das Layout sie sonst nicht neu zeichnet.
 /// </summary>
 public abstract class DestinationNavigationBase : ComponentBase, IDisposable
 {
@@ -18,6 +17,13 @@ public abstract class DestinationNavigationBase : ComponentBase, IDisposable
 
     /// <summary>Das Ziel der offenen Seite; null bei Adressen ohne Ziel.</summary>
     protected AppDestination? Current { get; private set; }
+
+    /// <summary>True, wenn die offene Seite diese Adresse oder eine Unterseite davon ist; "/konto" ist nicht "/konten".</summary>
+    protected bool IsOpen(string href)
+    {
+        var open = "/" + Navigation.ToBaseRelativePath(Navigation.Uri).Split('?', '#')[0].Trim('/');
+        return open == href || (href != "/" && open.StartsWith(href + "/", StringComparison.Ordinal));
+    }
 
     protected override void OnInitialized()
     {

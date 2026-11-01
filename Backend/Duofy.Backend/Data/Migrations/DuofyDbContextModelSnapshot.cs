@@ -162,6 +162,11 @@ namespace Duofy.Data.Migrations
                         .HasColumnType("character varying(34)")
                         .HasColumnName("iban");
 
+                    b.Property<string>("Icon")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("icon");
+
                     b.Property<bool>("IsDefault")
                         .HasColumnType("boolean")
                         .HasColumnName("is_default");
@@ -309,6 +314,10 @@ namespace Duofy.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("category_id");
 
+                    b.Property<Guid?>("DebtId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("debt_id");
+
                     b.Property<int>("Position")
                         .HasColumnType("integer")
                         .HasColumnName("position");
@@ -323,6 +332,10 @@ namespace Duofy.Data.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("pot");
 
+                    b.Property<Guid?>("SavingsGoalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("savings_goal_id");
+
                     b.HasKey("Id")
                         .HasName("pk_booking_lines");
 
@@ -332,8 +345,14 @@ namespace Duofy.Data.Migrations
                     b.HasIndex("CategoryId")
                         .HasDatabaseName("ix_booking_lines_category_id");
 
+                    b.HasIndex("DebtId")
+                        .HasDatabaseName("ix_booking_lines_debt_id");
+
                     b.HasIndex("PositionId")
                         .HasDatabaseName("ix_booking_lines_position_id");
+
+                    b.HasIndex("SavingsGoalId")
+                        .HasDatabaseName("ix_booking_lines_savings_goal_id");
 
                     b.ToTable("booking_lines", null, t =>
                         {
@@ -737,6 +756,10 @@ namespace Duofy.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<Guid?>("DebtId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("debt_id");
+
                     b.Property<DateOnly>("FirstDueDate")
                         .HasColumnType("date")
                         .HasColumnName("first_due_date");
@@ -775,6 +798,10 @@ namespace Duofy.Data.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("pot");
 
+                    b.Property<Guid?>("SavingsGoalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("savings_goal_id");
+
                     b.Property<decimal?>("TargetAmount")
                         .HasPrecision(12, 2)
                         .HasColumnType("numeric(12,2)")
@@ -805,12 +832,83 @@ namespace Duofy.Data.Migrations
                     b.HasIndex("CounterAccountId")
                         .HasDatabaseName("ix_commitments_counter_account_id");
 
+                    b.HasIndex("DebtId")
+                        .HasDatabaseName("ix_commitments_debt_id");
+
                     b.HasIndex("OwnerId")
                         .HasDatabaseName("ix_commitments_owner_id");
+
+                    b.HasIndex("SavingsGoalId")
+                        .HasDatabaseName("ix_commitments_savings_goal_id");
 
                     b.ToTable("commitments", null, t =>
                         {
                             t.HasCheckConstraint("ck_commitments_two_different_accounts", "counter_account_id IS NULL OR account_id IS NULL OR counter_account_id <> account_id");
+                        });
+                });
+
+            modelBuilder.Entity("Duofy.Domain.Debt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Creditor")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("creditor");
+
+                    b.Property<DateOnly?>("DueDate")
+                        .HasColumnType("date")
+                        .HasColumnName("due_date");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("note");
+
+                    b.Property<decimal>("OriginalAmount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("original_amount");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_debts");
+
+                    b.HasIndex("OwnerId")
+                        .HasDatabaseName("ix_debts_owner_id");
+
+                    b.ToTable("debts", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_debts_amount_positive", "original_amount > 0");
+
+                            t.HasCheckConstraint("ck_debts_kind", "kind IN ('claim', 'loan')");
                         });
                 });
 
@@ -843,7 +941,7 @@ namespace Duofy.Data.Migrations
 
                     b.ToTable("grants", null, t =>
                         {
-                            t.HasCheckConstraint("ck_grants_area", "area IN ('plan', 'book', 'accounts', 'commitments')");
+                            t.HasCheckConstraint("ck_grants_area", "area IN ('plan', 'book', 'accounts', 'commitments', 'savings')");
 
                             t.HasCheckConstraint("ck_grants_level", "level IN ('view', 'create', 'edit', 'delete')");
 
@@ -1242,6 +1340,68 @@ namespace Duofy.Data.Migrations
                     b.ToTable("registration_invitations", (string)null);
                 });
 
+            modelBuilder.Entity("Duofy.Domain.SavingsGoal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_id");
+
+                    b.Property<decimal>("StartAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("start_amount");
+
+                    b.Property<decimal?>("TargetAmount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("target_amount");
+
+                    b.Property<DateOnly?>("TargetDate")
+                        .HasColumnType("date")
+                        .HasColumnName("target_date");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_savings_goals");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_savings_goals_account_id");
+
+                    b.HasIndex("OwnerId")
+                        .HasDatabaseName("ix_savings_goals_owner_id");
+
+                    b.ToTable("savings_goals", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_savings_goals_start_not_negative", "start_amount >= 0");
+
+                            t.HasCheckConstraint("ck_savings_goals_target_positive", "target_amount IS NULL OR target_amount > 0");
+                        });
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1452,11 +1612,23 @@ namespace Duofy.Data.Migrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .HasConstraintName("fk_booking_lines_categories_category_id");
 
+                    b.HasOne("Duofy.Domain.Debt", null)
+                        .WithMany()
+                        .HasForeignKey("DebtId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("fk_booking_lines_debts_debt_id");
+
                     b.HasOne("Duofy.Domain.PlanPosition", null)
                         .WithMany()
                         .HasForeignKey("PositionId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .HasConstraintName("fk_booking_lines_plan_positions_position_id");
+
+                    b.HasOne("Duofy.Domain.SavingsGoal", null)
+                        .WithMany()
+                        .HasForeignKey("SavingsGoalId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("fk_booking_lines_savings_goals_savings_goal_id");
                 });
 
             modelBuilder.Entity("Duofy.Domain.Category", b =>
@@ -1489,12 +1661,34 @@ namespace Duofy.Data.Migrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .HasConstraintName("fk_commitments_accounts_counter_account_id");
 
+                    b.HasOne("Duofy.Domain.Debt", null)
+                        .WithMany()
+                        .HasForeignKey("DebtId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("fk_commitments_debts_debt_id");
+
                     b.HasOne("Duofy.Data.AppUser", null)
                         .WithMany()
                         .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_commitments_users_owner_id");
+
+                    b.HasOne("Duofy.Domain.SavingsGoal", null)
+                        .WithMany()
+                        .HasForeignKey("SavingsGoalId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("fk_commitments_savings_goals_savings_goal_id");
+                });
+
+            modelBuilder.Entity("Duofy.Domain.Debt", b =>
+                {
+                    b.HasOne("Duofy.Data.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_debts_users_owner_id");
                 });
 
             modelBuilder.Entity("Duofy.Domain.Grant", b =>
@@ -1648,6 +1842,22 @@ namespace Duofy.Data.Migrations
                         .HasForeignKey("UsedById")
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_registration_invitations_users_used_by_id");
+                });
+
+            modelBuilder.Entity("Duofy.Domain.SavingsGoal", b =>
+                {
+                    b.HasOne("Duofy.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("fk_savings_goals_accounts_account_id");
+
+                    b.HasOne("Duofy.Data.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_savings_goals_users_owner_id");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>

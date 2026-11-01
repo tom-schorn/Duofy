@@ -1,0 +1,136 @@
+@using System.Globalization
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@inject IBookingApi BookingApi
+@inject ActiveMember Member
+@inject IStringLocalizer<SharedResources> L
+@inject IAppHost Host
+
+@* Der Dialog "Einzahlen" und "Entnehmen" bei einem Sparziel (Issue 30). Daraus entsteht eine Umbuchung zwischen dem
+   Sparkonto und einem anderen Konto, deren Zeile dem Ziel zugeordnet ist; der Stand des Ziels kommt danach neu von der
+   API. Die Eingaben stehen in `draft`, einem SavingsMoveDraft. *@
+
+<MudDialog>
+    <DialogContent>
+        @if (Host.IsApp)
+        {
+            <FullScreenFormHeader Title="@MudDialog.Title" SaveText="@L["SavingsMove_Save"]" SaveTestId="savings-move-save"
+                                  Busy="busy" OnClose="Cancel" OnSave="SaveAsync" />
+        }
+        <MudStack Spacing="3">
+            @if (error is not null)
+            {
+                <MudAlert Severity="Severity.Error" data-testid="savings-move-error">@error</MudAlert>
+            }
+
+            <MudNumericField T="decimal?" @bind-Value="draft.Amount" Culture="German" Format="0.00" HideSpinButtons="true"
+                             Label="@L["Field_Amount"]" data-testid="savings-move-amount" />
+
+            <NativeSelect Value="@Key(draft.OtherAccountId)" ValueChanged="OnOtherChanged"
+                          Label="@L[draft.Kind == SavingsMoveKind.Deposit ? "SavingsMove_From" : "SavingsMove_To"]"
+                          data-testid="savings-move-other">
+                <option value="">@L["SavingsMove_ChooseAccount"]</option>
+                @foreach (var account in Accounts.Where(a => a.Active))
+                {
+                    <option value="@account.Id">@account.Name</option>
+                }
+            </NativeSelect>
+
+            <NativeSelect Value="@Key(draft.SavingsAccountId)" ValueChanged="OnSavingsChanged"
+                          Label="@L["SavingsMove_SavingsAccount"]" data-testid="savings-move-savings">
+                <option value="">@L["SavingsMove_ChooseAccount"]</option>
+                @foreach (var account in Accounts.Where(a => a.Active))
+                {
+                    <option value="@account.Id">@account.Name</option>
+                }
+            </NativeSelect>
+
+            <NativeSelect Value="@draft.Pot" ValueChanged="OnPotChanged"
+                          Label="@L[draft.Kind == SavingsMoveKind.Deposit ? "SavingsMove_PotFrom" : "SavingsMove_PotTo"]"
+                          data-testid="savings-move-pot">
+                <option value="@PotKeys.Needs">@L["Pot_needs"]</option>
+                <option value="@PotKeys.Wants">@L["Pot_wants"]</option>
+            </NativeSelect>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        @if (!Host.IsApp)
+        {
+            <MudButton OnClick="Cancel">@L["SavingsGoalDialog_Cancel"]</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="busy" OnClick="SaveAsync"
+                       data-testid="savings-move-save">@L["SavingsMove_Save"]</MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+
+    private static readonly CultureInfo German = new("de-DE");
+
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    /// <summary>Die Eingaben, vorbelegt mit Ziel, Richtung, Sparkonto des Ziels und Datum von heute.</summary>
+    [Parameter, EditorRequired]
+    public SavingsMoveDraft Draft { get; set; } = default!;
+
+    /// <summary>Die Konten der Person.</summary>
+    [Parameter]
+    public IReadOnlyList<AccountChoice> Accounts { get; set; } = [];
+
+    private SavingsMoveDraft draft = default!;
+    private string? error;
+    private bool busy;
+
+    // Die Person, für die der Dialog geöffnet wurde; sie bleibt, auch wenn der Umschalter inzwischen woanders steht.
+    private Guid? owner;
+
+    protected override void OnInitialized()
+    {
+        owner = Member.Owner;
+        draft = Draft;
+    }
+
+    private static string Key(Guid? id) => id?.ToString() ?? "";
+
+    private void OnOtherChanged(string value) => draft = draft with { OtherAccountId = Guid.TryParse(value, out var id) ? id : null };
+
+    private void OnSavingsChanged(string value) => draft = draft with { SavingsAccountId = Guid.TryParse(value, out var id) ? id : null };
+
+    private void OnPotChanged(string value) => draft.SetPot(value);
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SaveAsync()
+    {
+        error = null;
+        if (!draft.IsAmountValid)
+        {
+            error = ErrorTexts.For(L, ErrorCodes.AmountInvalid);
+            return;
+        }
+        if (!draft.HasAccounts)
+        {
+            error = L["SavingsMove_NeedAccounts"];
+            return;
+        }
+
+        busy = true;
+        try
+        {
+            var result = await BookingApi.CreateAsync(draft.ToRequest(owner));
+            if (result.Succeeded)
+            {
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                error = ErrorTexts.For(L, result.ErrorCode);
+            }
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

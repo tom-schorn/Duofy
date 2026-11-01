@@ -1,10 +1,14 @@
+@using Microsoft.Extensions.Logging
 @inject IStringLocalizer<SharedResources> L
-@implements IDisposable
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+@inject ILogger<StepField> Log
 
 @* Ein Feld in einem DialogStep: Beschriftung, das Eingabefeld als Inhalt und darunter sein Fehler.
    Der Fehler hat role alert, damit Vorlese-Programme ihn sofort ansagen, und die Id "{InputId}-error";
    das Eingabefeld kann ihn mit aria-describedby verbinden. Er erscheint erst nach dem ersten Weiter
-   und verschwindet, sobald das Feld in Ordnung ist. *@
+   und verschwindet, sobald das Feld in Ordnung ist. Pflicht und Fehler stehen auch am Eingabefeld selbst
+   (aria-required, aria-invalid); das setzt step-field.js über die Id, weil das Feld im ChildContent steckt. *@
 
 <div class="step-field" data-testid="@TestId">
     <FieldLabel For="@InputId" Text="@Label" />
@@ -16,6 +20,9 @@
 </div>
 
 @code {
+    private IJSObjectReference? module;
+    private (bool Required, bool Invalid) lastMark;
+
     [CascadingParameter]
     private DialogStep Step { get; set; } = default!;
 
@@ -58,5 +65,48 @@
         Step.Add(this);
     }
 
-    public void Dispose() => Step.Remove(this);
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var mark = (Required, Invalid: Step.ShowErrors && Error is not null);
+        if (mark == lastMark)
+        {
+            return;
+        }
+        lastMark = mark;
+
+        try
+        {
+            module ??= await Js.InvokeAsync<IJSObjectReference>("import", "./_content/Duofy.Shared/step-field.js");
+            if (module is not null)
+            {
+                await module.InvokeVoidAsync("markField", InputId, mark.Required, mark.Invalid, $"{InputId}-error");
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            Log.LogDebug("Die Verbindung zum Browser ist weg; das Feld {Field} bleibt unmarkiert.", InputId);
+        }
+        catch (JSException exception)
+        {
+            Log.LogWarning(exception, "Das Feld {Field} ließ sich nicht markieren.", InputId);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Step.Remove(this);
+        if (module is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await module.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            Log.LogDebug("Die Verbindung zum Browser ist weg; das Skript von {Field} ist schon frei.", InputId);
+        }
+    }
 }

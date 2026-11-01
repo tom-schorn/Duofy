@@ -38,6 +38,33 @@ public partial class DeployFilesTests
         Assert.Contains("org.opencontainers.image.created=\"${BUILD_DATE}\"", dockerfile);
     }
 
+    // Issue #38, Nebenbefund: Die Web-Variante hat ihre Schlüssel auf einem eigenen Volume, getrennt von denen der API,
+    // und der Ordner im Image gehört dem Benutzer app, damit auch das neue Volume ihm gehört.
+    [Fact]
+    public void Web_and_api_keep_their_keys_on_separate_volumes()
+    {
+        var compose = Read("deploy/docker-compose.yml");
+
+        var api = compose[compose.IndexOf("\n  api:", StringComparison.Ordinal)..compose.IndexOf("\n  web:", StringComparison.Ordinal)];
+        var web = compose[compose.IndexOf("\n  web:", StringComparison.Ordinal)..compose.IndexOf("\n  tunnel:", StringComparison.Ordinal)];
+        Assert.Contains("- keys:/keys", api);
+        Assert.Contains("- web-keys:/keys", web);
+        Assert.Contains("Duofy__KeysDirectory: /keys", web);
+        Assert.DoesNotContain("- keys:/keys", web);
+        Assert.Matches(@"(?m)^volumes:\s*\r?\n  keys:\s*\r?\n  web-keys:\s*$", compose);
+    }
+
+    [Fact]
+    public void The_web_image_gives_the_keys_folder_to_the_non_root_user()
+    {
+        var dockerfile = Read("Web/Duofy.Web/Dockerfile");
+
+        Assert.Contains("mkdir /keys && chown \"$APP_UID\" /keys", dockerfile);
+        Assert.True(dockerfile.IndexOf("chown", StringComparison.Ordinal) < dockerfile.IndexOf("USER $APP_UID", StringComparison.Ordinal),
+            "chown muss vor USER stehen, danach fehlen die Rechte");
+        Assert.Contains("Duofy__KeysDirectory=/keys", dockerfile);
+    }
+
     // A1: Die Compose-Datei baut genau diese beiden Dockerfiles.
     [Fact]
     public void Compose_builds_both_dockerfiles()

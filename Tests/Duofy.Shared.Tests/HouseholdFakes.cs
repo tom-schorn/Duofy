@@ -136,6 +136,7 @@ public sealed partial class FakeHouseholdApi : IHouseholdApi
             Book = request.Book ?? member.MyGrants.Book,
             Accounts = request.Accounts ?? member.MyGrants.Accounts,
             Commitments = request.Commitments ?? member.MyGrants.Commitments,
+            Savings = request.Savings ?? member.MyGrants.Savings,
         };
         var changed = member with { MyGrants = levels };
         Household = Household with { Members = Household.Members.Select(m => m.UserId == granteeId ? changed : m).ToList() };

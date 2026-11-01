@@ -4,6 +4,7 @@
 @using Duofy.Schemas
 @inject IAuthApi AuthApi
 @inject IInstanceApi InstanceApi
+@inject AppBrand Brand
 @inject NavigationManager Navigation
 @inject IStringLocalizer<SharedResources> L
 
@@ -16,7 +17,7 @@
    Adresse eines Kontos noch nicht bestätigt, sagt die Seite das und bietet an, den Link noch einmal zu schicken;
    danach ist der Knopf fünf Minuten lang ausgegraut, mit dem Grund darunter. *@
 
-<PageTitle>@L["Login_Title"]</PageTitle>
+<PageTitle>@L["Login_Title"] · @Brand.Name</PageTitle>
 
 <div class="auth-header">
     <MudText Typo="Typo.h2" HtmlTag="h1">@L["Login_Title"]</MudText>

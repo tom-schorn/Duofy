@@ -2,27 +2,29 @@
    Die Überschrift (caption) gibt der Tabelle für Vorlese-Programme einen Namen. Eine Zeile darf vorne etwas tragen
    (Haken), hinten etwas (Knöpfe) und unter der Bezeichnung eine Zeile Nebentext; die Spalten dafür gibt es nur,
    wenn mindestens eine Zeile sie braucht. *@
-<table class="line-table">
+<table class="line-table" role="table">
     <caption class="@(HideCaption ? "visually-hidden" : "line-table-caption")">@Caption</caption>
-    <tbody>
+    <tbody role="rowgroup">
         @foreach (var row in Rows)
         {
-            <tr data-testid="@row.TestId">
+            <tr role="row" data-testid="@row.TestId">
                 @if (HasLeading)
                 {
-                    <td class="line-table-lead">@row.Leading</td>
+                    <td role="cell" class="line-table-lead">@row.Leading</td>
                 }
-                <th scope="row" class="line-table-label">
-                    @row.Label
-                    @if (row.Detail is not null)
-                    {
-                        <span class="line-table-detail">@row.Detail</span>
-                    }
+                <th scope="row" role="rowheader" class="line-table-label">
+                    <span class="line-table-text">
+                        @row.Label
+                        @if (row.Detail is not null)
+                        {
+                            <span class="line-table-detail">@row.Detail</span>
+                        }
+                    </span>
                 </th>
-                <td class="line-table-amount">@(row.Amount is { } amount ? MoneyText.Format(amount) : "")</td>
+                <td role="cell" class="line-table-amount">@(row.Amount is { } amount ? MoneyText.Format(amount) : "")</td>
                 @if (HasTrailing)
                 {
-                    <td class="line-table-trail">@row.Trailing</td>
+                    <td role="cell" class="line-table-trail">@row.Trailing</td>
                 }
             </tr>
         }

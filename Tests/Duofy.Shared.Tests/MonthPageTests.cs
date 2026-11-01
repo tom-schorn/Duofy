@@ -56,7 +56,7 @@ public class MonthPageTests : PageTestContext
     {
         var cut = Open(2026, 10, Overview());
 
-        Assert.Equal(["Übersicht", "Plan", "Buchungen"], cut.FindAll("[role='tab']").Select(t => t.TextContent.Trim()));
+        Assert.Equal(["Übersicht", "Plan", "Buchungen", "Auswertung"], cut.FindAll("[role='tab']").Select(t => t.TextContent.Trim()));
         Assert.True(Selected(cut, "overview"));
         Assert.False(Selected(cut, "plan"));
         Assert.Empty(cut.FindAll("[data-testid='plan-sums']"));

@@ -64,6 +64,24 @@ public sealed class CommitmentDraft
 
     public DateOnly? TargetDate { get; set; }
 
+    /// <summary>Das Sparziel, dem die Rate zufließt (Issue 32); nur bei einer Ausgabe mit Zielkonto.</summary>
+    public Guid? SavingsGoalId { get; private set; }
+
+    /// <summary>True, wenn der Vertrag einem Sparziel zufließen darf: eine Ausgabe (keine Einnahme, keine alte Art).</summary>
+    public bool OffersSavingsGoal => Type == CommitmentTypes.Contract;
+
+    /// <summary>Die Schuld oder der Kredit, den die Rate zurückzahlt (Issue 31); nur bei einer Ausgabe ohne Zielkonto und ohne Sparziel.</summary>
+    public Guid? DebtId { get; private set; }
+
+    /// <summary>Die Schuld, die wirklich gesendet wird: nur mit angebotener Art, ohne Zielkonto und ohne Sparziel, sonst keine.</summary>
+    public Guid? EffectiveDebtId => OffersSavingsGoal && CounterAccountId is null && SavingsGoalId is null ? DebtId : null;
+
+    /// <summary>Das Sparziel, das wirklich gesendet wird: nur mit angebotener Art und Zielkonto, sonst keines.</summary>
+    public Guid? EffectiveSavingsGoalId => OffersSavingsGoal && CounterAccountId is not null ? SavingsGoalId : null;
+
+    /// <summary>True, wenn ein Sparziel gewählt ist, aber das Zielkonto fehlt, auf das die Rate gehen soll.</summary>
+    public bool GoalNeedsTargetAccount => SavingsGoalId is not null && OffersSavingsGoal && CounterAccountId is null;
+
     /// <summary>True, wenn die Art den Topf festlegt; der Dialog zeigt ihn dann nur an.</summary>
     public bool PotIsFixed => CommitmentTypes.FixedPot(Type) is not null;
 
@@ -107,6 +125,8 @@ public sealed class CommitmentDraft
         PaymentMethod = commitment.PaymentMethod,
         TargetAmount = commitment.TargetAmount,
         TargetDate = commitment.TargetDate,
+        SavingsGoalId = commitment.SavingsGoalId,
+        DebtId = commitment.DebtId,
     };
 
     /// <summary>
@@ -133,6 +153,11 @@ public sealed class CommitmentDraft
         {
             CounterAccountId = null;
         }
+        if (!OffersSavingsGoal)
+        {
+            SavingsGoalId = null;
+            DebtId = null;
+        }
         if (wasIncome != WantsIncomeCategories)
         {
             CategoryId = null;
@@ -140,6 +165,48 @@ public sealed class CommitmentDraft
     }
 
     /// <summary>Wählt einen der angebotenen Töpfe; ein fester Topf bleibt, wie er ist.</summary>
+    /// <summary>
+    /// Wählt das Sparziel (null: keines). Hat das Ziel ein Sparkonto und ist noch kein Zielkonto gewählt, wird dieses das
+    /// Zielkonto, denn dorthin geht die Rate.
+    /// </summary>
+    public void ChooseSavingsGoal(Guid? goalId, Guid? goalAccountId)
+    {
+        SavingsGoalId = goalId;
+        if (goalId is not null)
+        {
+            DebtId = null;
+        }
+        if (goalId is not null && goalAccountId is { } account && CounterAccountId is null)
+        {
+            CounterAccountId = account;
+        }
+    }
+
+    /// <summary>Setzt das Zielkonto; ohne Zielkonto geht keine Rate an ein Sparziel, die Wahl fällt dann weg.</summary>
+    public void ChooseCounterAccount(Guid? accountId)
+    {
+        CounterAccountId = accountId;
+        if (accountId is null)
+        {
+            SavingsGoalId = null;
+        }
+        else
+        {
+            DebtId = null;
+        }
+    }
+
+    /// <summary>Wählt die Schuld (null: keine). Eine Rate an einen Gläubiger geht von außen: Zielkonto und Sparziel fallen dann weg.</summary>
+    public void ChooseDebt(Guid? debtId)
+    {
+        DebtId = debtId;
+        if (debtId is not null)
+        {
+            CounterAccountId = null;
+            SavingsGoalId = null;
+        }
+    }
+
     public void SetPot(string pot)
     {
         if (OfferedPots.Contains(pot))
@@ -179,7 +246,9 @@ public sealed class CommitmentDraft
         PassThrough,
         NullIfEmpty(PaymentMethod),
         ShowsTarget ? TargetAmount : null,
-        ShowsTarget ? TargetDate : null);
+        ShowsTarget ? TargetDate : null,
+        SavingsGoalId: EffectiveSavingsGoalId,
+        DebtId: EffectiveDebtId);
 
     /// <summary>
     /// Macht aus dem Entwurf die Änderung eines gespeicherten Vertrags. Alle Werte gehen mit; ein
@@ -207,7 +276,11 @@ public sealed class CommitmentDraft
             ClearLastDueDate: Cleared(saved.LastDueDate, LastDueDate),
             ClearAccountId: Cleared(saved.AccountId, AccountId),
             ClearCounterAccountId: Cleared(saved.CounterAccountId, CounterAccountId),
-            ClearTarget: Cleared(saved.TargetAmount, targetAmount) ?? Cleared(saved.TargetDate, targetDate));
+            ClearTarget: Cleared(saved.TargetAmount, targetAmount) ?? Cleared(saved.TargetDate, targetDate),
+            SavingsGoalId: EffectiveSavingsGoalId,
+            ClearSavingsGoalId: Cleared(saved.SavingsGoalId, EffectiveSavingsGoalId),
+            DebtId: EffectiveDebtId,
+            ClearDebtId: Cleared(saved.DebtId, EffectiveDebtId));
     }
 
     /// <summary>

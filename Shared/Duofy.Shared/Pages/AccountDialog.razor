@@ -1,67 +1,62 @@
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
+@using Duofy.Shared.Dialogs
 @inject IAccountApi AccountApi
 @inject ActiveMember Member
 @inject IStringLocalizer<SharedResources> L
-@inject IAppHost Host
 
-@* Der Dialog zum Anlegen und Ändern eines Kontos.
+@* Der Dialog zum Anlegen und Ändern eines Kontos, auf dem Schritt-Dialog (Spec 11) mit einem Schritt (Issue #22, Spec 22).
 
    Alle Eingaben stehen in `draft`, einem AccountDraft. Dort steht auch die eine Regel des
    Dialogs: Die Art stellt den Schalter "zählt als verfügbar" vor, solange die Person ihn nicht
    selbst gestellt hat. Geprüft wird beim Speichern von der API; ihre Fehler stehen oben im Dialog. *@
 
-<MudDialog>
-    <DialogContent>
-        @* In der App füllt der Dialog den Bildschirm und bringt Schließen und Speichern in seiner Kopfzeile mit. *@
-        @if (Host.IsApp)
+<StepDialog OnFinish="SaveAsync" FinishText="@L["AccountDialog_Save"]" Busy="busy" FinishTestId="account-save">
+    <DialogStep Title="@L["AccountDialog_StepAll"]">
+        @if (error is not null)
         {
-            <FullScreenFormHeader Title="@MudDialog.Title" SaveText="@L["AccountDialog_Save"]" SaveTestId="account-save"
-                                  Busy="busy" OnClose="Cancel" OnSave="SaveAsync" />
+            <MudAlert Severity="Severity.Error" data-testid="account-error">@error</MudAlert>
         }
-        <MudStack Spacing="3">
 
-            @if (error is not null)
-            {
-                <MudAlert Severity="Severity.Error" data-testid="account-error">@error</MudAlert>
-            }
-
-            <MudTextField T="string" @bind-Value="draft.Name" Label="@L["Field_AccountName"]"
+        <StepField Label="@L["Field_AccountName"]" InputId="account-name-input" TestId="account-name-field">
+            <MudTextField T="string" @bind-Value="draft.Name" Variant="Variant.Outlined" InputId="account-name-input"
                           MaxLength="MoneyAccountRules.NameMaxLength" data-testid="account-name" />
+        </StepField>
 
-            <NativeSelect Value="@draft.Type" ValueChanged="OnTypeChanged" Label="@L["Field_AccountType"]"
-                          data-testid="account-type">
+        <StepField Label="@L["Field_AccountType"]" InputId="account-type-input" TestId="account-type-field">
+            <NativeSelect Value="@draft.Type" ValueChanged="OnTypeChanged" id="account-type-input" data-testid="account-type">
                 @foreach (var type in AccountTypes.All)
                 {
                     <option value="@type">@L[$"AccountType_{type}"]</option>
                 }
             </NativeSelect>
+        </StepField>
 
-            @* Startbetrag und Starttag gehören zusammen: der Stand am Ende dieses Tages. *@
+        @* Das Symbol (Issue 14): Das der Art ist vorgewählt, bis die Person eines wählt. *@
+        <AccountIconPicker Value="@draft.Icon" ValueChanged="OnIconChanged" TestId="account-icon" />
+
+        @* Startbetrag und Starttag gehören zusammen: der Stand am Ende dieses Tages. *@
+        <StepField Label="@L["Field_OpeningBalance"]" InputId="account-opening-balance-input" TestId="account-opening-balance-field">
             <MudNumericField T="decimal?" @bind-Value="draft.OpeningBalance" Culture="German" Format="0.00"
-                             HideSpinButtons="true" Label="@L["Field_OpeningBalance"]"
+                             HideSpinButtons="true" Variant="Variant.Outlined" InputId="account-opening-balance-input"
                              HelperText="@L["Field_OpeningBalanceHint"]" data-testid="account-opening-balance" />
+        </StepField>
+        <StepField Label="@L["Field_OpeningDate"]" InputId="account-opening-date-input" TestId="account-opening-date-field">
             <MudTextField T="string" Value="@dateText" ValueChanged="OnDateChanged" InputType="InputType.Date"
-                          Label="@L["Field_OpeningDate"]" data-testid="account-opening-date" />
+                          Variant="Variant.Outlined" InputId="account-opening-date-input" data-testid="account-opening-date" />
+        </StepField>
 
-            <MudSwitch T="bool" Value="draft.CountsAsAvailable" ValueChanged="OnCountsAsAvailableChanged"
-                       Color="Color.Primary" Label="@L["Field_CountsAsAvailable"]"
-                       data-testid="account-counts-as-available" />
+        <MudSwitch T="bool" Value="draft.CountsAsAvailable" ValueChanged="OnCountsAsAvailableChanged"
+                   Color="Color.Primary" Label="@L["Field_CountsAsAvailable"]"
+                   data-testid="account-counts-as-available" />
 
-            <MudTextField T="string" @bind-Value="draft.Iban" Label="@L["Field_Iban"]"
+        <StepField Label="@L["Field_Iban"]" InputId="account-iban-input" TestId="account-iban-field">
+            <MudTextField T="string" @bind-Value="draft.Iban" Variant="Variant.Outlined" InputId="account-iban-input"
                           MaxLength="42" data-testid="account-iban" />
-        </MudStack>
-    </DialogContent>
-    <DialogActions>
-        @if (!Host.IsApp)
-        {
-            <MudButton OnClick="Cancel">@L["AccountDialog_Cancel"]</MudButton>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="busy" OnClick="SaveAsync"
-                       data-testid="account-save">@L["AccountDialog_Save"]</MudButton>
-        }
-    </DialogActions>
-</MudDialog>
+        </StepField>
+    </DialogStep>
+</StepDialog>
 
 @code {
 
@@ -96,6 +91,8 @@
 
     private void OnTypeChanged(string type) => draft.SetType(type);
 
+    private void OnIconChanged(string icon) => draft.SetIcon(icon);
+
     private void OnCountsAsAvailableChanged(bool value) => draft.SetCountsAsAvailable(value);
 
     private void OnDateChanged(string value)
@@ -106,8 +103,6 @@
             draft.OpeningDate = date;
         }
     }
-
-    private void Cancel() => MudDialog.Cancel();
 
     private async Task SaveAsync()
     {

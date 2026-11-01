@@ -1,22 +1,31 @@
 @inherits DestinationNavigationBase
 @inject IStringLocalizer<SharedResources> L
 
-@* Die Seitenleiste für große Bildschirme (Spec 10): dieselben Ziele wie die untere Leiste, links untereinander.
-   Ab 1280 px zeigt das Stylesheet diese Leiste und blendet die untere aus, darunter umgekehrt (siehe .app-side-nav
-   in app.css). Einfache Links statt MudBlazor-Knöpfen, damit Tab, Fokuskontur und aria-current ohne Umweg gelten.
+@* Die Seitenleiste für große Bildschirme (Spec 10): das volle Menü links untereinander, ohne den Umweg über "Mehr"
+   (Tom, 01.11.2026). Die untere Leiste bleibt bei ihren vier Zielen; ab 1280 px zeigt das Stylesheet diese Leiste und
+   blendet die untere aus, darunter umgekehrt (siehe .app-side-nav in app.css). Einfache Links statt
+   MudBlazor-Knöpfen, damit Tab, Fokuskontur und aria-current ohne Umweg gelten.
 
-   Ganz unten kann das Layout einen Fuß einsetzen; dort steht der Profil-Knopf (Spec 44). *@
+   Die Einträge rollen, wenn der Bildschirm zu niedrig ist. Der Fuß steht außerhalb, weil das Rollen sonst das nach
+   oben aufgehende Menü des Profil-Knopfs abschneiden würde (Spec 44). *@
 
 <nav class="app-side-nav" aria-label="@L["AppLayout_Navigation"]" data-testid="side-nav">
-    @foreach (var item in Destinations)
-    {
-        var active = item.Destination == Current;
-        <a href="@item.Href" class="@(active ? "app-side-item app-side-item-active" : "app-side-item")"
-           aria-current="@(active ? "page" : null)" data-testid="@($"side-{item.Destination}".ToLowerInvariant())">
-            <MudIcon Icon="@item.Icon" />
-            <span class="app-side-label">@L[item.LabelKey]</span>
-        </a>
-    }
+    <div class="app-side-list">
+        @foreach (var item in Destinations)
+        {
+            var active = IsOpen(item.Href);
+            <a href="@item.Href" class="@(active ? "app-side-item app-side-destination app-side-item-active" : "app-side-item app-side-destination")"
+               aria-current="@(active ? "page" : null)" data-testid="@($"side-{item.Destination}".ToLowerInvariant())">
+                <MudIcon Icon="@item.Icon" />
+                <span class="app-side-label">@L[item.LabelKey]</span>
+            </a>
+        }
+        <AuthorizeView>
+            <Authorized>
+                <SideAccountEntries />
+            </Authorized>
+        </AuthorizeView>
+    </div>
     @if (Footer is not null)
     {
         <div class="app-side-footer">@Footer</div>
@@ -24,6 +33,8 @@
 </nav>
 
 @code {
+    public SideNavigation() => Destinations = AppDestinations.Side;
+
     /// <summary>Was ganz unten in der Leiste steht, zum Beispiel der Profil-Knopf; ohne Angabe nichts.</summary>
     [Parameter]
     public RenderFragment? Footer { get; set; }

@@ -11,6 +11,9 @@
     [Parameter] public ButtonKind Kind { get; set; } = ButtonKind.Primary;
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public string? AriaLabel { get; set; }
+
+    /// <summary>Die Kennung für Tests (data-testid) am Knopf.</summary>
+    [Parameter] public string? TestId { get; set; }
     [Parameter] public bool Disabled { get; set; }
     [Parameter] public string? Href { get; set; }
     [Parameter] public EventCallback<Microsoft.AspNetCore.Components.Web.MouseEventArgs> OnClick { get; set; }
@@ -22,6 +25,20 @@
         _ => "primary",
     };
 
-    private Dictionary<string, object> Attributes =>
-        AriaLabel is null ? [] : new() { ["aria-label"] = AriaLabel };
+    private Dictionary<string, object> Attributes
+    {
+        get
+        {
+            Dictionary<string, object> attributes = [];
+            if (AriaLabel is not null)
+            {
+                attributes["aria-label"] = AriaLabel;
+            }
+            if (TestId is not null)
+            {
+                attributes["data-testid"] = TestId;
+            }
+            return attributes;
+        }
+    }
 }

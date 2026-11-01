@@ -3,12 +3,12 @@
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
+@using Duofy.Shared.Dialogs
 @implements IDisposable
 @inject IHouseholdApi HouseholdApi
 @inject ActiveMember Member
 @inject IInstanceApi InstanceApi
 @inject IDialogService DialogService
-@inject FormDialogs Forms
 @inject IAppHost Host
 @inject AppChrome Chrome
 @inject NavigationManager Navigation
@@ -30,15 +30,18 @@
 
 <PageTitle>@L["Household_Title"]</PageTitle>
 
+<AppPageHeading Text="@L["Household_Title"]" />
 @if (!Host.IsApp)
 {
-    <MudText Typo="Typo.h4" Class="mb-2">@L["Household_Title"]</MudText>
+    <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-2">@L["Household_Title"]</MudText>
 }
 
 <Notice Message="message" />
 
 @if (loaded && household is null)
 {
+    @* Ab 1280 px stehen Gründen und Einladungslink nebeneinander, darunter untereinander wie bisher. *@
+    <div class="household-columns page-wide">
     <MudPaper Class="pa-4 mb-4" Outlined="true" data-testid="household-none">
         <MudText Typo="Typo.h6">@L["Household_NoneTitle"]</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">@L["Household_NoneText"]</MudText>
@@ -49,15 +52,19 @@
     </MudPaper>
 
     @* Ein Link, den jemand per Messenger geschickt hat: Einfügen öffnet die Seite der Einladung. *@
-    <MudStack Row="true" AlignItems="AlignItems.End" Spacing="2">
+    <MudStack Row="true" AlignItems="AlignItems.End" Spacing="2" Class="household-paste-row">
         <MudTextField @bind-Value="pasted" Label="@L["Household_PasteLabel"]" Variant="Variant.Outlined" Class="flex-grow-1"
                       data-testid="household-paste" />
         <MudButton Variant="Variant.Outlined" OnClick="OpenPasted" data-testid="household-paste-open">@L["Household_PasteOpen"]</MudButton>
     </MudStack>
+    </div>
 }
 
 @if (household is not null)
 {
+    @* Ab 1280 px steht die Karte links, Mitglieder und Einladungen rechts; darunter untereinander wie bisher. *@
+    <div class="household-columns page-wide">
+    <div>
     <MudPaper Class="pa-4 mb-4" Outlined="true" data-testid="household-card">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
             <MudText Typo="Typo.h6" Class="flex-grow-1" data-testid="household-name">@household.Name</MudText>
@@ -95,12 +102,12 @@
             }
             @if (!IsFounder)
             {
-                <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.Logout"
+                <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Logout"
                            OnClick="LeaveAsync" data-testid="household-leave">@L["Household_Leave"]</MudButton>
             }
             else if (household.Members.Count == 1)
             {
-                <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.DeleteForever"
+                <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.DeleteForever"
                            OnClick="DissolveAsync" data-testid="household-dissolve">@L["Household_Dissolve"]</MudButton>
             }
             else
@@ -136,24 +143,31 @@
         }
     </MudPaper>
 
+    </div>
+    <div>
     <MudText Typo="Typo.h6" Class="mb-2">@L["Household_MembersHeading"]</MudText>
-    <MudStack Spacing="2" Class="mb-4">
+    <MudStack Spacing="2" Class="mb-4 data-table members-table">
+        <div class="data-table-head" aria-hidden="true">
+            <span class="data-column-1">@L["Table_Name"]</span>
+            <span class="data-column-2">@L["Table_Email"]</span>
+            <span class="data-column-3">@L["Table_Role"]</span>
+        </div>
         @foreach (var member in household.Members)
         {
-            <MudPaper Class="pa-3" Outlined="true" data-testid="@($"household-member-{member.UserId}")">
-                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                    <MudStack Spacing="0" Class="flex-grow-1">
-                        <MudText>@member.FirstName @member.LastName @(member.IsMe ? L["Household_Me"] : "")</MudText>
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">@member.Email</MudText>
+            <MudPaper Class="pa-3 data-row-frame" Outlined="true" data-testid="@($"household-member-{member.UserId}")">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="data-row">
+                    <MudStack Spacing="0" Class="flex-grow-1 data-cells">
+                        <MudText Class="data-column-1">@member.FirstName @member.LastName @(member.IsMe ? L["Household_Me"] : "")</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="data-column-2">@member.Email</MudText>
                     </MudStack>
-                    <MudChip T="string" Size="Size.Small" Color="@(member.Role == HouseholdRoles.Founder ? Color.Primary : Color.Default)">
+                    <MudChip T="string" Size="Size.Small" Color="@(member.Role == HouseholdRoles.Founder ? Color.Primary : Color.Default)" Class="data-column-3">
                         @L[$"HouseholdRole_{member.Role}"]
                     </MudChip>
                     @* Sich selbst entfernt man nicht (cannot_remove_self); der Gründer löst auf, wenn er allein ist. *@
                     @if (IsFounder && !member.IsMe)
                     {
-                        <MudIconButton Icon="@Icons.Material.Filled.PersonRemove" Size="Size.Small" Color="Color.Error"
-                                       OnClick="() => RemoveAsync(member)"
+                        <MudIconButton Icon="@Icons.Material.Filled.PersonRemove" Size="Size.Small"
+                                       OnClick="() => RemoveAsync(member)" Class="data-column-4"
                                        aria-label="@L["Household_RemoveMember", member.FirstName]"
                                        data-testid="@($"household-member-remove-{member.UserId}")" />
                     }
@@ -171,13 +185,15 @@
                 <MudPaper Class="pa-3" Outlined="true" data-testid="@($"household-invitation-{invitation.Id}")">
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                         <MudText Class="flex-grow-1">@L["Household_InvitationUntil", Day(invitation.ExpiresAt)]</MudText>
-                        <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Error" OnClick="() => RevokeAsync(invitation)"
+                        <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => RevokeAsync(invitation)"
                                    data-testid="@($"household-invitation-revoke-{invitation.Id}")">@L["Household_Revoke"]</MudButton>
                     </MudStack>
                 </MudPaper>
             }
         </MudStack>
     }
+    </div>
+    </div>
 }
 
 @code {
@@ -337,7 +353,7 @@
     private async Task EditAsync()
     {
         var parameters = new DialogParameters<HouseholdDialog> { { x => x.Household, household! } };
-        var dialog = await DialogService.ShowAsync<HouseholdDialog>(L["HouseholdDialog_Title"], parameters, Forms.Options());
+        var dialog = await DialogService.ShowAsync<HouseholdDialog>(L["HouseholdDialog_Title"], parameters, StepDialogOptions.Create());
         if (await dialog.Result is { Canceled: false })
         {
             message = new NoticeMessage(L["Household_Saved"], Severity.Success);

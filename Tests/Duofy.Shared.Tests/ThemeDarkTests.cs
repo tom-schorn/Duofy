@@ -37,6 +37,15 @@ public class ThemeDarkTests : UiTestContext
         return (Math.Max(la, lb) + 0.05) / (Math.Min(la, lb) + 0.05);
     }
 
+    // S8: Der Rand von Eingabefeldern hebt sich im Dunkelmodus mit mindestens 3:1 vom Grund ab (WCAG 1.4.11).
+    [Fact]
+    public void Input_borders_stand_out_on_dark_surfaces()
+    {
+        Assert.Equal("#7482a0", Hex(Dark.LinesInputs));
+        Assert.True(Contrast(Dark.LinesInputs, Dark.Surface) >= 3);
+        Assert.True(Contrast(Dark.LinesInputs, Dark.Background) >= 3);
+    }
+
     // A1: Grund, Fläche, Text, Nebentext, die drei Blöcke, Linie und Hauptknopf sind die bestätigten Werte.
     [Fact]
     public void Dark_palette_has_the_confirmed_values()

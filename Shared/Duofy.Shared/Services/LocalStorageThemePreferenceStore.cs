@@ -12,7 +12,10 @@ namespace Duofy.Shared.Services;
 /// </remarks>
 public sealed class LocalStorageThemePreferenceStore(IJSRuntime js) : IThemePreferenceStore
 {
-    private const string Key = "duofy-theme-dark";
+    /// <summary>Der Name des Eintrags; auch das Skript im Kopf der Seite (<see cref="Duofy.Shared.Theme.ThemeBoot"/>) liest ihn.</summary>
+    public const string StorageKey = "duofy-theme-dark";
+
+    private const string Key = StorageKey;
 
     public async Task<ThemeChoice> LoadAsync()
     {

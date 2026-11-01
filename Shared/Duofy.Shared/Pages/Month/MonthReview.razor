@@ -1,0 +1,87 @@
+@using Duofy.Shared.Charts
+@inject IStringLocalizer<SharedResources> L
+
+@* Der Tab Auswertung (Issue #26): die Auswertung zum Monatsende mit den vorhandenen Diagrammen. Erstes Diagramm: wohin
+   das Geld ging (gebuchte Beträge je Topf). Zweites: Geplantes gegen Gebuchtes je Topf (Soll gegen Ist). Die Seite
+   rechnet nichts Neues: Planung und Buchungen je Topf stehen im Modell (aus der API, siehe MonthView). Jedes Diagramm
+   hat einen Satz im Text und eine Tabelle für Vorlese-Programme; ein Monat ohne Daten hat einen Leerzustand. Der Tab
+   gilt für jeden Monat, auch für abgeschlossene.
+
+   Ohne Sicht auf die Buchungen (Spec 68) ist jeder gebuchte Betrag 0; dort steht stattdessen, dass die Person das nicht
+   teilt. Im Haushalt nennt ein Satz, wessen Buchungen fehlen, wie in der Übersicht. *@
+<div data-testid="month-review">
+    @if (!SeesBookings)
+    {
+        <p class="month-hint" data-testid="month-review-not-shared">@L["Grant_NotShared"]</p>
+    }
+    else
+    {
+        @if (IsEmpty)
+        {
+            <p class="month-hint" role="status" data-testid="month-review-empty">@L["Month_ReviewEmpty"]</p>
+        }
+        else
+        {
+            <p class="month-review-total" data-testid="month-review-total">@L["Month_ReviewTotal", MoneyText.Format(TotalBooked), MoneyText.Format(TotalPlanned)]</p>
+
+            @* Die beiden Diagramme stehen ab 1280 px nebeneinander, darunter untereinander. *@
+            <div class="month-sections">
+            <section class="month-section" aria-labelledby="month-review-distribution-heading" data-testid="month-review-distribution">
+                <h2 class="month-section-title" id="month-review-distribution-heading">@L["Month_ReviewDistributionHeading"]</h2>
+                <BarChart Caption="@L["Month_ReviewDistributionCaption"]" Items="DistributionBars" ValueText="MoneyText.Format" />
+                <p class="month-hint" data-testid="month-review-distribution-text">@DistributionText</p>
+            </section>
+
+            <section class="month-section" aria-labelledby="month-review-versus-heading" data-testid="month-review-plan-vs-actual">
+                <h2 class="month-section-title" id="month-review-versus-heading">@L["Month_ReviewVersusHeading"]</h2>
+                @foreach (var pot in Model.Pots)
+                {
+                    <div data-testid="@($"month-review-pot-{pot.Pot}")">
+                        <TargetActualBar Caption="@L[$"Pot_{pot.Pot}"]" Target="pot.Planned" Actual="pot.Booked" />
+                    </div>
+                }
+            </section>
+            </div>
+        }
+        @if (BookingsMissing.Count > 0)
+        {
+            <p class="month-hint" data-testid="month-review-missing">@L["Month_BookingsMissing", string.Join(", ", BookingsMissing)]</p>
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public MonthOverviewModel Model { get; set; } = default!;
+
+    /// <summary>False, wenn die gewählte Person ihre Buchungen nicht teilt (Spec 68).</summary>
+    [Parameter] public bool SeesBookings { get; set; } = true;
+
+    /// <summary>Die Vornamen derer, deren Buchungen fehlen, weil sie sie nicht freigegeben haben (nur im Haushalt).</summary>
+    [Parameter] public IReadOnlyList<string> BookingsMissing { get; set; } = [];
+
+    private decimal TotalBooked => Model.Pots.Sum(p => p.Booked);
+    private decimal TotalPlanned => Model.Pots.Sum(p => p.Planned);
+
+    // Ohne Geplantes und ohne Gebuchtes gibt es nichts zu zeigen.
+    private bool IsEmpty => Model.Pots.All(p => p.Planned == 0m && p.Booked == 0m);
+
+    private IReadOnlyList<ChartBar> DistributionBars => Model.Pots
+        .Select(p => new ChartBar(L[$"Pot_{p.Pot}"].Value, Math.Abs(p.Booked)))
+        .ToList();
+
+    // Der Satz zum ersten Diagramm: wer den größten Anteil der gebuchten Beträge hat.
+    private string DistributionText
+    {
+        get
+        {
+            var total = Model.Pots.Sum(p => Math.Abs(p.Booked));
+            if (total <= 0m)
+            {
+                return L["Month_ReviewNothingBooked"].Value;
+            }
+            var largest = Model.Pots.OrderByDescending(p => Math.Abs(p.Booked)).First();
+            var percent = (int)Math.Round(Math.Abs(largest.Booked) / total * 100m, 0, MidpointRounding.AwayFromZero);
+            return L["Month_ReviewLargest", L[$"Pot_{largest.Pot}"].Value, percent].Value;
+        }
+    }
+}

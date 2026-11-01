@@ -21,6 +21,8 @@ public abstract class PageTestContext : UiTestContext
     protected FakeAccountChoices Accounts { get; } = new();
     protected FakeAccountApi AccountApiFake { get; } = new();
     protected FakeCommitmentApi CommitmentApiFake { get; } = new();
+    protected FakeSavingsGoalApi SavingsGoalApiFake { get; } = new();
+    protected FakeDebtApi DebtApiFake { get; } = new();
     protected FakePlanApi PlanApiFake { get; } = new();
     protected FakeHouseholdApi HouseholdApiFake { get; } = new();
     protected FakeShareService ShareFake { get; } = new();
@@ -40,6 +42,8 @@ public abstract class PageTestContext : UiTestContext
         Services.AddSingleton<IAccountChoices>(Accounts);
         Services.AddSingleton<IAccountApi>(AccountApiFake);
         Services.AddSingleton<ICommitmentApi>(CommitmentApiFake);
+        Services.AddSingleton<ISavingsGoalApi>(SavingsGoalApiFake);
+        Services.AddSingleton<IDebtApi>(DebtApiFake);
         Services.AddSingleton<IPlanApi>(PlanApiFake);
         Services.AddSingleton<IHouseholdApi>(HouseholdApiFake);
         Services.AddSingleton<IShareService>(ShareFake);

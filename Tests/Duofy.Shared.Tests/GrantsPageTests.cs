@@ -37,7 +37,7 @@ public class GrantsPageTests : PageTestContext
 
     // A11
     [Fact]
-    public void Choosing_mitlesen_sends_all_four_levels_and_changing_one_area_sends_only_that_one()
+    public void Choosing_mitlesen_sends_all_five_levels_and_changing_one_area_sends_only_that_one()
     {
         Household(GrantLevels.None);
         var cut = OpenPage();
@@ -49,7 +49,7 @@ public class GrantsPageTests : PageTestContext
         cut.Find($"[data-testid='grants-{Ben}-preset-read']").Click();
 
         cut.WaitForAssertion(() => Assert.All(GrantAreas.All, area => Assert.Equal(AccessLevelKeys.View, Level(cut, area))));
-        Assert.Equal((Ben, new UpdateGrantsRequest(AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View)),
+        Assert.Equal((Ben, new UpdateGrantsRequest(AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View)),
             Assert.Single(HouseholdApiFake.GrantsSet));
         Assert.Equal("true", cut.Find($"[data-testid='grants-{Ben}-preset-read']").GetAttribute("aria-pressed"));
         Assert.Empty(cut.FindAll($"[data-testid='grants-{Ben}-own-choice']"));
@@ -122,6 +122,7 @@ public class GrantsPageTests : PageTestContext
         [GrantAreas.Book] = "Buchungen",
         [GrantAreas.Accounts] = "Konten",
         [GrantAreas.Commitments] = "Verträge",
+        [GrantAreas.Savings] = "Sparen und Schulden",
     };
 
     // A20: Scheitert das Speichern, legt die Seite das Feld neu an, damit es wieder die gespeicherte Stufe zeigt.
@@ -169,7 +170,7 @@ public class GrantsPageTests : PageTestContext
 
         cut.Find($"[data-testid='grants-{Ben}-preset-{preset}']").Click();
 
-        Assert.Equal(new UpdateGrantsRequest(plan, others, others, others), Assert.Single(HouseholdApiFake.GrantsSet).Request);
+        Assert.Equal(new UpdateGrantsRequest(plan, others, others, others, others), Assert.Single(HouseholdApiFake.GrantsSet).Request);
     }
 
     [Fact]

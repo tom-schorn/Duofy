@@ -1,46 +1,35 @@
 @using Duofy.ApiClient
 @using Duofy.Schemas
+@using Duofy.Shared.Dialogs
 @inject IHouseholdApi HouseholdApi
 @inject IStringLocalizer<SharedResources> L
-@inject IAppHost Host
 
-@* Name und Richtwerte des Haushalts (R7), nur für den Gründer. Die Richtwerte sind ganze Prozent für
+@* Name und Richtwerte des Haushalts (R7), nur für den Gründer, auf dem Schritt-Dialog (Spec 11) mit einem Schritt (Issue #22). Die Richtwerte sind ganze Prozent für
    Grundbedarf, Wünsche und Sparen und ergeben zusammen 100; ob das stimmt, prüft die API (quota_invalid).
    Jede Person behält daneben ihre eigenen Quoten. *@
 
-<MudDialog>
-    <DialogContent>
-        @if (Host.IsApp)
+<StepDialog OnFinish="SaveAsync" FinishText="@L["HouseholdDialog_Save"]" Busy="busy" FinishTestId="household-dialog-save">
+    <DialogStep Title="@L["HouseholdDialog_StepAll"]">
+        @if (error is not null)
         {
-            <FullScreenFormHeader Title="@MudDialog.Title" SaveText="@L["HouseholdDialog_Save"]" SaveTestId="household-dialog-save"
-                                  Busy="busy" OnClose="Cancel" OnSave="SaveAsync" />
+            <MudAlert Severity="Severity.Error" data-testid="household-dialog-error">@error</MudAlert>
         }
-        <MudStack Spacing="3">
-            @if (error is not null)
-            {
-                <MudAlert Severity="Severity.Error" data-testid="household-dialog-error">@error</MudAlert>
-            }
-            <MudTextField @bind-Value="name" Label="@L["HouseholdDialog_Name"]" Variant="Variant.Outlined" MaxLength="100"
+        <StepField Label="@L["HouseholdDialog_Name"]" InputId="household-dialog-name-input" TestId="household-dialog-name-field">
+            <MudTextField @bind-Value="name" Variant="Variant.Outlined" MaxLength="100" InputId="household-dialog-name-input"
                           data-testid="household-dialog-name" />
-            <MudText Typo="Typo.body2">@L["HouseholdDialog_QuotasHint"]</MudText>
-            @foreach (var pot in Pots)
-            {
-                var key = pot;
-                <MudNumericField T="int" Value="quotas[key]" ValueChanged="v => quotas[key] = v" Min="0" Max="100"
-                                 Variant="Variant.Outlined" Label="@L["Account_QuotaField", L[$"Pot_{key}"]]"
-                                 data-testid="@($"household-dialog-quota-{key}")" />
-            }
-        </MudStack>
-    </DialogContent>
-    <DialogActions>
-        @if (!Host.IsApp)
+        </StepField>
+        <p class="mud-typography mud-typography-body2">@L["HouseholdDialog_QuotasHint"]</p>
+        @foreach (var pot in Pots)
         {
-            <MudButton OnClick="Cancel">@L["Household_Cancel"]</MudButton>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="busy" OnClick="SaveAsync"
-                       data-testid="household-dialog-save">@L["HouseholdDialog_Save"]</MudButton>
+            var key = pot;
+            <StepField Label="@L["Account_QuotaField", L[$"Pot_{key}"]]" InputId="@($"household-dialog-quota-{key}-input")">
+                <MudNumericField T="int" Value="quotas[key]" ValueChanged="v => quotas[key] = v" Min="0" Max="100"
+                                 Variant="Variant.Outlined" InputId="@($"household-dialog-quota-{key}-input")"
+                                 data-testid="@($"household-dialog-quota-{key}")" />
+            </StepField>
         }
-    </DialogActions>
-</MudDialog>
+    </DialogStep>
+</StepDialog>
 
 @code {
     private static readonly string[] Pots = [PotKeys.Needs, PotKeys.Wants, PotKeys.Savings];
@@ -62,8 +51,6 @@
         quotas[PotKeys.Wants] = Household.QuotaWants;
         quotas[PotKeys.Savings] = Household.QuotaSavings;
     }
-
-    private void Cancel() => MudDialog.Cancel();
 
     private async Task SaveAsync()
     {

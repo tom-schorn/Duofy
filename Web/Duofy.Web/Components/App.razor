@@ -1,16 +1,29 @@
-﻿<!DOCTYPE html>
+﻿@using Duofy.Shared.Services
+@using Duofy.Shared.Theme
+<!DOCTYPE html>
 <html lang="de">
 
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
+    @* Issue 5: Die gewählte Hell-Dunkel-Einstellung gilt schon beim ersten Zeichnen; eigenes Skript, kein Fremdskript. *@
+    @((MarkupString)ThemeBoot.HeadMarkup)
     <ResourcePreloader />
     <link rel="stylesheet" href="_content/MudBlazor/MudBlazor.min.css" />
     <link rel="stylesheet" href="_content/Duofy.Shared/app.css" />
     <link rel="stylesheet" href="Duofy.Web.styles.css" />
     <ImportMap />
-    <link rel="icon" type="image/png" href="_content/Duofy.Shared/favicon.png" />
+    @* Das Symbol im Tab gehört zur Marke (Issue 8); mit eigenem Symbol für ein dunkles Fenster des Browsers. *@
+    @if (Brand.FaviconDark is null)
+    {
+        <link rel="icon" type="@Brand.FaviconType" href="@Brand.FaviconLight" />
+    }
+    else
+    {
+        <link rel="icon" type="@Brand.FaviconType" href="@Brand.FaviconLight" media="(prefers-color-scheme: light)" />
+        <link rel="icon" type="@Brand.FaviconType" href="@Brand.FaviconDark" media="(prefers-color-scheme: dark)" />
+    }
     <HeadOutlet @rendermode="PageRenderMode" />
 </head>
 
@@ -19,12 +32,14 @@
     <ReconnectModal />
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
-    <AnalyticsBeacon />
 </body>
 
 </html>
 
 @code {
+    [Inject]
+    private AppBrand Brand { get; set; } = default!;
+
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
 

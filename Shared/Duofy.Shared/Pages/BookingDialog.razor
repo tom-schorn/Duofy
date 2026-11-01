@@ -1,239 +1,250 @@
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
+@using Duofy.Shared.Dialogs
 @inject IBookingApi BookingApi
 @inject ICategoryApi CategoryApi
 @inject IPlanApi PlanApi
 @inject ActiveMember Member
 @inject IStringLocalizer<SharedResources> L
-@inject IAppHost Host
 
-@* Der Dialog zum Anlegen und Ändern einer Buchung.
+@* Der Dialog zum Anlegen und Ändern einer Buchung, in zwei Schritten (Issue #21, Spec 22) auf dem Schritt-Dialog (Spec 11):
+   1 Was und wann (Art, Betrag, Datum, Planmonat, Konto; bei einer Umbuchung auch das Zielkonto),
+   2 Einordnung (die Zeilen mit Kategorie, Topf und Posten, bei einer Umbuchung Von Topf, Zu Topf und Posten; dazu die Notiz).
+   Alle Buchungsarten und alle Regeln sind unverändert; auf dem Handy füllt der Dialog den Bildschirm, und nur der Inhalt rollt.
 
-   Ein Dialog ist ein Fenster über der Seite. MudBlazor setzt den Inhalt von <DialogContent>
-   hinein und die Knöpfe von <DialogActions> darunter. Wer den Dialog öffnet (die Seite
-   Buchungen), reicht ihm die Konten und Kategorien als Parameter und bekommt am Ende mit,
+   Wer den Dialog öffnet (die Seite Buchungen), reicht ihm die Konten und Kategorien als Parameter und bekommt am Ende mit,
    ob gespeichert wurde.
 
    Alle Eingaben stehen in `draft`, einem BookingDraft. Dort stehen auch die Rechenregeln
-   (die erste Zeile nimmt den Rest, der Topf folgt der Kategorie). Der Dialog zeigt sie nur an. *@
+   (die erste Zeile nimmt den Rest, der Topf folgt der Kategorie). Der Dialog zeigt sie nur an. Weiter verlangt ein Konto
+   (derselbe Satz wie zuvor beim Speichern); alles andere prüft wie bisher die API, ihre Fehler stehen oben in Schritt 2. *@
 
-<MudDialog>
-    <DialogContent>
-        @* In der App füllt der Dialog den Bildschirm und bringt Schließen und Speichern in seiner Kopfzeile mit. *@
-        @if (Host.IsApp)
-        {
-            <FullScreenFormHeader Title="@MudDialog.Title" SaveText="@L["BookingDialog_Save"]" SaveTestId="booking-save"
-                                  Busy="busy" OnClose="Cancel" OnSave="SaveAsync" />
-        }
-        <MudStack Spacing="3">
-
-            @if (error is not null)
+<StepDialog OnFinish="SaveAsync" FinishText="@L["BookingDialog_Save"]" Busy="busy" FinishTestId="booking-save" NextTestId="booking-next">
+    <DialogStep Title="@L["BookingDialog_StepWhat"]">
+        @* Ausgabe, Einnahme oder Umbuchung. aria-pressed sagt Vorlesegeräten, welcher Knopf gewählt ist. *@
+        <div class="booking-kinds" role="group" aria-label="@L["BookingDialog_KindLabel"]">
+            @foreach (var kind in BookingKinds.All)
             {
-                <MudAlert Severity="Severity.Error" data-testid="booking-error">@error</MudAlert>
+                var selected = draft.Kind == kind;
+                <MudButton Variant="@(selected ? Variant.Filled : Variant.Outlined)" Color="Color.Primary"
+                           OnClick="() => SetKind(kind)" aria-pressed="@(selected ? "true" : "false")"
+                           data-testid="@($"booking-kind-{kind}")">@L[$"BookingDialog_Kind_{kind}"]</MudButton>
             }
+        </div>
 
-            @* Ausgabe, Einnahme oder Umbuchung. aria-pressed sagt Vorlesegeräten, welcher Knopf gewählt ist. *@
-            <MudStack Row="true" Spacing="1">
-                @foreach (var kind in BookingKinds.All)
-                {
-                    var selected = draft.Kind == kind;
-                    <MudButton Variant="@(selected ? Variant.Filled : Variant.Outlined)" Color="Color.Primary"
-                               OnClick="() => SetKind(kind)" aria-pressed="@(selected ? "true" : "false")"
-                               data-testid="@($"booking-kind-{kind}")">@L[$"BookingDialog_Kind_{kind}"]</MudButton>
-                }
-            </MudStack>
-
-            @* Betrag und Datum. Der Betrag ist immer positiv; ob er abgeht oder hereinkommt, bestimmt die Art. *@
+        @* Betrag und Datum. Der Betrag ist immer positiv; ob er abgeht oder hereinkommt, bestimmt die Art. *@
+        <StepField Label="@L["Field_Amount"]" InputId="booking-amount-input" TestId="booking-amount-field">
             <MudNumericField T="decimal?" Value="draft.Amount" ValueChanged="OnAmountChanged" Culture="German"
-                             Format="0.00" Min="0" HideSpinButtons="true" Label="@L["Field_Amount"]"
+                             Format="0.00" Min="0" HideSpinButtons="true" Variant="Variant.Outlined" InputId="booking-amount-input"
                              data-testid="booking-amount" />
+        </StepField>
+        <StepField Label="@L["Field_Date"]" InputId="booking-date-input" TestId="booking-date-field">
             <MudTextField T="string" Value="@dateText" ValueChanged="OnDateChanged" InputType="InputType.Date"
-                          Label="@L["Field_Date"]" data-testid="booking-date" />
+                          Variant="Variant.Outlined" InputId="booking-date-input" data-testid="booking-date" />
+        </StepField>
 
-            @* Der Planmonat: in welchem Monat die Buchung im Plan zählt. Der Kontostand folgt immer dem Datum. *@
-            <NativeSelect Value="@MonthKey(draft.PlanMonth)" ValueChanged="OnPlanMonthChanged" Label="@L["Field_PlanMonth"]"
+        @* Der Planmonat: in welchem Monat die Buchung im Plan zählt. Der Kontostand folgt immer dem Datum. *@
+        <StepField Label="@L["Field_PlanMonth"]" InputId="booking-plan-month-input" TestId="booking-plan-month-field">
+            <NativeSelect Value="@MonthKey(draft.PlanMonth)" ValueChanged="OnPlanMonthChanged" id="booking-plan-month-input"
                           data-testid="booking-plan-month">
                 @foreach (var month in PlanMonths())
                 {
                     <option value="@MonthKey(month)">@month.ToString("MMMM yyyy", German)</option>
                 }
             </NativeSelect>
+        </StepField>
 
-            <NativeSelect Value="@Key(draft.AccountId)" ValueChanged="OnAccountChanged"
-                             Label="@L[draft.Kind == BookingKinds.Transfer ? "Field_FromAccount" : "Field_Account"]"
-                             data-testid="booking-account">
-                <option value="">@L["BookingDialog_ChooseAccount"]</option>
-                @foreach (var account in Accounts.Where(a => a.Active || a.Id == draft.AccountId))
-                {
-                    <option value="@account.Id">@account.Name</option>
-                }
-            </NativeSelect>
+        @* Ohne Konto geht es nicht weiter; der Satz ist derselbe wie zuvor beim Speichern. *@
+        <StepField Label="@L[draft.Kind == BookingKinds.Transfer ? "Field_FromAccount" : "Field_Account"]" InputId="booking-account-input"
+                   Validate="@(() => draft.AccountId is null ? L["BookingDialog_AccountRequired"].Value : null)"
+                   TestId="booking-account-field">
+            <AccountSelect Value="draft.AccountId" ValueChanged="OnAccountChosen" Accounts="Accounts"
+                           Label="@L[draft.Kind == BookingKinds.Transfer ? "Field_FromAccount" : "Field_Account"]" HideLabel="true"
+                           EmptyText="@L["BookingDialog_ChooseAccount"]" InputId="booking-account-input"
+                           DescribedBy="booking-account-input-error" TestId="booking-account" />
+        </StepField>
 
-            @if (draft.Kind == BookingKinds.Transfer)
-            {
-                @* Bei einer Umbuchung gibt es keine Kategorie und nur eine Zeile (den Quelltopf), dazu ein zweites Konto. *@
-                <NativeSelect Value="@Key(draft.CounterAccountId)" ValueChanged="OnCounterAccountChanged"
-                                 Label="@L["Field_ToAccount"]" data-testid="booking-counter-account">
-                    <option value="">@L["BookingDialog_ChooseAccount"]</option>
-                    @foreach (var account in Accounts.Where(a => a.Active || a.Id == draft.CounterAccountId))
-                    {
-                        <option value="@account.Id">@account.Name</option>
-                    }
-                </NativeSelect>
-                @* Quelle und Ziel werden nur gemerkt (Spec 72, R9): Pflicht, ohne Vorauswahl, aus den drei Töpfen. *@
-                <NativeSelect Value="@draft.TransferSourcePot" ValueChanged="OnTransferSourcePotChanged"
-                              Label="@L["Field_TransferSourcePotRequired"]" aria-required="true" data-testid="booking-transfer-source-pot">
+        @if (draft.Kind == BookingKinds.Transfer)
+        {
+            @* Bei einer Umbuchung gibt es keine Kategorie und nur eine Zeile (den Quelltopf), dazu ein zweites Konto. *@
+            <StepField Label="@L["Field_ToAccount"]" InputId="booking-counter-account-input" TestId="booking-counter-account-field">
+                <AccountSelect Value="draft.CounterAccountId" ValueChanged="OnCounterAccountChosen" Accounts="Accounts"
+                               Label="@L["Field_ToAccount"]" HideLabel="true" EmptyText="@L["BookingDialog_ChooseAccount"]"
+                               InputId="booking-counter-account-input" TestId="booking-counter-account" />
+            </StepField>
+        }
+    </DialogStep>
+
+    <DialogStep Title="@L["BookingDialog_StepWhere"]">
+        @if (error is not null)
+        {
+            <MudAlert Severity="Severity.Error" data-testid="booking-error">@error</MudAlert>
+        }
+
+        @if (draft.Kind == BookingKinds.Transfer)
+        {
+            @* Quelle und Ziel werden nur gemerkt (Spec 72, R9): Pflicht, ohne Vorauswahl, aus den drei Töpfen. *@
+            <StepField Label="@L["Field_TransferSourcePotRequired"]" InputId="booking-transfer-source-pot-input" TestId="booking-transfer-source-pot-field">
+                <NativeSelect Value="@draft.TransferSourcePot" ValueChanged="OnTransferSourcePotChanged" id="booking-transfer-source-pot-input"
+                              aria-required="true" data-testid="booking-transfer-source-pot">
                     <option value="">@L["BookingDialog_ChoosePot"]</option>
                     @foreach (var pot in OfferedPots())
                     {
                         <option value="@pot">@L[$"Pot_{pot}"]</option>
                     }
                 </NativeSelect>
-                <NativeSelect Value="@draft.TransferTargetPot" ValueChanged="OnTransferTargetPotChanged"
-                              Label="@L["Field_TransferTargetPotRequired"]" aria-required="true" data-testid="booking-transfer-target-pot">
+            </StepField>
+            <StepField Label="@L["Field_TransferTargetPotRequired"]" InputId="booking-transfer-target-pot-input" TestId="booking-transfer-target-pot-field">
+                <NativeSelect Value="@draft.TransferTargetPot" ValueChanged="OnTransferTargetPotChanged" id="booking-transfer-target-pot-input"
+                              aria-required="true" data-testid="booking-transfer-target-pot">
                     <option value="">@L["BookingDialog_ChoosePot"]</option>
                     @foreach (var pot in OfferedPots())
                     {
                         <option value="@pot">@L[$"Pot_{pot}"]</option>
                     }
                 </NativeSelect>
-                <NativeSelect Value="@Key(draft.TransferPositionId)" ValueChanged="OnTransferPositionChanged"
-                              Label="@L["Field_Position"]" data-testid="booking-transfer-position">
+            </StepField>
+            <StepField Label="@L["Field_Position"]" InputId="booking-transfer-position-input" TestId="booking-transfer-position-field">
+                <NativeSelect Value="@Key(draft.TransferPositionId)" ValueChanged="OnTransferPositionChanged" id="booking-transfer-position-input"
+                              data-testid="booking-transfer-position">
                     <option value="">@L["BookingDialog_NoPosition"]</option>
                     @foreach (var position in PlanView.OfferedPositions(plan, draft.Kind, draft.TransferPositionId))
                     {
                         <option value="@position.Id">@position.Label</option>
                     }
                 </NativeSelect>
-            }
-            else
-            {
-                @* Die Zeilen. Eine Zeile ist ein Teil des Betrags mit Kategorie und Topf. *@
-                @for (var i = 0; i < draft.Lines.Count; i++)
-                {
-                    var index = i;
-                    var line = draft.Lines[index];
-                    <MudPaper Outlined="true" Class="pa-3">
-                        <MudStack Spacing="2">
-                            @if (draft.Lines.Count > 1)
-                            {
-                                <MudText Typo="Typo.subtitle2">@L["BookingDialog_Line", index + 1]</MudText>
-                            }
-
-                            @* Die erste Zeile ist nicht bearbeitbar, solange es mehrere gibt: Sie zeigt, was übrig bleibt. *@
-                            <MudNumericField T="decimal?" Value="line.Amount" ValueChanged="v => OnLineAmountChanged(index, v)"
-                                             Culture="German" Format="0.00" HideSpinButtons="true"
-                                             ReadOnly="@(index == 0)" Label="@L["Field_Amount"]"
-                                             data-testid="@($"booking-line-amount-{index}")" />
-
-                            <NativeSelect Value="@Key(line.CategoryId)"
-                                             ValueChanged="v => OnCategoryChanged(index, v)"
-                                             Label="@L["Field_Category"]" data-testid="@($"booking-line-category-{index}")">
-                                <option value="">@L["BookingDialog_ChooseCategory"]</option>
-                                @foreach (var group in OfferedCategories())
-                                {
-                                    <optgroup label="@L[$"CategoryGroup_{group.Key}"]">
-                                        @foreach (var category in group)
-                                        {
-                                            <option value="@category.Id">@category.Name</option>
-                                        }
-                                    </optgroup>
-                                }
-                            </NativeSelect>
-
-                            <NativeSelect Value="@line.Pot" ValueChanged="v => OnPotChanged(index, v)"
-                                             Label="@L["Field_PotRequired"]" aria-required="true" data-testid="@($"booking-line-pot-{index}")">
-                                @if (draft.Kind != BookingKinds.Income)
-                                {
-                                    <option value="">@L["BookingDialog_ChoosePot"]</option>
-                                }
-                                @foreach (var pot in OfferedPots())
-                                {
-                                    <option value="@pot">@L[$"Pot_{pot}"]</option>
-                                }
-                            </NativeSelect>
-
-                            @* Der Posten des Planmonats, den diese Zeile füllt; nur offene Posten, deren Topf passt. *@
-                            <NativeSelect Value="@Key(line.PositionId)" ValueChanged="v => OnPositionChanged(index, v)"
-                                          Label="@L["Field_Position"]" data-testid="@($"booking-line-position-{index}")">
-                                <option value="">@L["BookingDialog_NoPosition"]</option>
-                                @foreach (var position in PlanView.OfferedPositions(plan, draft.Kind, line.PositionId))
-                                {
-                                    <option value="@position.Id">@position.Label</option>
-                                }
-                            </NativeSelect>
-
-                            <MudStack Row="true" Spacing="1">
-                                @* Eigene Kategorien legt nur ihre Person an (Spec 68); für ein anderes Mitglied gibt es den Knopf nicht. *@
-                                @if (owner is null)
-                                {
-                                    <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => OpenNewCategory(index)"
-                                               data-testid="booking-new-category">@L["BookingDialog_NewCategory"]</MudButton>
-                                }
-                                @if (index > 0)
-                                {
-                                    <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Error"
-                                               OnClick="() => RemoveLine(index)"
-                                               data-testid="@($"booking-line-remove-{index}")">@L["BookingDialog_RemoveLine"]</MudButton>
-                                }
-                            </MudStack>
-                        </MudStack>
-                    </MudPaper>
-                }
-
-                @* Eine eigene Kategorie anlegen, ohne den Dialog zu verlassen. *@
-                @if (newCategoryLine is not null)
-                {
-                    <MudPaper Outlined="true" Class="pa-3">
-                        <MudStack Spacing="2">
-                            @if (newCategoryError is not null)
-                            {
-                                <MudAlert Severity="Severity.Error">@newCategoryError</MudAlert>
-                            }
-                            <MudTextField T="string" @bind-Value="newCategoryName" Label="@L["Field_CategoryName"]"
-                                          MaxLength="CategoryRules.NameMaxLength" data-testid="booking-new-category-name" />
-                            <NativeSelect @bind-Value="newCategoryGroup" Label="@L["Field_Group"]"
-                                             data-testid="booking-new-category-group">
-                                @foreach (var group in CategoryGroupKeys.All.Where(g => (g == CategoryGroupKeys.Income) == (draft.Kind == BookingKinds.Income)))
-                                {
-                                    <option value="@group">@L[$"CategoryGroup_{group}"]</option>
-                                }
-                            </NativeSelect>
-                            <NativeSelect @bind-Value="newCategoryPot" Label="@L["Field_Pot"]"
-                                             data-testid="booking-new-category-pot">
-                                @foreach (var pot in OfferedPots())
-                                {
-                                    <option value="@pot">@L[$"Pot_{pot}"]</option>
-                                }
-                            </NativeSelect>
-                            <MudStack Row="true" Spacing="1">
-                                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveNewCategoryAsync"
-                                           data-testid="booking-new-category-save">@L["BookingDialog_NewCategorySave"]</MudButton>
-                                <MudButton Variant="Variant.Text" OnClick="CloseNewCategory">@L["BookingDialog_Cancel"]</MudButton>
-                            </MudStack>
-                        </MudStack>
-                    </MudPaper>
-                }
-
-                @* "Aufteilen" hängt eine Zeile an. Ihr Betrag geht von der ersten Zeile ab. *@
-                <MudButton Variant="Variant.Outlined" Disabled="@(!draft.CanAddLine)" OnClick="draft.AddLine"
-                           data-testid="booking-split">@L["BookingDialog_Split"]</MudButton>
-            }
-
-            <MudTextField T="string" @bind-Value="draft.Note" Label="@L["Field_Note"]"
-                          MaxLength="BookingRules.NoteMaxLength" data-testid="booking-note" />
-        </MudStack>
-    </DialogContent>
-    <DialogActions>
-        @if (!Host.IsApp)
-        {
-            <MudButton OnClick="Cancel">@L["BookingDialog_Cancel"]</MudButton>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="busy" OnClick="SaveAsync"
-                       data-testid="booking-save">@L["BookingDialog_Save"]</MudButton>
+            </StepField>
         }
-    </DialogActions>
-</MudDialog>
+        else
+        {
+            @* Die Zeilen. Eine Zeile ist ein Teil des Betrags mit Kategorie und Topf. *@
+            @for (var i = 0; i < draft.Lines.Count; i++)
+            {
+                var index = i;
+                var line = draft.Lines[index];
+                <div class="booking-line">
+                    @if (draft.Lines.Count > 1)
+                    {
+                        <h3 class="booking-line-title">@L["BookingDialog_Line", index + 1]</h3>
+                    }
+
+                    @* Die erste Zeile ist nicht bearbeitbar, solange es mehrere gibt: Sie zeigt, was übrig bleibt. *@
+                    <StepField Label="@L["Field_Amount"]" InputId="@($"booking-line-amount-{index}-input")">
+                        <MudNumericField T="decimal?" Value="line.Amount" ValueChanged="v => OnLineAmountChanged(index, v)"
+                                         Culture="German" Format="0.00" HideSpinButtons="true" Variant="Variant.Outlined"
+                                         ReadOnly="@(index == 0)" InputId="@($"booking-line-amount-{index}-input")"
+                                         data-testid="@($"booking-line-amount-{index}")" />
+                    </StepField>
+
+                    <StepField Label="@L["Field_Category"]" InputId="@($"booking-line-category-{index}-input")">
+                        <NativeSelect Value="@Key(line.CategoryId)" ValueChanged="v => OnCategoryChanged(index, v)"
+                                      id="@($"booking-line-category-{index}-input")" data-testid="@($"booking-line-category-{index}")">
+                            <option value="">@L["BookingDialog_ChooseCategory"]</option>
+                            @foreach (var group in OfferedCategories())
+                            {
+                                <optgroup label="@L[$"CategoryGroup_{group.Key}"]">
+                                    @foreach (var category in group)
+                                    {
+                                        <option value="@category.Id">@category.Name</option>
+                                    }
+                                </optgroup>
+                            }
+                        </NativeSelect>
+                    </StepField>
+
+                    <StepField Label="@L["Field_PotRequired"]" InputId="@($"booking-line-pot-{index}-input")">
+                        <NativeSelect Value="@line.Pot" ValueChanged="v => OnPotChanged(index, v)"
+                                      id="@($"booking-line-pot-{index}-input")" aria-required="true" data-testid="@($"booking-line-pot-{index}")">
+                            @if (draft.Kind != BookingKinds.Income)
+                            {
+                                <option value="">@L["BookingDialog_ChoosePot"]</option>
+                            }
+                            @foreach (var pot in OfferedPots())
+                            {
+                                <option value="@pot">@L[$"Pot_{pot}"]</option>
+                            }
+                        </NativeSelect>
+                    </StepField>
+
+                    @* Der Posten des Planmonats, den diese Zeile füllt; nur offene Posten, deren Topf passt. *@
+                    <StepField Label="@L["Field_Position"]" InputId="@($"booking-line-position-{index}-input")">
+                        <NativeSelect Value="@Key(line.PositionId)" ValueChanged="v => OnPositionChanged(index, v)"
+                                      id="@($"booking-line-position-{index}-input")" data-testid="@($"booking-line-position-{index}")">
+                            <option value="">@L["BookingDialog_NoPosition"]</option>
+                            @foreach (var position in PlanView.OfferedPositions(plan, draft.Kind, line.PositionId))
+                            {
+                                <option value="@position.Id">@position.Label</option>
+                            }
+                        </NativeSelect>
+                    </StepField>
+
+                    <div class="booking-line-actions">
+                        @* Eigene Kategorien legt nur ihre Person an (Spec 68); für ein anderes Mitglied gibt es den Knopf nicht. *@
+                        @if (owner is null)
+                        {
+                            <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => OpenNewCategory(index)"
+                                       data-testid="booking-new-category">@L["BookingDialog_NewCategory"]</MudButton>
+                        }
+                        @if (index > 0)
+                        {
+                            <MudButton Variant="Variant.Text" Size="Size.Small"
+                                       OnClick="() => RemoveLine(index)"
+                                       data-testid="@($"booking-line-remove-{index}")">@L["BookingDialog_RemoveLine"]</MudButton>
+                        }
+                    </div>
+                </div>
+            }
+
+            @* Eine eigene Kategorie anlegen, ohne den Dialog zu verlassen. *@
+            @if (newCategoryLine is not null)
+            {
+                <div class="booking-line">
+                    @if (newCategoryError is not null)
+                    {
+                        <MudAlert Severity="Severity.Error">@newCategoryError</MudAlert>
+                    }
+                    <StepField Label="@L["Field_CategoryName"]" InputId="booking-new-category-name-input">
+                        <MudTextField T="string" @bind-Value="newCategoryName" Variant="Variant.Outlined" InputId="booking-new-category-name-input"
+                                      MaxLength="CategoryRules.NameMaxLength" data-testid="booking-new-category-name" />
+                    </StepField>
+                    <StepField Label="@L["Field_Group"]" InputId="booking-new-category-group-input">
+                        <NativeSelect @bind-Value="newCategoryGroup" id="booking-new-category-group-input"
+                                      data-testid="booking-new-category-group">
+                            @foreach (var group in CategoryGroupKeys.All.Where(g => (g == CategoryGroupKeys.Income) == (draft.Kind == BookingKinds.Income)))
+                            {
+                                <option value="@group">@L[$"CategoryGroup_{group}"]</option>
+                            }
+                        </NativeSelect>
+                    </StepField>
+                    <StepField Label="@L["Field_Pot"]" InputId="booking-new-category-pot-input">
+                        <NativeSelect @bind-Value="newCategoryPot" id="booking-new-category-pot-input"
+                                      data-testid="booking-new-category-pot">
+                            @foreach (var pot in OfferedPots())
+                            {
+                                <option value="@pot">@L[$"Pot_{pot}"]</option>
+                            }
+                        </NativeSelect>
+                    </StepField>
+                    <div class="booking-line-actions">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveNewCategoryAsync"
+                                   data-testid="booking-new-category-save">@L["BookingDialog_NewCategorySave"]</MudButton>
+                        <MudButton Variant="Variant.Text" OnClick="CloseNewCategory">@L["BookingDialog_Cancel"]</MudButton>
+                    </div>
+                </div>
+            }
+
+            @* "Aufteilen" hängt eine Zeile an. Ihr Betrag geht von der ersten Zeile ab. *@
+            <MudButton Variant="Variant.Outlined" Disabled="@(!draft.CanAddLine)" OnClick="draft.AddLine"
+                       data-testid="booking-split">@L["BookingDialog_Split"]</MudButton>
+        }
+
+        <StepField Label="@L["Field_Note"]" InputId="booking-note-input" TestId="booking-note-field">
+            <MudTextField T="string" @bind-Value="draft.Note" Variant="Variant.Outlined" InputId="booking-note-input"
+                          MaxLength="BookingRules.NoteMaxLength" data-testid="booking-note" />
+        </StepField>
+    </DialogStep>
+</StepDialog>
 
 @code {
 
@@ -333,9 +344,9 @@
 
     private void OnLineAmountChanged(int index, decimal? amount) => draft.SetLineAmount(index, amount);
 
-    private void OnAccountChanged(string value) => draft.AccountId = ParseId(value);
+    private void OnAccountChosen(Guid? id) => draft.AccountId = id;
 
-    private void OnCounterAccountChanged(string value) => draft.CounterAccountId = ParseId(value);
+    private void OnCounterAccountChosen(Guid? id) => draft.CounterAccountId = id;
 
     private void OnTransferSourcePotChanged(string pot) => draft.TransferSourcePot = pot;
 
@@ -402,8 +413,6 @@
         draft.ChooseCategory(newCategoryLine!.Value, result.Value);
         newCategoryLine = null;
     }
-
-    private void Cancel() => MudDialog.Cancel();
 
     private async Task SaveAsync()
     {

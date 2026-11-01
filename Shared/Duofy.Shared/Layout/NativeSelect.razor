@@ -12,14 +12,22 @@
    landen am <select>-Element selbst. *@
 
 <div class="mb-2">
-    <MudText Typo="Typo.caption" Color="Color.Secondary">@Label</MudText>
-    <select value="@Value" @onchange="OnChangeAsync" @attributes="AdditionalAttributes"
+    @if (Label is not null)
+    {
+        <FieldLabel For="@SelectId" Text="@Label" />
+    }
+    <select value="@Value" @onchange="OnChangeAsync" @attributes="AdditionalAttributes" id="@SelectId"
             style="width: 100%; padding: 12px; border: 1px solid var(--mud-palette-lines-inputs); border-radius: var(--mud-default-borderradius); background: transparent; color: inherit; font: inherit;">
         @ChildContent
     </select>
 </div>
 
 @code {
+
+    private readonly string generatedId = $"select-{Guid.NewGuid():N}";
+
+    // Eine mitgegebene Id gewinnt (StepField hängt seine Beschriftung daran), sonst braucht die eigene Beschriftung eine.
+    private string SelectId => AdditionalAttributes?.GetValueOrDefault("id")?.ToString() ?? generatedId;
 
     /// <summary>Die Beschriftung über dem Feld.</summary>
     [Parameter]

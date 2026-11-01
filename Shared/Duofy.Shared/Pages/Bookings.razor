@@ -28,9 +28,10 @@
 <PageTitle>@L["Bookings_Title"]</PageTitle>
 
 @* In der App steht der Titel in der oberen Leiste und das Plus im Layout (AppChrome). *@
+<AppPageHeading Text="@L["Bookings_Title"]" />
 @if (!Host.IsApp)
 {
-    <MudText Typo="Typo.h4" Class="mb-2">@L["Bookings_Title"]</MudText>
+    <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-2">@L["Bookings_Title"]</MudText>
 }
 
 <Notice Message="message" />
@@ -43,6 +44,8 @@ else
 {
 <GrantReason Show="@(!(CanAdd && CanEdit && CanDelete))" />
 
+@* Monat, Filter und Summen stehen ab 1280 px nebeneinander, darunter untereinander wie bisher. *@
+<div class="bookings-top">
 @* Blättern: ein Pfeil zurück, der Monat, ein Pfeil vor. *@
 <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
     <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" OnClick="PreviousMonthAsync"
@@ -66,13 +69,14 @@ else
 <MudStack Row="true" Spacing="4" Class="mb-2">
     <MudPaper Class="pa-3 flex-grow-1" Outlined="true">
         <MudText Typo="Typo.caption">@L["Bookings_Income"]</MudText>
-        <MudText Typo="Typo.h6" Color="Color.Success" data-testid="bookings-sum-income">@Money(monthData?.Income ?? 0m)</MudText>
+        <MudText Typo="Typo.h6" data-testid="bookings-sum-income">@Money(monthData?.Income ?? 0m)</MudText>
     </MudPaper>
     <MudPaper Class="pa-3 flex-grow-1" Outlined="true">
         <MudText Typo="Typo.caption">@L["Bookings_Expenses"]</MudText>
         <MudText Typo="Typo.h6" data-testid="bookings-sum-expenses">@Money(monthData?.Expenses ?? 0m)</MudText>
     </MudPaper>
 </MudStack>
+</div>
 
 @if (accounts.Count == 0 && loaded && SeesAccounts && message?.Severity != Severity.Error)
 {
@@ -85,30 +89,41 @@ else
 }
 
 @* Die Buchungen, die neueste zuerst. Eine aufgeteilte Buchung steht einmal da, mit ihrer Summe. *@
-<MudStack Spacing="2">
+<MudStack Spacing="2" Class="data-table bookings-table page-wide">
+    @if (monthData is { Bookings.Count: > 0 })
+    {
+        <div class="data-table-head" aria-hidden="true">
+            <span class="data-column-1">@L["Table_Date"]</span>
+            <span class="data-column-2">@L["Table_Label"]</span>
+            <span class="data-column-3">@L["Table_Details"]</span>
+            <span class="data-column-4 data-amount">@L["Table_Amount"]</span>
+        </div>
+    }
     @foreach (var booking in monthData?.Bookings ?? [])
     {
-        <MudPaper Class="pa-3" Outlined="true" data-testid="@($"booking-{booking.Id}")">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                <MudStack Spacing="0" Class="flex-grow-1">
-                    <MudText Typo="Typo.caption">@booking.Date.ToString("d", German)</MudText>
-                    <MudText>@Title(booking)</MudText>
-                    @if (TransferPots(booking) is { } pots)
-                    {
-                        <MudText Typo="Typo.caption" data-testid="@($"booking-transfer-pots-{booking.Id}")">@pots</MudText>
-                    }
-                    @if (booking.Note is { Length: > 0 })
-                    {
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">@booking.Note</MudText>
-                    }
+        <MudPaper Class="pa-3 data-row-frame" Outlined="true" data-testid="@($"booking-{booking.Id}")">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="data-row">
+                <MudStack Spacing="0" Class="flex-grow-1 data-cells">
+                    <MudText Typo="Typo.caption" Class="data-column-1">@booking.Date.ToString("d", German)</MudText>
+                    <MudText Class="data-column-2">@Title(booking)</MudText>
+                    <div class="data-column-3">
+                        @if (TransferPots(booking) is { } pots)
+                        {
+                            <MudText Typo="Typo.caption" Class="d-block" data-testid="@($"booking-transfer-pots-{booking.Id}")">@pots</MudText>
+                        }
+                        @if (booking.Note is { Length: > 0 })
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block">@booking.Note</MudText>
+                        }
+                    </div>
                 </MudStack>
-                <MudText Typo="Typo.subtitle1" Color="@AmountColor(booking)">@SignedMoney(booking)</MudText>
+                <MudText Typo="Typo.subtitle1" Class="data-column-4 data-amount">@SignedMoney(booking)</MudText>
                 <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditAsync(booking)"
-                               Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
-                               aria-label="@L["Bookings_Edit"]" data-testid="@($"booking-edit-{booking.Id}")" />
+                               Class="@($"data-column-5 {GrantLock.Class(CanEdit)}")" @attributes="GrantLock.Attributes(CanEdit)"
+                               aria-label="@L["Bookings_Edit", RowName(booking)]" data-testid="@($"booking-edit-{booking.Id}")" />
                 <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => DeleteAsync(booking)"
-                               Class="@GrantLock.Class(CanDelete)" @attributes="GrantLock.Attributes(CanDelete)"
-                               aria-label="@L["Bookings_Delete"]" data-testid="@($"booking-delete-{booking.Id}")" />
+                               Class="@($"data-column-6 {GrantLock.Class(CanDelete)}")" @attributes="GrantLock.Attributes(CanDelete)"
+                               aria-label="@L["Bookings_Delete", RowName(booking)]" data-testid="@($"booking-delete-{booking.Id}")" />
             </MudStack>
         </MudPaper>
     }
@@ -119,8 +134,7 @@ else
 {
     <MudFab Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Disabled="@(CanAdd && !HasActiveAccount)"
             OnClick="AddAsync" aria-label="@L["Bookings_Add"]" data-testid="bookings-add"
-            Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)"
-            Style="position: fixed; right: 24px; bottom: 24px;" />
+            Class="@($"app-fab {GrantLock.Class(CanAdd)}")" @attributes="GrantLock.Attributes(CanAdd)" />
 }
 }
 
@@ -316,6 +330,9 @@ else
 
     // Die Überschrift einer Buchung: bei einer Umbuchung "Umbuchung: Von → Nach", sonst die Kategorie,
     // und bei mehreren Zeilen der Hinweis "aufgeteilt".
+    // Der Name einer Zeile für ihre Knöpfe; das Datum unterscheidet gleiche Kategorien im selben Monat.
+    private string RowName(BookingResponse booking) => $"{Title(booking)} vom {booking.Date.ToString("d", German)}";
+
     private string Title(BookingResponse booking)
     {
         if (booking.Kind == BookingKinds.Transfer)
@@ -353,8 +370,6 @@ else
         -1 => "−" + Money(booking.Amount),
         _ => Money(booking.Amount),
     };
-
-    private Color AmountColor(BookingResponse booking) => Direction(booking) == 1 ? Color.Success : Color.Default;
 
     private int Direction(BookingResponse booking) => booking.Kind switch
     {

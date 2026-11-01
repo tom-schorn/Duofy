@@ -12,9 +12,12 @@
 <MudDialogProvider />
 <MudSnackbarProvider />
 
+<SkipLink Target="() => mainContent" />
+
 <MudLayout>
     <MudAppBar Elevation="0">
-        <MudText Typo="Typo.h6" Class="app-title">@L["App_Name"]</MudText>
+        @* Die obere Leiste ist in beiden Modi dunkel (DuofyTheme), das Logo also immer das für dunklen Grund. *@
+        <MudText Typo="Typo.h6" HtmlTag="div" Class="app-title"><BrandMark Dark="true" /></MudText>
         <MudSpacer />
         <AuthorizeView>
             <Authorized>
@@ -35,7 +38,7 @@
     </SideNavigation>
 
     <MudMainContent Class="app-main">
-        <div class="app-page">
+        <div class="app-page" id="@SkipLink.TargetId" tabindex="-1" @ref="mainContent">
             @Body
         </div>
     </MudMainContent>
@@ -43,8 +46,12 @@
 
 <BottomNavigation />
 
-<div id="blazor-error-ui" data-nosnippet>
+<div id="blazor-error-ui" data-nosnippet role="alert">
     @L["Layout_ErrorMessage"]
     <a href="." class="reload">@L["Layout_Reload"]</a>
-    <span class="dismiss">&#10005;</span>
+    <button type="button" class="dismiss" aria-label="@L["Layout_Dismiss"]">&#10005;</button>
 </div>
+
+@code {
+    private ElementReference mainContent;
+}

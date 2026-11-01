@@ -1,0 +1,414 @@
+@page "/sparen"
+@attribute [Authorize]
+@using System.Globalization
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@implements IDisposable
+@inject ISavingsGoalApi GoalApi
+@inject IDebtApi DebtApi
+@inject ICategoryApi CategoryApi
+@inject IAccountChoices AccountChoices
+@inject IDialogService DialogService
+@inject FormDialogs Forms
+@inject IAppHost Host
+@inject AppChrome Chrome
+@inject ActiveMember Member
+@inject TimeProvider Time
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Seite Sparen (Issue 29 und 30): ein Ort für Sparziele, Schulden und Kredite. Die Sparziele stehen mit ihrem Stand
+   da; den Stand rechnet die API aus den zugeordneten Buchungen, die Seite rechnet nichts selbst. Schulden und Kredite
+   zeigen vorerst ihren Leerzustand. Wessen Zahlen die Seite zeigt, bestimmt der Umschalter; ohne die Freigabe "savings"
+   (Ansehen) sagt die Seite, dass die Person den Bereich nicht teilt. *@
+
+<PageTitle>@L["Savings_Title"]</PageTitle>
+
+@* In der App steht der Titel in der oberen Leiste und das Plus im Layout (AppChrome). *@
+<AppPageHeading Text="@L["Savings_Title"]" />
+@if (!Host.IsApp)
+{
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+        <MudText Typo="Typo.h4" HtmlTag="h1">@L["Savings_Title"]</MudText>
+        @if (Sees)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="AddGoalAsync" Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)"
+                       data-testid="savings-goal-add">@L["Savings_AddGoal"]</MudButton>
+        }
+    </MudStack>
+}
+
+<Notice Message="message" />
+
+@if (!Sees)
+{
+    <NotShared />
+}
+else
+{
+    <GrantReason Show="@(!(CanAdd && CanEdit && CanDelete))" />
+
+    <MudStack Spacing="3">
+        <MudPaper Class="pa-3" Outlined="true" data-testid="savings-section-goals">
+            <MudText Typo="Typo.h6" Class="mb-1">@L["Savings_Section_goals"]</MudText>
+            @if (loaded && goals.Count == 0)
+            {
+                <MudText Color="Color.Secondary" data-testid="savings-empty-goals">@L["Savings_Empty_goals"]</MudText>
+            }
+            <MudStack Spacing="2">
+                @foreach (var goal in goals)
+                {
+                    <MudPaper Class="pa-3" Outlined="true" data-testid="@($"savings-goal-{goal.Id}")">
+                        <MudStack Spacing="1">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudText Class="flex-grow-1" data-testid="@($"savings-goal-name-{goal.Id}")">@goal.Name</MudText>
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditGoalAsync(goal)"
+                                               Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
+                                               aria-label="@L["Savings_EditGoal", goal.Name]" data-testid="@($"savings-goal-edit-{goal.Id}")" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => DeleteGoalAsync(goal)"
+                                               Class="@GrantLock.Class(CanDelete)" @attributes="GrantLock.Attributes(CanDelete)"
+                                               aria-label="@L["Savings_DeleteGoal", goal.Name]" data-testid="@($"savings-goal-delete-{goal.Id}")" />
+                            </MudStack>
+
+                            <MudText Typo="Typo.subtitle1" data-testid="@($"savings-goal-balance-{goal.Id}")">@BalanceText(goal)</MudText>
+                            @if (goal.TargetAmount is { } target)
+                            {
+                                <MudProgressLinear Value="@ProgressOf(goal)" Max="100" Color="Color.Primary" Rounded="true"
+                                                   aria-label="@L["Savings_Progress", goal.Name]" data-testid="@($"savings-goal-progress-{goal.Id}")" />
+                            }
+                            @if (goal.Reached)
+                            {
+                                <MudText Typo="Typo.caption" data-testid="@($"savings-goal-reached-{goal.Id}")">@L["Savings_Reached"]</MudText>
+                            }
+                            @if (goal.TargetDate is { } due)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Savings_TargetDate", due.ToString("dd.MM.yyyy", German)]</MudText>
+                            }
+                            @if (AccountName(goal) is { } accountName)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" data-testid="@($"savings-goal-account-{goal.Id}")">@L["Savings_OnAccount", accountName]</MudText>
+                            }
+
+                            <MudStack Row="true" Spacing="2">
+                                <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="() => MoveAsync(goal, SavingsMoveKind.Deposit)"
+                                           Class="@GrantLock.Class(CanMove)" @attributes="GrantLock.Attributes(CanMove)"
+                                           data-testid="@($"savings-goal-deposit-{goal.Id}")">@L["Savings_Deposit"]</MudButton>
+                                <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="() => MoveAsync(goal, SavingsMoveKind.Withdrawal)"
+                                           Class="@GrantLock.Class(CanMove)" @attributes="GrantLock.Attributes(CanMove)"
+                                           data-testid="@($"savings-goal-withdraw-{goal.Id}")">@L["Savings_Withdraw"]</MudButton>
+                            </MudStack>
+                        </MudStack>
+                    </MudPaper>
+                }
+            </MudStack>
+        </MudPaper>
+
+        @foreach (var (section, kind) in DebtSections)
+        {
+            <MudPaper Class="pa-3" Outlined="true" data-testid="@($"savings-section-{section}")">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-1">
+                    <MudText Typo="Typo.h6">@L[$"Savings_Section_{section}"]</MudText>
+                    <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.Add" OnClick="() => AddDebtAsync(kind)"
+                               Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)"
+                               data-testid="@($"debt-add-{kind}")">@L[$"Savings_Add_{section}"]</MudButton>
+                </MudStack>
+                @if (loaded && DebtsOf(kind).Count == 0)
+                {
+                    <MudText Color="Color.Secondary" data-testid="@($"savings-empty-{section}")">@L[$"Savings_Empty_{section}"]</MudText>
+                }
+                <MudStack Spacing="2">
+                    @foreach (var debt in DebtsOf(kind))
+                    {
+                        <MudPaper Class="pa-3" Outlined="true" data-testid="@($"debt-{debt.Id}")">
+                            <MudStack Spacing="1">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudStack Spacing="0" Class="flex-grow-1">
+                                        <MudText data-testid="@($"debt-name-{debt.Id}")">@debt.Name</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary" data-testid="@($"debt-creditor-{debt.Id}")">@L["Savings_DebtTo", debt.Creditor]</MudText>
+                                    </MudStack>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditDebtAsync(debt)"
+                                                   Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
+                                                   aria-label="@L["Savings_EditDebt", debt.Name]" data-testid="@($"debt-edit-{debt.Id}")" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => DeleteDebtAsync(debt)"
+                                                   Class="@GrantLock.Class(CanDelete)" @attributes="GrantLock.Attributes(CanDelete)"
+                                                   aria-label="@L["Savings_DeleteDebt", debt.Name]" data-testid="@($"debt-delete-{debt.Id}")" />
+                                </MudStack>
+
+                                <MudText Typo="Typo.subtitle1" data-testid="@($"debt-open-{debt.Id}")">@L["Savings_DebtOpen", Money(debt.Open), Money(debt.OriginalAmount)]</MudText>
+                                <MudProgressLinear Value="@DebtProgress(debt)" Max="100" Color="Color.Primary" Rounded="true"
+                                                   aria-label="@L["Savings_DebtProgress", debt.Name]" data-testid="@($"debt-progress-{debt.Id}")" />
+                                @if (debt.Settled)
+                                {
+                                    <MudText Typo="Typo.caption" data-testid="@($"debt-settled-{debt.Id}")">@L["Savings_DebtSettled"]</MudText>
+                                }
+                                @if (debt.DueDate is { } due)
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Savings_DebtDue", due.ToString("dd.MM.yyyy", German)]</MudText>
+                                }
+                                @if (debt.Note is { } note)
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@note</MudText>
+                                }
+                                <MudStack Row="true" Spacing="2">
+                                    <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="() => PayAsync(debt)"
+                                               Class="@GrantLock.Class(CanMove)" @attributes="GrantLock.Attributes(CanMove)"
+                                               data-testid="@($"debt-pay-{debt.Id}")">@L["Savings_DebtPay"]</MudButton>
+                                </MudStack>
+                            </MudStack>
+                        </MudPaper>
+                    }
+                </MudStack>
+            </MudPaper>
+        }
+
+        @* Ein ruhiger Hinweis auf echte Hilfe, ohne Rechtsaussage. *@
+        <MudText Typo="Typo.body2" Color="Color.Secondary" data-testid="savings-help">@L["Savings_Help"]</MudText>
+    </MudStack>
+}
+
+@code {
+
+    // Deutsche Schreibweise für Beträge (1.234,50) und Daten (01.11.2026), auch wenn das Gerät anders eingestellt ist.
+    private static readonly CultureInfo German = new("de-DE");
+
+    private List<SavingsGoalResponse> goals = [];
+    private List<DebtResponse> debts = [];
+    private Guid? debtCategoryId;
+
+    // Die Abschnitte für Schulden und Kredite: Name des Abschnitts und Art der Einträge darin.
+    private static readonly (string Section, string Kind)[] DebtSections = [("debts", DebtKinds.Claim), ("loans", DebtKinds.Loan)];
+
+    private List<DebtResponse> DebtsOf(string kind) => debts.Where(d => d.Kind == kind).ToList();
+
+    // Der Fortschritt in Prozent für den Balken: wie viel vom Ursprungsbetrag schon bezahlt ist.
+    private static double DebtProgress(DebtResponse debt) =>
+        debt.OriginalAmount > 0m ? (double)Math.Clamp(debt.Paid / debt.OriginalAmount * 100m, 0m, 100m) : 0d;
+    private IReadOnlyList<AccountChoice> accounts = [];
+    private bool loaded;
+    private NoticeMessage? message;
+
+    private DateOnly Today => DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
+
+    // Was die Freigabe des gewählten Mitglieds erlaubt (Spec 68); bei "Ich" alles.
+    private bool Sees => Member.Allows(GrantAreas.Savings, AccessLevelKeys.View);
+    private bool CanAdd => Member.Allows(GrantAreas.Savings, AccessLevelKeys.Create);
+    private bool CanEdit => Member.Allows(GrantAreas.Savings, AccessLevelKeys.Edit);
+    private bool CanDelete => Member.Allows(GrantAreas.Savings, AccessLevelKeys.Delete);
+
+    // Einzahlen und Entnehmen legt eine Buchung an; es braucht Anlegen im Bereich Sparen und in den Buchungen.
+    private bool CanMove => CanAdd && Member.Allows(GrantAreas.Book, AccessLevelKeys.Create);
+
+    protected override async Task OnInitializedAsync()
+    {
+        Chrome.Set(this, L["Savings_Title"], AddGoalAsync, L["Savings_AddGoal"]);
+        // Erst nach dem ersten Laden zuhören: Das Laden selbst meldet sich auch als Änderung.
+        await Member.LoadAsync();
+        Member.Changed += OnMemberChanged;
+        await LoadAsync();
+    }
+
+    public void Dispose()
+    {
+        Member.Changed -= OnMemberChanged;
+        Chrome.Release(this);
+    }
+
+    private void OnMemberChanged() => _ = InvokeAsync(async () =>
+    {
+        message = null;
+        await LoadAsync();
+        StateHasChanged();
+    });
+
+    private async Task LoadAsync()
+    {
+        Chrome.LockPlus(this, Sees && !CanAdd ? GrantLock.ReasonId : null);
+        goals = [];
+        debts = [];
+        loaded = false;
+        if (!Sees)
+        {
+            return;
+        }
+
+        var result = await GoalApi.ListAsync(owner: Member.Owner);
+        if (result.Succeeded)
+        {
+            goals = result.Value!.ToList();
+        }
+        else
+        {
+            message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+        }
+
+        var debtResult = await DebtApi.ListAsync(owner: Member.Owner);
+        if (debtResult.Succeeded)
+        {
+            debts = debtResult.Value!.ToList();
+        }
+        else
+        {
+            message = new NoticeMessage(ErrorTexts.For(L, debtResult.ErrorCode), Severity.Error);
+        }
+
+        // Die Konten nur für die Namen und die Dialoge; ohne sie fehlt der Kontoname, sonst nichts.
+        var choices = await AccountChoices.ListAsync(Member.Owner);
+        accounts = choices.Succeeded ? choices.Value! : [];
+        loaded = true;
+    }
+
+    private static string Money(decimal amount) => amount.ToString("N2", German) + " €";
+
+    private string BalanceText(SavingsGoalResponse goal) => goal.TargetAmount is { } target
+        ? L["Savings_BalanceOf", Money(goal.Balance), Money(target)]
+        : L["Savings_Balance", Money(goal.Balance)];
+
+    // Der Fortschritt in Prozent für den Balken: nicht unter 0 und nicht über 100.
+    private static double ProgressOf(SavingsGoalResponse goal) =>
+        goal.TargetAmount is { } target and > 0m ? (double)Math.Clamp(goal.Balance / target * 100m, 0m, 100m) : 0d;
+
+    private string? AccountName(SavingsGoalResponse goal) =>
+        goal.AccountId is { } id ? accounts.FirstOrDefault(a => a.Id == id)?.Name : null;
+
+    private async Task AddGoalAsync()
+    {
+        if (CanAdd)
+        {
+            await ShowGoalDialogAsync(existing: null, L["SavingsGoalDialog_TitleNew"]);
+        }
+    }
+
+    private async Task EditGoalAsync(SavingsGoalResponse goal)
+    {
+        if (CanEdit)
+        {
+            await ShowGoalDialogAsync(goal, L["SavingsGoalDialog_TitleEdit"]);
+        }
+    }
+
+    private async Task ShowGoalDialogAsync(SavingsGoalResponse? existing, string title)
+    {
+        var parameters = new DialogParameters<SavingsGoalDialog>
+        {
+            { x => x.Existing, existing },
+            { x => x.Accounts, accounts },
+        };
+        var dialog = await DialogService.ShowAsync<SavingsGoalDialog>(title, parameters, Forms.Options());
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+        {
+            message = new NoticeMessage(L["Savings_GoalSaved"], Severity.Success);
+            await LoadAsync();
+        }
+    }
+
+    private async Task MoveAsync(SavingsGoalResponse goal, SavingsMoveKind kind)
+    {
+        if (!CanMove)
+        {
+            return;
+        }
+        var parameters = new DialogParameters<SavingsMoveDialog>
+        {
+            { x => x.Draft, SavingsMoveDraft.ForNew(kind, goal.Id, goal.Name, goal.AccountId, Today) },
+            { x => x.Accounts, accounts },
+        };
+        var title = L[kind == SavingsMoveKind.Deposit ? "SavingsMove_TitleDeposit" : "SavingsMove_TitleWithdrawal", goal.Name];
+        var dialog = await DialogService.ShowAsync<SavingsMoveDialog>(title, parameters, Forms.Options());
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+        {
+            message = new NoticeMessage(L["Savings_MoveSaved"], Severity.Success);
+            await LoadAsync();
+        }
+    }
+
+    private async Task AddDebtAsync(string kind)
+    {
+        if (CanAdd)
+        {
+            await ShowDebtDialogAsync(existing: null, kind, L[kind == DebtKinds.Loan ? "DebtDialog_TitleNewLoan" : "DebtDialog_TitleNewClaim"]);
+        }
+    }
+
+    private async Task EditDebtAsync(DebtResponse debt)
+    {
+        if (CanEdit)
+        {
+            await ShowDebtDialogAsync(debt, debt.Kind, L["DebtDialog_TitleEdit"]);
+        }
+    }
+
+    private async Task ShowDebtDialogAsync(DebtResponse? existing, string kind, string title)
+    {
+        var parameters = new DialogParameters<DebtDialog>
+        {
+            { x => x.Existing, existing },
+            { x => x.Kind, kind },
+        };
+        var dialog = await DialogService.ShowAsync<DebtDialog>(title, parameters, Forms.Options());
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+        {
+            message = new NoticeMessage(L["Savings_DebtSaved"], Severity.Success);
+            await LoadAsync();
+        }
+    }
+
+    // Eine Zahlung ist eine Ausgabe in der eingebauten Kategorie "Schulden".
+    private async Task PayAsync(DebtResponse debt)
+    {
+        if (!CanMove)
+        {
+            return;
+        }
+        if (debtCategoryId is null)
+        {
+            var categories = await CategoryApi.ListAsync(Member.Owner);
+            debtCategoryId = categories.Succeeded ? categories.Value!.FirstOrDefault(c => c.Key == "finance.debt")?.Id : null;
+        }
+        if (debtCategoryId is not { } categoryId)
+        {
+            message = new NoticeMessage(ErrorTexts.For(L, ErrorCodes.CategoryNotFound), Severity.Error);
+            return;
+        }
+        var parameters = new DialogParameters<DebtPaymentDialog>
+        {
+            { x => x.Draft, DebtPaymentDraft.ForNew(debt.Id, debt.Name, categoryId, accounts.FirstOrDefault(a => a.IsDefault && a.Active)?.Id, Today) },
+            { x => x.Accounts, accounts },
+        };
+        var dialog = await DialogService.ShowAsync<DebtPaymentDialog>(L["DebtPayment_Title", debt.Name], parameters, Forms.Options());
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+        {
+            message = new NoticeMessage(L["Savings_PaymentSaved"], Severity.Success);
+            await LoadAsync();
+        }
+    }
+
+    private async Task DeleteDebtAsync(DebtResponse debt)
+    {
+        if (!CanDelete)
+        {
+            return;
+        }
+        var result = await DebtApi.DeleteAsync(debt.Id);
+        message = result.Succeeded
+            ? new NoticeMessage(L["Savings_DebtDeleted"], Severity.Success)
+            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+        await LoadAsync();
+    }
+
+    private async Task DeleteGoalAsync(SavingsGoalResponse goal)
+    {
+        if (!CanDelete)
+        {
+            return;
+        }
+        var result = await GoalApi.DeleteAsync(goal.Id);
+        message = result.Succeeded
+            ? new NoticeMessage(L["Savings_GoalDeleted"], Severity.Success)
+            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), Severity.Error);
+        await LoadAsync();
+    }
+}

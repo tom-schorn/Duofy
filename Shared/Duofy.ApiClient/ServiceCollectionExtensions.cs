@@ -45,6 +45,8 @@ public static class DuofyApiClientServiceCollectionExtensions
         services.AddScoped<ICategoryApi, CategoryApi>();
         services.AddScoped<IAccountApi, AccountApi>();
         services.AddScoped<ICommitmentApi, CommitmentApi>();
+        services.AddScoped<ISavingsGoalApi, SavingsGoalApi>();
+        services.AddScoped<IDebtApi, DebtApi>();
         services.AddScoped<IPlanApi, PlanApi>();
         services.AddScoped<IHouseholdApi, HouseholdApi>();
         services.AddScoped<ILegalApi, LegalApi>();

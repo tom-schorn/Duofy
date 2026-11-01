@@ -6,8 +6,23 @@ uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- The web container keeps its data protection keys on its own volume `web-keys`, so forms and page state survive a rebuild; browser sessions still end when the web container restarts, because they live in memory (issue #38)
+- From 1280 px the side bar shows the full menu directly instead of "Mehr" (accounts, contracts, household, user account, admin for admins, licences, legal texts, sign-out); phone and tablet keep the bottom bar unchanged (spec 10, amendment 2026-11-01)
+- From 1280 px plan, month overview, bookings, accounts, contracts and household use up to 1600 px: blocks in columns and lists as tables with columns; below 1280 px nothing changes
+
 ### Fixed
 
+- Links and buttons show the focus outline, also in the app bar; MudBlazor had reset it.
+- Secondary text, notices and status text are readable: error, success and warning colours are only surfaces now, and the meaning stays in the word, the sign or the border.
+- Every page has one main heading, the app bar title is no heading, and a skip link leads past the navigation to the content.
+- Select fields are connected to their label; required and invalid step fields say so on the input itself.
+- Row buttons name their row for screen readers, and the error bar is announced and closes with a real button.
+- The app can be zoomed, and the input border in dark mode reaches a 3:1 contrast.
+- On a narrow phone row buttons such as "Auflösen" and "Beenden" stay on the screen, table rows wrap instead of overflowing, amounts do not break before the currency, "Grundbedarf" stays in one piece, all five bottom bar labels fit and the plus button on bookings stays above the bottom bar.
+- "Abbrechen" no longer breaks in the middle of the word in the dialog head.
+- The consent banner, which can ask about two services, covers neither the navigation nor the profile button and scrolls by itself when it does not fit.
 - After a new carry-over the balance matches the entered one on the last day of the month too: both bookings of the pair stand on that day, the income counts in the next month through its plan month only. Stored pairs keep their dates, so on the last day of their old month their balance stays as stored (spec 66, amendment 2026-11-01)
 - A position with a target account can no longer be switched to Einnahmen, because it could not be ticked afterwards; one stored that way stays editable and explains the repair when ticked
 - A plan year outside 2000 to 2100 is refused; a huge year got through the plan month check by an overflow
@@ -48,6 +63,7 @@ uses [Semantic Versioning](https://semver.org/).
 - `RateLimiting:ExemptAddresses`: connection addresses the sign-in limit does not apply to, for the web container
 - `Duofy:KeysDirectory`: the keys of tokens and mailed links survive a restart or an update
 - `Duofy:Analytics:Token`: Cloudflare Web Analytics on every page of the web version, without cookies
+- `Crisp:WebsiteId`: chat by Crisp on the web version, loaded only after consent given for the chat on its own; empty means no chat
 - `/health` on the web version for the container health check
 - Blazor Hybrid solution with `Duofy.Shared`, `Duofy.Web` and the MAUI app
 - `Duofy.Domain` for the business rules and `Duofy.Domain.Tests` for their tests

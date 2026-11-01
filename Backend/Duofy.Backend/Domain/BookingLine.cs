@@ -25,4 +25,16 @@ public class BookingLine
     /// Planmonat der Buchung.
     /// </summary>
     public Guid? PositionId { get; set; }
+
+    /// <summary>
+    /// Das Sparziel, dem diese Zeile zugeordnet ist (Issue 30); null, wenn keinem. Erlaubt ist es nur für Zeilen, die
+    /// Geld in den Topf Sparen hinein- oder aus ihm herausbewegen, siehe <see cref="SavingsFlow"/>.
+    /// </summary>
+    public Guid? SavingsGoalId { get; set; }
+
+    /// <summary>
+    /// Die Schuld oder der Kredit, auf den diese Zeile eine Zahlung ist (Issue 31); null, wenn keiner. Erlaubt ist es nur für
+    /// Ausgaben, siehe <see cref="DebtPayments"/>. Eine Zeile gehört nie zugleich einem Sparziel und einer Schuld.
+    /// </summary>
+    public Guid? DebtId { get; set; }
 }

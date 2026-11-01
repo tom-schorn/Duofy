@@ -13,9 +13,10 @@
 
 <PageTitle>@Title</PageTitle>
 
+<AppPageHeading Text="@Title" />
 @if (!Host.IsApp)
 {
-    <MudText Typo="Typo.h4" Class="mb-2">@Title</MudText>
+    <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-2">@Title</MudText>
 }
 
 @if (error is not null)

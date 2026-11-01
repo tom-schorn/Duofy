@@ -174,6 +174,11 @@ public class BuildingBlocksTests : UiTestContext
             .Add(c => c.Caption, "Feste Kosten")
             .Add(c => c.Rows, new[] { new LineTableRow("Miete", 850m) }));
         Assert.Equal("Feste Kosten", table.Find("caption").TextContent);
+        // Am schmalen Handy ist die Tabelle per CSS kein display: table mehr; die Rollen halten sie für Vorlese-Programme zusammen.
+        Assert.Equal("table", table.Find("table").GetAttribute("role"));
+        Assert.Equal("row", table.Find("tr").GetAttribute("role"));
+        Assert.Equal("rowheader", table.Find("th").GetAttribute("role"));
+        Assert.Equal("cell", table.Find("td").GetAttribute("role"));
 
         var iconOnly = Render<DuofyButton>(p => p
             .Add(c => c.Kind, ButtonKind.Danger)

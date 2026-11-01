@@ -17,6 +17,10 @@ public sealed class AccountDraft
 {
     private bool switchTouched;
 
+    // Die Wahl der Person oder das gespeicherte eigene Symbol; null heißt: das Standardsymbol der Art.
+    private string? icon;
+    private bool iconTouched;
+
     private AccountDraft()
     {
     }
@@ -36,6 +40,16 @@ public sealed class AccountDraft
     /// <summary>Die IBAN, so wie sie getippt wurde; die API entfernt Leerzeichen und prüft sie.</summary>
     public string Iban { get; set; } = "";
 
+    /// <summary>Das Symbol, das der Dialog zeigt: die Wahl, sonst das Standardsymbol der Art (es folgt der Art).</summary>
+    public string Icon => icon ?? AccountIcons.DefaultFor(Type);
+
+    /// <summary>Wählt ein Symbol. Wer das Standardsymbol der Art wählt, wählt damit "kein eigenes".</summary>
+    public void SetIcon(string value)
+    {
+        icon = value == AccountIcons.DefaultFor(Type) ? null : value;
+        iconTouched = true;
+    }
+
     /// <summary>Der Entwurf für ein neues Konto: Girokonto, Starttag heute.</summary>
     public static AccountDraft ForNew(DateOnly today) => new() { OpeningDate = today };
 
@@ -48,6 +62,7 @@ public sealed class AccountDraft
         OpeningDate = account.OpeningDate,
         CountsAsAvailable = account.CountsAsAvailable,
         Iban = account.Iban ?? "",
+        icon = account.Icon == AccountIcons.DefaultFor(account.Type) ? null : account.Icon,
         switchTouched = true,
     };
 
@@ -66,10 +81,15 @@ public sealed class AccountDraft
         switchTouched = true;
     }
 
+    /// <summary>Das Symbol geht nur mit, wenn die Person ein eigenes gewählt hat; sonst gilt das der Art.</summary>
     public CreateAccountRequest ToCreateRequest() =>
-        new(Name, Type, OpeningBalance ?? 0m, OpeningDate, CountsAsAvailable, Iban);
+        new(Name, Type, OpeningBalance ?? 0m, OpeningDate, CountsAsAvailable, Iban, Icon: iconTouched ? icon : null);
 
-    /// <summary>Alle Felder des Dialogs; eine leere IBAN geht als "" mit und entfernt die gespeicherte.</summary>
+    /// <summary>
+    /// Alle Felder des Dialogs; eine leere IBAN geht als "" mit und entfernt die gespeicherte. Das Symbol geht nur mit, wenn
+    /// die Person es angefasst hat (ein Speichern aus anderem Grund pinnt es nicht): ein eigenes als Name, die Rückkehr
+    /// zum Standard der Art als "".
+    /// </summary>
     public UpdateAccountRequest ToUpdateRequest() =>
-        new(Name, Type, OpeningBalance ?? 0m, OpeningDate, CountsAsAvailable, Iban);
+        new(Name, Type, OpeningBalance ?? 0m, OpeningDate, CountsAsAvailable, Iban, Icon: iconTouched ? icon ?? "" : null);
 }
