@@ -83,14 +83,14 @@ else
 {
     @if (tab == MonthTab.Overview)
     {
-        <MonthOverview Model="MonthView.ForPerson(plan, Today, AccountName)" SeesBookings="SeesBookings" CanBook="CanBook" CanAddPosition="CanAdd"
+        <MonthOverview Model="MonthView.ForPerson(plan, Today, AccountName, Purpose)" SeesBookings="SeesBookings" CanBook="CanBook" CanAddPosition="CanAdd"
                        OnNewBooking="NewBookingAsync" OnNewPosition="AddAsync" OnTick="ShowPlanTab" />
     }
     else if (tab == MonthTab.Bookings)
     {
         @if (SeesBookings)
         {
-            <MonthBookings Rows="MonthView.BookingRows(plan.Overview?.Bookings ?? [], AccountName)" CarryOvers="MonthView.CarryOverRows(plan.Overview?.CarryOvers)" />
+            <MonthBookings Rows="MonthView.BookingRows(plan.Overview?.Bookings ?? [], AccountName, Purpose)" CarryOvers="MonthView.CarryOverRows(plan.Overview?.CarryOvers)" />
         }
         else
         {
@@ -210,6 +210,14 @@ else
     /// <summary>Der Monat aus der Adresse, 1 bis 12.</summary>
     [Parameter] public int? Month { get; set; }
 
+    /// <summary>Der Name des Parameters in der Adresse, mit dem die Monatsseite gleich den Buchungsdialog öffnet (Spec 51, R4).</summary>
+    public const string BookQuery = "buchen";
+
+    [SupplyParameterFromQuery(Name = BookQuery)] public int? Book { get; set; }
+
+    // Der Dialog geht erst nach dem Zeichnen auf, und nur einmal: Danach ist der Parameter aus der Adresse.
+    private bool bookingPending;
+
     private int year;
     private int month;
     private bool opened;
@@ -225,6 +233,11 @@ else
     private void ShowPlanTab() => tab = MonthTab.Plan;
 
     private string? AccountName(Guid id) => accounts.FirstOrDefault(a => a.Id == id)?.Name;
+
+    private string? CategoryName(Guid id) => categories.FirstOrDefault(c => c.Id == id)?.Name;
+
+    // Wofür eine Buchung war (Spec 51, R10).
+    private string Purpose(BookingResponse booking) => BookingPurpose.For(booking, plan?.Positions ?? [], CategoryName, AccountName, L);
 
     private string MonthTitle => new DateOnly(year, month, 1).ToString("MMMM yyyy", German);
 
@@ -291,6 +304,19 @@ else
         }
         await LoadAllAsync();
         opened = true;
+        bookingPending = Book == 1 && !Member.IsHousehold;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!bookingPending)
+        {
+            return;
+        }
+        bookingPending = false;
+        Navigation.NavigateTo($"/plan/{year}/{month}", replace: true);
+        await NewBookingAsync();
+        StateHasChanged();
     }
 
     // Die Adresse zeigt einen anderen Monat (Link, Zurück-Knopf des Browsers): diesen Monat holen. Der erste Aufruf
@@ -408,14 +434,16 @@ else
         await LoadAsync();
     }
 
-    // Die schnelle Aktion "Neue Buchung" (Spec 24, R12): derselbe Dialog wie auf der Buchungsseite.
-    private async Task NewBookingAsync()
+    // Die schnelle Aktion "Neue Buchung" (Spec 24, R12); mit Posten die Buchung zu diesem Posten (Spec 51, R7).
+    private Task NewBookingAsync() => BookAsync(null);
+
+    private async Task BookAsync(Guid? positionId)
     {
         if (!CanBook)
         {
             return;
         }
-        message = await Launcher.OpenAsync(null, accounts, categories, new DateOnly(year, month, 1)) ?? message;
+        message = await Launcher.OpenAsync(null, accounts, categories, new DateOnly(year, month, 1), positionId) ?? message;
         await LoadAsync();
     }
 
@@ -554,8 +582,14 @@ else
     private IReadOnlyList<LineTableRow> PositionRows(IReadOnlyList<PlanPositionResponse> positions) => positions
         .Select(position => new LineTableRow(
             position.Label, null, Caption(position),
-            Leading: TickBox(position), Trailing: PositionActions(position), TestId: $"plan-position-{position.Id}"))
+            Leading: TickBox(position), Trailing: PositionActions(position), TestId: $"plan-position-{position.Id}",
+            Below: SeesBookings ? BookingsOf(position) : null))
         .ToList();
+
+    // Welche Buchungen zu einem Posten gehören (Spec 51, R8), mit dem Weg zur nächsten.
+    private RenderFragment BookingsOf(PlanPositionResponse position) => @<PositionBookings Label="@position.Label" TestId="@($"position-bookings-{position.Id}")"
+        Rows="BookingPurpose.LinesOf(plan?.Overview?.Bookings ?? [], position.Id, CategoryName, L)"
+        CanAdd="CanBook" OnAdd="@(() => BookAsync(position.Id))" />;
 
     private RenderFragment TickBox(PlanPositionResponse position) => @<RadzenCheckBox TValue="bool" Value="position.DoneAt is not null" Change="@(_ => ToggleAsync(position))"
                      ReadOnly="!CanToggle(position)" Class="@GrantLock.Class(CanToggle(position))" @attributes="GrantLock.Attributes(CanToggle(position))"

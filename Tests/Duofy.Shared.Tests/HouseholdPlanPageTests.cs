@@ -217,7 +217,7 @@ public class HouseholdPlanPageTests : PageTestContext
         await Member.LoadAsync();
         Member.ChooseHousehold();
 
-        var bookings = Render<Bookings>();
+        var bookings = Render<AccountBookings>(c => c.Add(x => x.AccountId, Guid.NewGuid()));
         var accounts = Render<Accounts>();
         var commitments = Render<Commitments>();
 
@@ -238,5 +238,96 @@ public class HouseholdPlanPageTests : PageTestContext
 
         Assert.False(Member.IsHousehold);
         Assert.False(Member.CanShowHousehold);
+    }
+
+    // Spec 51, A3: Das Ziel "Haushalt" zeigt den Plan des laufenden Monats und lässt den Umschalter in Ruhe.
+    [Fact]
+    public void The_target_household_opens_the_plan_of_the_current_month()
+    {
+        HouseholdApiFake.HouseholdPlans[(2026, 10)] = FakeHouseholdApi.EmptyPlan(household.Id, household.Name, 2026, 10);
+
+        var cut = Render<HouseholdPlanPage>();
+
+        cut.WaitForAssertion(() => Assert.Contains("Oktober 2026", cut.Find("[data-testid='plan-month']").TextContent));
+        Assert.Contains("Haushaltsplan", cut.Markup);
+        Assert.False(Member.IsHousehold);
+    }
+
+    // Spec 51, A3: Auch ein Haushalt von einer Person hat einen Plan.
+    [Fact]
+    public void A_household_of_one_also_opens_its_plan()
+    {
+        HouseholdApiFake.Household = household with { Members = [FakeHouseholdApi.Ben(isMe: true)] };
+        HouseholdApiFake.HouseholdPlans[(2026, 10)] = FakeHouseholdApi.EmptyPlan(household.Id, household.Name, 2026, 10);
+
+        var cut = Render<HouseholdPlanPage>();
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='plan-month']")));
+    }
+
+    // Spec 51, A3: Die Pfeile bleiben im Haushaltsplan.
+    [Fact]
+    public void The_arrows_stay_in_the_household_plan()
+    {
+        HouseholdApiFake.HouseholdPlans[(2026, 10)] = FakeHouseholdApi.EmptyPlan(household.Id, household.Name, 2026, 10);
+        HouseholdApiFake.HouseholdPlans[(2026, 11)] = FakeHouseholdApi.EmptyPlan(household.Id, household.Name, 2026, 11);
+        var cut = Render<HouseholdPlanPage>();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='plan-next']")));
+
+        cut.Find("[data-testid='plan-next']").Click();
+
+        cut.WaitForAssertion(() => Assert.EndsWith("/haushaltsplan/2026/11", Navigation.Uri));
+    }
+
+    // Spec 51, A4
+    [Fact]
+    public void Without_a_household_the_target_leads_to_founding_or_joining()
+    {
+        HouseholdApiFake.Household = null;
+
+        Render<HouseholdPlanPage>();
+
+        Assert.EndsWith("/haushalt", Navigation.Uri);
+    }
+
+    // Spec 51, A10, A13: Der Haushaltsplan nennt je Posten seine Buchungen und je Buchung Art und Zweck.
+    [Fact]
+    public async Task The_household_plan_lists_kind_purpose_and_the_bookings_of_a_position()
+    {
+        var position = FakeHouseholdApi.OwnedPosition("Lebensmittel", 400m, FakeHouseholdApi.BenId, "Ben");
+        var booking = new HouseholdBookingResponse(Guid.NewGuid(), new DateOnly(2026, 10, 3), 30m, 2026, 10, FakeHouseholdApi.BenId, "Ben",
+            BookingKinds.Expense, "Lebensmittel", [new HouseholdBookingLineResponse(position.Id, 30m, "Drogerie")]);
+        HouseholdApiFake.HouseholdPlans[(2026, 10)] = FakeHouseholdApi.EmptyPlan(household.Id, household.Name, 2026, 10) with { Positions = [position], Bookings = [booking] };
+        await Member.LoadAsync();
+        var cut = Render<HouseholdPlanPage>();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-tab-bookings']")));
+
+        cut.Find("[data-testid='month-tab-bookings']").Click();
+
+        var row = cut.Find($"[data-testid='month-booking-{booking.Id}']");
+        Assert.Contains("Ausgabe", row.TextContent);
+        Assert.Contains("Lebensmittel", row.TextContent);
+
+        cut.Find("[data-testid='month-tab-plan']").Click();
+
+        var list = cut.Find($"[data-testid='position-bookings-{position.Id}']");
+        Assert.Contains("1 Buchung", list.TextContent);
+        Assert.Contains("Drogerie · Ben", list.TextContent);
+    }
+
+    // Gefunden im Browser: Beim direkten Aufruf antwortet der Server später; bis dahin darf die Sicht nicht mit Monat 0 zeichnen.
+    [Fact]
+    public async Task The_view_draws_its_month_while_the_members_are_still_loading()
+    {
+        var gate = new TaskCompletionSource();
+        HouseholdApiFake.MineGate = gate.Task;
+        HouseholdApiFake.HouseholdPlans[(2026, 10)] = FakeHouseholdApi.EmptyPlan(household.Id, household.Name, 2026, 10);
+
+        var cut = Render<HouseholdPlanView>(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 10));
+
+        Assert.Contains("Oktober 2026", cut.Find("[data-testid='plan-month']").TextContent);
+        gate.SetResult();
+        await cut.InvokeAsync(() => { });
+        cut.WaitForAssertion(() => Assert.Contains("Oktober 2026", cut.Find("[data-testid='plan-month']").TextContent));
     }
 }

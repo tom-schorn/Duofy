@@ -618,4 +618,26 @@ public class HouseholdPlanTests : IDisposable
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    // Spec 51, A13
+    [Fact]
+    public async Task Household_bookings_carry_kind_purpose_and_lines()
+    {
+        var (household, anna, _) = await AnnaAndBenWithGiroAsync();
+        var groceries = await PositionAsync(anna.Person, "Einkauf", 400.00m, Groceries);
+        await BookAsync(anna, 30.00m, PotKeys.Needs, Rent, groceries.Id);
+        await BookAsync(anna, 20.00m, PotKeys.Needs, Groceries);
+
+        var plan = await HouseholdPlanAsync(anna.Person, household.Id);
+
+        var onPosition = Assert.Single(plan.Bookings!, b => b.Amount == 30.00m);
+        Assert.Equal(BookingKinds.Expense, onPosition.Kind);
+        Assert.Equal("Einkauf", onPosition.Purpose);
+        var line = Assert.Single(onPosition.Lines!);
+        Assert.Equal(groceries.Id, line.PositionId);
+        Assert.Equal(30.00m, line.Amount);
+        Assert.False(string.IsNullOrEmpty(line.Category));
+        var free = Assert.Single(plan.Bookings!, b => b.Amount == 20.00m);
+        Assert.Equal(Assert.Single(free.Lines!).Category, free.Purpose);
+    }
 }

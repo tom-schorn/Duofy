@@ -1088,4 +1088,20 @@ public class PlanTests : IDisposable
     {
         public override DateTimeOffset GetUtcNow() => now;
     }
+
+    // Spec 51, A9: Tom: "bei GEZ, dass eine 2. Buchung zb zu Mahnkosten zählt, aber immer noch Teil des Postens ist."
+    [Fact]
+    public async Task A_second_booking_with_another_category_counts_on_a_ticked_position()
+    {
+        var person = await SignUpAsync();
+        var gez = await OneOffAsync(person, 2026, 10, "GEZ", 18.36m, person.Rent);
+        var tick = await SendAsync(HttpMethod.Post, $"{Plans}/2026/10/positions/{gez.Id}/tick", person, new TickPositionRequest());
+        Assert.Equal(HttpStatusCode.OK, tick.StatusCode);
+
+        await BookAsync(person, Expense(person, 5.00m, gez.Id, category: person.Gifts));
+
+        var position = Assert.Single((await PlanAsync(person, 2026, 10)).Positions);
+        Assert.Equal(23.36m, position.Booked);
+        Assert.NotNull(position.DoneAt);
+    }
 }

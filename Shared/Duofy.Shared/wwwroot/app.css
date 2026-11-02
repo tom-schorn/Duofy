@@ -18,6 +18,7 @@
    Die Schrift des Themes gilt auch für den Text, den kein Baustein von Radzen umgibt (Issue #54); sonst nähme der Browser
    dort seine Standardschrift (Times). */
 body {
+    font-family: var(--rz-text-font-family);
     font-variant-numeric: tabular-nums;
     font-family: var(--rz-text-font-family);
     color: var(--rz-text-color);
@@ -491,7 +492,7 @@ button:focus-visible {
 }
 
 .app-bottom-bar {
-    /* Fünf Einträge auf 360 px: Der längste Text ("Buchungen") muss in ein Fünftel der Breite passen. */
+    /* Alle Einträge teilen sich 360 px; die Schrift wächst nicht über das hinaus, was dort passt. */
     --type-extra-size: min(0.875rem, 3.4vw);
     position: fixed;
     left: 0;
@@ -1116,6 +1117,29 @@ button:focus-visible {
     white-space: nowrap;
 }
 
+/* Die Zeile mit den Buchungen eines Postens (Spec 51, R8); die Zeile darüber behält ihre Linie. */
+.line-table-below {
+    padding-top: 0;
+}
+
+.position-bookings summary {
+    min-height: 2.75rem;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    color: var(--rz-text-secondary-color);
+}
+
+.booking-kind {
+    margin-inline-end: 0.375rem;
+}
+
+.account-open {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+}
+
 .line-table-detail {
     display: block;
     font-size: 0.875rem;
@@ -1153,6 +1177,20 @@ button:focus-visible {
     .line-table-lead {
         flex: none;
         width: auto;
+    }
+
+    .line-table-below {
+        flex: 1 0 100%;
+        width: auto;
+    }
+
+    /* Bewegungen am Konto: der Text in einer eigenen Zeile, darunter Betrag und beide Knöpfe zusammen. */
+    .bookings-table .data-row-frame > * > .flex-grow-1 {
+        flex: 1 1 100%;
+    }
+
+    .bookings-table .data-row-frame > * > .data-column-4 {
+        margin-inline-end: auto;
     }
 
     .line-table-trail {

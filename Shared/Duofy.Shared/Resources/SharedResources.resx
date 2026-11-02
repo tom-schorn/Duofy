@@ -185,22 +185,32 @@
   <data name="Error_not_found"><value>Das gibt es nicht mehr. Bitte lade die Seite neu.</value></data>
 
   <!-- Navigation -->
-  <data name="Nav_Bookings"><value>Buchungen</value></data>
 
   <!-- Buchungen -->
   <data name="Bookings_Title"><value>Buchungen</value></data>
   <data name="Bookings_PreviousMonth"><value>Voriger Monat</value></data>
   <data name="Bookings_NextMonth"><value>Nächster Monat</value></data>
-  <data name="Bookings_AllAccounts"><value>Alle Konten</value></data>
+  <data name="Accounts_BackToList"><value>Alle Konten</value></data>
+  <data name="Accounts_Open"><value>Bewegungen von {0} ansehen</value></data>
   <data name="Bookings_Income"><value>Einnahmen</value></data>
   <data name="Bookings_Expenses"><value>Ausgaben</value></data>
   <data name="Bookings_Empty"><value>In diesem Monat gibt es noch keine Buchungen.</value></data>
   <data name="Bookings_NoAccounts"><value>Lege zuerst ein Konto an, dann kannst du buchen.</value></data>
   <data name="Bookings_Add"><value>Buchung hinzufügen</value></data>
+  <data name="BookingKind_expense"><value>Ausgabe</value></data>
+  <data name="BookingKind_income"><value>Einnahme</value></data>
+  <data name="BookingKind_transfer"><value>Umbuchung</value></data>
+  <data name="BookingKind_carryover"><value>Übertrag</value></data>
+  <data name="BookingDialog_PositionDone"><value>{0} (abgehakt)</value></data>
+  <data name="Plan_PositionBookingsNone"><value>Keine Buchung</value></data>
+  <data name="Plan_PositionBookingsOne"><value>1 Buchung</value></data>
+  <data name="Plan_PositionBookingsMany"><value>{0} Buchungen</value></data>
+  <data name="Plan_PositionBookingsCaption"><value>Buchungen von {0}</value></data>
+  <data name="Plan_PositionBookingAdd"><value>Buchung zu diesem Posten</value></data>
   <data name="Bookings_Edit"><value>Buchung {0} ändern</value></data>
   <data name="Bookings_Delete"><value>Buchung {0} löschen</value></data>
   <data name="Bookings_Split"><value>aufgeteilt</value></data>
-  <data name="Bookings_Transfer"><value>Umbuchung: {0} → {1}</value></data>
+  <data name="Bookings_Transfer"><value>{0} → {1}</value></data>
   <data name="Bookings_TransferPots"><value>Topf: {0} → {1}</value></data>
   <data name="Bookings_TransferPotSource"><value>Topf: {0}</value></data>
   <data name="Bookings_Saved"><value>Die Buchung wurde gespeichert.</value></data>
@@ -558,6 +568,7 @@
   <data name="Guideline_NoteOver"><value>{0} liegt bei {1} {2} Punkte über dem Richtwert.</value></data>
   <data name="Guideline_NoteUnder"><value>{0} liegt bei {1} {2} Punkte unter dem Richtwert.</value></data>
   <data name="Guideline_NoteFits"><value>Das ist nur ein Anhaltspunkt; gemeinsam geht der Plan trotzdem auf.</value></data>
+  <data name="HouseholdPlan_Title"><value>Haushaltsplan</value></data>
   <data name="HouseholdPlan_Empty"><value>In diesem Monat gibt es im Haushalt noch keine Posten.</value></data>
   <data name="HouseholdPlan_Accounts"><value>Konten</value></data>
   <data name="HouseholdPlan_AccountsMissing"><value>Ohne Freigabe der Konten fehlen hier: {0}.</value></data>

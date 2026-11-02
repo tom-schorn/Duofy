@@ -86,7 +86,26 @@ public sealed record HouseholdMemberResponse(Guid UserId, string FirstName, deci
 /// Eine Buchung mit diesem Planmonat im Haushaltsplan (Spec 24), mit der Person, der sie gehört; ohne Notiz und Konto,
 /// denn die Konten zeigt der Haushaltsplan nur mit Freigabe.
 /// </summary>
-public sealed record HouseholdBookingResponse(Guid Id, DateOnly Date, decimal Amount, int PlanYear, int PlanMonth, Guid OwnerId, string OwnerFirstName);
+/// <param name="Kind">Die Art, siehe <see cref="BookingKinds"/> (Spec 51, R9).</param>
+/// <param name="Purpose">Wofür die Buchung war: der Posten, sonst die Kategorie der ersten Zeile; null bei einer Umbuchung ohne Posten (Spec 51, R10).</param>
+/// <param name="Lines">Die Zeilen mit ihrem Posten, damit ein Posten seine Buchungen zeigen kann (Spec 51, R8).</param>
+public sealed record HouseholdBookingResponse(
+    Guid Id,
+    DateOnly Date,
+    decimal Amount,
+    int PlanYear,
+    int PlanMonth,
+    Guid OwnerId,
+    string OwnerFirstName,
+    string Kind = BookingKinds.Expense,
+    string? Purpose = null,
+    IReadOnlyList<HouseholdBookingLineResponse>? Lines = null);
+
+/// <summary>Eine Zeile einer Buchung im Haushaltsplan (Spec 51, R8).</summary>
+/// <param name="PositionId">Der Posten, den die Zeile füllt; null heißt keiner.</param>
+/// <param name="Amount">Der Betrag der Zeile.</param>
+/// <param name="Category">Der Name der Kategorie; null ohne Kategorie.</param>
+public sealed record HouseholdBookingLineResponse(Guid? PositionId, decimal Amount, string? Category);
 
 /// <summary>Ein Monat in der Liste der Haushaltsmonate (GET /api/v1/households/{id}/plans).</summary>
 /// <param name="Free">Der Frei-Betrag aller gezählten Mitglieder, gerechnet wie bei <see cref="PlanMonthResponse"/>; Überträge nur von denen, deren Buchungen der Betrachter sieht.</param>

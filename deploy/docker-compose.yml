@@ -91,6 +91,8 @@ services:
       Duofy__TrustedProxies: ${Duofy__TrustedProxies:-${TRUSTED_PROXIES:-172.30.10.2/32}}
       Duofy__Analytics__Token: ${Duofy__Analytics__Token:-${CLOUDFLARE_ANALYTICS_TOKEN:-}}
       Crisp__WebsiteId: ${Crisp__WebsiteId:-${CRISP_WEBSITE_ID:-}}
+      # Seiten, die die Web-Variante einbetten dürfen, durch Leerzeichen getrennt. Leer: niemand (so bleibt Plagevo).
+      Duofy__FrameAncestors: ${Duofy__FrameAncestors:-${DUOFY_FRAME_ANCESTORS:-}}
       Duofy__KeysDirectory: /keys
     volumes:
       # Eigene Schlüssel für Formulare und den Zustand der Seiten; die der API schützen Tokens und bleiben getrennt.

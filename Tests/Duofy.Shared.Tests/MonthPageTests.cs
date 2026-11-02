@@ -576,4 +576,102 @@ public class MonthPageTests : PageTestContext
         Assert.Empty(household.FindAll("[data-testid='month-recent-missing']"));
         Assert.Empty(person.FindAll("[data-testid='month-recent-missing']"));
     }
+
+    // Spec 51, A6: Die Adresse öffnet den Dialog einmal und räumt sich auf; Zurück öffnet ihn nicht wieder.
+    [Fact]
+    public void The_address_with_buchen_opens_the_dialog_once_and_clears_itself()
+    {
+        var dialogs = RenderRadzenHost();
+        Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true));
+        PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10) with { Overview = Overview() };
+        Navigation.NavigateTo("/plan/2026/10?buchen=1");
+
+        Render<Plan>(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 10));
+
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-plan-month']")));
+        Assert.Equal("2026-10", dialogs.Find("[data-testid='booking-plan-month']").GetAttribute("value"));
+        Assert.EndsWith("/plan/2026/10", Navigation.Uri);
+    }
+
+    // Spec 51, A10: am Posten die Buchungen, mit dem Betrag der Zeile und nicht der ganzen Buchung.
+    [Fact]
+    public void A_position_lists_the_bookings_that_belong_to_it()
+    {
+        var gez = FakePlanApi.Position("GEZ", 18.36m, booked: 23.36m);
+        var first = new BookingResponse(Guid.NewGuid(), BookingKinds.Expense, Guid.NewGuid(), null, new DateOnly(2026, 10, 2), 18.36m, null,
+            [new BookingLineResponse(Guid.NewGuid(), 18.36m, PotKeys.Needs, FakeCategoryApi.Groceries.Id, gez.Id)], 2026, 10);
+        var fee = new BookingResponse(Guid.NewGuid(), BookingKinds.Expense, Guid.NewGuid(), null, new DateOnly(2026, 10, 9), 12m, null,
+            [
+                new BookingLineResponse(Guid.NewGuid(), 5m, PotKeys.Needs, FakeCategoryApi.Restaurant.Id, gez.Id),
+                new BookingLineResponse(Guid.NewGuid(), 7m, PotKeys.Needs, FakeCategoryApi.Groceries.Id),
+            ], 2026, 10);
+        var other = new BookingResponse(Guid.NewGuid(), BookingKinds.Expense, Guid.NewGuid(), null, new DateOnly(2026, 10, 10), 3m, null,
+            [new BookingLineResponse(Guid.NewGuid(), 3m, PotKeys.Needs, FakeCategoryApi.Groceries.Id)], 2026, 10);
+        var cut = Open(2026, 10, Overview(bookings: [fee, first, other]), gez);
+
+        cut.Find("[data-testid='month-tab-plan']").Click();
+
+        var list = cut.Find($"[data-testid='position-bookings-{gez.Id}']");
+        Assert.Contains("2 Buchungen", list.QuerySelector("summary")!.TextContent);
+        Assert.Contains("18,36", list.QuerySelector($"[data-testid='position-booking-{first.Id}']")!.TextContent);
+        var feeRow = list.QuerySelector($"[data-testid='position-booking-{fee.Id}']")!;
+        Assert.Contains("5,00", feeRow.TextContent);
+        Assert.Contains(FakeCategoryApi.Restaurant.Name, feeRow.TextContent);
+        Assert.DoesNotContain("12,00", feeRow.TextContent);
+        Assert.Null(list.QuerySelector($"[data-testid='position-booking-{other.Id}']"));
+    }
+
+    // Spec 51, A9: Der Weg zur nächsten Buchung auf diesem Posten öffnet den Dialog mit ihm.
+    [Fact]
+    public void A_position_opens_the_dialog_with_itself_chosen()
+    {
+        var dialogs = RenderRadzenHost();
+        Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true));
+        var salary = FakePlanApi.Position("Gehalt", 2400m, PotKeys.Income);
+        var cut = Open(2026, 10, Overview(), salary);
+        cut.Find("[data-testid='month-tab-plan']").Click();
+
+        cut.Find($"[data-testid='position-bookings-{salary.Id}-add']").Click();
+
+        dialogs.WaitForAssertion(() => Assert.Equal(salary.Id.ToString(), dialogs.Find("[data-testid='booking-line-position-0']").GetAttribute("value")));
+        Assert.Equal("true", dialogs.Find("[data-testid='booking-kind-income']").GetAttribute("aria-pressed"));
+    }
+
+    // Spec 51, A11, A12: Jede Zeile sagt die Art als Wort und wofür; die Farbe ist nie allein.
+    [Fact]
+    public void Booking_lists_name_the_kind_as_a_word()
+    {
+        var giro = new AccountChoice(Guid.NewGuid(), "Giro", IsDefault: true, Active: true);
+        var spar = new AccountChoice(Guid.NewGuid(), "Spar", IsDefault: false, Active: true);
+        Accounts.Accounts.AddRange([giro, spar]);
+        var lebensmittel = FakePlanApi.Position("Lebensmittel", 400m, booked: 50m);
+        var expense = new BookingResponse(Guid.NewGuid(), BookingKinds.Expense, giro.Id, null, new DateOnly(2026, 10, 9), 50m, null,
+            [new BookingLineResponse(Guid.NewGuid(), 50m, PotKeys.Needs, FakeCategoryApi.Groceries.Id, lebensmittel.Id)], 2026, 10);
+        var income = new BookingResponse(Guid.NewGuid(), BookingKinds.Income, giro.Id, null, new DateOnly(2026, 10, 8), 2400m, null,
+            [new BookingLineResponse(Guid.NewGuid(), 2400m, PotKeys.Income, FakeCategoryApi.Salary.Id)], 2026, 10);
+        var transfer = new BookingResponse(Guid.NewGuid(), BookingKinds.Transfer, giro.Id, spar.Id, new DateOnly(2026, 10, 7), 100m, null, [], 2026, 10);
+        var overview = Overview(bookings: [expense, income, transfer]) with
+        {
+            CarryOvers = [new PlanCarryOverLineResponse(CarryOverDirections.In, 2026, 9, 80m)],
+        };
+
+        var cut = Open(2026, 10, overview, lebensmittel);
+
+        cut.WaitForAssertion(() => Assert.Contains("Lebensmittel", cut.Find($"[data-testid='month-recent-{expense.Id}']").TextContent));
+        var row = cut.Find($"[data-testid='month-recent-{expense.Id}']");
+        Assert.Contains("Ausgabe", row.TextContent);
+        Assert.Contains("−50,00", row.TextContent);
+        Assert.Contains("Giro", row.TextContent);
+        var plus = cut.Find($"[data-testid='month-recent-{income.Id}']");
+        Assert.Contains("Einnahme", plus.TextContent);
+        Assert.Contains(FakeCategoryApi.Salary.Name, plus.TextContent);
+        Assert.Contains("+2.400,00", plus.TextContent);
+        var moved = cut.Find($"[data-testid='month-recent-{transfer.Id}']");
+        Assert.Contains("Umbuchung", moved.TextContent);
+        Assert.Contains("Giro → Spar", moved.TextContent);
+        Assert.Contains("Übertrag", cut.Find("[data-testid='month-carry-over-in']").TextContent);
+        Assert.Equal(
+            [BookingKinds.Expense, BookingKinds.Income, BookingKinds.Transfer, "carryover"],
+            new[] { row, plus, moved, cut.Find("[data-testid='month-carry-over-in']") }.Select(r => r.QuerySelector(".booking-kind")!.GetAttribute("data-kind")));
+    }
 }

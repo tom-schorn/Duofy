@@ -87,6 +87,9 @@
         </RadzenText>
         <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-mt-1" data-testid="household-quota-line">@QuotaLine</RadzenText>
         <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" Wrap="FlexWrap.Wrap" Class="rz-mt-3">
+            @* Am PC gibt es die untere Leiste nicht: Von hier geht es dort zum Haushaltsplan (Spec 51, R2). *@
+            <LinkButton Href="/haushaltsplan" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Base"
+                        data-testid="household-plan"><RadzenIcon Icon="calendar_month" /> @L["HouseholdPlan_Title"]</LinkButton>
             <LinkButton Href="/haushalt/freigaben" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Base"
                         data-testid="household-grants"><RadzenIcon Icon="lock" /> @L["Household_Grants"]</LinkButton>
             @if (IsFounder && InvitationsFull)

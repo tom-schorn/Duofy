@@ -10,7 +10,7 @@ Alle Seiten der Web-Version und der App benutzen dieselben drei Breitenbereiche 
 
 ## Navigation (Spec 10)
 
-Handy und Tablet behalten die untere Leiste mit Start, Plan, Buchungen und Mehr. Ab 1280 px steht links die Seitenleiste
+Handy und Tablet haben die untere Leiste mit Start, Plan, Haushalt und Mehr (Spec 51). Ab 1280 px steht links die Seitenleiste
 mit dem vollen Menü: Start, Plan, Buchungen, Konten, Verträge, Haushalt, Benutzerkonto, Admin (nur für Personen, die den
 Server verwalten), Lizenzen, die Rechtstexte des Servers und Abmelden. "Mehr" gibt es dort nicht.
 

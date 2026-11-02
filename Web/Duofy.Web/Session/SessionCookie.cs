@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Duofy.Web.Services;
 
 namespace Duofy.Web.Session;
 
@@ -71,13 +72,15 @@ public static class SessionCookie
             var id = NewId();
             // Diese Anfrage soll die neue Kennung schon kennen, nicht erst die nächste.
             context.Items[ItemKey] = id;
+            // Im iframe einer fremden Seite schickt der Browser ein Lax-Cookie nicht mit. None verlangt immer Secure.
+            var embeddable = context.RequestServices.GetRequiredService<FrameAncestors>().AllowsForeignSites;
             context.Response.Cookies.Append(NameFor(context), id, new CookieOptions
             {
                 HttpOnly = true,
-                SameSite = SameSiteMode.Lax,
+                SameSite = embeddable ? SameSiteMode.None : SameSiteMode.Lax,
                 // Außerhalb der Entwicklung immer nur über HTTPS, auch wenn ein Proxy
                 // davor die Verschlüsselung übernimmt und hier HTTP ankommt.
-                Secure = !IsDevelopment(context) || context.Request.IsHttps,
+                Secure = embeddable || !IsDevelopment(context) || context.Request.IsHttps,
                 IsEssential = true,
                 Path = "/",
                 // So lange wie ein Refresh-Token gilt.

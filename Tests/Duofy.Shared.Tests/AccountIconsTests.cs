@@ -274,9 +274,7 @@ public class AccountIconsTests : PageTestContext
     {
         Accounts.Accounts.Add(giro);
         Accounts.Accounts.Add(spar with { IsDefault = false });
-        var cut = Render<Bookings>();
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='bookings-add']")));
-        cut.Find("[data-testid='bookings-add']").Click();
+        OpenMonthAndNewBooking();
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-account']")));
 
         Assert.Equal(giro.Id.ToString(), Chosen(dialogs, "booking-account"));
@@ -292,9 +290,7 @@ public class AccountIconsTests : PageTestContext
     {
         Accounts.Accounts.Add(giro);
         Accounts.Accounts.Add(spar with { IsDefault = false });
-        var cut = Render<Bookings>();
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='bookings-add']")));
-        cut.Find("[data-testid='bookings-add']").Click();
+        OpenMonthAndNewBooking();
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-kind-transfer']")));
 
         dialogs.Find("[data-testid='booking-kind-transfer']").Click();

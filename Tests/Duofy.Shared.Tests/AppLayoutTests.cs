@@ -43,15 +43,15 @@ public class AppLayoutTests : PageTestContext
 
     // A1
     [Fact]
-    public void Bookings_open_inside_the_app_layout_with_five_entries_and_bookings_highlighted()
+    public void Accounts_open_inside_the_app_layout_with_four_entries_and_more_highlighted()
     {
-        var cut = Open("/buchungen");
+        var cut = Open("/konten");
 
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='bookings-month']")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(BottomBar(cut)));
         Assert.Single(cut.FindComponents<AppLayout>());
         Assert.Empty(cut.FindComponents<MainLayout>());
         Assert.Equal(
-            [("Start", "/", false), ("Plan", "/plan", false), ("Buchungen", "/buchungen", true), ("Sparen", "/sparen", false), ("Mehr", "/mehr", false)],
+            [("Start", "/", false), ("Plan", "/plan", false), ("Haushalt", "/haushaltsplan", false), ("Mehr", "/mehr", true)],
             BottomBar(cut));
     }
 
@@ -59,7 +59,7 @@ public class AppLayoutTests : PageTestContext
     [Fact]
     public void Mehr_leads_to_mehr_and_stays_highlighted_for_konten()
     {
-        var cut = Open("/buchungen");
+        var cut = Open("/");
         cut.WaitForAssertion(() => Assert.NotEmpty(BottomBar(cut)));
         var mehr = BottomBar(cut).Single(e => e.Text == "Mehr");
         Assert.Equal("/mehr", mehr.Href);
@@ -127,14 +127,12 @@ public class AppLayoutTests : PageTestContext
 
     // A5
     [Fact]
-    public void The_plus_button_opens_the_booking_dialog_on_bookings()
+    public void The_old_address_of_the_bookings_page_opens_the_current_month()
     {
         var cut = Open("/buchungen");
-        WaitForPlus(cut);
 
-        cut.Find("[data-testid='app-plus']").Click();
-
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='booking-amount']")));
+        cut.WaitForAssertion(() => Assert.EndsWith("/plan/2026/10", Navigation.Uri));
+        cut.WaitForAssertion(() => Assert.Equal("Plan", Active(cut)));
     }
 
     [Fact]
@@ -156,18 +154,21 @@ public class AppLayoutTests : PageTestContext
 
         cut.Find("[data-testid='app-plus']").Click();
 
+        // Spec 51, A6: Das Plus führt in den laufenden Monat, dort geht der Dialog auf; die Adresse ist danach sauber.
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='booking-amount']")));
+        Assert.EndsWith("/plan/2026/10", Navigation.Uri);
+        Assert.Equal("Plan", Active(cut));
     }
 
-    // Spec 67, A16: Der Haushalt liegt unter "Mehr" und lässt "Mehr" leuchten.
+    // Spec 51, R2: Ohne Haushalt führt das Ziel "Haushalt" hierher, deshalb leuchtet es auch hier.
     [Fact]
-    public void The_household_page_keeps_mehr_highlighted()
+    public void The_household_page_marks_the_household_target()
     {
         var cut = Open("/haushalt");
 
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='household-card']")));
         Assert.Equal("Haushalt", cut.Find("[data-testid='app-title']").TextContent.Trim());
-        Assert.Equal("Mehr", Active(cut));
+        Assert.Equal("Haushalt", Active(cut));
     }
 
     [Theory]
@@ -199,10 +200,7 @@ public class AppLayoutTests : PageTestContext
     {
         // Seit Issue #21 hat der Buchungsdialog das Dialog-Gerüst (Spec 11): Abbrechen im Kopf, Weiter unten.
         // Auf dem Handy füllt das Gerüst den Bildschirm über das Stylesheet (max-width 599 px), nicht über die Bibliothek.
-        var cut = Open("/buchungen");
-        WaitForPlus(cut);
-
-        cut.Find("[data-testid='app-plus']").Click();
+        var cut = Open("/plan/2026/10?buchen=1");
 
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".step-dialog")));
         var head = cut.Find(".step-dialog-head");
@@ -216,9 +214,7 @@ public class AppLayoutTests : PageTestContext
     public void In_the_app_the_dialog_saves_with_the_same_checks_and_cancel_closes()
     {
         BookingApiFake.CreateError = Duofy.Schemas.ErrorCodes.LinesSumMismatch;
-        var cut = Open("/buchungen");
-        WaitForPlus(cut);
-        cut.Find("[data-testid='app-plus']").Click();
+        var cut = Open("/plan/2026/10?buchen=1");
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='booking-next']")));
 
         // Lehnt die API ab, steht der Fehler im Dialog wie im Browser.
@@ -236,10 +232,10 @@ public class AppLayoutTests : PageTestContext
         // Ohne AppHost-Anmeldung gilt der Standard aus AddDuofyUi: der Browser.
         using var web = new WebContext();
         var dialogs = web.RadzenDialogs();
-        var page = web.Render<Bookings>();
-        page.WaitForAssertion(() => Assert.False(page.Find("[data-testid='bookings-add']").HasAttribute("disabled")));
+        var page = web.Render<Plan>(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 10));
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("[data-testid='month-action-booking']")));
 
-        page.Find("[data-testid='bookings-add']").Click();
+        page.Find("[data-testid='month-action-booking']").Closest("button")!.Click();
 
         // Der Dialog steht in RadzenComponents, nicht in der Seite.
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-amount']")));
@@ -409,7 +405,7 @@ public class AppLayoutTests : PageTestContext
 
         var cut = Render<BottomNavigation>();
 
-        Assert.Equal(5, cut.FindComponents<Radzen.Blazor.RadzenIcon>().Count);
+        Assert.Equal(4, cut.FindComponents<Radzen.Blazor.RadzenIcon>().Count);
         var active = Assert.Single(cut.FindAll("a"), a => a.GetAttribute("aria-current") == "page");
         Assert.Contains("app-bottom-item-active", active.ClassList);
         Assert.Equal("bottom-plan", active.GetAttribute("data-testid"));
@@ -432,7 +428,7 @@ public class AppLayoutTests : PageTestContext
     [Fact]
     public void The_layout_renders_the_elements_the_safe_area_styles_belong_to()
     {
-        var cut = Open("/buchungen");
+        var cut = Open("/konten");
 
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".app-fab")));
         Assert.NotEmpty(cut.FindAll("nav.app-bottom-bar"));

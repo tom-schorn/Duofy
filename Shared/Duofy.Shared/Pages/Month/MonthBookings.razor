@@ -1,8 +1,8 @@
 @using System.Globalization
 @inject IStringLocalizer<SharedResources> L
 
-@* Der Tab Buchungen (Spec 24): die Buchungen, die diesem Planmonat zugeordnet sind, neueste zuerst, mit Datum, Betrag und
-   Konto (im Haushalt mit dem Vornamen). Liegt das Datum in einem anderen Monat als dem Planmonat, steht das daneben.
+@* Der Tab Buchungen (Spec 24): die Buchungen, die diesem Planmonat zugeordnet sind, neueste zuerst, mit Art, Zweck, Datum,
+   Betrag und Konto (im Haushalt mit dem Vornamen). Liegt das Datum in einem anderen Monat als dem Planmonat, steht das daneben.
    Ein Übertrag ist keine Buchung und steht als eigene Zeile darüber (Spec 66, R9). *@
 <div class="month-bookings" data-testid="month-bookings">
     @if (Rows.Count == 0 && CarryOvers.Count == 0)
@@ -31,12 +31,7 @@
     [Parameter] public IReadOnlyList<MonthCarryOverRow> CarryOvers { get; set; } = [];
 
     private IReadOnlyList<LineTableRow> TableRows => MonthCarryOverText.Rows(CarryOvers, L)
-        .Concat(Rows.Select(b => new LineTableRow(
-            b.Date.ToString("d", German),
-            b.Amount,
-            b.Detail,
-            Trailing: b.OtherMonth ? Hint(b) : null,
-            TestId: $"month-booking-{b.Id}")))
+        .Concat(Rows.Select(b => MonthBookingText.Row(b, L, $"month-booking-{b.Id}", b.OtherMonth ? Hint(b) : null)))
         .ToList();
 
     private RenderFragment Hint(MonthBookingRow row) => builder =>

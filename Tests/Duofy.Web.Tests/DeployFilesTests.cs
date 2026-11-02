@@ -224,6 +224,7 @@ public partial class DeployFilesTests
     [InlineData("Duofy__TrustedProxies", "TRUSTED_PROXIES")]
     [InlineData("RateLimiting__AuthPermitLimit", "RATE_LIMIT_AUTH_PERMIT_LIMIT")]
     [InlineData("Duofy__Analytics__Token", "CLOUDFLARE_ANALYTICS_TOKEN")]
+    [InlineData("Duofy__FrameAncestors", "DUOFY_FRAME_ANCESTORS")]
     public void Every_setting_accepts_the_dotnet_name_before_the_old_name(string dotnet, string old)
     {
         var compose = Read("deploy/docker-compose.yml");

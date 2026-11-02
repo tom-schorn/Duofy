@@ -16,7 +16,7 @@
    2 Einordnung (die Zeilen mit Kategorie, Topf und Posten, bei einer Umbuchung Von Topf, Zu Topf und Posten; dazu die Notiz).
    Alle Buchungsarten und alle Regeln sind unverändert; auf dem Handy füllt der Dialog den Bildschirm, und nur der Inhalt rollt.
 
-   Wer den Dialog öffnet (die Seite Buchungen), reicht ihm die Konten und Kategorien als Parameter und bekommt am Ende mit,
+   Wer den Dialog öffnet (der Monat zum Anlegen, die Bewegungen am Konto zum Ändern), reicht ihm die Konten und Kategorien als Parameter und bekommt am Ende mit,
    ob gespeichert wurde.
 
    Alle Eingaben stehen in `draft`, einem BookingDraft. Dort stehen auch die Rechenregeln
@@ -114,9 +114,9 @@
                 <NativeSelect Value="@Key(draft.TransferPositionId)" ValueChanged="OnTransferPositionChanged" id="booking-transfer-position-input"
                               data-testid="booking-transfer-position">
                     <option value="">@L["BookingDialog_NoPosition"]</option>
-                    @foreach (var position in PlanView.OfferedPositions(plan, draft.Kind, draft.TransferPositionId))
+                    @foreach (var position in PlanView.OfferedPositions(plan, draft.Kind))
                     {
-                        <option value="@position.Id">@position.Label</option>
+                        <option value="@position.Id">@PositionText(position)</option>
                     }
                 </NativeSelect>
             </StepField>
@@ -172,14 +172,14 @@
                         </NativeSelect>
                     </StepField>
 
-                    @* Der Posten des Planmonats, den diese Zeile füllt; nur offene Posten, deren Topf passt. *@
+                    @* Der Posten des Planmonats, den diese Zeile füllt; auch ein abgehakter, er ist dann so benannt (Spec 51, R7). *@
                     <StepField Label="@L["Field_Position"]" InputId="@($"booking-line-position-{index}-input")">
                         <NativeSelect Value="@Key(line.PositionId)" ValueChanged="v => OnPositionChanged(index, v)"
                                       id="@($"booking-line-position-{index}-input")" data-testid="@($"booking-line-position-{index}")">
                             <option value="">@L["BookingDialog_NoPosition"]</option>
-                            @foreach (var position in PlanView.OfferedPositions(plan, draft.Kind, line.PositionId))
+                            @foreach (var position in PlanView.OfferedPositions(plan, draft.Kind))
                             {
-                                <option value="@position.Id">@position.Label</option>
+                                <option value="@position.Id">@PositionText(position)</option>
                             }
                         </NativeSelect>
                     </StepField>
@@ -288,6 +288,10 @@
     [Parameter]
     public DateOnly? PlanMonth { get; set; }
 
+    /// <summary>Beim Anlegen: der Posten, zu dem die Buchung gehört; die Art folgt seinem Topf (Spec 51, R7).</summary>
+    [Parameter]
+    public Guid? PositionId { get; set; }
+
     private BookingDraft draft = default!;
 
     // Die Person, für die der Dialog geöffnet wurde; sie bleibt, auch wenn der Umschalter inzwischen woanders steht (Spec 68, A15).
@@ -316,7 +320,18 @@
         dateText = draft.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
     }
 
-    protected override async Task OnInitializedAsync() => await LoadPlanAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPlanAsync();
+        if (Existing is null && plan?.Positions.FirstOrDefault(p => p.Id == PositionId) is { } position)
+        {
+            draft.SetKind(position.Pot == PotKeys.Income ? BookingKinds.Income : BookingKinds.Expense);
+            draft.ChoosePosition(0, position);
+        }
+    }
+
+    private string PositionText(PlanPositionResponse position) =>
+        position.DoneAt is null ? position.Label : L["BookingDialog_PositionDone", position.Label];
 
     // Lädt den Plan des Planmonats. Ohne Plan gibt es keine Posten zur Wahl; buchen geht trotzdem.
     private async Task LoadPlanAsync()

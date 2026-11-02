@@ -163,7 +163,7 @@ public class DesktopWidthTests : PageTestContext
         Accounts.Accounts.Add(new AccountChoice(giro.Id, "Giro", IsDefault: true, Active: true));
         BookingApiFake.Bookings.Add(FakeBookingApi.Expense(giro.Id, new DateOnly(2026, 10, 5), 11m, FakeCategoryApi.Groceries, "Einkauf"));
 
-        var cut = Render<Bookings>();
+        var cut = Render<AccountBookings>(c => c.Add(x => x.AccountId, giro.Id));
 
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".data-row")));
         AssertHead(cut, "Datum", "Bezeichnung", "Details", "Betrag");

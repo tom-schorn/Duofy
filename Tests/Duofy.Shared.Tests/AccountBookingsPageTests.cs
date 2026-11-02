@@ -9,8 +9,8 @@ using Microsoft.AspNetCore.Components;
 
 namespace Duofy.Shared.Tests;
 
-/// <summary>Die Buchungsseite /buchungen: Monat, Konto-Filter, Summen, Löschen und das Plus (R7 bis R9).</summary>
-public class BookingsPageTests : PageTestContext
+/// <summary>Die Bewegungen am Konto /konten/{id} (Spec 51, R5), dazu der Buchungsdialog, wie ihn der Monat öffnet.</summary>
+public class AccountBookingsPageTests : PageTestContext
 {
     private static readonly DateOnly Today = new(2026, 10, 21);
 
@@ -20,24 +20,46 @@ public class BookingsPageTests : PageTestContext
     // Radzen zeichnet Dialoge in RadzenComponents (im echten Layout stehen sie in jedem Layout).
     private readonly IRenderedComponent<IComponent> dialogs;
 
-    public BookingsPageTests()
+    public AccountBookingsPageTests()
     {
         dialogs = RenderRadzenHost();
         Accounts.Accounts.AddRange([giro, cash]);
     }
 
-    private IRenderedComponent<Bookings> OpenPage()
+    private IRenderedComponent<AccountBookings> OpenPage(Guid? account = null)
     {
-        var cut = Render<Bookings>();
+        var cut = Render<AccountBookings>(p => p.Add(x => x.AccountId, account ?? giro.Id));
         cut.WaitForAssertion(() => Assert.NotEmpty(BookingApiFake.ListCalls));
         return cut;
     }
 
     [Fact]
-    public void The_page_is_reachable_at_buchungen_and_needs_a_sign_in()
+    public void The_page_is_reachable_at_the_account_and_needs_a_sign_in()
     {
-        Assert.Equal("/buchungen", typeof(Bookings).GetCustomAttribute<RouteAttribute>()?.Template);
-        Assert.NotNull(typeof(Bookings).GetCustomAttribute<AuthorizeAttribute>());
+        Assert.Equal("/konten/{AccountId:guid}", typeof(AccountBookings).GetCustomAttribute<RouteAttribute>()?.Template);
+        Assert.NotNull(typeof(AccountBookings).GetCustomAttribute<AuthorizeAttribute>());
+    }
+
+    // Spec 51, A5
+    [Fact]
+    public void The_old_address_leads_to_the_current_month()
+    {
+        Assert.NotNull(typeof(BookingsRedirect).GetCustomAttribute<AuthorizeAttribute>());
+
+        Render<BookingsRedirect>();
+
+        Assert.EndsWith("/plan/2026/10", Navigation.Uri);
+    }
+
+    // Spec 51, A7: Hier wird nicht neu gebucht.
+    [Fact]
+    public void The_page_has_no_way_to_add_a_booking_and_names_the_account()
+    {
+        var cut = OpenPage();
+
+        cut.WaitForAssertion(() => Assert.Contains("Girokonto", cut.Find("[data-testid='account-bookings-title']").TextContent));
+        Assert.Empty(cut.FindAll("[data-testid='bookings-add']"));
+        Assert.Empty(cut.FindAll(".app-fab"));
     }
 
     // R8
@@ -46,7 +68,7 @@ public class BookingsPageTests : PageTestContext
     {
         var cut = OpenPage();
 
-        Assert.Equal((2026, 10, (Guid?)null), BookingApiFake.ListCalls[0]);
+        Assert.Equal((2026, 10, (Guid?)giro.Id), BookingApiFake.ListCalls[0]);
         Assert.Contains("Oktober 2026", cut.Markup);
     }
 
@@ -64,7 +86,7 @@ public class BookingsPageTests : PageTestContext
         Click(cut, "bookings-previous-month");
 
         cut.WaitForAssertion(() => Assert.Contains("September 2026", cut.Markup));
-        Assert.Equal((2026, 9, (Guid?)null), BookingApiFake.ListCalls[^1]);
+        Assert.Equal((2026, 9, (Guid?)giro.Id), BookingApiFake.ListCalls[^1]);
         Assert.DoesNotContain("Oktoberkauf", cut.Markup);
         // Neueste zuerst: der 20. steht vor dem 3.
         Assert.True(cut.Markup.IndexOf("Neukauf", StringComparison.Ordinal) < cut.Markup.IndexOf("Altkauf", StringComparison.Ordinal));
@@ -82,39 +104,26 @@ public class BookingsPageTests : PageTestContext
         Click(cut, "bookings-next-month");
 
         cut.WaitForAssertion(() => Assert.Contains("Januar 2027", cut.Markup));
-        Assert.Equal((2027, 1, (Guid?)null), BookingApiFake.ListCalls[^1]);
+        Assert.Equal((2027, 1, (Guid?)giro.Id), BookingApiFake.ListCalls[^1]);
     }
 
     // A15
     [Fact]
-    public void The_account_filter_shows_only_that_accounts_bookings_and_counts_transfers_in_the_sums()
+    public void The_page_shows_only_this_accounts_bookings_and_counts_transfers_in_the_sums()
     {
         BookingApiFake.Bookings.Add(FakeBookingApi.Expense(giro.Id, new DateOnly(2026, 10, 5), 10m, FakeCategoryApi.Groceries, "AufGiro"));
         BookingApiFake.Bookings.Add(FakeBookingApi.Expense(cash.Id, new DateOnly(2026, 10, 6), 5m, FakeCategoryApi.Groceries, "AufBargeld"));
         BookingApiFake.Bookings.Add(FakeBookingApi.Transfer(giro.Id, cash.Id, new DateOnly(2026, 10, 7), 100m));
-        var cut = OpenPage();
+
+        var cut = OpenPage(cash.Id);
+
         cut.WaitForAssertion(() => Assert.Contains("AufBargeld", cut.Markup));
-
-        Select(cut, "bookings-filter", cash.Id.ToString());
-
-        cut.WaitForAssertion(() => Assert.DoesNotContain("AufGiro", cut.Markup));
+        Assert.DoesNotContain("AufGiro", cut.Markup);
         Assert.Equal((2026, 10, (Guid?)cash.Id), BookingApiFake.ListCalls[^1]);
         Assert.Contains("AufBargeld", cut.Markup);
         // Für das Bargeld ist die Umbuchung Geld, das hereinkommt.
         Assert.Contains("100,00", Text(cut, "bookings-sum-income"));
         Assert.Contains("5,00", Text(cut, "bookings-sum-expenses"));
-    }
-
-    [Fact]
-    public void The_filter_returns_to_all_accounts()
-    {
-        var cut = OpenPage();
-        Select(cut, "bookings-filter", cash.Id.ToString());
-        cut.WaitForAssertion(() => Assert.Equal(cash.Id, BookingApiFake.ListCalls[^1].AccountId));
-
-        Select(cut, "bookings-filter", "");
-
-        cut.WaitForAssertion(() => Assert.Null(BookingApiFake.ListCalls[^1].AccountId));
     }
 
     [Fact]
@@ -142,7 +151,7 @@ public class BookingsPageTests : PageTestContext
 
         var cut = OpenPage();
 
-        cut.WaitForAssertion(() => Assert.Contains("Umbuchung: Girokonto → Bargeld", cut.Markup));
+        cut.WaitForAssertion(() => Assert.Contains("Girokonto → Bargeld", cut.Markup));
     }
 
     // Spec 72, R9: Die Liste nennt Quell- und Zieltopf als Text, nicht nur durch Farbe.
@@ -166,7 +175,7 @@ public class BookingsPageTests : PageTestContext
 
         var cut = OpenPage();
 
-        cut.WaitForAssertion(() => Assert.Contains("Umbuchung: Girokonto → Bargeld", cut.Markup));
+        cut.WaitForAssertion(() => Assert.Contains("Girokonto → Bargeld", cut.Markup));
         Assert.Empty(cut.FindAll($"[data-testid='booking-transfer-pots-{older.Id}']"));
     }
 
@@ -231,9 +240,7 @@ public class BookingsPageTests : PageTestContext
     [Fact]
     public void The_plus_button_opens_the_dialog_with_an_expense_dated_today_on_the_default_account()
     {
-        var cut = OpenPage();
-
-        Click(cut, "bookings-add");
+        OpenMonthAndNewBooking();
 
         dialogs.WaitForAssertion(() => Assert.Contains("Neue Buchung", dialogs.Markup));
         Assert.Equal("true", dialogs.Find("[data-testid='booking-kind-expense']").GetAttribute("aria-pressed"));
@@ -248,33 +255,31 @@ public class BookingsPageTests : PageTestContext
     {
         Accounts.Accounts.Clear();
         Accounts.Accounts.Add(cash);
-        var cut = OpenPage();
 
-        Click(cut, "bookings-add");
+        OpenMonthAndNewBooking();
 
         dialogs.WaitForAssertion(() => Assert.Contains("Neue Buchung", dialogs.Markup));
         Assert.Equal("", SelectedValue(dialogs, "booking-account"));
     }
 
     [Fact]
-    public void Without_any_account_the_page_asks_for_one_first_and_the_plus_button_is_disabled()
+    public void Without_any_account_the_month_asks_for_one_first()
     {
         Accounts.Accounts.Clear();
 
-        var cut = OpenPage();
+        var cut = OpenMonthAndNewBooking();
 
         cut.WaitForAssertion(() => Assert.Contains("Lege zuerst ein Konto an", cut.Markup));
-        Assert.True(cut.Find("[data-testid='bookings-add']").HasAttribute("disabled"));
+        Assert.Empty(dialogs.FindAll("[data-testid='booking-next']"));
     }
 
     [Fact]
-    public void Closed_accounts_stay_in_the_filter_but_not_in_the_dialog()
+    public void Closed_accounts_are_not_offered_in_the_dialog()
     {
         Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Altes Konto", IsDefault: false, Active: false));
-        var cut = OpenPage();
 
-        Assert.Contains("Altes Konto", cut.Find("[data-testid='bookings-filter']").InnerHtml);
-        Click(cut, "bookings-add");
+        OpenMonthAndNewBooking();
+
         dialogs.WaitForAssertion(() => Assert.Contains("Neue Buchung", dialogs.Markup));
         Assert.DoesNotContain("Altes Konto", dialogs.Find("[data-testid='booking-account']").InnerHtml);
     }
@@ -283,8 +288,7 @@ public class BookingsPageTests : PageTestContext
     [Fact]
     public void Choosing_the_category_restaurant_preselects_the_pot_wants_which_can_be_changed()
     {
-        var cut = OpenPage();
-        Click(cut, "bookings-add");
+        var cut = OpenMonthAndNewBooking();
         dialogs.WaitForAssertion(() => Assert.Contains("Neue Buchung", dialogs.Markup));
 
         SelectIn(dialogs, "booking-line-category-0", FakeCategoryApi.Restaurant.Id.ToString());
@@ -297,8 +301,7 @@ public class BookingsPageTests : PageTestContext
     [Fact]
     public void Expense_dialog_offers_no_income_categories_and_income_only_those()
     {
-        var cut = OpenPage();
-        Click(cut, "bookings-add");
+        var cut = OpenMonthAndNewBooking();
         dialogs.WaitForAssertion(() => Assert.Contains("Neue Buchung", dialogs.Markup));
         var expenseOptions = dialogs.Find("[data-testid='booking-line-category-0']").InnerHtml;
         Assert.Contains("Lebensmittel", expenseOptions);
@@ -318,8 +321,7 @@ public class BookingsPageTests : PageTestContext
     [Fact]
     public void Splitting_adds_a_line_and_the_first_line_shows_the_rest()
     {
-        var cut = OpenPage();
-        Click(cut, "bookings-add");
+        var cut = OpenMonthAndNewBooking();
         dialogs.WaitForAssertion(() => Assert.Contains("Neue Buchung", dialogs.Markup));
         Input(dialogs, "booking-amount").Change("80");
         dialogs.WaitForAssertion(() => Assert.Equal("80,00", Input(dialogs, "booking-line-amount-0").GetAttribute("value")));
@@ -332,14 +334,12 @@ public class BookingsPageTests : PageTestContext
     }
 
     [Fact]
-    public void Saving_sends_the_booking_closes_the_dialog_and_reloads_the_month()
+    public void Saving_sends_the_booking_and_closes_the_dialog()
     {
-        var cut = OpenPage();
-        Click(cut, "bookings-add");
+        var cut = OpenMonthAndNewBooking();
         dialogs.WaitForAssertion(() => Assert.Contains("Neue Buchung", dialogs.Markup));
         Input(dialogs, "booking-amount").Change("42");
         SelectIn(dialogs, "booking-line-category-0", FakeCategoryApi.Groceries.Id.ToString());
-        var callsBefore = BookingApiFake.ListCalls.Count;
 
         dialogs.Find("[data-testid='booking-next']").Click();
 
@@ -353,15 +353,13 @@ public class BookingsPageTests : PageTestContext
         Assert.Equal(42m, request.Amount);
         Assert.Equal([new SaveBookingLine(42m, PotKeys.Needs, FakeCategoryApi.Groceries.Id)], request.Lines);
         dialogs.WaitForAssertion(() => Assert.DoesNotContain("Neue Buchung", dialogs.Markup));
-        cut.WaitForAssertion(() => Assert.True(BookingApiFake.ListCalls.Count > callsBefore));
     }
 
     [Fact]
     public void An_error_of_the_api_is_shown_as_german_text_and_the_dialog_stays_open()
     {
         BookingApiFake.CreateError = ErrorCodes.LinesSumMismatch;
-        var cut = OpenPage();
-        Click(cut, "bookings-add");
+        var cut = OpenMonthAndNewBooking();
         dialogs.WaitForAssertion(() => Assert.Contains("Neue Buchung", dialogs.Markup));
         Input(dialogs, "booking-amount").Change("42");
 
@@ -397,8 +395,7 @@ public class BookingsPageTests : PageTestContext
     [Fact]
     public void A_transfer_asks_for_two_accounts_and_hides_the_lines()
     {
-        var cut = OpenPage();
-        Click(cut, "bookings-add");
+        var cut = OpenMonthAndNewBooking();
         dialogs.WaitForAssertion(() => Assert.Contains("Neue Buchung", dialogs.Markup));
 
         dialogs.Find("[data-testid='booking-kind-transfer']").Click();
@@ -433,8 +430,7 @@ public class BookingsPageTests : PageTestContext
     [Fact]
     public void An_own_category_can_be_created_in_the_dialog_and_is_chosen_at_once()
     {
-        var cut = OpenPage();
-        Click(cut, "bookings-add");
+        var cut = OpenMonthAndNewBooking();
         dialogs.WaitForAssertion(() => Assert.Contains("Neue Buchung", dialogs.Markup));
 
         dialogs.Find("[data-testid='booking-new-category']").Click();
@@ -461,7 +457,7 @@ public class BookingsPageTests : PageTestContext
 
         Assert.Contains("rz-card", cut.Find($"[data-testid='booking-{booking.Id}']").ClassList);
 
-        Click(cut, "bookings-add");
+        OpenMonthAndNewBooking();
         dialogs.WaitForAssertion(() => Assert.Contains("Neue Buchung", dialogs.Markup));
 
         var amount = Input(dialogs, "booking-amount");
@@ -474,10 +470,10 @@ public class BookingsPageTests : PageTestContext
 
     // --- Hilfen -------------------------------------------------------------
 
-    private static void Click(IRenderedComponent<Bookings> cut, string testId) =>
+    private static void Click(IRenderedComponent<AccountBookings> cut, string testId) =>
         cut.Find($"[data-testid='{testId}']").Click();
 
-    private static string Text(IRenderedComponent<Bookings> cut, string testId) =>
+    private static string Text(IRenderedComponent<AccountBookings> cut, string testId) =>
         cut.Find($"[data-testid='{testId}']").TextContent;
 
     private static IElement Input(IRenderedComponent<IComponent> cut, string testId)
@@ -485,9 +481,6 @@ public class BookingsPageTests : PageTestContext
         var element = cut.Find($"[data-testid='{testId}']");
         return element.TagName is "INPUT" or "TEXTAREA" ? element : element.QuerySelector("input,textarea")!;
     }
-
-    private static void Select(IRenderedComponent<Bookings> cut, string testId, string value) =>
-        cut.Find($"[data-testid='{testId}']").Change(value);
 
     // Ein Auswahlfeld (select) ändert sich mit Change, die Kontoauswahl (Gruppe von Optionsfeldern, Issue 16) mit dem Optionsfeld.
     private static void SelectIn(IRenderedComponent<IComponent> cut, string testId, string value)

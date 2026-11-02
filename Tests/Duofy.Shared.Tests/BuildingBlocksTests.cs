@@ -259,4 +259,17 @@ public class BuildingBlocksTests : UiTestContext
 
         Assert.Empty(cut.FindAll("[data-testid^='blocks-panel-']"));
     }
+
+    // Gefunden im Browser bei 1912 px: Ab 1280 px ist der Text ein Raster; die Art darf dort keine eigene Spalte werden.
+    [Fact]
+    public void Line_table_keeps_tag_and_label_together_in_one_cell_of_the_grid()
+    {
+        var cut = Render<LineTable>(p => p
+            .Add(c => c.Caption, "Buchungen")
+            .Add(c => c.Rows, new[] { new LineTableRow("Miete", 850m, "01.11.2026", Tag: b => b.AddMarkupContent(0, "<b>Ausgabe</b>")) }));
+
+        var text = cut.Find(".line-table-text");
+        Assert.Equal(["line-table-title", "line-table-detail"], text.Children.Select(c => c.ClassName));
+        Assert.Equal("AusgabeMiete", text.Children[0].TextContent);
+    }
 }

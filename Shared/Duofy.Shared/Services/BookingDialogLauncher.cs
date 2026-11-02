@@ -8,9 +8,8 @@ using Microsoft.Extensions.Localization;
 namespace Duofy.Shared.Services;
 
 /// <summary>
-/// Öffnet den Buchungsdialog. Die Buchungsseite und die Startseite (Plus-Knopf in der App)
-/// brauchen dasselbe; hier steht es einmal. Hat die Seite Konten und Kategorien schon geladen,
-/// reicht sie sie mit, sonst holt der Dienst sie selbst.
+/// Öffnet den Buchungsdialog: Der Monat zum Anlegen, die Bewegungen am Konto zum Ändern (Spec 51). Hat die Seite Konten
+/// und Kategorien schon geladen, reicht sie sie mit, sonst holt der Dienst sie selbst.
 /// </summary>
 public sealed class BookingDialogLauncher(
     FormDialogs forms,
@@ -28,7 +27,8 @@ public sealed class BookingDialogLauncher(
         BookingResponse? existing = null,
         IReadOnlyList<AccountChoice>? accounts = null,
         List<CategoryResponse>? categories = null,
-        DateOnly? planMonth = null)
+        DateOnly? planMonth = null,
+        Guid? positionId = null)
     {
         if (accounts is null)
         {
@@ -67,7 +67,8 @@ public sealed class BookingDialogLauncher(
             .Add(x => x.Accounts, accounts)
             .Add(x => x.Categories, categories)
             .Add(x => x.Today, today)
-            .Add(x => x.PlanMonth, planMonth);
+            .Add(x => x.PlanMonth, planMonth)
+            .Add(x => x.PositionId, positionId);
 
         // Im Browser ein Fenster, in der App der ganze Bildschirm; der Dialog zeichnet Titel und Abbrechen selbst.
         var outcome = await forms.OpenStepAsync<BookingDialog, bool>(title, parameters);

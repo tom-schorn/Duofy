@@ -10,7 +10,9 @@ public sealed record MonthPotRow(string Pot, int Target, decimal Actual, decimal
 }
 
 /// <summary>Eine Buchung der Übersicht oder des Tabs Buchungen; <paramref name="OtherMonth"/> heißt: ihr Datum liegt nicht im Planmonat.</summary>
-public sealed record MonthBookingRow(Guid Id, DateOnly Date, decimal Amount, string? Detail, bool OtherMonth);
+/// <param name="Kind">Die Art (<see cref="BookingKinds"/>); sie steht farbig und als Wort in der Zeile (Spec 51, R9).</param>
+/// <param name="Purpose">Wofür die Buchung war (Spec 51, R10); null, wenn sich das nicht sagen lässt.</param>
+public sealed record MonthBookingRow(Guid Id, DateOnly Date, decimal Amount, string? Detail, bool OtherMonth, string Kind = BookingKinds.Expense, string? Purpose = null);
 
 /// <summary>
 /// Ein Übertrag als eigene Zeile des Monats (Spec 66, R9), keine Buchung: <paramref name="Incoming"/> heißt "Übertrag aus ...",
@@ -48,11 +50,11 @@ public static class MonthView
 
     private sealed record DueSource(string Label, int DueDay, string Pot, bool PassThrough, decimal Planned, decimal Booked, DateTimeOffset? DoneAt, string? Owner);
 
-    public static MonthOverviewModel ForPerson(PlanResponse plan, DateOnly today, Func<Guid, string?> accountName)
+    public static MonthOverviewModel ForPerson(PlanResponse plan, DateOnly today, Func<Guid, string?> accountName, Func<BookingResponse, string?>? purpose = null)
     {
         var overview = plan.Overview;
         var pots = PotKeysInOrder.Select(key => Pot(key, plan.Quotas, overview?.Pots.FirstOrDefault(p => p.Pot == key))).ToList();
-        var bookings = BookingRows(overview?.Bookings ?? [], accountName);
+        var bookings = BookingRows(overview?.Bookings ?? [], accountName, purpose);
         var due = DueRows(
             plan.Positions.Select(p => new DueSource(p.Label, p.DueDay, p.Pot, p.PassThrough, p.AmountPlanned, p.Booked, p.DoneAt, null)),
             plan.Year, plan.Month, today);
@@ -72,15 +74,15 @@ public static class MonthView
     }
 
     /// <summary>Die Buchungen eines Planmonats für die Liste, in der Reihenfolge der API (neueste zuerst); <paramref name="accountName"/> gibt den Namen des Kontos.</summary>
-    public static IReadOnlyList<MonthBookingRow> BookingRows(IEnumerable<BookingResponse> bookings, Func<Guid, string?> accountName) =>
+    public static IReadOnlyList<MonthBookingRow> BookingRows(IEnumerable<BookingResponse> bookings, Func<Guid, string?> accountName, Func<BookingResponse, string?>? purpose = null) =>
         bookings
-            .Select(b => new MonthBookingRow(b.Id, b.Date, b.Amount, accountName(b.AccountId), OtherMonth(b.Date, b.PlanYear, b.PlanMonth)))
+            .Select(b => new MonthBookingRow(b.Id, b.Date, b.Amount, accountName(b.AccountId), OtherMonth(b.Date, b.PlanYear, b.PlanMonth), b.Kind, purpose?.Invoke(b)))
             .ToList();
 
     /// <summary>Die Buchungen des Haushalts mit dem Vornamen der Person als Zusatz.</summary>
     public static IReadOnlyList<MonthBookingRow> HouseholdBookingRows(HouseholdPlanResponse plan) =>
         (plan.Bookings ?? [])
-            .Select(b => new MonthBookingRow(b.Id, b.Date, b.Amount, b.OwnerFirstName, OtherMonth(b.Date, b.PlanYear, b.PlanMonth)))
+            .Select(b => new MonthBookingRow(b.Id, b.Date, b.Amount, b.OwnerFirstName, OtherMonth(b.Date, b.PlanYear, b.PlanMonth), b.Kind, b.Purpose))
             .ToList();
 
     /// <summary>Die Überträge des Monats für die Zeilen über den Buchungen; sie zählen nicht zu den fünf neuesten Buchungen.</summary>

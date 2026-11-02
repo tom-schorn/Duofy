@@ -19,9 +19,7 @@ public class BookingDialogPlanTests : PageTestContext
 
     private void OpenDialog()
     {
-        var cut = Render<Bookings>();
-        cut.WaitForAssertion(() => Assert.NotEmpty(BookingApiFake.ListCalls));
-        cut.Find("[data-testid='bookings-add']").Click();
+        OpenMonthAndNewBooking();
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-line-position-0']")));
     }
 
@@ -55,7 +53,7 @@ public class BookingDialogPlanTests : PageTestContext
     }
 
     [Fact]
-    public void A_line_offers_the_open_positions_of_the_plan_month_and_sends_the_chosen_one()
+    public void A_line_offers_the_positions_of_the_plan_month_also_ticked_ones_and_sends_the_chosen_one()
     {
         var groceries = FakePlanApi.Position("Lebensmittel", 600m);
         var rent = FakePlanApi.Position("Miete", 890m, booked: 890m, done: true);
@@ -65,7 +63,7 @@ public class BookingDialogPlanTests : PageTestContext
 
         var options = dialogs.Find("[data-testid='booking-line-position-0']").TextContent;
         Assert.Contains("Lebensmittel", options);
-        Assert.DoesNotContain("Miete", options);
+        Assert.Contains("Miete (abgehakt)", options);
         Assert.DoesNotContain("Gehalt", options);
 
         Field(dialogs, "booking-amount").Change("42");
@@ -100,5 +98,25 @@ public class BookingDialogPlanTests : PageTestContext
         dialogs.Find("[data-testid='booking-save']").Click();
 
         dialogs.WaitForAssertion(() => Assert.Equal((2026, 11), (BookingApiFake.Created.Single().PlanYear, BookingApiFake.Created.Single().PlanMonth)));
+    }
+
+    // Spec 51, A9: Die Mahnkosten gehören zur GEZ, auch wenn sie schon abgehakt ist und die Kategorie eine andere ist.
+    [Fact]
+    public void A_second_booking_can_go_on_a_ticked_position_with_its_own_category()
+    {
+        var gez = FakePlanApi.Position("GEZ", 18.36m, booked: 18.36m, done: true);
+        PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10) with { Positions = [gez] };
+        OpenDialog();
+
+        Field(dialogs, "booking-amount").Change("5");
+        dialogs.Find("[data-testid='booking-line-category-0']").Change(FakeCategoryApi.Restaurant.Id.ToString());
+        dialogs.Find("[data-testid='booking-line-position-0']").Change(gez.Id.ToString());
+        dialogs.Find("[data-testid='booking-next']").Click();
+        dialogs.Find("[data-testid='booking-save']").Click();
+
+        dialogs.WaitForAssertion(() => Assert.Single(BookingApiFake.Created));
+        var line = Assert.Single(BookingApiFake.Created[0].Lines!);
+        Assert.Equal(gez.Id, line.PositionId);
+        Assert.Equal(FakeCategoryApi.Restaurant.Id, line.CategoryId);
     }
 }

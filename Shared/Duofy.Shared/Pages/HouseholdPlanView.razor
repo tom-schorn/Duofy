@@ -21,10 +21,10 @@
    Seit Spec 24 hat der Haushaltsmonat dieselben drei Tabs wie der Monat einer Person (Übersicht, Plan, Buchungen),
    alle nur zum Lesen. *@
 
-<AppPageHeading Text="@L["Nav_Plan"]" />
+<AppPageHeading Text="@(Heading ?? L["Nav_Plan"])" />
 @if (!Host.IsApp)
 {
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" Class="rz-mb-2">@L["Nav_Plan"]</RadzenText>
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" Class="rz-mb-2">@(Heading ?? L["Nav_Plan"])</RadzenText>
 }
 
 <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-m-0" data-testid="household-name">@(plan?.HouseholdName ?? Member.Household?.Name)</RadzenText>
@@ -102,6 +102,10 @@
                         </RadzenStack>
                         <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.Span">@L["Plan_Amounts", Money(position.AmountPlanned), Money(position.Booked)]</RadzenText>
                     </RadzenStack>
+                    @if (BookingPurpose.LinesOf(plan.Bookings ?? [], position.Id) is { Count: > 0 } lines)
+                    {
+                        <PositionBookings Label="@position.Label" Rows="lines" TestId="@($"position-bookings-{position.Id}")" />
+                    }
                 </RadzenCard>
             }
         </RadzenStack>
@@ -146,6 +150,9 @@
 
     private static readonly CultureInfo German = new("de-DE");
 
+    /// <summary>Die Überschrift; ohne Angabe "Plan". Die Seite Haushaltsplan nennt sich selbst.</summary>
+    [Parameter] public string? Heading { get; set; }
+
     /// <summary>Der Monat, den die Planseite zeigt; sie gibt ihn aus der Adresse /plan/{Jahr}/{Monat} weiter.</summary>
     [Parameter, EditorRequired] public int Year { get; set; }
 
@@ -164,7 +171,8 @@
     private HouseholdPlanResponse? plan;
     private NoticeMessage? message;
 
-    private string MonthTitle => new DateOnly(year, month, 1).ToString("MMMM yyyy", German);
+    // Aus den Parametern: Die Sicht zeichnet schon, während die Mitglieder noch laden und year und month noch leer sind.
+    private string MonthTitle => new DateOnly(Year, Month, 1).ToString("MMMM yyyy", German);
 
     protected override async Task OnInitializedAsync()
     {

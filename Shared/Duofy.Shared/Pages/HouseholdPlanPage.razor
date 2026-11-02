@@ -1,0 +1,63 @@
+@page "/haushaltsplan"
+@page "/haushaltsplan/{Year:int}/{Month:int}"
+@attribute [Authorize]
+@using Duofy.Schemas
+@implements IDisposable
+@inject ActiveMember Member
+@inject AppChrome Chrome
+@inject TimeProvider Time
+@inject NavigationManager Navigation
+@inject IStringLocalizer<SharedResources> L
+
+@* Das Ziel "Haushalt" der unteren Leiste (Spec 51, R2): der Haushaltsplan des Monats. Die Seite lässt den Umschalter
+   "wessen Zahlen" in Ruhe; wer danach auf "Plan" tippt, sieht weiter seinen eigenen Plan. Auch ein Haushalt von einer
+   Person hat einen Plan. Ohne Haushalt führt die Seite zum Gründen oder Beitreten auf /haushalt. *@
+
+<PageTitle>@L["HouseholdPlan_Title"]</PageTitle>
+
+@if (ready)
+{
+    <HouseholdPlanView Heading="@L["HouseholdPlan_Title"]" Year="year" Month="month" OnMove="MoveAsync" />
+}
+
+@code {
+    /// <summary>Das Jahr aus der Adresse; ohne Angabe gilt der laufende Monat.</summary>
+    [Parameter] public int? Year { get; set; }
+
+    /// <summary>Der Monat aus der Adresse, 1 bis 12.</summary>
+    [Parameter] public int? Month { get; set; }
+
+    private int year;
+    private int month;
+    private bool ready;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Chrome.Set(this, L["HouseholdPlan_Title"]);
+        // Frisch holen: Wer gerade gegründet oder eine Einladung angenommen hat, soll nicht wieder beim Gründen landen.
+        await Member.RefreshAsync();
+        if (Member.Household is null)
+        {
+            Navigation.NavigateTo("/haushalt", replace: true);
+            return;
+        }
+        ready = true;
+    }
+
+    protected override void OnParametersSet()
+    {
+        var today = DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
+        (year, month) = Year is { } y and >= PlanRules.FirstYear and <= PlanRules.LastYear && Month is { } m and >= 1 and <= 12
+            ? (y, m)
+            : (today.Year, today.Month);
+    }
+
+    public void Dispose() => Chrome.Release(this);
+
+    // Die Adresse folgt dem Monat ohne Eintrag im Verlauf, wie im eigenen Plan (Spec 23).
+    private void MoveAsync(int by)
+    {
+        (year, month) = PlanView.Shift(year, month, by);
+        Navigation.NavigateTo($"/haushaltsplan/{year}/{month}", replace: true);
+    }
+}

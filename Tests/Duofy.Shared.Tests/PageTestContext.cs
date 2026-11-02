@@ -30,6 +30,15 @@ public abstract class PageTestContext : UiTestContext
     protected FakeInstanceApi InstanceApiFake { get; } = new();
     protected FakeAdminApi AdminApiFake { get; } = new();
 
+    /// <summary>Öffnet den Monat und dort "Neue Buchung": Neue Buchungen entstehen nur im Monat (Spec 51, R3).</summary>
+    protected IRenderedComponent<Duofy.Shared.Pages.Plan> OpenMonthAndNewBooking(int year = 2026, int month = 10)
+    {
+        var cut = Render<Duofy.Shared.Pages.Plan>(p => p.Add(x => x.Year, year).Add(x => x.Month, month));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-action-booking']")));
+        cut.Find("[data-testid='month-action-booking']").Closest("button")!.Click();
+        return cut;
+    }
+
     protected PageTestContext()
     {
         Auth = new FakeAuthApi(Tokens);

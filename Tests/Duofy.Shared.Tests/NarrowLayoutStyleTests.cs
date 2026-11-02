@@ -44,9 +44,9 @@ public partial class NarrowLayoutStyleTests
         Assert.Contains("hyphens: auto;", narrow);
     }
 
-    // Fünf Einträge teilen sich 360 px: "Buchungen" passt nur ohne den seitlichen Abstand der Knöpfe und etwas kleiner.
+    // Alle Einträge teilen sich 360 px; gemessen wird das im Browser (Spec 51, A2).
     [Fact]
-    public void All_five_bottom_bar_labels_fit_on_a_narrow_phone()
+    public void All_bottom_bar_labels_fit_on_a_narrow_phone()
     {
         Assert.Contains("padding-inline: 0;", Block(".app-bottom-item"));
         Assert.Contains("--type-extra-size: min(0.875rem, 3.4vw);", Block(".app-bottom-bar"));
@@ -75,9 +75,9 @@ public partial class NarrowLayoutStyleTests
 
     // Der runde Knopf steht über der unteren Leiste, nicht halb dahinter.
     [Fact]
-    public void The_bookings_plus_button_sits_above_the_bottom_bar()
+    public void The_plus_button_sits_above_the_bottom_bar()
     {
-        var page = File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "Pages", "Bookings.razor"));
+        var page = File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "Layout", "AppLayout.razor"));
 
         Assert.DoesNotContain("bottom: 24px", page);
         Assert.Contains("app-fab", page);
@@ -130,4 +130,11 @@ public partial class NarrowLayoutStyleTests
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex Whitespace();
+
+    // Gesehen im Browser bei 360 px: Sonst rutschte der Papierkorb allein in eine eigene Zeile.
+    [Fact]
+    public void A_movement_keeps_its_amount_and_both_buttons_together()
+    {
+        Assert.Contains("flex: 1 1 100%;", Block(".bookings-table .data-row-frame > * > .flex-grow-1"));
+    }
 }

@@ -101,14 +101,15 @@ public class StartPageTests : PageTestContext
 
     // A3 (R2)
     [Fact]
-    public void New_booking_opens_the_booking_dialog()
+    public void A_new_booking_goes_to_the_current_month()
     {
         SeedPlan();
         var cut = OpenStart();
 
-        cut.Find("[data-testid='start-new-booking']").Click();
+        cut.Find("[data-testid='start-new-booking']").Closest("button")!.Click();
 
-        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll(".step-dialog")));
+        Assert.EndsWith("/plan/2026/10?buchen=1", Navigation.Uri);
+        Assert.Empty(dialogs.FindAll(".step-dialog"));
     }
 
     [Fact]

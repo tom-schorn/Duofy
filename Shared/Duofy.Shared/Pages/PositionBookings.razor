@@ -1,0 +1,46 @@
+@using Radzen
+@using Radzen.Blazor
+@inject IStringLocalizer<SharedResources> L
+
+@* Welche Buchungen zu einem Posten gehören (Spec 51, R8): zugeklappt die Anzahl, aufgeklappt je Buchung der Zweck, das
+   Datum und der Betrag dieser Zeile, nicht der ganzen Buchung. Ist OnAdd gesetzt, geht es von hier zur nächsten Buchung
+   auf diesem Posten. *@
+<details class="position-bookings" data-testid="@TestId">
+    <summary>@Count</summary>
+    @if (Rows.Count > 0)
+    {
+        <LineTable Caption="@L["Plan_PositionBookingsCaption", Label]" HideCaption="true" Rows="TableRows" />
+    }
+    @if (OnAdd.HasDelegate)
+    {
+        <RadzenButton Text="@L["Plan_PositionBookingAdd"]" Icon="add" Variant="Variant.Text" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small"
+                      Click="@(() => OnAdd.InvokeAsync())" Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)"
+                      data-testid="@($"{TestId}-add")" />
+    }
+</details>
+
+@code {
+    private static readonly System.Globalization.CultureInfo German = new("de-DE");
+
+    /// <summary>Der Name des Postens für Vorlese-Programme.</summary>
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+
+    [Parameter, EditorRequired] public IReadOnlyList<PositionBookingRow> Rows { get; set; } = [];
+
+    [Parameter] public string? TestId { get; set; }
+
+    [Parameter] public bool CanAdd { get; set; } = true;
+
+    [Parameter] public EventCallback OnAdd { get; set; }
+
+    private string Count => Rows.Count switch
+    {
+        0 => L["Plan_PositionBookingsNone"],
+        1 => L["Plan_PositionBookingsOne"],
+        _ => L["Plan_PositionBookingsMany", Rows.Count],
+    };
+
+    private IReadOnlyList<LineTableRow> TableRows => Rows
+        .Select(r => new LineTableRow(r.Purpose, r.Amount, r.Date.ToString("d", German), TestId: $"position-booking-{r.BookingId}"))
+        .ToList();
+}

@@ -131,7 +131,7 @@ public class BookingDraftPlanTests
     }
 
     [Fact]
-    public void The_picker_offers_open_positions_of_the_fitting_kind()
+    public void Ticked_positions_stay_on_offer()
     {
         var rent = Position(PotKeys.Needs);
         var salary = Position(PotKeys.Income);
@@ -140,10 +140,9 @@ public class BookingDraftPlanTests
         var plan = new PlanResponse(Guid.NewGuid(), 2026, 10, [rent, salary, goal, done], 0m, 0m, 0m, 0m, [], [],
             new PlanCarryOverResponse(0m, false, null, []));
 
-        Assert.Equal([rent, goal], PlanView.OfferedPositions(plan, BookingKinds.Expense, null));
-        Assert.Equal([salary], PlanView.OfferedPositions(plan, BookingKinds.Income, null));
-        Assert.Equal([goal], PlanView.OfferedPositions(plan, BookingKinds.Transfer, null));
-        Assert.Contains(done, PlanView.OfferedPositions(plan, BookingKinds.Expense, done.Id));
+        Assert.Equal([rent, goal, done], PlanView.OfferedPositions(plan, BookingKinds.Expense));
+        Assert.Equal([salary], PlanView.OfferedPositions(plan, BookingKinds.Income));
+        Assert.Equal([goal], PlanView.OfferedPositions(plan, BookingKinds.Transfer));
     }
 
     // A19
@@ -157,7 +156,6 @@ public class BookingDraftPlanTests
         var plan = new PlanResponse(Guid.NewGuid(), 2026, 10, [goal, envelope, ticked, rent], 0m, 0m, 0m, 0m, [], [],
             new PlanCarryOverResponse(0m, false, null, []));
 
-        Assert.Equal([goal, envelope], PlanView.OfferedPositions(plan, BookingKinds.Transfer, null));
-        Assert.Equal([goal, envelope, ticked], PlanView.OfferedPositions(plan, BookingKinds.Transfer, ticked.Id));
+        Assert.Equal([goal, envelope, ticked], PlanView.OfferedPositions(plan, BookingKinds.Transfer));
     }
 }

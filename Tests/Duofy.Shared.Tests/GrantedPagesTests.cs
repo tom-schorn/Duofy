@@ -127,7 +127,7 @@ public class GrantedPagesTests : PageTestContext
         await ChooseAnnaAsync(GrantLevels.None with { Plan = AccessLevelKeys.View });
 
         var commitments = Render<Commitments>();
-        var bookings = Render<Bookings>();
+        var bookings = Render<AccountBookings>(c => c.Add(x => x.AccountId, Guid.NewGuid()));
         var accounts = Render<Accounts>();
 
         foreach (var text in new[] { commitments.Markup, bookings.Markup, accounts.Markup })
@@ -163,12 +163,12 @@ public class GrantedPagesTests : PageTestContext
     [Fact]
     public async Task With_book_create_ben_books_for_anna_but_cannot_change_or_delete()
     {
-        await ChooseAnnaAsync(GrantLevels.None with { Book = AccessLevelKeys.Create, Accounts = AccessLevelKeys.View });
+        await ChooseAnnaAsync(GrantLevels.None with { Book = AccessLevelKeys.Create, Accounts = AccessLevelKeys.View, Plan = AccessLevelKeys.View });
         var booking = new BookingResponse(Guid.NewGuid(), BookingKinds.Expense, Accounts.Accounts[0].Id, null, new DateOnly(2026, 10, 5),
             12m, null, [new BookingLineResponse(Guid.NewGuid(), 12m, PotKeys.Needs, FakeCategoryApi.Groceries.Id)]);
         BookingApiFake.Bookings.Add(booking);
 
-        var cut = Render<Bookings>();
+        var cut = Render<AccountBookings>(c => c.Add(x => x.AccountId, Accounts.Accounts[0].Id));
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll($"[data-testid='booking-{booking.Id}']")));
 
         Assert.Equal(Anna, Assert.Single(BookingApiFake.ListOwners));
@@ -176,7 +176,7 @@ public class GrantedPagesTests : PageTestContext
         AssertLocked(cut, $"booking-edit-{booking.Id}");
         AssertLocked(cut, $"booking-delete-{booking.Id}");
 
-        cut.Find("[data-testid='bookings-add']").Click();
+        OpenMonthAndNewBooking();
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-next']")));
         Assert.Empty(dialogs.FindAll("[data-testid='booking-new-category']"));
         Field(dialogs, "booking-amount").Change("42");
@@ -290,10 +290,8 @@ public class GrantedPagesTests : PageTestContext
     [Fact]
     public async Task A_booking_dialog_opened_for_anna_saves_for_anna_after_switching_to_me()
     {
-        await ChooseAnnaAsync(GrantLevels.None with { Book = AccessLevelKeys.Create, Accounts = AccessLevelKeys.View });
-        var cut = Render<Bookings>();
-        cut.WaitForAssertion(() => Assert.Equal(Anna, Assert.Single(BookingApiFake.ListOwners)));
-        cut.Find("[data-testid='bookings-add']").Click();
+        await ChooseAnnaAsync(GrantLevels.None with { Book = AccessLevelKeys.Create, Accounts = AccessLevelKeys.View, Plan = AccessLevelKeys.View });
+        var cut = OpenMonthAndNewBooking();
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-next']")));
 
         await cut.InvokeAsync(() => Member.Choose(null));
@@ -304,7 +302,7 @@ public class GrantedPagesTests : PageTestContext
 
         dialogs.WaitForAssertion(() => Assert.Equal(Anna, Assert.Single(BookingApiFake.Created).OwnerId));
         // Auch die Posten zur Wahl kamen aus Annas Plan, nicht aus dem eigenen.
-        Assert.All(PlanApiFake.Owners, owner => Assert.Equal(Anna, owner));
+        Assert.Equal(Anna, PlanApiFake.Owners[1]);
     }
 
     // A15

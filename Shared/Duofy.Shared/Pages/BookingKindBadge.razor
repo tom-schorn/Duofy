@@ -1,0 +1,21 @@
+@using Radzen
+@using Radzen.Blazor
+@using Duofy.Schemas
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Art einer Buchung als farbiges Wort (Spec 51, R9, Issue 51): Die Farbe hilft beim Überfliegen, gesagt wird es
+   mit dem Wort. *@
+<RadzenBadge BadgeStyle="Style" IsPill="true" Text="@L[$"BookingKind_{Kind}"].Value" Class="booking-kind" data-kind="@Kind" />
+
+@code {
+    /// <summary>Eine Art aus <see cref="BookingKinds"/> oder <see cref="MonthBookingText.CarryOver"/>.</summary>
+    [Parameter, EditorRequired] public string Kind { get; set; } = "";
+
+    private BadgeStyle Style => Kind switch
+    {
+        BookingKinds.Income => BadgeStyle.Success,
+        BookingKinds.Expense => BadgeStyle.Danger,
+        BookingKinds.Transfer => BadgeStyle.Info,
+        _ => BadgeStyle.Warning,
+    };
+}

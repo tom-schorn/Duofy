@@ -82,6 +82,31 @@ docker compose --env-file .env up -d --build
 Die ganze Einrichtung Schritt für Schritt (Cloudflare und Tunnel, Datenbank über Tailscale, Umgebungsdatei, Mail über
 `noreply@example.org`, erster Start mit dem Einrichtungscode, Update, Sicherung und Wiederherstellung) steht in [docs/betrieb.md](docs/betrieb.md).
 
+## Einbetten
+
+Eine selbst betriebene Web-Variante lässt sich in einer eigenen Seite im iframe nutzen, zum Beispiel in Home Assistant.
+Dafür nennt `Duofy__FrameAncestors` die erlaubten Seiten, mehrere durch Leerzeichen getrennt (mit `deploy/docker-compose.yml`
+geht auch `DUOFY_FRAME_ANCESTORS`):
+
+```bash
+Duofy__FrameAncestors=https://homeassistant.example.org:8123
+```
+
+Jede Adresse ist genau `https://rechner[:port]`, ohne Pfad, ohne Schrägstrich am Ende und ohne `*`; `http://` gilt nur in
+der Entwicklung. Ein ungültiger Wert bricht den Start ab. Ohne die Variable bleibt alles gesperrt wie bisher; Plagevo
+setzt sie nicht.
+
+Die Web-Variante selbst muss über https erreichbar sein, sonst nimmt der Browser ihre Cookies nicht an. Safari und damit
+die Home-Assistant-App auf dem iPhone sperren Cookies fremder Seiten grundsätzlich; dort klappt die Anmeldung im iframe
+nur, wenn beide Seiten unter derselben Domain liegen (`ha.example.org` und `duofy.example.org`). Wer die Web-Variante
+vorher schon direkt genutzt hat, meldet sich im iframe einmal neu an.
+
+**Sicherheit:** Jede eingetragene Seite kann Duofy in ihrem Rahmen zeigen und darüberlegen, was sie will; wird sie
+übernommen (zum Beispiel per XSS), gilt das auch für den Angreifer. Deshalb nur eigene, vertrauenswürdige Seiten eintragen.
+Mit der Liste gelten die Cookies außerdem für die ganze Instanz als `SameSite=None`, immer mit `Secure`: Der Browser
+schickt sie dann auch bei Anfragen von fremden Seiten mit, und der Schutz gegen untergeschobene Anfragen hängt allein am
+Antiforgery-Token und an der Verbindung, die fremde Seiten nicht aufbauen können.
+
 ## Schrift
 
 Die Anwendung setzt die Schrift Inter 5.3.0 (Variable, Latin) in der Version aus dem npm-Paket `@fontsource-variable/inter`. Quelle: https://github.com/rsms/inter, Lizenz SIL Open Font License 1.1. Die Datei liegt in `Shared/Duofy.Shared/wwwroot/fonts/` und wird mit der Anwendung ausgeliefert, zusammen mit dem Lizenztext `LICENSE-Inter-OFL.txt`. Es gibt keinen Aufruf an einen Fremdserver.

@@ -6,7 +6,18 @@ uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Each account shows its movements by date, with edit and delete, at `/konten/{id}` (spec 51).
+- A position shows which bookings belong to it and offers a booking on this position, also in the household plan (spec 51).
+- `/haushaltsplan`: the household plan as its own page, also for a household of one (spec 51).
+
 ### Changed
+
+- The bottom bar has exactly four targets: Start, Plan, Haushalt, Mehr. Haushalt opens the household plan, and without a household the way to found or join one; Sparen and Verträge lie under Mehr (decision of 2026-11-01).
+- The page Buchungen and its menu entry are gone: new bookings start in the month, `/buchungen` leads to the current month, and the start page and its plus open the current month with the booking dialog (decision of 2026-11-01).
+- A ticked position stays selectable for further bookings, so a fee can still count on it (decision of 2026-11-01).
+- Booking lists name each kind as a coloured word (Einnahme, Ausgabe, Umbuchung, Übertrag) with a sign, and "Letzte Buchungen" says what a booking was for (issue #51).
 
 - The whole interface runs on Radzen Blazor 12.1.8 and Material Symbols; MudBlazor and the Tabler icons are gone, and a test keeps them out. Account and payment icons keep their stored names.
 - UI packages from ASP.NET Core and Microsoft.Extensions are on 10.0.14, as Radzen needs it; the backend stays on 10.0.12 because no advisory applies to its packages.
@@ -55,6 +66,7 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Embedding in an own site such as Home Assistant: `Duofy__FrameAncestors` lists the sites that may show the web version in an iframe (`https://host[:port]`, separated by spaces). With a list, `X-Frame-Options` is gone, `frame-ancestors` names `'self'` and exactly these sites on every response, and the cookies become `SameSite=None; Secure`. An invalid value stops the start; without the setting nothing changes
 - Plan overview (spec 23): `/plan` lists the months with a plan, the current month and the three coming ones, newest first, with the current month highlighted and the free amount per month (or "noch nicht angelegt"); a tap opens the month at `/plan/{year}/{month}`, which links back. New read-only endpoint `GET /api/v1/plans` (months with plan and free amount) and the free amount in `GET /api/v1/households/{id}/plans`
 - `TablerIcon` component with eight Tabler outline icons (`@tabler/icons` 3.50.0, MIT) shipped as embedded SVG files with their licence text; the icon inherits the text colour and is either labelled or hidden from screen readers (spec 7)
 

@@ -87,13 +87,20 @@ internal sealed class HouseholdPlanStore(
             }
         }
         bookingsMissing.Sort(StringComparer.CurrentCultureIgnoreCase);
+        var positionLabels = positionsOf.ToDictionary(p => p.Id, p => p.Label);
+        var categoryNames = await CategoryNamesAsync(visibleMonths.SelectMany(m => m.Bookings), cancellationToken);
         var bookingsOf = visibleMonths
             // Das Paar eines Übertrags steht nicht in der Liste, sondern als eigene Zeile (Spec 66, R9).
             .SelectMany(m => m.Bookings.Where(b => !m.CarryOverBookingIds.Contains(b.Id)).Select(b => (Booking: b, Name: names[m.Plan.OwnerId])))
             .OrderByDescending(x => x.Booking.PaymentDate)
             .ThenByDescending(x => x.Booking.CreatedAt)
             .Select(x => new HouseholdBookingResponse(
-                x.Booking.Id, x.Booking.PaymentDate, x.Booking.Amount, x.Booking.PlanYear, x.Booking.PlanMonth, x.Booking.OwnerId, x.Name))
+                x.Booking.Id, x.Booking.PaymentDate, x.Booking.Amount, x.Booking.PlanYear, x.Booking.PlanMonth, x.Booking.OwnerId, x.Name,
+                BookingEndpoints.KindOf(x.Booking),
+                PurposeOf(x.Booking, positionLabels, categoryNames),
+                x.Booking.Lines
+                    .Select(l => new HouseholdBookingLineResponse(l.PositionId, l.Amount, l.CategoryId is { } id ? categoryNames.GetValueOrDefault(id) : null))
+                    .ToList()))
             .ToList();
         // Die Zeilen folgen denselben Freigaben wie die Buchungen; sie tragen keine Kennung einer Buchung (Spec 46, R3).
         var carryOvers = visibleMonths
@@ -133,6 +140,23 @@ internal sealed class HouseholdPlanStore(
     /// Die Quote je Person (Spec 27): dieselbe Rechnung wie die des Haushalts, einzeln über den Monat nur dieser
     /// Person; Ziel ist für alle der Wert des Haushalts, die Abweichung Ist minus Ziel.
     /// </summary>
+    // Die Namen der Kategorien dieser Buchungen; eingebaute heißen nach dem Katalog, eigene nach ihrem Namen.
+    private async Task<Dictionary<Guid, string>> CategoryNamesAsync(IEnumerable<Booking> bookings, CancellationToken cancellationToken)
+    {
+        var ids = bookings.SelectMany(b => b.Lines).Where(l => l.CategoryId != null).Select(l => l.CategoryId!.Value).Distinct().ToList();
+        var categories = await db.Categories.AsNoTracking().IgnoreQueryFilters().Where(c => ids.Contains(c.Id)).ToListAsync(cancellationToken);
+        return categories.ToDictionary(c => c.Id, c => c.Key is { } key ? CategoryCatalog.GermanName(key) : c.Name!);
+    }
+
+    // Wofür eine Buchung war (Spec 51, R10): die Notiz bleibt draußen, der Haushaltsplan zeigt sie nicht.
+    private static string? PurposeOf(Booking booking, Dictionary<Guid, string> positions, Dictionary<Guid, string> categories)
+    {
+        var first = booking.Lines.FirstOrDefault();
+        return first?.PositionId is { } position && positions.TryGetValue(position, out var label)
+            ? label
+            : first?.CategoryId is { } category ? categories.GetValueOrDefault(category) : null;
+    }
+
     private static List<HouseholdMemberResponse> MemberQuotas(
         Household household, IReadOnlyCollection<MemberMonth> months, IReadOnlyDictionary<Guid, string> names) =>
         months.Select(month =>

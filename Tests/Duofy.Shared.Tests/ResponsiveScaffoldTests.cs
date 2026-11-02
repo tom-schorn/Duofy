@@ -141,7 +141,7 @@ public class ResponsiveScaffoldTests : PageTestContext
     {
         var cut = Render<BottomNavigation>();
 
-        Assert.Equal(["Start", "Plan", "Buchungen", "Sparen", "Mehr"], cut.FindAll("a .app-bottom-label").Select(a => a.TextContent.Trim()));
+        Assert.Equal(["Start", "Plan", "Haushalt", "Mehr"], cut.FindAll("a .app-bottom-label").Select(a => a.TextContent.Trim()));
     }
 
     // A4 (R4)
@@ -173,7 +173,6 @@ public class ResponsiveScaffoldTests : PageTestContext
     [Theory]
     [InlineData("/")]
     [InlineData("/plan")]
-    [InlineData("/buchungen")]
     [InlineData("/konten")]
     [InlineData("/vertraege")]
     [InlineData("/mehr")]

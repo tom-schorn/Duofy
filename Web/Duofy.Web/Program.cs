@@ -62,10 +62,21 @@ builder.Services.AddForwardedClients();
 builder.Services.AddHealthChecks();
 // ---------------------------------------------------------------------------
 
+// --- Einbetten -------------------------------------------------------------
+// Nur mit Duofy:FrameAncestors dürfen fremde Seiten die Web-Variante im iframe zeigen; ein ungültiger Wert bricht hier ab.
+var frameAncestors = builder.AddFrameEmbedding();
+// ---------------------------------------------------------------------------
+
 var app = builder.Build();
+
+if (frameAncestors.AllowsForeignSites)
+{
+    app.Logger.LogInformation("Einbetten erlaubt für: {Addresses}", string.Join(' ', frameAncestors.Addresses));
+}
 
 // Zuerst: Alles danach (HTTPS-Umleitung, Cookies, Log) sieht die Person und https statt des Tunnels.
 app.UseForwardedHeaders();
+app.UseFrameEmbedding(frameAncestors);
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -87,7 +98,14 @@ app.MapStaticAssets();
 app.MapHealthChecks("/health");
 
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode()
+    .AddInteractiveServerRenderMode(options =>
+    {
+        // Blazor sperrt das Einbetten selbst, solange die Verbindung komprimiert ist. Die Komprimierung bleibt an.
+        if (frameAncestors.AllowsForeignSites)
+        {
+            options.ContentSecurityFrameAncestorsPolicy = frameAncestors.Policy;
+        }
+    })
     .AddAdditionalAssemblies(
         typeof(Duofy.Shared._Imports).Assembly);
 

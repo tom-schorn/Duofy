@@ -1,11 +1,10 @@
 namespace Duofy.Shared.Layout;
 
-/// <summary>Die Ziele der Navigation: fünf in der unteren Leiste, dazu die, die nur die Seitenleiste direkt zeigt.</summary>
+/// <summary>Die Ziele der Navigation: vier in der unteren Leiste (Tom, 01.11.2026), dazu die, die nur die Seitenleiste direkt zeigt.</summary>
 public enum AppDestination
 {
     Start,
     Plan,
-    Bookings,
     Savings,
     More,
     Accounts,
@@ -15,8 +14,9 @@ public enum AppDestination
 }
 
 /// <summary>
-/// Welche Adresse zu welchem Ziel der unteren Leiste gehört. Konten, Verträge, Haushalt, Benutzerkonto und Admin
-/// liegen unter "Mehr" und lassen deshalb "Mehr" leuchten.
+/// Welche Adresse zu welchem Ziel der unteren Leiste gehört. Sparen, Konten, Verträge, Benutzerkonto und Admin
+/// liegen unter "Mehr" und lassen deshalb "Mehr" leuchten. "Haushalt" meint unten den Haushaltsplan (Spec 51, R2);
+/// ohne Haushalt führt er zu /haushalt, deshalb leuchtet er auch dort.
 /// </summary>
 public static class AppDestinations
 {
@@ -25,8 +25,7 @@ public static class AppDestinations
     [
         (AppDestination.Start, "/", "Nav_Start", "home"),
         (AppDestination.Plan, "/plan", "Nav_Plan", "calendar_month"),
-        (AppDestination.Bookings, "/buchungen", "Nav_Bookings", "receipt"),
-        (AppDestination.Savings, "/sparen", "Nav_Savings", "savings"),
+        (AppDestination.Household, "/haushaltsplan", "More_Household", "groups"),
         (AppDestination.More, "/mehr", "Nav_More", "more_horiz"),
     ];
 
@@ -38,7 +37,6 @@ public static class AppDestinations
     [
         (AppDestination.Start, "/", "Nav_Start", "home"),
         (AppDestination.Plan, "/plan", "Nav_Plan", "calendar_month"),
-        (AppDestination.Bookings, "/buchungen", "Nav_Bookings", "receipt"),
         (AppDestination.Savings, "/sparen", "Nav_Savings", "savings"),
         (AppDestination.Accounts, "/konten", "Nav_Accounts", "account_balance"),
         (AppDestination.Contracts, "/vertraege", "More_Contracts", "description"),
@@ -56,9 +54,8 @@ public static class AppDestinations
         {
             "" => AppDestination.Start,
             "plan" => AppDestination.Plan,
-            "buchungen" => AppDestination.Bookings,
-            "sparen" => AppDestination.Savings,
-            "mehr" or "konten" or "vertraege" or "konto" or "haushalt" or "admin" => AppDestination.More,
+            "haushaltsplan" or "haushalt" => AppDestination.Household,
+            "mehr" or "sparen" or "konten" or "vertraege" or "konto" or "admin" => AppDestination.More,
             _ => null,
         };
     }

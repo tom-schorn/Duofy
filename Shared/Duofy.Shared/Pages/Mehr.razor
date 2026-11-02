@@ -12,7 +12,7 @@
 @inject IUserApi UserApi
 @using Duofy.ApiClient
 
-@* Mehr: alles, was man seltener braucht. Konten, Verträge, der Haushalt und das Benutzerkonto, der Schalter für
+@* Mehr: alles, was man seltener braucht. Sparen, Konten, Verträge, die Verwaltung des Haushalts und das Benutzerkonto, der Schalter für
    hell und dunkel (die obere Leiste der App hat keinen mehr) und das Abmelden. Wer den Server verwaltet, findet
    hier auch Admin (Spec 70); alle anderen sehen den Eintrag nicht.
 
@@ -31,6 +31,8 @@
    eines Knopfs); nur das Abmelden ist ein echter Knopf. Das Symbol steht vor dem Text. *@
 <RadzenCard Variant="Variant.Outlined" Class="rz-p-2" data-testid="more-list">
     <RadzenStack Gap="0">
+        <LinkButton Href="/sparen" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Class="more-entry"
+                    data-testid="more-savings"><RadzenIcon Icon="savings" /> @L["Nav_Savings"]</LinkButton>
         <LinkButton Href="/konten" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Class="more-entry"
                     data-testid="more-accounts"><RadzenIcon Icon="account_balance" /> @L["Nav_Accounts"]</LinkButton>
         <LinkButton Href="/vertraege" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Class="more-entry"

@@ -15,6 +15,7 @@ public static class MonthCarryOverText
                 localizer[row.Incoming ? "Month_CarryOverIn" : "Month_CarryOverOut", row.Month.ToString("MMMM", German)].Value,
                 row.Amount,
                 row.Owner,
-                TestId: row.Incoming ? "month-carry-over-in" : "month-carry-over-out"))
+                TestId: row.Incoming ? "month-carry-over-in" : "month-carry-over-out",
+                Tag: MonthBookingText.Badge(MonthBookingText.CarryOver)))
             .ToList();
 }

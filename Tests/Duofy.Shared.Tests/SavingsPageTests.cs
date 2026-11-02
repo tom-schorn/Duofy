@@ -53,11 +53,14 @@ public class SavingsPageTests : PageTestContext
     }
 
     [Fact]
-    public void The_address_sparen_belongs_to_its_own_destination_and_stays_out_of_more()
+    public void The_address_sparen_lies_under_more_and_has_its_own_entry_in_the_side_bar()
     {
-        Assert.Equal(AppDestination.Savings, AppDestinations.For("/sparen"));
-        Assert.Equal(AppDestination.Savings, AppDestinations.For("sparen/ziele"));
-        Assert.Contains(AppDestinations.All, d => d.Destination == AppDestination.Savings && d.Href == "/sparen");
+        Assert.Equal(AppDestination.More, AppDestinations.For("/sparen"));
+        Assert.Equal(AppDestination.More, AppDestinations.For("sparen/ziele"));
+        Assert.DoesNotContain(AppDestinations.All, d => d.Href == "/sparen");
+        Assert.Contains(AppDestinations.Side, d => d.Destination == AppDestination.Savings && d.Href == "/sparen");
+        Assert.Contains("href=\"/sparen\"".Replace("href=", "Href=", StringComparison.Ordinal),
+            File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "Pages", "Mehr.razor")));
     }
 
     [Fact]

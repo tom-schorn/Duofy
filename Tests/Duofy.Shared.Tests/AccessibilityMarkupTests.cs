@@ -25,7 +25,7 @@ public class AccessibilityMarkupTests : UiTestContext
 
     // S1: Der Titel jeder Seite ist ihre Hauptüberschrift, im Browser sichtbar, in der App für Vorlese-Programme.
     [Theory]
-    [InlineData("Bookings")]
+    [InlineData("AccountBookings")]
     [InlineData("Accounts")]
     [InlineData("Commitments")]
     [InlineData("Plan")]
@@ -171,8 +171,8 @@ public class AccessibilityMarkupTests : UiTestContext
 
     // S7: Die Knöpfe einer Zeile nennen ihre Zeile; sonst hört man zehnmal dasselbe "Ändern".
     [Theory]
-    [InlineData("Bookings", """L["Bookings_Edit", RowName(booking)]""")]
-    [InlineData("Bookings", """L["Bookings_Delete", RowName(booking)]""")]
+    [InlineData("AccountBookings", """L["Bookings_Edit", RowName(booking)]""")]
+    [InlineData("AccountBookings", """L["Bookings_Delete", RowName(booking)]""")]
     [InlineData("Accounts", """L["Accounts_Edit", account.Name]""")]
     [InlineData("Accounts", """L[account.IsDefault ? "Accounts_IsDefault" : "Accounts_MakeDefault", account.Name]""")]
     [InlineData("Commitments", """L["Commitments_Edit", commitment.Name]""")]
@@ -209,7 +209,7 @@ public class AccessibilityMarkupTests : UiTestContext
 
     [Fact]
     public void A_booking_row_is_named_by_title_and_date() =>
-        Assert.Matches(@"RowName\(BookingResponse booking\) => .*Title\(booking\).*booking\.Date", Page("Bookings"));
+        Assert.Matches(@"RowName\(BookingResponse booking\) => .*Title\(booking\).*booking\.Date", Page("AccountBookings"));
 
     private sealed class MemoryThemeStore : IThemePreferenceStore
     {

@@ -82,7 +82,8 @@ else
                 </RadzenButton>
                 <AccountIconMark Icon="@account.Icon" />
                 <RadzenStack Gap="0" Class="flex-grow-1 data-cells">
-                    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="data-column-3">@account.Name</RadzenText>
+                    <RadzenLink Path="@($"/konten/{account.Id}")" Text="@account.Name" Class="data-column-3 account-open"
+                                aria-label="@L["Accounts_Open", account.Name]" data-testid="@($"account-open-{account.Id}")" />
                     <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color data-column-4">@L[$"AccountType_{account.Type}"]</RadzenText>
                 </RadzenStack>
                 <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.P" Class="data-column-5 data-amount">@Money(account.Balance)</RadzenText>
@@ -116,7 +117,8 @@ else
                     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Class="data-row">
                         <AccountIconMark Icon="@account.Icon" />
                         <RadzenStack Gap="0" Class="flex-grow-1 data-cells">
-                            <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color data-column-3">@account.Name</RadzenText>
+                            <RadzenLink Path="@($"/konten/{account.Id}")" Text="@account.Name" Class="data-column-3 account-open"
+                                        aria-label="@L["Accounts_Open", account.Name]" data-testid="@($"account-open-{account.Id}")" />
                             <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color data-column-4">@L["Accounts_ClosedMark", L[$"AccountType_{account.Type}"]]</RadzenText>
                         </RadzenStack>
                         <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.P" Class="rz-text-secondary-color data-column-5 data-amount">@Money(account.Balance)</RadzenText>

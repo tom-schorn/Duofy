@@ -141,7 +141,7 @@
 
     // Der Übertrag steht als eigene Zeile über den Buchungen (Spec 66, R9).
     private IReadOnlyList<LineTableRow> RecentRows => MonthCarryOverText.Rows(Model.CarryOvers, L)
-        .Concat(Model.Bookings.Select(b => new LineTableRow(b.Date.ToString("d", German), b.Amount, b.Detail, TestId: $"month-recent-{b.Id}")))
+        .Concat(Model.Bookings.Select(b => MonthBookingText.Row(b, L, $"month-recent-{b.Id}")))
         .ToList();
 
     private IReadOnlyList<LineTableRow> DueRows => Model.Due

@@ -23,6 +23,9 @@ public sealed partial class FakeHouseholdApi : IHouseholdApi
     /// <summary>Die öffentliche Adresse, mit der die API die Links baut, wie Duofy:PublicUrl auf dem Server.</summary>
     public const string PublicUrl = "https://duofy.example.de";
 
+    /// <summary>Hält die Antwort auf GetMineAsync zurück, wie ein echter Server beim ersten Laden der Seite.</summary>
+    public Task? MineGate { get; set; }
+
     public HouseholdResponse? Household { get; set; } = new(Guid.NewGuid(), "Haushalt von Anna", 50, 30, 20, [Anna()]);
 
     /// <summary>Der Haushalt, den das Beitreten liefert und danach als eigener gilt.</summary>
@@ -60,12 +63,16 @@ public sealed partial class FakeHouseholdApi : IHouseholdApi
     }
 
     // Ohne Haushalt antwortet die API 404 no_household, der Client meldet das als NotFound.
-    public Task<ApiResult<HouseholdResponse>> GetMineAsync(CancellationToken cancellationToken = default)
+    public async Task<ApiResult<HouseholdResponse>> GetMineAsync(CancellationToken cancellationToken = default)
     {
         MineCalls++;
-        return Task.FromResult(Household is null
+        if (MineGate is { } gate)
+        {
+            await gate;
+        }
+        return Household is null
             ? ApiResult<HouseholdResponse>.Failure(ClientErrorCodes.NotFound)
-            : ApiResult<HouseholdResponse>.Success(Household));
+            : ApiResult<HouseholdResponse>.Success(Household);
     }
 
     public Task<ApiResult<HouseholdResponse>> UpdateAsync(Guid householdId, UpdateHouseholdRequest request, CancellationToken cancellationToken = default)

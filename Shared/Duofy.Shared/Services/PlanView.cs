@@ -33,15 +33,14 @@ public static class PlanView
     public static bool CanDelete(PlanPositionResponse position) => position.Booked == 0m;
 
     /// <summary>
-    /// Die Posten, die eine Zeile dieser Art füllen darf (R6): offene Posten des Planmonats, deren Topf
-    /// passt. Einnahmen füllen Einnahme-Posten, Ausgaben die übrigen, eine Umbuchung Posten im Topf
-    /// Sparen und jeden Posten mit eigenem Zielkonto. Der schon gewählte Posten bleibt in der Liste, auch wenn er inzwischen abgehakt ist.
+    /// Die Posten, die eine Zeile dieser Art füllen darf: alle Posten des Planmonats, deren Topf passt, auch abgehakte
+    /// (Spec 51, R7: die Mahnkosten gehören zur GEZ, auch wenn sie schon abgehakt ist). Einnahmen füllen Einnahme-Posten,
+    /// Ausgaben die übrigen, eine Umbuchung Posten im Topf Sparen und jeden Posten mit eigenem Zielkonto.
     /// </summary>
-    public static IReadOnlyList<PlanPositionResponse> OfferedPositions(PlanResponse? plan, string kind, Guid? chosen) =>
+    public static IReadOnlyList<PlanPositionResponse> OfferedPositions(PlanResponse? plan, string kind) =>
         plan is null
             ? []
             : plan.Positions
-                .Where(p => p.Id == chosen || p.DoneAt is null)
                 .Where(p => kind switch
                 {
                     BookingKinds.Income => p.Pot == PotKeys.Income,

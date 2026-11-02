@@ -14,19 +14,25 @@
                 }
                 <th scope="row" role="rowheader" class="line-table-label">
                     <span class="line-table-text">
-                        @row.Label
+                        <span class="line-table-title">@row.Tag@row.Label</span>
                         @if (row.Detail is not null)
                         {
                             <span class="line-table-detail">@row.Detail</span>
                         }
                     </span>
                 </th>
-                <td role="cell" class="line-table-amount">@(row.Amount is { } amount ? MoneyText.Format(amount) : "")</td>
+                <td role="cell" class="line-table-amount">@(row.Amount is { } amount ? row.AmountPrefix + MoneyText.Format(amount) : "")</td>
                 @if (HasTrailing)
                 {
                     <td role="cell" class="line-table-trail">@row.Trailing</td>
                 }
             </tr>
+            @if (row.Below is not null)
+            {
+                <tr role="row" class="line-table-below-row">
+                    <td role="cell" class="line-table-below" colspan="@Columns">@row.Below</td>
+                </tr>
+            }
         }
     </tbody>
 </table>
@@ -40,4 +46,5 @@
 
     private bool HasLeading => Rows.Any(r => r.Leading is not null);
     private bool HasTrailing => Rows.Any(r => r.Trailing is not null);
+    private int Columns => 2 + (HasLeading ? 1 : 0) + (HasTrailing ? 1 : 0);
 }

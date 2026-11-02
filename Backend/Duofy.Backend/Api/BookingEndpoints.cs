@@ -47,7 +47,7 @@ internal static class BookingEndpoints
     /// Die Art steht nicht in der Tabelle; sie ergibt sich aus der Buchung: mit Gegenkonto eine
     /// Umbuchung, sonst entscheidet der Topf der Zeilen.
     /// </summary>
-    private static string KindOf(Booking booking) =>
+    internal static string KindOf(Booking booking) =>
         booking.IsTransfer ? BookingKinds.Transfer
         : booking.Lines.Count > 0 && booking.Lines[0].Pot == Pot.Income ? BookingKinds.Income
         : BookingKinds.Expense;

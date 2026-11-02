@@ -120,12 +120,11 @@ public class SideNavigationTests : PageTestContext
         Assert.Single(cut.FindAll("[data-testid='bottom-bar']"));
     }
 
-    // Spec 10, Änderung vom 01.11.2026: Die untere Leiste bleibt wie sie ist, die Seitenleiste zeigt direkt, was
-    // unten hinter "Mehr" liegt, und kein "Mehr".
+    // Spec 51, R1 (Tom, 01.11.2026): Genau diese vier; die Seitenleiste zeigt direkt, was unten hinter "Mehr" liegt.
     [Fact]
-    public void The_bottom_bar_keeps_its_four_entries()
+    public void The_bottom_bar_has_the_four_targets_of_the_human()
     {
-        (string, string?)[] expected = [("Start", "/"), ("Plan", "/plan"), ("Buchungen", "/buchungen"), ("Sparen", "/sparen"), ("Mehr", "/mehr")];
+        (string, string?)[] expected = [("Start", "/"), ("Plan", "/plan"), ("Haushalt", "/haushaltsplan"), ("Mehr", "/mehr")];
         Assert.Equal(expected.Select(e => e.Item2), AppDestinations.All.Select(d => d.Href));
 
         var cut = Render<MainLayout>();
@@ -139,7 +138,7 @@ public class SideNavigationTests : PageTestContext
         var cut = Render<MainLayout>();
 
         cut.WaitForAssertion(() => Assert.Equal(
-            [("Start", "/"), ("Plan", "/plan"), ("Buchungen", "/buchungen"), ("Sparen", "/sparen"), ("Konten", "/konten"), ("Verträge", "/vertraege"),
+            [("Start", "/"), ("Plan", "/plan"), ("Sparen", "/sparen"), ("Konten", "/konten"), ("Verträge", "/vertraege"),
              ("Haushalt", "/haushalt"), ("Benutzerkonto", "/konto"), ("Lizenzen", "/lizenzen")],
             Entries(cut, "side-nav")));
         Assert.Empty(cut.FindAll("[data-testid='side-more']"));
@@ -255,6 +254,31 @@ public class SideNavigationTests : PageTestContext
             Assert.Equal(label, Label(Assert.Single(cut.FindAll("a"), a => a.GetAttribute("aria-current") == "page"))));
     }
 
+    // Spec 51, R3: Keine Leiste führt mehr zu den Buchungen.
+    [Fact]
+    public void No_menu_has_an_entry_for_bookings()
+    {
+        Assert.DoesNotContain(AppDestinations.All.Concat(AppDestinations.Side), d => d.Href == "/buchungen");
+        var more = File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "Pages", "Mehr.razor"));
+        Assert.DoesNotContain("/buchungen", more);
+    }
+
+    // Spec 51, R1: Sparen und Verträge liegen unter "Mehr" und lassen es leuchten.
+    [Theory]
+    [InlineData("/sparen", "Mehr")]
+    [InlineData("/vertraege", "Mehr")]
+    [InlineData("/haushaltsplan", "Haushalt")]
+    [InlineData("/haushaltsplan/2026/11", "Haushalt")]
+    [InlineData("/haushalt", "Haushalt")]
+    public void The_bottom_bar_marks_the_right_target(string path, string label)
+    {
+        Navigation.NavigateTo(path);
+
+        var cut = Render<BottomNavigation>();
+
+        Assert.Equal(label, Label(Assert.Single(cut.FindAll("a"), a => a.GetAttribute("aria-current") == "page")));
+    }
+
     // Unten leuchtet für dieselbe Seite weiter "Mehr".
     [Fact]
     public void The_bottom_bar_still_marks_more_for_the_accounts_page()
@@ -274,7 +298,7 @@ public class SideNavigationTests : PageTestContext
 
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='side-licenses']")));
         var links = cut.FindAll("[data-testid='side-nav'] a");
-        Assert.Equal(new[] { "/", "/plan", "/buchungen", "/sparen", "/konten", "/vertraege", "/haushalt", "/konto", "/lizenzen" }, links.Select(a => a.GetAttribute("href")));
+        Assert.Equal(new[] { "/", "/plan", "/sparen", "/konten", "/vertraege", "/haushalt", "/konto", "/lizenzen" }, links.Select(a => a.GetAttribute("href")));
 
         // Das Radzen-Menü ist ein Tab-Halt; darin führen die Pfeiltasten von Eintrag zu Eintrag, Enter öffnet das Ziel.
         Assert.Equal("0", cut.Find("[data-testid='side-nav'] .rz-panel-menu").GetAttribute("tabindex"));

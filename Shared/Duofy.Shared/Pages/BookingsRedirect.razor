@@ -1,0 +1,15 @@
+@page "/buchungen"
+@attribute [Authorize]
+@inject NavigationManager Navigation
+@inject TimeProvider Time
+
+@* Die Seite Buchungen gibt es nicht mehr (Tom, 01.11.2026: "Nur im Monat, Menüpunkt weg"). Wer die alte Adresse gemerkt
+   hat, landet im laufenden Monat, und Zurück führt nicht wieder hierher. *@
+
+@code {
+    protected override void OnInitialized()
+    {
+        var today = DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
+        Navigation.NavigateTo($"/plan/{today.Year}/{today.Month}", replace: true);
+    }
+}

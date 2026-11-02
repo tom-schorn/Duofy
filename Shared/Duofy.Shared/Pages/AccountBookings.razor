@@ -1,4 +1,4 @@
-@page "/buchungen"
+@page "/konten/{AccountId:guid}"
 @using Radzen
 @using Radzen.Blazor
 @attribute [Authorize]
@@ -15,25 +15,28 @@
 @inject ActiveMember Member
 @inject BookingDialogLauncher Launcher
 @inject TimeProvider Time
+@inject NavigationManager Navigation
 @inject IStringLocalizer<SharedResources> L
 
-@* Die Buchungsseite: ein Monat auf einmal, mit Pfeilen zum Blättern, einem Filter für das
-   Konto, den Summen oben und einem Plus-Knopf zum schnellen Eintragen.
+@* Die Bewegungen eines Kontos (Spec 51, R5): ein Monat auf einmal nach Datum, mit Pfeilen zum Blättern und den Summen
+   oben, Bearbeiten und Löschen je Zeile. Neu gebucht wird hier nicht: Neue Buchungen entstehen nur im Monat des Plans
+   (Tom, 01.11.2026: "Nur im Monat, Menüpunkt weg").
 
    Die Seite rechnet nichts selbst. Sie fragt die API nach Monat und Konto und zeigt die
-   Buchungen und Summen, die zurückkommen. Neue und geänderte Buchungen prüft ebenfalls die API;
+   Buchungen und Summen, die zurückkommen. Geänderte Buchungen prüft ebenfalls die API;
    die Seite zeigt deren Fehlertexte an.
 
-   Mit dem Umschalter zeigt die Seite die Buchungen eines anderen Mitglieds (Spec 68). Buchen und Ändern brauchen
+   Mit dem Umschalter zeigt die Seite die Buchungen eines anderen Mitglieds (Spec 68). Ändern braucht
    dazu, dass es auch seine Konten zeigt. *@
 
-<PageTitle>@L["Bookings_Title"]</PageTitle>
+<PageTitle>@Heading</PageTitle>
 
-@* In der App steht der Titel in der oberen Leiste und das Plus im Layout (AppChrome). *@
-<AppPageHeading Text="@L["Bookings_Title"]" />
+@* In der App steht der Titel in der oberen Leiste (AppChrome). *@
+<AppPageHeading Text="@Heading" />
+<RadzenLink Path="/konten" Text="@L["Accounts_BackToList"]" Class="plan-back rz-mb-2" data-testid="account-bookings-back" />
 @if (!Host.IsApp)
 {
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" Class="rz-mb-2">@L["Bookings_Title"]</RadzenText>
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" Class="rz-mb-2" data-testid="account-bookings-title">@Heading</RadzenText>
 }
 
 <Notice Message="message" />
@@ -44,9 +47,9 @@
 }
 else
 {
-<GrantReason Show="@(!(CanAdd && CanEdit && CanDelete))" />
+<GrantReason Show="@(!(CanEdit && CanDelete))" />
 
-@* Monat, Filter und Summen stehen ab 1280 px nebeneinander, darunter untereinander wie bisher. *@
+@* Monat und Summen stehen ab 1280 px nebeneinander, darunter untereinander wie bisher. *@
 <div class="bookings-top">
 @* Blättern: ein Pfeil zurück, der Monat, ein Pfeil vor. *@
 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-2">
@@ -57,17 +60,7 @@ else
                   aria-label="@L["Bookings_NextMonth"]" data-testid="bookings-next-month" />
 </RadzenStack>
 
-@* Der Filter: alle Konten oder eines. Auch aufgelöste Konten stehen hier, ihre Buchungen bleiben ja erhalten. *@
-<NativeSelect Value="@(filterAccountId?.ToString() ?? "")" ValueChanged="OnFilterChangedAsync"
-                 Label="@L["Field_Account"]" data-testid="bookings-filter">
-    <option value="">@L["Bookings_AllAccounts"]</option>
-    @foreach (var account in accounts)
-    {
-        <option value="@account.Id">@account.Name</option>
-    }
-</NativeSelect>
-
-@* Die Summen des Monats (oder des gewählten Kontos). *@
+@* Die Summen des Kontos in diesem Monat. *@
 <RadzenStack Orientation="Orientation.Horizontal" Gap="1.5rem" Class="rz-mb-2">
     <RadzenCard Variant="Variant.Outlined" Class="flex-grow-1">
         <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P">@L["Bookings_Income"]</RadzenText>
@@ -79,11 +72,6 @@ else
     </RadzenCard>
 </RadzenStack>
 </div>
-
-@if (accounts.Count == 0 && loaded && SeesAccounts && message?.Severity != NoticeSeverity.Error)
-{
-    <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" AllowClose="false" Class="rz-mb-2">@L["Bookings_NoAccounts"]</RadzenAlert>
-}
 
 @if (monthData is { Bookings.Count: 0 } && loaded)
 {
@@ -107,7 +95,7 @@ else
             <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem" Class="data-row">
                 <RadzenStack Gap="0" Class="flex-grow-1 data-cells">
                     <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="data-column-1">@booking.Date.ToString("d", German)</RadzenText>
-                    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="data-column-2">@Title(booking)</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="data-column-2"><BookingKindBadge Kind="@booking.Kind" /> @Title(booking)</RadzenText>
                     <div class="data-column-3">
                         @if (TransferPots(booking) is { } pots)
                         {
@@ -132,14 +120,6 @@ else
         </RadzenCard>
     }
 </RadzenStack>
-
-@* Das Plus. Es bleibt unten rechts stehen, auch wenn die Liste lang ist. Ohne Konto gibt es nichts zu buchen. *@
-@if (!Host.IsApp)
-{
-    <RadzenFab Icon="add" Disabled="@(CanAdd && !HasActiveAccount)"
-               Click="@(() => AddAsync())" aria-label="@L["Bookings_Add"]" data-testid="bookings-add"
-               Class="@($"app-fab {GrantLock.Class(CanAdd)}")" @attributes="GrantLock.Attributes(CanAdd)" />
-}
 }
 
 @code {
@@ -147,22 +127,24 @@ else
     // Deutsche Schreibweise für Datum und Beträge (21.10.2026, 1.234,50), auch wenn das Gerät anders eingestellt ist.
     private static readonly CultureInfo German = new("de-DE");
 
+    /// <summary>Das Konto aus der Adresse; die API prüft, ob es der Person gehört oder freigegeben ist.</summary>
+    [Parameter] public Guid AccountId { get; set; }
+
     private int year;
     private int month;
-    private Guid? filterAccountId;
     private IReadOnlyList<AccountChoice> accounts = [];
     private List<CategoryResponse> categories = [];
     private BookingMonthResponse? monthData;
     private NoticeMessage? message;
     private bool loaded;
 
-    private bool HasActiveAccount => accounts.Any(a => a.Active);
+    // Die Überschrift nennt das Konto, sobald es geladen ist.
+    private string Heading => accounts.FirstOrDefault(a => a.Id == AccountId)?.Name ?? L["Bookings_Title"];
 
     // Was die Freigabe des gewählten Mitglieds erlaubt (Spec 68); bei "Ich" alles. Wer bucht oder ändert, wählt
     // ein Konto und muss die Konten deshalb sehen dürfen.
     private bool Sees => Member.Allows(GrantAreas.Book, AccessLevelKeys.View);
     private bool SeesAccounts => Member.Allows(GrantAreas.Accounts, AccessLevelKeys.View);
-    private bool CanAdd => Member.Allows(GrantAreas.Book, AccessLevelKeys.Create) && SeesAccounts;
     private bool CanEdit => Member.Allows(GrantAreas.Book, AccessLevelKeys.Edit) && SeesAccounts;
     private bool CanDelete => Member.Allows(GrantAreas.Book, AccessLevelKeys.Delete);
 
@@ -185,7 +167,6 @@ else
     private void OnMemberChanged() => _ = InvokeAsync(async () =>
     {
         message = null;
-        filterAccountId = null;
         await LoadAllAsync();
         StateHasChanged();
     });
@@ -229,12 +210,8 @@ else
         await LoadAsync();
     }
 
-    // Titel und Plus für die App. Das Plus geht erst, wenn ein offenes Konto da ist.
-    private void PublishChrome()
-    {
-        Chrome.Set(this, L["Bookings_Title"], AddAsync, L["Bookings_Add"], plusDisabled: CanAdd && !HasActiveAccount);
-        Chrome.LockPlus(this, Sees && !CanAdd ? GrantLock.ReasonId : null);
-    }
+    // Der Titel für die App; ein Plus gibt es hier nicht, gebucht wird im Monat.
+    private void PublishChrome() => Chrome.Set(this, Heading);
 
     public void Dispose()
     {
@@ -244,7 +221,7 @@ else
 
     private async Task LoadAsync()
     {
-        var result = await BookingApi.ListMonthAsync(year, month, filterAccountId, Member.Owner);
+        var result = await BookingApi.ListMonthAsync(year, month, AccountId, Member.Owner);
         if (result.Succeeded)
         {
             monthData = result.Value;
@@ -267,33 +244,15 @@ else
         await LoadAsync();
     }
 
-    private async Task OnFilterChangedAsync(string value)
-    {
-        filterAccountId = Guid.TryParse(value, out var id) ? id : null;
-        await LoadAsync();
-    }
-
-    // Das Plus: ein leerer Dialog. Er ist mit Ausgabe, heute und dem Standardkonto vorbelegt.
-    private async Task AddAsync()
-    {
-        if (CanAdd)
-        {
-            await ShowDialogAsync(existing: null);
-        }
-    }
-
     private async Task EditAsync(BookingResponse booking)
     {
-        if (CanEdit)
+        if (!CanEdit)
         {
-            await ShowDialogAsync(booking);
+            return;
         }
-    }
 
-    private async Task ShowDialogAsync(BookingResponse? existing)
-    {
         // Der Dialog geht über den gemeinsamen Aufruf auf (im Browser als Fenster, in der App als Vollbild).
-        var outcome = await Launcher.OpenAsync(existing, accounts, categories);
+        var outcome = await Launcher.OpenAsync(booking, accounts, categories);
         if (outcome is null)
         {
             return;
@@ -326,22 +285,13 @@ else
         await LoadAsync();
     }
 
-    // Die Überschrift einer Buchung: bei einer Umbuchung "Umbuchung: Von → Nach", sonst die Kategorie,
-    // und bei mehreren Zeilen der Hinweis "aufgeteilt".
+    // Die Überschrift einer Buchung: bei einer Umbuchung "Von → Nach", sonst die Kategorie, sonst die Notiz,
+    // und bei mehreren Zeilen der Hinweis "aufgeteilt". Die Art steht als Wort davor (Spec 51, R9).
     // Der Name einer Zeile für ihre Knöpfe; das Datum unterscheidet gleiche Kategorien im selben Monat.
     private string RowName(BookingResponse booking) => $"{Title(booking)} vom {booking.Date.ToString("d", German)}";
 
-    private string Title(BookingResponse booking)
-    {
-        if (booking.Kind == BookingKinds.Transfer)
-        {
-            return L["Bookings_Transfer", AccountName(booking.AccountId), AccountName(booking.CounterAccountId)];
-        }
-
-        var first = booking.Lines.FirstOrDefault();
-        var name = categories.FirstOrDefault(c => c.Id == first?.CategoryId)?.Name ?? "";
-        return booking.Lines.Count > 1 ? $"{name} · {L["Bookings_Split"]}" : name;
-    }
+    private string Title(BookingResponse booking) =>
+        BookingPurpose.For(booking, [], id => categories.FirstOrDefault(c => c.Id == id)?.Name, id => accounts.FirstOrDefault(a => a.Id == id)?.Name, L);
 
     // Bei einer Umbuchung die Töpfe als Text, "Topf: Sparen → Wünsche" (Spec 72, R9); Farbe allein sagt es nicht.
     // Eine ältere Umbuchung kennt nur ihre Zeile (Sparen) oder gar keinen Topf, dann steht dort weniger oder nichts.
@@ -356,12 +306,9 @@ else
             : L["Bookings_TransferPotSource", L[$"Pot_{source}"]];
     }
 
-    private string AccountName(Guid? id) => accounts.FirstOrDefault(a => a.Id == id)?.Name ?? "";
-
     private string Money(decimal amount) => amount.ToString("N2", German) + " €";
 
-    // Einnahmen mit Plus, Ausgaben mit Minus. Eine Umbuchung hat nur beim Filter eine Richtung:
-    // Für das Zielkonto kommt Geld herein, für das Ausgangskonto geht es ab.
+    // Einnahmen mit Plus, Ausgaben mit Minus. Bei einer Umbuchung kommt für das Zielkonto Geld herein, für das Ausgangskonto geht es ab.
     private string SignedMoney(BookingResponse booking) => Direction(booking) switch
     {
         1 => "+" + Money(booking.Amount),
@@ -373,7 +320,6 @@ else
     {
         BookingKinds.Income => 1,
         BookingKinds.Expense => -1,
-        _ when filterAccountId is null => 0,
-        _ => booking.CounterAccountId == filterAccountId ? 1 : -1,
+        _ => booking.CounterAccountId == AccountId ? 1 : -1,
     };
 }
