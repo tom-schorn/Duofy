@@ -1,10 +1,10 @@
-@using Radzen
-@using Radzen.Blazor
+@using BlazorBlueprint.Components
+@using Duofy.Shared.Dialogs
+@inherits FormDialogBase
 @using Duofy.ApiClient
 @using Duofy.Schemas
 @using Duofy.Shared.Dialogs
 @inject IHouseholdApi HouseholdApi
-@inject DialogService Dialogs
 @inject IStringLocalizer<SharedResources> L
 
 @* Name und Richtwerte des Haushalts (R7), nur für den Gründer, auf dem Schritt-Dialog (Spec 11) mit einem Schritt (Issue #22). Die Richtwerte sind ganze Prozent für
@@ -15,21 +15,17 @@
     <DialogStep Title="@L["HouseholdDialog_StepAll"]">
         @if (error is not null)
         {
-            <ErrorAlert AlertStyle="AlertStyle.Danger" Text="@error" data-testid="household-dialog-error" />
+            <ErrorAlert Text="@error" data-testid="household-dialog-error" />
         }
         <StepField Label="@L["HouseholdDialog_Name"]" InputId="household-dialog-name-input" TestId="household-dialog-name-field">
-            <RadzenTextBox @bind-Value="name" MaxLength="100" id="household-dialog-name-input"
-                           data-testid="household-dialog-name" />
+            <TextInput id="household-dialog-name-input" maxlength="@(100)" @bind-Value="name" data-testid="household-dialog-name" />
         </StepField>
-        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P">@L["HouseholdDialog_QuotasHint"]</RadzenText>
+        <p>@L["HouseholdDialog_QuotasHint"]</p>
         @foreach (var pot in Pots)
         {
             var key = pot;
-            <StepField Label="@L["Account_QuotaField", L[$"Pot_{key}"]]" InputId="@($"household-dialog-quota-{key}-input")" AriaLabelled="true">
-                <RadzenNumeric TValue="int" Value="quotas[key]" ValueChanged="v => quotas[key] = v" Min="0" Max="100"
-                               ShowUpDown="false"
-                               InputAttributes="@(new Dictionary<string, object> { ["aria-labelledby"] = $"household-dialog-quota-{key}-input-label" })"
-                               data-testid="@($"household-dialog-quota-{key}")" />
+            <StepField Label="@L["Account_QuotaField", L[$"Pot_{key}"]]" InputId="@($"household-dialog-quota-{key}-input")">
+                <NumberInput id="@($"household-dialog-quota-{key}-input")" min="0" max="@(100)" Value="quotas[key]" ValueChanged="v => quotas[key] = v ?? 0" data-testid="@($"household-dialog-quota-{key}")" />
             </StepField>
         }
     </DialogStep>
@@ -69,7 +65,7 @@
                 error = ErrorTexts.For(L, result.ErrorCode);
                 return;
             }
-            Dialogs.Close(true);
+            await CloseAsync(true);
         }
         finally
         {

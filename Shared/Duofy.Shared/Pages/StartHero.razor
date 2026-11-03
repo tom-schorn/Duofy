@@ -1,18 +1,17 @@
-@* Der Kopf der Startseite (Spec 33, R1): Begrüßung und Frei-Betrag des Monats im Farbblock der Variante Frei.
-   Die Flächenfarbe und die Schrift kommen wie bei jedem Farbblock aus app.css; auf dem Block steht immer der Haupttext.
+@* Der Kopf der Startseite (Spec 33, R1): Begrüßung und Verplanbar des Monats auf einer schlichten Karte, keine Farbfläche.
    Für Vorlese-Programme ist der Block eine Gruppe mit Titel und Betrag als Name, die Begrüßung ist die Überschrift der Seite.
    Der Link unten führt in den Monat, aus dem die Zahl kommt (R7). *@
-<div class="color-block color-block--free start-hero" role="group" aria-label="@Label" data-testid="start-hero">
+<div class="start-hero" role="group" aria-label="@Label" data-testid="start-hero">
     <h1 class="start-greeting">@Greeting</h1>
     @if (ViewOf is not null)
     {
-        <p class="color-block-note start-view-of" data-testid="start-view-of">@ViewOf</p>
+        <p class="muted small" data-testid="start-view-of">@ViewOf</p>
     }
-    <p class="color-block-title" data-testid="start-free">@Title</p>
-    <p class="color-block-amount">@Shown</p>
+    <p class="metric-title" data-testid="start-free">@Title</p>
+    <p class="start-amount">@Shown</p>
     @if (Note is not null)
     {
-        <p class="color-block-note">@Note</p>
+        <p class="muted small">@Note</p>
     }
     <a class="start-link" href="@Href" data-testid="start-hero-link">@LinkText</a>
 </div>

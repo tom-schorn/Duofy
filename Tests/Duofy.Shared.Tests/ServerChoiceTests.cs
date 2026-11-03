@@ -217,24 +217,20 @@ public class ServerChoiceTests : PageTestContext
         public Task SaveAsync(ThemeChoice choice) => Task.CompletedTask;
     }
 
-    // Radzen-Umstellung R5: Der Serverdialog geht über FormDialogs als Radzen-Dialog auf.
+    // Spec 82: In der App ist der Dialog dasselbe Fenster wie im Browser; ohne Übernehmen ändert sich nichts.
     [Fact]
-    public void In_the_app_the_dialog_is_a_full_screen_radzen_dialog_with_its_own_header_and_cancel_changes_nothing()
+    public void In_the_app_the_dialog_is_the_same_window_and_closing_changes_nothing()
     {
         RunAsApp();
         var cut = Open("/anmelden");
 
         OpenDialog(cut);
 
-        var dialog = cut.Find(".rz-dialog");
-        Assert.Empty(dialog.QuerySelectorAll(".rz-dialog-titlebar"));
-        Assert.StartsWith("width: 100%", dialog.GetAttribute("style"));
-        Assert.Equal("Server", dialog.QuerySelector("[data-testid='form-header'] .app-form-header-title")!.TextContent.Trim());
+        var dialog = cut.Find(DialogSelector);
+        Assert.Equal("Server", dialog.QuerySelector("h2")!.TextContent.Trim());
         Assert.Equal("Übernehmen", dialog.QuerySelector("[data-testid='server-save']")!.TextContent.Trim());
+        Assert.Empty(dialog.QuerySelectorAll("[data-testid='form-header']"));
 
-        cut.Find("[data-testid='form-close']").Click();
-
-        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[data-testid='server-choice']")));
         Assert.Equal("Server: Plagevo (gehostet)", LineOf(cut));
         Assert.Empty(selector.Tried);
         Assert.Equal(0, selector.HostedCalls);
@@ -245,13 +241,13 @@ public class ServerChoiceTests : PageTestContext
     {
         Services.AddSingleton<IServerStore>(store);
         Services.AddSingleton<IServerSelector>(selector);
-        var host = Render<Radzen.Blazor.RadzenComponents>();
+        var host = RenderDialogHost();
 
         var opened = Services.GetRequiredService<FormDialogs>().OpenAsync<Duofy.Shared.Pages.ServerDialog, bool>("Server",
             new FormParameters<Duofy.Shared.Pages.ServerDialog>().Add(d => d.Title, "Server"));
         host.WaitForAssertion(() => Assert.NotEmpty(host.FindAll("[data-testid='server-choice']")));
 
-        Assert.Equal("Server", host.Find(".rz-dialog-titlebar").TextContent.Trim());
+        Assert.Equal("Server", host.Find(DialogSelector + " h2").TextContent.Trim());
         Assert.Empty(host.FindAll("[data-testid='form-header']"));
 
         host.Find("[data-testid='server-save']").Click();

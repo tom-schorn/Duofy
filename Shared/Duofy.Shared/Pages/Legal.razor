@@ -1,9 +1,7 @@
 @page "/rechtliches/{Slug}"
-@using Radzen
-@using Radzen.Blazor
+@using BlazorBlueprint.Components
 @using Duofy.ApiClient
 @implements IDisposable
-@inject IAppHost Host
 @inject AppChrome Chrome
 @inject ILegalApi LegalApi
 @inject IStringLocalizer<SharedResources> L
@@ -14,20 +12,16 @@
    white-space: pre-wrap. Die Seite fragt die API nur nach einem der drei bekannten Namen. *@
 
 <PageTitle>@Title</PageTitle>
+<PageHead Title="@Title" />
 
-<AppPageHeading Text="@Title" />
-@if (!Host.IsApp)
-{
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" Class="rz-mb-2">@Title</RadzenText>
-}
 
 @if (error is not null)
 {
-    <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false" Class="rz-mb-4">@error</RadzenAlert>
+    <BbAlert Variant="AlertVariant.Danger" Class="mb-4">@error</BbAlert>
 }
 else if (missing)
 {
-    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" data-testid="legal-missing">@L["Legal_Missing"]</RadzenText>
+    <p data-testid="legal-missing">@L["Legal_Missing"]</p>
 }
 else if (text is not null)
 {

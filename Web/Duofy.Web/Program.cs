@@ -27,7 +27,7 @@ builder.Services.AddSingleton(AppBrand.FromSettings(
     builder.Configuration.GetValue("Duofy:Hosted", false)));
 
 // --- Gemeinsame Oberfläche -------------------------------------------------
-// Radzen, Texte und Hell/Dunkel aus Duofy.Shared.
+// Blueprint, Texte und Hell/Dunkel aus Duofy.Shared.
 builder.Services.AddDuofyUi();
 // Nur im Entwicklungsbetrieb ist die Testseite der Bausteine erreichbar (Spec 6).
 builder.Services.AddSingleton<IDevelopmentMode>(new DevelopmentMode(builder.Environment.IsDevelopment()));

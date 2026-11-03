@@ -1,28 +1,27 @@
-@using Radzen.Blazor
+@using BlazorBlueprint.Components
+@using BlazorBlueprint.Primitives
 @inherits ThemedLayoutBase
 @inject IStringLocalizer<SharedResources> L
 @inject IAppHost Host
 @inject AppBrand Brand
 
-@* Das Layout für Anmelden und Registrieren, nach dem Vorbild von AuthLayout.tsx im
-   ursprünglichen Duofy: ohne App-Leiste und ohne Navigation. Auf dem Handy nur das
-   Formular; ab 1024 px Breite links zusätzlich die dunkelblaue Markenfläche. Der
-   Schalter für hell/dunkel sitzt oben rechts, damit man auch vor der Anmeldung den
+@* Das Layout für Anmelden und Registrieren, nach dem Vorbild von AuthLayout.tsx im alten Duofy: ohne Leisten und ohne
+   Navigation. Auf dem Handy nur das Formular; ab 1280 px links zusätzlich die dunkelblaue Markenfläche, die in beiden
+   Modi dunkel ist (class dark). Der Schalter für hell und dunkel sitzt oben rechts, damit man auch vor der Anmeldung den
    Modus wechseln kann. *@
 
-<RadzenComponents />
-<ThemeVariables Dark="IsDarkMode" DeviceDarkChanged="OnDeviceDarkChangedAsync" />
+<ThemeVariables Dark="IsDarkMode" Settled="ThemeSettled" DeviceDarkChanged="OnDeviceDarkChangedAsync" />
 
 <div class="auth-layout">
-    <aside class="auth-brand" data-testid="auth-brand">
+    <aside class="auth-brand dark" data-testid="auth-brand">
         <span class="auth-brand-name"><BrandMark Dark="true" /></span>
 
         <div class="auth-brand-middle">
             <blockquote class="auth-claim">@L["Auth_Claim", Brand.Name]</blockquote>
             <ul class="auth-pots">
-                <li><span class="auth-pot-square pot-needs"></span>@L["Auth_PotNeeds"]</li>
-                <li><span class="auth-pot-square pot-wants"></span>@L["Auth_PotWants"]</li>
-                <li><span class="auth-pot-square pot-savings"></span>@L["Auth_PotSavings"]</li>
+                <li><span class="dot dot--needs"></span>@L["Auth_PotNeeds"]</li>
+                <li><span class="dot dot--wants"></span>@L["Auth_PotWants"]</li>
+                <li><span class="dot dot--savings"></span>@L["Auth_PotSavings"]</li>
             </ul>
         </div>
 
@@ -31,10 +30,10 @@
 
     <main class="auth-main">
         <div class="auth-mode-switch">
-            <ThemeChoiceSwitch Choice="Choice" ChoiceSelected="SelectChoiceAsync" />
+            <ThemeToggle Dark="IsDarkMode" ChoiceSelected="SelectChoiceAsync" />
         </div>
 
-        @* Die Markenfläche links gibt es erst ab 1024 px; davor steht die Marke über dem Formular. *@
+        @* Die Markenfläche links gibt es erst ab 1280 px; davor steht die Marke über dem Formular. *@
         <div class="auth-mobile-brand"><BrandMark Dark="IsDarkMode" /></div>
 
         <div class="auth-form">@Body</div>
@@ -47,8 +46,14 @@
         {
             <ServerLine />
         }
+
+        @* Die Wahl des Servers gibt es nur in der App; die Web-Version spricht mit ihrem eigenen Server. *@
+
     </main>
 </div>
+
+<BbDialogProvider />
+<BbPortalHost />
 
 <div id="blazor-error-ui" data-nosnippet role="alert">
     @L["Layout_ErrorMessage"]

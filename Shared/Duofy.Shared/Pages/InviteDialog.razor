@@ -1,8 +1,8 @@
-@using Radzen
-@using Radzen.Blazor
+@using BlazorBlueprint.Components
+@using Duofy.Shared.Dialogs
+@inherits FormDialogBase
 @using System.Globalization
 @inject IShareService Share
-@inject DialogService Dialogs
 @inject IStringLocalizer<SharedResources> L
 
 @* Eine neue Einladung (R4): der Link, sein QR-Code zum Abscannen vom Bildschirm und Teilen. In der App
@@ -12,24 +12,21 @@
 
    Er geht über FormDialogs.OpenWindowAsync als Fenster auf (auch in der App); Schließen und Teilen stehen unten im Inhalt. *@
 
-<RadzenStack Gap="1rem" AlignItems="AlignItems.Center">
-    <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P">@L["InviteDialog_Text", ExpiresAt.ToLocalTime().ToString("dd.MM.yyyy", German)]</RadzenText>
+<div class="stack">
+    <p>@L["InviteDialog_Text", ExpiresAt.ToLocalTime().ToString("dd.MM.yyyy", German)]</p>
     @if (Mailed)
     {
-        <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" AllowClose="false" Size="AlertSize.Small"
-                     data-testid="invite-mail-note">@L["InviteDialog_MailNote"]</RadzenAlert>
+        <BbAlert Variant="AlertVariant.Info" data-testid="invite-mail-note">@L["InviteDialog_MailNote"]</BbAlert>
     }
     @* Der QR-Code bleibt weiß, auch im Dunkelmodus, damit er sich scannen lässt. *@
     <div role="img" aria-label="@L["InviteDialog_Qr"]" class="qr-code"
          data-testid="invite-qr">@((MarkupString)InvitationQr.Svg(Link))</div>
-    <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="long-link" data-testid="invite-link">@Link</RadzenText>
-    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" Class="rz-w-100">
-        <RadzenButton Text="@L["InviteDialog_Close"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base"
-                      Click="@(_ => Close())" data-testid="invite-close" />
-        <RadzenButton Text="@L["InviteDialog_Share"]" Icon="share" ButtonStyle="ButtonStyle.Primary"
-                      Click="@(_ => ShareAsync())" data-testid="invite-share" />
-    </RadzenStack>
-</RadzenStack>
+    <p class="long-link" data-testid="invite-link">@Link</p>
+    <div class="row-end w-full">
+        <DuofyButton Kind="ButtonKind.Ghost" Text="@L["InviteDialog_Close"]" OnClick="@(_ => Close())" TestId="invite-close" />
+        <DuofyButton Icon="share-2" Text="@L["InviteDialog_Share"]" OnClick="@(_ => ShareAsync())" TestId="invite-share" />
+    </div>
+</div>
 
 @code {
     private static readonly CultureInfo German = new("de-DE");
@@ -49,5 +46,5 @@
 
     private Task ShareAsync() => Share.ShareAsync(L["InviteDialog_ShareTitle", HouseholdName], Link);
 
-    private void Close() => Dialogs.Close(true);
+    private Task Close() => CloseAsync(true);
 }

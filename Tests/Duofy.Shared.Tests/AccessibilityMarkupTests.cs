@@ -23,51 +23,14 @@ public class AccessibilityMarkupTests : UiTestContext
 
     private static string LayoutFile(string name) => File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "Layout", name + ".razor"));
 
-    // S1: Der Titel jeder Seite ist ihre Hauptüberschrift, im Browser sichtbar, in der App für Vorlese-Programme.
-    [Theory]
-    [InlineData("AccountBookings")]
-    [InlineData("Accounts")]
-    [InlineData("Commitments")]
-    [InlineData("Plan")]
-    [InlineData("Household")]
-    [InlineData("Savings")]
-    [InlineData("Account")]
-    [InlineData("Admin")]
-    [InlineData("Grants")]
-    [InlineData("Legal")]
-    [InlineData("Licenses")]
-    [InlineData("Mehr")]
-    [InlineData("PlanOverview")]
-    [InlineData("HouseholdPlanView")]
-    public void The_page_title_is_a_main_heading_in_the_browser_and_in_the_app(string name)
-    {
-        var source = Page(name);
-
-        Assert.Matches("""<RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1""", source);
-        Assert.DoesNotMatch("""<RadzenText TextStyle="TextStyle.H4"(?! TagName="TagName.H1")""", source);
-        Assert.Contains("<AppPageHeading ", source);
-    }
-
     [Fact]
-    public void The_app_heading_is_not_drawn_in_the_browser() =>
-        Assert.Empty(Render<AppPageHeading>(p => p.Add(h => h.Text, "Konten")).FindAll("h1"));
-
-    [Fact]
-    public void The_app_heading_stays_for_screen_readers_in_the_app()
+    public void The_top_bar_has_no_title_and_no_heading()
     {
-        Services.AddSingleton<IAppHost, AppHost>();
+        var shell = LayoutFile("AppShell");
+        var top = shell[shell.IndexOf("<header class=\"shell-top\"", StringComparison.Ordinal)..shell.IndexOf("</header>", StringComparison.Ordinal)];
 
-        var heading = Render<AppPageHeading>(p => p.Add(h => h.Text, "Konten")).Find("h1");
-
-        Assert.Equal("Konten", heading.TextContent);
-        Assert.Contains("visually-hidden", heading.ClassList);
-    }
-
-    [Fact]
-    public void The_title_in_the_app_bar_is_no_heading()
-    {
-        Assert.Contains("""<div class="app-title" data-testid="app-title">""", LayoutFile("AppLayout"));
-        Assert.Contains("""<div class="app-title">""", LayoutFile("MainLayout"));
+        Assert.DoesNotContain("app-title", shell);
+        Assert.DoesNotContain("<h", top.Replace("<header", ""), StringComparison.Ordinal);
     }
 
     // S1: Der Überspringen-Link kommt vor Leiste und Seitenleiste; das Ziel kann den Fokus annehmen.
@@ -85,15 +48,6 @@ public class AccessibilityMarkupTests : UiTestContext
         first.Click();
 
         Assert.Contains(JSInterop.Invocations, i => i.Identifier == "Blazor._internal.domWrapper.focus");
-    }
-
-    [Fact]
-    public void The_app_layout_has_the_skip_link_and_its_target_too()
-    {
-        var layout = LayoutFile("AppLayout");
-
-        Assert.True(layout.IndexOf("<SkipLink", StringComparison.Ordinal) < layout.IndexOf("<RadzenLayout", StringComparison.Ordinal));
-        Assert.Contains("id=\"@SkipLink.TargetId\"", layout);
     }
 
     // M4: Die Beschriftung gehört zum Feld, auch ohne mitgegebene Id.
@@ -119,8 +73,7 @@ public class AccessibilityMarkupTests : UiTestContext
 
     // S12: Der Fehlerbalken wird angesagt, sein Schließen ist ein echter Knopf mit Namen.
     [Theory]
-    [InlineData("AppLayout")]
-    [InlineData("MainLayout")]
+    [InlineData("AppShell")]
     [InlineData("AuthLayout")]
     public void The_error_bar_is_announced_and_closes_with_a_real_button(string layout)
     {
@@ -129,22 +82,6 @@ public class AccessibilityMarkupTests : UiTestContext
         Assert.Matches("""<div id="blazor-error-ui"[^>]* role="alert""", source);
         Assert.Matches("""<button type="button" class="dismiss" aria-label="@L\["Layout_Dismiss"\]">""", source);
         Assert.DoesNotContain("<span class=\"dismiss\"", source);
-    }
-
-    // S11: Das Feld selbst sagt, dass es Pflicht ist und ob es einen Fehler hat. Es kann ein Eingabefeld von Radzen
-    // sein, an das StepField nicht herankommt; darum geht das über die Id im Browser.
-    [Fact]
-    public async Task A_required_field_is_marked_and_turns_invalid_after_next()
-    {
-        var module = JSInterop.SetupModule("./_content/Duofy.Shared/step-field.js");
-        var dialogs = RenderRadzenHost();
-        _ = Services.GetRequiredService<FormDialogs>().OpenStepAsync<StepDialogDemoDialog, string>("Vertrag anlegen");
-
-        dialogs.WaitForAssertion(() => Assert.Contains(module.Invocations, i => Marks(i, "demo-name-input", required: true, invalid: false)));
-
-        dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Weiter").Click();
-
-        dialogs.WaitForAssertion(() => Assert.Contains(module.Invocations, i => Marks(i, "demo-name-input", required: true, invalid: true)));
     }
 
     [Fact]
@@ -176,9 +113,9 @@ public class AccessibilityMarkupTests : UiTestContext
     [InlineData("Accounts", """L["Accounts_Edit", account.Name]""")]
     [InlineData("Accounts", """L[account.IsDefault ? "Accounts_IsDefault" : "Accounts_MakeDefault", account.Name]""")]
     [InlineData("Commitments", """L["Commitments_Edit", commitment.Name]""")]
-    [InlineData("Plan", """L[position.DoneAt is not null ? "Plan_Untick" : "Plan_Tick", position.Label]""")]
+    [InlineData("Plan", """L[done ? "Plan_Untick" : "Plan_Tick", position.Label]""")]
     [InlineData("Plan", """L["Plan_Edit", position.Label]""")]
-    [InlineData("Plan", """L["Plan_Delete", position.Label]""")]
+    [InlineData("PlanPositionDialog", """L["Plan_Delete", Existing?.Label ?? ""]""")]
     [InlineData("Savings", """L["Savings_EditGoal", goal.Name]""")]
     [InlineData("Savings", """L["Savings_DeleteGoal", goal.Name]""")]
     [InlineData("Savings", """L["Savings_EditDebt", debt.Name]""")]

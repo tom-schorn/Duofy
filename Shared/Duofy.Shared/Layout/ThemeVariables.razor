@@ -1,19 +1,77 @@
-@using Radzen.Blazor
+@using Microsoft.Extensions.Logging
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+@inject ILogger<ThemeVariables> Log
 
-@* Macht das freigegebene Aussehen zum Teil der Seite: die Werte aus RadzenVariables als fertiger Stil, schon beim ersten
-   Zeichnen und ohne JavaScript. Zum Wechsel des Modus reicht ein neuer Wert von Dark.
-
-   Dazu kommt die Frage ans Gerät, ob es dunkel eingestellt ist: RadzenMediaQuery antwortet beim Start und bei jeder Änderung. *@
-
-<style>@((MarkupString)RadzenVariables.Css(Dark))</style>
-<RadzenMediaQuery Query="(prefers-color-scheme: dark)" Change="DeviceDarkChanged" />
+@* Verbindet das Layout mit dem Browser: setzt die Klasse "dark" an html und fragt das Gerät, ob es dunkel eingestellt ist.
+   Solange die Wahl der Person noch nicht feststeht (Settled), bleibt die Klasse, die das frühe Skript im Kopf gesetzt hat. *@
 
 @code {
+    private DotNetObjectReference<ThemeVariables>? self;
+    private IJSObjectReference? module;
+    private IJSObjectReference? watcher;
+    private bool? applied;
+
     /// <summary>True, wenn die dunklen Werte gelten sollen.</summary>
     [Parameter]
     public bool Dark { get; set; }
 
-    /// <summary>Meldet, ob das Gerät dunkel eingestellt ist.</summary>
+    /// <summary>False, solange die Wahl der Person oder die Antwort des Geräts noch aussteht.</summary>
+    [Parameter]
+    public bool Settled { get; set; } = true;
+
+    /// <summary>Meldet, ob das Gerät dunkel eingestellt ist: beim Start und bei jeder Änderung.</summary>
     [Parameter]
     public EventCallback<bool> DeviceDarkChanged { get; set; }
+
+    [JSInvokable("DeviceDarkChanged")]
+    public Task OnDeviceDarkChanged(bool dark) => DeviceDarkChanged.InvokeAsync(dark);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        try
+        {
+            module ??= await Js.InvokeAsync<IJSObjectReference>("import", "./_content/Duofy.Shared/theme.js");
+            if (module is null)
+            {
+                return;
+            }
+            if (firstRender)
+            {
+                self = DotNetObjectReference.Create(this);
+                watcher = await module.InvokeAsync<IJSObjectReference>("watch", self);
+            }
+            if (Settled && applied != Dark)
+            {
+                applied = Dark;
+                await module.InvokeVoidAsync("apply", Dark);
+            }
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            // Ohne Browser (Vorrendern, Test) gibt es nichts zu setzen; die Farbe stimmt dann nach dem nächsten Zeichnen.
+            Log.LogDebug(exception, "Hell oder dunkel ließ sich gerade nicht setzen.");
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (watcher is not null)
+            {
+                await watcher.InvokeVoidAsync("dispose");
+                await watcher.DisposeAsync();
+            }
+            if (module is not null)
+            {
+                await module.DisposeAsync();
+            }
+        }
+        catch (JSDisconnectedException exception)
+        {
+            Log.LogDebug(exception, "Die Verbindung zum Browser ist weg; nichts mehr aufzuräumen.");
+        }
+        self?.Dispose();
+    }
 }

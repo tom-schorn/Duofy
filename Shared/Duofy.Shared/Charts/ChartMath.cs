@@ -3,16 +3,13 @@ using System.Globalization;
 namespace Duofy.Shared.Charts;
 
 /// <summary>Rechnen und Schreiben der Diagramme: Längen der Balken und Zahlen im deutschen Format.</summary>
-internal static class ChartMath
+public static class ChartMath
 {
     private static readonly CultureInfo German = CultureInfo.GetCultureInfo("de-DE");
 
     /// <summary>Eine Prozentzahl als CSS-Zahl (immer mit Punkt, höchstens zwei Stellen), auf 0 bis 100 begrenzt.</summary>
     public static string CssPercent(decimal percent) =>
         Math.Round(Math.Clamp(percent, 0m, 100m), 2).ToString("0.##", CultureInfo.InvariantCulture) + "%";
-
-    /// <summary>Eine Prozentzahl als Wert für den Balken von Radzen: auf 0 bis 100 begrenzt, höchstens zwei Stellen.</summary>
-    public static double BarValue(decimal percent) => (double)Math.Round(Math.Clamp(percent, 0m, 100m), 2);
 
     /// <summary>Anteil des Werts am größten Wert in Prozent; negative Werte und ein Maximum von 0 ergeben 0.</summary>
     public static decimal ShareOfMax(decimal value, decimal max) => max <= 0m || value <= 0m ? 0m : value / max * 100m;

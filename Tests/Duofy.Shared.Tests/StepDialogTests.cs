@@ -19,7 +19,7 @@ public class StepDialogTests : UiTestContext
 
     public StepDialogTests()
     {
-        dialogs = RenderRadzenHost();
+        dialogs = RenderDialogHost();
     }
 
     private Task OpenAsync()
@@ -49,7 +49,7 @@ public class StepDialogTests : UiTestContext
 
     private IElement Step(int number) => dialogs.FindAll("[data-testid^='step-dialog-step-']")[number - 1];
 
-    private static string Css() => File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "wwwroot", "app.css"));
+    private static string Css() => File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "wwwroot", "duofy.css"));
 
     // Eine Regel ab dem Selektor bis zur schließenden Klammer; die Regeln des Dialogs sind nicht verschachtelt.
     private static string Rule(string css, string selector)
@@ -275,7 +275,7 @@ public class StepDialogPageTests : UiTestContext
     public void Test_page_opens_the_example_dialog_in_development()
     {
         Services.AddSingleton<IDevelopmentMode>(new DevelopmentMode(true));
-        var dialogs = Render<Radzen.Blazor.RadzenComponents>();
+        var dialogs = RenderDialogHost();
         var cut = Render<StepDialogDemo>();
 
         cut.Find("[data-testid='step-dialog-demo-open'] button").Click();

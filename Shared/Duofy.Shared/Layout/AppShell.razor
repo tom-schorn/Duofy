@@ -1,0 +1,78 @@
+@using BlazorBlueprint.Components
+@using BlazorBlueprint.Primitives
+@inject AppBrand Brand
+@inject IStringLocalizer<SharedResources> L
+
+@* Der Rahmen um alle angemeldeten Seiten, im Browser und in der App derselbe (Spec 82): eine responsive Website.
+
+   PC (ab 1280 px): feste Seitenleiste wie im alten Duofy mit dem Profil-Menü unten, rechts die Erklärspalte.
+   Tablet (768 bis 1279 px): die Seitenleiste ist auf Symbole eingeklappt und lässt sich ausklappen; keine Erklärspalte.
+   Handy (bis 767 px): keine Seitenleiste, unten die Leiste mit Start, Plan, Haushalt, Sparen und Mehr.
+
+   Die obere Leiste nennt keinen Titel (Spec 82, R11: jede Seite nennt ihren Titel einmal, in der Seite). Sie trägt den Knopf
+   zum Ein- und Ausklappen der Seitenleiste, am Handy die Marke, die gewählte Ansicht, wenn es nicht "Ich" ist, und den
+   einen Knopf für hell und dunkel. Was zu sehen ist, entscheidet das Stylesheet nach der Breite, damit es schon vor dem
+   ersten Rechnen stimmt; der Knopf kehrt nur die Voreinstellung der jeweiligen Breite um. *@
+
+<SkipLink Target="() => mainContent" />
+
+<div class="@(sideToggled ? "shell shell--side-toggled" : "shell")">
+    <aside class="shell-side" data-testid="shell-side">
+        <div class="shell-brand"><BrandMark Dark="Dark" /></div>
+        <SideNavigation />
+        <AuthorizeView>
+            <Authorized>
+                <UserMenu />
+            </Authorized>
+        </AuthorizeView>
+    </aside>
+
+    <div class="shell-main">
+        <header class="shell-top" data-print="hide">
+            <DuofyButton Kind="ButtonKind.Ghost" Icon="panel-left" IconOnly="true" Class="shell-side-toggle"
+                         OnClick="@(() => sideToggled = !sideToggled)" AriaLabel="@L["Layout_SideToggle"]"
+                         aria-expanded="@(sideToggled ? "true" : "false")" TestId="side-toggle" />
+            <span class="shell-top-brand"><BrandMark Dark="Dark" Symbol="@Brand.HasLogo" /></span>
+            <span class="shell-top-fill"></span>
+            <AuthorizeView>
+                <Authorized>
+                    <ViewChip />
+                </Authorized>
+            </AuthorizeView>
+            <ThemeToggle Dark="Dark" ChoiceSelected="ChoiceSelected" />
+        </header>
+
+        <div class="shell-body">
+            <main class="shell-content" id="@SkipLink.TargetId" tabindex="-1" @ref="mainContent">
+                @ChildContent
+            </main>
+            <HelpColumn />
+        </div>
+    </div>
+</div>
+
+<BottomNavigation />
+
+<BbDialogProvider />
+<BbPortalHost />
+
+<div id="blazor-error-ui" data-nosnippet role="alert">
+    @L["Layout_ErrorMessage"]
+    <a href="." class="reload">@L["Layout_Reload"]</a>
+    <button type="button" class="dismiss" aria-label="@L["Layout_Dismiss"]">&#10005;</button>
+</div>
+
+@code {
+    private ElementReference mainContent;
+
+    // Der Knopf kehrt die Voreinstellung um: am Tablet ausgeklappt, am PC eingeklappt.
+    private bool sideToggled;
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    [Parameter] public bool Dark { get; set; }
+
+    [Parameter] public ThemeChoice Choice { get; set; }
+
+    [Parameter] public EventCallback<ThemeChoice> ChoiceSelected { get; set; }
+}

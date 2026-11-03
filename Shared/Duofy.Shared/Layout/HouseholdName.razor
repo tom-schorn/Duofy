@@ -1,0 +1,20 @@
+@implements IDisposable
+@inject ActiveMember Member
+
+@* Der Name des eigenen Haushalts für die Seitenleiste (Spec 82, R11); ohne Haushalt der Ersatztext. Steht nur für angemeldete
+   Personen im Rahmen, weil erst dann jemand nach dem Haushalt fragen kann. *@
+@(Member.Household?.Name is { Length: > 0 } name ? name : Fallback)
+
+@code {
+    [Parameter, EditorRequired] public string Fallback { get; set; } = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Member.Changed += OnMemberChanged;
+        await Member.LoadAsync();
+    }
+
+    private void OnMemberChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Member.Changed -= OnMemberChanged;
+}

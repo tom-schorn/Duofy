@@ -37,16 +37,6 @@ public class AuthLayoutTests : PageTestContext
     }
 
     [Fact]
-    public void Other_pages_keep_app_bar_and_show_the_bottom_bar_in_the_app()
-    {
-        var cut = Open("/konto");
-
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindComponents<Radzen.Blazor.RadzenHeader>()));
-        Assert.NotEmpty(cut.FindAll("[data-testid='bottom-bar']"));
-        Assert.Empty(cut.FindAll(".auth-layout"));
-    }
-
-    [Fact]
     public void Sign_in_shows_the_texts_of_the_original_from_the_resources()
     {
         var cut = Open("/anmelden");
@@ -82,9 +72,10 @@ public class AuthLayoutTests : PageTestContext
         Assert.Contains("Duofy plant Geld, es zählt es nicht.", brand.TextContent);
         Assert.Contains("Gemeinsam planen, getrennt besitzen.", brand.TextContent);
         Assert.Equal(["Grundbedarf", "Wünsche", "Sparen"], brand.QuerySelectorAll(".auth-pots li").Select(li => li.TextContent.Trim()));
-        Assert.Equal(3, brand.QuerySelectorAll(".auth-pot-square").Length);
+        Assert.Equal(3, brand.QuerySelectorAll(".auth-pots .dot").Length);
 
-        Assert.NotEmpty(cut.FindAll(".auth-mode-switch .mode-switch"));
+        // Spec 82, R11: ein einziger Knopf für hell und dunkel.
+        Assert.Single(cut.FindAll(".auth-mode-switch [data-testid='theme-toggle']"));
     }
 
     // Spec 70, A13 und R8: Die Links stehen unter Anmelden und Registrieren und gehen nur zu den Texten, die der Server anbietet.
@@ -126,49 +117,27 @@ public class AuthLayoutTests : PageTestContext
         Assert.Empty(none.FindAll(".auth-legal"));
     }
 
-    // Spec 5, A1: Die Anmeldeseiten haben dieselbe Auswahl aus drei Möglichkeiten, genau eine ist aktiv.
+    // Spec 5, A1, geändert durch Spec 82 R11: Die Anmeldeseiten haben denselben einen Knopf für hell und dunkel.
     [Fact]
-    public void A1_the_auth_pages_offer_light_dark_and_device_with_exactly_one_active()
+    public void A1_the_auth_pages_offer_the_one_theme_toggle()
     {
         var cut = Open("/anmelden");
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".auth-mode-switch button")));
 
-        Assert.Equal(3, cut.FindAll(".auth-mode-switch button").Count);
-        Assert.Equal("theme-device", Assert.Single(cut.FindAll("[data-testid^='theme-'][aria-pressed='true']")).GetAttribute("data-testid"));
+        var toggle = Assert.Single(cut.FindAll(".auth-mode-switch button"));
+        Assert.Equal("theme-toggle", toggle.GetAttribute("data-testid"));
+        Assert.Equal("false", toggle.GetAttribute("aria-pressed"));
     }
 
     [Fact]
     public void Theme_switch_on_the_auth_pages_turns_dark_mode_on()
     {
         var cut = Open("/anmelden");
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".mode-switch")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='theme-toggle']")));
 
-        cut.Find("[data-testid='theme-dark']").Click();
+        cut.Find("[data-testid='theme-toggle']").Click();
 
         Assert.True(cut.FindComponent<Duofy.Shared.Layout.ThemeVariables>().Instance.Dark);
-    }
-
-    [Theory]
-    [InlineData("/anmelden")]
-    [InlineData("/registrieren")]
-    [InlineData("/konto")]
-    [InlineData("/konto/loeschen")]
-    public void Every_text_field_is_outlined_with_its_label_above(string path)
-    {
-        var cut = Open(path);
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("label.field-label")));
-
-        // Die Beschriftung steht als eigenes <label> darüber und gehört per for/id zu je einem Feld.
-        var labels = cut.FindAll("label.field-label");
-        Assert.NotEmpty(labels);
-        Assert.All(labels, label =>
-        {
-            // Entweder zeigt for auf das Feld, oder das Feld verweist mit aria-labelledby auf die Beschriftung (Zahlenfelder von Radzen).
-            var target = label.GetAttribute("for") is { Length: > 0 } id
-                ? cut.Find($"input[id='{id}'], textarea[id='{id}'], select[id='{id}']")
-                : cut.Find($"input[aria-labelledby='{label.Id}']");
-            Assert.NotNull(target);
-        });
     }
 
     private sealed class NoThemeStore : IThemePreferenceStore

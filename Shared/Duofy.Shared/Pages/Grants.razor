@@ -1,13 +1,12 @@
 @page "/haushalt/freigaben"
-@using Radzen
-@using Radzen.Blazor
+@using BlazorBlueprint.Components
+@using BlazorBlueprint.Icons.Lucide.Components
 @attribute [Authorize]
 @using Duofy.ApiClient
 @using Duofy.Schemas
 @implements IDisposable
 @inject IHouseholdApi HouseholdApi
 @inject AppChrome Chrome
-@inject IAppHost Host
 @inject IStringLocalizer<SharedResources> L
 
 @* Die Freigaben (Spec 68, R6, R7): was ich jedem anderen Mitglied mit meinen Daten erlaube. Eine Karte je
@@ -20,26 +19,16 @@
 
 <PageTitle>@L["Grants_Title"]</PageTitle>
 
-<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem" Class="rz-mb-2">
-    <RadzenIcon Icon="arrow_back" />
-    <RadzenLink Path="/haushalt" Text="@L["Grants_Back"]" data-testid="grants-back" />
-</RadzenStack>
-
-<AppPageHeading Text="@L["Grants_Title"]" />
-@if (!Host.IsApp)
-{
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" Class="rz-mb-2">@L["Grants_Title"]</RadzenText>
-}
-<RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color rz-mb-4">@L["Grants_Lead"]</RadzenText>
+<HouseholdHead Current="@HouseholdHead.Grants" Lead="@L["Grants_Lead"]" />
 
 <Notice Message="message" />
 
 @if (loaded && Others.Count == 0)
 {
-    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color" data-testid="grants-empty">@L["Grants_Empty"]</RadzenText>
+    <p class="muted" data-testid="grants-empty">@L["Grants_Empty"]</p>
 }
 
-<RadzenStack Gap="1rem">
+<div class="stack">
     @foreach (var member in Others)
     {
         var current = member;
@@ -47,27 +36,22 @@
         var preset = GrantPresets.PresetOf(levels);
         var locked = saving.Contains(member.UserId);
         var headingId = $"grants-heading-{member.UserId}";
-        <RadzenCard Variant="Variant.Outlined" aria-labelledby="@headingId" data-testid="@($"grants-card-{member.UserId}")">
-            <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" id="@headingId" Class="rz-mb-2">@member.FirstName @member.LastName</RadzenText>
+        <div class="card" aria-labelledby="@headingId" data-testid="@($"grants-card-{member.UserId}")">
+            <h2 class="section-title mb-2" id="@headingId">@member.FirstName @member.LastName</h2>
 
             <fieldset class="grants-presets">
                 <legend class="visually-hidden">@L["Grants_PresetsFor", member.FirstName]</legend>
-                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap" AlignItems="AlignItems.Center">
+                <div class="row">
                     @foreach (var key in GrantPresets.Order)
                     {
                         var chosen = preset == key;
-                        <RadzenButton Text="@L[$"Grants_Preset_{key}"].Value" Variant="@(chosen ? Variant.Filled : Variant.Outlined)"
-                                      Size="ButtonSize.Small" ButtonStyle="@(chosen ? ButtonStyle.Primary : ButtonStyle.Base)"
-                                      Click="@(_ => SetAsync(current, Request(GrantPresets.Levels(key))))"
-                                      aria-pressed="@(chosen ? "true" : "false")" @attributes="Busy(locked)"
-                                      data-testid="@($"grants-{member.UserId}-preset-{key}")" />
+                        <DuofyButton Kind="ButtonKind.Secondary" Text="@L[$"Grants_Preset_{key}"].Value" Small="true" OnClick="@(_ => SetAsync(current, Request(GrantPresets.Levels(key))))" TestId="@($"grants-{member.UserId}-preset-{key}")" aria-pressed="@(chosen ? "true" : "false")" @attributes="Busy(locked)" />
                     }
                     @if (preset is null)
                     {
-                        <RadzenBadge Variant="Variant.Outlined" BadgeStyle="BadgeStyle.Base" IsPill="true" Text="@L["Grants_OwnChoice"].Value"
-                                     data-testid="@($"grants-{member.UserId}-own-choice")" />
+                        <span class="pill" data-testid="@($"grants-{member.UserId}-own-choice")">@L["Grants_OwnChoice"]</span>
                     }
-                </RadzenStack>
+                </div>
             </fieldset>
 
             @foreach (var area in GrantAreas.All)
@@ -91,13 +75,12 @@
             <div aria-live="polite">
                 @foreach (var hint in GrantPresets.Hints(levels))
                 {
-                    <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" AllowClose="false" Size="AlertSize.Small" Class="rz-mt-2"
-                                 data-testid="@($"grants-{member.UserId}-hint")">@L[hint, member.FirstName]</RadzenAlert>
+                    <BbAlert Variant="AlertVariant.Warning" Class="mt-2" data-testid="@($"grants-{member.UserId}-hint")">@L[hint, member.FirstName]</BbAlert>
                 }
             </div>
-        </RadzenCard>
+        </div>
     }
-</RadzenStack>
+</div>
 
 @code {
     private HouseholdResponse? household;

@@ -1,6 +1,5 @@
 @page "/email-bestaetigen"
-@using Radzen
-@using Radzen.Blazor
+@using BlazorBlueprint.Components
 @layout AuthLayout
 @using Duofy.ApiClient
 @using Duofy.Schemas
@@ -14,7 +13,7 @@
 <PageTitle>@L["EmailConfirm_Title"]</PageTitle>
 
 <div class="auth-header">
-    <RadzenText TextStyle="TextStyle.H2" TagName="TagName.H1">@L["EmailConfirm_Title"]</RadzenText>
+    <h1 class="page-title">@L["EmailConfirm_Title"]</h1>
     @if (Complete)
     {
         <p class="auth-lead" data-testid="email-confirm-address">@L["EmailConfirm_Lead", NewEmail!]</p>
@@ -25,17 +24,15 @@
 
 @if (done)
 {
-    <LinkButton Href="/anmelden" FullWidth="true" data-testid="email-confirm-sign-in">@L["Auth_ToSignIn"]</LinkButton>
+    <DuofyButton Href="/anmelden" TestId="email-confirm-sign-in" FullWidth="true">@L["Auth_ToSignIn"]</DuofyButton>
 }
 else if (!Complete)
 {
-    <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" AllowClose="false"
-                 data-testid="email-confirm-incomplete">@L["Link_Incomplete"]</RadzenAlert>
+    <BbAlert Variant="AlertVariant.Warning" data-testid="email-confirm-incomplete">@L["Link_Incomplete"]</BbAlert>
 }
 else
 {
-    <RadzenButton Text="@L["EmailConfirm_Submit"]" ButtonStyle="ButtonStyle.Primary" Class="rz-w-100"
-                  Disabled="busy" Click="@(_ => ConfirmAsync())" data-testid="email-confirm-submit" />
+    <DuofyButton Text="@L["EmailConfirm_Submit"]" OnClick="@(_ => ConfirmAsync())" TestId="email-confirm-submit" FullWidth="true" Disabled="busy" />
 }
 
 @code {

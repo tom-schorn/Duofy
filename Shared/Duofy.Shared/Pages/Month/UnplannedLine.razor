@@ -1,0 +1,49 @@
+@using Duofy.Schemas
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Zeile Ungeplant (Spec 82, R17): was ohne Posten gebucht ist, als eigene Zeile unter den Töpfen und in keinem davon,
+   damit ein Topf überall denselben Betrag zeigt, im Monat, in der Übersicht und im Flussdiagramm. Daneben steht, in welchem
+   Topf es gebucht ist. Ohne Ungeplantes gibt es die Zeile nicht. *@
+@if (Total != 0m)
+{
+    <section class="pot-section unplanned-line" aria-labelledby="unplanned-title" data-testid="plan-unplanned">
+        <div class="list-row">
+            <span class="list-row-body">
+                <span class="list-row-title" id="unplanned-title">@L["Plan_Unplanned"]</span>
+                <span class="list-row-detail">@Detail</span>
+            </span>
+            <span class="list-row-amount num">@MoneyText.Format(Total)</span>
+        </div>
+        @if (People.Count > 0)
+        {
+            @* Im Haushalt: wessen Buchungen es sind (Tom, 03.11.2026), aus den Buchungen, die der Betrachter sieht. *@
+            <ul class="unplanned-people" data-testid="plan-unplanned-people">
+                @foreach (var person in People)
+                {
+                    <li class="row-between small"><span>@person.Name</span><span class="num">@MoneyText.Format(person.Amount)</span></li>
+                }
+            </ul>
+            @if (Missing.Count > 0)
+            {
+                <p class="small muted">@L["Month_BookingsMissing", string.Join(", ", Missing)]</p>
+            }
+        }
+    </section>
+}
+
+@code {
+    /// <summary>Was je Topf ohne Posten gebucht ist (Grundbedarf, Wünsche, Sparen).</summary>
+    [Parameter, EditorRequired] public IReadOnlyDictionary<string, decimal> Amounts { get; set; } = new Dictionary<string, decimal>();
+
+    /// <summary>Im Haushalt: Ungeplantes je Person (Vorname, Betrag); sonst leer.</summary>
+    [Parameter] public IReadOnlyList<(string Name, decimal Amount)> People { get; set; } = [];
+
+    /// <summary>Im Haushalt: wessen Buchungen fehlen, weil sie nicht freigegeben sind.</summary>
+    [Parameter] public IReadOnlyList<string> Missing { get; set; } = [];
+
+    private decimal Total => Amounts.Values.Sum();
+
+    private string Detail => string.Join(" · ",
+        new[] { L["Plan_UnplannedNote"].Value }.Concat(
+            Amounts.Where(a => a.Value != 0m).Select(a => $"{L[$"Pot_{a.Key}"]} {MoneyText.Format(a.Value)}")));
+}

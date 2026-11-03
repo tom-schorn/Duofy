@@ -1,6 +1,4 @@
-﻿@page "/not-found"
-@using Radzen
-@using Radzen.Blazor
+@page "/not-found"
 @layout MainLayout
 @inject IStringLocalizer<SharedResources> L
 
@@ -8,7 +6,6 @@
    SharedResources.resx; im Markup steht nur der Schlüssel. *@
 
 <PageTitle>@L["NotFound_Title"]</PageTitle>
-
-<RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" Class="rz-mb-2">@L["NotFound_Title"]</RadzenText>
-<RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-mb-4">@L["NotFound_Text"]</RadzenText>
-<LinkButton Href="/">@L["NotFound_BackToStart"]</LinkButton>
+<PageHead Title="@L["NotFound_Title"]" />
+<p class="mb-4">@L["NotFound_Text"]</p>
+<DuofyButton Href="/">@L["NotFound_BackToStart"]</DuofyButton>

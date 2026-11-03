@@ -1,15 +1,17 @@
+@using System.Globalization
 @using Duofy.Shared.Charts
 @inject IStringLocalizer<SharedResources> L
 
-@* Der Tab Auswertung (Issue #26): die Auswertung zum Monatsende mit den vorhandenen Diagrammen. Erstes Diagramm: wohin
-   das Geld ging (gebuchte Beträge je Topf). Zweites: Geplantes gegen Gebuchtes je Topf (Soll gegen Ist). Die Seite
-   rechnet nichts Neues: Planung und Buchungen je Topf stehen im Modell (aus der API, siehe MonthView). Jedes Diagramm
-   hat einen Satz im Text und eine Tabelle für Vorlese-Programme; ein Monat ohne Daten hat einen Leerzustand. Der Tab
-   gilt für jeden Monat, auch für abgeschlossene.
+@* Der Reiter Auswertung (Spec 82, R14; Tom: "Hier würde ich Diagramme erwarten"; ohne Flussdiagramm seit 03.11.2026): je ein rundes
+   Diagramm geplant gegen gebucht für die drei Töpfe und für die Kategorien (am PC und Tablet nebeneinander), die Tageskurve
+   mit der Lücke und was fällig ist. Ziel und Ist der Quoten stehen in der Legende des Topf-Diagramms (Tom, 03.11.2026: keine
+   doppelte Darstellung, kein Textkasten mit Summen darunter). Die Seite rechnet
+   nichts Neues außer der Tageskurve aus Buchungen und offenen Posten (MonthCurve). Jedes Diagramm hat einen Satz im Text und
+   eine Tabelle für Vorlese-Programme; ein Monat ohne Daten hat einen Leerzustand. Der Reiter gilt für jeden Monat.
 
-   Ohne Sicht auf die Buchungen (Spec 68) ist jeder gebuchte Betrag 0; dort steht stattdessen, dass die Person das nicht
-   teilt. Im Haushalt nennt ein Satz, wessen Buchungen fehlen, wie in der Übersicht. *@
-<div data-testid="month-review">
+   Ohne Sicht auf die Buchungen (Spec 68) ist jeder gebuchte Betrag 0; dort steht stattdessen, dass die Person das nicht teilt.
+   Im Haushalt nennt ein Satz, wessen Buchungen fehlen. *@
+<div class="month-review" data-testid="month-review">
     @if (!SeesBookings)
     {
         <p class="month-hint" data-testid="month-review-not-shared">@L["Grant_NotShared"]</p>
@@ -24,23 +26,45 @@
         {
             <p class="month-review-total" data-testid="month-review-total">@L["Month_ReviewTotal", MoneyText.Format(TotalBooked), MoneyText.Format(TotalPlanned)]</p>
 
-            @* Die beiden Diagramme stehen ab 1280 px nebeneinander, darunter untereinander. *@
-            <div class="month-sections">
-            <section class="month-section" aria-labelledby="month-review-distribution-heading" data-testid="month-review-distribution">
-                <h2 class="month-section-title" id="month-review-distribution-heading">@L["Month_ReviewDistributionHeading"]</h2>
-                <BarChart Caption="@L["Month_ReviewDistributionCaption"]" Items="DistributionBars" ValueText="MoneyText.Format" />
-                <p class="month-hint" data-testid="month-review-distribution-text">@DistributionText</p>
-            </section>
-
-            <section class="month-section" aria-labelledby="month-review-versus-heading" data-testid="month-review-plan-vs-actual">
-                <h2 class="month-section-title" id="month-review-versus-heading">@L["Month_ReviewVersusHeading"]</h2>
-                @foreach (var pot in Model.Pots)
+            <div class="review-grid">
+                <section class="month-section card" aria-labelledby="month-review-pots-heading" data-testid="month-review-plan-vs-actual">
+                    <h2 class="month-section-title" id="month-review-pots-heading">@L["Month_ReviewVersusHeading"]</h2>
+                    <DonutChart Caption="@L["Month_ReviewPotsCaption"]" Items="PotItems" TestId="month-review-pots-chart" />
+                    @if (Model.Pots.Any(p => p.OnPlannedIncome))
+                    {
+                        <p class="month-hint" data-testid="quota-on-planned-income">@L["Quota_OnPlannedIncome"]</p>
+                    }
+                </section>
+                @if (CategoryItems.Count > 0)
                 {
-                    <div data-testid="@($"month-review-pot-{pot.Pot}")">
-                        <TargetActualBar Caption="@L[$"Pot_{pot.Pot}"]" Target="pot.Planned" Actual="pot.Booked" />
-                    </div>
+                    <section class="month-section card" aria-labelledby="month-review-categories-heading" data-testid="month-review-categories">
+                        <h2 class="month-section-title" id="month-review-categories-heading">@L["Month_ReviewCategoriesHeading"]</h2>
+                        <DonutChart Caption="@L["Month_ReviewCategoriesCaption"]" Items="CategoryItems" TestId="month-review-categories-chart" />
+                    </section>
                 }
-            </section>
+            </div>
+
+            @if (Model.Curve is { } curve)
+            {
+                <section class="month-section card" aria-labelledby="month-curve-heading" data-testid="month-curve-section">
+                    <h2 class="month-section-title" id="month-curve-heading">@L["Month_CurveHeading"]</h2>
+                    <DayCurve Caption="@L["Month_CurveCaption"]" Model="curve" Today="Today" />
+                </section>
+            }
+
+            <div class="month-sections">
+                <section class="month-section card" aria-labelledby="month-due-heading" data-testid="month-due">
+                    <h2 class="month-section-title" id="month-due-heading">@L["Month_DueHeading"]</h2>
+                    @if (Model.Due.Count == 0)
+                    {
+                        <p class="month-hint" data-testid="month-due-empty">@L["Month_DueEmpty"]</p>
+                    }
+                    else
+                    {
+                        <LineTable Caption="@L["Month_DueCaption"]" HideCaption="true" Rows="DueRows" />
+                    }
+                </section>
+                @Balances
             </div>
         }
         @if (BookingsMissing.Count > 0)
@@ -48,9 +72,17 @@
             <p class="month-hint" data-testid="month-review-missing">@L["Month_BookingsMissing", string.Join(", ", BookingsMissing)]</p>
         }
     }
+    @if (!SeesBookings || IsEmpty)
+    {
+        @* Ohne Diagramme stehen die Kontostände allein; sonst neben "Anstehend und überfällig". *@
+        @Balances
+    }
+    @Extra
 </div>
 
 @code {
+    private static readonly CultureInfo German = new("de-DE");
+
     [Parameter, EditorRequired] public MonthOverviewModel Model { get; set; } = default!;
 
     /// <summary>False, wenn die gewählte Person ihre Buchungen nicht teilt (Spec 68).</summary>
@@ -59,29 +91,42 @@
     /// <summary>Die Vornamen derer, deren Buchungen fehlen, weil sie sie nicht freigegeben haben (nur im Haushalt).</summary>
     [Parameter] public IReadOnlyList<string> BookingsMissing { get; set; } = [];
 
+    /// <summary>Die Karte Kontostände (AccountBalances), neben "Anstehend und überfällig".</summary>
+    [Parameter] public RenderFragment? Balances { get; set; }
+
+    /// <summary>Was die Seite darunter zeigt, im Haushalt die Richtwerte je Person.</summary>
+    [Parameter] public RenderFragment? Extra { get; set; }
+
     private decimal TotalBooked => Model.Pots.Sum(p => p.Booked);
     private decimal TotalPlanned => Model.Pots.Sum(p => p.Planned);
 
     // Ohne Geplantes und ohne Gebuchtes gibt es nichts zu zeigen.
     private bool IsEmpty => Model.Pots.All(p => p.Planned == 0m && p.Booked == 0m);
 
-    private IReadOnlyList<ChartBar> DistributionBars => Model.Pots
-        .Select(p => new ChartBar(L[$"Pot_{p.Pot}"].Value, Math.Abs(p.Booked)))
+    /// <summary>Der heutige Tag; die Tageskurve ist bis dahin echt und danach Vorschau.</summary>
+    [Parameter] public DateOnly Today { get; set; }
+
+    // Die drei Töpfe in ihren reservierten Farben.
+    private IReadOnlyList<DonutItem> PotItems => Model.Pots
+        .Select(p => new DonutItem(L[$"Pot_{p.Pot}"].Value, p.Pot, p.Planned, p.Booked, p.Target, p.Actual))
         .ToList();
 
-    // Der Satz zum ersten Diagramm: wer den größten Anteil der gebuchten Beträge hat.
-    private string DistributionText
-    {
-        get
-        {
-            var total = Model.Pots.Sum(p => Math.Abs(p.Booked));
-            if (total <= 0m)
-            {
-                return L["Month_ReviewNothingBooked"].Value;
-            }
-            var largest = Model.Pots.OrderByDescending(p => Math.Abs(p.Booked)).First();
-            var percent = (int)Math.Round(Math.Abs(largest.Booked) / total * 100m, 0, MidpointRounding.AwayFromZero);
-            return L["Month_ReviewLargest", L[$"Pot_{largest.Pot}"].Value, percent].Value;
-        }
-    }
+    // Die Kategorien in den Farben c1 bis c6; "Weitere" grau.
+    private IReadOnlyList<DonutItem> CategoryItems => (Model.Categories ?? [])
+        .Select((c, i) => new DonutItem(
+            c.Others ? L["Month_CategoryOthers"].Value : c.Name ?? L["Month_CategoryUnknown"].Value,
+            c.Others ? "rest" : $"c{i + 1}", c.Planned, c.Booked))
+        .ToList();
+
+    private IReadOnlyList<LineTableRow> DueRows => Model.Due
+        .Select(d => new LineTableRow(
+            d.Label,
+            d.Open,
+            string.Join(" · ", new[] { L["Month_DueOn", d.Due.ToString("d", German)].Value, d.Owner }.OfType<string>()),
+            Trailing: Badge(d.Overdue),
+            TestId: $"month-due-item-{(d.Overdue ? "overdue" : "upcoming")}"))
+        .ToList();
+
+    // Beides ist gekennzeichnet, getrennt durch das Wort und nicht nur durch eine Farbe.
+    private RenderFragment Badge(bool overdue) => @<span class="pill" data-testid="@(overdue ? "month-overdue-badge" : "month-upcoming-badge")">@L[overdue ? "Month_Overdue" : "Month_Upcoming"]</span>;
 }

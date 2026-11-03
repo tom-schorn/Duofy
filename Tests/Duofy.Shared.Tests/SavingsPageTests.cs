@@ -19,7 +19,7 @@ public class SavingsPageTests : PageTestContext
 
     public SavingsPageTests()
     {
-        dialogs = RenderRadzenHost();
+        dialogs = RenderDialogHost();
     }
 
     private ActiveMember Member => Services.GetRequiredService<ActiveMember>();
@@ -52,15 +52,15 @@ public class SavingsPageTests : PageTestContext
         Member.Choose(FakeHouseholdApi.AnnaId);
     }
 
+    // Spec 82, R12 (Tom, 03.11.2026: "Sparen gehörte auch unten ins menü rein"): Sparen hat in beiden Leisten ein eigenes Ziel.
     [Fact]
-    public void The_address_sparen_lies_under_more_and_has_its_own_entry_in_the_side_bar()
+    public void The_address_sparen_has_its_own_entry_in_both_bars()
     {
-        Assert.Equal(AppDestination.More, AppDestinations.For("/sparen"));
-        Assert.Equal(AppDestination.More, AppDestinations.For("sparen/ziele"));
-        Assert.DoesNotContain(AppDestinations.All, d => d.Href == "/sparen");
+        Assert.Equal(AppDestination.Savings, AppDestinations.For("/sparen"));
+        Assert.Equal(AppDestination.Savings, AppDestinations.For("sparen/ziele"));
+        Assert.Contains(AppDestinations.All, d => d.Destination == AppDestination.Savings && d.Href == "/sparen");
         Assert.Contains(AppDestinations.Side, d => d.Destination == AppDestination.Savings && d.Href == "/sparen");
-        Assert.Contains("href=\"/sparen\"".Replace("href=", "Href=", StringComparison.Ordinal),
-            File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "Pages", "Mehr.razor")));
+        Assert.DoesNotContain("/sparen", File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "Pages", "Mehr.razor")));
     }
 
     [Fact]
@@ -341,7 +341,7 @@ public class SavingsPageTests : PageTestContext
         Assert.Contains("keine Rechtsberatung", help);
         // Kein Alarm: weder Fehler- noch Warnfarbe in den Abschnitten der Schulden.
         var sections = cut.Find("[data-testid='savings-section-debts']").InnerHtml + cut.Find("[data-testid='savings-section-loans']").InnerHtml;
-        Assert.DoesNotContain("rz-danger", sections);
+        Assert.DoesNotContain("duofy-button--danger", sections);
         Assert.DoesNotContain("rz-warning", sections);
     }
 

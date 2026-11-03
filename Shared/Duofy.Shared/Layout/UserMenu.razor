@@ -1,0 +1,96 @@
+@using BlazorBlueprint.Primitives
+@using BlazorBlueprint.Components
+@using BlazorBlueprint.Icons.Lucide.Components
+@using Duofy.ApiClient
+@inject IAuthApi AuthApi
+@inject IUserApi UserApi
+@inject ILegalApi LegalApi
+@inject NavigationManager Navigation
+@inject ActiveMember Member
+@implements IDisposable
+@inject IStringLocalizer<SharedResources> L
+
+@* Das Profil-Menü unten in der Seitenleiste, wie im alten Duofy: Kürzel, Name und E-Mail, darüber das Menü. Oben im Menü steht
+   die Auswahl, wessen Zahlen die Seiten zeigen (Spec 82, R11: "Die Personenauswahl sollte unten übers Profil gehen"); ist
+   nicht "Ich" gewählt, steht die Ansicht statt der E-Mail unter dem Namen. Danach folgen das Benutzerkonto, Admin (nur für Personen, die den Server verwalten), den Lizenzen, den Rechtstexten dieses Servers und dem
+   Abmelden. Dieselben Einträge stehen am Handy auf der Seite "Mehr". Der Server wird erst gefragt, wenn jemand angemeldet
+   ist (AuthorizeView im Rahmen). *@
+
+<div data-testid="user-menu">
+    <BbDropdownMenu>
+        <BbDropdownMenuTrigger AsChild="false" Class="user-trigger" aria-label="@TriggerLabel" data-testid="user-menu-open">
+            <span class="avatar" aria-hidden="true">@Initials</span>
+            <span class="user-trigger-text">
+                <span>@displayName</span>
+                <span class="user-trigger-mail" data-testid="member-profile">@(ViewLabel ?? email)</span>
+            </span>
+            <LucideIcon Name="chevrons-up-down" Size="16" aria-hidden="true" />
+        </BbDropdownMenuTrigger>
+        <BbDropdownMenuContent Side="PopoverSide.Top" Align="PopoverAlign.Start" Class="user-menu-content">
+            <MemberSwitch InMenu="true" />
+            <BbDropdownMenuSeparator />
+            <BbDropdownMenuItem Href="/konto" data-testid="side-useraccount">@L["More_UserAccount"]</BbDropdownMenuItem>
+            @if (isAdmin)
+            {
+                <BbDropdownMenuItem Href="/admin" data-testid="side-admin">@L["More_Admin"]</BbDropdownMenuItem>
+            }
+            <BbDropdownMenuItem Href="/lizenzen" data-testid="side-licenses">@L["More_Licenses"]</BbDropdownMenuItem>
+            @foreach (var name in legalDocuments)
+            {
+                <BbDropdownMenuItem Href="@LegalPages.PathOf(name)" data-testid="@($"side-legal-{name}")">@L[LegalPages.LabelKeyOf(name)]</BbDropdownMenuItem>
+            }
+            <BbDropdownMenuSeparator />
+            <BbDropdownMenuItem OnClick="SignOutAsync" data-testid="side-sign-out">@L["Account_SignOut"]</BbDropdownMenuItem>
+        </BbDropdownMenuContent>
+    </BbDropdownMenu>
+</div>
+
+@code {
+    // Die Rechtstexte, die dieser Server anbietet (Spec 70, R8); ohne Antwort des Servers gibt es keine Links.
+    private IReadOnlyList<string> legalDocuments = [];
+
+    // Ob die Person den Server verwaltet; ohne Antwort des Servers nicht.
+    private bool isAdmin;
+    private string displayName = "";
+    private string email = "";
+
+    private string Initials => string.Concat(displayName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(p => char.ToUpperInvariant(p[0])));
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Die Auswahl der Person steht im Menü; sie kennt ihre Einträge erst, wenn der Haushalt geladen ist.
+        await Member.LoadAsync();
+        var result = await LegalApi.ListAsync();
+        if (result.Succeeded)
+        {
+            legalDocuments = LegalPages.Known(result.Value!.Documents);
+        }
+
+        var me = await UserApi.GetMeAsync();
+        if (me.Succeeded)
+        {
+            isAdmin = me.Value!.IsInstanceAdmin;
+            displayName = $"{me.Value.FirstName} {me.Value.LastName}".Trim();
+            email = me.Value.Email;
+        }
+    }
+
+    // Die gewählte Ansicht, wenn es nicht "Ich" ist: "Ansicht: Anna" oder "Ansicht: Haushalt".
+    private string? ViewLabel => Member.IsHousehold
+        ? L["UserMenu_ViewOf", L["MemberSwitch_Household"]].Value
+        : Member.Name is { } name ? L["UserMenu_ViewOf", name].Value : null;
+
+    private string TriggerLabel => ViewLabel is { } view ? $"{L["UserMenu_Label"]}, {view}" : L["UserMenu_Label"];
+
+    protected override void OnInitialized() => Member.Changed += OnMemberChanged;
+
+    private void OnMemberChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Member.Changed -= OnMemberChanged;
+
+    private async Task SignOutAsync()
+    {
+        await AuthApi.LogoutAsync();
+        Navigation.NavigateTo("/anmelden");
+    }
+}

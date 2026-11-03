@@ -1,17 +1,13 @@
-@* Ein Auswahlfeld mit der Auswahl des Geräts: Auf dem Handy öffnet sich das Auswahlfenster des
-   Systems, im Browser die gewohnte Liste. Radzen hat kein solches Feld, und
-   das eigene RadzenDropDown öffnet ein Fenster im Fenster, das auf dem Handy umständlich ist.
-
-   So benutzt man es, genau wie ein Textfeld:
+@* Ein Auswahlfeld mit der Auswahl des Geräts: Auf dem Handy öffnet sich das Auswahlfenster des Systems, im Browser die
+   gewohnte Liste.
 
        <NativeSelect Label="Konto" @bind-Value="kontoId">
            <option value="a">Girokonto</option>
        </NativeSelect>
 
-   Die Auswahl ist immer ein Text; leer ist "". Weitere Attribute (zum Beispiel data-testid)
-   landen am <select>-Element selbst. *@
+   Die Auswahl ist immer ein Text; leer ist "". Weitere Attribute (zum Beispiel data-testid) landen am select-Element. *@
 
-<div class="rz-mb-2">
+<div class="field">
     @if (Label is not null)
     {
         <FieldLabel For="@SelectId" Text="@Label" />

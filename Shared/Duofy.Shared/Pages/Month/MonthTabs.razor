@@ -1,34 +1,41 @@
 @inject IStringLocalizer<SharedResources> L
 
-@* Die Tabs der Monatsseite: eine Leiste mit vier Knöpfen (Übersicht, Plan, Buchungen, Auswertung). Der gewählte hat die Rolle
-   "ausgewählt" und eine Linie darunter, nicht nur eine Farbe. Mit den Pfeiltasten wechselt man vom gewählten Tab zum
-   Nachbarn, und der Fokus geht mit; nur der gewählte Tab ist mit der Tabulatortaste erreichbar. Der Inhalt
-   steht darunter in der Seite, die den gewählten Tab hält (so bleibt er beim Blättern zwischen Monaten). *@
-<div class="month-tabs" role="tablist" aria-label="@L["Month_TabsLabel"]">
+@* Die Reiter der Monatsseite wie im alten Duofy: Plan, Buchungen mit ihrer Anzahl und Auswertung. Der gewählte hat die Rolle
+   "ausgewählt" und eine eigene Fläche, nicht nur eine Farbe. Mit den Pfeiltasten wechselt man vom gewählten Reiter zum
+   Nachbarn, und der Fokus geht mit; nur der gewählte ist mit der Tabulatortaste erreichbar. Der Inhalt steht darunter in der
+   Seite, die den gewählten Reiter hält (so bleibt er beim Blättern zwischen Monaten). *@
+<div class="month-tabs" role="tablist" aria-label="@L["Month_TabsLabel"]" data-print="hide">
     @foreach (var tab in Tabs)
     {
         var current = tab;
         <button @ref="buttons[current]" type="button" role="tab" class="month-tab" id="@($"month-tab-{Key(tab)}")"
                 aria-selected="@(tab == Active ? "true" : "false")" aria-controls="month-panel"
                 tabindex="@(tab == Active ? 0 : -1)" data-testid="@($"month-tab-{Key(tab)}")"
-                @onclick="() => Select(current)" @onkeydown="OnKey">@L[$"Month_Tab{tab}"]</button>
+                @onclick="() => Select(current)" @onkeydown="OnKey">@Text(tab)</button>
     }
 </div>
 
 @code {
-    private static readonly MonthTab[] Tabs = [MonthTab.Overview, MonthTab.Plan, MonthTab.Bookings, MonthTab.Review];
+    private static readonly MonthTab[] Tabs = [MonthTab.Plan, MonthTab.Bookings, MonthTab.Review];
 
     private readonly Dictionary<MonthTab, ElementReference> buttons = [];
 
-    // Nach einem Pfeil: den Fokus auf den neuen Tab legen, sobald er gezeichnet ist.
+    // Nach einem Pfeil: den Fokus auf den neuen Reiter legen, sobald er gezeichnet ist.
     private bool moveFocus;
 
     [Parameter, EditorRequired] public MonthTab Active { get; set; }
 
     [Parameter] public EventCallback<MonthTab> ActiveChanged { get; set; }
 
-    /// <summary>Die Kennung eines Tabs für Tests und Beschriftungen: overview, plan, bookings.</summary>
+    /// <summary>Wie viele Buchungen der Monat hat; steht wie im alten Duofy am Reiter. Null: nur das Wort.</summary>
+    [Parameter] public int? BookingCount { get; set; }
+
+    /// <summary>Die Kennung eines Reiters für Tests und Beschriftungen: plan, bookings, review.</summary>
     public static string Key(MonthTab tab) => tab.ToString().ToLowerInvariant();
+
+    private string Text(MonthTab tab) => tab == MonthTab.Bookings && BookingCount is > 0
+        ? $"{L[$"Month_Tab{tab}"]} · {BookingCount}"
+        : L[$"Month_Tab{tab}"];
 
     private Task Select(MonthTab tab) => ActiveChanged.InvokeAsync(tab);
 

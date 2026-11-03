@@ -23,7 +23,7 @@ public class GrantedPagesTests : PageTestContext
 
     public GrantedPagesTests()
     {
-        dialogs = RenderRadzenHost();
+        dialogs = RenderDialogHost();
         Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Annas Giro", IsDefault: true, Active: true));
     }
 
@@ -48,13 +48,18 @@ public class GrantedPagesTests : PageTestContext
         Assert.Equal(GrantLock.ReasonId, element.GetAttribute("aria-describedby"));
     }
 
-    private static void AssertFree<T>(IRenderedComponent<T> cut, string testId) where T : Microsoft.AspNetCore.Components.IComponent =>
-        Assert.Null(cut.Find($"[data-testid='{testId}']").GetAttribute("aria-disabled"));
+    // BbButton schreibt aria-disabled="false" aus; frei heißt also: nicht gesperrt und ohne Verweis auf einen Grund.
+    private static void AssertFree<T>(IRenderedComponent<T> cut, string testId) where T : Microsoft.AspNetCore.Components.IComponent
+    {
+        var element = cut.Find($"[data-testid='{testId}']");
+        Assert.NotEqual("true", element.GetAttribute("aria-disabled"));
+        Assert.Null(element.GetAttribute("aria-describedby"));
+    }
 
     // Fund S3: Ohne Sicht auf die Buchungen kommt jeder gebuchte Betrag als 0 an. Lücke, Liste und offene Beträge wären
-    // falsch; die Übersicht sagt stattdessen, dass die Person das nicht teilt.
+    // falsch; Auswertung, Buchungen und Anstehend sagen stattdessen, dass die Person das nicht teilt.
     [Fact]
-    public async Task With_plan_view_only_the_overview_says_not_shared_instead_of_list_gap_and_open_amounts()
+    public async Task With_plan_view_only_review_bookings_and_unpaid_say_not_shared_instead_of_wrong_amounts()
     {
         await ChooseAnnaAsync(GrantLevels.None with { Plan = AccessLevelKeys.View });
         var rent = FakePlanApi.Position("Miete", 890m) with { DueDay = 1 };
@@ -65,19 +70,25 @@ public class GrantedPagesTests : PageTestContext
         };
 
         var cut = Render<Plan>();
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-overview']")));
+        OpenReviewTab(cut);
 
-        Assert.Contains(NotShared, cut.Find("[data-testid='month-recent']").TextContent);
-        Assert.Contains(NotShared, cut.Find("[data-testid='month-gap']").TextContent);
-        Assert.Contains(NotShared, cut.Find("[data-testid='month-due']").TextContent);
-        Assert.DoesNotContain("weniger als geplant", cut.Find("[data-testid='month-gap']").TextContent);
-        Assert.DoesNotContain("noch keine Buchungen", cut.Find("[data-testid='month-recent']").TextContent);
-        Assert.DoesNotContain("Miete", cut.Find("[data-testid='month-due']").TextContent);
+        Assert.Contains(NotShared, cut.Find("[data-testid='month-review-not-shared']").TextContent);
+        Assert.Empty(cut.FindAll("[data-testid='month-gap']"));
+        Assert.Empty(cut.FindAll("[data-testid='month-due']"));
+        Assert.DoesNotContain("weniger als geplant", cut.Markup);
+        var unpaid = cut.Find("[data-testid='month-block-unpaid']").TextContent;
+        Assert.Contains(NotShared, unpaid);
+        Assert.DoesNotContain("890,00", unpaid);
+
+        OpenBookingsTab(cut);
+
+        Assert.Contains(NotShared, cut.Find("[data-testid='bookings-not-shared']").TextContent);
+        Assert.Empty(cut.FindAll("[data-testid='month-bookings-empty']"));
     }
 
-    // Gegenprobe zu S3: Mit Buchungen Ansehen bleibt die Übersicht vollständig.
+    // Gegenprobe zu S3: Mit Buchungen Ansehen bleiben Auswertung und Anstehend vollständig.
     [Fact]
-    public async Task With_bookings_view_the_overview_shows_the_gap_and_the_open_amounts()
+    public async Task With_bookings_view_the_review_shows_the_gap_and_the_open_amounts()
     {
         await ChooseAnnaAsync(GrantLevels.None with { Plan = AccessLevelKeys.View, Book = AccessLevelKeys.View });
         var rent = FakePlanApi.Position("Miete", 890m) with { DueDay = 1 };
@@ -88,11 +99,12 @@ public class GrantedPagesTests : PageTestContext
         };
 
         var cut = Render<Plan>();
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-overview']")));
+        OpenReviewTab(cut);
 
-        Assert.DoesNotContain(NotShared, cut.Find("[data-testid='month-overview']").TextContent);
-        Assert.Contains("weniger als geplant", cut.Find("[data-testid='month-gap']").TextContent);
+        Assert.Empty(cut.FindAll("[data-testid='month-review-not-shared']"));
+        Assert.Contains("890,00 €", cut.Find("[data-testid='month-review-plan-vs-actual']").TextContent);
         Assert.Contains("Miete", cut.Find("[data-testid='month-due']").TextContent);
+        Assert.Contains("890,00 €", cut.Find("[data-testid='month-block-unpaid']").TextContent);
     }
 
     // A13
@@ -140,7 +152,7 @@ public class GrantedPagesTests : PageTestContext
         Assert.Empty(commitments.FindAll("[data-testid='commitments-add']"));
     }
 
-    // R8: Mit Ändern geht Bearbeiten; Abhaken braucht die Buchungen, Löschen die Stufe Löschen.
+    // R8: Mit Ändern geht Bearbeiten; Abhaken braucht die Buchungen, Löschen (im Dialog des Postens) die Stufe Löschen.
     [Fact]
     public async Task With_plan_edit_editing_works_while_ticking_and_deleting_stay_greyed_out()
     {
@@ -154,7 +166,9 @@ public class GrantedPagesTests : PageTestContext
         AssertFree(cut, "plan-add");
         AssertFree(cut, $"plan-edit-{gift.Id}");
         AssertLocked(cut, $"plan-tick-{gift.Id}");
-        AssertLocked(cut, $"plan-delete-{gift.Id}");
+        cut.Find($"[data-testid='plan-edit-{gift.Id}']").Click();
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='plan-delete']")));
+        AssertLocked(dialogs, "plan-delete");
         // Ohne Konten freizugeben, fragt die Seite Annas Konten gar nicht erst ab.
         Assert.Empty(Accounts.Owners);
     }
@@ -252,11 +266,11 @@ public class GrantedPagesTests : PageTestContext
     public async Task A_tick_dialog_opened_for_anna_ticks_for_anna_after_switching_to_me()
     {
         await ChooseAnnaAsync(GrantLevels.None with { Plan = AccessLevelKeys.View, Book = AccessLevelKeys.Edit, Accounts = AccessLevelKeys.View });
-        var groceries = FakePlanApi.Position("Lebensmittel", 600m, booked: 550m);
+        var groceries = FakePlanApi.Position("Lebensmittel", 600m);
         PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10) with { Positions = [groceries] };
         var cut = Render<Plan>();
         OpenPlanTab(cut);
-        Field(cut, $"plan-tick-{groceries.Id}").Change(true);
+        cut.Find($"[data-testid='plan-tick-{groceries.Id}']").Click();
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='tick-amount']")));
 
         await cut.InvokeAsync(() => Member.Choose(null));
@@ -373,7 +387,7 @@ public class GrantedPagesTests : PageTestContext
         var applies = cut.FindAll("[data-testid='plan-change-apply']");
         Assert.Equal("true", applies[0].GetAttribute("aria-disabled"));
         Assert.Equal(GrantLock.ReasonId, applies[0].GetAttribute("aria-describedby"));
-        Assert.Null(applies[1].GetAttribute("aria-disabled"));
+        Assert.NotEqual("true", applies[1].GetAttribute("aria-disabled"));
         AssertLocked(cut, "plan-changes-apply-all");
         Assert.Equal(Reason, cut.Find($"#{GrantLock.ReasonId}").TextContent.Trim());
 

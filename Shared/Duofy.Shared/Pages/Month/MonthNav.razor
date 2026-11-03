@@ -1,0 +1,18 @@
+@using BlazorBlueprint.Icons.Lucide.Components
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Zeile über dem Monat: zurück zur Übersicht der Monate (Spec 23, R6). Den Monatsumschalter oben rechts gibt es nicht
+   mehr (Tom, 03.11.2026: "Oben rechts der monatswitch kann weg"); die Monate wählt man in der Übersicht. *@
+<nav class="month-nav" aria-label="@L["Month_BackLabel"]" data-print="hide">
+    <a href="@BackHref" class="back-link" data-testid="plan-back">
+        <LucideIcon Name="arrow-left" Size="16" aria-hidden="true" />
+        @BackText
+    </a>
+</nav>
+
+@code {
+    /// <summary>Wohin "zurück" führt: die eigene Übersicht oder die des Haushalts.</summary>
+    [Parameter, EditorRequired] public string BackHref { get; set; } = "/plan";
+
+    [Parameter, EditorRequired] public string BackText { get; set; } = "";
+}

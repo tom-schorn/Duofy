@@ -62,7 +62,7 @@ public class ConsentBannerTests : UiTestContext
 
         Assert.Equal(accept.ClassList.Where(c => c.StartsWith("rz-")).Order(),
                      decline.ClassList.Where(c => c.StartsWith("rz-")).Order());
-        Assert.Contains("rz-button", accept.ClassList);
+        Assert.Contains("duofy-button", accept.ClassList);
         Assert.Equal("Ablehnen", decline.TextContent.Trim());
         Assert.Equal("Zustimmen", accept.TextContent.Trim());
         Assert.Equal(decline.OuterHtml, accept.NextElementSibling!.OuterHtml);
@@ -262,7 +262,7 @@ public class ConsentBannerTests : UiTestContext
 
         Assert.Equal(accept.ClassList.Where(c => c.StartsWith("rz-")).Order(),
                      decline.ClassList.Where(c => c.StartsWith("rz-")).Order());
-        Assert.Contains("rz-button", accept.ClassList);
+        Assert.Contains("duofy-button", accept.ClassList);
         Assert.Equal(decline.OuterHtml, accept.NextElementSibling!.OuterHtml);
 
         decline.Click();

@@ -1,54 +1,45 @@
-@using Radzen
-@using Radzen.Blazor
+@using BlazorBlueprint.Components
+@using Duofy.Shared.Dialogs
+@inherits FormDialogBase
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
 @inject ISavingsGoalApi GoalApi
 @inject ActiveMember Member
-@inject DialogService Dialogs
 @inject IStringLocalizer<SharedResources> L
-@inject IAppHost Host
 
 @* Der Dialog zum Anlegen und Ändern eines Sparziels (Issue 30): Name, Zielbetrag und Zieldatum sind freiwillig bis auf
    den Namen, dazu das Sparkonto, auf dem das Geld liegt. Geprüft wird beim Speichern von der API; ihre Fehler stehen
    oben im Dialog. *@
 
 <div>
-    @if (Host.IsApp)
-        {
-            <FullScreenFormHeader Title="@Title" SaveText="@L["SavingsGoalDialog_Save"]" SaveTestId="savings-goal-save"
-                                  Busy="busy" OnClose="Cancel" OnSave="SaveAsync" />
-        }
-        <RadzenStack Gap="1rem">
+
+        <div class="stack">
             @if (error is not null)
             {
-                <ErrorAlert AlertStyle="AlertStyle.Danger" Text="@error" data-testid="savings-goal-error" />
+                <ErrorAlert Text="@error" data-testid="savings-goal-error" />
             }
 
             <div class="field">
                 <FieldLabel For="savings-goal-name-input" Text="@L["Field_SavingsGoalName"]" />
-                <RadzenTextBox @bind-Value="name" id="savings-goal-name-input" MaxLength="SavingsGoalRules.NameMaxLength" data-testid="savings-goal-name" />
+                <TextInput id="savings-goal-name-input" maxlength="@(SavingsGoalRules.NameMaxLength)" @bind-Value="name" data-testid="savings-goal-name" />
             </div>
 
             <div class="field">
                 <FieldLabel id="savings-goal-start-label" Text="@L["Field_SavingsGoalStart"]" />
-                <RadzenNumeric TValue="decimal?" @bind-Value="start" Culture="German" Format="0.00" ShowUpDown="false"
-                               InputAttributes="@(new Dictionary<string, object> { ["aria-labelledby"] = "savings-goal-start-label", ["aria-describedby"] = "savings-goal-start-hint" })"
-                               data-testid="savings-goal-start" />
-                <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-m-0" id="savings-goal-start-hint">@L["Field_SavingsGoalStartHint"]</RadzenText>
+                <MoneyInput aria-labelledby="savings-goal-start-label" aria-describedby="savings-goal-start-hint" @bind-Value="start" data-testid="savings-goal-start" />
+                <p class="small muted" id="savings-goal-start-hint">@L["Field_SavingsGoalStartHint"]</p>
             </div>
 
             <div class="field">
                 <FieldLabel id="savings-goal-target-label" Text="@L["Field_SavingsGoalTarget"]" />
-                <RadzenNumeric TValue="decimal?" @bind-Value="target" Culture="German" Format="0.00" ShowUpDown="false"
-                               InputAttributes="@(new Dictionary<string, object> { ["aria-labelledby"] = "savings-goal-target-label", ["aria-describedby"] = "savings-goal-target-hint" })"
-                               data-testid="savings-goal-target" />
-                <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-m-0" id="savings-goal-target-hint">@L["Field_SavingsGoalTargetHint"]</RadzenText>
+                <MoneyInput aria-labelledby="savings-goal-target-label" aria-describedby="savings-goal-target-hint" @bind-Value="target" data-testid="savings-goal-target" />
+                <p class="small muted" id="savings-goal-target-hint">@L["Field_SavingsGoalTargetHint"]</p>
             </div>
 
             <div class="field">
                 <FieldLabel For="savings-goal-date-input" Text="@L["Field_SavingsGoalDate"]" />
-                <RadzenTextBox Value="@dateText" ValueChanged="OnDateChanged" type="date" id="savings-goal-date-input" data-testid="savings-goal-date" />
+                <TextInput id="savings-goal-date-input" Type="date" Value="@dateText" ValueChanged="OnDateChanged" data-testid="savings-goal-date" />
             </div>
 
             <NativeSelect Value="@(accountId?.ToString() ?? "")" ValueChanged="OnAccountChanged"
@@ -60,15 +51,13 @@
                 }
             </NativeSelect>
 
-            @if (!Host.IsApp)
-            {
-                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
-                    <RadzenButton Text="@L["SavingsGoalDialog_Cancel"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Click="@(_ => Cancel())" />
-                    <RadzenButton Text="@L["SavingsGoalDialog_Save"]" ButtonStyle="ButtonStyle.Primary" Disabled="busy" Click="@(_ => SaveAsync())"
-                                  data-testid="savings-goal-save" />
-                </RadzenStack>
-            }
-        </RadzenStack>
+
+                <div class="row-end">
+                    <DuofyButton Kind="ButtonKind.Ghost" Text="@L["SavingsGoalDialog_Cancel"]" OnClick="@(_ => Cancel())" />
+                    <DuofyButton Text="@L["SavingsGoalDialog_Save"]" OnClick="@(_ => SaveAsync())" TestId="savings-goal-save" Disabled="busy" />
+                </div>
+            
+        </div>
 </div>
 
 @code {
@@ -121,7 +110,7 @@
         date = DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed) ? parsed : null;
     }
 
-    private void Cancel() => Dialogs.Close();
+    private Task Cancel() => CancelAsync();
 
     private async Task SaveAsync()
     {
@@ -140,7 +129,7 @@
 
             if (result.Succeeded)
             {
-                Dialogs.Close(true);
+                await CloseAsync(true);
             }
             else
             {

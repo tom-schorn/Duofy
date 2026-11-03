@@ -1,202 +1,249 @@
 @page "/plan/{Year:int}/{Month:int}"
-@using Radzen
-@using Radzen.Blazor
+@using BlazorBlueprint.Icons.Lucide.Components
 @attribute [Authorize]
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
+@using Duofy.Shared.Charts
 @using Duofy.Shared.Pages.Month
 @implements IDisposable
 @inject IPlanApi PlanApi
 @inject ICategoryApi CategoryApi
 @inject IAccountChoices AccountChoices
+@inject IAccountApi AccountApi
 @inject BookingDialogLauncher Launcher
 @inject FormDialogs Forms
-@inject IAppHost Host
 @inject AppChrome Chrome
 @inject ActiveMember Member
 @inject TimeProvider Time
 @inject NavigationManager Navigation
+@inject IJSRuntime Js
 @inject IStringLocalizer<SharedResources> L
 
-@* Der Monatsplan (Spec 66) unter /plan/{Jahr}/{Monat} (Spec 23): ein Monat mit seinen Posten nach Topf, geplant und gebucht je Posten,
-   Ziel und Ist der Quoten, der Hinweis auf geänderte Verträge und der Übertrag.
+@* Der Monatsplan (Spec 66, Spec 82) wie im alten Duofy: oben zurück und Blättern, Titel und Knöpfe, drei schlichte Kennzahlen,
+   die Reiter und im Reiter Plan der Sankey aus den Posten und die Posten nach Töpfen mit Balken und Kästchen, dazu je Topf die
+   Zeile Ungeplant aus den Buchungen ohne Posten.
 
-   Die Seite rechnet nichts selbst. Gebuchte Beträge, Quoten und Unterschiede schickt die API mit;
-   nach jeder Änderung holt die Seite den Monat neu. Der Plus-Knopf legt einen einmaligen Posten an.
+   Die Seite rechnet nichts selbst. Gebuchte Beträge, Quoten und Unterschiede schickt die API mit; nach jeder Änderung holt die
+   Seite den Monat neu. Der gewählte Reiter bleibt beim Blättern zwischen den Monaten.
 
-   Seit Spec 24 hat der Monat drei Tabs: Übersicht (zuerst), Plan (die Posten wie bisher) und Buchungen (die diesem
-   Planmonat zugeordneten). Der gewählte Tab bleibt beim Blättern zwischen den Monaten.
+   Mit dem Umschalter zeigt die Seite den Monat eines anderen Mitglieds (Spec 68). Was dessen Freigabe nicht erlaubt, ist
+   ausgegraut, und der Grund steht einmal oben; ohne Planung Ansehen sagt die Seite nur, dass die Person diesen Bereich nicht
+   teilt. *@
 
-   Mit dem Umschalter zeigt die Seite den Monat eines anderen Mitglieds (Spec 68). Was dessen Freigabe nicht
-   erlaubt, ist ausgegraut, und der Grund steht einmal oben; ohne Planung Ansehen sagt die Seite nur, dass die
-   Person diesen Bereich nicht teilt. *@
-
-<PageTitle>@L["Nav_Plan"]</PageTitle>
-
-@* Der Weg zurück zur Übersicht der Monate (Spec 23, R6); er gilt für den eigenen Plan wie für den des Haushalts. *@
-<RadzenLink Path="/plan" Text="@L["Plan_BackToMonths"]" Class="plan-back rz-mb-2" data-testid="plan-back" />
+<PageTitle>@MonthTitle</PageTitle>
 
 @* Mit "Haushalt" im Umschalter zeigt die Seite den Haushaltsplan (Spec 69), nur zum Lesen. *@
 @if (Member.IsHousehold)
 {
-    <HouseholdPlanView Year="year" Month="month" OnMove="MoveAsync" />
+    <MonthNav BackHref="/plan" BackText="@L["Plan_BackToMonths"]" />
+    <HouseholdPlanView Heading="@MonthTitle" Year="year" Month="month" />
 }
 else
 {
-<AppPageHeading Text="@L["Nav_Plan"]" />
-@if (!Host.IsApp)
-{
-    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-2">
-        <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1">@L["Nav_Plan"]</RadzenText>
+<MonthNav BackHref="/plan" BackText="@L["Plan_BackToMonths"]" />
+
+@* Am Handy bleibt "Buchung anlegen" als Hauptknopf; Posten anlegen und Drucken stehen dort im Menü (Spec 82, R12). *@
+<PageHead Title="@MonthTitle" Lead="@L["Plan_Lead"]" CompactLead="true" Menu="@(SeesPlan ? PhoneMenu : null)">
+    <Actions>
         @if (SeesPlan)
         {
-            <RadzenButton Text="@L["Plan_AddPosition"]" Icon="add" ButtonStyle="ButtonStyle.Primary"
-                          Click="@(_ => AddAsync())" Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)"
-                          data-testid="plan-add" />
+            <DuofyButton Kind="ButtonKind.Secondary" Icon="printer" Text="@L["Plan_Print"]" OnClick="@(_ => PrintAsync())" TestId="plan-print" Class="wide-only" />
+            <DuofyButton Text="@L["Month_ActionBooking"]" OnClick="@(_ => NewBookingAsync())" Class="@GrantLock.Class(CanBook)" @attributes="GrantLock.Attributes(CanBook)" TestId="month-action-booking" />
+            <DuofyButton Icon="plus" Text="@L["Plan_AddPosition"]" OnClick="@(_ => AddAsync())" Class="@($"wide-only {GrantLock.Class(CanAdd)}")" @attributes="GrantLock.Attributes(CanAdd)" TestId="plan-add" />
         }
-    </RadzenStack>
-}
+    </Actions>
+</PageHead>
 
 @if (!SeesPlan)
 {
-    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color" data-testid="not-shared">@L["Grant_NotShared"]</RadzenText>
+    <p class="muted" data-testid="not-shared">@L["Grant_NotShared"]</p>
 }
 else
 {
 <GrantReason Show="AnyLocked" />
 
-@* Blättern zwischen den Monaten. *@
-<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-2 month-nav">
-    <RadzenButton Icon="chevron_left" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Click="@(_ => MoveAsync(-1))"
-                  aria-label="@L["Plan_PreviousMonth"]" data-testid="plan-previous" />
-    <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-m-0" data-testid="plan-month">@MonthTitle</RadzenText>
-    <RadzenButton Icon="chevron_right" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Click="@(_ => MoveAsync(1))"
-                  aria-label="@L["Plan_NextMonth"]" data-testid="plan-next" />
-</RadzenStack>
-
 <Notice Message="message" />
 
-<MonthTabs Active="tab" ActiveChanged="SelectTab" />
-<div role="tabpanel" id="month-panel" class="page-wide" aria-labelledby="@($"month-tab-{MonthTabs.Key(tab)}")">
 @if (plan is not null)
 {
-    @if (tab == MonthTab.Overview)
-    {
-        <MonthOverview Model="MonthView.ForPerson(plan, Today, AccountName, Purpose)" SeesBookings="SeesBookings" CanBook="CanBook" CanAddPosition="CanAdd"
-                       OnNewBooking="NewBookingAsync" OnNewPosition="AddAsync" OnTick="ShowPlanTab" />
-    }
-    else if (tab == MonthTab.Bookings)
+    @* Vier gleich große Kennzahlen (Spec 82, R15). Der Übertrag (R9) ist die vierte: in keinem Topf und keiner Quote,
+       eintragen und zurücknehmen nur hier. *@
+    <div class="metrics" data-testid="month-metrics">
+        <div data-testid="month-block-income"><Metric Title="@L["Month_Income"]" Amount="IncomeTotal" /></div>
+        <div data-testid="month-block-free"><Metric Title="@L["Month_Allocatable"]" Amount="FreeTotal" Over="FreeTotal < 0m" AmountText="@(FreeTotal == 0m ? L["Month_AllPlanned"].Value : null)" Note="@FreeNote" /></div>
+        <div data-testid="month-block-unpaid"><Metric Title="@L["Month_Unpaid"]" Amount="UnpaidTotal" AmountText="@UnpaidText" Note="@(SeesBookings ? L["Month_UnpaidNote"].Value : L["Grant_NotShared"].Value)" /></div>
+        <div data-testid="plan-carry-over" data-print="hide">
+            @{ var carryOvers = MonthView.CarryOverRows(plan.Overview?.CarryOvers); }
+            <div class="metric metric--carry" role="group" aria-labelledby="carry-over-title">
+                <p class="metric-title" id="carry-over-title">@L["Plan_CarryOver"]</p>
+                @if (carryOvers.Count > 0)
+                {
+                    @foreach (var row in carryOvers)
+                    {
+                        <p class="metric-line" data-testid="@(row.Incoming ? "plan-carry-over-in" : "plan-carry-over-out")">
+                            <span>@L[row.Incoming ? "Month_CarryOverIn" : "Month_CarryOverOut", row.Month.ToString("MMMM", German)]</span>
+                            <b class="num @(row.Amount < 0m ? "over" : null)">@Money(row.Amount)</b>
+                        </p>
+                    }
+                }
+                else if (plan.CarryOver.Exists)
+                {
+                    <p class="metric-line"><span>@L["Plan_CarryOverBooked", Money(plan.CarryOver.Amount ?? 0m)]</span></p>
+                }
+                else
+                {
+                    <p class="metric-note">@L["Plan_CarryOverNone"]</p>
+                }
+                <div class="metric-action">
+                    @if (plan.CarryOver.Exists)
+                    {
+                        <DuofyButton Kind="ButtonKind.Ghost" Small="true" Text="@L["Plan_CarryOverRemove"]" OnClick="@(_ => RemoveCarryOverAsync())"
+                                     Class="@GrantLock.Class(CanRemoveCarryOver)" @attributes="GrantLock.Attributes(CanRemoveCarryOver)"
+                                     TestId="plan-carry-over-remove" />
+                    }
+                    else
+                    {
+                        <DuofyButton Kind="ButtonKind.Secondary" Small="true" Text="@L["Plan_CarryOverEnter"]" OnClick="@(_ => CarryOverAsync())"
+                                     Class="@GrantLock.Class(CanCarryOver)" @attributes="GrantLock.Attributes(CanCarryOver)"
+                                     TestId="plan-carry-over-open" />
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<MonthTabs Active="tab" ActiveChanged="SelectTab" BookingCount="@(SeesBookings ? plan?.Overview?.Bookings.Count : null)" />
+<div role="tabpanel" id="month-panel" aria-labelledby="@($"month-tab-{MonthTabs.Key(tab)}")">
+@if (plan is not null)
+{
+    @if (tab == MonthTab.Bookings)
     {
         @if (SeesBookings)
         {
-            <MonthBookings Rows="MonthView.BookingRows(plan.Overview?.Bookings ?? [], AccountName, Purpose)" CarryOvers="MonthView.CarryOverRows(plan.Overview?.CarryOvers)" />
+            <MonthBookings Rows="MonthView.BookingRows(plan.Overview?.Bookings ?? [], AccountName, Purpose, plan.Positions, CategoryName)" CarryOvers="MonthView.CarryOverRows(plan.Overview?.CarryOvers)" />
         }
         else
         {
-            <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color" data-testid="bookings-not-shared">@L["Grant_NotShared"]</RadzenText>
+            <p class="muted" data-testid="bookings-not-shared">@L["Grant_NotShared"]</p>
         }
     }
     else if (tab == MonthTab.Review)
     {
-        <MonthReview Model="MonthView.ForPerson(plan, Today, AccountName)" SeesBookings="SeesBookings" />
+        var review = MonthView.ForPerson(plan, Today, AccountName, null, CategoryName);
+        <MonthReview Model="review" SeesBookings="SeesBookings" Today="Today">
+            <Balances>
+                <AccountBalances Rows="BalanceRows" NotShared="!SeesAccounts" AsOf="@L["Month_AccountsAsOfToday"]" />
+            </Balances>
+        </MonthReview>
     }
     else
     {
-    @* Ab 1280 px stehen die Posten links, Summen und Übertrag rechts daneben; darunter untereinander wie bisher. *@
-    <div class="plan-layout page-wide">
-    @* Geänderte Verträge: vorher und nachher je Unterschied, alle oder einzeln übernehmen (R2). *@
-    @if (plan.Changes.Count > 0)
-    {
-        <RadzenCard Variant="Variant.Outlined" Class="rz-mb-4 plan-layout-top" data-testid="plan-changes">
-            <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H3" Class="rz-mb-1">@L["Plan_ChangesHeading"]</RadzenText>
-            <RadzenStack Gap="0.5rem">
+        @* Geänderte Verträge: vorher und nachher je Unterschied, alle oder einzeln übernehmen (R2). *@
+        @if (plan.Changes.Count > 0)
+        {
+            <div class="card stack notice" data-testid="plan-changes">
+                <h3 class="sub-title">@L["Plan_ChangesHeading"]</h3>
                 @foreach (var change in plan.Changes)
                 {
                     var current = change;
-                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" data-testid="plan-change">
-                        <RadzenStack Gap="0" Class="fill">
-                            <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-m-0">@L[$"Plan_Change_{change.Kind}", change.Label]</RadzenText>
+                    <div class="row-between" data-testid="plan-change">
+                        <div class="fill stack-sm">
+                            <p>@L[$"Plan_Change_{change.Kind}", change.Label]</p>
                             @foreach (var field in change.Fields)
                             {
-                                <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-m-0">@L["Plan_ChangeField", L[$"PlanField_{field.Field}"], FieldText(field.Field, field.Before), FieldText(field.Field, field.After)]</RadzenText>
+                                <p class="small muted">@L["Plan_ChangeField", L[$"PlanField_{field.Field}"], FieldText(field.Field, field.Before), FieldText(field.Field, field.After)]</p>
                             }
                             @if (change.Protected)
                             {
-                                <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-m-0">@L["Plan_ChangeProtected"]</RadzenText>
+                                <p class="small muted">@L["Plan_ChangeProtected"]</p>
                             }
-                        </RadzenStack>
-                        <RadzenButton Text="@L["Plan_ChangeApply"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small"
-                                      Click="@(_ => ApplyAsync(current))"
-                                      Class="@GrantLock.Class(CanApplyChange(current))" @attributes="GrantLock.Attributes(CanApplyChange(current))"
-                                      data-testid="plan-change-apply" />
-                    </RadzenStack>
+                        </div>
+                        <DuofyButton Kind="ButtonKind.Ghost" Small="true" Text="@L["Plan_ChangeApply"]" OnClick="@(_ => ApplyAsync(current))"
+                                     Class="@GrantLock.Class(CanApplyChange(current))" @attributes="GrantLock.Attributes(CanApplyChange(current))"
+                                     TestId="plan-change-apply" />
+                    </div>
                 }
-            </RadzenStack>
-            <RadzenButton Text="@L["Plan_ChangesApplyAll"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary"
-                          Class="@($"rz-mt-2 {GrantLock.Class(CanApplyAll)}")" Click="@(_ => ApplyAsync(null))"
-                          @attributes="GrantLock.Attributes(CanApplyAll)" data-testid="plan-changes-apply-all" />
-        </RadzenCard>
-    }
-
-    @* Summen und Quoten. *@
-    <RadzenCard Variant="Variant.Outlined" Class="rz-mb-4 plan-layout-side" data-testid="plan-sums">
-        <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-m-0">@L["Plan_SumsIncome", Money(plan.PlannedIncome), Money(plan.BookedIncome)]</RadzenText>
-        <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-m-0">@L["Plan_SumsExpenses", Money(plan.PlannedExpenses), Money(plan.BookedExpenses)]</RadzenText>
-        @foreach (var quota in plan.Quotas)
-        {
-            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-m-0" data-testid="@($"plan-quota-{quota.Pot}")">@L["Plan_Quota", L[$"Pot_{quota.Pot}"], quota.Target, quota.Actual.ToString("0.#", German)]</RadzenText>
+                <div>
+                    <DuofyButton Kind="ButtonKind.Secondary" Text="@L["Plan_ChangesApplyAll"]" OnClick="@(_ => ApplyAsync(null))"
+                                 Class="@GrantLock.Class(CanApplyAll)" @attributes="GrantLock.Attributes(CanApplyAll)" TestId="plan-changes-apply-all" />
+                </div>
+            </div>
         }
-    </RadzenCard>
 
-    <div class="plan-groups">
-    @if (plan.Positions.Count == 0)
-    {
-        <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color rz-mb-2" data-testid="plan-empty">@L["Plan_Empty"]</RadzenText>
-    }
-
-    @* Die Posten nach Topf, je Topf eine Linientabelle mit Haken (Spec 24, R5). *@
-    @foreach (var group in PlanView.Groups(plan))
-    {
-        <div>
-            <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H3" Class="rz-mt-3 rz-mb-1" data-testid="@($"plan-group-{group.Pot}")">@L[$"Pot_{group.Pot}"]</RadzenText>
-            <LineTable Caption="@L[$"Pot_{group.Pot}"]" HideCaption="true" Rows="PositionRows(group.Positions)" />
-        </div>
-    }
-    </div>
-
-    @* Der Übertrag (R9): je eine eigene Zeile, in keinem Topf und keiner Quote; zurücknehmen und neu nur hier. *@
-    <RadzenCard Variant="Variant.Outlined" Class="rz-mt-4 plan-layout-side" data-testid="plan-carry-over">
-        @{ var carryOvers = MonthView.CarryOverRows(plan.Overview?.CarryOvers); }
-        @if (carryOvers.Count > 0)
+        @if (plan.Positions.Count == 0)
         {
-            <LineTable Caption="@L["Plan_CarryOver"]" HideCaption="true" Rows="MonthCarryOverText.Rows(carryOvers, L)" />
+            <p class="empty-state notice" data-testid="plan-empty">@L["Plan_Empty"]</p>
         }
-        @if (plan.CarryOver.Exists)
+
+        @* Die Posten nach Topf (Spec 24, R5). *@
+        @foreach (var group in PlanView.Groups(plan))
         {
-            var incoming = carryOvers.Any(c => c.Incoming);
-            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem"
-                         JustifyContent="@(incoming ? JustifyContent.End : JustifyContent.SpaceBetween)">
-                @if (!incoming)
+            <PotSection Pot="@group.Pot" Sum="PlanView.PotPlanned(plan, group.Pot)" Limit="LimitOf(group.Pot)">
+                @foreach (var position in group.Positions)
                 {
-                    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-m-0">@L["Plan_CarryOverBooked", Money(plan.CarryOver.Amount ?? 0m)]</RadzenText>
+                    var current = position;
+                    var done = position.DoneAt is not null;
+                    <li class="@(done ? "plan-row row-done" : "plan-row")" data-testid="@($"plan-position-{position.Id}")">
+                        <div class="list-row">
+                            <span class="list-row-lift">
+                                <TickBox Checked="done" Label="@L[done ? "Plan_Untick" : "Plan_Tick", position.Label]" OnToggle="@(() => ToggleAsync(current))"
+                                         Class="@GrantLock.Class(CanToggle(position))" @attributes="GrantLock.Attributes(CanToggle(position))"
+                                         data-testid="@($"plan-tick-{position.Id}")" />
+                            </span>
+                            <button type="button" class="list-row-body list-row-open @GrantLock.Class(CanEdit)" @onclick="() => EditAsync(current)" @attributes="GrantLock.Attributes(CanEdit)"
+                                    aria-label="@L["Plan_Edit", position.Label]" data-testid="@($"plan-edit-{position.Id}")">
+                                <span class="list-row-title">@position.Label</span>
+                                <span class="list-row-detail">@Caption(position)</span>
+                            </button>
+                            @{ var linked = SeesBookings ? BookingPurpose.LinesOf(plan.Overview?.Bookings ?? [], position.Id, CategoryName, L) : []; }
+                            @if (linked.Count > 0)
+                            {
+                                <span class="list-row-lift">
+                                    <PositionBookingsToggle Count="linked.Count" Label="@position.Label" PanelId="@($"position-bookings-panel-{position.Id}")"
+                                                            Open="expanded.Contains(position.Id)" OnToggle="@(() => Toggle(current.Id))"
+                                                            TestId="@($"position-bookings-{position.Id}-toggle")" />
+                                </span>
+                            }
+                            <span class="list-row-amount" data-testid="@($"plan-amounts-{position.Id}")">
+                                @Money(position.AmountPlanned)
+                                @if (position.Booked != 0m && position.Booked != position.AmountPlanned)
+                                {
+                                    <span class="list-row-detail">@L["Plan_BookedOf", Money(position.Booked)]</span>
+                                }
+                            </span>
+                            @if (SeesBookings && linked.Count == 0)
+                            {
+                                <span class="list-row-lift">
+                                    <DuofyButton Kind="ButtonKind.Ghost" Icon="plus" IconOnly="true" Small="true" OnClick="@(_ => BookAsync(current.Id))"
+                                                 Class="@GrantLock.Class(CanBook)" @attributes="GrantLock.Attributes(CanBook)"
+                                                 AriaLabel="@($"{L["Plan_PositionBookingAdd"]}: {position.Label}")" TestId="@($"position-bookings-{position.Id}-add")" />
+                                </span>
+                            }
+                        </div>
+                        @if (linked.Count > 0)
+                        {
+                            <PositionBookings Label="@position.Label" TestId="@($"position-bookings-{position.Id}")"
+                                              PanelId="@($"position-bookings-panel-{position.Id}")" Open="expanded.Contains(position.Id)"
+                                              Rows="linked" CanAdd="CanBook" OnAdd="@(() => BookAsync(current.Id))" />
+                        }
+                    </li>
                 }
-                <RadzenButton Text="@L["Plan_CarryOverRemove"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Primary" Click="@(_ => RemoveCarryOverAsync())"
-                              Class="@GrantLock.Class(CanRemoveCarryOver)" @attributes="GrantLock.Attributes(CanRemoveCarryOver)"
-                              data-testid="plan-carry-over-remove" />
-            </RadzenStack>
+            </PotSection>
         }
-        else
-        {
-            <RadzenButton Text="@L["Plan_CarryOver"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary" Click="@(_ => CarryOverAsync())"
-                          Class="@GrantLock.Class(CanCarryOver)" @attributes="GrantLock.Attributes(CanCarryOver)"
-                          data-testid="plan-carry-over-open" />
-        }
-    </RadzenCard>
-    </div>
+        <UnplannedLine Amounts="PlanView.UnplannedPerPot(plan)" />
+
     }
 }
 </div>
+@if (plan is not null)
+{
+    <MonthPrint Title="@MonthTitle" Subject="@PrintSubject" Today="Today" Year="year" Month="month"
+                Income="IncomeTotal" Free="FreeTotal" Unpaid="UnpaidTotal" CarryOver="@PrintCarryOver"
+                BookedIncome="plan.BookedIncome" PlannedExpenses="plan.Overview?.Fixed ?? plan.PlannedExpenses" BookedExpenses="plan.BookedExpenses"
+                Pots="PrintPots" Unplanned="PlanView.UnplannedPerPot(plan)" />
+}
 }
 }
 
@@ -224,13 +271,61 @@ else
     private PlanResponse? plan;
     private List<CategoryResponse> categories = [];
     private IReadOnlyList<AccountChoice> accounts = [];
+
+    // Die Konten mit ihrem heutigen Stand für die Karte Kontostände in der Auswertung (Tom, 03.11.2026).
+    private IReadOnlyList<AccountResponse> balances = [];
+
+    private IReadOnlyList<AccountBalanceRow> BalanceRows => balances
+        .Select(a => new AccountBalanceRow(a.Id, a.Name, a.Type, a.Balance, a.CountsAsAvailable))
+        .ToList();
     private NoticeMessage? message;
 
-    private MonthTab tab = MonthTab.Overview;
+    private MonthTab tab = MonthTab.Plan;
+
+    // Das Druckbild (Spec 82, R20): wessen Plan, der Übertrag als Text und je Topf seine Posten.
+    private string PrintSubject => Member.Owner is null ? L["Nav_MyPlan"].Value : L["Print_PlanOf", Member.Name ?? ""].Value;
+
+    private string PrintCarryOver => MonthView.CarryOverRows(plan?.Overview?.CarryOvers).FirstOrDefault(c => c.Incoming) is { } incoming
+        ? MoneyText.Format(incoming.Amount)
+        : plan?.CarryOver is { Exists: true, Amount: { } amount } ? MoneyText.Format(amount) : "—";
+
+    private IReadOnlyList<PrintPot> PrintPots => plan is null ? [] : PlanView.Groups(plan)
+        .Select(g => new PrintPot(g.Pot, PlanView.PotPlanned(plan, g.Pot), g.Pot == PotKeys.Income ? null : LimitOf(g.Pot),
+            g.Positions.Select(p => new PrintRow(p.Label, p.DueDay, p.AmountPlanned, p.Booked, p.DoneAt is not null)).ToList()))
+        .ToList();
+
+    // Die Posten, deren Buchungen gerade aufgeklappt sind.
+    private readonly HashSet<Guid> expanded = [];
+
+    private void Toggle(Guid positionId)
+    {
+        if (!expanded.Remove(positionId))
+        {
+            expanded.Add(positionId);
+        }
+    }
+
+    // Das Menü "Weitere Aktionen" am Handy: was am PC als eigener Knopf neben "Buchung anlegen" steht.
+    private RenderFragment PhoneMenu => __builder =>
+    {
+        <BbDropdownMenuItem OnClick="@(() => AddAsync())" Disabled="!CanAdd" data-testid="plan-add-menu">@L["Plan_AddPosition"]</BbDropdownMenuItem>
+        <BbDropdownMenuItem OnClick="@(() => PrintAsync())" data-testid="plan-print-menu">@L["Plan_Print"]</BbDropdownMenuItem>
+    };
     private DateOnly Today => DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
 
-    private void SelectTab(MonthTab selected) => tab = selected;
-    private void ShowPlanTab() => tab = MonthTab.Plan;
+    private void SelectTab(MonthTab selected)
+    {
+        tab = selected;
+        // Die Erklärspalte erklärt den offenen Reiter (Spec 82, R13).
+        Chrome.SetHelpTopic(this, HelpTopicOf(selected));
+    }
+
+    private string HelpTopicOf(MonthTab selected) => Member.IsHousehold ? HelpTopics.HouseholdPlan : selected switch
+    {
+        MonthTab.Bookings => HelpTopics.Bookings,
+        MonthTab.Review => HelpTopics.Review,
+        _ => HelpTopics.Month,
+    };
 
     private string? AccountName(Guid id) => accounts.FirstOrDefault(a => a.Id == id)?.Name;
 
@@ -240,6 +335,32 @@ else
     private string Purpose(BookingResponse booking) => BookingPurpose.For(booking, plan?.Positions ?? [], CategoryName, AccountName, L);
 
     private string MonthTitle => new DateOnly(year, month, 1).ToString("MMMM yyyy", German);
+
+    private decimal IncomeTotal => plan?.Overview?.Income ?? plan?.PlannedIncome ?? 0m;
+    private decimal FreeTotal => plan?.Overview?.Free ?? 0m;
+    private decimal UnpaidTotal => plan is null ? 0m : MonthView.Unpaid(plan.Positions);
+
+    // Ohne Sicht auf die Buchungen (Spec 68, Fund S3) kommt jeder gebuchte Betrag als 0; der offene Rest wäre falsch.
+    private string? UnpaidText => !SeesBookings ? "–" : UnpaidTotal == 0m ? L["Month_AllPaid"].Value : null;
+
+    // Was die Quote eines Topfs bei diesen Einnahmen erlaubt.
+    private decimal LimitOf(string pot) => Math.Round(IncomeTotal * (plan?.Quotas.FirstOrDefault(q => q.Pot == pot)?.Target ?? 0) / 100m, 2);
+
+    // Was in Verplanbar steckt (Spec 66, R9): der Übertrag, sobald einer da ist.
+    private string FreeNote
+    {
+        get
+        {
+            var incoming = MonthView.CarryOverRows(plan?.Overview?.CarryOvers).Where(c => c.Incoming).ToList();
+            return incoming.Count > 0
+                ? L["Month_FreeCarryOver", MoneyText.Format(incoming.Sum(c => c.Amount))].Value
+                : L["Month_FreeNote"].Value;
+        }
+    }
+
+
+    // Der Browser druckt die Seite; das Stylesheet nimmt Leisten und Knöpfe weg.
+    private async Task PrintAsync() => await Js.InvokeVoidAsync("print");
 
     // Was die Freigabe des gewählten Mitglieds erlaubt (Spec 68); bei "Ich" alles. Abhaken und der Übertrag
     // legen Buchungen auf Konten an, Haken zurück und Übertrag entfernen löschen sie.
@@ -284,7 +405,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        // Die Seite zeigt den Monat der Adresse; der Plus-Knopf legt einen einmaligen Posten an.
+        // Die Seite zeigt den Monat der Adresse; der Knopf im Seitenkopf legt einen einmaligen Posten an.
         var today = DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
         (year, month) = (today.Year, today.Month);
         var requested = Requested();
@@ -292,7 +413,8 @@ else
         {
             (year, month) = open;
         }
-        Chrome.Set(this, L["Nav_Plan"], AddAsync, L["Plan_AddPosition"]);
+        Chrome.Set(this, L["Nav_MyPlan"]);
+        Chrome.SetHelpTopic(this, HelpTopicOf(tab));
         // Erst nach dem ersten Laden zuhören: Das Laden selbst meldet sich auch als Änderung.
         await Member.LoadAsync();
         Member.Changed += OnMemberChanged;
@@ -368,9 +490,6 @@ else
     /// <summary>Kategorien, Konten und der Monat der gewählten Person; was sie nicht teilt, bleibt leer.</summary>
     private async Task LoadAllAsync()
     {
-        // Der Haushaltsplan hat keinen Plus-Knopf; zurück bei einer Person kommt er wieder.
-        Chrome.Set(this, L["Nav_Plan"], Member.IsHousehold ? null : AddAsync, Member.IsHousehold ? null : L["Plan_AddPosition"]);
-        Chrome.LockPlus(this, SeesPlan && !CanAdd ? GrantLock.ReasonId : null);
         plan = null;
         if (!SeesPlan)
         {
@@ -384,6 +503,10 @@ else
             ? await AccountChoices.ListAsync(Member.Owner)
             : ApiResult<IReadOnlyList<AccountChoice>>.Success([]);
         accounts = accountResult.Succeeded ? accountResult.Value! : [];
+        var balanceResult = SeesAccounts
+            ? await AccountApi.ListAsync(activeOnly: true, owner: Member.Owner)
+            : ApiResult<IReadOnlyList<AccountResponse>>.Success([]);
+        balances = balanceResult.Succeeded ? balanceResult.Value! : [];
         if (!categoryResult.Succeeded || !accountResult.Succeeded)
         {
             message = new NoticeMessage(ErrorTexts.For(L, categoryResult.ErrorCode ?? accountResult.ErrorCode), NoticeSeverity.Error);
@@ -406,18 +529,6 @@ else
         {
             plan = null;
             message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
-        }
-    }
-
-    private async Task MoveAsync(int by)
-    {
-        (year, month) = PlanView.Shift(year, month, by);
-        message = null;
-        // Die Adresse folgt dem Monat, ohne einen Eintrag im Verlauf (Spec 23): Zurück führt zur Übersicht.
-        Navigation.NavigateTo($"/plan/{year}/{month}", replace: true);
-        if (!Member.IsHousehold)
-        {
-            await LoadAsync();
         }
     }
 
@@ -471,18 +582,25 @@ else
             .Add(x => x.Month, month)
             .Add(x => x.Existing, existing)
             .Add(x => x.Categories, categories)
-            .Add(x => x.Accounts, accounts);
+            .Add(x => x.Accounts, accounts)
+            .Add(x => x.OfferDelete, existing is not null && PlanView.CanDelete(existing))
+            .Add(x => x.CanDelete, CanDelete);
         var outcome = await Forms.OpenStepAsync<PlanPositionDialog, bool>(title, parameters);
-        if (outcome.Saved)
+        if (outcome.Saved && outcome.Value)
         {
             message = new NoticeMessage(L["Plan_PositionSaved"], NoticeSeverity.Success);
             await LoadAsync();
         }
+        else if (outcome.Saved && existing is not null)
+        {
+            await DeleteAsync(existing);
+        }
     }
 
     /// <summary>
-    /// Abhaken oder den Haken zurücknehmen (R5). Ohne Buchungen bucht die API den Posten sofort;
-    /// mit Buchungen fragt ein Dialog nach dem Ausgleich, vorbelegt mit dem offenen Rest.
+    /// Abhaken oder den Haken zurücknehmen (R5, Spec 82). Ein offener Posten ohne Buchungen fragt nach Datum und Betrag und
+    /// bucht erst nach der Bestätigung. Hat ein Posten schon Buchungen, entsteht keine weitere: Der Haken heißt dann
+    /// "Monat erledigt"; die API hakt mit dem Betrag 0 ab, ohne zu buchen.
     /// </summary>
     private async Task ToggleAsync(PlanPositionResponse position)
     {
@@ -497,16 +615,15 @@ else
             return;
         }
 
-        if (position.Booked == 0m)
+        if (position.Booked != 0m)
         {
-            var tick = await PlanApi.TickAsync(year, month, position.Id, new TickPositionRequest(), Member.Owner);
+            var tick = await PlanApi.TickAsync(year, month, position.Id, new TickPositionRequest(Amount: 0m), Member.Owner);
             await AfterAsync(tick.Succeeded ? ApiResult.Success() : ApiResult.Failure(tick.ErrorCode!), "Plan_Ticked");
             return;
         }
 
         string title = L["PlanTickDialog_Title"];
         var parameters = new FormParameters<PlanTickDialog>()
-            .Add(x => x.Title, title)
             .Add(x => x.Year, year)
             .Add(x => x.Month, month)
             .Add(x => x.Position, position);
@@ -514,8 +631,8 @@ else
         if (outcome.Saved)
         {
             message = new NoticeMessage(L["Plan_Ticked"], NoticeSeverity.Success);
+            await LoadAsync();
         }
-        await LoadAsync();
     }
 
     private async Task DeleteAsync(PlanPositionResponse position)
@@ -557,7 +674,6 @@ else
         }
         string title = L["PlanCarryOverDialog_Title"];
         var parameters = new FormParameters<PlanCarryOverDialog>()
-            .Add(x => x.Title, title)
             .Add(x => x.Year, year)
             .Add(x => x.Month, month)
             .Add(x => x.CarryOver, plan!.CarryOver)
@@ -578,45 +694,17 @@ else
         }
     }
 
-    // Die Zeilen eines Topfs für die Linientabelle: vorne der Haken, hinten Beträge und Knöpfe, darunter der Nebentext.
-    private IReadOnlyList<LineTableRow> PositionRows(IReadOnlyList<PlanPositionResponse> positions) => positions
-        .Select(position => new LineTableRow(
-            position.Label, null, Caption(position),
-            Leading: TickBox(position), Trailing: PositionActions(position), TestId: $"plan-position-{position.Id}",
-            Below: SeesBookings ? BookingsOf(position) : null))
-        .ToList();
-
-    // Welche Buchungen zu einem Posten gehören (Spec 51, R8), mit dem Weg zur nächsten.
-    private RenderFragment BookingsOf(PlanPositionResponse position) => @<PositionBookings Label="@position.Label" TestId="@($"position-bookings-{position.Id}")"
-        Rows="BookingPurpose.LinesOf(plan?.Overview?.Bookings ?? [], position.Id, CategoryName, L)"
-        CanAdd="CanBook" OnAdd="@(() => BookAsync(position.Id))" />;
-
-    private RenderFragment TickBox(PlanPositionResponse position) => @<RadzenCheckBox TValue="bool" Value="position.DoneAt is not null" Change="@(_ => ToggleAsync(position))"
-                     ReadOnly="!CanToggle(position)" Class="@GrantLock.Class(CanToggle(position))" @attributes="GrantLock.Attributes(CanToggle(position))"
-                     AriaLabel="@L[position.DoneAt is not null ? "Plan_Untick" : "Plan_Tick", position.Label]"
-                     data-testid="@($"plan-tick-{position.Id}")" />;
-
-    private RenderFragment PositionActions(PlanPositionResponse position) => @<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem" JustifyContent="JustifyContent.End">
-        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.Span" data-testid="@($"plan-amounts-{position.Id}")">@L["Plan_Amounts", Money(position.AmountPlanned), Money(position.Booked)]</RadzenText>
-        <RadzenButton Icon="edit" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small" Click="@(_ => EditAsync(position))"
-                      Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
-                      aria-label="@L["Plan_Edit", position.Label]" data-testid="@($"plan-edit-{position.Id}")" />
-        @if (PlanView.CanDelete(position))
-        {
-            <RadzenButton Icon="delete" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small" Click="@(_ => DeleteAsync(position))"
-                          Class="@GrantLock.Class(CanDelete)" @attributes="GrantLock.Attributes(CanDelete)"
-                          aria-label="@L["Plan_Delete", position.Label]" data-testid="@($"plan-delete-{position.Id}")" />
-        }
-    </RadzenStack>;
-
-    // Unter der Bezeichnung: der Tag, und ob der Posten einmalig, durchlaufend oder von Hand geändert ist.
+    // Unter der Bezeichnung wie im alten Duofy: Kategorie, Tag, Zahlungsart und woher der Posten kommt.
     private string Caption(PlanPositionResponse position)
     {
-        var parts = new List<string> { L["Plan_DueDay", position.DueDay] };
-        if (position.CommitmentId is null)
+        var parts = new List<string>();
+        if (CategoryName(position.CategoryId) is { } category)
         {
-            parts.Add(L["Plan_OneOff"]);
+            parts.Add(category);
         }
+        parts.Add(L["Plan_DueDay", position.DueDay]);
+        parts.Add(L[$"PaymentMethod_{position.PaymentMethod}"]);
+        parts.Add(L[position.CommitmentId is null ? "Plan_OneOff" : "Plan_FromContract"]);
         if (position.PassThrough)
         {
             parts.Add(L["Plan_PassThrough"]);

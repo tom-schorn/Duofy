@@ -1,0 +1,51 @@
+@using BlazorBlueprint.Components
+@using BlazorBlueprint.Primitives
+@using BlazorBlueprint.Icons.Lucide.Components
+@inject IStringLocalizer<SharedResources> L
+
+@* Der Kopf einer Seite wie im alten Duofy: Serifen-Überschrift, ein Satz darunter und rechts die Knöpfe; am Handy
+   rutschen die Knöpfe unter den Text.
+
+   Am Handy gibt es nur einen Hauptknopf plus Menü (Spec 82, R12): Knöpfe mit der Klasse "wide-only" stehen dort nicht, ihre
+   Aktionen stehen stattdessen im Menü "Weitere Aktionen" (Menu), das nur am Handy zu sehen ist. CompactLead blendet den Satz
+   unter dem Titel am Handy aus, damit der Inhalt im ersten Bildschirm beginnt; die Erklärung steht dann in der Seite selbst. *@
+<header class="page-head">
+    <div class="page-head-text">
+        <h1 class="page-title" tabindex="-1" data-testid="page-title">@Title</h1>
+        @if (Lead is not null)
+        {
+            <p class="@(CompactLead ? "page-lead wide-only" : "page-lead")">@Lead</p>
+        }
+    </div>
+    @if (Actions is not null || Menu is not null)
+    {
+        <div class="page-actions" data-print="hide">
+            @Actions
+            @if (Menu is not null)
+            {
+                <div class="narrow-only">
+                    <BbDropdownMenu>
+                        <BbDropdownMenuTrigger AsChild="false" Class="page-more" aria-label="@L["PageHead_More"]" data-testid="page-more">
+                            <LucideIcon Name="ellipsis" Size="18" aria-hidden="true" />
+                        </BbDropdownMenuTrigger>
+                        <BbDropdownMenuContent Align="PopoverAlign.End">@Menu</BbDropdownMenuContent>
+                    </BbDropdownMenu>
+                </div>
+            }
+        </div>
+    }
+</header>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    [Parameter] public string? Lead { get; set; }
+
+    [Parameter] public RenderFragment? Actions { get; set; }
+
+    /// <summary>Die Einträge des Menüs "Weitere Aktionen" am Handy (BbDropdownMenuItem), für die Knöpfe mit "wide-only".</summary>
+    [Parameter] public RenderFragment? Menu { get; set; }
+
+    /// <summary>Den Satz unter dem Titel am Handy ausblenden.</summary>
+    [Parameter] public bool CompactLead { get; set; }
+}

@@ -1,7 +1,5 @@
-@using Radzen
-@using Radzen.Blazor
-@using System.Globalization
-@inject Radzen.DialogService RadzenDialogs
+@using BlazorBlueprint.Components
+@inherits FormDialogBase
 
 @* Der Beispieldialog der Testseite (Spec 11): drei Schritte, zwei davon mit Pflichtfeld.
    Er zeigt, wie ein Dialog den StepDialog benutzt; ein echter Dialog hält seine Werte genauso
@@ -11,15 +9,13 @@
     <DialogStep Title="@NameStep">
         <StepField Label="@NameLabel" InputId="demo-name-input" Required IsFilled="() => !string.IsNullOrWhiteSpace(name)"
                    TestId="demo-name-field">
-            <RadzenTextBox @bind-Value="name" id="demo-name-input" aria-describedby="demo-name-input-error"
-                           data-testid="demo-name" />
+            <TextInput id="demo-name-input" @bind-Value="name" aria-describedby="demo-name-input-error" data-testid="demo-name" />
         </StepField>
     </DialogStep>
     <DialogStep Title="@AmountStep">
-        <StepField Label="@AmountLabel" InputId="demo-amount-input" AriaLabelled="true" Required IsFilled="() => amount is not null"
+        <StepField Label="@AmountLabel" InputId="demo-amount-input" Required IsFilled="() => amount is not null"
                    TestId="demo-amount-field">
-            <RadzenNumeric TValue="decimal?" Culture="German" @bind-Value="amount" Format="0.00" ShowUpDown="false"
-                           InputAttributes="@AmountInputAttributes" data-testid="demo-amount" />
+            <MoneyInput id="demo-amount-input" @bind-Value="amount" data-testid="demo-amount" />
         </StepField>
     </DialogStep>
     <DialogStep Title="@CheckStep">
@@ -39,18 +35,10 @@
     private const string AmountLabel = "Betrag im Monat";
     private const string CheckStep = "Prüfen";
 
-    private static readonly Dictionary<string, object> AmountInputAttributes = new()
-    {
-        ["aria-labelledby"] = "demo-amount-input-label",
-        ["aria-describedby"] = "demo-amount-input-error",
-    };
-
     private string name = "";
-    private static readonly CultureInfo German = new("de-DE");
-
     private decimal? amount;
 
     private LineTableRow[] Summary => [new(name, amount ?? 0m)];
 
-    private void Finish() => RadzenDialogs.Close(name);
+    private Task Finish() => CloseAsync(name);
 }

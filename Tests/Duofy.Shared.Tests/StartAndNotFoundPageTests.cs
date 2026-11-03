@@ -31,15 +31,13 @@ public class StartAndNotFoundPageTests : PageTestContext
         Assert.Contains("Seite nicht gefunden", cut.Markup);
         Assert.Equal("/", cut.Find("a").GetAttribute("href"));
     }
-
-    // Radzen-Umstellung R13
     [Fact]
-    public void Not_found_is_built_with_radzen_and_its_link_looks_like_a_button()
+    public void Not_found_is_built_from_the_blocks_and_its_link_looks_like_a_button()
     {
         var cut = Render<NotFound>();
 
         Assert.Equal("Seite nicht gefunden", cut.Find("h1").TextContent.Trim());
-        Assert.Contains("rz-button", cut.Find("a[href='/']").ClassList);
+        Assert.Contains("duofy-button", cut.Find("a[href='/']").ClassList);
     }
 
     [Fact]

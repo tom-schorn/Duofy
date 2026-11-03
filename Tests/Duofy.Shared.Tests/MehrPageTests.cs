@@ -3,7 +3,10 @@ using Duofy.Shared.Pages;
 
 namespace Duofy.Shared.Tests;
 
-/// <summary>Die Seite Mehr in Radzen (R14): jeder Eintrag führt zum selben Ziel wie vorher, Admin nur für Verwaltende.</summary>
+/// <summary>
+/// Die Seite Mehr (R14): jeder Eintrag führt zum selben Ziel wie vorher, Admin nur für Verwaltende. Seit Spec 82 R12 hat sie
+/// keinen Haushalt-Eintrag mehr (der Haushalt hat sein Ziel unten), dafür oben das Profil mit der Auswahl der Person.
+/// </summary>
 public class MehrPageTests : PageTestContext
 {
     [Fact]
@@ -17,12 +20,12 @@ public class MehrPageTests : PageTestContext
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='more-admin']")));
         Assert.Equal("/konten", cut.Find("[data-testid='more-accounts']").GetAttribute("href"));
         Assert.Equal("/vertraege", cut.Find("[data-testid='more-contracts']").GetAttribute("href"));
-        Assert.Equal("/haushalt", cut.Find("[data-testid='more-household']").GetAttribute("href"));
+        Assert.Empty(cut.FindAll("[data-testid='more-household']"));
         Assert.Equal("/konto", cut.Find("[data-testid='more-user-account']").GetAttribute("href"));
         Assert.Equal("/admin", cut.Find("[data-testid='more-admin']").GetAttribute("href"));
         Assert.Equal("/lizenzen", cut.Find("[data-testid='more-licenses']").GetAttribute("href"));
         Assert.Equal("/rechtliches/impressum", cut.Find("[data-testid='more-legal-imprint']").GetAttribute("href"));
-        Assert.Contains("rz-card", cut.Find("[data-testid='more-list']").ClassList);
+        Assert.Contains("card", cut.Find("[data-testid='more-list']").ClassList);
     }
 
     [Fact]

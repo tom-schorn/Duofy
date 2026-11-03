@@ -50,7 +50,7 @@ public class InvitationPageTests : PageTestContext
         // Die Seite Haushalt zeigt danach Annas Haushalt mit Anna als Gründerin.
         var household = Render<Household>();
         household.WaitForAssertion(() => Assert.Contains("Gründer", household.Find($"[data-testid='household-member-{FakeHouseholdApi.AnnaId}']").TextContent));
-        Assert.Contains("Haushalt von Anna", household.Find("[data-testid='household-name']").TextContent);
+        Assert.Contains("Haushalt von Anna", household.Find("[data-testid='page-title']").TextContent);
     }
 
     // A6, A18: Ohne Anmeldung gibt es die Vorschau und den Weg zum Anmelden, der hierher zurückführt.
@@ -111,10 +111,12 @@ public class InvitationPageTests : PageTestContext
         HouseholdApiFake.Joined = new HouseholdResponse(Guid.NewGuid(), "Haushalt von Anna", 50, 30, 20,
             [FakeHouseholdApi.Anna(isMe: false), FakeHouseholdApi.Ben(isMe: true)]);
         var member = Services.GetRequiredService<ActiveMember>();
-        var switcher = Render<MemberSwitch>();
+        var menu = RenderDialogHost();
+        var switcher = Render<UserMenu>();
         switcher.WaitForAssertion(() => Assert.Equal(1, HouseholdApiFake.MineCalls));
-        switcher.Find("[data-testid='member-profile']").Click();
-        Assert.Equal("true", switcher.Find("[data-testid='member-choice-household']").GetAttribute("aria-disabled"));
+        switcher.Find("[data-testid='user-menu-open']").Click();
+        menu.WaitForAssertion(() => Assert.Equal("true", menu.Find("[data-testid='member-choice-household']").GetAttribute("aria-disabled")));
+        switcher.Find("[data-testid='user-menu-open']").Click();
         var cut = Open();
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='invitation-join']")));
 
@@ -122,7 +124,8 @@ public class InvitationPageTests : PageTestContext
 
         cut.WaitForAssertion(() => Assert.Equal("/haushalt", CurrentPath));
         Assert.True(member.CanShowHousehold);
-        switcher.WaitForAssertion(() => Assert.Null(switcher.Find("[data-testid='member-choice-household']").GetAttribute("aria-disabled")));
+        switcher.Find("[data-testid='user-menu-open']").Click();
+        menu.WaitForAssertion(() => Assert.NotEqual("true", menu.Find("[data-testid='member-choice-household']").GetAttribute("aria-disabled")));
     }
 
     // A8 (Seite): Trat Ben zur selben Zeit anderswo bei, lehnt die API trotzdem ab; die Seite sagt, warum.
@@ -140,37 +143,37 @@ public class InvitationPageTests : PageTestContext
         Assert.Equal("/einladung/abc_DEF-1", CurrentPath);
     }
 
-    // Radzen-Umstellung R12: Die Seite ist in Radzen gebaut, Anmelden und Registrieren sind Links im Aussehen von Knöpfen.
+    // Die Seite ist aus den Bausteinen gebaut, Anmelden und Registrieren sind Links im Aussehen von Knöpfen.
     [Fact]
-    public void The_page_is_built_with_radzen_and_its_sign_in_and_register_links_look_like_buttons()
+    public void The_page_is_built_from_the_blocks_and_its_sign_in_and_register_links_look_like_buttons()
     {
         AddAuthorization().SetNotAuthorized();
         var cut = Open();
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='invitation-sign-in']")));
 
         var signIn = cut.Find("a[data-testid='invitation-sign-in']");
-        Assert.Contains("rz-button", signIn.ClassList);
-        Assert.Contains("rz-variant-filled", signIn.ClassList);
+        Assert.Contains("duofy-button", signIn.ClassList);
+        Assert.Contains("duofy-button--primary", signIn.ClassList);
         var register = cut.Find("a[data-testid='invitation-register']");
-        Assert.Contains("rz-variant-outlined", register.ClassList);
+        Assert.Contains("duofy-button--secondary", register.ClassList);
     }
 
     [Fact]
-    public void The_join_button_and_its_greyed_out_state_are_radzen_buttons()
+    public void The_join_button_and_its_greyed_out_state_are_real_buttons()
     {
         var cut = Open();
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='invitation-join']")));
 
-        Assert.Contains("rz-button", cut.Find("[data-testid='invitation-join']").ClassList);
+        Assert.Contains("duofy-button", cut.Find("[data-testid='invitation-join']").ClassList);
     }
 
     [Fact]
-    public void An_expired_invitation_shows_its_error_in_a_radzen_alert()
+    public void An_expired_invitation_shows_its_error_in_an_alert()
     {
         HouseholdApiFake.PreviewError = ErrorCodes.InvitationExpired;
         var cut = Open();
 
         cut.WaitForAssertion(() => Assert.Contains("Diese Einladung ist abgelaufen.", cut.Find("[data-testid='invitation-error']").TextContent));
-        Assert.Contains("rz-alert", cut.Find("[data-testid='invitation-error']").ClassList);
+        Assert.Equal("alert", cut.Find("[data-testid='invitation-error']").GetAttribute("role"));
     }
 }

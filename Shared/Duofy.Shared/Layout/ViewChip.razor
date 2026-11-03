@@ -1,0 +1,22 @@
+@implements IDisposable
+@inject ActiveMember Member
+@inject IStringLocalizer<SharedResources> L
+
+@* Wessen Zahlen gerade offen sind, wenn es nicht die eigenen sind, von jeder Seite aus in der oberen Leiste zu sehen
+   (Spec 82, R11). Gewählt wird im Profil-Menü. *@
+@if (ViewLabel is { } view)
+{
+    <span class="pill shell-view" data-testid="shell-view">@view</span>
+}
+
+@code {
+    private string? ViewLabel => Member.IsHousehold
+        ? L["UserMenu_ViewOf", L["MemberSwitch_Household"]].Value
+        : Member.Name is { } name ? L["UserMenu_ViewOf", name].Value : null;
+
+    protected override void OnInitialized() => Member.Changed += OnMemberChanged;
+
+    private void OnMemberChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Member.Changed -= OnMemberChanged;
+}

@@ -1,34 +1,25 @@
+@using BlazorBlueprint.Components
+@using Duofy.Shared.Dialogs
+@inherits FormDialogBase
 @using Duofy.ApiClient
-@using Radzen
-@using Radzen.Blazor
 @inject IServerStore Servers
 @inject IServerSelector Selector
-@inject IAppHost Host
-@inject DialogService Dialogs
 @inject IStringLocalizer<SharedResources> L
 
 @* Der Dialog zur Wahl des Servers: der gehostete Dienst Plagevo oder ein eigener Server mit Adresse.
    Beim Übernehmen prüft der IServerSelector die Adresse; antwortet dort kein Duofy-Server
    oder fehlt https, steht der Grund oben im Dialog und der bisherige Server bleibt.
 
-   Er geht über FormDialogs auf (Title kommt als Parameter mit). In der App zeichnet er die Vollbild-Kopfzeile
-   selbst; im Browser hat das Fenster die Titelzeile von Radzen, und Übernehmen steht unten. Schließt er sich
-   ohne Ergebnis (Schließen, Esc), hat sich nichts geändert.
-
-   Muster für die folgenden Formulare (Plan R5): data-testid, id und aria-* an einem RadzenTextBox landen am
-   input selbst; bei RadzenNumeric sitzen data-testid und id am Rahmen darum (Field() in den Tests findet das input). *@
+   Er geht über FormDialogs als Fenster mit Titelzeile auf, in App und Browser gleich; Übernehmen steht unten. Schließt er
+   sich ohne Ergebnis (Schließen, Esc), hat sich nichts geändert. *@
 
 <div>
-    @if (Host.IsApp)
-    {
-        <FullScreenFormHeader Title="@Title" SaveText="@L["Server_Save"]" SaveTestId="server-save"
-                              Busy="busy" OnClose="Cancel" OnSave="SaveAsync" />
-    }
-    <RadzenStack Gap="1rem">
+
+    <div class="stack">
 
         @if (error is not null)
         {
-            <ErrorAlert AlertStyle="AlertStyle.Danger" Text="@error" data-testid="server-error" />
+            <ErrorAlert Text="@error" data-testid="server-error" />
         }
 
         <NativeSelect Value="@choice" ValueChanged="OnChoiceChanged" Label="@L["Server_Choice"]"
@@ -41,20 +32,16 @@
         {
             <div class="field">
                 <FieldLabel For="server-address-input" Text="@L["Server_Address"]" />
-                <RadzenTextBox @bind-Value="address" id="server-address-input" type="url"
-                               Placeholder="@L["Server_AddressPlaceholder"]" autocomplete="url"
-                               data-testid="server-address" />
+                <TextInput id="server-address-input" Type="url" placeholder="@L["Server_AddressPlaceholder"]" @bind-Value="address" autocomplete="url" data-testid="server-address" />
             </div>
         }
 
-        @if (!Host.IsApp)
-        {
-            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
-                <RadzenButton Text="@L["Server_Save"]" ButtonStyle="ButtonStyle.Primary" Disabled="busy"
-                              Click="@(_ => SaveAsync())" data-testid="server-save" />
-            </RadzenStack>
-        }
-    </RadzenStack>
+
+            <div class="row-end">
+                <DuofyButton Text="@L["Server_Save"]" OnClick="@(_ => SaveAsync())" TestId="server-save" Disabled="busy" />
+            </div>
+        
+    </div>
 </div>
 
 @code {
@@ -87,7 +74,7 @@
         error = null;
     }
 
-    private void Cancel() => Dialogs.Close();
+    private Task Cancel() => CancelAsync();
 
     private async Task SaveAsync()
     {
@@ -98,7 +85,7 @@
             if (choice == Hosted)
             {
                 await Selector.UseHostedAsync();
-                Dialogs.Close(true);
+                await CloseAsync(true);
                 return;
             }
 
@@ -106,7 +93,7 @@
             switch (outcome)
             {
                 case ServerChoiceOutcome.Taken:
-                    Dialogs.Close(true);
+                    await CloseAsync(true);
                     break;
                 case ServerChoiceOutcome.NeedsHttps:
                     error = L["Server_NeedsHttps"];

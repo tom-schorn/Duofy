@@ -19,7 +19,9 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="10.0.14" />
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.14" />
     <PackageReference Include="Microsoft.Extensions.Localization" Version="10.0.14" />
-    <PackageReference Include="Radzen.Blazor" Version="12.1.8" />
+    <PackageReference Include="BlazorBlueprint.Components" Version="4.1.0" />
+    <PackageReference Include="BlazorBlueprint.Primitives" Version="4.1.0" />
+    <PackageReference Include="BlazorBlueprint.Icons.Lucide" Version="2.0.0" />
     <PackageReference Include="QRCoder" Version="1.8.0" />
   </ItemGroup>
 

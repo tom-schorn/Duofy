@@ -8,35 +8,12 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Duofy.Shared.Tests;
 
 /// <summary>
-/// Radzen-Umstellung R6: Die kleinen Bausteine Notice, NativeSelect, GrantReason und NotShared sind in Radzen
+/// Die kleinen Bausteine Notice, NativeSelect, GrantReason und NotShared sind
 /// gebaut.
 /// </summary>
 public class BuildingBlockTests : PageTestContext
 {
     private ActiveMember Member => Services.GetRequiredService<ActiveMember>();
-
-    [Theory]
-    [InlineData(NoticeSeverity.Success, "rz-success")]
-    [InlineData(NoticeSeverity.Error, "rz-danger")]
-    [InlineData(NoticeSeverity.Info, "rz-info")]
-    [InlineData(NoticeSeverity.Warning, "rz-warning")]
-    public void Notice_shows_its_text_as_a_radzen_alert_of_the_matching_kind(NoticeSeverity severity, string cssClass)
-    {
-        var cut = Render<Notice>(p => p.Add(n => n.Message, new NoticeMessage("Gespeichert.", severity)));
-
-        var alert = cut.Find(".rz-alert");
-        Assert.Contains(cssClass, alert.ClassList);
-        Assert.Contains("Gespeichert.", alert.TextContent);
-    }
-
-    [Fact]
-    public void Notice_without_a_message_shows_nothing()
-    {
-        var cut = Render<Notice>();
-
-        Assert.Empty(cut.FindAll(".rz-alert"));
-        Assert.Equal("", cut.Markup.Trim());
-    }
 
     [Fact]
     public void Notice_has_no_close_button_because_the_message_goes_away_with_the_next_action()
@@ -65,19 +42,6 @@ public class BuildingBlockTests : PageTestContext
         select.Change("a");
 
         Assert.Equal("a", chosen);
-    }
-
-    [Fact]
-    public void Native_select_takes_its_colours_and_shape_from_radzen_variables()
-    {
-        var cut = Render<NativeSelect>(p => p.AddChildContent("<option value=\"a\">Giro</option>"));
-
-        Assert.Contains("native-select", cut.Find("select").ClassList);
-        var css = File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "wwwroot", "app.css"));
-        var rule = css[css.IndexOf(".native-select {", StringComparison.Ordinal)..];
-        rule = rule[..rule.IndexOf('}')];
-        Assert.Contains("var(--rz-base-400)", rule);
-        Assert.Contains("var(--rz-input-border-radius)", rule);
     }
 
     [Fact]

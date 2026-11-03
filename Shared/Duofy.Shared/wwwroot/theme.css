@@ -1,0 +1,101 @@
+/* Die Werte des Aussehens, an dieser einen Stelle (Spec 82, R2): 1:1 aus dem alten Duofy, frontend/src/index.css.
+   Feste Farben stehen nur hier; alle anderen Dateien benutzen die Variablen (ein Test prüft das).
+
+   Die Töpfe liegen auf --chart-*: chart-1 Grundbedarf, chart-2 Wünsche, chart-3 Einnahmen, chart-4 Sparen.
+   Schrift (Spec 82, R15): eine Familie für Texte und Beträge, Beträge mit gleich breiten Ziffern; Serifen nur für Überschriften.
+
+   Rot (--destructive) steht für gerissene Quote, Fehler und, seit Toms Durchsicht vom 03.11.2026, für Ausgaben in Buchungslisten
+   ("ausgaben bekommen rote zahlen mit einem minus davor"). */
+
+@font-face {
+    font-family: 'Geist Variable';
+    src: url('fonts/geist.woff2') format('woff2');
+    font-weight: 100 900;
+    font-display: swap;
+}
+
+@layer base {
+:root {
+    --font-heading: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+    --font-sans: 'Geist Variable', sans-serif;
+    --background: #fbf9f4;
+    --foreground: #0f141c;
+    --card: #ffffff;
+    --card-foreground: #0f141c;
+    --popover: #ffffff;
+    --popover-foreground: #0f141c;
+    --primary: #1e3a5f;
+    --primary-foreground: #fbf9f4;
+    --secondary: #f1eee6;
+    --secondary-foreground: #1e3a5f;
+    --muted: #f1eee6;
+    --muted-foreground: #5a6270;
+    --accent: #ebe8df;
+    --accent-foreground: #1e3a5f;
+    --destructive: #a63a2e;
+    --border: #dbd7cc;
+    --input: #dbd7cc;
+    --ring: #1e3a5f;
+    --chart-1: #2b6cb0;
+    --chart-2: #c68a0e;
+    --chart-3: #8e3b6b;
+    --chart-4: #4f9e6a;
+    --chart-5: #5a6270;
+    --radius: 0.5rem;
+    --sidebar: #f6f3ec;
+    --sidebar-foreground: #0f141c;
+    --sidebar-primary: #1e3a5f;
+    --sidebar-primary-foreground: #fbf9f4;
+    --sidebar-accent: #ebe8df;
+    --sidebar-accent-foreground: #1e3a5f;
+    --sidebar-border: #dbd7cc;
+    --sidebar-ring: #1e3a5f;
+    --brand-panel: #1e3a5f;
+    --brand-panel-foreground: #fbf9f4;
+    --error-ui-foreground: #ffffff;
+    /* Das Druckbild ist immer schwarz auf weiß, auch im dunklen Modus (Spec 82, R20). */
+    --print-ink: #000000;
+    --print-paper: #ffffff;
+    --print-rule: #999999;
+}
+
+.dark {
+    color-scheme: dark;
+    --background: #0b0e14;
+    --foreground: #eceff3;
+    --card: #141922;
+    --card-foreground: #eceff3;
+    --popover: #141922;
+    --popover-foreground: #eceff3;
+    --primary: #86ace0;
+    --primary-foreground: #0b0e14;
+    --secondary: #1f2531;
+    --secondary-foreground: #eceff3;
+    --muted: #1f2531;
+    --muted-foreground: #8e98a8;
+    --accent: #252c39;
+    --accent-foreground: #eceff3;
+    --destructive: #dd7263;
+    --border: #252c39;
+    --input: #2c3441;
+    --ring: #86ace0;
+    --chart-1: #4285c9;
+    --chart-2: #c2952f;
+    --chart-3: #a55b86;
+    --chart-4: #4da87c;
+    --chart-5: #8e98a8;
+    --sidebar: #0e1218;
+    --sidebar-foreground: #eceff3;
+    --sidebar-primary: #86ace0;
+    --sidebar-primary-foreground: #0b0e14;
+    --sidebar-accent: #1f2531;
+    --sidebar-accent-foreground: #eceff3;
+    --sidebar-border: #252c39;
+    --sidebar-ring: #86ace0;
+    --brand-panel: #141922;
+    --brand-panel-foreground: #eceff3;
+}
+}
+
+/* Der Grund steht schon vor dem ersten Zeichnen. */
+html { background-color: var(--background); color: var(--foreground); }

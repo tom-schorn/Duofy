@@ -22,22 +22,12 @@ public class MainLayoutTests : UiTestContext
     }
 
     [Fact]
-    public void Layout_contains_theme_provider_with_duofy_theme_app_bar_and_side_navigation()
-    {
-        var cut = Render<MainLayout>();
-
-        Assert.NotEmpty(cut.FindComponents<Duofy.Shared.Layout.ThemeVariables>());
-        Assert.NotEmpty(cut.FindComponents<Radzen.Blazor.RadzenHeader>());
-        Assert.NotEmpty(cut.FindAll("[data-testid='side-nav']"));
-    }
-
-    [Fact]
     public void Choosing_dark_turns_dark_mode_on_and_passes_choice_to_store()
     {
         var cut = Render<MainLayout>();
         Assert.False(cut.FindComponent<Duofy.Shared.Layout.ThemeVariables>().Instance.Dark);
 
-        cut.Find("[data-testid='theme-dark']").Click();
+        cut.Find("[data-testid='theme-toggle']").Click();
 
         Assert.True(cut.FindComponent<Duofy.Shared.Layout.ThemeVariables>().Instance.Dark);
         Assert.Equal(ThemeChoice.Dark, store.Saved);

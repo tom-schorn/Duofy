@@ -1,6 +1,4 @@
 @page "/sparen"
-@using Radzen
-@using Radzen.Blazor
 @attribute [Authorize]
 @using System.Globalization
 @using Duofy.ApiClient
@@ -11,7 +9,6 @@
 @inject ICategoryApi CategoryApi
 @inject IAccountChoices AccountChoices
 @inject FormDialogs Forms
-@inject IAppHost Host
 @inject AppChrome Chrome
 @inject ActiveMember Member
 @inject TimeProvider Time
@@ -24,20 +21,14 @@
 
 <PageTitle>@L["Savings_Title"]</PageTitle>
 
-@* In der App steht der Titel in der oberen Leiste und das Plus im Layout (AppChrome). *@
-<AppPageHeading Text="@L["Savings_Title"]" />
-@if (!Host.IsApp)
-{
-    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-2">
-        <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1">@L["Savings_Title"]</RadzenText>
+@* Auf schmalen Breiten steht der Titel zusätzlich in der oberen Leiste (AppChrome). *@
+<PageHead Title="@L["Savings_Title"]"><Actions>
         @if (Sees)
         {
-            <RadzenButton Text="@L["Savings_AddGoal"]" Icon="add" ButtonStyle="ButtonStyle.Primary"
-                          Click="@(_ => AddGoalAsync())" Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)"
-                          data-testid="savings-goal-add" />
+            <DuofyButton Icon="plus" Text="@L["Savings_AddGoal"]" OnClick="@(_ => AddGoalAsync())" TestId="savings-goal-add" Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)" />
         }
-    </RadzenStack>
-}
+</Actions></PageHead>
+
 
 <Notice Message="message" />
 
@@ -49,125 +40,107 @@ else
 {
     <GrantReason Show="@(!(CanAdd && CanEdit && CanDelete))" />
 
-    <RadzenStack Gap="1rem">
-        <RadzenCard Variant="Variant.Outlined" data-testid="savings-section-goals">
-            <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-1">@L["Savings_Section_goals"]</RadzenText>
+    <div class="stack">
+        <div class="card" data-testid="savings-section-goals">
+            <h2 class="section-title mb-1">@L["Savings_Section_goals"]</h2>
             @if (loaded && goals.Count == 0)
             {
-                <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color rz-m-0" data-testid="savings-empty-goals">@L["Savings_Empty_goals"]</RadzenText>
+                <p class="muted" data-testid="savings-empty-goals">@L["Savings_Empty_goals"]</p>
             }
-            <RadzenStack Gap="0.5rem">
+            <div class="stack">
                 @foreach (var goal in goals)
                 {
-                    <RadzenCard Variant="Variant.Outlined" data-testid="@($"savings-goal-{goal.Id}")">
-                        <RadzenStack Gap="0.25rem">
-                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                                <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-m-0 fill" data-testid="@($"savings-goal-name-{goal.Id}")">@goal.Name</RadzenText>
-                                <RadzenButton Icon="edit" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small" Click="@(_ => EditGoalAsync(goal))"
-                                              Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
-                                              aria-label="@L["Savings_EditGoal", goal.Name]" data-testid="@($"savings-goal-edit-{goal.Id}")" />
-                                <RadzenButton Icon="delete" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small" Click="@(_ => DeleteGoalAsync(goal))"
-                                              Class="@GrantLock.Class(CanDelete)" @attributes="GrantLock.Attributes(CanDelete)"
-                                              aria-label="@L["Savings_DeleteGoal", goal.Name]" data-testid="@($"savings-goal-delete-{goal.Id}")" />
-                            </RadzenStack>
+                    <div class="card" data-testid="@($"savings-goal-{goal.Id}")">
+                        <div class="stack">
+                            <div class="row">
+                                <p class="fill" data-testid="@($"savings-goal-name-{goal.Id}")">@goal.Name</p>
+                                <DuofyButton Kind="ButtonKind.Ghost" Icon="pencil" IconOnly="true" Small="true" OnClick="@(_ => EditGoalAsync(goal))" AriaLabel="@L["Savings_EditGoal", goal.Name]" TestId="@($"savings-goal-edit-{goal.Id}")" Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)" />
+                                <DuofyButton Kind="ButtonKind.Ghost" Icon="trash-2" IconOnly="true" Small="true" OnClick="@(_ => DeleteGoalAsync(goal))" AriaLabel="@L["Savings_DeleteGoal", goal.Name]" TestId="@($"savings-goal-delete-{goal.Id}")" Class="@GrantLock.Class(CanDelete)" @attributes="GrantLock.Attributes(CanDelete)" />
+                            </div>
 
-                            <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.P" Class="rz-m-0" data-testid="@($"savings-goal-balance-{goal.Id}")">@BalanceText(goal)</RadzenText>
+                            <p class="sub-title" data-testid="@($"savings-goal-balance-{goal.Id}")">@BalanceText(goal)</p>
                             @if (goal.TargetAmount is { } target)
                             {
-                                <RadzenProgressBar Value="@ProgressOf(goal)" Max="100" ShowValue="false"
-                                                   aria-hidden="true" data-testid="@($"savings-goal-progress-{goal.Id}")" />
+                                <span aria-hidden="true" data-testid="@($"savings-goal-progress-{goal.Id}")" data-value="@ProgressOf(goal)"><PotBar Pot="savings" Percent="(decimal)ProgressOf(goal)" /></span>
                             }
                             @if (goal.Reached)
                             {
-                                <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-m-0" data-testid="@($"savings-goal-reached-{goal.Id}")">@L["Savings_Reached"]</RadzenText>
+                                <p class="small muted" data-testid="@($"savings-goal-reached-{goal.Id}")">@L["Savings_Reached"]</p>
                             }
                             @if (goal.TargetDate is { } due)
                             {
-                                <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-m-0">@L["Savings_TargetDate", due.ToString("dd.MM.yyyy", German)]</RadzenText>
+                                <p class="small muted">@L["Savings_TargetDate", due.ToString("dd.MM.yyyy", German)]</p>
                             }
                             @if (AccountName(goal) is { } accountName)
                             {
-                                <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-m-0" data-testid="@($"savings-goal-account-{goal.Id}")">@L["Savings_OnAccount", accountName]</RadzenText>
+                                <p class="small muted" data-testid="@($"savings-goal-account-{goal.Id}")">@L["Savings_OnAccount", accountName]</p>
                             }
 
-                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
-                                <RadzenButton Text="@L["Savings_Deposit"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small" Click="@(_ => MoveAsync(goal, SavingsMoveKind.Deposit))"
-                                              Class="@GrantLock.Class(CanMove)" @attributes="GrantLock.Attributes(CanMove)"
-                                              aria-label="@L["Savings_DepositTo", goal.Name]" data-testid="@($"savings-goal-deposit-{goal.Id}")" />
-                                <RadzenButton Text="@L["Savings_Withdraw"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small" Click="@(_ => MoveAsync(goal, SavingsMoveKind.Withdrawal))"
-                                              Class="@GrantLock.Class(CanMove)" @attributes="GrantLock.Attributes(CanMove)"
-                                              aria-label="@L["Savings_WithdrawFrom", goal.Name]" data-testid="@($"savings-goal-withdraw-{goal.Id}")" />
-                            </RadzenStack>
-                        </RadzenStack>
-                    </RadzenCard>
+                            <div class="row">
+                                <DuofyButton Kind="ButtonKind.Secondary" Text="@L["Savings_Deposit"]" Small="true" OnClick="@(_ => MoveAsync(goal, SavingsMoveKind.Deposit))" AriaLabel="@L["Savings_DepositTo", goal.Name]" TestId="@($"savings-goal-deposit-{goal.Id}")" Class="@GrantLock.Class(CanMove)" @attributes="GrantLock.Attributes(CanMove)" />
+                                <DuofyButton Kind="ButtonKind.Secondary" Text="@L["Savings_Withdraw"]" Small="true" OnClick="@(_ => MoveAsync(goal, SavingsMoveKind.Withdrawal))" AriaLabel="@L["Savings_WithdrawFrom", goal.Name]" TestId="@($"savings-goal-withdraw-{goal.Id}")" Class="@GrantLock.Class(CanMove)" @attributes="GrantLock.Attributes(CanMove)" />
+                            </div>
+                        </div>
+                    </div>
                 }
-            </RadzenStack>
-        </RadzenCard>
+            </div>
+        </div>
 
         @foreach (var (section, kind) in DebtSections)
         {
-            <RadzenCard Variant="Variant.Outlined" data-testid="@($"savings-section-{section}")">
-                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Wrap="FlexWrap.Wrap" Class="rz-mb-1">
-                    <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-m-0">@L[$"Savings_Section_{section}"]</RadzenText>
-                    <RadzenButton Text="@L[$"Savings_Add_{section}"]" Icon="add" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small" Click="@(_ => AddDebtAsync(kind))"
-                                  Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)"
-                                  data-testid="@($"debt-add-{kind}")" />
-                </RadzenStack>
+            <div class="card" data-testid="@($"savings-section-{section}")">
+                <div class="row-between mb-1">
+                    <h2 class="section-title">@L[$"Savings_Section_{section}"]</h2>
+                    <DuofyButton Kind="ButtonKind.Secondary" Icon="plus" Text="@L[$"Savings_Add_{section}"]" Small="true" OnClick="@(_ => AddDebtAsync(kind))" TestId="@($"debt-add-{kind}")" Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)" />
+                </div>
                 @if (loaded && DebtsOf(kind).Count == 0)
                 {
-                    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color rz-m-0" data-testid="@($"savings-empty-{section}")">@L[$"Savings_Empty_{section}"]</RadzenText>
+                    <p class="muted" data-testid="@($"savings-empty-{section}")">@L[$"Savings_Empty_{section}"]</p>
                 }
-                <RadzenStack Gap="0.5rem">
+                <div class="stack">
                     @foreach (var debt in DebtsOf(kind))
                     {
-                        <RadzenCard Variant="Variant.Outlined" data-testid="@($"debt-{debt.Id}")">
-                            <RadzenStack Gap="0.25rem">
-                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                                    <RadzenStack Gap="0" Class="fill">
-                                        <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-m-0" data-testid="@($"debt-name-{debt.Id}")">@debt.Name</RadzenText>
-                                        <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-m-0" data-testid="@($"debt-creditor-{debt.Id}")">@L["Savings_DebtTo", debt.Creditor]</RadzenText>
-                                    </RadzenStack>
-                                    <RadzenButton Icon="edit" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small" Click="@(_ => EditDebtAsync(debt))"
-                                                  Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
-                                                  aria-label="@L["Savings_EditDebt", debt.Name]" data-testid="@($"debt-edit-{debt.Id}")" />
-                                    <RadzenButton Icon="delete" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small" Click="@(_ => DeleteDebtAsync(debt))"
-                                                  Class="@GrantLock.Class(CanDelete)" @attributes="GrantLock.Attributes(CanDelete)"
-                                                  aria-label="@L["Savings_DeleteDebt", debt.Name]" data-testid="@($"debt-delete-{debt.Id}")" />
-                                </RadzenStack>
+                        <div class="card" data-testid="@($"debt-{debt.Id}")">
+                            <div class="stack">
+                                <div class="row">
+                                    <div class="stack fill">
+                                        <p data-testid="@($"debt-name-{debt.Id}")">@debt.Name</p>
+                                        <p class="small muted" data-testid="@($"debt-creditor-{debt.Id}")">@L["Savings_DebtTo", debt.Creditor]</p>
+                                    </div>
+                                    <DuofyButton Kind="ButtonKind.Ghost" Icon="pencil" IconOnly="true" Small="true" OnClick="@(_ => EditDebtAsync(debt))" AriaLabel="@L["Savings_EditDebt", debt.Name]" TestId="@($"debt-edit-{debt.Id}")" Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)" />
+                                    <DuofyButton Kind="ButtonKind.Ghost" Icon="trash-2" IconOnly="true" Small="true" OnClick="@(_ => DeleteDebtAsync(debt))" AriaLabel="@L["Savings_DeleteDebt", debt.Name]" TestId="@($"debt-delete-{debt.Id}")" Class="@GrantLock.Class(CanDelete)" @attributes="GrantLock.Attributes(CanDelete)" />
+                                </div>
 
-                                <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.P" Class="rz-m-0" data-testid="@($"debt-open-{debt.Id}")">@L["Savings_DebtOpen", Money(debt.Open), Money(debt.OriginalAmount)]</RadzenText>
-                                <RadzenProgressBar Value="@DebtProgress(debt)" Max="100" ShowValue="false"
-                                                   aria-hidden="true" data-testid="@($"debt-progress-{debt.Id}")" />
+                                <p class="sub-title" data-testid="@($"debt-open-{debt.Id}")">@L["Savings_DebtOpen", Money(debt.Open), Money(debt.OriginalAmount)]</p>
+                                <span aria-hidden="true" data-testid="@($"debt-progress-{debt.Id}")" data-value="@DebtProgress(debt)"><PotBar Pot="savings" Percent="(decimal)DebtProgress(debt)" /></span>
                                 @if (debt.Settled)
                                 {
-                                    <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-m-0" data-testid="@($"debt-settled-{debt.Id}")">@L["Savings_DebtSettled"]</RadzenText>
+                                    <p class="small muted" data-testid="@($"debt-settled-{debt.Id}")">@L["Savings_DebtSettled"]</p>
                                 }
                                 @if (debt.DueDate is { } due)
                                 {
-                                    <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-m-0">@L["Savings_DebtDue", due.ToString("dd.MM.yyyy", German)]</RadzenText>
+                                    <p class="small muted">@L["Savings_DebtDue", due.ToString("dd.MM.yyyy", German)]</p>
                                 }
                                 @if (debt.Note is { } note)
                                 {
-                                    <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-m-0">@note</RadzenText>
+                                    <p class="small muted">@note</p>
                                 }
                                 @if (!debt.Settled)
                                 {
-                                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-                                    <RadzenButton Text="@L["Savings_DebtPay"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small" Click="@(_ => PayAsync(debt))"
-                                                  Class="@GrantLock.Class(CanMove)" @attributes="GrantLock.Attributes(CanMove)"
-                                                  aria-label="@L["Savings_DebtPayFor", debt.Name]" data-testid="@($"debt-pay-{debt.Id}")" />
-                                </RadzenStack>
+                                    <div class="row">
+                                    <DuofyButton Kind="ButtonKind.Secondary" Text="@L["Savings_DebtPay"]" Small="true" OnClick="@(_ => PayAsync(debt))" AriaLabel="@L["Savings_DebtPayFor", debt.Name]" TestId="@($"debt-pay-{debt.Id}")" Class="@GrantLock.Class(CanMove)" @attributes="GrantLock.Attributes(CanMove)" />
+                                </div>
                                 }
-                            </RadzenStack>
-                        </RadzenCard>
+                            </div>
+                        </div>
                     }
-                </RadzenStack>
-            </RadzenCard>
+                </div>
+            </div>
         }
 
         @* Ein ruhiger Hinweis auf echte Hilfe, ohne Rechtsaussage. *@
-        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-text-secondary-color rz-m-0" data-testid="savings-help">@L["Savings_Help"]</RadzenText>
-    </RadzenStack>
+        <p class="muted" data-testid="savings-help">@L["Savings_Help"]</p>
+    </div>
 }
 
 @code {
@@ -204,7 +177,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        Chrome.Set(this, L["Savings_Title"], AddGoalAsync, L["Savings_AddGoal"]);
+        Chrome.Set(this, L["Savings_Title"]);
         // Erst nach dem ersten Laden zuhören: Das Laden selbst meldet sich auch als Änderung.
         await Member.LoadAsync();
         Member.Changed += OnMemberChanged;
@@ -226,7 +199,6 @@ else
 
     private async Task LoadAsync()
     {
-        Chrome.LockPlus(this, Sees && !CanAdd ? GrantLock.ReasonId : null);
         goals = [];
         debts = [];
         loaded = false;

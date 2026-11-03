@@ -1,21 +1,17 @@
-@using Radzen
-@using Radzen.Blazor
+@using BlazorBlueprint.Components
 @* Der Fehler in einem Dialog. Er nimmt den Fokus, sobald er erscheint: Wer abgeschickt hat, hört oder liest ihn so gleich und
    muss nicht erst suchen. Ohne Text ist nichts zu sehen. Weitere Attribute (data-testid) gehen an die Meldung selbst. *@
 
 @if (Text is not null)
 {
     <div @ref="box" tabindex="-1" class="focus-box" data-testid="dialog-error">
-        <RadzenAlert AlertStyle="AlertStyle" Variant="Variant.Flat" AllowClose="false" @attributes="Attributes">@Text</RadzenAlert>
+        <BbAlert Variant="AlertVariant.Danger" @attributes="Attributes">@Text</BbAlert>
     </div>
 }
 
 @code {
     [Parameter]
     public string? Text { get; set; }
-
-    [Parameter]
-    public AlertStyle AlertStyle { get; set; } = AlertStyle.Danger;
 
     [Parameter(CaptureUnmatchedValues = true)]
     public Dictionary<string, object>? Attributes { get; set; }

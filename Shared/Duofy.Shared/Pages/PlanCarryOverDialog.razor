@@ -1,13 +1,12 @@
-@using Radzen
-@using Radzen.Blazor
+@using BlazorBlueprint.Components
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
+@using Duofy.Shared.Dialogs
+@inherits FormDialogBase
 @inject IPlanApi PlanApi
 @inject ActiveMember Member
-@inject DialogService Dialogs
 @inject IStringLocalizer<SharedResources> L
-@inject IAppHost Host
 
 @* Der Übertrag in diesen Monat (R9). Vorgeschlagen sind Einnahmen minus Ausgaben des Vormonats, auch
    unter 0: Ein negativer Rest wird genauso übertragen.
@@ -15,76 +14,52 @@
    bietet zwei Wege: Buchungen nachtragen schließt ohne Änderung, als Ausgleich übernehmen bucht den Unterschied am
    letzten Tag des Vormonats. Ohne Abweichung bucht er sofort; leere Felder bleiben, wie sie sind. *@
 
-<div>
-    @if (Host.IsApp)
+<div class="dialog-body">
+    <ErrorAlert Text="@error" data-testid="carry-over-error" />
+    <p class="muted">@L["PlanCarryOverDialog_Lead"]</p>
+    <div class="field">
+        <FieldLabel For="carry-over-amount" Text="@L["Field_CarryOverAmount"]" />
+        <MoneyInput id="carry-over-amount" @bind-Value="amount" data-testid="carry-over-amount" />
+    </div>
+
+    @foreach (var balance in CarryOver.Balances)
     {
-        <FullScreenFormHeader Title="@Title" SaveText="@L["PlanCarryOverDialog_Save"]" SaveTestId="carry-over-save"
-                              Busy="busy" ShowSave="!Reviewing" OnClose="Cancel" OnSave="SaveAsync" />
-    }
-    <RadzenStack Gap="1rem">
-        @if (error is not null)
-        {
-            <ErrorAlert AlertStyle="AlertStyle.Danger" Text="@error" data-testid="carry-over-error" />
-        }
-        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-m-0">@L["PlanCarryOverDialog_Lead"]</RadzenText>
+        var accountId = balance.AccountId;
         <div class="field">
-            <FieldLabel id="carry-over-amount-label" Text="@L["Field_CarryOverAmount"]" />
-            <RadzenNumeric TValue="decimal?" @bind-Value="amount" Culture="German" Format="0.00" ShowUpDown="false"
-                           InputAttributes="@(new Dictionary<string, object> { ["aria-labelledby"] = "carry-over-amount-label" })"
-                           data-testid="carry-over-amount" />
+            <FieldLabel For="@($"carry-over-balance-{accountId}")" Text="@L["Field_RealBalance", AccountName(accountId)]" />
+            <MoneyInput id="@($"carry-over-balance-{accountId}")" Value="@real.GetValueOrDefault(accountId)" ValueChanged="v => real[accountId] = v"
+                        aria-describedby="@($"carry-over-balance-{accountId}-hint")" data-testid="@($"carry-over-balance-{accountId}")" />
+            <p class="field-hint" id="@($"carry-over-balance-{accountId}-hint")">@L["PlanCarryOverDialog_Computed", Money(balance.Balance)]</p>
         </div>
+    }
 
-        @foreach (var balance in CarryOver.Balances)
-        {
-            var accountId = balance.AccountId;
-            <div class="field">
-                <FieldLabel id="@($"carry-over-balance-{accountId}-label")" Text="@L["Field_RealBalance", AccountName(accountId)]" />
-                <RadzenNumeric TValue="decimal?" Value="@real.GetValueOrDefault(accountId)" ValueChanged="v => real[accountId] = v"
-                               Culture="German" Format="0.00" ShowUpDown="false"
-                               InputAttributes="@(new Dictionary<string, object> { ["aria-labelledby"] = $"carry-over-balance-{accountId}-label", ["aria-describedby"] = $"carry-over-balance-{accountId}-hint" })"
-                               data-testid="@($"carry-over-balance-{accountId}")" />
-                <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-m-0" id="@($"carry-over-balance-{accountId}-hint")">@L["PlanCarryOverDialog_Computed", Money(balance.Balance)]</RadzenText>
-            </div>
-        }
+    @if (Reviewing)
+    {
+        <BbAlert Variant="AlertVariant.Warning" data-testid="carry-over-differences">
+            <div>@L["PlanCarryOverDialog_DifferencesLead"]</div>
+            @foreach (var difference in Differences)
+            {
+                <div data-testid="@($"carry-over-difference-{difference.AccountId}")">@L["PlanCarryOverDialog_Difference", AccountName(difference.AccountId), Money(difference.Computed), Money(difference.Real), SignedMoney(difference.Real - difference.Computed)]</div>
+            }
+        </BbAlert>
+        <div class="dialog-actions">
+            <DuofyButton Kind="ButtonKind.Secondary" Text="@L["PlanCarryOverDialog_Backfill"]" Disabled="busy" OnClick="@(_ => CancelAsync())" TestId="carry-over-backfill" />
+            <DuofyButton Text="@L["PlanCarryOverDialog_Adopt"]" Disabled="busy" OnClick="@(_ => BookAsync())" TestId="carry-over-adopt" />
+        </div>
+    }
 
-        @if (Reviewing)
+    <div class="dialog-actions">
+        <DuofyButton Kind="ButtonKind.Ghost" Text="@L["PlanDialog_Cancel"]" OnClick="@(_ => CancelAsync())" />
+        @if (!Reviewing)
         {
-            <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" AllowClose="false" data-testid="carry-over-differences">
-                @* Kein RadzenText und kein p: Das Theme gibt beiden die Textfarbe der Seite, die auf der Warnfläche nicht lesbar ist. *@
-                <div>@L["PlanCarryOverDialog_DifferencesLead"]</div>
-                @foreach (var difference in Differences)
-                {
-                    <div data-testid="@($"carry-over-difference-{difference.AccountId}")">@L["PlanCarryOverDialog_Difference", AccountName(difference.AccountId), Money(difference.Computed), Money(difference.Real), SignedMoney(difference.Real - difference.Computed)]</div>
-                }
-            </RadzenAlert>
-            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Wrap="FlexWrap.Wrap" Gap="0.5rem">
-                <RadzenButton Text="@L["PlanCarryOverDialog_Backfill"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary" Disabled="busy" Click="@(_ => Cancel())"
-                              data-testid="carry-over-backfill" />
-                <RadzenButton Text="@L["PlanCarryOverDialog_Adopt"]" ButtonStyle="ButtonStyle.Primary" Disabled="busy" Click="@(_ => BookAsync())"
-                              data-testid="carry-over-adopt" />
-            </RadzenStack>
+            <DuofyButton Text="@L["PlanCarryOverDialog_Save"]" Disabled="busy" OnClick="@(_ => SaveAsync())" TestId="carry-over-save" />
         }
-
-        @if (!Host.IsApp)
-        {
-            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
-                <RadzenButton Text="@L["PlanDialog_Cancel"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Click="@(_ => Cancel())" />
-                @if (!Reviewing)
-                {
-                    <RadzenButton Text="@L["PlanCarryOverDialog_Save"]" ButtonStyle="ButtonStyle.Primary" Disabled="busy" Click="@(_ => SaveAsync())"
-                                  data-testid="carry-over-save" />
-                }
-            </RadzenStack>
-        }
-    </RadzenStack>
+    </div>
 </div>
 
 @code {
 
     private static readonly CultureInfo German = new("de-DE");
-
-    /// <summary>Der Titel für die Kopfzeile in der App; im Browser steht er in der Titelzeile des Fensters.</summary>
-    [Parameter] public string? Title { get; set; }
 
     [Parameter] public int Year { get; set; }
 
@@ -122,8 +97,6 @@
 
     private string AccountName(Guid id) => Accounts.FirstOrDefault(a => a.Id == id)?.Name ?? "";
 
-    private void Cancel() => Dialogs.Close();
-
     private async Task SaveAsync()
     {
         if (Differences.Count > 0)
@@ -148,7 +121,7 @@
             var result = await PlanApi.CreateCarryOverAsync(Year, Month, new CreateCarryOverRequest(amount ?? 0m, balances), owner);
             if (result.Succeeded)
             {
-                Dialogs.Close(true);
+                await CloseAsync(true);
             }
             else
             {

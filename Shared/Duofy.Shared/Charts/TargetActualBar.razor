@@ -1,11 +1,9 @@
-@using Radzen
-@using Radzen.Blazor
 @using Duofy.Shared.Charts
 @inject IStringLocalizer<SharedResources> L
 
 @* Der Soll-Ist-Balken: zeigt Ist von Soll als Prozentwert (Text) und als Länge. Bis 100 Prozent füllt der Balken
    den Anteil des Solls; darüber wird der ganze Bereich auf das Ist gedehnt, die Soll-Marke bleibt als Linie bei 100
-   und der Überschuss ist der blassere Teil des RadzenProgressBar mit Hinweistext, ohne Fehlerfarbe.
+   und der Überschuss steht als Hinweistext daneben, ohne Fehlerfarbe.
    Ohne brauchbares Soll (0 oder weniger) steht der Leerzustand da. Der gemalte Teil ist für Vorlese-Programme
    verborgen; eine Tabelle mit Soll, Ist und Anteil ersetzt ihn. *@
 <figure class="chart">
@@ -20,8 +18,7 @@
         {
         <div class="chart-target-bar" aria-hidden="true">
             <span class="chart-target-track">
-                <RadzenProgressBar Class="chart-target-fill" Value="@ChartMath.BarValue(BaseWidth)"
-                                   BufferValue="@(IsOver ? 100d : null)" ShowValue="false" ProgressBarStyle="ProgressBarStyle.Success" />
+                <PotBar Percent="BaseWidth" />
                 @* Der einzige Inline-Stil: Die Lage der Marke steht erst zur Laufzeit fest. *@
                 <span class="chart-target-mark" style="left: @ChartMath.CssPercent(MarkPosition)"></span>
             </span>

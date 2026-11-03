@@ -35,7 +35,7 @@ public abstract class PageTestContext : UiTestContext
     {
         var cut = Render<Duofy.Shared.Pages.Plan>(p => p.Add(x => x.Year, year).Add(x => x.Month, month));
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-action-booking']")));
-        cut.Find("[data-testid='month-action-booking']").Closest("button")!.Click();
+        cut.Find("[data-testid='month-action-booking']").Click();
         return cut;
     }
 
@@ -67,14 +67,22 @@ public abstract class PageTestContext : UiTestContext
     }
 
     /// <summary>
-    /// Die Monatsseite öffnet mit der Übersicht (Spec 24); die Tests des Plans (Posten, Summen, Übertrag) wechseln
-    /// zuerst zum Tab Plan und warten, bis er da ist.
+    /// Der Monat öffnet mit dem Reiter Plan (Spec 82). Die Tests der Posten wählen ihn trotzdem ausdrücklich und warten,
+    /// bis der Monat geladen ist; wechselt ein Test vorher den Reiter, kommt er so zurück.
     /// </summary>
-    protected static void OpenPlanTab(IRenderedComponent<IComponent> cut)
+    protected static void OpenPlanTab(IRenderedComponent<IComponent> cut) => OpenTab(cut, "plan", "[data-testid='plan-carry-over'], [data-testid='plan-empty'], [data-testid^='household-position-']");
+
+    /// <summary>Wählt den Reiter Auswertung, in dem jetzt Summen, Quoten, Fälliges und Lücke stehen.</summary>
+    protected static void OpenReviewTab(IRenderedComponent<IComponent> cut) => OpenTab(cut, "review", "[data-testid='plan-sums'], [data-testid='month-review']");
+
+    /// <summary>Wählt den Reiter Buchungen.</summary>
+    protected static void OpenBookingsTab(IRenderedComponent<IComponent> cut) => OpenTab(cut, "bookings", "[data-testid='month-bookings'], [data-testid='bookings-not-shared']");
+
+    private static void OpenTab(IRenderedComponent<IComponent> cut, string tab, string content)
     {
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-tab-plan']")));
-        cut.Find("[data-testid='month-tab-plan']").Click();
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='plan-sums']")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-metrics']")));
+        cut.Find($"[data-testid='month-tab-{tab}']").Click();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(content)));
     }
 
     protected NavigationManager Navigation => Services.GetRequiredService<NavigationManager>();
@@ -83,8 +91,8 @@ public abstract class PageTestContext : UiTestContext
     protected string CurrentPath => new Uri(Navigation.Uri).PathAndQuery;
 
     /// <summary>
-    /// Findet ein Eingabefeld über sein data-testid. Radzen setzt das Attribut je nach
-    /// Komponente auf das Feld selbst oder auf den Rahmen darum; wir suchen in beiden.
+    /// Findet ein Eingabefeld über sein data-testid. Manche Bausteine setzen das Attribut
+    /// auf das Feld selbst, andere auf den Rahmen darum; wir suchen in beiden.
     /// </summary>
     protected static IElement Field(IRenderedComponent<IComponent> cut, string testId)
     {

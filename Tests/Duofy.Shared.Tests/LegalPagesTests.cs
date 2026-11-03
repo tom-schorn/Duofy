@@ -113,7 +113,7 @@ public class LegalPagesTests : PageTestContext
 
         var cut = Render<Legal>(p => p.Add(l => l.Slug, "impressum"));
 
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(AlertSelector)));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[role='alert']")));
         Assert.Empty(cut.FindAll("[data-testid='legal-text']"));
     }
 
@@ -125,17 +125,15 @@ public class LegalPagesTests : PageTestContext
         var routes = typeof(Legal).GetCustomAttributes<RouteAttribute>().Select(r => r.Template).ToArray();
         Assert.Equal(["/rechtliches/{Slug}"], routes);
     }
-
-    // Radzen-Umstellung R13
     [Fact]
-    public void The_legal_page_is_built_with_radzen_for_its_heading_and_its_missing_text()
+    public void The_legal_page_is_built_from_the_blocks_for_its_heading_and_its_missing_text()
     {
         Navigation.NavigateTo("/rechtliches/impressum");
 
         var cut = Render<Legal>(p => p.Add(l => l.Slug, "impressum"));
 
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='legal-missing']")));
-        Assert.Contains(cut.Find("h1").ClassList, c => c.StartsWith("rz-text"));
-        Assert.Contains(cut.Find("[data-testid='legal-missing']").ClassList, c => c.StartsWith("rz-text"));
+        Assert.NotEmpty(cut.Find("h1").TextContent);
+        Assert.NotEmpty(cut.Find("[data-testid='legal-missing']").TextContent);
     }
 }

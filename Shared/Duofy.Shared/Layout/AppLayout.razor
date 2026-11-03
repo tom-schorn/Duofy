@@ -1,90 +1,9 @@
-@using Radzen.Blazor
 @inherits ThemedLayoutBase
-@implements IDisposable
-@inject AppChrome Chrome
-@inject AppBrand Brand
-@inject IStringLocalizer<SharedResources> L
 
-@* Das Layout der Android-App in Radzen: obere Leiste mit dem Titel der Seite, der Inhalt, unten die
-   Navigationsleiste und darüber der runde Plus-Knopf der Seite. Der Browser benutzt weiter
-   MainLayout.
+@* Das Layout der Android-App. Der Browser benutzt MainLayout; beide zeigen denselben Rahmen (AppShell). *@
 
-   Titel und Plus-Knopf kommen von der Seite über AppChrome. Rechts in der oberen Leiste steht der Umschalter
-   "wessen Zahlen" (Spec 68) als Profilfeld mit Menü (Spec 44), immer, und ab dem Desktop unten in der Seitenleiste. *@
+<ThemeVariables Dark="IsDarkMode" Settled="ThemeSettled" DeviceDarkChanged="OnDeviceDarkChangedAsync" />
 
-<RadzenComponents />
-<ThemeVariables Dark="IsDarkMode" DeviceDarkChanged="OnDeviceDarkChangedAsync" />
-
-<SkipLink Target="() => mainContent" />
-
-<RadzenLayout>
-    <RadzenHeader>
-        <div class="app-header">
-            @* Die obere Leiste ist in beiden Modi dunkel (RadzenVariables), das Zeichen also immer das für dunklen Grund. *@
-            <div class="app-header-start">
-                <BrandMark Dark="true" Symbol="true" />
-                <div class="app-title" data-testid="app-title">@(Chrome.Title ?? Brand.Name)</div>
-            </div>
-            <div class="app-header-end">
-                <AuthorizeView>
-                    <Authorized>
-                        <MemberSwitch />
-                    </Authorized>
-                </AuthorizeView>
-            </div>
-        </div>
-    </RadzenHeader>
-
-    @* Der Schalter für hell und dunkel steht unten auf "Mehr"; die Seitenleiste zeigt "Mehr" nicht und braucht ihn selbst. *@
-    <CascadingValue Value="@(new ModeSwitch(Choice, SelectChoiceAsync))">
-        <RadzenSidebar Responsive="false" class="app-sidebar">
-            <SideNavigation>
-                <Footer>
-                    <AuthorizeView>
-                        <Authorized>
-                            <MemberSwitch Up="true" />
-                        </Authorized>
-                    </AuthorizeView>
-                </Footer>
-            </SideNavigation>
-        </RadzenSidebar>
-    </CascadingValue>
-
-    <RadzenBody class="app-main">
-        <main class="app-page" id="@SkipLink.TargetId" tabindex="-1" @ref="mainContent">
-            <CascadingValue Value="@(new ModeSwitch(Choice, SelectChoiceAsync))">
-                @Body
-            </CascadingValue>
-        </main>
-    </RadzenBody>
-</RadzenLayout>
-
-@if (Chrome.PlusAction is not null && Chrome.PlusLockedBy is not null)
-{
-    @* Ohne Freigabe zum Anlegen (Spec 68): ausgegraut und ohne Wirkung, aber erreichbar, mit dem Grund auf der Seite. *@
-    <RadzenFab Icon="add" class="app-fab grant-locked"
-               aria-label="@Chrome.PlusLabel" aria-disabled="true" aria-describedby="@Chrome.PlusLockedBy" data-testid="app-plus" />
-}
-else if (Chrome.PlusAction is not null)
-{
-    <RadzenFab Icon="add" Disabled="Chrome.PlusDisabled"
-               Click="@(() => Chrome.PlusAction!())" class="app-fab" aria-label="@Chrome.PlusLabel" data-testid="app-plus" />
-}
-
-<BottomNavigation />
-
-<div id="blazor-error-ui" data-nosnippet role="alert">
-    @L["Layout_ErrorMessage"]
-    <a href="." class="reload">@L["Layout_Reload"]</a>
-    <button type="button" class="dismiss" aria-label="@L["Layout_Dismiss"]">&#10005;</button>
-</div>
-
-@code {
-    private ElementReference mainContent;
-
-    protected override void OnInitialized() => Chrome.Changed += OnChromeChanged;
-
-    private void OnChromeChanged() => InvokeAsync(StateHasChanged);
-
-    public void Dispose() => Chrome.Changed -= OnChromeChanged;
-}
+<AppShell Dark="IsDarkMode" Choice="Choice" ChoiceSelected="SelectChoiceAsync">
+    @Body
+</AppShell>

@@ -17,7 +17,7 @@ public class InstancePagesTests : PageTestContext
 
     public InstancePagesTests()
     {
-        dialogs = RenderRadzenHost();
+        dialogs = RenderDialogHost();
     }
 
     private void Mode(string mode, bool setupPending = false) =>
@@ -34,7 +34,7 @@ public class InstancePagesTests : PageTestContext
         Field(cut, "register-last-name").Change("Muster");
         Field(cut, "register-email").Change("ben@example.org");
         Field(cut, "register-password").Change("ein-langes-passwort");
-        Field(cut, "register-terms").Change(true);
+        Field(cut, "register-terms").Click();
         return cut;
     }
 
@@ -96,7 +96,7 @@ public class InstancePagesTests : PageTestContext
         Mode(RegistrationModes.Invite);
 
         var cut = OpenRegister(invitation: "tok");
-        cut.WaitForAssertion(() => Assert.Null(cut.Find("[data-testid='register-submit']").GetAttribute("aria-disabled")));
+        cut.WaitForAssertion(() => Assert.NotEqual("true", cut.Find("[data-testid='register-submit']").GetAttribute("aria-disabled")));
         Assert.Empty(cut.FindAll("[data-testid='register-mode-notice']"));
         Field(cut, "register-submit").Click();
 
@@ -112,7 +112,7 @@ public class InstancePagesTests : PageTestContext
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='register-setup-code']")));
 
         Field(cut, "register-setup-code").Input(" s3cret ");
-        cut.WaitForAssertion(() => Assert.Null(cut.Find("[data-testid='register-submit']").GetAttribute("aria-disabled")));
+        cut.WaitForAssertion(() => Assert.NotEqual("true", cut.Find("[data-testid='register-submit']").GetAttribute("aria-disabled")));
         Field(cut, "register-submit").Click();
 
         cut.WaitForAssertion(() => Assert.Equal("s3cret", Assert.Single(Auth.Registered).SetupCode));
@@ -124,7 +124,7 @@ public class InstancePagesTests : PageTestContext
         Mode(RegistrationModes.Invite);
         Auth.RegisterResult = ApiResult.Failure(ErrorCodes.InvitationInvalid);
         var cut = OpenRegister(invitation: "alt");
-        cut.WaitForAssertion(() => Assert.Null(cut.Find("[data-testid='register-submit']").GetAttribute("aria-disabled")));
+        cut.WaitForAssertion(() => Assert.NotEqual("true", cut.Find("[data-testid='register-submit']").GetAttribute("aria-disabled")));
 
         Field(cut, "register-submit").Click();
 
@@ -222,7 +222,7 @@ public class InstancePagesTests : PageTestContext
         anna.WaitForAssertion(() => Assert.NotEmpty(anna.FindAll("[data-testid='more-admin']")));
         var entry = anna.Find("[data-testid='more-admin']");
         Assert.Equal("/admin", entry.GetAttribute("href"));
-        // Radzen schreibt den Namen des Symbols als Text vor die Beschriftung.
+        // Der Text eines Eintrags ohne sein Symbol.
         Assert.EndsWith("Admin", entry.TextContent.Trim());
     }
 
@@ -276,9 +276,9 @@ public class InstancePagesTests : PageTestContext
         {
             var address = Assert.Single(cut.FindAll("p"), p => p.TextContent.Trim() == "eine.sehr.lange.adresse.ohne.leerstellen@example.de");
             Assert.Contains("long-link", address.ClassList);
-            // Radzens Knopf schrumpft sonst und schneidet seinen Text ab; er rutscht besser in die nächste Zeile.
+            // Der Knopf rutscht in die nächste Zeile, statt seinen Text abzuschneiden: .row bricht um (flex-wrap in duofy.css).
             var revoke = cut.Find("[data-testid^='admin-invitation-revoke-']");
-            Assert.Contains("flex-wrap:wrap", revoke.ParentElement!.GetAttribute("style"));
+            Assert.Contains("row", revoke.ParentElement!.ClassList);
         });
     }
 
@@ -311,10 +311,8 @@ public class InstancePagesTests : PageTestContext
         cut.WaitForAssertion(() => Assert.Equal([invitation.Id], AdminApiFake.Revoked));
         cut.WaitForAssertion(() => Assert.DoesNotContain("Gültig bis 30.10.2026", cut.Markup));
     }
-
-    // Radzen-Umstellung R23
     [Fact]
-    public void The_admin_page_is_built_with_radzen_and_keeps_the_qr_code_white()
+    public void The_admin_page_is_built_from_the_blocks_and_keeps_the_qr_code_white()
     {
         AdminApiFake.Invitations.Add(new RegistrationInvitationResponse(Guid.NewGuid(), "offen", null,
             new DateTimeOffset(2026, 10, 30, 12, 0, 0, TimeSpan.Zero), $"{FakeAdminApi.PublicUrl}/registrieren?einladung=offen"));
@@ -323,8 +321,8 @@ public class InstancePagesTests : PageTestContext
         var cut = OpenAdmin();
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll($"[data-testid='admin-invitation-qr-{invitation.Id}']")));
 
-        Assert.Contains("rz-card", cut.Find($"[data-testid='admin-invitation-{invitation.Id}']").ClassList);
-        Assert.Contains("rz-button", cut.Find("[data-testid='admin-create']").ClassList);
+        Assert.Contains("card", cut.Find($"[data-testid='admin-invitation-{invitation.Id}']").ClassList);
+        Assert.Contains("duofy-button", cut.Find("[data-testid='admin-create']").ClassList);
         Assert.Equal("admin-email-input", cut.Find("label[for='admin-email-input']").GetAttribute("for"));
         Assert.Equal("email", Field(cut, "admin-email").GetAttribute("type"));
         Assert.Contains("qr-code", cut.Find($"[data-testid='admin-invitation-qr-{invitation.Id}']").ClassList);

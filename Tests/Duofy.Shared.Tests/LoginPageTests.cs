@@ -91,14 +91,14 @@ public class LoginPageTests : PageTestContext
         Assert.Equal("/registrieren?returnUrl=%2Feinladung%2Fabc", link.GetAttribute("href"));
     }
 
-    // Radzen-Umstellung R10: Die Anmeldeseite ist in Radzen gebaut.
+    // Die Anmeldeseite ist aus den Bausteinen gebaut.
     [Fact]
-    public void The_page_is_built_with_radzen_and_keeps_its_field_types_and_labels()
+    public void The_page_is_built_from_the_blocks_and_keeps_its_field_types_and_labels()
     {
         var cut = Render<Login>();
 
         var email = Field(cut, "login-email");
-        Assert.Contains("rz-textbox", email.ClassList);
+        Assert.Contains("field-input", email.ClassList);
         Assert.Equal("email", email.GetAttribute("type"));
         Assert.Equal("login-email-input", email.Id);
         Assert.Equal("email", email.GetAttribute("autocomplete"));
@@ -123,14 +123,14 @@ public class LoginPageTests : PageTestContext
     }
 
     [Fact]
-    public void A_failed_sign_in_shows_its_message_in_a_radzen_alert()
+    public void A_failed_sign_in_shows_its_message_in_an_alert()
     {
         Auth.LoginResult = ApiResult.Failure(ErrorCodes.LoginFailed);
         var cut = Open();
 
         Field(cut, "login-submit").Click();
 
-        cut.WaitForAssertion(() => Assert.Contains("E-Mail-Adresse oder Passwort stimmt nicht.", cut.Find(".rz-alert").TextContent));
+        cut.WaitForAssertion(() => Assert.Contains("E-Mail-Adresse oder Passwort stimmt nicht.", cut.Find("[role='alert']").TextContent));
     }
 
     [Fact]
@@ -153,7 +153,7 @@ public class LoginPageTests : PageTestContext
         toggle.Click();
 
         Assert.Equal("true", cut.Find("[data-testid='login-forgot']").GetAttribute("aria-expanded"));
-        Assert.Contains("rz-card", cut.Find("[data-testid='login-forgot-panel']").ClassList);
+        Assert.Contains("card", cut.Find("[data-testid='login-forgot-panel']").ClassList);
     }
 
     [Fact]
@@ -163,7 +163,7 @@ public class LoginPageTests : PageTestContext
         var cut = Open();
         Field(cut, "login-submit").Click();
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='login-resend']")));
-        Assert.False(cut.Find("[data-testid='login-resend']").HasAttribute("aria-disabled"));
+        Assert.NotEqual("true", cut.Find("[data-testid='login-resend']").GetAttribute("aria-disabled"));
 
         cut.Find("[data-testid='login-resend']").Click();
 

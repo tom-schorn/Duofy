@@ -1,0 +1,49 @@
+@using System.Globalization
+@* Das Feld für Beträge: immer deutsch geschrieben und gelesen, unabhängig von der Sprache des Rechners (Review von Issue 41,
+   im Container ohne gesetzte Sprache wurde aus 12,34 sonst 1234,00). Tastatur am Handy mit Komma. Wert ohne Eingabe: null.
+   Min gilt beim Verlassen des Felds. Weitere Attribute (id, data-testid, aria-*) landen am Feld. *@
+<input type="text" inputmode="decimal" autocomplete="off" class="@CssClass" value="@shown" @onchange="OnChangeAsync" @attributes="AdditionalAttributes" />
+
+@code {
+    private static readonly CultureInfo German = CultureInfo.GetCultureInfo("de-DE");
+
+    private string shown = "";
+    private decimal? lastValue;
+    private bool written;
+
+    [Parameter] public decimal? Value { get; set; }
+
+    [Parameter] public EventCallback<decimal?> ValueChanged { get; set; }
+
+    /// <summary>Der kleinste erlaubte Wert; was darunter liegt, wird auf ihn gehoben.</summary>
+    [Parameter] public decimal? Min { get; set; }
+
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string CssClass => string.IsNullOrEmpty(Class) ? "field-input" : $"field-input {Class}";
+
+    protected override void OnParametersSet()
+    {
+        if (!written || Value != lastValue)
+        {
+            shown = Value?.ToString("0.00", German) ?? "";
+            lastValue = Value;
+            written = true;
+        }
+    }
+
+    private async Task OnChangeAsync(ChangeEventArgs e)
+    {
+        var text = e.Value?.ToString()?.Trim() ?? "";
+        decimal? parsed = decimal.TryParse(text, NumberStyles.Number, German, out var value) ? value : null;
+        if (parsed is { } amount && Min is { } min && amount < min)
+        {
+            parsed = min;
+        }
+        lastValue = parsed;
+        shown = parsed?.ToString("0.00", German) ?? "";
+        await ValueChanged.InvokeAsync(parsed);
+    }
+}

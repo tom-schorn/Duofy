@@ -1,0 +1,92 @@
+@using BlazorBlueprint.Icons.Lucide.Components
+@using System.Globalization
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Monatskarten der Plan-Übersicht (Spec 23, Spec 82) wie im alten Duofy, für die eigenen Pläne und den Haushaltsplan:
+   je Monat Verplanbar, Anstehend und drei Topf-Balken. Eine Karte ist ein gewöhnlicher Link, darum geht sie mit Tastatur,
+   Vorlese-Programm und als Adresse zum Merken. Ab Tablet-Breite stehen zwei Karten nebeneinander. Eine Karte füllt sich,
+   sobald ihr Monat geladen ist (Cards). *@
+
+<ul class="card-list" aria-label="@L["PlanOverview_Months"]" data-testid="plan-months">
+    @foreach (var row in Rows)
+    {
+        var card = Cards.GetValueOrDefault(row.Key);
+        <li>
+            <a href="@row.Href" class="card card-link month-card" aria-current="@(row.IsCurrent ? "date" : null)"
+               data-testid="@($"plan-month-row-{row.Key}")">
+                <span class="month-card-head">
+                    <span class="month-card-name">
+                        @MonthTitle(row)
+                        @if (row.IsCurrent)
+                        {
+                            <span class="pill">@L["PlanOverview_Current"]</span>
+                        }
+                    </span>
+                    <LucideIcon Name="chevron-right" Size="16" aria-hidden="true" />
+                </span>
+                @if (row.Free is { } free)
+                {
+                    <span class="month-card-kpis">
+                        <span class="plan-month-free" data-testid="@($"plan-month-free-{row.Key}")">
+                            <span class="muted">@L["Month_Allocatable"]</span>
+                            <b class="@(free < 0m ? "over" : null)">@MoneyText.Format(free)</b>
+                            @if (row.WithCarryOver)
+                            {
+                                <span class="muted small"> @L["PlanOverview_WithCarryOver"]</span>
+                            }
+                        </span>
+                        @if (card is not null)
+                        {
+                            <span data-testid="@($"plan-month-unpaid-{row.Key}")">
+                                <span class="muted">@L["Month_Unpaid"]</span>
+                                @if (card.Unpaid > 0m)
+                                {
+                                    <b>@MoneyText.Format(card.Unpaid)</b>
+                                }
+                                else
+                                {
+                                    <span class="muted strong">@L["Month_AllPaid"]</span>
+                                }
+                            </span>
+                        }
+                    </span>
+                    @if (card is not null)
+                    {
+                        <span class="month-card-pots">
+                            @foreach (var pot in card.Pots)
+                            {
+                                <span class="pot-row" data-testid="@($"plan-month-pot-{row.Key}-{pot.Pot}")">
+                                    <span class="pot-row-name">
+                                        <span class="@($"dot dot--{pot.Pot}")" aria-hidden="true"></span>
+                                        @L[$"Pot_{pot.Pot}"]
+                                        <span class="muted">@pot.Target %</span>
+                                    </span>
+                                    <PotBar Pot="@pot.Pot" Percent="pot.Percent" Over="pot.Over" />
+                                    <span class="pot-row-sum">
+                                        <b class="@(pot.Over ? "over" : null)">@MoneyText.Format(pot.Planned)</b>
+                                        <span class="muted">@L["Month_Of", MoneyText.Format(pot.Limit)]</span>
+                                    </span>
+                                </span>
+                            }
+                        </span>
+                    }
+                }
+                else
+                {
+                    <span class="muted">@L["PlanOverview_NotCreated"]</span>
+                }
+            </a>
+        </li>
+    }
+</ul>
+
+@code {
+    private static readonly CultureInfo German = new("de-DE");
+
+    [Parameter, EditorRequired] public IReadOnlyList<PlanOverviewRow> Rows { get; set; } = [];
+
+    /// <summary>Die geladenen Karten je <see cref="PlanOverviewRow.Key"/>.</summary>
+    [Parameter, EditorRequired] public IReadOnlyDictionary<string, MonthCard> Cards { get; set; } = new Dictionary<string, MonthCard>();
+
+    private string MonthTitle(PlanOverviewRow row) => new DateOnly(row.Year, row.Month, 1).ToString("MMMM yyyy", German);
+}

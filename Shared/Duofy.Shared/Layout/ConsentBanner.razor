@@ -1,5 +1,3 @@
-@using Radzen
-@using Radzen.Blazor
 @implements IAsyncDisposable
 @inject IConsentStore Store
 @inject IJSRuntime Js
@@ -25,10 +23,8 @@
                 <div class="consent-item" data-testid="@($"consent-item-{Slug(c)}")">
                     <p class="consent-text">@L[TextKey(c)]</p>
                     <div class="consent-actions">
-                        <RadzenButton Text="@L["Consent_Accept"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary"
-                                      Click="@(_ => ChooseAsync(c, true))" data-testid="@TestId(c, "accept")" />
-                        <RadzenButton Text="@L["Consent_Decline"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary"
-                                      Click="@(_ => ChooseAsync(c, false))" data-testid="@TestId(c, "decline")" />
+                        <DuofyButton Kind="ButtonKind.Secondary" Text="@L["Consent_Accept"]" OnClick="@(_ => ChooseAsync(c, true))" TestId="@TestId(c, "accept")" />
+                        <DuofyButton Kind="ButtonKind.Secondary" Text="@L["Consent_Decline"]" OnClick="@(_ => ChooseAsync(c, false))" TestId="@TestId(c, "decline")" />
                     </div>
                 </div>
             }
@@ -37,9 +33,7 @@
     else if (decided)
     {
         <div class="consent-change">
-            <RadzenButton Text="@L[HasChat && HasStatistics ? "Consent_ChangeAll" : HasChat ? "Consent_ChangeChat" : "Consent_Change"]"
-                          Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small"
-                          Click="@(_ => Reopen())" data-testid="consent-change" />
+            <DuofyButton Kind="ButtonKind.Ghost" Text="@L[HasChat && HasStatistics ? "Consent_ChangeAll" : HasChat ? "Consent_ChangeChat" : "Consent_Change"]" Small="true" OnClick="@(_ => Reopen())" TestId="consent-change" />
         </div>
     }
 }

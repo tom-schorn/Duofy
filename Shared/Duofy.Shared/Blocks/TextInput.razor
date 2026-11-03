@@ -1,0 +1,20 @@
+@* Das Textfeld der Seiten. Der Wert kommt schon beim Tippen an und noch einmal beim Verlassen, damit auch Autofill und Einfügen
+   zählen. Enter schickt also immer ab, was gerade dasteht (Review von Issue 41); BbInput sammelt Tastenanschläge dagegen bis zum
+   nächsten Zeichnen des Browsers. Weitere Attribute (id, autocomplete, placeholder, data-testid, aria-*) landen am Feld. *@
+<input type="@Type" class="@CssClass" value="@Value" @oninput="OnInputAsync" @onchange="OnInputAsync" @attributes="Attributes" />
+
+@code {
+    [Parameter] public string Type { get; set; } = "text";
+
+    [Parameter] public string? Value { get; set; }
+
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string CssClass => AdditionalAttributes?.GetValueOrDefault("class") is { } extra ? $"field-input {extra}" : "field-input";
+
+    private Dictionary<string, object>? Attributes => AdditionalAttributes?.Where(a => a.Key != "class").ToDictionary(a => a.Key, a => a.Value);
+
+    private Task OnInputAsync(ChangeEventArgs e) => ValueChanged.InvokeAsync(e.Value?.ToString() ?? "");
+}

@@ -1,6 +1,6 @@
 @page "/haushalt"
-@using Radzen
-@using Radzen.Blazor
+@using BlazorBlueprint.Components
+@using BlazorBlueprint.Icons.Lucide.Components
 @attribute [Authorize]
 @using System.Globalization
 @using Duofy.ApiClient
@@ -11,199 +11,161 @@
 @inject ActiveMember Member
 @inject IInstanceApi InstanceApi
 @inject FormDialogs Forms
-@inject IAppHost Host
 @inject AppChrome Chrome
 @inject NavigationManager Navigation
 @inject IStringLocalizer<SharedResources> L
 
 @* Der Haushalt (Spec 67): wer zusammen plant. Ohne Haushalt bietet die Seite "Haushalt gründen" mit
    einem Namensfeld an und darunter das Feld für einen Einladungslink, den jemand geschickt hat. Mit
-   Haushalt zeigt die Karte Name, Mitgliederzahl und Richtwerte, darunter stehen die Mitglieder. Nur der
-   Gründer sieht Einladen, Richtwerte, die offenen Einladungen und je Mitglied Entfernen; Mitglieder sehen
+   Haushalt ist das der Reiter "Mitglieder" des Haushaltsbereichs (Spec 82, R11): Kopf mit dem Namen des Haushalts,
+   Mitgliederzahl, Einladen und Austreten, darunter die Mitglieder; die Richtwerte haben einen eigenen Reiter. Nur der
+   Gründer sieht Bearbeiten, Einladen, die offenen Einladungen und je Mitglied Entfernen; Mitglieder sehen
    alles nur zum Lesen und können austreten. Der Gründer kann nur auflösen, solange er allein ist; solange
    andere im Haushalt sind, sieht er Austreten ausgegraut mit dem Grund darunter. Ein Knopf, den jemand nicht
-   benutzen darf, fehlt oder ist so ausgegraut, statt angeboten und dann abgelehnt zu werden. Von hier geht es
-   für alle zu den Freigaben (Spec 68).
+   benutzen darf, fehlt oder ist so ausgegraut, statt angeboten und dann abgelehnt zu werden.
 
    Folgenreiches (Austreten, Auflösen, Entfernen, Zurückziehen) fragt einmal nach. Nach jeder Änderung
    holt die Seite den Haushalt neu; sie rechnet nichts selbst. Ändert sich, wer im Haushalt ist (Gründen,
    Austreten, Auflösen, Entfernen), frischt sie auch den Umschalter auf (Spec 69, A12), damit er "Haushalt"
    ohne Neustart anbietet oder nicht mehr anbietet. *@
 
-<PageTitle>@L["Household_Title"]</PageTitle>
-
-<AppPageHeading Text="@L["Household_Title"]" />
-@if (!Host.IsApp)
+<PageTitle>@(household?.Name ?? L["Nav_OurHousehold"])</PageTitle>
+@if (household is null)
 {
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" Class="rz-mb-2">@L["Household_Title"]</RadzenText>
+    <PageHead Title="@L["Nav_OurHousehold"]" Lead="@L["Household_Lead"]" />
 }
+else
+{
+    <HouseholdHead Current="@HouseholdHead.Members" Name="@household.Name">
+        <Actions>
+            @if (IsFounder)
+            {
+                <DuofyButton Kind="ButtonKind.Secondary" Icon="pencil" Text="@L["Household_Edit"]" OnClick="@(_ => EditAsync())" TestId="household-edit" />
+            }
+        </Actions>
+    </HouseholdHead>
+}
+
 
 <Notice Message="message" />
 
 @if (loaded && household is null)
 {
     @* Ab 1280 px stehen Gründen und Einladungslink nebeneinander, darunter untereinander wie bisher. *@
-    <div class="household-columns page-wide">
-    <RadzenCard Variant="Variant.Outlined" Class="rz-mb-4" data-testid="household-none">
-        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2">@L["Household_NoneTitle"]</RadzenText>
-        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-text-secondary-color rz-mb-2">@L["Household_NoneText"]</RadzenText>
+    <div class="stack">
+    <div class="card mb-4" data-testid="household-none">
+        <h2 class="section-title">@L["Household_NoneTitle"]</h2>
+        <p class="muted mb-2">@L["Household_NoneText"]</p>
         <FieldLabel For="household-found-name-input" Text="@L["HouseholdDialog_Name"]" />
-        <RadzenTextBox @bind-Value="newName" id="household-found-name-input" MaxLength="100"
-                       aria-describedby="household-found-name-hint" data-testid="household-found-name" />
-        <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color"
-                    id="household-found-name-hint">@L["Household_FoundNameHint"]</RadzenText>
-        <RadzenButton Text="@L["Household_Found"]" Icon="home" ButtonStyle="ButtonStyle.Primary" Class="rz-mt-3"
-                      Disabled="busy" Click="@(_ => FoundAsync())" data-testid="household-found" />
-    </RadzenCard>
+        <TextInput id="household-found-name-input" maxlength="@(100)" @bind-Value="newName" aria-describedby="household-found-name-hint" data-testid="household-found-name" />
+        <p class="small muted" id="household-found-name-hint">@L["Household_FoundNameHint"]</p>
+        <DuofyButton Icon="house" Text="@L["Household_Found"]" OnClick="@(_ => FoundAsync())" TestId="household-found" Class="mt-3" Disabled="busy" />
+    </div>
 
     @* Ein Link, den jemand per Messenger geschickt hat: Einfügen öffnet die Seite der Einladung. *@
-    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.End" Gap="1rem" Class="household-paste-row">
+    <div class="row household-paste-row">
         <div class="flex-grow-1">
             <FieldLabel For="household-paste-input" Text="@L["Household_PasteLabel"]" />
-            <RadzenTextBox @bind-Value="pasted" id="household-paste-input" data-testid="household-paste" />
+            <TextInput id="household-paste-input" @bind-Value="pasted" data-testid="household-paste" />
         </div>
-        <RadzenButton Text="@L["Household_PasteOpen"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Base"
-                      Click="@(_ => OpenPasted())" data-testid="household-paste-open" />
-    </RadzenStack>
+        <DuofyButton Kind="ButtonKind.Secondary" Text="@L["Household_PasteOpen"]" OnClick="@(_ => OpenPasted())" TestId="household-paste-open" />
+    </div>
     </div>
 }
 
 @if (household is not null)
 {
     @* Ab 1280 px steht die Karte links, Mitglieder und Einladungen rechts; darunter untereinander wie bisher. *@
-    <div class="household-columns page-wide">
+    <div class="stack">
     <div>
-    <RadzenCard Variant="Variant.Outlined" Class="rz-mb-4" data-testid="household-card">
-        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-            <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="flex-grow-1" data-testid="household-name">@household.Name</RadzenText>
-            @if (IsFounder)
-            {
-                <RadzenButton Icon="edit" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small"
-                              Click="@(_ => EditAsync())" aria-label="@L["Household_Edit"]" data-testid="household-edit" />
-            }
-        </RadzenStack>
-        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-text-secondary-color">
+    <div class="card mb-4" data-testid="household-card">
+        <p class="muted" data-testid="household-member-count">
             @(household.Members.Count == 1 ? L["Household_MemberCountOne"] : L["Household_MemberCount", household.Members.Count])
-        </RadzenText>
-        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-mt-1" data-testid="household-quota-line">@QuotaLine</RadzenText>
-        <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" Wrap="FlexWrap.Wrap" Class="rz-mt-3">
-            @* Am PC gibt es die untere Leiste nicht: Von hier geht es dort zum Haushaltsplan (Spec 51, R2). *@
-            <LinkButton Href="/haushaltsplan" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Base"
-                        data-testid="household-plan"><RadzenIcon Icon="calendar_month" /> @L["HouseholdPlan_Title"]</LinkButton>
-            <LinkButton Href="/haushalt/freigaben" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Base"
-                        data-testid="household-grants"><RadzenIcon Icon="lock" /> @L["Household_Grants"]</LinkButton>
+        </p>
+        <div class="row mt-3">
             @if (IsFounder && InvitationsFull)
             {
                 @* Bei 10 offenen Einladungen antwortet die API too_many_invitations (A23). Ausgegraut wie Austreten:
                    aria-disabled statt disabled, damit ein Screenreader den Knopf findet und den Grund vorliest. *@
-                <RadzenButton Text="@L["Household_Invite"]" Icon="person_add" ButtonStyle="ButtonStyle.Base"
-                              Class="unavailable"
-                              aria-disabled="true" aria-describedby="household-invite-reason"
-                              data-testid="household-invite" />
+                <DuofyButton Kind="ButtonKind.Secondary" Icon="user-plus" Text="@L["Household_Invite"]" TestId="household-invite" Class="unavailable" aria-disabled="true" aria-describedby="household-invite-reason" />
             }
             else if (IsFounder)
             {
-                <RadzenButton Text="@L["Household_Invite"]" Icon="person_add" ButtonStyle="ButtonStyle.Primary"
-                              Click="@(_ => InviteAsync())" data-testid="household-invite" />
-            }
-            @if (IsFounder)
-            {
-                <RadzenButton Text="@L["Household_QuotasButton"]" Icon="tune" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Base"
-                              Click="@(_ => EditAsync())" data-testid="household-quotas" />
+                <DuofyButton Icon="user-plus" Text="@L["Household_Invite"]" OnClick="@(_ => InviteAsync())" TestId="household-invite" />
             }
             @if (!IsFounder)
             {
-                <RadzenButton Text="@L["Household_Leave"]" Icon="logout" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base"
-                              Click="@(_ => LeaveAsync())" data-testid="household-leave" />
+                <DuofyButton Kind="ButtonKind.Ghost" Icon="log-out" Text="@L["Household_Leave"]" OnClick="@(_ => LeaveAsync())" TestId="household-leave" />
             }
             else if (household.Members.Count == 1)
             {
-                <RadzenButton Text="@L["Household_Dissolve"]" Icon="delete_forever" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base"
-                              Click="@(_ => DissolveAsync())" data-testid="household-dissolve" />
+                <DuofyButton Kind="ButtonKind.Ghost" Icon="trash-2" Text="@L["Household_Dissolve"]" OnClick="@(_ => DissolveAsync())" TestId="household-dissolve" />
             }
             else
             {
                 @* Mit anderen im Haushalt antwortet die API founder_cannot_leave. Der Knopf ist deshalb ausgegraut
                    und tut nichts, bleibt aber erreichbar: aria-disabled statt disabled, damit ein Screenreader
                    ihn findet und den Grund darunter vorliest. *@
-                <RadzenButton Text="@L["Household_Leave"]" Icon="logout" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base"
-                              Class="unavailable"
-                              aria-disabled="true" aria-describedby="household-leave-reason"
-                              data-testid="household-leave" />
+                <DuofyButton Kind="ButtonKind.Ghost" Icon="log-out" Text="@L["Household_Leave"]" TestId="household-leave" Class="unavailable" aria-disabled="true" aria-describedby="household-leave-reason" />
             }
-        </RadzenStack>
+        </div>
         @if (IsFounder && InvitationsFull)
         {
-            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-display-block"
-                        id="household-invite-reason" data-testid="household-invite-reason">@L["Error_too_many_invitations"]</RadzenText>
+            <p class="small muted" id="household-invite-reason" data-testid="household-invite-reason">@L["Error_too_many_invitations"]</p>
         }
         @if (IsFounder && household.Members.Count > 1)
         {
-            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color"
-                        id="household-leave-reason" data-testid="household-leave-reason">@L["Household_FounderLeaveReason"]</RadzenText>
+            <p class="small muted" id="household-leave-reason" data-testid="household-leave-reason">@L["Household_FounderLeaveReason"]</p>
         }
         @if (IsFounder && hosted)
         {
             @* Spec 53, R6: Auf der gehosteten Version geht der Link auf Wunsch per Mail, aber nur an ein bestätigtes Konto. *@
-            <div class="field rz-mt-3">
+            <div class="field mt-3">
                 <FieldLabel For="household-invite-email-input" Text="@L["Household_InviteEmail"]" />
-                <RadzenTextBox @bind-Value="inviteEmail" id="household-invite-email-input" type="email"
-                               Placeholder="@L["Auth_EmailPlaceholder"]" aria-describedby="household-invite-email-hint"
-                               autocomplete="off" data-testid="household-invite-email" />
-                <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color"
-                            id="household-invite-email-hint">@L["Household_InviteEmailHint"]</RadzenText>
+                <TextInput id="household-invite-email-input" Type="email" placeholder="@L["Auth_EmailPlaceholder"]" @bind-Value="inviteEmail" aria-describedby="household-invite-email-hint" autocomplete="off" data-testid="household-invite-email" />
+                <p class="small muted" id="household-invite-email-hint">@L["Household_InviteEmailHint"]</p>
             </div>
         }
-    </RadzenCard>
+    </div>
 
     </div>
     <div>
-    <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-2">@L["Household_MembersHeading"]</RadzenText>
-    <RadzenStack Gap="0.5rem" Class="rz-mb-4 data-table members-table">
-        <div class="data-table-head" aria-hidden="true">
-            <span class="data-column-1">@L["Table_Name"]</span>
-            <span class="data-column-2">@L["Table_Email"]</span>
-            <span class="data-column-3">@L["Table_Role"]</span>
-        </div>
+    <h2 class="visually-hidden">@L["Household_MembersHeading"]</h2>
+    <div class="card data-table members-table mb-4">
         @foreach (var member in household.Members)
         {
-            <RadzenCard Variant="Variant.Outlined" Class="data-row-frame" data-testid="@($"household-member-{member.UserId}")">
-                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Class="data-row">
-                    <RadzenStack Gap="0" Class="flex-grow-1 data-cells">
-                        <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="data-column-1">@member.FirstName @member.LastName @(member.IsMe ? L["Household_Me"] : "")</RadzenText>
-                        <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color data-column-2">@member.Email</RadzenText>
-                    </RadzenStack>
-                    <RadzenBadge BadgeStyle="@(member.Role == HouseholdRoles.Founder ? BadgeStyle.Primary : BadgeStyle.Base)" IsPill="true"
-                                 Text="@L[$"HouseholdRole_{member.Role}"].Value" Class="data-column-3" />
+            <div class="data-row-frame" data-testid="@($"household-member-{member.UserId}")">
+                <div class="data-row">
+                    <span class="avatar" aria-hidden="true">@($"{member.FirstName.FirstOrDefault()}{member.LastName.FirstOrDefault()}")</span>
+                    <div class="data-cells">
+                        <p class="data-title">@member.FirstName @member.LastName @(member.IsMe ? L["Household_Me"] : "")</p>
+                        <p class="small muted wrap-anywhere">@member.Email</p>
+                    </div>
+                    <span class="pill">@L[$"HouseholdRole_{member.Role}"]</span>
                     @* Sich selbst entfernt man nicht (cannot_remove_self); der Gründer löst auf, wenn er allein ist. *@
                     @if (IsFounder && !member.IsMe)
                     {
-                        <RadzenButton Icon="person_remove" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small"
-                                      Click="@(_ => RemoveAsync(member))" Class="data-column-4"
-                                      aria-label="@L["Household_RemoveMember", member.FirstName]"
-                                      data-testid="@($"household-member-remove-{member.UserId}")" />
+                        <DuofyButton Kind="ButtonKind.Ghost" Icon="user-minus" IconOnly="true" Small="true" OnClick="@(_ => RemoveAsync(member))" AriaLabel="@L["Household_RemoveMember", member.FirstName]" TestId="@($"household-member-remove-{member.UserId}")" />
                     }
-                </RadzenStack>
-            </RadzenCard>
+                </div>
+            </div>
         }
-    </RadzenStack>
+    </div>
 
     @if (IsFounder && invitations.Count > 0)
     {
-        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-2">@L["Household_InvitationsHeading"]</RadzenText>
-        <RadzenStack Gap="0.5rem" Class="rz-mb-4">
+        <h2 class="section-title mb-2">@L["Household_InvitationsHeading"]</h2>
+        <div class="stack mb-4">
             @foreach (var invitation in invitations)
             {
-                <RadzenCard Variant="Variant.Outlined" data-testid="@($"household-invitation-{invitation.Id}")">
-                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
-                        <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="flex-grow-1">@L["Household_InvitationUntil", Day(invitation.ExpiresAt)]</RadzenText>
-                        <RadzenButton Text="@L["Household_Revoke"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small"
-                                      Click="@(_ => RevokeAsync(invitation))"
-                                      data-testid="@($"household-invitation-revoke-{invitation.Id}")" />
-                    </RadzenStack>
-                </RadzenCard>
+                <div class="card" data-testid="@($"household-invitation-{invitation.Id}")">
+                    <div class="row">
+                        <p class="flex-grow-1">@L["Household_InvitationUntil", Day(invitation.ExpiresAt)]</p>
+                        <DuofyButton Kind="ButtonKind.Ghost" Text="@L["Household_Revoke"]" Small="true" OnClick="@(_ => RevokeAsync(invitation))" TestId="@($"household-invitation-revoke-{invitation.Id}")" />
+                    </div>
+                </div>
             }
-        </RadzenStack>
+        </div>
     }
     </div>
     </div>
@@ -230,11 +192,6 @@
     private bool IsFounder => household?.Members.Any(m => m.IsMe && m.Role == HouseholdRoles.Founder) == true;
 
     private bool InvitationsFull => invitations.Count >= MaxOpenInvitations;
-
-    private string QuotaLine => household is null ? "" : string.Join(" · ",
-        L["Household_QuotaPart", L[$"Pot_{PotKeys.Needs}"], household.QuotaNeeds],
-        L["Household_QuotaPart", L[$"Pot_{PotKeys.Wants}"], household.QuotaWants],
-        L["Household_QuotaPart", L[$"Pot_{PotKeys.Savings}"], household.QuotaSavings]);
 
     protected override async Task OnInitializedAsync()
     {
@@ -322,7 +279,7 @@
             .Add(x => x.HouseholdName, household.Name)
             .Add(x => x.Mailed, address is not null);
         inviteEmail = "";
-        await Forms.OpenWindowAsync<InviteDialog, bool>(L["InviteDialog_Title"], parameters);
+        await Forms.OpenAsync<InviteDialog, bool>(L["InviteDialog_Title"], parameters);
         await LoadAsync();
     }
 

@@ -1,10 +1,8 @@
-@using Radzen
-@using Radzen.Blazor
 @using Duofy.Shared.Charts
 @inject IStringLocalizer<SharedResources> L
 
 @* Das Balkendiagramm: je Eintrag Bezeichnung, Wert und ein Balken. Der größte Wert füllt die volle Breite,
-   die anderen anteilig. Der Balken ist ein RadzenProgressBar in den Farben des Themes; die Länge allein
+   die anderen anteilig. Die Länge allein
    trägt nichts: der Wert steht auch als Zahl da, und für Vorlese-Programme gibt es eine Tabelle mit allen
    Werten, während der gemalte Teil verborgen bleibt. Mit ValueText schreibt der Aufrufer die Werte selbst (zum Beispiel als Euro). Ohne Einträge steht ein Hinweis statt eines leeren Bereichs. *@
 <figure class="chart">
@@ -20,7 +18,7 @@
             {
                 <div class="chart-bar-row">
                     <span class="chart-bar-label">@item.Label</span>
-                    <RadzenProgressBar Class="chart-bar-fill" Value="@ChartMath.BarValue(ChartMath.ShareOfMax(item.Value, Max))" ShowValue="false" ProgressBarStyle="ProgressBarStyle.Success" />
+                    <PotBar Percent="ChartMath.ShareOfMax(item.Value, Max)" />
                     <span class="chart-bar-value">@Text(item.Value)</span>
                 </div>
             }

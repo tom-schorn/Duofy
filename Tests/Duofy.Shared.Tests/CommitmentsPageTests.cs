@@ -14,12 +14,12 @@ public class CommitmentsPageTests : PageTestContext
 {
     private static readonly DateOnly Today = new(2026, 10, 21);
 
-    // Radzen zeichnet Dialoge in RadzenComponents (im echten Layout stehen sie in jedem Layout).
+    // Dialoge gehen in ihrer Hülle auf; im echten Layout steht sie im Rahmen.
     private readonly IRenderedComponent<IComponent> dialogs;
 
     public CommitmentsPageTests()
     {
-        dialogs = RenderRadzenHost();
+        dialogs = RenderDialogHost();
         Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true));
     }
 
@@ -619,22 +619,21 @@ public class CommitmentsPageTests : PageTestContext
         Next("Schritt 3 von 3: Wer und Wohin");
     }
 
-    // Radzen-Umstellung R17: Seite und Dialog sind in Radzen gebaut; die Zahlenfelder verweisen per aria-labelledby auf ihre Beschriftung.
+    // Seite und Dialog sind aus den Bausteinen gebaut; die Zahlenfelder verweisen per aria-labelledby auf ihre Beschriftung.
     [Fact]
-    public void The_page_and_the_dialog_are_built_with_radzen()
+    public void The_page_and_the_dialog_are_built_from_the_blocks()
     {
         var commitment = FakeCommitmentApi.Commitment("Miete");
         var cut = OpenPage(commitment);
         cut.WaitForAssertion(() => Assert.True(Shows(cut, commitment)));
 
-        Assert.Contains("rz-card", Row(cut, commitment).ClassList);
-        Assert.Contains("rz-button", cut.Find($"[data-testid='commitment-edit-{commitment.Id}']").ClassList);
-        Assert.Contains("rz-button", cut.Find($"[data-testid='commitment-end-{commitment.Id}']").ClassList);
+        Assert.Contains("data-row-frame", Row(cut, commitment).ClassList);
+        Assert.Contains("duofy-button", cut.Find($"[data-testid='commitment-edit-{commitment.Id}']").ClassList);
+        Assert.Contains("duofy-button", cut.Find($"[data-testid='commitment-end-{commitment.Id}']").ClassList);
 
         OpenNewDialog(cut);
 
-        Assert.Equal("commitment-amount-input-label", Input(dialogs, "commitment-amount").GetAttribute("aria-labelledby"));
-        Assert.Equal("Betrag pro Zahlung in Euro", dialogs.Find("label#commitment-amount-input-label").TextContent.Trim());
+        Assert.Equal("Betrag pro Zahlung in Euro", dialogs.Find($"label[for='{Input(dialogs, "commitment-amount").Id}']").TextContent.Trim());
         Assert.Equal("commitment-name-input", Input(dialogs, "commitment-name").Id);
         Assert.Equal("date", Input(dialogs, "commitment-first-due").GetAttribute("type"));
     }

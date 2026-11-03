@@ -1,5 +1,6 @@
-@using Radzen
-@using Radzen.Blazor
+@using BlazorBlueprint.Components
+@using Duofy.Shared.Dialogs
+@inherits FormDialogBase
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
@@ -8,7 +9,6 @@
 @inject ICategoryApi CategoryApi
 @inject IPlanApi PlanApi
 @inject ActiveMember Member
-@inject DialogService Dialogs
 @inject IStringLocalizer<SharedResources> L
 
 @* Der Dialog zum Anlegen und Ändern einer Buchung, in zwei Schritten (Issue #21, Spec 22) auf dem Schritt-Dialog (Spec 11):
@@ -30,23 +30,17 @@
             @foreach (var kind in BookingKinds.All)
             {
                 var selected = draft.Kind == kind;
-                <RadzenButton Text="@L[$"BookingDialog_Kind_{kind}"]" Variant="@(selected ? Variant.Filled : Variant.Outlined)"
-                              ButtonStyle="ButtonStyle.Primary" Click="@(_ => SetKind(kind))"
-                              aria-pressed="@(selected ? "true" : "false")" data-testid="@($"booking-kind-{kind}")" />
+                <DuofyButton Kind="ButtonKind.Secondary" Text="@L[$"BookingDialog_Kind_{kind}"]" OnClick="@(_ => SetKind(kind))" TestId="@($"booking-kind-{kind}")" aria-pressed="@(selected ? "true" : "false")" />
             }
         </div>
 
         @* Betrag und Datum. Der Betrag ist immer positiv; ob er abgeht oder hereinkommt, bestimmt die Art. *@
-        @* Radzens Zahlenfeld lässt keine Id am input zu: Die Beschriftung hat die Id "{InputId}-label", das Feld verweist mit
-           aria-labelledby darauf (StepField AriaLabelled). Auf dem Handy öffnet inputmode="decimal" die Zifferntastatur. *@
-        <StepField Label="@L["Field_Amount"]" InputId="booking-amount-input" AriaLabelled="true" TestId="booking-amount-field">
-            <RadzenNumeric TValue="decimal?" Value="draft.Amount" ValueChanged="@(v => OnAmountChanged(v))" Culture="German"
-                           Format="0.00" Min="0" ShowUpDown="false"
-                           InputAttributes="@Labelled("booking-amount-input")" data-testid="booking-amount" />
+        @* Auf dem Handy öffnet inputmode="decimal" die Zifferntastatur. *@
+        <StepField Label="@L["Field_Amount"]" InputId="booking-amount-input" TestId="booking-amount-field">
+            <MoneyInput id="booking-amount-input" Value="draft.Amount" ValueChanged="@(v => OnAmountChanged(v))" Min="0" data-testid="booking-amount" />
         </StepField>
         <StepField Label="@L["Field_Date"]" InputId="booking-date-input" TestId="booking-date-field">
-            <RadzenTextBox Value="@dateText" ValueChanged="OnDateChanged" type="date" id="booking-date-input"
-                           data-testid="booking-date" />
+            <TextInput id="booking-date-input" Type="date" Value="@dateText" ValueChanged="OnDateChanged" data-testid="booking-date" />
         </StepField>
 
         @* Der Planmonat: in welchem Monat die Buchung im Plan zählt. Der Kontostand folgt immer dem Datum. *@
@@ -84,7 +78,7 @@
     <DialogStep Title="@L["BookingDialog_StepWhere"]">
         @if (error is not null)
         {
-            <ErrorAlert AlertStyle="AlertStyle.Danger" Text="@error" data-testid="booking-error" />
+            <ErrorAlert Text="@error" data-testid="booking-error" />
         }
 
         @if (draft.Kind == BookingKinds.Transfer)
@@ -135,11 +129,8 @@
                     }
 
                     @* Die erste Zeile ist nicht bearbeitbar, solange es mehrere gibt: Sie zeigt, was übrig bleibt. *@
-                    <StepField Label="@L["Field_Amount"]" InputId="@($"booking-line-amount-{index}-input")" AriaLabelled="true">
-                        <RadzenNumeric TValue="decimal?" Value="line.Amount" ValueChanged="@(v => OnLineAmountChanged(index, v))"
-                                       Culture="German" Format="0.00" ShowUpDown="false" ReadOnly="@(index == 0)"
-                                       InputAttributes="@Labelled($"booking-line-amount-{index}-input")"
-                                       data-testid="@($"booking-line-amount-{index}")" />
+                    <StepField Label="@L["Field_Amount"]" InputId="@($"booking-line-amount-{index}-input")">
+                        <MoneyInput id="@($"booking-line-amount-{index}-input")" Value="line.Amount" ValueChanged="@(v => OnLineAmountChanged(index, v))" ReadOnly="@(index == 0)" data-testid="@($"booking-line-amount-{index}")" />
                     </StepField>
 
                     <StepField Label="@L["Field_Category"]" InputId="@($"booking-line-category-{index}-input")">
@@ -188,15 +179,11 @@
                         @* Eigene Kategorien legt nur ihre Person an (Spec 68); für ein anderes Mitglied gibt es den Knopf nicht. *@
                         @if (owner is null)
                         {
-                            <RadzenButton Text="@L["BookingDialog_NewCategory"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Primary"
-                                          Size="ButtonSize.Small" Click="@(_ => OpenNewCategory(index))"
-                                          data-testid="booking-new-category" />
+                            <DuofyButton Kind="ButtonKind.Ghost" Text="@L["BookingDialog_NewCategory"]" Small="true" OnClick="@(_ => OpenNewCategory(index))" TestId="booking-new-category" />
                         }
                         @if (index > 0)
                         {
-                            <RadzenButton Text="@L["BookingDialog_RemoveLine"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Primary"
-                                          Size="ButtonSize.Small" Click="@(_ => RemoveLine(index))"
-                                          data-testid="@($"booking-line-remove-{index}")" />
+                            <DuofyButton Kind="ButtonKind.Ghost" Text="@L["BookingDialog_RemoveLine"]" Small="true" OnClick="@(_ => RemoveLine(index))" TestId="@($"booking-line-remove-{index}")" />
                         }
                     </div>
                 </div>
@@ -208,11 +195,10 @@
                 <div class="booking-line">
                     @if (newCategoryError is not null)
                     {
-                        <ErrorAlert AlertStyle="AlertStyle.Danger" Text="@newCategoryError" />
+                        <ErrorAlert Text="@newCategoryError" />
                     }
                     <StepField Label="@L["Field_CategoryName"]" InputId="booking-new-category-name-input">
-                        <RadzenTextBox @bind-Value="newCategoryName" id="booking-new-category-name-input"
-                                       MaxLength="CategoryRules.NameMaxLength" data-testid="booking-new-category-name" />
+                        <TextInput id="booking-new-category-name-input" maxlength="@(CategoryRules.NameMaxLength)" @bind-Value="newCategoryName" data-testid="booking-new-category-name" />
                     </StepField>
                     <StepField Label="@L["Field_Group"]" InputId="booking-new-category-group-input">
                         <NativeSelect @bind-Value="newCategoryGroup" id="booking-new-category-group-input"
@@ -233,22 +219,18 @@
                         </NativeSelect>
                     </StepField>
                     <div class="booking-line-actions">
-                        <RadzenButton Text="@L["BookingDialog_NewCategorySave"]" ButtonStyle="ButtonStyle.Primary"
-                                      Click="@(_ => SaveNewCategoryAsync())" data-testid="booking-new-category-save" />
-                        <RadzenButton Text="@L["BookingDialog_Cancel"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base"
-                                      Click="@(_ => CloseNewCategory())" />
+                        <DuofyButton Text="@L["BookingDialog_NewCategorySave"]" OnClick="@(_ => SaveNewCategoryAsync())" TestId="booking-new-category-save" />
+                        <DuofyButton Kind="ButtonKind.Ghost" Text="@L["BookingDialog_Cancel"]" OnClick="@(_ => CloseNewCategory())" />
                     </div>
                 </div>
             }
 
             @* "Aufteilen" hängt eine Zeile an. Ihr Betrag geht von der ersten Zeile ab. *@
-            <RadzenButton Text="@L["BookingDialog_Split"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary"
-                          Disabled="@(!draft.CanAddLine)" Click="@(_ => draft.AddLine())" data-testid="booking-split" />
+            <DuofyButton Kind="ButtonKind.Secondary" Text="@L["BookingDialog_Split"]" OnClick="@(_ => draft.AddLine())" TestId="booking-split" Disabled="@(!draft.CanAddLine)" />
         }
 
         <StepField Label="@L["Field_Note"]" InputId="booking-note-input" TestId="booking-note-field">
-            <RadzenTextBox @bind-Value="draft.Note" id="booking-note-input" MaxLength="BookingRules.NoteMaxLength"
-                           data-testid="booking-note" />
+            <TextInput id="booking-note-input" maxlength="@(BookingRules.NoteMaxLength)" @bind-Value="draft.Note" data-testid="booking-note" />
         </StepField>
     </DialogStep>
 </StepDialog>
@@ -261,7 +243,7 @@
     [Parameter]
     public string? Title { get; set; }
 
-    // Zahlenfelder von Radzen lassen keine Id am input zu: Das Feld verweist auf seine Beschriftung.
+    // Das Feld verweist auf seine Beschriftung.
     private static Dictionary<string, object> Labelled(string inputId) => new()
     {
         ["aria-labelledby"] = $"{inputId}-label",
@@ -463,7 +445,7 @@
 
             if (result.Succeeded)
             {
-                Dialogs.Close(true);
+                await CloseAsync(true);
             }
             else
             {

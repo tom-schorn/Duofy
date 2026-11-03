@@ -1,154 +1,198 @@
-@using Radzen
-@using Radzen.Blazor
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
+@using Duofy.Shared.Charts
 @using Duofy.Shared.Pages.Month
 @implements IDisposable
 @inject IHouseholdApi HouseholdApi
-@inject IAppHost Host
 @inject ActiveMember Member
 @inject TimeProvider Time
 @inject IStringLocalizer<SharedResources> L
 
-@* Der Haushaltsplan eines Monats (Spec 69), nur zum Lesen: der Name des Haushalts, die Posten aller Mitglieder nach
-   Topf mit dem Vornamen dessen, der sie trägt, geplant und gebucht, die Summen und Quoten des Haushalts und die
-   Konten der Mitglieder, die sie freigegeben haben. Es gibt keinen Knopf zum Anlegen, Abhaken oder Ändern: Das geht
-   im Plan der jeweiligen Person, mit deren Freigaben (Spec 68).
+@* Der Haushaltsplan eines Monats (Spec 69, Spec 82), nur zum Lesen, im selben Aufbau wie der Monat einer Person: Kennzahlen,
+   Reiter, Sankey und die Posten aller Mitglieder nach Topf mit dem Vornamen dessen, der sie trägt, dazu die Summen und die Konten
+   der Mitglieder, die sie freigegeben haben. Es gibt keinen Knopf zum Anlegen, Abhaken oder Ändern: Das geht im Plan der
+   jeweiligen Person, mit deren Freigaben (Spec 68). Die Seite rechnet nichts; die API setzt den Plan bei jedem Öffnen aus den
+   Monaten der Mitglieder zusammen. *@
 
-   Die Seite rechnet nichts; die API setzt den Plan bei jedem Öffnen aus den Monaten der Mitglieder zusammen.
+<PageHead Title="@(Heading ?? MonthTitle)" Lead="@L["HouseholdPlan_ReadOnly"]" />
 
-   Seit Spec 24 hat der Haushaltsmonat dieselben drei Tabs wie der Monat einer Person (Übersicht, Plan, Buchungen),
-   alle nur zum Lesen. *@
-
-<AppPageHeading Text="@(Heading ?? L["Nav_Plan"])" />
-@if (!Host.IsApp)
-{
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" Class="rz-mb-2">@(Heading ?? L["Nav_Plan"])</RadzenText>
-}
-
-<RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-m-0" data-testid="household-name">@(plan?.HouseholdName ?? Member.Household?.Name)</RadzenText>
-<RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-mb-2" data-testid="household-read-only">@L["HouseholdPlan_ReadOnly"]</RadzenText>
-
-@* Blättern zwischen den Monaten. *@
-<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-2 month-nav">
-    <RadzenButton Icon="chevron_left" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Click="@(_ => MoveAsync(-1))"
-                  aria-label="@L["Plan_PreviousMonth"]" data-testid="plan-previous" />
-    <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H3" Class="rz-m-0" data-testid="plan-month">@MonthTitle</RadzenText>
-    <RadzenButton Icon="chevron_right" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Click="@(_ => MoveAsync(1))"
-                  aria-label="@L["Plan_NextMonth"]" data-testid="plan-next" />
-</RadzenStack>
+<h2 class="section-title notice" data-testid="household-name">@(plan?.HouseholdName ?? Member.Household?.Name)</h2>
 
 <Notice Message="message" />
 
-<MonthTabs Active="tab" ActiveChanged="SelectTab" />
-<div role="tabpanel" id="month-panel" class="page-wide" aria-labelledby="@($"month-tab-{MonthTabs.Key(tab)}")">
 @if (plan is not null)
 {
-    @if (tab == MonthTab.Overview)
+    <div class="metrics" data-testid="month-metrics">
+        <div data-testid="month-block-income"><Metric Title="@L["Month_Income"]" Amount="plan.Income" /></div>
+        <div data-testid="month-block-free"><Metric Title="@L["Month_Allocatable"]" Amount="plan.Free" Over="plan.Free < 0m" AmountText="@(plan.Free == 0m ? L["Month_AllPlanned"].Value : null)" Note="@FreeNote" /></div>
+        <div data-testid="month-block-unpaid"><Metric Title="@L["Month_Unpaid"]" Amount="plan.Unpaid" AmountText="@(plan.Unpaid == 0m ? L["Month_AllPaid"].Value : null)" Note="@L["Month_UnpaidNote"]" /></div>
+        @* Die Überträge als vierte Kennzahl, nur von denen, die ihre Buchungen freigegeben haben (Spec 66, R9; Spec 82, R15). *@
+        <div data-testid="household-carry-overs">
+            <div class="metric metric--carry" role="group" aria-labelledby="household-carry-over-title">
+                <p class="metric-title" id="household-carry-over-title">@L["Plan_CarryOver"]</p>
+                @if (plan.CarryOvers is { Count: > 0 })
+                {
+                    @foreach (var row in MonthView.CarryOverRows(plan.CarryOvers))
+                    {
+                        <p class="metric-line" data-testid="@(row.Incoming ? "plan-carry-over-in" : "plan-carry-over-out")">
+                            <span>@L[row.Incoming ? "Month_CarryOverIn" : "Month_CarryOverOut", row.Month.ToString("MMMM", German)]@(row.Owner is null ? "" : $" · {row.Owner}")</span>
+                            <b class="num @(row.Amount < 0m ? "over" : null)">@Money(row.Amount)</b>
+                        </p>
+                    }
+                }
+                else
+                {
+                    <p class="metric-note">@L["Plan_CarryOverNone"]</p>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+<MonthTabs Active="tab" ActiveChanged="SelectTab" BookingCount="@(plan?.Bookings?.Count)" />
+<div role="tabpanel" id="month-panel" aria-labelledby="@($"month-tab-{MonthTabs.Key(tab)}")">
+@if (plan is not null)
+{
+    @if (tab == MonthTab.Bookings)
     {
-        <MonthOverview Model="MonthView.ForHousehold(plan, Today)" ReadOnly="true" BookingsMissing="plan.BookingsMissing ?? []" />
-        <HouseholdGuidelines Model="GuidelineView.From(plan)" />
-    }
-    else if (tab == MonthTab.Bookings)
-    {
-        <MonthBookings Rows="MonthView.HouseholdBookingRows(plan)" Missing="plan.BookingsMissing ?? []" CarryOvers="MonthView.CarryOverRows(plan.CarryOvers)" />
+        <MonthBookings Household="true" Rows="MonthView.HouseholdBookingRows(plan)" Missing="plan.BookingsMissing ?? []" CarryOvers="MonthView.CarryOverRows(plan.CarryOvers)" />
     }
     else if (tab == MonthTab.Review)
     {
-        <MonthReview Model="MonthView.ForHousehold(plan, Today)" BookingsMissing="plan.BookingsMissing ?? []" />
+        var review = MonthView.ForHousehold(plan, Today);
+        <MonthReview Model="review" BookingsMissing="plan.BookingsMissing ?? []" Today="Today">
+            <Balances>
+                @* Die Konten der Mitglieder, die sie freigegeben haben (Spec 69, R8), je Person; wer fehlt, steht darunter. *@
+                <AccountBalances Rows="BalanceRows" ByOwner="true" Missing="plan.AccountsMissing" TestId="household-accounts"
+                                 AsOf="@L["Month_AccountsAsOfMonth"]" />
+            </Balances>
+            <Extra>
+                <HouseholdGuidelines Model="GuidelineView.From(plan)" />
+            </Extra>
+        </MonthReview>
     }
     else
     {
-    @* Ab 1280 px stehen die Posten links, Summen und Konten rechts daneben, wie im Plan einer Person. *@
-    <div class="plan-layout page-wide">
-    @* Summen und Quoten. *@
-    <RadzenCard Variant="Variant.Outlined" Class="rz-mb-4 plan-layout-side" data-testid="plan-sums">
-        <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-m-0">@L["HouseholdPlan_SumsIncome", Money(plan.Income)]</RadzenText>
-        @foreach (var pot in plan.Pots)
+        @if (plan.Positions.Count == 0)
         {
-            <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-m-0">@L["HouseholdPlan_SumsPot", L[$"Pot_{pot.Pot}"], Money(pot.Planned), Money(pot.Booked)]</RadzenText>
+            <p class="empty-state notice" data-testid="plan-empty">@L["HouseholdPlan_Empty"]</p>
         }
-        <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-m-0">@L["HouseholdPlan_SumsUnpaid", Money(plan.Unpaid)]</RadzenText>
-        @foreach (var quota in plan.Quotas)
+
+        @* Die Posten nach Topf wie im Monat einer Person, mit Kopf, Balken und Summe (Spec 82, R16, R17); innerhalb eines Topfs
+           zusätzlich nach Haushaltsmitglied (Tom, 03.11.2026: "sie sollten quasi zusätzlich mit den personen gruppiert werden"),
+           der Vorname als Zwischenkopf mit der Summe dieser Person im Topf. *@
+        @foreach (var group in Groups(plan))
         {
-            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-m-0" data-testid="@($"plan-quota-{quota.Pot}")">@L["Plan_Quota", L[$"Pot_{quota.Pot}"], quota.Target, quota.Actual.ToString("0.#", German)]</RadzenText>
+            <PotSection Pot="@group.Pot" Sum="PotPlanned(group.Pot)" Limit="LimitOf(group.Pot)">
+                @foreach (var member in Members(plan, group.Positions))
+                {
+                    <li class="pot-member" data-testid="@($"household-member-group-{group.Pot}-{member.OwnerId}")">
+                        <div class="pot-member-head">
+                            <span class="avatar" aria-hidden="true">@member.Initials</span>
+                            <h4 class="pot-member-name">@member.Name</h4>
+                            <span class="pot-member-sum num">@Money(member.Total)</span>
+                        </div>
+                        <ul class="pot-rows">
+                        @foreach (var position in member.Positions)
+                        {
+                            var done = position.DoneAt is not null;
+                            <li class="@(done ? "plan-row row-done" : "plan-row")" data-testid="@($"household-position-{position.Id}")">
+                                <div class="list-row">
+                                    <span class="list-row-body">
+                                        <span class="list-row-title">@position.Label</span>
+                                        <span class="list-row-detail" data-testid="@($"household-owner-{position.Id}")">@Caption(position)</span>
+                                    </span>
+                                    @{ var lines = BookingPurpose.LinesOf(plan.Bookings ?? [], position.Id); }
+                                    @if (lines.Count > 0)
+                                    {
+                                        var id = position.Id;
+                                        <span class="list-row-lift">
+                                            <PositionBookingsToggle Count="lines.Count" Label="@position.Label" PanelId="@($"position-bookings-panel-{position.Id}")"
+                                                                    Open="expanded.Contains(position.Id)" OnToggle="@(() => Toggle(id))"
+                                                                    TestId="@($"position-bookings-{position.Id}-toggle")" />
+                                        </span>
+                                    }
+                                    <span class="list-row-amount">
+                                        @Money(position.AmountPlanned)
+                                        @if (position.Booked != 0m && position.Booked != position.AmountPlanned)
+                                        {
+                                            <span class="list-row-detail">@L["Plan_BookedOf", Money(position.Booked)]</span>
+                                        }
+                                    </span>
+                                </div>
+                                @if (lines.Count > 0)
+                                {
+                                    <PositionBookings Label="@position.Label" Rows="lines" TestId="@($"position-bookings-{position.Id}")"
+                                                      PanelId="@($"position-bookings-panel-{position.Id}")" Open="expanded.Contains(position.Id)" />
+                                }
+                            </li>
+                        }
+                        </ul>
+                    </li>
+                }
+            </PotSection>
         }
-        <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-m-0" data-testid="household-unplanned">
-            @L["HouseholdPlan_Unplanned", Money(plan.Unplanned.Income), Money(plan.Unplanned.Needs), Money(plan.Unplanned.Wants), Money(plan.Unplanned.Savings)]
-        </RadzenText>
-    </RadzenCard>
+        <UnplannedLine Amounts="UnplannedPerPot" People="UnplannedPerPerson" Missing="plan.BookingsMissing ?? []" />
 
-    <div class="plan-groups">
-    @if (plan.Positions.Count == 0)
-    {
-        <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color rz-mb-2" data-testid="plan-empty">@L["HouseholdPlan_Empty"]</RadzenText>
-    }
-
-    @* Die Posten nach Topf, jeder mit dem Vornamen seiner Person. *@
-    @foreach (var group in Groups(plan))
-    {
-        <div>
-        <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H3" Class="rz-mt-3 rz-mb-1" data-testid="@($"plan-group-{group.Pot}")">@L[$"Pot_{group.Pot}"]</RadzenText>
-        <RadzenStack Gap="0.5rem">
-            @foreach (var position in group.Positions)
-            {
-                var done = position.DoneAt is not null;
-                <RadzenCard Variant="Variant.Outlined" data-testid="@($"household-position-{position.Id}")">
-                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" Wrap="FlexWrap.Wrap">
-                        <RadzenStack Gap="0" Class="fill-wrap">
-                            <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="@(done ? "rz-text-secondary-color rz-m-0" : "rz-m-0")">@position.Label</RadzenText>
-                            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-m-0" data-testid="@($"household-owner-{position.Id}")">@Caption(position)</RadzenText>
-                        </RadzenStack>
-                        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.Span">@L["Plan_Amounts", Money(position.AmountPlanned), Money(position.Booked)]</RadzenText>
-                    </RadzenStack>
-                    @if (BookingPurpose.LinesOf(plan.Bookings ?? [], position.Id) is { Count: > 0 } lines)
-                    {
-                        <PositionBookings Label="@position.Label" Rows="lines" TestId="@($"position-bookings-{position.Id}")" />
-                    }
-                </RadzenCard>
-            }
-        </RadzenStack>
-        </div>
-    }
-    </div>
-
-    @* Die Überträge als eigene Zeilen, nur von denen, die ihre Buchungen freigegeben haben (Spec 66, R9). *@
-    @if (plan.CarryOvers is { Count: > 0 })
-    {
-        <div class="rz-mt-4 plan-layout-side" data-testid="household-carry-overs">
-            <LineTable Caption="@L["Plan_CarryOver"]" HideCaption="true" Rows="MonthCarryOverText.Rows(MonthView.CarryOverRows(plan.CarryOvers), L)" />
-        </div>
-    }
-
-    @* Die Konten der Mitglieder, die sie freigegeben haben (R8); wer fehlt, steht mit Namen darunter. *@
-    @if (plan.Accounts.Count > 0)
-    {
-        <RadzenCard Variant="Variant.Outlined" Class="rz-mt-4 plan-layout-side" data-testid="household-accounts">
-            <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H3" Class="rz-mb-1">@L["HouseholdPlan_Accounts"]</RadzenText>
-            @foreach (var account in plan.Accounts)
-            {
-                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
-                    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-m-0">@account.Name <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.Span" Class="rz-text-secondary-color">(@account.OwnerFirstName)</RadzenText></RadzenText>
-                    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-m-0">@Money(account.Balance)</RadzenText>
-                </RadzenStack>
-            }
-        </RadzenCard>
-    }
-    @if (plan.AccountsMissing.Count > 0)
-    {
-        <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-mt-2 plan-layout-side" data-testid="household-accounts-missing">
-            @L["HouseholdPlan_AccountsMissing", string.Join(", ", plan.AccountsMissing)]
-        </RadzenText>
-    }
-    </div>
     }
 }
 </div>
+@if (plan is not null)
+{
+    <MonthPrint Title="@(Heading ?? MonthTitle)" Subject="@plan.HouseholdName" Today="Today" Year="Year" Month="Month" ShowOwner="true"
+                Income="plan.Income" Free="plan.Free" Unpaid="plan.Unpaid" PlannedExpenses="plan.Fixed"
+                BookedIncome="(plan.Bookings ?? []).Where(b => b.Kind == BookingKinds.Income).Sum(b => b.Amount)"
+                BookedExpenses="(plan.Bookings ?? []).Where(b => b.Kind == BookingKinds.Expense).Sum(b => b.Amount)"
+                CarryOver="@(MonthView.CarryOverRows(plan.CarryOvers).Where(c => c.Incoming).Sum(c => c.Amount) is var carry && carry != 0m ? MoneyText.Format(carry) : "—")"
+                Pots="PrintPots" Unplanned="UnplannedPerPot" />
+}
 
 @code {
+    // Was in Verplanbar steckt (Spec 66, R9), und wessen Übertrag fehlen kann, ohne zu verraten, ob es einen gibt.
+    private string FreeNote
+    {
+        get
+        {
+            var incoming = MonthView.CarryOverRows(plan?.CarryOvers).Where(c => c.Incoming).ToList();
+            var parts = new List<string>();
+            if (incoming.Count > 0)
+            {
+                parts.Add(L["Month_FreeCarryOver", MoneyText.Format(incoming.Sum(c => c.Amount))].Value);
+            }
+            if (plan?.BookingsMissing is { Count: > 0 } missing)
+            {
+                parts.Add(L["Month_FreeCarryOverMissing", string.Join(", ", missing)].Value);
+            }
+            return parts.Count > 0 ? string.Join(" ", parts) : L["Month_FreeNote"].Value;
+        }
+    }
+
 
     private static readonly CultureInfo German = new("de-DE");
+
+    // Das Druckbild des Haushalts (Spec 82, R20): je Topf die Posten aller Mitglieder mit der Person.
+    private IReadOnlyList<PrintPot> PrintPots => plan is null ? [] : Groups(plan)
+        .Select(g => new PrintPot(g.Pot, PotPlanned(g.Pot), g.Pot == PotKeys.Income ? null : LimitOf(g.Pot),
+            g.Positions.Select(p => new PrintRow(p.Label, p.DueDay, p.AmountPlanned, p.Booked, p.DoneAt is not null, p.OwnerFirstName)).ToList()))
+        .ToList();
+
+    private static IReadOnlyList<(string Pot, IReadOnlyList<HouseholdPlanPositionResponse> Positions)> Groups(HouseholdPlanResponse plan) =>
+        PlanView.PotOrder
+            .Select(pot => (pot, (IReadOnlyList<HouseholdPlanPositionResponse>)plan.Positions.Where(p => p.Pot == pot).ToList()))
+            .Where(group => group.Item2.Count > 0)
+            .ToList();
+
+    // Die Posten, deren Buchungen gerade aufgeklappt sind.
+    private readonly HashSet<Guid> expanded = [];
+
+    private void Toggle(Guid positionId)
+    {
+        if (!expanded.Remove(positionId))
+        {
+            expanded.Add(positionId);
+        }
+    }
 
     /// <summary>Die Überschrift; ohne Angabe "Plan". Die Seite Haushaltsplan nennt sich selbst.</summary>
     [Parameter] public string? Heading { get; set; }
@@ -158,10 +202,7 @@
 
     [Parameter, EditorRequired] public int Month { get; set; }
 
-    /// <summary>Wird mit +1 oder -1 gerufen, wenn der Pfeil einen Monat weiterblättert; die Planseite hält den Monat.</summary>
-    [Parameter] public EventCallback<int> OnMove { get; set; }
-
-    private MonthTab tab = MonthTab.Overview;
+    private MonthTab tab = MonthTab.Plan;
     private DateOnly Today => DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
 
     private void SelectTab(MonthTab selected) => tab = selected;
@@ -216,29 +257,74 @@
         }
     }
 
-    private async Task MoveAsync(int by)
+    private decimal Unplanned(string pot) => pot switch
     {
-        message = null;
-        await OnMove.InvokeAsync(by);
+        PotKeys.Income => plan!.Unplanned.Income,
+        PotKeys.Needs => plan!.Unplanned.Needs,
+        PotKeys.Wants => plan!.Unplanned.Wants,
+        PotKeys.Savings => plan!.Unplanned.Savings,
+        _ => 0m,
+    };
+
+    // Das Geplante eines Topfs aus der API, dieselbe Zahl wie im Flussdiagramm (Spec 82, R17).
+    private decimal PotPlanned(string pot) => pot == PotKeys.Income
+        ? plan!.Income
+        : plan!.Pots.FirstOrDefault(p => p.Pot == pot)?.Planned ?? 0m;
+
+    private IReadOnlyDictionary<string, decimal> UnplannedPerPot =>
+        new[] { PotKeys.Needs, PotKeys.Wants, PotKeys.Savings }.ToDictionary(pot => pot, Unplanned);
+
+    // Was die Quote eines Topfs bei diesen Einnahmen erlaubt.
+    private decimal LimitOf(string pot) => Math.Round(plan!.Income * (plan.Quotas.FirstOrDefault(q => q.Pot == pot)?.Target ?? 0) / 100m, 2);
+
+
+    /// <summary>Die Posten eines Mitglieds in einem Topf.</summary>
+    private sealed record MemberGroup(Guid OwnerId, string Name, IReadOnlyList<HouseholdPlanPositionResponse> Positions)
+    {
+        public decimal Total => Positions.Sum(p => p.AmountPlanned);
+
+        // Der Kreis wie im Profil-Menü; der Haushalt kennt nur den Vornamen, also ein Buchstabe.
+        public string Initials => string.Concat(Name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(p => char.ToUpperInvariant(p[0])));
     }
 
-    /// <summary>Die Posten je Topf in der Reihenfolge der API (Topf, Fälligkeitstag, Name); leere Töpfe fehlen.</summary>
-    private static IReadOnlyList<(string Pot, IReadOnlyList<HouseholdPlanPositionResponse> Positions)> Groups(HouseholdPlanResponse plan) =>
-        PlanView.PotOrder
-            .Select(pot => (pot, (IReadOnlyList<HouseholdPlanPositionResponse>)plan.Positions.Where(p => p.Pot == pot).ToList()))
-            .Where(group => group.Item2.Count > 0)
+    // Die Mitglieder in der Reihenfolge des Plans, jedes mit seinen Posten des Topfs nach Fälligkeit und Name.
+    private static IReadOnlyList<MemberGroup> Members(HouseholdPlanResponse plan, IReadOnlyList<HouseholdPlanPositionResponse> positions)
+    {
+        var order = plan.Members.Select(m => m.UserId).ToList();
+        return positions
+            .GroupBy(p => (p.OwnerId, p.OwnerFirstName))
+            .OrderBy(g => order.IndexOf(g.Key.OwnerId) is var i && i < 0 ? int.MaxValue : i)
+            .ThenBy(g => g.Key.OwnerFirstName, StringComparer.CurrentCultureIgnoreCase)
+            .Select(g => new MemberGroup(g.Key.OwnerId, g.Key.OwnerFirstName,
+                g.OrderBy(p => p.DueDay).ThenBy(p => p.Label, StringComparer.CurrentCultureIgnoreCase).ToList()))
             .ToList();
+    }
 
-    // Unter der Bezeichnung: wer den Posten trägt und der Tag.
+    // Ungeplant je Person: die Ausgabezeilen ohne Posten aus den Buchungen, die der Betrachter sieht. Wer seine Buchungen nicht
+    // teilt, fehlt hier und wird in der Zeile genannt.
+    private IReadOnlyList<(string Name, decimal Amount)> UnplannedPerPerson => (plan?.Bookings ?? [])
+        .Where(b => b.Kind == BookingKinds.Expense)
+        .SelectMany(b => (b.Lines ?? []).Where(l => l.PositionId is null).Select(l => (b.OwnerId, b.OwnerFirstName, l.Amount)))
+        .GroupBy(x => (x.OwnerId, x.OwnerFirstName))
+        .Select(g => (g.Key.OwnerFirstName, g.Sum(x => x.Amount)))
+        .Where(x => x.Item2 != 0m)
+        .OrderBy(x => x.OwnerFirstName, StringComparer.CurrentCultureIgnoreCase)
+        .ToList();
+
+    // Unter der Bezeichnung: der Tag; der Topf steht schon darüber.
     private string Caption(HouseholdPlanPositionResponse position)
     {
-        var parts = new List<string> { position.OwnerFirstName, L["Plan_DueDay", position.DueDay] };
+        var parts = new List<string> { L["Plan_DueDay", position.DueDay] };
         if (position.PassThrough)
         {
             parts.Add(L["Plan_PassThrough"]);
         }
         return string.Join(" · ", parts);
     }
+
+    private IReadOnlyList<AccountBalanceRow> BalanceRows => (plan?.Accounts ?? [])
+        .Select(a => new AccountBalanceRow(a.AccountId, a.Name, null, a.Balance, true, a.OwnerFirstName))
+        .ToList();
 
     private static string Money(decimal amount) => amount.ToString("N2", German) + " €";
 }

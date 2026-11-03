@@ -1,47 +1,92 @@
-@using Radzen
-@using Radzen.Blazor
-@* Der Knopf in drei Arten (primär, sekundär, gefährlich). Radzen liefert Aussehen und Verhalten (Klick, gesperrt);
-   die Klassen duofy-button und duofy-button--art bleiben als Anker für Tests und Stile. Ein Knopf nur mit Zeichen
-   braucht AriaLabel. *@
-<RadzenButton Class="@($"duofy-button duofy-button--{KindName}")"
-              ButtonStyle="Style"
-              Disabled="Disabled"
-              Click="OnClick"
-              @attributes="Attributes">@ChildContent</RadzenButton>
+@using BlazorBlueprint.Components
+@using BlazorBlueprint.Icons.Lucide.Components
+
+@* Der Knopf in vier Arten, gebaut auf BbButton: Text in normaler Schreibweise, keine Farbblöcke außer der Hauptaktion.
+   Mit Href wird er ein Link im Aussehen eines Knopfs. Ein Knopf nur mit Zeichen braucht AriaLabel. Weitere Attribute
+   (aria-*, title, data-*) landen am Knopf selbst. *@
+
+<BbButton Variant="Style" Size="ButtonSize" Type="Type" Disabled="Disabled" Href="@Href" OnClick="OnClick" Class="@CssClass" AriaLabel="@AriaLabel"
+          @attributes="Attributes">
+    @if (Icon is not null)
+    {
+        <LucideIcon Name="@Icon" Size="16" aria-hidden="true" />
+    }
+    @Text
+    @ChildContent
+</BbButton>
 
 @code {
     [Parameter] public ButtonKind Kind { get; set; } = ButtonKind.Primary;
+
+    /// <summary>Der Text; alternativ als Inhalt.</summary>
+    [Parameter] public string? Text { get; set; }
+
     [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Der Name des Symbols (Lucide), zum Beispiel "plus".</summary>
+    [Parameter] public string? Icon { get; set; }
+
+    /// <summary>Nur das Zeichen, quadratisch; braucht AriaLabel.</summary>
+    [Parameter] public bool IconOnly { get; set; }
+
+    /// <summary>Kleiner, für Knöpfe in einer Zeile.</summary>
+    [Parameter] public bool Small { get; set; }
+
     [Parameter] public string? AriaLabel { get; set; }
 
     /// <summary>Die Kennung für Tests (data-testid) am Knopf.</summary>
     [Parameter] public string? TestId { get; set; }
+
     [Parameter] public bool Disabled { get; set; }
-    [Parameter] public EventCallback<Microsoft.AspNetCore.Components.Web.MouseEventArgs> OnClick { get; set; }
 
-    private string KindName => Kind switch
+    /// <summary>Führt zu dieser Adresse, statt etwas auszulösen.</summary>
+    [Parameter] public string? Href { get; set; }
+
+    /// <summary>Schickt das Formular ab, in dem er steht.</summary>
+    [Parameter] public bool Submit { get; set; }
+
+    /// <summary>Füllt die ganze Breite.</summary>
+    [Parameter] public bool FullWidth { get; set; }
+
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter] public EventCallback<MouseEventArgs> OnClick { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private ButtonType Type => Submit ? ButtonType.Submit : ButtonType.Button;
+
+    private ButtonVariant Style => Kind switch
     {
-        ButtonKind.Secondary => "secondary",
-        ButtonKind.Danger => "danger",
-        _ => "primary",
+        ButtonKind.Secondary => ButtonVariant.Outline,
+        ButtonKind.Ghost => ButtonVariant.Ghost,
+        ButtonKind.Danger => ButtonVariant.Outline,
+        _ => ButtonVariant.Default,
     };
 
-    private ButtonStyle Style => Kind switch
+    private ButtonSize ButtonSize => IconOnly
+        ? (Small ? ButtonSize.IconSmall : ButtonSize.Icon)
+        : (Small ? ButtonSize.Small : ButtonSize.Default);
+
+    private string CssClass
     {
-        ButtonKind.Secondary => ButtonStyle.Base,
-        ButtonKind.Danger => ButtonStyle.Danger,
-        _ => ButtonStyle.Primary,
-    };
+        get
+        {
+            var kind = Kind.ToString().ToLowerInvariant();
+            var classes = $"duofy-button duofy-button--{kind}";
+            if (FullWidth)
+            {
+                classes += " duofy-button--full";
+            }
+            return Class is { Length: > 0 } ? $"{classes} {Class}" : classes;
+        }
+    }
 
     private Dictionary<string, object> Attributes
     {
         get
         {
-            Dictionary<string, object> attributes = [];
-            if (AriaLabel is not null)
-            {
-                attributes["aria-label"] = AriaLabel;
-            }
+            Dictionary<string, object> attributes = AdditionalAttributes is null ? [] : new(AdditionalAttributes);
             if (TestId is not null)
             {
                 attributes["data-testid"] = TestId;

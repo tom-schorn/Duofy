@@ -10,7 +10,7 @@ namespace Duofy
     [Activity(Theme = "@style/Maui.SplashTheme", MainLauncher = true, ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density)]
     public class MainActivity : MauiAppCompatActivity
     {
-        // Dieselben Hintergrundfarben wie im Theme (Duofy.Shared/Theme/RadzenVariables.cs).
+        // Dieselben Hintergrundfarben wie im Theme (Duofy.Shared/wwwroot/theme.css).
         private static readonly AColor LightBackground = AColor.ParseColor("#fbf9f4");
         private static readonly AColor DarkBackground = AColor.ParseColor("#0b0e14");
 

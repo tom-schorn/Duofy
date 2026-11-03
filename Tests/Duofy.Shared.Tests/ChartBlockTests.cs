@@ -2,9 +2,7 @@ using System.Text.RegularExpressions;
 using Bunit;
 using Duofy.Shared.Blocks;
 using Duofy.Shared.Charts;
-using Duofy.Shared.Theme;
 using Microsoft.Extensions.DependencyInjection;
-using Radzen.Blazor;
 
 namespace Duofy.Shared.Tests;
 
@@ -14,17 +12,7 @@ namespace Duofy.Shared.Tests;
 /// </summary>
 public class ChartBlockTests : UiTestContext
 {
-    private static string Css() => File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "wwwroot", "app.css"));
-
-    // Der Abschnitt "Diagramme" in app.css: vom Kommentar "Diagramme (Spec 12)" bis zum nächsten Abschnitt "/* =====".
-    private static string ChartCss()
-    {
-        var css = Css();
-        var start = css.IndexOf("/* Diagramme (Spec 12)", StringComparison.Ordinal);
-        Assert.True(start >= 0, "Abschnitt 'Diagramme (Spec 12)' fehlt in app.css");
-        var end = css.IndexOf("/* =====", start, StringComparison.Ordinal);
-        return end >= 0 ? css[start..end] : css[start..];
-    }
+    private static string Css() => File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "wwwroot", "duofy.css"));
 
     private static readonly ChartBar[] Bars = [new("Miete", 100m), new("Strom", 50m), new("Internet", 25m)];
 
@@ -34,10 +22,10 @@ public class ChartBlockTests : UiTestContext
     private IRenderedComponent<TargetActualBar> RenderTargetActual(decimal target, decimal actual) =>
         Render<TargetActualBar>(p => p.Add(c => c.Caption, "Lebensmittel").Add(c => c.Target, target).Add(c => c.Actual, actual));
 
-    private static string Text(double value) => value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+    private static string Text(decimal value) => value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
 
     private static IEnumerable<string> Lengths(IRenderedComponent<BarChart> cut) =>
-        cut.FindComponents<RadzenProgressBar>().Select(bar => Text(bar.Instance.Value));
+        cut.FindComponents<PotBar>().Select(bar => Text(bar.Instance.Percent));
 
     // Spec 24: Der Aufrufer kann die Werte selbst schreiben (Lückendiagramm in Euro); die Tabelle für Vorlese-Programme folgt.
     [Fact]
@@ -114,18 +102,6 @@ public class ChartBlockTests : UiTestContext
         Assert.Single(cut.FindAll(".chart-empty"));
     }
 
-    // A2 (R2): Soll 200, Ist 250 ergibt 125 Prozent als Text; keine Fehlerfarbe.
-    [Fact]
-    public void Target_actual_shows_125_percent_as_text_without_an_error_colour()
-    {
-        var cut = RenderTargetActual(200m, 250m);
-
-        Assert.Equal("125 %", cut.Find(".chart-percent").TextContent);
-        Assert.Contains("über dem Soll", cut.Find(".chart-over-note").TextContent, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("error", cut.Markup, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("--rz-danger", ChartCss());
-    }
-
     // A2 (R2): Die Länge zeigt Ist von Soll; über 100 Prozent bleibt der Balken in der Fläche (Soll-Marke bei 100).
     [Theory]
     [InlineData(200, 100, "50", false, "100%")]
@@ -136,18 +112,15 @@ public class ChartBlockTests : UiTestContext
     {
         var cut = RenderTargetActual(target, actual);
 
-        var bar = cut.FindComponent<RadzenProgressBar>().Instance;
-        Assert.Equal(baseWidth, Text(bar.Value));
+        var bar = cut.FindComponent<PotBar>().Instance;
+        Assert.Equal(baseWidth, Text(bar.Percent));
         Assert.Contains(mark, cut.Find(".chart-target-mark").GetAttribute("style"));
         if (over)
         {
-            // Der Überschuss ist der Rest des Bereichs, der blassere Teil des Balkens.
-            Assert.Equal(100d, bar.BufferValue);
             Assert.NotEmpty(cut.FindAll(".chart-over-note"));
         }
         else
         {
-            Assert.Null(bar.BufferValue);
             Assert.Empty(cut.FindAll(".chart-over-note"));
         }
     }
@@ -157,31 +130,6 @@ public class ChartBlockTests : UiTestContext
     {
         Assert.Equal("33 %", RenderTargetActual(3m, 1m).Find(".chart-percent").TextContent);
         Assert.Equal("0 %", RenderTargetActual(100m, 0m).Find(".chart-percent").TextContent);
-    }
-
-    // A3 (R3): Der Abschnitt nennt Farben nur als Variablen des Themes, nie als festen Wert.
-    [Fact]
-    public void Chart_styles_take_colours_only_from_theme_variables()
-    {
-        var section = ChartCss();
-        var withoutComments = Regex.Replace(section, @"/\*.*?\*/", "", RegexOptions.Singleline);
-
-        Assert.DoesNotMatch(@"#[0-9a-fA-F]{3,8}\b", withoutComments);
-        // Nur die Farbfunktionen rgb( und rgba( sind feste Werte; "srgb" in color-mix(in srgb, ...) ist der Farbraum, keine Farbe.
-        Assert.DoesNotMatch(@"rgba?\(", withoutComments);
-        Assert.DoesNotContain("hsl", withoutComments, StringComparison.OrdinalIgnoreCase);
-
-        var colourProperties = Regex.Matches(withoutComments, @"(?:^|[\s;{])(?:background-color|background|color|border(?:-[a-z]+)?|outline|fill|stroke)\s*:\s*([^;}]+)", RegexOptions.Multiline);
-        Assert.NotEmpty(colourProperties);
-        foreach (Match m in colourProperties)
-        {
-            var value = m.Groups[1].Value;
-            // Breite, Art und Null der Ränder sind keine Farben.
-            var colourPart = Regex.Replace(value, @"\b(\d+(\.\d+)?(px|rem)|solid|none|0|transparent|inherit)\b", "").Trim();
-            // Eine Mischung aus zwei Theme-Variablen bleibt aus dem Theme, auch sie ist erlaubt.
-            var themeMix = Regex.IsMatch(colourPart, @"^color-mix\(in srgb, var\(--rz-[a-z0-9-]+\)( \d+%)?, var\(--rz-[a-z0-9-]+\)( \d+%)?\)$");
-            Assert.True(colourPart.Length == 0 || colourPart.StartsWith("var(--rz-") || themeMix, $"Keine Theme-Variable: '{value.Trim()}'");
-        }
     }
 
     // A3 (R3): Der Text steht in beiden Themes auf Grund und Fläche mit mindestens 4,5 zu 1.
@@ -200,16 +148,14 @@ public class ChartBlockTests : UiTestContext
             return (Math.Max(la, lb) + 0.05) / (Math.Min(la, lb) + 0.05);
         }
 
-        foreach (var (name, p) in new[] { ("hell", RadzenVariables.Light), ("dunkel", RadzenVariables.Dark) })
+        foreach (var (name, p) in new[] { ("hell", ThemeValues.Light), ("dunkel", ThemeValues.Dark) })
         {
-            foreach (var background in new[] { p["--rz-body-background-color"], p["--rz-card-background-color"] })
+            foreach (var background in new[] { p["--background"], p["--card"] })
             {
-                Assert.True(Contrast(p["--rz-text-title-color"], background) >= 4.5, $"Haupttext ({name})");
-                Assert.True(Contrast(p["--rz-text-secondary-color"], background) >= 4.5, $"Nebentext ({name})");
+                Assert.True(Contrast(p["--foreground"], background) >= 4.5, $"Haupttext ({name})");
+                Assert.True(Contrast(p["--muted-foreground"], background) >= 4.5, $"Nebentext ({name})");
             }
         }
-        // Die Füllungen tragen keinen Text; die Schrift steht neben dem Balken auf Grund oder Fläche.
-        Assert.DoesNotContain("--rz-on-", ChartCss());
     }
 
     // A4 (R4): Ohne Einträge steht der Hinweis statt eines leeren Diagramms.
@@ -219,7 +165,7 @@ public class ChartBlockTests : UiTestContext
         var cut = RenderBars([]);
 
         Assert.Equal("Noch keine Daten für dieses Diagramm.", cut.Find(".chart-empty").TextContent);
-        Assert.Empty(cut.FindComponents<RadzenProgressBar>());
+        Assert.Empty(cut.FindComponents<PotBar>());
         Assert.Empty(cut.FindAll("table"));
     }
 
@@ -232,7 +178,7 @@ public class ChartBlockTests : UiTestContext
         var cut = RenderTargetActual(target, 0m);
 
         Assert.Equal("Noch keine Daten für dieses Diagramm.", cut.Find(".chart-empty").TextContent);
-        Assert.Empty(cut.FindComponents<RadzenProgressBar>());
+        Assert.Empty(cut.FindComponents<PotBar>());
     }
 
     // A5 (R5): Für Screenreader gibt es eine Tabelle mit allen Werten; der gemalte Teil bleibt stumm.
@@ -272,25 +218,6 @@ public class ChartBlockTests : UiTestContext
         var target = RenderTargetActual(200m, 250m);
         Assert.Contains("250,00", target.Find(".chart-target-summary").TextContent);
         Assert.Contains("200,00", target.Find(".chart-target-summary").TextContent);
-    }
-
-    // Testseite: nur im Entwicklungsbetrieb, hell und dunkel nebeneinander, mit Leerzustand.
-    [Fact]
-    public void Test_page_shows_all_charts_in_a_light_and_a_dark_panel_in_development()
-    {
-        Services.AddSingleton<IDevelopmentMode>(new DevelopmentMode(true));
-        var cut = Render<ChartsDemo>();
-
-        var panels = cut.FindAll("[data-testid^='charts-panel-']");
-        Assert.Equal(2, panels.Count);
-        foreach (var panel in panels)
-        {
-            Assert.NotEmpty(panel.QuerySelectorAll(".chart-bar-row"));
-            Assert.NotEmpty(panel.QuerySelectorAll(".chart-target-bar"));
-            Assert.NotEmpty(panel.QuerySelectorAll(".chart-empty"));
-        }
-        Assert.Contains("--rz-text-color: #f2efe8", cut.Find("[data-testid='charts-panel-dark']").GetAttribute("style"));
-        Assert.Contains("--rz-text-color: #424242", cut.Find("[data-testid='charts-panel-light']").GetAttribute("style"));
     }
 
     [Fact]

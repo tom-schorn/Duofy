@@ -1,6 +1,5 @@
 @page "/plan"
-@using Radzen
-@using Radzen.Blazor
+@using BlazorBlueprint.Icons.Lucide.Components
 @attribute [Authorize]
 @using System.Globalization
 @using Duofy.ApiClient
@@ -8,71 +7,38 @@
 @implements IDisposable
 @inject IPlanApi PlanApi
 @inject IHouseholdApi HouseholdApi
-@inject IAppHost Host
 @inject AppChrome Chrome
 @inject ActiveMember Member
 @inject TimeProvider Time
 @inject IStringLocalizer<SharedResources> L
 
-@* Die Plan-Übersicht (Spec 23): Wer auf Plan tippt, sieht zuerst die Monate, nicht gleich den laufenden. Die Liste hat
-   alle Monate mit Plan, den laufenden und die drei kommenden, den neuesten oben. Der laufende ist hervorgehoben und
-   beschriftet; jede Zeile zeigt den Frei-Betrag, mit einem enthaltenen Übertrag als solchen benannt (Spec 66, R9), oder
-   "noch nicht angelegt" und führt zu /plan/{Jahr}/{Monat}.
+@* Die Plan-Übersicht (Spec 23, Spec 82) wie im alten Duofy: Monatskarten mit Verplanbar, Anstehend und drei Topf-Balken. Die Liste
+   hat alle Monate mit Plan, den laufenden und die drei kommenden, den neuesten oben. Eine Karte ist ein gewöhnlicher Link, darum
+   geht sie mit Tastatur, Vorlese-Programm und als Adresse zum Merken. Ein Monat ohne Plan wird erst beim Öffnen angelegt, nicht
+   beim Anschauen der Liste; deshalb fragt die Seite nur Monate mit Plan ab.
 
-   Die Seite rechnet nichts: Den Frei-Betrag schickt die API (PlanFigures.Free). Eine Zeile ist ein gewöhnlicher Link,
-   darum geht sie mit Tastatur, Vorlese-Programm und als Adresse zum Merken. Ein Monat ohne Plan wird erst beim Öffnen
-   angelegt, nicht beim Anschauen der Liste. Mit dem Umschalter zeigt die Seite die Monate eines anderen Mitglieds
-   (Spec 68) oder des Haushalts (Spec 69). *@
+   Die Seite rechnet nichts: Verplanbar schickt die API, der Rest steht in MonthCards. Die Karten stehen sofort da und füllen sich,
+   sobald ihr Monat geladen ist. Mit dem Umschalter zeigt die Seite die Monate eines anderen Mitglieds (Spec 68) oder des Haushalts
+   (Spec 69). *@
 
-<PageTitle>@L["Nav_Plan"]</PageTitle>
+<PageTitle>@L["PlanOverview_Title"]</PageTitle>
 
-<AppPageHeading Text="@L["Nav_Plan"]" />
-@if (!Host.IsApp)
-{
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" Class="rz-mb-2">@L["Nav_Plan"]</RadzenText>
-}
+<PageHead Title="@L["PlanOverview_Title"]" Lead="@L["PlanOverview_Lead"]" />
 
 @if (Member.IsHousehold)
 {
-    <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-2" data-testid="household-name">@Member.Household?.Name</RadzenText>
+    <h2 class="section-title notice" data-testid="household-name">@Member.Household?.Name</h2>
 }
 
 <Notice Message="message" />
 
 @if (!SeesPlan)
 {
-    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color" data-testid="not-shared">@L["Grant_NotShared"]</RadzenText>
+    <p class="muted" data-testid="not-shared">@L["Grant_NotShared"]</p>
 }
 else if (rows is not null)
 {
-    <ul class="plan-months page-wide" aria-label="@L["PlanOverview_Months"]" data-testid="plan-months">
-        @foreach (var row in rows)
-        {
-            <li>
-                <a href="@row.Href" class="@RowClass(row)" aria-current="@(row.IsCurrent ? "date" : null)"
-                   data-testid="@($"plan-month-row-{row.Key}")">
-                    <span class="plan-month-name">
-                        @MonthTitle(row)
-                        @if (row.IsCurrent)
-                        {
-                            <span class="plan-month-badge">@L["PlanOverview_Current"]</span>
-                        }
-                    </span>
-                    @if (row.Free is { } free)
-                    {
-                        <span class="plan-month-free">
-                            <RadzenIcon Icon="payments" aria-hidden="true" />
-                            @L[row.WithCarryOver ? "PlanOverview_FreeWithCarryOver" : "PlanOverview_Free", MoneyText.Format(free)]
-                        </span>
-                    }
-                    else
-                    {
-                        <span class="plan-month-free plan-month-free--none">@L["PlanOverview_NotCreated"]</span>
-                    }
-                </a>
-            </li>
-        }
-    </ul>
+    <MonthCardList Rows="rows" Cards="cards" />
 }
 
 @code {
@@ -80,14 +46,19 @@ else if (rows is not null)
     private static readonly CultureInfo German = new("de-DE");
 
     private IReadOnlyList<PlanOverviewRow>? rows;
+    private readonly Dictionary<string, MonthCard> cards = [];
     private NoticeMessage? message;
+
+    // Zählt die Ladevorgänge: Wechselt die Sicht, während Karten laden, bleibt das Ergebnis der alten Sicht liegen.
+    private int loading;
+    private bool disposed;
 
     // Beim Haushalt gibt es keine Freigabe zu prüfen: Er zeigt die Monate aller gezählten Mitglieder (Spec 69).
     private bool SeesPlan => Member.IsHousehold || Member.Allows(GrantAreas.Plan, AccessLevelKeys.View);
 
     protected override async Task OnInitializedAsync()
     {
-        Chrome.Set(this, L["Nav_Plan"]);
+        Chrome.Set(this, L["Nav_MyPlan"]);
         // Erst nach dem ersten Laden zuhören: Das Laden selbst meldet sich auch als Änderung.
         await Member.LoadAsync();
         Member.Changed += OnMemberChanged;
@@ -96,6 +67,7 @@ else if (rows is not null)
 
     public void Dispose()
     {
+        disposed = true;
         Member.Changed -= OnMemberChanged;
         Chrome.Release(this);
     }
@@ -109,8 +81,10 @@ else if (rows is not null)
 
     private async Task LoadAsync()
     {
+        var run = ++loading;
         message = null;
         rows = null;
+        cards.Clear();
         if (!SeesPlan)
         {
             return;
@@ -141,9 +115,42 @@ else if (rows is not null)
 
         // Auch ohne Liste bleiben der laufende und die kommenden Monate wählbar.
         rows = PlanOverviewRows.Build(known, DateOnly.FromDateTime(Time.GetLocalNow().DateTime));
+
+        // Die Karten füllen sich von oben nach unten, die Seite ist schon vorher benutzbar.
+        _ = InvokeAsync(() => FillCardsAsync(run, rows.Where(r => r.Free is not null).ToList()));
     }
 
-    private string MonthTitle(PlanOverviewRow row) => new DateOnly(row.Year, row.Month, 1).ToString("MMMM yyyy", German);
+    private async Task FillCardsAsync(int run, IReadOnlyList<PlanOverviewRow> withPlan)
+    {
+        foreach (var row in withPlan)
+        {
+            var card = await LoadCardAsync(row);
+            if (disposed || run != loading)
+            {
+                return;
+            }
+            if (card is not null)
+            {
+                cards[row.Key] = card;
+                StateHasChanged();
+            }
+        }
+    }
 
-    private static string RowClass(PlanOverviewRow row) => row.IsCurrent ? "plan-month plan-month--current" : "plan-month";
+    // Eine Karte, die nicht lädt, bleibt bei Verplanbar aus der Liste; der Grund steht im Monat selbst, wenn man ihn öffnet.
+    private async Task<MonthCard?> LoadCardAsync(PlanOverviewRow row)
+    {
+        if (Member.IsHousehold)
+        {
+            if (Member.Household is not { } household)
+            {
+                return null;
+            }
+            var plan = await HouseholdApi.GetPlanAsync(household.Id, row.Year, row.Month);
+            return plan.Succeeded ? MonthCards.ForHousehold(plan.Value!) : null;
+        }
+        var own = await PlanApi.GetAsync(row.Year, row.Month, Member.Owner);
+        return own.Succeeded ? MonthCards.ForPerson(own.Value!) : null;
+    }
+
 }

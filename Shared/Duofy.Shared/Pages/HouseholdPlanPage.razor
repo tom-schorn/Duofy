@@ -1,27 +1,43 @@
 @page "/haushaltsplan"
 @page "/haushaltsplan/{Year:int}/{Month:int}"
 @attribute [Authorize]
+@using System.Globalization
+@using Duofy.ApiClient
 @using Duofy.Schemas
+@using Duofy.Shared.Pages.Month
 @implements IDisposable
 @inject ActiveMember Member
-@inject AppChrome Chrome
+@inject IHouseholdApi HouseholdApi
 @inject TimeProvider Time
 @inject NavigationManager Navigation
 @inject IStringLocalizer<SharedResources> L
 
-@* Das Ziel "Haushalt" der unteren Leiste (Spec 51, R2): der Haushaltsplan des Monats. Die Seite lässt den Umschalter
-   "wessen Zahlen" in Ruhe; wer danach auf "Plan" tippt, sieht weiter seinen eigenen Plan. Auch ein Haushalt von einer
-   Person hat einen Plan. Ohne Haushalt führt die Seite zum Gründen oder Beitreten auf /haushalt. *@
+@* Der Haushaltsplan (Spec 69, Spec 82 R16). Ohne Monat in der Adresse: der Reiter "Haushaltsplan" des Haushaltsbereichs mit
+   den Monaten des Haushalts als Karten, wie bei den eigenen Plänen (Tom, 03.11.2026: "ICh komme nicht auf die monatsauswahl").
+   Mit Monat: dieser Monat nur zum Lesen, die Posten nach Mitglied gruppiert. Die Seite lässt die Auswahl "wessen Zahlen" in
+   Ruhe. Auch ein Haushalt von einer Person hat einen Plan. Ohne Haushalt führt die Seite zum Gründen oder Beitreten. *@
 
-<PageTitle>@L["HouseholdPlan_Title"]</PageTitle>
+<PageTitle>@(Year is null ? L["HouseholdPlan_Title"] : MonthTitle)</PageTitle>
 
-@if (ready)
+@if (ready && Year is null)
 {
-    <HouseholdPlanView Heading="@L["HouseholdPlan_Title"]" Year="year" Month="month" OnMove="MoveAsync" />
+    <HouseholdHead Current="@HouseholdHead.Plan" Lead="@L["HouseholdPlan_OverviewLead"]" />
+    <Notice Message="message" />
+    @if (rows is not null)
+    {
+        <MonthCardList Rows="rows" Cards="cards" />
+    }
+}
+else if (ready)
+{
+    <MonthNav BackHref="/haushaltsplan" BackText="@L["HouseholdPlan_AllMonths"]" />
+    <HouseholdPlanView Heading="@MonthTitle" Year="year" Month="month" />
 }
 
 @code {
-    /// <summary>Das Jahr aus der Adresse; ohne Angabe gilt der laufende Monat.</summary>
+    private static readonly CultureInfo German = new("de-DE");
+
+    /// <summary>Das Jahr aus der Adresse; ohne Angabe zeigt die Seite die Monate.</summary>
     [Parameter] public int? Year { get; set; }
 
     /// <summary>Der Monat aus der Adresse, 1 bis 12.</summary>
@@ -30,10 +46,16 @@
     private int year;
     private int month;
     private bool ready;
+    private bool disposed;
+    private IReadOnlyList<PlanOverviewRow>? rows;
+    private readonly Dictionary<string, MonthCard> cards = [];
+    private NoticeMessage? message;
+
+    private string MonthTitle => new DateOnly(year, month, 1).ToString("MMMM yyyy", German);
 
     protected override async Task OnInitializedAsync()
     {
-        Chrome.Set(this, L["HouseholdPlan_Title"]);
+        Resolve();
         // Frisch holen: Wer gerade gegründet oder eine Einladung angenommen hat, soll nicht wieder beim Gründen landen.
         await Member.RefreshAsync();
         if (Member.Household is null)
@@ -44,20 +66,46 @@
         ready = true;
     }
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
-        var today = DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
-        (year, month) = Year is { } y and >= PlanRules.FirstYear and <= PlanRules.LastYear && Month is { } m and >= 1 and <= 12
-            ? (y, m)
-            : (today.Year, today.Month);
+        Resolve();
+        if (Year is null && Member.Household is { } household && rows is null)
+        {
+            await LoadMonthsAsync(household, Today);
+        }
     }
 
-    public void Dispose() => Chrome.Release(this);
+    private DateOnly Today => DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
 
-    // Die Adresse folgt dem Monat ohne Eintrag im Verlauf, wie im eigenen Plan (Spec 23).
-    private void MoveAsync(int by)
+    // Der Monat der Adresse; ohne Angabe oder bei einem Monat, den es nicht gibt, der laufende.
+    private void Resolve() =>
+        (year, month) = Year is { } y and >= PlanRules.FirstYear and <= PlanRules.LastYear && Month is { } m and >= 1 and <= 12
+            ? (y, m)
+            : (Today.Year, Today.Month);
+
+    public void Dispose() => disposed = true;
+
+    private async Task LoadMonthsAsync(HouseholdResponse household, DateOnly today)
     {
-        (year, month) = PlanView.Shift(year, month, by);
-        Navigation.NavigateTo($"/haushaltsplan/{year}/{month}", replace: true);
+        var result = await HouseholdApi.ListPlansAsync(household.Id);
+        if (!result.Succeeded)
+        {
+            message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
+        }
+        var known = result.Succeeded ? result.Value!.Select(m => (m.Year, m.Month, m.Free, m.CarryOver is not null)) : [];
+        rows = PlanOverviewRows.Build(known, today, "/haushaltsplan");
+        foreach (var row in rows.Where(r => r.Free is not null))
+        {
+            var plan = await HouseholdApi.GetPlanAsync(household.Id, row.Year, row.Month);
+            if (disposed)
+            {
+                return;
+            }
+            if (plan.Succeeded)
+            {
+                cards[row.Key] = MonthCards.ForHousehold(plan.Value!);
+                StateHasChanged();
+            }
+        }
     }
 }

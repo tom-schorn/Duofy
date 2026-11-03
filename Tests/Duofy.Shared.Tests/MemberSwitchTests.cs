@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Duofy.Shared.Tests;
 
 /// <summary>
-/// Spec 44 und Spec 68, R8: der Profil-Knopf mit dem Menü "wessen Zahlen". Angemeldet ist hier Ben; Anna ist ein
+/// Spec 44 und Spec 68, R8, mit Spec 82 R11: die Auswahl "wessen Zahlen" im Profil-Menü unten in der Seitenleiste. Angemeldet ist hier Ben; Anna ist ein
 /// anderes Mitglied seines Haushalts und gibt ihm frei, was der Test vorgibt.
 /// </summary>
 public class MemberSwitchTests : PageTestContext
@@ -18,10 +18,14 @@ public class MemberSwitchTests : PageTestContext
 
     private readonly BunitAuthorizationContext authorization;
 
+    // Das Menü geht in der Hülle für Dialoge und Menüs auf; dort stehen seine Einträge, solange es offen ist.
+    private readonly IRenderedComponent<IComponent> menu;
+
     public MemberSwitchTests()
     {
         authorization = AddAuthorization();
         authorization.SetAuthorized("ben");
+        menu = RenderDialogHost();
     }
 
     private void Household(GrantLevels annaGrantsBen)
@@ -35,27 +39,31 @@ public class MemberSwitchTests : PageTestContext
 
     private ActiveMember Member => Services.GetRequiredService<ActiveMember>();
 
-    private IRenderedComponent<MemberSwitch> OpenMenu()
+    private IRenderedComponent<UserMenu> OpenMenu()
     {
-        var cut = Render<MemberSwitch>();
+        var cut = Render<UserMenu>();
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='member-profile']")));
-        cut.Find("[data-testid='member-profile']").Click();
+        Toggle(cut);
         return cut;
     }
 
-    private static string ProfileText(IRenderedComponent<MemberSwitch> cut) =>
+    private void Toggle(IRenderedComponent<UserMenu> cut)
+    {
+        cut.Find("[data-testid='user-menu-open']").Click();
+        cut.WaitForState(() => true);
+    }
+
+    private static string ProfileText(IRenderedComponent<UserMenu> cut) =>
         cut.Find("[data-testid='member-profile']").TextContent.Trim();
 
-    // Das Radzen-Menü bleibt im Dokument; offen oder zu steht am Knopf und an der Liste.
-    private static bool MenuIsOpen(IRenderedComponent<MemberSwitch> cut) =>
-        cut.Find("[aria-haspopup='menu']").GetAttribute("aria-expanded") == "true" && cut.Find(".rz-navigation-menu").GetAttribute("aria-hidden") == "false";
+    // Offen oder zu steht am Knopf; die Einträge gibt es nur, solange das Menü offen ist.
+    private bool MenuIsOpen(IRenderedComponent<UserMenu> cut) =>
+        cut.Find("[data-testid='user-menu-open']").GetAttribute("aria-expanded") == "true" && menu.FindAll("[data-testid='member-choice-me']").Count > 0;
 
-    // Der Text eines Eintrags ohne den Namen des Symbols, der in Radzen als Text im i-Element steht.
-    private static string ItemText(IRenderedComponent<MemberSwitch> cut, string testId) =>
-        cut.Find($"[data-testid='{testId}'] .rz-navigation-item-text").TextContent.Trim();
+    private string ItemText(string testId) => menu.Find($"[data-testid='{testId}']").TextContent.Trim();
 
-    private static List<string> Choices(IRenderedComponent<MemberSwitch> cut) =>
-        cut.FindAll("[data-testid^='member-choice-']").Select(i => i.GetAttribute("data-testid")!).ToList();
+    private List<string> Choices() =>
+        menu.FindAll("[data-testid^='member-choice-']").Select(i => i.GetAttribute("data-testid")!).ToList();
 
     // A1 (R1): Allein und ohne Haushalt gibt es den Profil-Knopf trotzdem, und das Menü bietet nur Ich an.
     [Fact]
@@ -66,8 +74,8 @@ public class MemberSwitchTests : PageTestContext
         var cut = OpenMenu();
         cut.WaitForAssertion(() => Assert.Equal(1, HouseholdApiFake.MineCalls));
 
-        Assert.Equal("Ich", ProfileText(cut));
-        Assert.Equal(["member-choice-me", "member-choice-household"], Choices(cut));
+        Assert.DoesNotContain("Ansicht", ProfileText(cut));
+        menu.WaitForAssertion(() => Assert.Equal(["member-choice-me", "member-choice-household"], Choices()));
     }
 
     // A1 (R1): Mit Haushalt, aber ohne Freigabe, bietet das Menü keine Person an.
@@ -80,7 +88,7 @@ public class MemberSwitchTests : PageTestContext
 
         cut.WaitForAssertion(() => Assert.Equal(1, HouseholdApiFake.MineCalls));
         Assert.Empty(Member.Sharing);
-        Assert.Equal(["member-choice-me", "member-choice-household"], Choices(cut));
+        menu.WaitForAssertion(() => Assert.Equal(["member-choice-me", "member-choice-household"], Choices()));
     }
 
     // A2 (R2): Ohne Haushalt ist "Haushalt" als nicht verfügbar gekennzeichnet, nennt den Grund und führt zur Haushalt-Seite.
@@ -92,11 +100,12 @@ public class MemberSwitchTests : PageTestContext
         var cut = OpenMenu();
         cut.WaitForAssertion(() => Assert.Equal(1, HouseholdApiFake.MineCalls));
 
-        var entry = cut.Find("[data-testid='member-choice-household']");
+        menu.WaitForAssertion(() => Assert.NotEmpty(menu.FindAll("[data-testid='member-choice-household']")));
+        var entry = menu.Find("[data-testid='member-choice-household']");
         Assert.Equal("true", entry.GetAttribute("aria-disabled"));
-        Assert.Equal("/haushalt", entry.QuerySelector("a")!.GetAttribute("href"));
+        Assert.Equal("/haushalt", (entry.TagName == "A" ? entry : entry.QuerySelector("a"))!.GetAttribute("href"));
         Assert.Equal("member-household-reason", entry.GetAttribute("aria-describedby"));
-        Assert.Contains("mindestens zwei", cut.Find("#member-household-reason").TextContent);
+        Assert.Contains("mindestens zwei", menu.Find("#member-household-reason").TextContent);
     }
 
     // A2 (R2): Auch ein Haushalt von einem Mitglied ist nicht verfügbar.
@@ -108,7 +117,7 @@ public class MemberSwitchTests : PageTestContext
         var cut = OpenMenu();
         cut.WaitForAssertion(() => Assert.Equal(1, HouseholdApiFake.MineCalls));
 
-        Assert.Equal("true", cut.Find("[data-testid='member-choice-household']").GetAttribute("aria-disabled"));
+        menu.WaitForAssertion(() => Assert.Equal("true", menu.Find("[data-testid='member-choice-household']").GetAttribute("aria-disabled")));
     }
 
     // A3 (R2): Bei zwei Mitgliedern wählt ein Tipp auf "Haushalt" die Haushaltssicht, und der Knopf sagt es.
@@ -117,15 +126,17 @@ public class MemberSwitchTests : PageTestContext
     {
         Household(GrantLevels.None);
         var cut = OpenMenu();
-        cut.WaitForAssertion(() => Assert.Null(cut.Find("[data-testid='member-choice-household']").GetAttribute("aria-disabled")));
+        menu.WaitForAssertion(() => Assert.NotEqual("true", menu.Find("[data-testid='member-choice-household']").GetAttribute("aria-disabled")));
 
-        cut.Find("[data-testid='member-choice-household']").Click();
+        menu.Find("[data-testid='member-choice-household']").Click();
 
         Assert.True(Member.IsHousehold);
         Assert.Null(Member.Owner);
-        Assert.Equal("Haushalt", ProfileText(cut));
-        Assert.False(MenuIsOpen(cut));
-        Assert.Equal("true", cut.Find("[data-testid='member-choice-household']").GetAttribute("aria-current"));
+        cut.WaitForAssertion(() => Assert.Equal("Ansicht: Haushalt", ProfileText(cut)));
+        cut.WaitForAssertion(() => Assert.False(MenuIsOpen(cut)));
+
+        Toggle(cut);
+        menu.WaitForAssertion(() => Assert.Equal("true", menu.Find("[data-testid='member-choice-household']").GetAttribute("aria-current")));
     }
 
     // A4 (R3): Anna steht mit Vornamen im Menü; Wählen macht sie zum Besitzer, Ich nimmt es zurück.
@@ -136,24 +147,25 @@ public class MemberSwitchTests : PageTestContext
 
         var cut = OpenMenu();
         var annaChoice = $"member-choice-{FakeHouseholdApi.AnnaId}";
-        cut.WaitForAssertion(() => Assert.Equal(["member-choice-me", annaChoice, "member-choice-household"], Choices(cut)));
-        Assert.Equal("Anna", ItemText(cut, annaChoice));
-        Assert.Equal("Wessen Zahlen", cut.Find("[data-testid='member-menu']").GetAttribute("aria-label"));
+        menu.WaitForAssertion(() => Assert.Equal(["member-choice-me", annaChoice, "member-choice-household"], Choices()));
+        Assert.Equal("Anna", ItemText(annaChoice));
+        Assert.StartsWith("Benutzermenü", cut.Find("[data-testid='user-menu-open']").GetAttribute("aria-label"));
 
-        cut.Find($"[data-testid='{annaChoice}']").Click();
+        menu.Find($"[data-testid='{annaChoice}']").Click();
 
         Assert.Equal(FakeHouseholdApi.AnnaId, Member.Owner);
         Assert.Equal("Anna", Member.Name);
-        Assert.Equal("Anna", ProfileText(cut));
+        cut.WaitForAssertion(() => Assert.Equal("Ansicht: Anna", ProfileText(cut)));
         Assert.True(Member.Allows(GrantAreas.Plan, AccessLevelKeys.View));
         Assert.False(Member.Allows(GrantAreas.Plan, AccessLevelKeys.Create));
         Assert.False(Member.Allows(GrantAreas.Commitments, AccessLevelKeys.View));
 
-        cut.Find("[data-testid='member-profile']").Click();
-        cut.Find("[data-testid='member-choice-me']").Click();
+        Toggle(cut);
+        menu.WaitForAssertion(() => Assert.NotEmpty(menu.FindAll("[data-testid='member-choice-me']")));
+        menu.Find("[data-testid='member-choice-me']").Click();
 
         Assert.Null(Member.Owner);
-        Assert.Equal("Ich", ProfileText(cut));
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Ansicht", ProfileText(cut)));
         Assert.True(Member.Allows(GrantAreas.Commitments, AccessLevelKeys.Delete));
     }
 
@@ -162,78 +174,36 @@ public class MemberSwitchTests : PageTestContext
     public void A_second_switch_after_navigating_shows_the_same_chosen_view()
     {
         Household(PlanView);
-        var first = OpenMenu();
+        OpenMenu();
         var annaChoice = $"[data-testid='member-choice-{FakeHouseholdApi.AnnaId}']";
-        first.WaitForAssertion(() => Assert.NotEmpty(first.FindAll(annaChoice)));
-        first.Find(annaChoice).Click();
+        menu.WaitForAssertion(() => Assert.NotEmpty(menu.FindAll(annaChoice)));
+        menu.Find(annaChoice).Click();
 
-        var second = Render<MemberSwitch>();
+        var second = Render<UserMenu>();
 
-        second.WaitForAssertion(() => Assert.Equal("Anna", ProfileText(second)));
+        second.WaitForAssertion(() => Assert.Equal("Ansicht: Anna", ProfileText(second)));
     }
 
-    // A6 (R5): Das Menü endet mit Konto und Abmelden; Konto führt zur Kontoseite.
+    // A6 (R5), Spec 82: Der Umschalter bietet nur die Sichten; Konto und Abmelden stehen im Benutzermenü.
     [Fact]
-    public void The_menu_offers_account_and_sign_out_after_the_views()
+    public void The_menu_offers_only_the_views_and_no_account_or_sign_out()
+    {
+        OpenMenu();
+
+        menu.WaitForAssertion(() => Assert.Equal(["member-choice-me", "member-choice-household"], Choices()));
+        Assert.Empty(menu.FindAll("[data-testid='member-account'], [data-testid='member-sign-out']"));
+    }
+
+    // R5: Das Menü schließt sich beim zweiten Tippen auf den Knopf. Escape bringt Blueprint über sein JavaScript mit; das ist im Browser gemessen.
+    [Fact]
+    public void The_menu_closes_with_a_second_tap()
     {
         var cut = OpenMenu();
+        cut.WaitForAssertion(() => Assert.True(MenuIsOpen(cut)));
 
-        var items = cut.FindAll("[data-testid='member-menu'] [role^='menuitem']").Select(i => i.GetAttribute("data-testid")).ToList();
-        Assert.Equal(["member-choice-me", "member-choice-household", "member-account", "member-sign-out"], items);
-        Assert.Equal("/konto", cut.Find("[data-testid='member-account'] a").GetAttribute("href"));
-    }
+        Toggle(cut);
 
-    // A6 (R5): Abmelden meldet ab und führt zur Anmeldung.
-    [Fact]
-    public void Signing_out_from_the_menu_logs_out_and_goes_to_the_sign_in_page()
-    {
-        var cut = OpenMenu();
-
-        cut.Find("[data-testid='member-sign-out']").Click();
-
-        cut.WaitForAssertion(() => Assert.Equal(1, Auth.LogoutCalls));
-        Assert.EndsWith("/anmelden", Services.GetRequiredService<NavigationManager>().Uri);
-    }
-
-    // R5: Das Menü schließt sich per Escape und beim zweiten Tippen auf den Knopf.
-    [Fact]
-    public void The_menu_closes_with_escape_and_with_a_second_tap()
-    {
-        var cut = OpenMenu();
-        Assert.True(MenuIsOpen(cut));
-
-        cut.Find("[aria-haspopup='menu']").KeyDown(Key.Escape);
-        Assert.False(MenuIsOpen(cut));
-
-        cut.Find("[data-testid='member-profile']").Click();
-        Assert.True(MenuIsOpen(cut));
-        cut.Find("[data-testid='member-profile']").Click();
-        Assert.False(MenuIsOpen(cut));
-    }
-
-    // Radzen R8: Das Feld ist das Profilmenü von Radzen. Es nennt die Sicht auch für Screenreader; unten in der Seitenleiste
-    // steht es auf einer Karte in der Hauptfarbe und sagt, wofür es da ist, wie im freigegebenen Entwurf.
-    [Fact]
-    public void The_field_is_the_radzen_profile_menu_and_names_the_view()
-    {
-        Household(PlanView);
-
-        var cut = Render<MemberSwitch>();
-
-        cut.WaitForAssertion(() => Assert.Equal(1, HouseholdApiFake.MineCalls));
-        Assert.Single(cut.FindComponents<Radzen.Blazor.RadzenProfileMenu>());
-        Assert.Equal("Wessen Zahlen: Ich", cut.Find("[aria-haspopup='menu']").GetAttribute("aria-label"));
-        Assert.Empty(cut.FindAll(".rz-card"));
-    }
-
-    [Fact]
-    public void At_the_bottom_of_the_side_bar_the_field_sits_on_a_card_and_says_what_it_is_for()
-    {
-        var cut = Render<MemberSwitch>(p => p.Add(c => c.Up, true));
-
-        Assert.Single(cut.FindAll(".member-profile-up .rz-card .rz-profile-menu"));
-        Assert.Contains("rz-background-color-primary", cut.Find(".rz-card").ClassList);
-        Assert.Equal("Wessen Zahlen", cut.Find("[data-testid='member-profile-hint']").TextContent.Trim());
+        cut.WaitForAssertion(() => Assert.False(MenuIsOpen(cut)));
     }
 
     [Fact]
@@ -241,12 +211,14 @@ public class MemberSwitchTests : PageTestContext
     {
         Household(PlanView);
         var cut = OpenMenu();
-        cut.WaitForAssertion(() => Assert.Equal("true", cut.Find("[data-testid='member-choice-me']").GetAttribute("aria-current")));
+        menu.WaitForAssertion(() => Assert.Equal("true", menu.Find("[data-testid='member-choice-me']").GetAttribute("aria-current")));
 
-        cut.Find($"[data-testid='member-choice-{FakeHouseholdApi.AnnaId}']").Click();
+        menu.Find($"[data-testid='member-choice-{FakeHouseholdApi.AnnaId}']").Click();
+        cut.WaitForAssertion(() => Assert.False(MenuIsOpen(cut)));
+        Toggle(cut);
 
-        Assert.Null(cut.Find("[data-testid='member-choice-me']").GetAttribute("aria-current"));
-        Assert.Equal("true", cut.Find($"[data-testid='member-choice-{FakeHouseholdApi.AnnaId}']").GetAttribute("aria-current"));
+        menu.WaitForAssertion(() => Assert.Equal("true", menu.Find($"[data-testid='member-choice-{FakeHouseholdApi.AnnaId}']").GetAttribute("aria-current")));
+        Assert.Null(menu.Find("[data-testid='member-choice-me']").GetAttribute("aria-current"));
     }
 
     // A7 (R6): Ohne Freigabe steht Anna nicht im Menü; wird sie trotzdem gewählt, bleibt es bei Ich und es gibt
@@ -257,13 +229,13 @@ public class MemberSwitchTests : PageTestContext
         Household(GrantLevels.None);
         var cut = OpenMenu();
         cut.WaitForAssertion(() => Assert.Equal(1, HouseholdApiFake.MineCalls));
-        Assert.DoesNotContain($"member-choice-{FakeHouseholdApi.AnnaId}", Choices(cut));
+        Assert.DoesNotContain($"member-choice-{FakeHouseholdApi.AnnaId}", Choices());
 
         Member.Choose(FakeHouseholdApi.AnnaId);
 
         Assert.Null(Member.Owner);
         Assert.Null(Member.Chosen);
-        Assert.Equal("Ich", ProfileText(cut));
+        Assert.DoesNotContain("Ansicht", ProfileText(cut));
     }
 
     // R8: Abmelden setzt die Wahl zurück.

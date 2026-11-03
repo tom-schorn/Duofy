@@ -70,7 +70,7 @@ public class GrantsPageTests : PageTestContext
 
         var cut = OpenPage();
 
-        var hints = cut.FindAll($"[data-testid='grants-{Ben}-hint']").Select(h => h.QuerySelector(".rz-alert-message")!.TextContent.Trim()).ToList();
+        var hints = cut.FindAll($"[data-testid='grants-{Ben}-hint']").Select(h => h.TextContent.Trim()).ToList();
         Assert.Equal(["Buchen bei dir geht nur, wenn Ben auch deine Konten ansehen darf."], hints);
         Assert.Equal(AccessLevelKeys.None, Level(cut, GrantAreas.Accounts));
         Assert.Empty(HouseholdApiFake.GrantsSet);
@@ -85,7 +85,7 @@ public class GrantsPageTests : PageTestContext
 
         var cut = OpenPage();
 
-        var hints = cut.FindAll($"[data-testid='grants-{Ben}-hint']").Select(h => h.QuerySelector(".rz-alert-message")!.TextContent.Trim()).ToList();
+        var hints = cut.FindAll($"[data-testid='grants-{Ben}-hint']").Select(h => h.TextContent.Trim()).ToList();
         Assert.Equal(["Ben sieht deine Buchungen, aber ohne Planung: Ansehen nicht deinen Plan."], hints);
         Assert.DoesNotContain(hints, hint => hint.Contains("Buch nicht"));
     }
@@ -108,7 +108,7 @@ public class GrantsPageTests : PageTestContext
         HouseholdApiFake.GrantsGate.SetResult();
 
         cut.WaitForAssertion(() => Assert.Equal(AccessLevelKeys.Delete, Level(cut, GrantAreas.Book)));
-        Assert.Null(cut.Find($"[data-testid='grants-{Ben}-preset-read']").GetAttribute("aria-disabled"));
+        Assert.NotEqual("true", cut.Find($"[data-testid='grants-{Ben}-preset-read']").GetAttribute("aria-disabled"));
     }
 
     // Das Auswahlfeld eines Bereichs. Der Browser zeigt nach einer Wahl die gewählte Stufe, bis Blazor das Feld
@@ -188,31 +188,33 @@ public class GrantsPageTests : PageTestContext
 
         var cut = Render<Household>();
 
-        cut.WaitForAssertion(() => Assert.Equal("/haushalt/freigaben", cut.Find("[data-testid='household-grants']").GetAttribute("href")));
+        cut.WaitForAssertion(() => Assert.Equal("/haushalt/freigaben", cut.Find("[data-testid='household-tab-grants']").GetAttribute("href")));
     }
 
-    // Radzen-Umstellung R21: Die Seite ist in Radzen gebaut, die Voreinstellungen stehen ohne eigenes CSS nebeneinander.
+    // Die Seite ist aus den Bausteinen gebaut, die Voreinstellungen stehen ohne eigenes CSS nebeneinander.
     [Fact]
-    public void The_page_is_built_with_radzen_with_one_card_per_person_and_a_row_of_preset_buttons()
+    public void The_page_is_built_from_the_blocks_with_one_card_per_person_and_a_row_of_preset_buttons()
     {
         Household(GrantLevels.None);
         var cut = OpenPage();
 
-        Assert.Contains("rz-card", cut.Find($"[data-testid='grants-card-{Ben}']").ClassList);
+        Assert.Contains("card", cut.Find($"[data-testid='grants-card-{Ben}']").ClassList);
         Assert.Equal($"grants-heading-{Ben}", cut.Find($"[data-testid='grants-card-{Ben}']").GetAttribute("aria-labelledby"));
-        Assert.All(cut.FindAll($"[data-testid^='grants-{Ben}-preset-']"), b => Assert.Contains("rz-button", b.ClassList));
-        Assert.Contains("rz-primary", cut.Find($"[data-testid='grants-{Ben}-preset-none']").ClassList);
-        Assert.Equal("/haushalt", cut.Find("a[data-testid='grants-back']").GetAttribute("href"));
+        Assert.All(cut.FindAll($"[data-testid^='grants-{Ben}-preset-']"), b => Assert.Contains("duofy-button", b.ClassList));
+        Assert.Equal("true", cut.Find($"[data-testid='grants-{Ben}-preset-none']").GetAttribute("aria-pressed"));
+        // Spec 82, R11: Statt "Zurück zum Haushalt" stehen die Reiter des Haushaltsbereichs über der Seite.
+        Assert.Equal("/haushalt", cut.Find("a[data-testid='household-tab-members']").GetAttribute("href"));
+        Assert.Equal("page", cut.Find("a[data-testid='household-tab-grants']").GetAttribute("aria-current"));
         Assert.Equal(GrantAreas.All.Count, cut.FindAll($"select[data-testid^='grants-{Ben}-']").Count);
     }
 
     [Fact]
-    public void An_own_choice_shows_as_a_badge_and_a_hint_as_a_radzen_alert()
+    public void An_own_choice_shows_as_a_badge_and_a_hint_as_an_alert()
     {
         Household(GrantLevels.None with { Book = AccessLevelKeys.View });
         var cut = OpenPage();
 
-        Assert.Contains("rz-badge", cut.Find($"[data-testid='grants-{Ben}-own-choice']").ClassList);
-        Assert.Contains("rz-alert", cut.Find($"[data-testid='grants-{Ben}-hint']").ClassList);
+        Assert.Contains("pill", cut.Find($"[data-testid='grants-{Ben}-own-choice']").ClassList);
+        Assert.Equal("alert", cut.Find($"[data-testid='grants-{Ben}-hint']").GetAttribute("role"));
     }
 }

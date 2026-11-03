@@ -1,0 +1,110 @@
+@using System.Globalization
+@inject IStringLocalizer<SharedResources> L
+
+@* Das runde Diagramm Soll gegen Ist (Spec 82, R14; Tom: "Am besten mit den runden Diagrammen arbeiten"): außen der Ring des
+   Geplanten, innen der Ring des Gebuchten, je Eintrag in seiner Farbe, so dass man sieht, wie sich die Anteile verschieben. In
+   der Mitte steht, wie viel vom Geplanten gebucht ist; bei den Töpfen nennt die Legende zusätzlich Ziel und Ist der Quote. Die Zahlen stehen daneben in einer sichtbaren Tabelle, die auch die
+   Textalternative für Vorlese-Programme ist; der gemalte Teil ist verborgen. Ohne Werte steht der Leerzustand da. *@
+<figure class="chart donut-chart" data-testid="@TestId">
+    <figcaption class="chart-caption">@Caption</figcaption>
+    @if (PlannedTotal <= 0m && BookedTotal <= 0m)
+    {
+        <p class="chart-empty" role="status">@L["Chart_Empty"]</p>
+    }
+    else
+    {
+        <div class="donut-body">
+            <svg class="donut-svg" viewBox="0 0 200 200" aria-hidden="true" focusable="false">
+                <circle class="donut-track" cx="100" cy="100" r="@OuterRadius" stroke-width="20" />
+                <circle class="donut-track" cx="100" cy="100" r="@InnerRadius" stroke-width="14" />
+                @foreach (var arc in Arcs(OuterRadius, i => i.Planned, PlannedTotal))
+                {
+                    <circle class="@($"donut-arc donut-tone--{arc.Tone}")" cx="100" cy="100" r="@OuterRadius" stroke-width="20"
+                            stroke-dasharray="@arc.Dash" stroke-dashoffset="@arc.Offset" transform="rotate(-90 100 100)" data-ring="planned" />
+                }
+                @foreach (var arc in Arcs(InnerRadius, i => i.Booked, BookedTotal))
+                {
+                    <circle class="@($"donut-arc donut-tone--{arc.Tone}")" cx="100" cy="100" r="@InnerRadius" stroke-width="14"
+                            stroke-dasharray="@arc.Dash" stroke-dashoffset="@arc.Offset" transform="rotate(-90 100 100)" data-ring="booked" />
+                }
+                <text class="donut-center-value" x="100" y="100" text-anchor="middle">@CenterText</text>
+                <text class="donut-center-label" x="100" y="120" text-anchor="middle">@L["Chart_DonutCenter"]</text>
+            </svg>
+            <table class="donut-legend">
+                <caption class="visually-hidden">@Caption</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">@L["Chart_ColumnLabel"]</th>
+                        <th scope="col" class="num">@L["Chart_Planned"]</th>
+                        <th scope="col" class="num">@L["Chart_Booked"]</th>
+                        @if (HasQuotas)
+                        {
+                            <th scope="col" class="num">@L["Chart_QuotaTarget"]</th>
+                            <th scope="col" class="num">@L["Chart_QuotaActual"]</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Items)
+                    {
+                        <tr data-testid="@($"{TestId}-row-{item.Tone}")">
+                            <th scope="row"><span class="@($"dot donut-dot donut-tone--{item.Tone}")" aria-hidden="true"></span>@item.Label</th>
+                            <td class="num">@MoneyText.Format(item.Planned)</td>
+                            <td class="num">@MoneyText.Format(item.Booked)</td>
+                            @if (HasQuotas)
+                            {
+                                <td class="num">@(item.Target is { } target ? ChartMath.Percent(target) : "—")</td>
+                                <td class="num">@(item.Actual is { } actual ? ChartMath.PercentValue(actual) : "—")</td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <p class="chart-target-summary">@L["Chart_DonutSummary", MoneyText.Format(BookedTotal), MoneyText.Format(PlannedTotal)]</p>
+    }
+</figure>
+
+@code {
+    private const decimal OuterRadius = 80m;
+    private const decimal InnerRadius = 56m;
+
+    [Parameter, EditorRequired] public string Caption { get; set; } = "";
+
+    [Parameter, EditorRequired] public IReadOnlyList<DonutItem> Items { get; set; } = [];
+
+    [Parameter] public string? TestId { get; set; }
+
+    // Bei den Töpfen stehen Ziel und Ist der Quote in der Legende, statt in eigenen Balken darunter (Tom, 03.11.2026).
+    private bool HasQuotas => Items.Any(i => i.Target is not null);
+
+    private decimal PlannedTotal => Items.Sum(i => Math.Max(i.Planned, 0m));
+
+    private decimal BookedTotal => Items.Sum(i => Math.Max(i.Booked, 0m));
+
+    private string CenterText => PlannedTotal <= 0m ? "—" : ChartMath.Percent(BookedTotal / PlannedTotal * 100m);
+
+    private sealed record Arc(string Tone, string Dash, string Offset);
+
+    // Ein Ring aus Bögen: jeder Bogen ist ein Kreis mit gestricheltem Rand, so lang wie sein Anteil und um die vorigen versetzt.
+    private IEnumerable<Arc> Arcs(decimal radius, Func<DonutItem, decimal> value, decimal total)
+    {
+        if (total <= 0m)
+        {
+            yield break;
+        }
+        var circumference = 2m * (decimal)Math.PI * radius;
+        var start = 0m;
+        foreach (var item in Items)
+        {
+            var length = Math.Max(value(item), 0m) / total * circumference;
+            if (length > 0m)
+            {
+                yield return new Arc(item.Tone, $"{Css(length)} {Css(circumference - length)}", Css(-start));
+            }
+            start += length;
+        }
+    }
+
+    private static string Css(decimal value) => Math.Round(value, 2).ToString("0.##", CultureInfo.InvariantCulture);
+}

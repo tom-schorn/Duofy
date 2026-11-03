@@ -1,0 +1,106 @@
+@page "/haushalt/richtwerte"
+@attribute [Authorize]
+@using Duofy.ApiClient
+@using Duofy.Schemas
+@using Duofy.Shared.Pages.Month
+@inject IHouseholdApi HouseholdApi
+@inject ActiveMember Member
+@inject FormDialogs Forms
+@inject TimeProvider Time
+@inject NavigationManager Navigation
+@inject IStringLocalizer<SharedResources> L
+
+@* Der Reiter "Richtwerte" des Haushaltsbereichs (Spec 82, R11): das gemeinsame Ziel für Grundbedarf, Wünsche und Sparen,
+   das nur der Gründer ändert, und darunter je Mitglied, wie der laufende Monat dazu steht (Spec 27, Issue #28). Die Seite
+   rechnet nichts; die Zahlen kommen aus dem Haushaltsplan des laufenden Monats. Ohne Haushalt führt sie zum Gründen. *@
+
+<PageTitle>@L["HouseholdArea_Guidelines"]</PageTitle>
+
+<HouseholdHead Current="@HouseholdHead.Guidelines">
+    <Actions>
+        @if (IsFounder)
+        {
+            <DuofyButton Kind="ButtonKind.Secondary" Icon="sliders-horizontal" Text="@L["Household_QuotasButton"]" OnClick="@(_ => EditAsync())" TestId="household-quotas" />
+        }
+    </Actions>
+</HouseholdHead>
+
+<Notice Message="message" />
+
+@if (household is not null)
+{
+    <section class="card mb-4" aria-labelledby="household-quotas-title" data-testid="household-quota-card">
+        <h2 class="section-title" id="household-quotas-title">@L["HouseholdArea_SharedGoal"]</h2>
+        <p class="small muted mb-2">@L["HouseholdArea_SharedGoalLead"]</p>
+        <ul class="quota-list" data-testid="household-quota-line">
+            @foreach (var (pot, percent) in Quotas)
+            {
+                <li class="quota-item"><span class="@($"dot dot--{pot}")" aria-hidden="true"></span><span>@L[$"Pot_{pot}"]</span><b class="num">@percent %</b></li>
+            }
+        </ul>
+    </section>
+
+    @if (plan is not null)
+    {
+        <div class="card">
+            <HouseholdGuidelines Model="GuidelineView.From(plan)" />
+        </div>
+    }
+}
+
+@code {
+    private HouseholdResponse? household;
+    private HouseholdPlanResponse? plan;
+    private NoticeMessage? message;
+
+    private bool IsFounder => household?.Members.Any(m => m.IsMe && m.Role == HouseholdRoles.Founder) == true;
+
+    private IEnumerable<(string Pot, int Percent)> Quotas => household is null ? [] :
+    [
+        (PotKeys.Needs, household.QuotaNeeds),
+        (PotKeys.Wants, household.QuotaWants),
+        (PotKeys.Savings, household.QuotaSavings),
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Member.RefreshAsync();
+        if (Member.Household is null)
+        {
+            Navigation.NavigateTo("/haushalt", replace: true);
+            return;
+        }
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        var result = await HouseholdApi.GetMineAsync();
+        if (!result.Succeeded)
+        {
+            message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
+            return;
+        }
+        household = result.Value!;
+        var today = DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
+        var month = await HouseholdApi.GetPlanAsync(household.Id, today.Year, today.Month);
+        plan = month.Succeeded ? month.Value : null;
+        if (!month.Succeeded)
+        {
+            message = new NoticeMessage(ErrorTexts.For(L, month.ErrorCode), NoticeSeverity.Error);
+        }
+    }
+
+    private async Task EditAsync()
+    {
+        var title = L["HouseholdDialog_Title"];
+        var parameters = new FormParameters<HouseholdDialog>().Add(x => x.Title, title).Add(x => x.Household, household!);
+        var outcome = await Forms.OpenStepAsync<HouseholdDialog, bool>(title, parameters);
+        if (outcome.Saved)
+        {
+            message = new NoticeMessage(L["Household_Saved"], NoticeSeverity.Success);
+            await Member.RefreshAsync();
+            await LoadAsync();
+        }
+    }
+}

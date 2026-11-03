@@ -1,8 +1,8 @@
-@using Radzen.Blazor
+@using BlazorBlueprint.Icons.Lucide.Components
 
 @* Das Symbol eines Kontos neben seinem Namen. Es ist Schmuck: Der Name steht immer daneben, darum bleibt das Zeichen
    für Vorlese-Programme stumm. data-icon trägt den Namen aus der API (bank, piggy ...), unabhängig von der Sammlung. *@
-<span class="account-icon" data-icon="@Icon"><RadzenIcon Icon="@AccountIconSet.SymbolName(Icon)" aria-hidden="true" /></span>
+<span class="account-icon" data-icon="@Icon"><LucideIcon Name="@AccountIconSet.SymbolName(Icon)" Size="16" aria-hidden="true" /></span>
 
 @code {
     /// <summary>Der Name des Symbols aus <c>AccountIcons</c>.</summary>

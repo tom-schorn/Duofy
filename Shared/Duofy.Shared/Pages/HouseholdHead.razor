@@ -1,0 +1,54 @@
+@implements IDisposable
+@inject ActiveMember Member
+@inject IStringLocalizer<SharedResources> L
+
+@* Der Kopf des Haushaltsbereichs (Spec 82, R11): Der Haushalt heißt, wie er heißt, und darunter stehen seine Teile als Reiter,
+   Haushaltsplan, Mitglieder, Freigaben und Richtwerte. Jeder Reiter ist eine eigene Adresse; der offene trägt aria-current.
+   Am Handy rollen die Reiter waagerecht, wenn sie nicht nebeneinander passen. *@
+
+<PageHead Title="@Title" Lead="@Lead" Actions="Actions" />
+
+<nav class="area-tabs" aria-label="@L["HouseholdArea_Label"]" data-testid="household-tabs" data-print="hide">
+    @foreach (var (key, href, label) in Tabs)
+    {
+        <a href="@href" class="area-tab" aria-current="@(key == Current ? "page" : null)" data-testid="@($"household-tab-{key}")">@L[label]</a>
+    }
+</nav>
+
+@code {
+    public const string Plan = "plan";
+    public const string Members = "members";
+    public const string Grants = "grants";
+    public const string Guidelines = "guidelines";
+
+    private static readonly (string Key, string Href, string Label)[] Tabs =
+    [
+        (Plan, "/haushaltsplan", "HouseholdPlan_Title"),
+        (Members, "/haushalt", "Household_MembersHeading"),
+        (Grants, "/haushalt/freigaben", "Grants_Title"),
+        (Guidelines, "/haushalt/richtwerte", "HouseholdArea_Guidelines"),
+    ];
+
+    /// <summary>Welcher Reiter offen ist: <see cref="Plan"/>, <see cref="Members"/>, <see cref="Grants"/> oder <see cref="Guidelines"/>.</summary>
+    [Parameter, EditorRequired] public string Current { get; set; } = "";
+
+    [Parameter] public string? Lead { get; set; }
+
+    [Parameter] public RenderFragment? Actions { get; set; }
+
+    /// <summary>Der Name des Haushalts, wenn die Seite ihn schon geladen hat; sonst kommt er aus der gewählten Ansicht.</summary>
+    [Parameter] public string? Name { get; set; }
+
+    private string Title => Name is { Length: > 0 } given ? given
+        : Member.Household?.Name is { Length: > 0 } name ? name : L["Nav_OurHousehold"];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Member.Changed += OnMemberChanged;
+        await Member.LoadAsync();
+    }
+
+    private void OnMemberChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Member.Changed -= OnMemberChanged;
+}

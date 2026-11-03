@@ -1,61 +1,43 @@
-@using Radzen
-@using Radzen.Blazor
+@using BlazorBlueprint.Components
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
+@using Duofy.Shared.Dialogs
+@inherits FormDialogBase
 @inject IPlanApi PlanApi
 @inject ActiveMember Member
-@inject DialogService Dialogs
+@inject TimeProvider Time
 @inject IStringLocalizer<SharedResources> L
-@inject IAppHost Host
 
-@* Abhaken eines Postens, auf dem schon Buchungen liegen (R5): Der Dialog bietet einen Ausgleich für
-   den Unterschied an, vorbelegt mit dem offenen Rest. 0 hakt ab, ohne etwas zu buchen; ein
-   Unterschied zwischen geplant und gebucht darf bleiben. *@
+@* Das Abhaken eines offenen Postens wie im alten Duofy (Spec 82): Der Dialog zeigt Datum und Betrag vorbelegt, heute und den
+   geplanten Betrag, und bucht erst nach der Bestätigung. Ein Posten, auf dem schon Buchungen liegen, kommt gar nicht hierher:
+   Dort entsteht keine weitere (siehe Plan.razor). Ein abweichendes Datum verschiebt den Posten nicht. *@
 
-<div>
-    @if (Host.IsApp)
-    {
-        <FullScreenFormHeader Title="@Title" SaveText="@L["PlanTickDialog_Save"]" SaveTestId="tick-save"
-                              Busy="busy" OnClose="Cancel" OnSave="SaveAsync" />
-    }
-    <RadzenStack Gap="1rem">
-        @if (error is not null)
-        {
-            <ErrorAlert AlertStyle="AlertStyle.Danger" Text="@error" data-testid="tick-error" />
-        }
-        <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-m-0" data-testid="tick-summary">@L["PlanTickDialog_Summary", Position.Label, Money(Position.AmountPlanned), Money(Position.Booked)]</RadzenText>
-        <div class="field">
-            <FieldLabel id="tick-amount-label" Text="@L["Field_BalancingAmount"]" />
-            <RadzenNumeric TValue="decimal?" @bind-Value="amount" Culture="German" Format="0.00" Min="0" ShowUpDown="false"
-                           InputAttributes="@(new Dictionary<string, object> { ["aria-labelledby"] = "tick-amount-label", ["aria-describedby"] = "tick-amount-hint" })"
-                           data-testid="tick-amount" />
-            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-m-0" id="tick-amount-hint">@L["PlanTickDialog_Hint"]</RadzenText>
-        </div>
-        @if (!Host.IsApp)
-        {
-            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
-                <RadzenButton Text="@L["PlanDialog_Cancel"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Click="@(_ => Cancel())" />
-                <RadzenButton Text="@L["PlanTickDialog_Save"]" ButtonStyle="ButtonStyle.Primary" Disabled="busy" Click="@(_ => SaveAsync())"
-                              data-testid="tick-save" />
-            </RadzenStack>
-        }
-    </RadzenStack>
+<div class="dialog-body">
+    <ErrorAlert Text="@error" data-testid="tick-error" />
+    <p data-testid="tick-summary">@L["PlanTickDialog_Summary", Position.Label, MoneyText.Format(Position.AmountPlanned)]</p>
+    <div class="field">
+        <FieldLabel For="tick-date" Text="@L["Field_Date"]" />
+        <TextInput id="tick-date" Type="date" @bind-Value="date" data-testid="tick-date" />
+    </div>
+    <div class="field">
+        <FieldLabel For="tick-amount" Text="@L["Field_Amount"]" />
+        <MoneyInput id="tick-amount" @bind-Value="amount" Min="0" data-testid="tick-amount" />
+    </div>
+    <div class="dialog-actions">
+        <DuofyButton Kind="ButtonKind.Secondary" Text="@L["PlanDialog_Cancel"]" OnClick="@(_ => CancelAsync())" TestId="tick-cancel" />
+        <DuofyButton Text="@L["PlanTickDialog_Save"]" Disabled="busy" OnClick="@(_ => SaveAsync())" TestId="tick-save" />
+    </div>
 </div>
 
 @code {
-
-    private static readonly CultureInfo German = new("de-DE");
-
-    /// <summary>Der Titel für die Kopfzeile in der App; im Browser steht er in der Titelzeile des Fensters.</summary>
-    [Parameter] public string? Title { get; set; }
-
     [Parameter] public int Year { get; set; }
 
     [Parameter] public int Month { get; set; }
 
     [Parameter] public PlanPositionResponse Position { get; set; } = default!;
 
+    private string? date;
     private decimal? amount;
     private string? error;
     private bool busy;
@@ -66,10 +48,9 @@
     protected override void OnInitialized()
     {
         owner = Member.Owner;
-        amount = PlanView.OpenAmount(Position);
+        amount = Position.AmountPlanned;
+        date = DateOnly.FromDateTime(Time.GetLocalNow().DateTime).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
     }
-
-    private void Cancel() => Dialogs.Close();
 
     private async Task SaveAsync()
     {
@@ -77,10 +58,11 @@
         busy = true;
         try
         {
-            var result = await PlanApi.TickAsync(Year, Month, Position.Id, new TickPositionRequest(Amount: amount ?? 0m), owner);
+            DateOnly? day = DateOnly.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed) ? parsed : null;
+            var result = await PlanApi.TickAsync(Year, Month, Position.Id, new TickPositionRequest(Amount: amount ?? 0m, Date: day), owner);
             if (result.Succeeded)
             {
-                Dialogs.Close(true);
+                await CloseAsync(true);
             }
             else
             {
@@ -92,6 +74,4 @@
             busy = false;
         }
     }
-
-    private static string Money(decimal value) => value.ToString("N2", German) + " €";
 }

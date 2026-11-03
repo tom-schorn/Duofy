@@ -1,59 +1,9 @@
-@using Radzen.Blazor
 @inherits ThemedLayoutBase
-@inject IStringLocalizer<SharedResources> L
 
-@* Das Layout des Browsers in Radzen: Kopfzeile oben, der Seiteninhalt in der Mitte und die Navigation, je nach Breite
-   links als Seitenleiste (ab 1280 px) oder unten als Leiste (Spec 10). *@
+@* Das Layout des Browsers. Die App benutzt AppLayout; beide zeigen denselben Rahmen (AppShell). *@
 
-<RadzenComponents />
-<ThemeVariables Dark="IsDarkMode" DeviceDarkChanged="OnDeviceDarkChangedAsync" />
+<ThemeVariables Dark="IsDarkMode" Settled="ThemeSettled" DeviceDarkChanged="OnDeviceDarkChangedAsync" />
 
-<SkipLink Target="() => mainContent" />
-
-<RadzenLayout>
-    <RadzenHeader>
-        <div class="app-header">
-            @* Die obere Leiste ist in beiden Modi dunkel (RadzenVariables), das Logo also immer das für dunklen Grund. *@
-            <div class="app-title"><BrandMark Dark="true" /></div>
-            <div class="app-header-end">
-                <AuthorizeView>
-                    <Authorized>
-                        <MemberSwitch />
-                    </Authorized>
-                </AuthorizeView>
-                <ThemeChoiceSwitch Choice="Choice" ChoiceSelected="SelectChoiceAsync" />
-            </div>
-        </div>
-    </RadzenHeader>
-
-    @* Ob die Leiste zu sehen ist, entscheidet das Stylesheet nach der Breite, damit es schon vor dem ersten Rechnen stimmt. *@
-    <RadzenSidebar Responsive="false" class="app-sidebar">
-        <SideNavigation>
-            <Footer>
-                <AuthorizeView>
-                    <Authorized>
-                        <MemberSwitch Up="true" />
-                    </Authorized>
-                </AuthorizeView>
-            </Footer>
-        </SideNavigation>
-    </RadzenSidebar>
-
-    <RadzenBody class="app-main">
-        <main class="app-page" id="@SkipLink.TargetId" tabindex="-1" @ref="mainContent">
-            @Body
-        </main>
-    </RadzenBody>
-</RadzenLayout>
-
-<BottomNavigation />
-
-<div id="blazor-error-ui" data-nosnippet role="alert">
-    @L["Layout_ErrorMessage"]
-    <a href="." class="reload">@L["Layout_Reload"]</a>
-    <button type="button" class="dismiss" aria-label="@L["Layout_Dismiss"]">&#10005;</button>
-</div>
-
-@code {
-    private ElementReference mainContent;
-}
+<AppShell Dark="IsDarkMode" Choice="Choice" ChoiceSelected="SelectChoiceAsync">
+    @Body
+</AppShell>

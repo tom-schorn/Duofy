@@ -1,20 +1,42 @@
-// Setzt beim Öffnen eines Dialogs den Fokus in das erste Feld. Radzens eigene Einstellung nimmt das erste
-// fokussierbare Element, und das ist meist ein Knopf in der Kopfzeile. Wird nur von FormDialogs aufgerufen.
-// Unter Last kommen Rahmen und Inhalt spät, auch nacheinander: Es wird weiter gesucht, bis es etwas zum Fokussieren gibt, sonst
-// bliebe der Fokus auf der Seite hinter dem Dialog.
-export async function focusFirstField(dialogsBefore) {
+// Der Fokus rund um Dialoge. Wird nur von FormDialogs aufgerufen.
+// Unter Last kommt der Dialog spät: Es wird weiter gesucht, bis es etwas zum Fokussieren gibt, sonst bliebe der Fokus
+// auf der Seite hinter dem Dialog.
+const triggers = [];
+
+const dialogSelector = "[role='dialog'], [role='alertdialog']";
+
+function topDialog() {
+    const all = document.querySelectorAll(dialogSelector);
+    return all.length ? all[all.length - 1] : null;
+}
+
+const visible = element => element.offsetParent !== null;
+
+export function rememberTrigger() {
+    triggers.push(document.activeElement);
+}
+
+export async function restoreTrigger() {
+    const trigger = triggers.pop();
+    // Kurz warten, bis der Dialog weg ist; sonst zöge sein Fokusfang den Fokus zurück.
+    await new Promise(resolve => setTimeout(resolve, 50));
+    if (trigger?.isConnected && trigger !== document.body) {
+        trigger.focus();
+    }
+}
+
+export async function focusFirstField() {
     const deadline = performance.now() + 6000;
-    let settled = false;
+    const before = topDialog();
     while (performance.now() < deadline) {
-        if (document.querySelectorAll(".rz-dialog").length > dialogsBefore) {
-            if (!settled) {
-                // Kurz warten, bis Radzen und die Schritte des Dialogs fertig gezeichnet sind.
-                await new Promise(resolve => setTimeout(resolve, 80));
-                settled = true;
-            }
-            const dialog = document.querySelectorAll(".rz-dialog")[dialogsBefore];
-            // Wer inzwischen selbst im Dialog ist, behält seinen Platz.
-            if (dialog?.contains(document.activeElement) || focusIn(dialog)) {
+        const dialog = topDialog();
+        if (dialog && dialog !== before) {
+            // Kurz warten, bis die Schritte des Dialogs fertig gezeichnet sind.
+            await new Promise(resolve => setTimeout(resolve, 80));
+            const field = [...dialog.querySelectorAll("input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled])")].find(visible);
+            const target = field ?? [...dialog.querySelectorAll("button:not([disabled])")].find(visible);
+            if (target) {
+                target.focus();
                 return;
             }
         }
@@ -22,34 +44,20 @@ export async function focusFirstField(dialogsBefore) {
     }
 }
 
-// Eine Rückfrage beginnt auf dem sicheren Knopf, dem letzten der beiden (Nein, Abbrechen), nicht auf Ja.
-export async function focusSafeButton(dialogsBefore) {
+// Eine Rückfrage beginnt auf dem sicheren Knopf: dem mit dem Text für Nein, der in Blueprint vor Ja steht.
+export async function focusSafeButton() {
     const deadline = performance.now() + 2000;
+    const before = topDialog();
     while (performance.now() < deadline) {
-        const dialog = document.querySelectorAll(".rz-dialog")[dialogsBefore];
-        const buttons = dialog?.querySelectorAll(".rz-dialog-confirm-buttons button");
-        if (buttons?.length) {
-            buttons[buttons.length - 1].focus();
-            return;
+        const dialog = topDialog();
+        if (dialog && dialog !== before) {
+            const buttons = [...dialog.querySelectorAll("button:not([disabled])")].filter(visible);
+            if (buttons.length) {
+                await new Promise(resolve => setTimeout(resolve, 80));
+                buttons[0].focus();
+                return;
+            }
         }
         await new Promise(resolve => requestAnimationFrame(resolve));
     }
-}
-
-export function countDialogs() {
-    return document.querySelectorAll(".rz-dialog").length;
-}
-
-// Sagt, ob es etwas zum Fokussieren gab.
-function focusIn(dialog) {
-    if (!dialog) {
-        return false;
-    }
-    const visible = element => element.offsetParent !== null;
-    const field = [...dialog.querySelectorAll("input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled])")]
-        .find(visible);
-    // Ohne Feld (eine Rückfrage) bleibt es beim ersten Knopf im Inhalt.
-    const target = field ?? [...dialog.querySelectorAll(".rz-dialog-content button:not([disabled])")].find(visible);
-    target?.focus();
-    return target !== undefined;
 }

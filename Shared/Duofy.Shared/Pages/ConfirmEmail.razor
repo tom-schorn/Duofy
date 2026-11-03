@@ -1,6 +1,5 @@
 @page "/bestaetigen"
-@using Radzen
-@using Radzen.Blazor
+@using BlazorBlueprint.Components
 @layout AuthLayout
 @using Duofy.ApiClient
 @using Duofy.Schemas
@@ -14,7 +13,7 @@
 <PageTitle>@L["Confirm_Title"]</PageTitle>
 
 <div class="auth-header">
-    <RadzenText TextStyle="TextStyle.H2" TagName="TagName.H1">@L["Confirm_Title"]</RadzenText>
+    <h1 class="page-title">@L["Confirm_Title"]</h1>
     <p class="auth-lead">@L["Confirm_Lead"]</p>
 </div>
 
@@ -22,18 +21,15 @@
 
 @if (done)
 {
-    <LinkButton Href="/anmelden" FullWidth="true" data-testid="confirm-sign-in">@L["Auth_ToSignIn"]</LinkButton>
+    <DuofyButton Href="/anmelden" TestId="confirm-sign-in" FullWidth="true">@L["Auth_ToSignIn"]</DuofyButton>
 }
 else if (!Complete)
 {
-    <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" AllowClose="false"
-                 data-testid="confirm-incomplete">@L["Link_Incomplete"]</RadzenAlert>
+    <BbAlert Variant="AlertVariant.Warning" data-testid="confirm-incomplete">@L["Link_Incomplete"]</BbAlert>
 }
 else
 {
-    <RadzenButton Text="@(busy ? L["Confirm_Pending"] : L["Confirm_Submit"])" ButtonStyle="ButtonStyle.Primary"
-                  Class="rz-w-100" Disabled="busy" Click="@(_ => ConfirmAsync())"
-                  data-testid="confirm-submit" />
+    <DuofyButton Text="@(busy ? L["Confirm_Pending"] : L["Confirm_Submit"])" OnClick="@(_ => ConfirmAsync())" TestId="confirm-submit" FullWidth="true" Disabled="busy" />
 }
 
 @code {

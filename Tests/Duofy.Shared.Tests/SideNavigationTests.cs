@@ -4,7 +4,6 @@ using Duofy.Schemas;
 using Duofy.Shared.Layout;
 using Duofy.Shared.Services;
 using Microsoft.Extensions.DependencyInjection;
-using Radzen.Blazor;
 
 namespace Duofy.Shared.Tests;
 
@@ -22,7 +21,7 @@ public class SideNavigationTests : PageTestContext
         Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true));
     }
 
-    private static string Css() => File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "wwwroot", "app.css"));
+    private static string Css() => File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "wwwroot", "duofy.css"));
 
     private static string Rule(string css, string selector)
     {
@@ -55,23 +54,18 @@ public class SideNavigationTests : PageTestContext
 
     private static IReadOnlyList<(string Text, string? Href)> Entries<T>(IRenderedComponent<T> cut, string testId)
         where T : Microsoft.AspNetCore.Components.IComponent =>
-        cut.FindAll(testId == "side-nav" ? ".app-side-list a" : $"[data-testid='{testId}'] a").Select(a => (Label(a), a.GetAttribute("href"))).ToList();
+        cut.FindAll($"[data-testid='{testId}'] a").Select(a => (Label(a), a.GetAttribute("href"))).ToList();
 
-    // Der Text eines Eintrags ohne den Namen des Symbols, der in Radzen als Text im i-Element steht.
-    private static string Label(AngleSharp.Dom.IElement entry) =>
-        entry.QuerySelector(".rz-navigation-item-text, .app-bottom-label")!.TextContent.Trim();
+    private static string Label(AngleSharp.Dom.IElement entry) => entry.QuerySelector("span")!.TextContent.Trim();
 
-    // A1 (R1): Das Stylesheet zeigt unter dem Desktop nur die untere Leiste und ab dem Desktop nur die Seitenleiste.
-    [Fact]
-    public void From_1280px_the_side_bar_is_shown_and_the_bottom_bar_is_hidden()
+    // Das Benutzermenü öffnen; seine Einträge stehen in der Hülle für Dialoge und Menüs.
+    private IRenderedComponent<Microsoft.AspNetCore.Components.IComponent> OpenUserMenu()
     {
-        var css = Css();
-        Assert.Contains("display: none", Rule(css, ".app-side-nav"));
-
-        var desktop = DesktopMedia(css);
-        Assert.Matches(@"display:\s*flex", Rule(desktop, ".app-side-nav"));
-        Assert.Contains("display: none", Rule(desktop, ".app-bottom-bar"));
-        Assert.DoesNotContain("display: none", Rule(css, ".app-bottom-bar"));
+        var host = RenderDialogHost();
+        var menu = Render<UserMenu>();
+        menu.WaitForAssertion(() => Assert.NotEmpty(menu.FindAll("[data-testid='user-menu-open']")));
+        menu.Find("[data-testid='user-menu-open']").Click();
+        return host;
     }
 
     // A1 (R1): Beide Layouts zeichnen beide Leisten; welche man sieht, entscheidet die Breite.
@@ -84,33 +78,6 @@ public class SideNavigationTests : PageTestContext
         Assert.Single(cut.FindAll("[data-testid='bottom-bar']"));
     }
 
-    // Radzen R7: Rahmen, Kopfzeile, Seitenleiste und Inhalt sind die Bausteine von Radzen.
-    [Fact]
-    public void The_web_layout_is_built_from_radzen_parts()
-    {
-        var cut = Render<MainLayout>();
-
-        Assert.Single(cut.FindComponents<RadzenLayout>());
-        Assert.Single(cut.FindComponents<RadzenHeader>());
-        Assert.Single(cut.FindComponents<RadzenSidebar>());
-        Assert.Single(cut.FindComponents<RadzenBody>());
-        Assert.Single(cut.FindAll(".rz-sidebar [data-testid='side-nav']"));
-        Assert.Single(cut.FindAll(".rz-body #main-content"));
-    }
-
-    // Die Breite entscheidet schon vor dem ersten Rechnen im Browser, deshalb im Stylesheet und nicht mit dem Sidebar-Schalter.
-    [Fact]
-    public void The_radzen_side_bar_stays_out_of_the_way_below_the_desktop()
-    {
-        var css = Css();
-        Assert.Contains("display: none", Rule(css, ".app-sidebar"));
-        Assert.Contains("display: block", Rule(DesktopMedia(css), ".app-sidebar"));
-
-        var cut = Render<MainLayout>();
-        Assert.False(cut.FindComponent<RadzenSidebar>().Instance.Responsive);
-        Assert.Contains("app-sidebar", cut.Find(".rz-sidebar").ClassList);
-    }
-
     [Fact]
     public void The_app_layout_draws_the_side_bar_and_the_bottom_bar()
     {
@@ -120,11 +87,11 @@ public class SideNavigationTests : PageTestContext
         Assert.Single(cut.FindAll("[data-testid='bottom-bar']"));
     }
 
-    // Spec 51, R1 (Tom, 01.11.2026): Genau diese vier; die Seitenleiste zeigt direkt, was unten hinter "Mehr" liegt.
+    // A14 (R12, Tom, 03.11.2026): Genau diese fünf; die Seitenleiste zeigt direkt, was unten hinter "Mehr" liegt.
     [Fact]
-    public void The_bottom_bar_has_the_four_targets_of_the_human()
+    public void A14_the_bottom_bar_has_the_five_targets_of_the_human()
     {
-        (string, string?)[] expected = [("Start", "/"), ("Plan", "/plan"), ("Haushalt", "/haushaltsplan"), ("Mehr", "/mehr")];
+        (string, string?)[] expected = [("Start", "/"), ("Plan", "/plan"), ("Haushalt", "/haushaltsplan"), ("Sparen", "/sparen"), ("Mehr", "/mehr")];
         Assert.Equal(expected.Select(e => e.Item2), AppDestinations.All.Select(d => d.Href));
 
         var cut = Render<MainLayout>();
@@ -138,92 +105,83 @@ public class SideNavigationTests : PageTestContext
         var cut = Render<MainLayout>();
 
         cut.WaitForAssertion(() => Assert.Equal(
-            [("Start", "/"), ("Plan", "/plan"), ("Sparen", "/sparen"), ("Konten", "/konten"), ("Verträge", "/vertraege"),
-             ("Haushalt", "/haushalt"), ("Benutzerkonto", "/konto"), ("Lizenzen", "/lizenzen")],
-            Entries(cut, "side-nav")));
-        Assert.Empty(cut.FindAll("[data-testid='side-more']"));
-        Assert.Contains("Abmelden", cut.Find("[data-testid='side-sign-out']").TextContent);
+            AppDestinations.Side.Select(d => d.Href),
+            Entries(cut, "side-nav").Select(e => e.Href)));
+        Assert.Contains(("Start", "/"), Entries(cut, "side-nav"));
+        Assert.Contains(("Meine Planung", "/plan"), Entries(cut, "side-nav"));
+        Assert.Contains(("Verträge", "/vertraege"), Entries(cut, "side-nav"));
+        Assert.DoesNotContain(Entries(cut, "side-nav"), e => e.Href == "/mehr");
+        Assert.DoesNotContain(Entries(cut, "side-nav"), e => e.Text == "Mitglieder" || e.Href == "/haushalt");
     }
 
+    // A13 (R11): Der Haushalt steht in der Seitenleiste unter seinem Namen.
     [Fact]
-    public void The_side_bar_shows_admin_only_to_admins()
+    public void A13_the_household_entry_carries_the_name_of_the_household()
     {
-        var ben = Render<SideNavigation>();
-        ben.WaitForAssertion(() => Assert.NotEmpty(ben.FindAll("[data-testid='side-licenses']")));
-        Assert.Empty(ben.FindAll("[data-testid='side-admin']"));
+        var cut = Render<MainLayout>();
 
-        Users.Me = Users.Me with { IsInstanceAdmin = true };
-        var anna = Render<SideNavigation>();
-
-        anna.WaitForAssertion(() => Assert.Equal("/admin", anna.Find("[data-testid='side-admin'] a").GetAttribute("href")));
+        cut.WaitForAssertion(() => Assert.Contains(("Haushalt von Anna", "/haushaltsplan"), Entries(cut, "side-nav")));
     }
 
     [Fact]
-    public void The_side_bar_lists_the_legal_texts_of_the_server()
+    public void The_user_menu_shows_admin_only_to_admins()
+    {
+        var host = OpenUserMenu();
+        host.WaitForAssertion(() => Assert.NotEmpty(host.FindAll("[data-testid='side-licenses']")));
+        Assert.Empty(host.FindAll("[data-testid='side-admin']"));
+    }
+
+    [Fact]
+    public void The_user_menu_leads_admins_to_the_administration()
+    {
+        Users.Me = Users.Me with { IsInstanceAdmin = true };
+
+        var host = OpenUserMenu();
+
+        host.WaitForAssertion(() => Assert.Equal("/admin", host.Find("[data-testid='side-admin']").GetAttribute("href")));
+    }
+
+    [Fact]
+    public void The_user_menu_lists_the_legal_texts_of_the_server()
     {
         LegalApiFake.Documents["imprint"] = "Max Muster";
 
-        var cut = Render<SideNavigation>();
+        var host = OpenUserMenu();
 
-        cut.WaitForAssertion(() => Assert.Equal("/rechtliches/impressum", cut.Find("[data-testid='side-legal-imprint'] a").GetAttribute("href")));
-        Assert.Empty(cut.FindAll("[data-testid='side-legal-privacy']"));
+        host.WaitForAssertion(() => Assert.Equal("/rechtliches/impressum", host.Find("[data-testid='side-legal-imprint']").GetAttribute("href")));
+        Assert.Empty(host.FindAll("[data-testid='side-legal-privacy']"));
     }
 
     [Fact]
     public void Sign_out_in_the_side_bar_signs_out_and_leads_to_the_sign_in()
     {
-        var cut = Render<SideNavigation>();
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='side-sign-out']")));
+        var host = OpenUserMenu();
+        host.WaitForAssertion(() => Assert.NotEmpty(host.FindAll("[data-testid='side-sign-out']")));
 
-        cut.Find("[data-testid='side-sign-out']").Click();
+        host.Find("[data-testid='side-sign-out']").Click();
 
-        cut.WaitForAssertion(() => Assert.Equal("/anmelden", CurrentPath));
+        host.WaitForAssertion(() => Assert.Equal("/anmelden", CurrentPath));
         Assert.Null(Tokens.Tokens);
     }
 
-    // Die App hat oben keinen Schalter für hell und dunkel; ohne "Mehr" steht er ab dem Desktop in der Seitenleiste.
+    // A13 (R11, Tom, 03.11.2026: "1 hätte geriecht"): ein Knopf für hell und dunkel in der oberen Leiste, in App und Browser gleich.
     [Fact]
-    public void The_app_shows_the_mode_switch_in_the_side_bar()
+    public void A13_the_app_shows_one_theme_toggle_in_the_top_bar()
     {
         var app = Render<AppLayout>();
 
-        app.WaitForAssertion(() => Assert.Equal(3, app.FindAll("[data-testid='side-nav'] [data-testid='side-mode'] button").Count));
+        app.WaitForAssertion(() => Assert.Single(app.FindAll("[data-testid='theme-toggle']")));
+        Assert.Single(app.FindAll(".shell-top [data-testid='theme-toggle']"));
     }
 
     [Fact]
-    public void The_browser_keeps_the_mode_switch_in_the_top_bar_only()
+    public void A13_the_browser_shows_one_theme_toggle_in_the_top_bar_only()
     {
         var web = Render<MainLayout>();
 
-        web.WaitForAssertion(() => Assert.NotEmpty(web.FindAll("[data-testid='side-licenses']")));
-        Assert.Empty(web.FindAll("[data-testid='side-mode']"));
-    }
-
-    // Viele Einträge auf einem niedrigen Bildschirm: Die Liste rollt, der Fuß mit dem Profil-Knopf bleibt stehen.
-    [Fact]
-    public void The_entries_scroll_and_the_footer_stays()
-    {
-        Assert.Contains("overflow-y: auto", Rule(Css(), ".app-side-list"));
-
-        var cut = Render<SideNavigation>(p => p.Add(c => c.Footer, (Microsoft.AspNetCore.Components.RenderFragment)(b => b.AddContent(0, "Fuß"))));
-
-        Assert.Empty(cut.FindAll(".app-side-list .app-side-footer"));
-        Assert.NotEmpty(cut.FindAll(".app-side-list a"));
-    }
-
-    // A3 (R3)
-    [Fact]
-    public void The_open_page_is_marked_in_the_side_bar()
-    {
-        Navigation.NavigateTo("/plan");
-
-        var cut = Render<SideNavigation>();
-
-        var active = Assert.Single(cut.FindAll("a"), a => a.GetAttribute("aria-current") == "page");
-        Assert.Equal("Plan", Label(active));
-        // Tom, 30.10.: Das offene Ziel erkennt man an Fläche und Farbe, ohne Balken (Variablen in RadzenVariables).
-        Assert.Equal("transparent", Duofy.Shared.Theme.RadzenVariables.Common["--rz-panel-menu-item-active-indicator"]);
-        Assert.Contains("Plan", cut.Find(".rz-navigation-item-wrapper-active").TextContent);
+        web.WaitForAssertion(() => Assert.Single(web.FindAll("[data-testid='theme-toggle']")));
+        Assert.Single(web.FindAll(".shell-top [data-testid='theme-toggle']"));
+        Assert.Empty(web.FindAll(".shell-side [data-testid='theme-toggle']"));
     }
 
     [Fact]
@@ -240,10 +198,12 @@ public class SideNavigationTests : PageTestContext
 
     // Unterseiten lassen ihren Eintrag leuchten; "/konto" ist nicht "/konten".
     [Theory]
-    [InlineData("/konto/loeschen", "Benutzerkonto")]
-    [InlineData("/haushalt/freigaben", "Haushalt")]
-    [InlineData("/plan/2026/11", "Plan")]
-    [InlineData("/lizenzen", "Lizenzen")]
+    [InlineData("/haushalt", "Haushalt von Anna")]
+    [InlineData("/haushalt/freigaben", "Haushalt von Anna")]
+    [InlineData("/haushalt/richtwerte", "Haushalt von Anna")]
+    [InlineData("/haushaltsplan/2026/11", "Haushalt von Anna")]
+    [InlineData("/plan/2026/11", "Meine Planung")]
+    [InlineData("/konten", "Konten")]
     public void Sub_pages_mark_their_entry(string path, string label)
     {
         Navigation.NavigateTo(path);
@@ -252,6 +212,19 @@ public class SideNavigationTests : PageTestContext
 
         cut.WaitForAssertion(() =>
             Assert.Equal(label, Label(Assert.Single(cut.FindAll("a"), a => a.GetAttribute("aria-current") == "page"))));
+    }
+
+    // Was im Benutzermenü steht, hat in der Liste keinen Eintrag; dort leuchtet dann nichts.
+    [Theory]
+    [InlineData("/konto/loeschen")]
+    [InlineData("/lizenzen")]
+    public void Pages_of_the_user_menu_mark_no_entry(string path)
+    {
+        Navigation.NavigateTo(path);
+
+        var cut = Render<SideNavigation>();
+
+        Assert.Empty(cut.FindAll("a[aria-current='page']"));
     }
 
     // Spec 51, R3: Keine Leiste führt mehr zu den Buchungen.
@@ -263,9 +236,9 @@ public class SideNavigationTests : PageTestContext
         Assert.DoesNotContain("/buchungen", more);
     }
 
-    // Spec 51, R1: Sparen und Verträge liegen unter "Mehr" und lassen es leuchten.
+    // Spec 51, R1, mit Spec 82 R12: Verträge liegen unter "Mehr" und lassen es leuchten; Sparen hat ein eigenes Ziel.
     [Theory]
-    [InlineData("/sparen", "Mehr")]
+    [InlineData("/sparen", "Sparen")]
     [InlineData("/vertraege", "Mehr")]
     [InlineData("/haushaltsplan", "Haushalt")]
     [InlineData("/haushaltsplan/2026/11", "Haushalt")]
@@ -288,34 +261,6 @@ public class SideNavigationTests : PageTestContext
         var cut = Render<BottomNavigation>();
 
         Assert.Equal("Mehr", Label(Assert.Single(cut.FindAll("a"), a => a.GetAttribute("aria-current") == "page")));
-    }
-
-    // A4 (R4)
-    [Fact]
-    public void All_entries_are_links_in_list_order_and_keep_the_focus_outline()
-    {
-        var cut = Render<SideNavigation>();
-
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='side-licenses']")));
-        var links = cut.FindAll("[data-testid='side-nav'] a");
-        Assert.Equal(new[] { "/", "/plan", "/sparen", "/konten", "/vertraege", "/haushalt", "/konto", "/lizenzen" }, links.Select(a => a.GetAttribute("href")));
-
-        // Das Radzen-Menü ist ein Tab-Halt; darin führen die Pfeiltasten von Eintrag zu Eintrag, Enter öffnet das Ziel.
-        Assert.Equal("0", cut.Find("[data-testid='side-nav'] .rz-panel-menu").GetAttribute("tabindex"));
-        Assert.Contains("outline: 3px solid", Rule(Css(), ":focus-visible"));
-    }
-
-    // A4 (R4): Jeder Eintrag ist eine Tippfläche von mindestens 44 px.
-    [Fact]
-    public void Side_entries_are_at_least_44px_high()
-    {
-        // Zeilenhöhe 1,5 rem plus zweimal der Innenabstand ergibt 3,5 rem, also 56 px.
-        var css = File.ReadAllText(Path.Combine(
-            Environment.GetEnvironmentVariable("NUGET_PACKAGES") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".nuget", "packages"),
-            "radzen.blazor", "12.1.8", "staticwebassets", "css", "material-base.css"));
-
-        Assert.Contains("--rz-panel-menu-item-line-height: 1.5rem", css);
-        Assert.Contains("--rz-panel-menu-item-padding-block: 1rem", css);
     }
 
     // A5 (R5)
@@ -346,33 +291,19 @@ public class SideNavigationTests : PageTestContext
         Assert.DoesNotContain("Nav_Plan", markup);
     }
 
-    // Der Umschalter "wessen Zahlen" (Spec 68) wohnt im Browser in der oberen Leiste, nicht in der Seitenleiste.
+    // A13 (R11): Die Seitenleiste hat oben die Marke, dann die Ziele und unten das Profil-Menü mit der Auswahl der Person,
+    // auch wenn die Person allein ist; ohne Wahl zeigt das Profil die E-Mail statt einer Ansicht.
     [Fact]
-    public void The_web_layout_keeps_the_member_switch_in_the_app_bar_when_somebody_shares()
-    {
-        HouseholdApiFake.Household = HouseholdApiFake.Household! with
-        {
-            Members = [FakeHouseholdApi.Anna(), FakeHouseholdApi.Ben() with { GrantsToMe = GrantLevels.None with { Book = AccessLevelKeys.View } }],
-        };
-
-        var cut = Render<MainLayout>();
-
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".rz-header [data-testid='member-switch']")));
-    }
-
-    // Spec 44, A6 (R5): Unten in der Seitenleiste steht der Profil-Knopf, auch wenn die Person allein ist, und
-    // zwar nach den Zielen.
-    [Fact]
-    public void The_web_layout_puts_the_profile_button_at_the_bottom_of_the_side_navigation_even_when_alone()
+    public void A13_the_side_bar_has_the_profile_menu_at_the_bottom_even_when_alone()
     {
         HouseholdApiFake.Household = HouseholdApiFake.Household! with { Members = [FakeHouseholdApi.Ben(isMe: true)] };
 
         var cut = Render<MainLayout>();
 
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='side-nav'] [data-testid='member-profile']")));
-        var nav = cut.Find("[data-testid='side-nav']");
-        Assert.Contains("member-profile", nav.LastElementChild!.InnerHtml);
-        Assert.Equal("Ich", cut.Find("[data-testid='side-nav'] [data-testid='member-profile']").TextContent.Trim());
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".shell-side [data-testid='member-profile']")));
+        var order = cut.Find(".shell-side").Children.Select(c => c.GetAttribute("data-testid") ?? c.ClassName).ToList();
+        Assert.Equal(["shell-brand", "side-nav", "user-menu"], order);
+        Assert.DoesNotContain("Ansicht", cut.Find(".shell-side [data-testid='member-profile']").TextContent);
     }
 
     // Ohne Fuß zeigt die Seitenleiste nur die Ziele.
@@ -382,28 +313,6 @@ public class SideNavigationTests : PageTestContext
         var side = Render<SideNavigation>();
 
         Assert.Empty(side.FindAll("[data-testid='member-profile']"));
-    }
-
-    // Ein langer Vorname darf die Kopfzeile am Handy nicht sprengen.
-    [Fact]
-    public void A_long_name_is_shortened_in_the_top_bar()
-    {
-        var css = Css();
-
-        Assert.Contains("text-overflow: ellipsis", Rule(css, ".member-profile-name"));
-        Assert.Contains("max-width: 8rem", Rule(css, ".rz-header .member-profile-name"));
-    }
-
-    // Spec 44, A6 (R5): Ab dem Desktop steht der Knopf unten in der Seitenleiste und das Menü geht nach oben auf;
-    // die obere Leiste zeigt ihn dann nicht doppelt.
-    [Fact]
-    public void The_stylesheet_hides_the_top_bar_profile_on_desktop_and_opens_the_side_menu_upwards()
-    {
-        var desktop = DesktopMedia(Css());
-
-        Assert.Contains("display: none", Rule(desktop, ".rz-header .member-profile"));
-        Assert.Contains("margin-top: auto", Rule(Css(), ".app-side-footer"));
-        Assert.Contains("bottom: 100%", Rule(Css(), ".member-profile-up ul.rz-profile-menu .rz-navigation-menu"));
     }
 
     private sealed class MemoryThemeStore : IThemePreferenceStore

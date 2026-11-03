@@ -1,9 +1,7 @@
-@using Radzen
-@using Radzen.Blazor
 @inject ActiveMember Member
 @inject IStringLocalizer<SharedResources> L
 
 @* Der Satz, wenn eine Seite für die gewählte Sicht nichts zeigt: Eine Person teilt den Bereich nicht
    (Spec 68), und für den Haushalt gibt es nur im Plan eine gemeinsame Sicht (Spec 69, R9). *@
 
-<RadzenText TextStyle="TextStyle.Body1" Class="rz-text-secondary-color" data-testid="not-shared">@L[Member.IsHousehold ? "Household_NoJointView" : "Grant_NotShared"]</RadzenText>
+<p class="muted" data-testid="not-shared">@L[Member.IsHousehold ? "Household_NoJointView" : "Grant_NotShared"]</p>

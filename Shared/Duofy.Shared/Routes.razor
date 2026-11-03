@@ -1,14 +1,9 @@
-﻿@using Radzen.Blazor
 @* Der Router: Er entscheidet, welche Seite zu einer Adresse gehört. Die App benutzt
    ihn direkt; die Web-Variante hat einen eigenen, der dieselben Seiten findet.
    Die App zeigt die Seiten im AppLayout (untere Leiste), der Browser im MainLayout.
 
    AuthorizeRouteView prüft bei Seiten mit [Authorize], ob jemand angemeldet ist.
    Wenn nicht, schickt RedirectToSignIn die Person zur Anmeldung. *@
-
-@* Die Theme-Datei von Radzen in der App; sie hängt über den Layouts und lädt deshalb beim Wechsel des Layouts nicht neu.
-   Der Browser bindet sie im Kopf der Seite ein (App.razor). *@
-<RadzenTheme Theme="@Duofy.Shared.Theme.RadzenVariables.LightTheme" />
 
 <Router AppAssembly="typeof(Layout.MainLayout).Assembly" NotFoundPage="typeof(Pages.NotFound)">
     <Found Context="routeData">

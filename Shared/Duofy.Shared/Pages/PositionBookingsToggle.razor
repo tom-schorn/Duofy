@@ -1,0 +1,24 @@
+@using BlazorBlueprint.Icons.Lucide.Components
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Anzahl der Buchungen eines Postens als Knopf in seiner Zeile (Spec 82, R15: "die buchungsanzahl zu einem posten sieht so
+   scheiße aus"). Er klappt den Bereich PositionBookings darunter in voller Breite auf und zu. *@
+<button type="button" class="position-bookings-toggle" aria-expanded="@(Open ? "true" : "false")" aria-controls="@PanelId"
+        aria-label="@($"{PositionBookings.CountText(L, Count)}: {Label}")" data-testid="@TestId" @onclick="() => OnToggle.InvokeAsync()">
+    <span>@PositionBookings.CountText(L, Count)</span>
+    <LucideIcon Name="@(Open ? "chevron-up" : "chevron-down")" Size="14" aria-hidden="true" />
+</button>
+
+@code {
+    [Parameter, EditorRequired] public int Count { get; set; }
+
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+
+    [Parameter, EditorRequired] public string PanelId { get; set; } = "";
+
+    [Parameter] public bool Open { get; set; }
+
+    [Parameter] public string? TestId { get; set; }
+
+    [Parameter] public EventCallback OnToggle { get; set; }
+}

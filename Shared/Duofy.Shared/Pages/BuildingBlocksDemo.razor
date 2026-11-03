@@ -1,24 +1,22 @@
 @page "/bausteine"
-@using Radzen
-@using Radzen.Blazor
 @inject IServiceProvider Services
 @inject NavigationManager Navigation
 
 @* Die Testseite der Bausteine (Spec 6): alle Bausteine hell und dunkel nebeneinander.
    Nur im Entwicklungsbetrieb da. Ohne Meldung des Hosts (Produktion, App) zeigt sie nichts
    und die Adresse gilt als nicht gefunden (der Web-Host antwortet dann 404, siehe Web-Test).
-   Der dunkle Teil setzt die Palette des Themes als Variablen; so zeigt eine Seite beide Modi. *@
+   Der dunkle Teil trägt die Klasse dark; so zeigt eine Seite beide Modi. *@
 
 @if (IsDevelopment)
 {
     <PageTitle>@Heading</PageTitle>
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" Class="rz-mb-4">@Heading</RadzenText>
+    <h1 class="page-title mb-4">@Heading</h1>
 
     <div class="blocks-panels">
-        <section class="blocks-panel" data-testid="blocks-panel-light" style="@PanelStyle(RadzenVariables.Light)" aria-label="@LightName">
+        <section class="blocks-panel" data-testid="blocks-panel-light" aria-label="@LightName">
             @Panel()
         </section>
-        <section class="blocks-panel" data-testid="blocks-panel-dark" style="@PanelStyle(RadzenVariables.Dark)" aria-label="@DarkName">
+        <section class="blocks-panel dark" data-testid="blocks-panel-dark" aria-label="@DarkName">
             @Panel()
         </section>
     </div>
@@ -47,14 +45,10 @@ else
 
     private static readonly LineTableRow[] Rows = [new("Miete", 850m), new("Strom", 62.4m), new("Internet", 39.99m)];
 
-    // Die Werte eines Modus als CSS-Variablen, wie RadzenVariables sie für das aktive Theme schreibt.
-    private static string PanelStyle(IReadOnlyDictionary<string, string> values) =>
-        string.Join("; ", values.Select(v => $"{v.Key}: {v.Value}"));
-
     private RenderFragment Panel() => @<text>
-        <ColorBlock Variant="BlockVariant.Income" Title="Einnahmen" Amount="3200m" />
-        <ColorBlock Variant="BlockVariant.Fixed" Title="Festes" Amount="952.39m" />
-        <ColorBlock Variant="BlockVariant.Free" Title="Frei" Amount="2247.61m" />
+        <Metric Title="Einnahmen" Amount="3200m" />
+        <Metric Title="Anstehend" Amount="952.39m" />
+        <Metric Title="Verplanbar" Amount="2247.61m" />
         <LineTable Caption="Feste Kosten" Rows="Rows" />
         <div class="blocks-panel-buttons">
             <DuofyButton Kind="ButtonKind.Primary">Speichern</DuofyButton>

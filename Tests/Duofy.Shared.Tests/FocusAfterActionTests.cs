@@ -2,7 +2,6 @@ using Bunit;
 using Duofy.Shared.Layout;
 using Duofy.Shared.Services;
 using Microsoft.AspNetCore.Components;
-using Radzen;
 
 namespace Duofy.Shared.Tests;
 

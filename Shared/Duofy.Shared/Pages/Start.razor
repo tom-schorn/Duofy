@@ -1,6 +1,5 @@
 @page "/"
-@using Radzen
-@using Radzen.Blazor
+@using BlazorBlueprint.Components
 @attribute [Authorize]
 @using System.Globalization
 @using Duofy.ApiClient
@@ -27,7 +26,7 @@
 
    Die Zahlen sind die der Person, die im Umschalter gewählt ist, oder die des Haushalts (Spec 68, Spec 69).
    [Authorize] heißt: Nur wer angemeldet ist, sieht die Seite; alle anderen schickt der Router zur Anmeldung.
-   Das Plus der App bucht für die Person, deren Zahlen gerade offen sind; ohne deren Freigabe ist es ausgegraut. *@
+   Der Knopf Neue Buchung bucht für die Person, deren Zahlen gerade offen sind; ohne deren Freigabe ist er ausgegraut. *@
 
 <PageTitle>@Brand.Name</PageTitle>
 
@@ -37,12 +36,12 @@
 
 @if (error is not null)
 {
-    <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false">@error</RadzenAlert>
+    <BbAlert Variant="AlertVariant.Danger">@error</BbAlert>
 }
 else if (firstName is not null)
 {
     @* page-wide: Ab 1280 px nutzt die Seite die Breite wie die anderen Hauptseiten (docs/layout.md). *@
-    <div class="page-wide">
+    <div class="stack-lg">
     @if (!SeesPlan)
     {
         <h1 class="start-greeting">@L["Start_Greeting", firstName]</h1>
@@ -70,8 +69,8 @@ else if (firstName is not null)
 
         @if (!Member.IsHousehold)
         {
-            <div class="month-actions" data-testid="start-actions">
-                <DuofyButton Kind="ButtonKind.Primary" Disabled="!CanBook" OnClick="AddBookingAsync"><span data-testid="start-new-booking">@L["Month_ActionBooking"]</span></DuofyButton>
+            <div class="page-actions" data-testid="start-actions">
+                <DuofyButton OnClick="AddBookingAsync" Class="@GrantLock.Class(CanBook)" @attributes="GrantLock.Attributes(CanBook)" TestId="start-new-booking">@L["Month_ActionBooking"]</DuofyButton>
             </div>
         }
 
@@ -97,6 +96,10 @@ else if (firstName is not null)
                     {
                         <TargetActualBar Caption="@L["Plan_Quota", L[$"Pot_{pot.Pot}"], pot.Target, pot.Actual.ToString("0.#", German)]"
                                          Target="pot.Target" Actual="pot.Actual" AsPercent="true" />
+                    }
+                    @if (model.Pots.Any(p => p.OnPlannedIncome))
+                    {
+                        <p class="month-hint" data-testid="quota-on-planned-income">@L["Quota_OnPlannedIncome"]</p>
                     }
                 </div>
             </StartSection>
@@ -176,8 +179,7 @@ else if (firstName is not null)
         builder.CloseElement();
     };
 
-    // In der App ist das Plus der Startseite die neue Buchung (Spec 51, R4). Im Browser sieht niemand den Dienst.
-    protected override void OnInitialized() => Chrome.Set(this, L["Nav_Start"], AddBookingAsync, L["Bookings_Add"]);
+    protected override void OnInitialized() => Chrome.Set(this, L["Nav_Start"]);
 
     // Neue Buchungen entstehen nur im Monat (Spec 51, R3, R4): Die Monatsseite öffnet den Dialog selbst.
     private Task AddBookingAsync()
@@ -196,10 +198,9 @@ else if (firstName is not null)
         Chrome.Release(this);
     }
 
-    // Ein anderes Mitglied oder der Haushalt gewählt: das Plus neu sperren und die Zahlen der neuen Sicht holen.
+    // Ein anderes Mitglied oder der Haushalt gewählt: die Zahlen der neuen Sicht holen.
     private void OnMemberChanged() => _ = InvokeAsync(async () =>
     {
-        Chrome.LockPlus(this, CanBook ? null : GrantLock.ReasonId);
         await LoadAsync();
         StateHasChanged();
     });
@@ -208,7 +209,6 @@ else if (firstName is not null)
     {
         await Member.LoadAsync();
         Member.Changed += OnMemberChanged;
-        Chrome.LockPlus(this, CanBook ? null : GrantLock.ReasonId);
 
         var me = await UserApi.GetMeAsync();
         if (me.Succeeded)

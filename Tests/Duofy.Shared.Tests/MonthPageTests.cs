@@ -8,8 +8,9 @@ using Microsoft.AspNetCore.Components;
 namespace Duofy.Shared.Tests;
 
 /// <summary>
-/// Die Monatsseite /plan/{Jahr}/{Monat} mit den Tabs Übersicht, Plan und Buchungen (Spec 24, A1 bis A13).
-/// Die bisherigen Tests des Monatsplans (A7) stehen in PlanPageTests und den Nachbardateien und öffnen dort zuerst den Tab Plan.
+/// Die Monatsseite /plan/{Jahr}/{Monat} mit den Reitern Plan, Buchungen und Auswertung (Spec 24, Spec 82). Der Reiter
+/// Übersicht ist entfallen: Aktionen im Seitenkopf, Fälliges, Lücke und Quoten in Auswertung, alle Buchungen im Reiter Buchungen.
+/// Die Tests der Posten stehen in PlanPageTests und den Nachbardateien.
 /// "Heute" ist der 21. Oktober 2026.
 /// </summary>
 public class MonthPageTests : PageTestContext
@@ -20,7 +21,7 @@ public class MonthPageTests : PageTestContext
 
     public MonthPageTests()
     {
-        dialogs = RenderRadzenHost();
+        dialogs = RenderDialogHost();
         Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true));
     }
 
@@ -38,8 +39,7 @@ public class MonthPageTests : PageTestContext
     {
         PlanApiFake.Plans[(year, month)] = FakePlanApi.Empty(year, month) with { Positions = positions, Overview = overview };
         var cut = Render<Plan>(p => p.Add(x => x.Year, year).Add(x => x.Month, month));
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-tab-overview']")));
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-overview']")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-metrics']")));
         return cut;
     }
 
@@ -48,32 +48,34 @@ public class MonthPageTests : PageTestContext
     private static bool Selected(IRenderedComponent<Plan> cut, string tab) =>
         cut.Find($"[data-testid='month-tab-{tab}']").GetAttribute("aria-selected") == "true";
 
-    // A1 (R1): Tabs Übersicht, Plan und Buchungen; die Übersicht ist offen. (Die Spec nennt in A1 zwei Tabs, die
-    // Anforderung R1 und der Kunde drei: Buchungen kommt mit A9 dazu.)
+    // A1 (R1), Toms Entscheidung vom 02.11.: kein Reiter Übersicht; der Monat öffnet mit dem Plan.
     [Fact]
-    public void The_month_opens_with_the_tabs_overview_plan_and_bookings_and_the_overview_is_active()
+    public void The_month_opens_with_the_tabs_plan_bookings_and_review_and_the_plan_is_active()
     {
         var cut = Open(2026, 10, Overview());
 
-        Assert.Equal(["Übersicht", "Plan", "Buchungen", "Auswertung"], cut.FindAll("[role='tab']").Select(t => t.TextContent.Trim()));
-        Assert.True(Selected(cut, "overview"));
-        Assert.False(Selected(cut, "plan"));
-        Assert.Empty(cut.FindAll("[data-testid='plan-sums']"));
+        Assert.Equal(["Plan", "Buchungen", "Auswertung"], cut.FindAll("[role='tab']").Select(t => t.TextContent.Trim()));
+        Assert.True(Selected(cut, "plan"));
+        Assert.False(Selected(cut, "bookings"));
+        Assert.Empty(cut.FindAll("[data-testid='month-tab-overview']"));
+        Assert.Empty(cut.FindAll("[data-testid='month-overview']"));
+        Assert.NotEmpty(cut.FindAll("[data-testid='plan-carry-over']"));
+        Assert.Empty(cut.FindAll("[data-testid='month-review']"));
         Assert.Equal("tablist", cut.Find(".month-tabs").GetAttribute("role"));
     }
 
-    // A1 (R1): der gewählte Tab bleibt beim Blättern zwischen den Monaten.
+    // A1 (R1): der gewählte Tab bleibt, wenn die Adresse zu einem anderen Monat wechselt (Spec 82: ohne Pfeile im Monat).
     [Fact]
     public void The_chosen_tab_stays_while_paging_between_months()
     {
         var cut = Open(2026, 10, Overview());
 
-        cut.Find("[data-testid='month-tab-plan']").Click();
-        cut.Find("[data-testid='plan-next']").Click();
+        OpenReviewTab(cut);
+        cut.Render(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 11));
 
-        cut.WaitForAssertion(() => Assert.Contains("November 2026", Text(cut, "plan-month")));
-        Assert.True(Selected(cut, "plan"));
-        Assert.NotEmpty(cut.FindAll("[data-testid='plan-sums']"));
+        cut.WaitForAssertion(() => Assert.Contains("November 2026", Text(cut, "page-title")));
+        Assert.True(Selected(cut, "review"));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-review']")));
     }
 
     [Fact]
@@ -81,23 +83,27 @@ public class MonthPageTests : PageTestContext
     {
         var cut = Open(2026, 10, Overview());
 
-        cut.Find("[data-testid='month-tab-overview']").KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "ArrowRight" });
+        cut.Find("[data-testid='month-tab-plan']").KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "ArrowRight" });
 
-        Assert.True(Selected(cut, "plan"));
+        Assert.True(Selected(cut, "bookings"));
     }
 
-    // A2 (R2)
+    // A10 (Spec 82), A17 (R15): vier Kennzahlen mit den Beträgen der API; Anstehend ist der offene Rest der Posten, der Übertrag
+    // ist die vierte.
     [Fact]
-    public void The_three_blocks_show_income_fixed_and_free()
+    public void The_four_blocks_show_income_allocatable_what_is_still_due_and_the_carry_over()
     {
-        var cut = Open(2026, 10, Overview(3000m, 1200m, 1800m));
+        var cut = Open(2026, 10, Overview(3000m, 1200m, 1800m), FakePlanApi.Position("Strom", 80m, booked: 30m));
 
         Assert.Contains("Einnahmen", Text(cut, "month-block-income"));
         Assert.Contains("3.000,00 €", Text(cut, "month-block-income"));
-        Assert.Contains("Festes", Text(cut, "month-block-fixed"));
-        Assert.Contains("1.200,00 €", Text(cut, "month-block-fixed"));
-        Assert.Contains("Frei", Text(cut, "month-block-free"));
+        Assert.Contains("Verplanbar", Text(cut, "month-block-free"));
         Assert.Contains("1.800,00 €", Text(cut, "month-block-free"));
+        Assert.Contains("Anstehend", Text(cut, "month-block-unpaid"));
+        Assert.Contains("50,00 €", Text(cut, "month-block-unpaid"));
+        Assert.Equal(4, cut.Find("[data-testid='month-metrics']").Children.Length);
+        Assert.Contains("Übertrag", Text(cut, "plan-carry-over"));
+        Assert.All(cut.Find("[data-testid='month-metrics']").Children, block => Assert.NotNull(block.QuerySelector(".metric")));
     }
 
     // A6 (R6)
@@ -110,57 +116,89 @@ public class MonthPageTests : PageTestContext
         Assert.DoesNotContain("0,00", Text(cut, "month-block-free"));
     }
 
-    // A3 (R3)
+    // A3 (R3); Tom, 03.11.2026: Ziel und Ist je Topf stehen in der Legende des Topf-Diagramms, nicht als eigene Balken, und
+    // unter der Auswertung steht kein Textkasten mit Summen mehr.
     [Fact]
-    public void The_target_actual_bar_of_a_pot_shows_the_actual_percent_as_text()
+    public void The_pot_chart_legend_shows_target_and_actual_of_each_pot_and_there_is_no_sums_box()
     {
         var plan = FakePlanApi.Empty(2026, 10) with
         {
             Quotas = [new PlanQuotaResponse(PotKeys.Needs, 50, 60m), new PlanQuotaResponse(PotKeys.Wants, 30, 10m), new PlanQuotaResponse(PotKeys.Savings, 20, 0m)],
             Overview = Overview(),
+            BookedIncome = 1000m,
         };
         PlanApiFake.Plans[(2026, 10)] = plan;
         var cut = Render<Plan>(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 10));
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-pot-needs']")));
+        OpenReviewTab(cut);
 
-        Assert.Contains("Grundbedarf: Ziel 50 %, Ist 60 %", Text(cut, "month-pot-needs"));
-        Assert.Contains("Wünsche: Ziel 30 %, Ist 10 %", Text(cut, "month-pot-wants"));
-        Assert.NotEmpty(cut.Find("[data-testid='month-pot-needs']").QuerySelectorAll(".chart-target-bar"));
+        var head = cut.FindAll("[data-testid='month-review-pots-chart'] thead th").Select(th => th.TextContent.Trim()).ToList();
+        Assert.Equal(["Bezeichnung", "Geplant", "Gebucht", "Ziel", "Ist"], head);
+        var needs = cut.FindAll("[data-testid='month-review-pots-chart-row-needs'] td").Select(td => td.TextContent.Trim()).ToList();
+        Assert.Equal(["50 %", "60 %"], needs[^2..]);
+        var wants = cut.FindAll("[data-testid='month-review-pots-chart-row-wants'] td").Select(td => td.TextContent.Trim()).ToList();
+        Assert.Equal(["30 %", "10 %"], wants[^2..]);
+        Assert.Empty(cut.FindAll("[data-testid='month-pots'], [data-testid='plan-sums'], [data-testid='month-review'] .chart-target-bar"));
     }
 
-    // A4 (R4)
+    // A4 (R4), seit Spec 82 R14 im runden Diagramm: je Topf geplant und gebucht in Euro, ohne Alarmfarbe.
     [Fact]
-    public void The_gap_chart_shows_planned_against_actual_in_euro_without_an_alarm_colour()
+    public void The_pot_chart_shows_planned_against_booked_in_euro_without_an_alarm_colour()
     {
         var cut = Open(2026, 10, Overview(pots: [
             new PlanPotResponse(PotKeys.Needs, 1000m, 1200m),
             new PlanPotResponse(PotKeys.Wants, 100m, 40m),
             new PlanPotResponse(PotKeys.Savings, 200m, 200m)]));
+        OpenReviewTab(cut);
 
-        var gap = Text(cut, "month-gap");
-        Assert.Contains("Grundbedarf, mehr als geplant", gap);
-        Assert.Contains("200,00 €", gap);
-        Assert.Contains("Wünsche, weniger als geplant", gap);
-        Assert.Contains("60,00 €", gap);
-        Assert.Contains("Sparen, wie geplant", gap);
-        var markup = cut.Find("[data-testid='month-gap']").InnerHtml;
+        var rows = cut.FindAll("[data-testid='month-review-pots-chart'] .donut-legend tbody tr")
+            .Select(r => string.Join(" ", r.Children.Take(3).Select(c => c.TextContent.Trim()))).ToList();
+        Assert.Equal(["Grundbedarf 1.000,00 € 1.200,00 €", "Wünsche 100,00 € 40,00 €", "Sparen 200,00 € 200,00 €"], rows);
+        var markup = cut.Find("[data-testid='month-review-pots-chart']").InnerHtml;
+        Assert.DoesNotContain("over", markup, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("error", markup, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("danger", markup, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("warning", markup, StringComparison.OrdinalIgnoreCase);
     }
 
-    // A10 (R10)
+    // Tom, 03.11.2026: In der Auswertung stehen alle Konten der Person, getrennt nach verfügbar und zurückgelegt, mit Summe.
     [Fact]
-    public void The_overview_lists_only_the_five_newest_of_seven_bookings_with_date_and_amount()
+    public void The_review_lists_the_accounts_split_into_available_and_reserved_with_a_total()
+    {
+        var giro = new AccountResponse(Guid.NewGuid(), "Girokonto", "checking", 0m, new DateOnly(2026, 1, 1), true, null, true, true, 812.40m);
+        var cash = new AccountResponse(Guid.NewGuid(), "Bargeld", "cash", 0m, new DateOnly(2026, 1, 1), true, null, false, true, 60m);
+        var reserve = new AccountResponse(Guid.NewGuid(), "Rücklage", "savings", 0m, new DateOnly(2026, 1, 1), false, null, false, true, 2500m);
+        AccountApiFake.Accounts.AddRange([giro, cash, reserve]);
+        var cut = Open(2026, 10, Overview());
+        OpenReviewTab(cut);
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-accounts']")));
+
+        var available = Text(cut, "month-accounts-group-available");
+        Assert.Contains("Girokonto", available);
+        Assert.Contains("812,40 €", available);
+        Assert.Contains("Bargeld", available);
+        Assert.Contains("872,40 €", available);
+        var reserved = Text(cut, "month-accounts-group-reserved");
+        Assert.Contains("Rücklage", reserved);
+        Assert.Contains("Sparkonto", reserved);
+        Assert.DoesNotContain("Girokonto", reserved);
+        Assert.Contains("3.372,40 €", Text(cut, "month-accounts-total"));
+    }
+
+    // Toms Entscheidung vom 02.11.: Die Liste der fünf neuesten fällt mit der Übersicht weg, der Reiter Buchungen zeigt alle.
+    [Fact]
+    public void The_bookings_tab_lists_all_seven_bookings_newest_first_with_date_and_amount()
     {
         var bookings = Enumerable.Range(1, 7).Select(d => Booking(new DateOnly(2026, 10, d), d * 10m, 2026, 10)).Reverse().ToArray();
         var cut = Open(2026, 10, Overview(bookings: bookings));
 
-        var rows = cut.FindAll("[data-testid^='month-recent-'][data-testid!='month-recent-empty']");
-        Assert.Equal(5, rows.Count);
+        OpenBookingsTab(cut);
+
+        var rows = cut.FindAll("[data-testid='month-bookings'] tr[data-testid^='month-booking-']");
+        Assert.Equal(7, rows.Count);
         Assert.Contains("07.10.2026", rows[0].TextContent);
         Assert.Contains("70,00 €", rows[0].TextContent);
-        Assert.Contains("03.10.2026", rows[4].TextContent);
+        Assert.Contains("01.10.2026", rows[6].TextContent);
+        Assert.Contains("· 7", Text(cut, "month-tab-bookings"));
     }
 
     // A11 (R11)
@@ -170,6 +208,7 @@ public class MonthPageTests : PageTestContext
         var soon = FakePlanApi.Position("Strom", 80m, day: 23);
         var late = FakePlanApi.Position("Miete", 890m, day: 18);
         var cut = Open(2026, 10, Overview(), soon, late);
+        OpenReviewTab(cut);
 
         var due = Text(cut, "month-due");
         Assert.Contains("Strom", due);
@@ -181,19 +220,19 @@ public class MonthPageTests : PageTestContext
         Assert.Contains("anstehend", Text(cut, "month-due-item-upcoming"));
     }
 
-    // A12 (R12)
+    // Toms Entscheidung vom 02.11.: Die Aktionen stehen im Seitenkopf. "Posten abhaken" entfällt, das Kästchen steht direkt am Posten.
     [Fact]
-    public void The_quick_actions_are_new_booking_new_position_and_tick_a_position()
+    public void The_page_head_offers_new_booking_and_new_position()
     {
         var cut = Open(2026, 10, Overview());
 
-        Assert.Equal("Neue Buchung", Text(cut, "month-action-booking").Trim());
-        Assert.Equal("Neuer Posten", Text(cut, "month-action-position").Trim());
-        Assert.Equal("Posten abhaken", Text(cut, "month-action-tick").Trim());
+        Assert.Equal("Buchung anlegen", Text(cut, "month-action-booking").Trim());
+        Assert.Equal("Posten anlegen", Text(cut, "plan-add").Trim());
+        Assert.Empty(cut.FindAll("[data-testid='month-action-tick']"));
     }
 
     [Fact]
-    public void New_booking_and_new_position_open_their_dialogs_and_tick_leads_to_the_plan_tab()
+    public void New_booking_opens_its_dialog_and_cancelling_leaves_the_month_as_it_is()
     {
         var cut = Open(2026, 10, Overview());
 
@@ -201,9 +240,8 @@ public class MonthPageTests : PageTestContext
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll(".step-dialog")));
         dialogs.Find("[data-testid='step-dialog-cancel']").Click();
 
-        cut.Find("[data-testid='month-action-tick']").Click();
+        dialogs.WaitForAssertion(() => Assert.Empty(dialogs.FindAll(".step-dialog")));
         Assert.True(Selected(cut, "plan"));
-        Assert.NotEmpty(cut.FindAll("[data-testid='plan-sums']"));
     }
 
     // Fund S2: /plan/2026/12 am 21. Oktober bot bisher nur September bis November an.
@@ -226,26 +264,76 @@ public class MonthPageTests : PageTestContext
     {
         var cut = Open(2026, 10, Overview());
 
-        cut.Find("[data-testid='month-action-position']").Click();
+        cut.Find("[data-testid='plan-add']").Click();
 
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='position-label']")));
     }
 
-    // A5 (R5)
+    // A5 (R5), A10 (Spec 82), A20 (R17): Posten nach Töpfen mit Betrag und Kästchen; was ohne Posten gebucht ist, steht in der
+    // eigenen Zeile Ungeplant außerhalb der Töpfe, und die Summe eines Topfs ist sein Geplantes wie in der Übersicht.
     [Fact]
-    public void The_plan_tab_groups_positions_by_pot_in_line_tables_and_they_can_be_ticked()
+    public void The_plan_tab_groups_positions_by_pot_with_amount_tick_box_and_unplanned_line()
     {
         var rent = FakePlanApi.Position("Miete", 890m);
         var fun = FakePlanApi.Position("Streaming", 12.99m, PotKeys.Wants);
-        var cut = Open(2026, 10, Overview(), rent, fun);
-
-        cut.Find("[data-testid='month-tab-plan']").Click();
+        var loose = new BookingResponse(Guid.NewGuid(), BookingKinds.Expense, Guid.NewGuid(), null, new DateOnly(2026, 10, 3), 45m, null,
+            [new BookingLineResponse(Guid.NewGuid(), 45m, PotKeys.Wants, FakeCategoryApi.Restaurant.Id)], 2026, 10);
+        var cut = Open(2026, 10, Overview(pots: [new PlanPotResponse(PotKeys.Needs, 890m, 0m), new PlanPotResponse(PotKeys.Wants, 12.99m, 45m), new PlanPotResponse(PotKeys.Savings, 0m, 0m)], bookings: loose), rent, fun);
 
         Assert.Equal(["Grundbedarf", "Wünsche"], cut.FindAll("[data-testid^='plan-group-']").Select(g => g.TextContent.Trim()));
-        Assert.Equal(2, cut.FindAll("table.line-table").Count);
-        Assert.NotEmpty(cut.Find("table.line-table").QuerySelectorAll($"[data-testid='plan-tick-{rent.Id}']"));
-        Field(cut, $"plan-tick-{rent.Id}").Change(true);
+        var needs = cut.Find($"[data-testid='pot-section-{PotKeys.Needs}']");
+        Assert.NotNull(needs.QuerySelector($"[data-testid='plan-tick-{rent.Id}']"));
+        Assert.Contains("890,00 €", needs.QuerySelector($"[data-testid='plan-amounts-{rent.Id}']")!.TextContent);
+        var wants = cut.Find($"[data-testid='pot-section-{PotKeys.Wants}']");
+        Assert.Contains("12,99 €", wants.QuerySelector($"[data-testid='plan-amounts-{fun.Id}']")!.TextContent);
+        Assert.Null(wants.QuerySelector("[data-testid='plan-unplanned']"));
+        var unplanned = cut.Find("[data-testid='plan-unplanned']").TextContent;
+        Assert.Contains("45,00 €", unplanned);
+        Assert.Contains("Wünsche 45,00 €", unplanned);
+        Assert.Contains("12,99 €", Text(cut, $"pot-sum-{PotKeys.Wants}"));
+        Assert.DoesNotContain("57,99", Text(cut, $"pot-sum-{PotKeys.Wants}"));
+
+        // Tom, 03.11.2026: Den Sankey gibt es nirgends mehr, weder im Plan noch in der Auswertung.
+        Assert.Empty(cut.FindAll(".flow-chart, [data-testid='month-flow']"));
+        OpenReviewTab(cut);
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-review']")));
+        Assert.Empty(cut.FindAll(".flow-chart, [data-testid='month-flow']"));
+    }
+
+    // A11 (Spec 82): Das Kästchen öffnet den Dialog mit Datum und Betrag; erst die Bestätigung bucht, und zwar genau einmal.
+    [Fact]
+    public void The_tick_box_opens_a_dialog_with_date_and_amount_and_confirming_books_exactly_once()
+    {
+        var rent = FakePlanApi.Position("Miete", 890m);
+        var cut = Open(2026, 10, Overview(), rent);
+
+        cut.Find($"[data-testid='plan-tick-{rent.Id}']").Click();
+
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='tick-save']")));
+        Assert.Empty(PlanApiFake.Ticks);
+        Assert.Equal("2026-10-21", Field(dialogs, "tick-date").GetAttribute("value"));
+        Assert.Equal("890,00", Field(dialogs, "tick-amount").GetAttribute("value"));
+
+        dialogs.Find("[data-testid='tick-save']").Click();
+
         cut.WaitForAssertion(() => Assert.Equal(rent.Id, Assert.Single(PlanApiFake.Ticks).Id));
+        Assert.Equal(890m, PlanApiFake.Ticks[0].Request.Amount);
+    }
+
+    // A11: Abbrechen bucht nichts, und das Kästchen bleibt leer.
+    [Fact]
+    public void Cancelling_the_tick_dialog_books_nothing_and_leaves_the_box_empty()
+    {
+        var rent = FakePlanApi.Position("Miete", 890m);
+        var cut = Open(2026, 10, Overview(), rent);
+
+        cut.Find($"[data-testid='plan-tick-{rent.Id}']").Click();
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='tick-cancel']")));
+        dialogs.Find("[data-testid='tick-cancel']").Click();
+
+        dialogs.WaitForAssertion(() => Assert.Empty(dialogs.FindAll("[data-testid='tick-cancel']")));
+        Assert.Empty(PlanApiFake.Ticks);
+        Assert.Equal("false", cut.Find($"[data-testid='plan-tick-{rent.Id}']").GetAttribute("aria-checked"));
     }
 
     // A9 (R8)
@@ -255,7 +343,7 @@ public class MonthPageTests : PageTestContext
         var assigned = Booking(new DateOnly(2026, 11, 20), 45m, 2026, 12);
         var cut = Open(2026, 12, Overview(bookings: assigned));
 
-        cut.Find("[data-testid='month-tab-bookings']").Click();
+        OpenBookingsTab(cut);
 
         var row = Text(cut, $"month-booking-{assigned.Id}");
         Assert.Contains("20.11.2026", row);
@@ -263,10 +351,10 @@ public class MonthPageTests : PageTestContext
         Assert.Contains("Datum im November", Text(cut, $"month-booking-other-{assigned.Id}"));
 
         PlanApiFake.Plans[(2026, 11)] = FakePlanApi.Empty(2026, 11) with { Overview = Overview() };
-        cut.Find("[data-testid='plan-previous']").Click();
-        cut.WaitForAssertion(() => Assert.Contains("November 2026", Text(cut, "plan-month")));
+        cut.Render(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 11));
+        cut.WaitForAssertion(() => Assert.Contains("November 2026", Text(cut, "page-title")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-bookings-empty']")));
         Assert.Empty(cut.FindAll($"[data-testid='month-booking-{assigned.Id}']"));
-        Assert.NotEmpty(cut.FindAll("[data-testid='month-bookings-empty']"));
     }
 
     [Fact]
@@ -275,34 +363,47 @@ public class MonthPageTests : PageTestContext
         var plain = Booking(new DateOnly(2026, 10, 5), 12m, 2026, 10) with { AccountId = Accounts.Accounts[0].Id };
         var cut = Open(2026, 10, Overview(bookings: plain));
 
-        cut.Find("[data-testid='month-tab-bookings']").Click();
+        OpenBookingsTab(cut);
 
         Assert.Empty(cut.FindAll($"[data-testid='month-booking-other-{plain.Id}']"));
         Assert.Contains("Girokonto", Text(cut, $"month-booking-{plain.Id}"));
     }
 
-    // A8 (R7): Blöcke untereinander auf dem Handy, ab 600 px nebeneinander.
+    // A8 (R7), seit Spec 82 R12: Die Kennzahlen stehen nebeneinander; am Handy als waagerecht wischbare Reihe statt untereinander.
     [Fact]
-    public void The_blocks_stand_side_by_side_from_600_px_and_below_each_other_under_it()
+    public void The_blocks_stand_side_by_side_and_swipe_sideways_on_phones()
     {
-        var css = File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "wwwroot", "app.css"));
-        var start = css.IndexOf("/* Monatsseite (Spec 24)", StringComparison.Ordinal);
-        Assert.True(start >= 0, "Abschnitt 'Monatsseite (Spec 24)' fehlt in app.css");
-        var section = css[start..].Replace("\r\n", "\n");
+        var css = File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "wwwroot", "duofy.css")).Replace("\r\n", "\n");
 
-        var basic = section[section.IndexOf(".month-blocks {", StringComparison.Ordinal)..];
-        basic = basic[..basic.IndexOf('}')];
-        Assert.Contains("grid-template-columns: 1fr", basic);
+        var basic = css[css.IndexOf(".metrics {", StringComparison.Ordinal)..];
+        // A17 (R15): vier gleich breite Spalten; gleich hoch, weil jede Kennzahl ihre Zelle füllt.
+        Assert.Contains("repeat(4, minmax(0, 1fr))", basic[..basic.IndexOf('}')]);
+        Assert.Contains(".metrics > * > .metric { flex: 1 1 auto; }", css);
 
-        var media = section[section.IndexOf("@media (min-width: 600px)", StringComparison.Ordinal)..];
-        media = media[..(media.IndexOf("\n}\n", StringComparison.Ordinal) + 3)];
-        Assert.Contains(".month-blocks", media);
-        Assert.Contains("repeat(3, 1fr)", media);
+        var phone = css[css.IndexOf("@media (max-width: 767px) {\n    .narrow-only", StringComparison.Ordinal)..];
+        var row = phone[phone.IndexOf("    .metrics {", StringComparison.Ordinal)..];
+        row = row[..row.IndexOf('}')];
+        Assert.Contains("display: flex", row);
+        Assert.Contains("overflow-x: auto", row);
+        Assert.Contains("scroll-snap-type: x mandatory", row);
+    }
+
+    // Spec 82, R12: Am Handy bleibt "Buchung anlegen" der Hauptknopf; Posten anlegen und Drucken stehen im Menü.
+    [Fact]
+    public void On_phones_the_month_has_one_main_button_and_a_menu()
+    {
+        var cut = Open(2026, 10, Overview());
+
+        Assert.DoesNotContain("wide-only", cut.Find("[data-testid='month-action-booking']").ClassList);
+        Assert.Contains("wide-only", cut.Find("[data-testid='plan-add']").ClassList);
+        Assert.Contains("wide-only", cut.Find("[data-testid='plan-print']").ClassList);
+        Assert.Equal("Weitere Aktionen", cut.Find("[data-testid='page-more']").GetAttribute("aria-label"));
+        Assert.NotNull(cut.Find("[data-testid='page-more']").Closest(".narrow-only"));
     }
 
     // A13 (R9): Haushalt, nur lesend.
     [Fact]
-    public async Task The_household_overview_shows_blocks_gaps_recent_bookings_and_due_payments_without_actions()
+    public async Task The_household_month_shows_blocks_gaps_bookings_and_due_payments_without_actions()
     {
         var household = new HouseholdResponse(Guid.NewGuid(), "Haushalt von Anna", 50, 30, 20,
             [FakeHouseholdApi.Anna(isMe: true), FakeHouseholdApi.Ben()]);
@@ -324,18 +425,21 @@ public class MonthPageTests : PageTestContext
         Member.ChooseHousehold();
 
         var cut = Render<Plan>(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 10));
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-overview']")));
+        OpenReviewTab(cut);
 
         Assert.Contains("3.000,00 €", Text(cut, "month-block-income"));
-        Assert.Contains("1.200,00 €", Text(cut, "month-block-fixed"));
         Assert.Contains("1.800,00 €", Text(cut, "month-block-free"));
-        Assert.Contains("200,00 €", Text(cut, "month-gap"));
-        Assert.Contains("Ben", Text(cut, $"month-recent-{fromBen.Id}"));
-        Assert.Contains("Anna", Text(cut, $"month-recent-{fromAnna.Id}"));
+        Assert.Contains("1.200,00 €", Text(cut, "month-review-plan-vs-actual"));
+        Assert.NotEmpty(cut.FindAll("[data-testid='month-curve']"));
         Assert.Contains("Miete", Text(cut, "month-due-item-overdue"));
         Assert.Contains("Strom", Text(cut, "month-due-item-upcoming"));
-        Assert.Empty(cut.FindAll("[data-testid='month-actions']"));
         Assert.Empty(cut.FindAll("[data-testid^='month-action-']"));
+        Assert.Empty(cut.FindAll("[data-testid='plan-add']"));
+
+        OpenBookingsTab(cut);
+
+        Assert.Contains("Ben", Text(cut, $"month-booking-{fromBen.Id}"));
+        Assert.Contains("Anna", Text(cut, $"month-booking-{fromAnna.Id}"));
     }
 
     // Spec 66, R9: Der Text am Frei-Betrag sagt, dass der Übertrag enthalten ist, sobald einer da ist.
@@ -376,15 +480,15 @@ public class MonthPageTests : PageTestContext
         Member.ChooseHousehold();
 
         var cut = Render<Plan>(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 11));
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-overview']")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-metrics']")));
 
         Assert.Contains("Enthält Übertrag: 100,00 €", Text(cut, "month-block-free"));
         Assert.Contains("Ein möglicher Übertrag von Anna ist nicht enthalten.", Text(cut, "month-block-free"));
     }
 
-    // Spec 66, R9: Der Übertrag ist keine Buchung, sondern eine eigene Zeile in allen drei Tabs.
+    // Spec 66, R9: Der Übertrag ist keine Buchung, sondern eine eigene Zeile in den Reitern Plan und Buchungen.
     [Fact]
-    public void Overview_bookings_tab_and_plan_tab_show_the_carry_overs_as_their_own_lines()
+    public void Bookings_tab_and_plan_tab_show_the_carry_overs_as_their_own_lines()
     {
         var overview = Overview() with
         {
@@ -396,21 +500,15 @@ public class MonthPageTests : PageTestContext
         };
 
         var cut = Open(2026, 10, overview);
+        OpenBookingsTab(cut);
 
         Assert.Contains("Übertrag aus September", Text(cut, "month-carry-over-in"));
         Assert.Contains("230,00 €", Text(cut, "month-carry-over-in"));
         Assert.Contains("Übertrag nach November", Text(cut, "month-carry-over-out"));
         Assert.Contains("150,00 €", Text(cut, "month-carry-over-out"));
-        Assert.Contains("Übertrag aus September", Text(cut, "month-recent"));
-        Assert.Empty(cut.FindAll("[data-testid='month-recent-empty']"));
-
-        cut.Find("[data-testid='month-tab-bookings']").Click();
-
-        cut.WaitForAssertion(() => Assert.Contains("Übertrag nach November", Text(cut, "month-bookings")));
-        Assert.Contains("Übertrag aus September", Text(cut, "month-bookings"));
         Assert.Empty(cut.FindAll("[data-testid='month-bookings-empty']"));
 
-        cut.Find("[data-testid='month-tab-plan']").Click();
+        OpenPlanTab(cut);
 
         cut.WaitForAssertion(() => Assert.Contains("Übertrag nach November", Text(cut, "plan-carry-over")));
         Assert.Contains("Übertrag aus September", Text(cut, "plan-carry-over"));
@@ -442,12 +540,8 @@ public class MonthPageTests : PageTestContext
     {
         var cut = await OpenHouseholdAsync([], [], [new PlanCarryOverLineResponse(CarryOverDirections.Out, 2026, 11, 230m, "Anna")]);
 
-        Assert.Contains("Übertrag nach November", Text(cut, "month-recent"));
+        Assert.Contains("Übertrag nach November", Text(cut, "month-bookings"));
         Assert.Contains("Anna", Text(cut, "month-carry-over-out"));
-
-        cut.Find("[data-testid='month-tab-bookings']").Click();
-
-        cut.WaitForAssertion(() => Assert.Contains("Übertrag nach November", Text(cut, "month-bookings")));
 
         cut.Find("[data-testid='month-tab-plan']").Click();
 
@@ -469,38 +563,39 @@ public class MonthPageTests : PageTestContext
         await Member.LoadAsync();
         Member.ChooseHousehold();
         var cut = Render<Plan>(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 10));
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-recent']")));
+        OpenBookingsTab(cut);
         return cut;
     }
 
-    // Fund S6: "noch keine Buchungen" wäre falsch, wenn Buchungen nur nicht freigegeben sind.
+    // Fund S6, Spec 46, A8: "noch keine Buchungen" wäre falsch, wenn Buchungen nur nicht freigegeben sind.
     [Fact]
-    public async Task The_household_overview_names_missing_members_instead_of_saying_there_are_no_bookings()
+    public async Task The_household_bookings_name_missing_members_instead_of_saying_there_are_no_bookings()
     {
         var cut = await OpenHouseholdAsync([], ["Ben"]);
 
-        Assert.Contains("Nicht freigegebene Buchungen von: Ben", Text(cut, "month-recent"));
-        Assert.Empty(cut.FindAll("[data-testid='month-recent-empty']"));
+        Assert.Contains("Nicht freigegebene Buchungen von: Ben", Text(cut, "month-bookings-missing"));
+        Assert.Empty(cut.FindAll("[data-testid='month-bookings-empty']"));
     }
 
+    // Spec 46, A7: Die sichtbaren Buchungen stehen da, und trotzdem ist genannt, wessen Buchungen fehlen.
     [Fact]
-    public async Task The_household_overview_shows_the_visible_bookings_and_still_names_missing_members()
+    public async Task The_household_bookings_show_the_visible_ones_and_still_name_missing_members()
     {
         var fromAnna = new HouseholdBookingResponse(Guid.NewGuid(), new DateOnly(2026, 10, 12), 40m, 2026, 10, FakeHouseholdApi.AnnaId, "Anna");
 
         var cut = await OpenHouseholdAsync([fromAnna], ["Ben"]);
 
-        Assert.Contains("Anna", Text(cut, $"month-recent-{fromAnna.Id}"));
-        Assert.Contains("Nicht freigegebene Buchungen von: Ben", Text(cut, "month-recent"));
+        Assert.Contains("Anna", Text(cut, $"month-booking-{fromAnna.Id}"));
+        Assert.Contains("Nicht freigegebene Buchungen von: Ben", Text(cut, "month-bookings-missing"));
     }
 
     [Fact]
-    public async Task The_household_overview_says_there_are_no_bookings_when_nobody_is_missing()
+    public async Task The_household_bookings_say_there_are_none_when_nobody_is_missing()
     {
         var cut = await OpenHouseholdAsync([], []);
 
-        Assert.Contains("noch keine Buchungen", Text(cut, "month-recent-empty"));
-        Assert.Empty(cut.FindAll("[data-testid='month-recent-missing']"));
+        Assert.Contains("noch keine Buchungen", Text(cut, "month-bookings-empty"));
+        Assert.Empty(cut.FindAll("[data-testid='month-bookings-missing']"));
     }
 
     [Fact]
@@ -526,62 +621,28 @@ public class MonthPageTests : PageTestContext
         Assert.Contains("Nicht freigegebene Buchungen von: Ben", Text(cut, "month-bookings-missing"));
     }
 
-    private async Task<IRenderedComponent<Plan>> OpenHouseholdOverviewAsync(IReadOnlyList<HouseholdBookingResponse> bookings, IReadOnlyList<string> missing)
-    {
-        var household = new HouseholdResponse(Guid.NewGuid(), "Haushalt von Anna", 50, 30, 20,
-            [FakeHouseholdApi.Anna(isMe: true), FakeHouseholdApi.Ben()]);
-        HouseholdApiFake.Household = household;
-        HouseholdApiFake.HouseholdPlans[(2026, 10)] = FakeHouseholdApi.EmptyPlan(household.Id, household.Name, 2026, 10) with
-        {
-            Bookings = bookings,
-            BookingsMissing = missing,
-        };
-        await Member.LoadAsync();
-        Member.ChooseHousehold();
-        var cut = Render<Plan>(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 10));
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-overview']")));
-        return cut;
-    }
 
-    // Spec 46, A7: die letzten Buchungen des Haushalts nennen, wessen Buchungen nicht freigegeben sind.
-    [Fact]
-    public async Task The_household_overview_names_members_whose_recent_bookings_are_not_released()
-    {
-        var fromAnna = new HouseholdBookingResponse(Guid.NewGuid(), new DateOnly(2026, 10, 12), 40m, 2026, 10, FakeHouseholdApi.AnnaId, "Anna");
-
-        var cut = await OpenHouseholdOverviewAsync([fromAnna], ["Ben"]);
-
-        Assert.Contains("Anna", Text(cut, $"month-recent-{fromAnna.Id}"));
-        Assert.Contains("Nicht freigegebene Buchungen von: Ben", Text(cut, "month-recent-missing"));
-    }
-
-    // Spec 46, A8: ohne eine sichtbare Buchung steht nicht da, der Monat habe keine Buchungen.
-    [Fact]
-    public async Task The_household_overview_does_not_claim_an_empty_month_while_bookings_are_not_released()
-    {
-        var cut = await OpenHouseholdOverviewAsync([], ["Ben"]);
-
-        Assert.Contains("Nicht freigegebene Buchungen von: Ben", Text(cut, "month-recent-missing"));
-        Assert.Empty(cut.FindAll("[data-testid='month-recent-empty']"));
-    }
 
     // Spec 46, A9: ohne fehlende Namen und bei einer Person gibt es den Hinweis nicht.
     [Fact]
-    public async Task Without_missing_names_and_for_a_single_person_the_overview_has_no_notice()
+    public async Task Without_missing_names_and_for_a_single_person_the_bookings_have_no_notice()
     {
         var fromAnna = new HouseholdBookingResponse(Guid.NewGuid(), new DateOnly(2026, 10, 12), 40m, 2026, 10, FakeHouseholdApi.AnnaId, "Anna");
-        var household = await OpenHouseholdOverviewAsync([fromAnna], []);
-        var person = Open(2026, 10, Overview());
+        var household = await OpenHouseholdAsync([fromAnna], []);
+        Assert.Empty(household.FindAll("[data-testid='month-bookings-missing']"));
 
-        Assert.Empty(household.FindAll("[data-testid='month-recent-missing']"));
-        Assert.Empty(person.FindAll("[data-testid='month-recent-missing']"));
+        Member.Choose(null);
+        var person = Open(2026, 10, Overview());
+        OpenBookingsTab(person);
+
+        Assert.Empty(person.FindAll("[data-testid='month-bookings-missing']"));
     }
 
     // Spec 51, A6: Die Adresse öffnet den Dialog einmal und räumt sich auf; Zurück öffnet ihn nicht wieder.
     [Fact]
     public void The_address_with_buchen_opens_the_dialog_once_and_clears_itself()
     {
-        var dialogs = RenderRadzenHost();
+        var dialogs = RenderDialogHost();
         Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true));
         PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10) with { Overview = Overview() };
         Navigation.NavigateTo("/plan/2026/10?buchen=1");
@@ -609,10 +670,17 @@ public class MonthPageTests : PageTestContext
             [new BookingLineResponse(Guid.NewGuid(), 3m, PotKeys.Needs, FakeCategoryApi.Groceries.Id)], 2026, 10);
         var cut = Open(2026, 10, Overview(bookings: [fee, first, other]), gez);
 
-        cut.Find("[data-testid='month-tab-plan']").Click();
-
+        // Spec 82, R15: Die Anzahl steht als Knopf in der Zeile; er klappt die Buchungen in voller Breite auf.
+        var toggle = cut.Find($"[data-testid='position-bookings-{gez.Id}-toggle']");
+        Assert.Contains("2 Buchungen", toggle.TextContent);
+        Assert.Equal("false", toggle.GetAttribute("aria-expanded"));
+        Assert.True(cut.Find($"[data-testid='position-bookings-{gez.Id}']").HasAttribute("hidden"));
+        toggle.Click();
+        Assert.Equal("true", cut.Find($"[data-testid='position-bookings-{gez.Id}-toggle']").GetAttribute("aria-expanded"));
         var list = cut.Find($"[data-testid='position-bookings-{gez.Id}']");
-        Assert.Contains("2 Buchungen", list.QuerySelector("summary")!.TextContent);
+        Assert.False(list.HasAttribute("hidden"));
+        Assert.Equal(list.Id, toggle.GetAttribute("aria-controls"));
+        Assert.Null(list.Closest(".list-row"));
         Assert.Contains("18,36", list.QuerySelector($"[data-testid='position-booking-{first.Id}']")!.TextContent);
         var feeRow = list.QuerySelector($"[data-testid='position-booking-{fee.Id}']")!;
         Assert.Contains("5,00", feeRow.TextContent);
@@ -625,11 +693,10 @@ public class MonthPageTests : PageTestContext
     [Fact]
     public void A_position_opens_the_dialog_with_itself_chosen()
     {
-        var dialogs = RenderRadzenHost();
+        var dialogs = RenderDialogHost();
         Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true));
         var salary = FakePlanApi.Position("Gehalt", 2400m, PotKeys.Income);
         var cut = Open(2026, 10, Overview(), salary);
-        cut.Find("[data-testid='month-tab-plan']").Click();
 
         cut.Find($"[data-testid='position-bookings-{salary.Id}-add']").Click();
 
@@ -656,17 +723,26 @@ public class MonthPageTests : PageTestContext
         };
 
         var cut = Open(2026, 10, overview, lebensmittel);
+        OpenBookingsTab(cut);
 
-        cut.WaitForAssertion(() => Assert.Contains("Lebensmittel", cut.Find($"[data-testid='month-recent-{expense.Id}']").TextContent));
-        var row = cut.Find($"[data-testid='month-recent-{expense.Id}']");
+        cut.WaitForAssertion(() => Assert.Contains("Lebensmittel", cut.Find($"[data-testid='month-booking-{expense.Id}']").TextContent));
+        var row = cut.Find($"[data-testid='month-booking-{expense.Id}']");
         Assert.Contains("Ausgabe", row.TextContent);
         Assert.Contains("−50,00", row.TextContent);
         Assert.Contains("Giro", row.TextContent);
-        var plus = cut.Find($"[data-testid='month-recent-{income.Id}']");
+        var plus = cut.Find($"[data-testid='month-booking-{income.Id}']");
         Assert.Contains("Einnahme", plus.TextContent);
         Assert.Contains(FakeCategoryApi.Salary.Name, plus.TextContent);
-        Assert.Contains("+2.400,00", plus.TextContent);
-        var moved = cut.Find($"[data-testid='month-recent-{transfer.Id}']");
+        // A17 (Spec 82, R15): Ausgaben rot mit Minus, Einnahmen ohne Vorzeichen; Spalten Datum, Name, Posten, Konto, Topf, Betrag.
+        Assert.Contains("2.400,00", plus.TextContent);
+        Assert.DoesNotContain("+", plus.TextContent);
+        Assert.DoesNotContain("amount-expense", plus.QuerySelector(".bookings-amount")!.ClassName);
+        Assert.StartsWith("−", row.QuerySelector(".bookings-amount")!.TextContent.Trim());
+        Assert.Contains("amount-expense", row.QuerySelector(".bookings-amount")!.ClassName);
+        Assert.Equal(["Datum", "Name", "Posten", "Konto", "Topf", "Betrag"], cut.FindAll(".bookings-table th").Select(th => th.TextContent.Trim()));
+        Assert.Contains("Lebensmittel", row.QuerySelector(".bookings-position")!.TextContent);
+        Assert.Contains("Ungeplant", plus.QuerySelector(".bookings-position")!.TextContent);
+        var moved = cut.Find($"[data-testid='month-booking-{transfer.Id}']");
         Assert.Contains("Umbuchung", moved.TextContent);
         Assert.Contains("Giro → Spar", moved.TextContent);
         Assert.Contains("Übertrag", cut.Find("[data-testid='month-carry-over-in']").TextContent);

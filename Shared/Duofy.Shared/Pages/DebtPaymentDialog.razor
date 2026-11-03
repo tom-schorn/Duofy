@@ -1,34 +1,26 @@
-@using Radzen
-@using Radzen.Blazor
+@using Duofy.Shared.Dialogs
+@inherits FormDialogBase
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
 @inject IBookingApi BookingApi
 @inject ActiveMember Member
-@inject DialogService Dialogs
 @inject IStringLocalizer<SharedResources> L
-@inject IAppHost Host
 
 @* Der Dialog "Zahlung eintragen" bei einer Schuld oder einem Kredit (Issue 31): Daraus entsteht eine Ausgabe, deren Zeile
    dem Eintrag zugeordnet ist. Was danach noch offen ist, kommt neu von der API. *@
 
 <div>
-    @if (Host.IsApp)
-        {
-            <FullScreenFormHeader Title="@Title" SaveText="@L["DebtPayment_Save"]" SaveTestId="debt-payment-save"
-                                  Busy="busy" OnClose="Cancel" OnSave="SaveAsync" />
-        }
-        <RadzenStack Gap="1rem">
+
+        <div class="stack">
             @if (error is not null)
             {
-                <ErrorAlert AlertStyle="AlertStyle.Base" Text="@error" data-testid="debt-payment-error" />
+                <ErrorAlert Text="@error" data-testid="debt-payment-error" />
             }
 
             <div class="field">
                 <FieldLabel id="debt-payment-amount-label" Text="@L["Field_Amount"]" />
-                <RadzenNumeric TValue="decimal?" @bind-Value="draft.Amount" Culture="German" Format="0.00" ShowUpDown="false"
-                               InputAttributes="@(new Dictionary<string, object> { ["aria-labelledby"] = "debt-payment-amount-label" })"
-                               data-testid="debt-payment-amount" />
+                <MoneyInput aria-labelledby="debt-payment-amount-label" @bind-Value="draft.Amount" data-testid="debt-payment-amount" />
             </div>
 
             <NativeSelect Value="@Key(draft.AccountId)" ValueChanged="OnAccountChanged"
@@ -46,15 +38,13 @@
                 <option value="@PotKeys.Wants">@L["Pot_wants"]</option>
             </NativeSelect>
 
-            @if (!Host.IsApp)
-            {
-                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
-                    <RadzenButton Text="@L["SavingsGoalDialog_Cancel"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Click="@(_ => Cancel())" />
-                    <RadzenButton Text="@L["DebtPayment_Save"]" ButtonStyle="ButtonStyle.Primary" Disabled="busy" Click="@(_ => SaveAsync())"
-                                  data-testid="debt-payment-save" />
-                </RadzenStack>
-            }
-        </RadzenStack>
+
+                <div class="row-end">
+                    <DuofyButton Kind="ButtonKind.Ghost" Text="@L["SavingsGoalDialog_Cancel"]" OnClick="@(_ => Cancel())" />
+                    <DuofyButton Text="@L["DebtPayment_Save"]" OnClick="@(_ => SaveAsync())" TestId="debt-payment-save" Disabled="busy" />
+                </div>
+            
+        </div>
 </div>
 
 @code {
@@ -90,7 +80,7 @@
 
     private void OnPotChanged(string value) => draft.SetPot(value);
 
-    private void Cancel() => Dialogs.Close();
+    private Task Cancel() => CancelAsync();
 
     private async Task SaveAsync()
     {
@@ -112,7 +102,7 @@
             var result = await BookingApi.CreateAsync(draft.ToRequest(owner));
             if (result.Succeeded)
             {
-                Dialogs.Close(true);
+                await CloseAsync(true);
             }
             else
             {

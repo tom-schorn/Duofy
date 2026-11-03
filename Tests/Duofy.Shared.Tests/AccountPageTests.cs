@@ -106,18 +106,18 @@ public class AccountPageTests : PageTestContext
     }
 }
 
-/// <summary>Radzen-Umstellung R22: Die Kontoseite ist in Radzen gebaut, jeder Abschnitt eine Karte mit eigener Meldung.</summary>
-public class AccountPageRadzenTests : PageTestContext
+/// <summary>Die Kontoseite ist aus den Bausteinen gebaut, jeder Abschnitt eine Karte mit eigener Meldung.</summary>
+public class AccountPageBuildTests : PageTestContext
 {
     [Fact]
-    public void The_page_is_built_with_radzen_and_every_section_is_a_card()
+    public void The_page_is_built_from_the_blocks_and_every_section_is_a_card()
     {
         var cut = Render<Account>();
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='account-names']")));
 
         foreach (var section in new[] { "account-names", "account-email", "account-quotas", "account-sessions" })
         {
-            Assert.Contains("rz-card", cut.Find($"[data-testid='{section}']").ClassList);
+            Assert.Contains("card", cut.Find($"[data-testid='{section}']").ClassList);
         }
         // Die Zahlenfelder (Quoten) lassen keine Id am input zu: Ihre Beschriftung hat eine eigene Id, und das Feld verweist per aria-labelledby darauf.
         Assert.Equal(["account-first-name-input", "account-last-name-input", "account-new-email-input", "account-email-password-input",
@@ -153,9 +153,9 @@ public class AccountPageRadzenTests : PageTestContext
 
         Field(cut, "account-names-save").Click();
 
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.Find("[data-testid='account-names']").QuerySelectorAll(".rz-alert")));
-        Assert.Empty(cut.Find("[data-testid='account-quotas']").QuerySelectorAll(".rz-alert"));
-        Assert.Empty(cut.Find("[data-testid='account-sessions']").QuerySelectorAll(".rz-alert"));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.Find("[data-testid='account-names']").QuerySelectorAll("[role='alert']")));
+        Assert.Empty(cut.Find("[data-testid='account-quotas']").QuerySelectorAll("[role='alert']"));
+        Assert.Empty(cut.Find("[data-testid='account-sessions']").QuerySelectorAll("[role='alert']"));
     }
 
     [Fact]
@@ -167,16 +167,16 @@ public class AccountPageRadzenTests : PageTestContext
         var link = cut.Find("a[data-testid='account-delete-link']");
 
         Assert.Equal("/konto/loeschen", link.GetAttribute("href"));
-        Assert.Contains("rz-variant-outlined", link.ClassList);
+        Assert.Contains("duofy-button--secondary", link.ClassList);
     }
 
     [Fact]
-    public void The_sign_out_buttons_are_radzen_buttons()
+    public void The_sign_out_buttons_are_real_buttons()
     {
         var cut = Render<Account>();
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='account-sign-out']")));
 
-        Assert.Contains("rz-button", cut.Find("[data-testid='account-sign-out']").ClassList);
-        Assert.Contains("rz-button", cut.Find("[data-testid='account-sign-out-everywhere']").ClassList);
+        Assert.Contains("duofy-button", cut.Find("[data-testid='account-sign-out']").ClassList);
+        Assert.Contains("duofy-button", cut.Find("[data-testid='account-sign-out-everywhere']").ClassList);
     }
 }

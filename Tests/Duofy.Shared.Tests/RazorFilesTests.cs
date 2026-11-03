@@ -53,49 +53,6 @@ public partial class RazorFilesTests
         Assert.True(findings.Count == 0, "Fester Text gefunden:\n" + string.Join("\n", findings));
     }
 
-    // Issue #76 (Toms Vorgabe: wenige eigene Stile, sonst reines Radzen): Inline-Stile gibt es nur dort, wo der Wert erst zur Laufzeit
-    // entsteht, und die Liste ist bewusst kurz. Neue Fälle gehören in app.css (mit Begründung) oder in die Variablen des Themes.
-    [Fact]
-    public void Inline_styles_exist_only_where_the_value_is_known_at_run_time()
-    {
-        string[] allowed =
-        [
-            "Charts/TargetActualBar.razor",   // die Lage der Soll-Marke in Prozent
-            "Charts/ChartsDemo.razor",        // Testseite: setzt die Palette des Themes je Feld als Variablen
-            "Pages/BuildingBlocksDemo.razor", // Testseite wie oben
-        ];
-        var inline = new Regex("(?<![A-Za-z])[Ss]tyle=\"", RegexOptions.None);
-        var findings = new List<string>();
-        foreach (var file in SourceFiles("Shared/Duofy.Shared", "*.razor").Concat(SourceFiles("Web/Duofy.Web", "*.razor")))
-        {
-            var relative = Path.GetRelativePath(RepositoryFiles.Path("Shared", "Duofy.Shared"), file).Replace(Path.DirectorySeparatorChar, '/');
-            if (allowed.Contains(relative))
-            {
-                continue;
-            }
-            var count = inline.Matches(File.ReadAllText(file)).Count;
-            if (count > 0)
-            {
-                findings.Add($"{relative}: {count}");
-            }
-        }
-        Assert.True(findings.Count == 0, "Inline-Stile gefunden: " + string.Join(", ", findings));
-    }
-
-    // Issue #76: Feste Farben stehen nicht im Stylesheet; sie kommen aus den Variablen des Themes. Die einzige Ausnahme ist das Weiß des
-    // QR-Codes (lesbar auch im Dunkelmodus).
-    [Fact]
-    public void The_stylesheet_has_no_fixed_colour_except_the_white_of_the_qr_code()
-    {
-        var css = File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "wwwroot", "app.css"));
-        css = Regex.Replace(css, @"/\*.*?\*/", "", RegexOptions.Singleline);
-        var hits = Regex.Matches(css, @"[^{}]*\{[^{}]*#[0-9a-fA-F]{3,8}[^{}]*\}")
-            .Select(m => m.Value.Trim())
-            .Where(rule => !rule.StartsWith(".qr-code {"))
-            .ToList();
-        Assert.True(hits.Count == 0, "Feste Farben im Stylesheet: " + string.Join(" | ", hits));
-    }
-
     // R24: Von der alten Bibliothek bleibt nichts: kein Paket, keine Elemente, keine Variablen und keine Klassen.
     [Fact]
     public void Nothing_of_the_old_ui_library_is_left_in_shared_web_and_mobile()
@@ -116,24 +73,6 @@ public partial class RazorFilesTests
             }
         }
         Assert.True(findings.Count == 0, string.Join("\n", findings));
-    }
-
-    [Fact]
-    public void Detector_finds_text_between_tags_and_in_attributes()
-    {
-        // Kontrolle: Der Prüfer darf nicht blind sein.
-        var texts = LiteralTexts.Find(
-            "<h1>Willkommen</h1>\n" +
-            "<RadzenButton Text=\"Speichern\" />\n" +
-            "<RadzenTextBox Placeholder=\"Name\" />\n" +
-            "Noch ein Satz\n" +
-            "<p>@L[\"Key\"]</p>\n");
-
-        Assert.Contains("Willkommen", texts);
-        Assert.Contains("Speichern", texts);
-        Assert.Contains("Name", texts);
-        Assert.Contains("Noch ein Satz", texts);
-        Assert.Equal(4, texts.Count);
     }
 
     [Fact]

@@ -20,14 +20,14 @@ public class PaymentMethodSymbolsTests : PageTestContext
             .Add(x => x.TestId, "pm")
             .Add(x => x.ValueChanged, EventCallback.Factory.Create<string>(this, v => changed?.Invoke(v))));
 
-    private static string AppCss => File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "wwwroot", "app.css"));
+    private static string AppCss => File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "wwwroot", "duofy.css"));
 
     [Fact]
     public void Every_payment_method_has_a_symbol_that_exists_in_the_collection()
     {
         foreach (var method in PaymentMethods.All)
         {
-            Assert.Matches("^[a-z_]+$", PaymentMethodIconSet.SymbolName(method));
+            Assert.Matches("^[a-z0-9-]+$", PaymentMethodIconSet.SymbolName(method));
         }
         Assert.Equal(PaymentMethods.All.Count, PaymentMethods.All.Select(PaymentMethodIconSet.SymbolName).Distinct().Count());
     }
@@ -51,7 +51,7 @@ public class PaymentMethodSymbolsTests : PageTestContext
         Assert.Equal(["Lastschrift", "Dauerauftrag", "Überweisung", "Abhebung", "Sonstiges"],
             options.Select(o => o.QuerySelector(".payment-option-name")!.TextContent.Trim()));
         Assert.Equal(PaymentMethods.All, options.Select(o => o.QuerySelector("[data-icon]")!.GetAttribute("data-icon")));
-        Assert.All(options, o => Assert.NotNull(o.QuerySelector("i.rzi")));
+        Assert.All(options, o => Assert.NotNull(o.QuerySelector("svg")));
         Assert.Single(group.QuerySelectorAll("input[type='radio']").Select(r => r.GetAttribute("name")).Distinct());
     }
 
@@ -85,18 +85,14 @@ public class PaymentMethodSymbolsTests : PageTestContext
     }
 
     [Fact]
-    public void The_style_puts_the_symbol_above_the_text_and_marks_the_chosen_option_not_by_colour_alone_and_shows_the_focus()
+    public void The_style_marks_the_chosen_option_not_by_colour_alone_and_shows_the_focus()
     {
         var css = AppCss;
-        var option = css[css.IndexOf(".payment-option {", StringComparison.Ordinal)..];
-        option = option[..option.IndexOf('}', StringComparison.Ordinal)];
 
-        Assert.Contains("flex-direction: column", option);
         Assert.Contains("overflow-wrap: anywhere", css[css.IndexOf(".payment-option-name", StringComparison.Ordinal)..][..200]);
         var chosen = css[css.IndexOf(".payment-option:has(input:checked) {", StringComparison.Ordinal)..][..200];
         Assert.Contains("font-weight", chosen);
-        Assert.Contains("border: 2px", chosen);
-        Assert.Contains(".payment-option:has(input:checked)::after", css);
-        Assert.Contains(".payment-option:has(input:focus-visible)", css);
+        Assert.Contains("box-shadow: inset", chosen);
+        Assert.Contains(":has(input:focus-visible)", css);
     }
 }

@@ -26,7 +26,7 @@ namespace Duofy
 
             builder.Services.AddMauiBlazorWebView();
 
-            // Radzen, Texte und die Ablage für hell/dunkel aus Duofy.Shared. Die App
+            // Blueprint, Texte und die Ablage für hell/dunkel aus Duofy.Shared. Die App
             // ersetzt danach die Ablage durch eine, die die Preferences des Telefons benutzt.
             // Die Marke (Name und Logo) folgt dem gewählten Server: der gehostete Dienst heißt Plagevo, jeder eigene
             // Server Duofy. Sie steht vor AddDuofyUi, weil dort nur ein Standard eingetragen wird, wenn noch keine da ist.

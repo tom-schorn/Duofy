@@ -1,20 +1,31 @@
-@using Radzen
-@using Radzen.Blazor
-@using Microsoft.JSInterop
+@using BlazorBlueprint.Components
 @using Microsoft.Extensions.Logging
 @inject IJSRuntime JS
 @inject ILogger<Notice> Log
-@* Eine kleine Meldung (Erfolg oder Fehler) über den Feldern eines Abschnitts.
-   Eine eigene Komponente, damit die Kontoseite nicht dreimal dasselbe aufschreibt.
-   [Parameter] sind die Werte, die der Aufrufer hineinreicht: <Notice Message="..." />
+@implements IDisposable
+@* Eine kleine Meldung (Erfolg oder Fehler).
 
-   Eine neue Meldung holt den Fokus zurück, wenn die Aktion ihn verloren hat (focus-notice.js); sonst fiele er auf BODY,
-   und wer mit der Tastatur arbeitet, finge oben auf der Seite von vorn an. *@
+   Ein Erfolg wie "Der Posten ist abgehakt." erscheint als kurze Meldung unten am Bildschirm, die nichts verschiebt und sich
+   nach einigen Sekunden selbst schließt (Spec 82). Ein Vorlese-Programm sagt sie über role="status" an. Fehler und Hinweise
+   bleiben über den Feldern stehen, bis etwas anderes kommt.
 
-@if (Message is not null)
+   Jede neue Meldung holt den Fokus zurück, wenn die Aktion ihn verloren hat (focus-notice.js); sonst fiele er auf BODY, und
+   wer mit der Tastatur arbeitet, finge oben von vorn an. Schließt sich eine Erfolgsmeldung, die den Fokus hat, gibt sie ihn
+   vorher an den Inhalt der Seite weiter. *@
+
+@if (Message is not null && IsToast)
 {
-    <div @ref="box" tabindex="-1" class="rz-mb-2 focus-box" data-testid="notice">
-        <RadzenAlert AlertStyle="Style" Variant="Variant.Flat" AllowClose="false">@Message.Text</RadzenAlert>
+    @if (!ReferenceEquals(Message, closed))
+    {
+        <div @ref="box" tabindex="-1" class="focus-box notice-toast" role="status" data-testid="notice" data-print="hide">
+            <BbAlert Variant="Style">@Message.Text</BbAlert>
+        </div>
+    }
+}
+else if (Message is not null)
+{
+    <div @ref="box" tabindex="-1" class="focus-box notice" data-testid="notice">
+        <BbAlert Variant="Style">@Message.Text</BbAlert>
     </div>
 }
 
@@ -22,15 +33,73 @@
     [Parameter]
     public NoticeMessage? Message { get; set; }
 
+    /// <summary>Wie lange eine Erfolgsmeldung stehen bleibt.</summary>
+    public static readonly TimeSpan ToastDuration = TimeSpan.FromSeconds(5);
+
     private ElementReference box;
     private NoticeMessage? focused;
+    private NoticeMessage? timed;
+    private NoticeMessage? closed;
+    private readonly CancellationTokenSource stop = new();
 
-    private AlertStyle Style => Message!.Severity switch
+    private bool IsToast => Message?.Severity == NoticeSeverity.Success;
+
+    protected override void OnParametersSet()
     {
-        NoticeSeverity.Success => AlertStyle.Success,
-        NoticeSeverity.Error => AlertStyle.Danger,
-        NoticeSeverity.Warning => AlertStyle.Warning,
-        _ => AlertStyle.Info,
+        if (IsToast && !ReferenceEquals(Message, timed))
+        {
+            timed = Message;
+            _ = CloseLaterAsync(Message!);
+        }
+    }
+
+    // Schließt die Erfolgsmeldung nach ToastDuration, wenn bis dahin keine neue gekommen ist.
+    private async Task CloseLaterAsync(NoticeMessage message)
+    {
+        try
+        {
+            await Task.Delay(ToastDuration, stop.Token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+        if (ReferenceEquals(Message, message))
+        {
+            await HandOverFocusAsync();
+            closed = message;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task HandOverFocusAsync()
+    {
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "./_content/Duofy.Shared/focus-notice.js");
+                await module.InvokeVoidAsync("handOver", box, SkipLink.TargetId);
+            });
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException or ObjectDisposedException)
+        {
+            Log.LogWarning(exception, "Der Fokus ließ sich vor dem Schließen der Meldung nicht weitergeben.");
+        }
+    }
+
+    public void Dispose()
+    {
+        stop.Cancel();
+        stop.Dispose();
+    }
+
+    private AlertVariant Style => Message!.Severity switch
+    {
+        NoticeSeverity.Success => AlertVariant.Success,
+        NoticeSeverity.Error => AlertVariant.Danger,
+        NoticeSeverity.Warning => AlertVariant.Warning,
+        _ => AlertVariant.Info,
     };
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

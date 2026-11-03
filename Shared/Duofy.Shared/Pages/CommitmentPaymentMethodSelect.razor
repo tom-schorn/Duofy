@@ -1,5 +1,5 @@
+@using BlazorBlueprint.Icons.Lucide.Components
 @using Duofy.Schemas
-@using Radzen.Blazor
 @using Duofy.Shared.Services
 @inject IStringLocalizer<SharedResources> L
 
@@ -19,7 +19,7 @@
             <label class="payment-option">
                 <input type="radio" name="@group" value="@key" checked="@(Value == key)" @onchange="() => ChooseAsync(key)"
                        data-testid="@($"{TestId}-{key}")" />
-                <span class="payment-icon" data-icon="@key"><RadzenIcon Icon="@PaymentMethodIconSet.SymbolName(key)" aria-hidden="true" /></span>
+                <span class="payment-icon" data-icon="@key"><LucideIcon Name="@PaymentMethodIconSet.SymbolName(key)" Size="16" aria-hidden="true" /></span>
                 <span class="payment-option-name">@L[$"PaymentMethod_{key}"]</span>
             </label>
         }

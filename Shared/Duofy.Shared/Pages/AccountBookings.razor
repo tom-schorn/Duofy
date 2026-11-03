@@ -1,6 +1,4 @@
 @page "/konten/{AccountId:guid}"
-@using Radzen
-@using Radzen.Blazor
 @attribute [Authorize]
 @using System.Globalization
 @using Duofy.ApiClient
@@ -10,7 +8,6 @@
 @inject IAccountChoices AccountChoices
 @implements IDisposable
 @inject FormDialogs Forms
-@inject IAppHost Host
 @inject AppChrome Chrome
 @inject ActiveMember Member
 @inject BookingDialogLauncher Launcher
@@ -32,12 +29,9 @@
 <PageTitle>@Heading</PageTitle>
 
 @* In der App steht der Titel in der oberen Leiste (AppChrome). *@
-<AppPageHeading Text="@Heading" />
-<RadzenLink Path="/konten" Text="@L["Accounts_BackToList"]" Class="plan-back rz-mb-2" data-testid="account-bookings-back" />
-@if (!Host.IsApp)
-{
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" Class="rz-mb-2" data-testid="account-bookings-title">@Heading</RadzenText>
-}
+<a href="/konten" class="plain-link plan-back mb-2" data-testid="account-bookings-back">@L["Accounts_BackToList"]</a>
+<PageHead Title="@Heading" />
+
 
 <Notice Message="message" />
 
@@ -52,34 +46,32 @@ else
 @* Monat und Summen stehen ab 1280 px nebeneinander, darunter untereinander wie bisher. *@
 <div class="bookings-top">
 @* Blättern: ein Pfeil zurück, der Monat, ein Pfeil vor. *@
-<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-2">
-    <RadzenButton Icon="chevron_left" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Click="@(_ => PreviousMonthAsync())"
-                  aria-label="@L["Bookings_PreviousMonth"]" data-testid="bookings-previous-month" />
-    <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" data-testid="bookings-month">@MonthLabel</RadzenText>
-    <RadzenButton Icon="chevron_right" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Click="@(_ => NextMonthAsync())"
-                  aria-label="@L["Bookings_NextMonth"]" data-testid="bookings-next-month" />
-</RadzenStack>
+<div class="row-between mb-2">
+    <DuofyButton Kind="ButtonKind.Ghost" Icon="chevron-left" IconOnly="true" OnClick="@(_ => PreviousMonthAsync())" AriaLabel="@L["Bookings_PreviousMonth"]" TestId="bookings-previous-month" />
+    <h2 class="section-title" data-testid="bookings-month">@MonthLabel</h2>
+    <DuofyButton Kind="ButtonKind.Ghost" Icon="chevron-right" IconOnly="true" OnClick="@(_ => NextMonthAsync())" AriaLabel="@L["Bookings_NextMonth"]" TestId="bookings-next-month" />
+</div>
 
 @* Die Summen des Kontos in diesem Monat. *@
-<RadzenStack Orientation="Orientation.Horizontal" Gap="1.5rem" Class="rz-mb-2">
-    <RadzenCard Variant="Variant.Outlined" Class="flex-grow-1">
-        <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P">@L["Bookings_Income"]</RadzenText>
-        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.P" data-testid="bookings-sum-income">@Money(monthData?.Income ?? 0m)</RadzenText>
-    </RadzenCard>
-    <RadzenCard Variant="Variant.Outlined" Class="flex-grow-1">
-        <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P">@L["Bookings_Expenses"]</RadzenText>
-        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.P" data-testid="bookings-sum-expenses">@Money(monthData?.Expenses ?? 0m)</RadzenText>
-    </RadzenCard>
-</RadzenStack>
+<div class="row mb-2">
+    <div class="card flex-grow-1">
+        <p class="small muted">@L["Bookings_Income"]</p>
+        <p class="section-title" data-testid="bookings-sum-income">@Money(monthData?.Income ?? 0m)</p>
+    </div>
+    <div class="card flex-grow-1">
+        <p class="small muted">@L["Bookings_Expenses"]</p>
+        <p class="section-title" data-testid="bookings-sum-expenses">@Money(monthData?.Expenses ?? 0m)</p>
+    </div>
+</div>
 </div>
 
 @if (monthData is { Bookings.Count: 0 } && loaded)
 {
-    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color">@L["Bookings_Empty"]</RadzenText>
+    <p class="muted">@L["Bookings_Empty"]</p>
 }
 
 @* Die Buchungen, die neueste zuerst. Eine aufgeteilte Buchung steht einmal da, mit ihrer Summe. *@
-<RadzenStack Gap="0.5rem" Class="data-table bookings-table page-wide">
+<div class="stack data-table bookings-table page-wide">
     @if (monthData is { Bookings.Count: > 0 })
     {
         <div class="data-table-head" aria-hidden="true">
@@ -91,35 +83,29 @@ else
     }
     @foreach (var booking in monthData?.Bookings ?? [])
     {
-        <RadzenCard Variant="Variant.Outlined" Class="data-row-frame" data-testid="@($"booking-{booking.Id}")">
-            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem" Class="data-row">
-                <RadzenStack Gap="0" Class="flex-grow-1 data-cells">
-                    <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="data-column-1">@booking.Date.ToString("d", German)</RadzenText>
-                    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="data-column-2"><BookingKindBadge Kind="@booking.Kind" /> @Title(booking)</RadzenText>
+        <div class="card data-row-frame" data-testid="@($"booking-{booking.Id}")">
+            <div class="row data-row">
+                <div class="stack flex-grow-1 data-cells">
+                    <p class="small muted data-column-1">@booking.Date.ToString("d", German)</p>
+                    <p class="data-column-2"><BookingKindBadge Kind="@booking.Kind" /> @Title(booking)</p>
                     <div class="data-column-3">
                         @if (TransferPots(booking) is { } pots)
                         {
-                            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" data-testid="@($"booking-transfer-pots-{booking.Id}")">@pots</RadzenText>
+                            <p class="small muted" data-testid="@($"booking-transfer-pots-{booking.Id}")">@pots</p>
                         }
                         @if (booking.Note is { Length: > 0 })
                         {
-                            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color">@booking.Note</RadzenText>
+                            <p class="small muted">@booking.Note</p>
                         }
                     </div>
-                </RadzenStack>
-                <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.P" Class="data-column-4 data-amount">@SignedMoney(booking)</RadzenText>
-                <RadzenButton Icon="edit" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small"
-                              Click="@(_ => EditAsync(booking))"
-                              Class="@($"data-column-5 {GrantLock.Class(CanEdit)}")" @attributes="GrantLock.Attributes(CanEdit)"
-                              aria-label="@L["Bookings_Edit", RowName(booking)]" data-testid="@($"booking-edit-{booking.Id}")" />
-                <RadzenButton Icon="delete" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small"
-                              Click="@(_ => DeleteAsync(booking))"
-                              Class="@($"data-column-6 {GrantLock.Class(CanDelete)}")" @attributes="GrantLock.Attributes(CanDelete)"
-                              aria-label="@L["Bookings_Delete", RowName(booking)]" data-testid="@($"booking-delete-{booking.Id}")" />
-            </RadzenStack>
-        </RadzenCard>
+                </div>
+                <p class="sub-title data-column-4 data-amount">@SignedMoney(booking)</p>
+                <DuofyButton Kind="ButtonKind.Ghost" Icon="pencil" IconOnly="true" Small="true" OnClick="@(_ => EditAsync(booking))" AriaLabel="@L["Bookings_Edit", RowName(booking)]" TestId="@($"booking-edit-{booking.Id}")" Class="@($"data-column-5 {GrantLock.Class(CanEdit)}")" @attributes="GrantLock.Attributes(CanEdit)" />
+                <DuofyButton Kind="ButtonKind.Ghost" Icon="trash-2" IconOnly="true" Small="true" OnClick="@(_ => DeleteAsync(booking))" AriaLabel="@L["Bookings_Delete", RowName(booking)]" TestId="@($"booking-delete-{booking.Id}")" Class="@($"data-column-6 {GrantLock.Class(CanDelete)}")" @attributes="GrantLock.Attributes(CanDelete)" />
+            </div>
+        </div>
     }
-</RadzenStack>
+</div>
 }
 
 @code {
@@ -210,7 +196,7 @@ else
         await LoadAsync();
     }
 
-    // Der Titel für die App; ein Plus gibt es hier nicht, gebucht wird im Monat.
+    // Der Titel für die obere Leiste; gebucht wird im Monat.
     private void PublishChrome() => Chrome.Set(this, Heading);
 
     public void Dispose()

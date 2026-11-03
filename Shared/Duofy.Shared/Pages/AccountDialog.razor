@@ -1,12 +1,12 @@
-@using Radzen
-@using Radzen.Blazor
+@using BlazorBlueprint.Components
+@using Duofy.Shared.Dialogs
+@inherits FormDialogBase
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
 @using Duofy.Shared.Dialogs
 @inject IAccountApi AccountApi
 @inject ActiveMember Member
-@inject DialogService Dialogs
 @inject IStringLocalizer<SharedResources> L
 
 @* Der Dialog zum Anlegen und Ändern eines Kontos, auf dem Schritt-Dialog (Spec 11) mit einem Schritt (Issue #22, Spec 22).
@@ -19,12 +19,11 @@
     <DialogStep Title="@L["AccountDialog_StepAll"]">
         @if (error is not null)
         {
-            <ErrorAlert AlertStyle="AlertStyle.Danger" Text="@error" data-testid="account-error" />
+            <ErrorAlert Text="@error" data-testid="account-error" />
         }
 
         <StepField Label="@L["Field_AccountName"]" InputId="account-name-input" TestId="account-name-field">
-            <RadzenTextBox @bind-Value="draft.Name" id="account-name-input" MaxLength="MoneyAccountRules.NameMaxLength"
-                           data-testid="account-name" />
+            <TextInput id="account-name-input" maxlength="@(MoneyAccountRules.NameMaxLength)" @bind-Value="draft.Name" data-testid="account-name" />
         </StepField>
 
         <StepField Label="@L["Field_AccountType"]" InputId="account-type-input" TestId="account-type-field">
@@ -40,26 +39,21 @@
         <AccountIconPicker Value="@draft.Icon" ValueChanged="OnIconChanged" TestId="account-icon" />
 
         @* Startbetrag und Starttag gehören zusammen: der Stand am Ende dieses Tages. *@
-        <StepField Label="@L["Field_OpeningBalance"]" InputId="account-opening-balance-input" AriaLabelled="true" TestId="account-opening-balance-field">
-            <RadzenNumeric TValue="decimal?" Culture="German" @bind-Value="draft.OpeningBalance" Format="0.00" ShowUpDown="false"
-                           InputAttributes="@OpeningBalanceAttributes" data-testid="account-opening-balance" />
-            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color"
-                        id="account-opening-balance-hint">@L["Field_OpeningBalanceHint"]</RadzenText>
+        <StepField Label="@L["Field_OpeningBalance"]" InputId="account-opening-balance-input" TestId="account-opening-balance-field">
+            <MoneyInput id="account-opening-balance-input" aria-describedby="account-opening-balance-hint" @bind-Value="draft.OpeningBalance" data-testid="account-opening-balance" />
+            <p class="small muted" id="account-opening-balance-hint">@L["Field_OpeningBalanceHint"]</p>
         </StepField>
         <StepField Label="@L["Field_OpeningDate"]" InputId="account-opening-date-input" TestId="account-opening-date-field">
-            <RadzenTextBox Value="@dateText" ValueChanged="OnDateChanged" type="date" id="account-opening-date-input"
-                           data-testid="account-opening-date" />
+            <TextInput id="account-opening-date-input" Type="date" Value="@dateText" ValueChanged="OnDateChanged" data-testid="account-opening-date" />
         </StepField>
 
-        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-            <RadzenSwitch Value="draft.CountsAsAvailable" ValueChanged="OnCountsAsAvailableChanged" Name="account-counts-as-available"
-                          data-testid="account-counts-as-available" />
-            <RadzenLabel Component="account-counts-as-available" Text="@L["Field_CountsAsAvailable"]" />
-        </RadzenStack>
+        <div class="row">
+            <BbSwitch Id="account-counts-as-available" Checked="draft.CountsAsAvailable" CheckedChanged="OnCountsAsAvailableChanged" data-testid="account-counts-as-available" />
+            <FieldLabel For="account-counts-as-available" Text="@L["Field_CountsAsAvailable"]" />
+        </div>
 
         <StepField Label="@L["Field_Iban"]" InputId="account-iban-input" TestId="account-iban-field">
-            <RadzenTextBox @bind-Value="draft.Iban" id="account-iban-input" MaxLength="42"
-                           data-testid="account-iban" />
+            <TextInput id="account-iban-input" maxlength="@(42)" @bind-Value="draft.Iban" data-testid="account-iban" />
         </StepField>
     </DialogStep>
 </StepDialog>
@@ -71,13 +65,6 @@
     /// <summary>Der Titel im Kopf des Schritt-Dialogs ("Neues Konto" oder "Konto ändern").</summary>
     [Parameter]
     public string? Title { get; set; }
-
-    // Zahlenfelder von Radzen lassen keine Id am input zu: Das Feld verweist auf Beschriftung und Hinweis.
-    private static readonly Dictionary<string, object> OpeningBalanceAttributes = new()
-    {
-        ["aria-labelledby"] = "account-opening-balance-input-label",
-        ["aria-describedby"] = "account-opening-balance-hint",
-    };
 
     /// <summary>Das Konto, das geändert wird; null beim Anlegen.</summary>
     [Parameter]
@@ -129,7 +116,7 @@
 
             if (result.Succeeded)
             {
-                Dialogs.Close(true);
+                await CloseAsync(true);
             }
             else
             {

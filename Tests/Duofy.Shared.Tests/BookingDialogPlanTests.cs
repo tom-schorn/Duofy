@@ -13,7 +13,7 @@ public class BookingDialogPlanTests : PageTestContext
 
     public BookingDialogPlanTests()
     {
-        dialogs = RenderRadzenHost();
+        dialogs = RenderDialogHost();
         Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true));
     }
 

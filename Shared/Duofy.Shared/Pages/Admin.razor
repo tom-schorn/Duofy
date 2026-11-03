@@ -1,6 +1,5 @@
 @page "/admin"
-@using Radzen
-@using Radzen.Blazor
+@using BlazorBlueprint.Components
 @attribute [Authorize]
 @using System.Globalization
 @using Duofy.ApiClient
@@ -11,7 +10,6 @@
 @inject IAdminApi AdminApi
 @inject IShareService Share
 @inject FormDialogs Forms
-@inject IAppHost Host
 @inject AppChrome Chrome
 @inject IStringLocalizer<SharedResources> L
 
@@ -28,107 +26,87 @@
    Abschnitt, dort geht "Passwort vergessen" per Mail; dafür geht eine Einladung mit Adresse auch per Mail hinaus. *@
 
 <PageTitle>@L["Admin_Title"]</PageTitle>
+<PageHead Title="@L["Admin_Title"]" />
 
-<AppPageHeading Text="@L["Admin_Title"]" />
-@if (!Host.IsApp)
-{
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" Class="rz-mb-2">@L["Admin_Title"]</RadzenText>
-}
 
 <Notice Message="message" />
 
 @if (loaded && !isAdmin)
 {
-    <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" AllowClose="false" Size="AlertSize.Small"
-                 data-testid="admin-not-allowed">@L["Admin_NotAllowed"]</RadzenAlert>
+    <BbAlert Variant="AlertVariant.Info" data-testid="admin-not-allowed">@L["Admin_NotAllowed"]</BbAlert>
 }
 
 @if (isAdmin)
 {
-    <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-mb-1">@L["Admin_Lead"]</RadzenText>
+    <p class="mb-1">@L["Admin_Lead"]</p>
     @if (mode is not null)
     {
-        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-mb-4" data-testid="admin-mode">@L[$"Admin_Mode_{mode}"]</RadzenText>
+        <p class="mb-4" data-testid="admin-mode">@L[$"Admin_Mode_{mode}"]</p>
     }
 
-    <RadzenCard Variant="Variant.Outlined" Class="rz-mb-4">
-        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-2">@L["Admin_CreateHeading"]</RadzenText>
+    <div class="card mb-4">
+        <h2 class="section-title mb-2">@L["Admin_CreateHeading"]</h2>
         <div class="field">
             <FieldLabel For="admin-email-input" Text="@L["Admin_Email"]" />
-            <RadzenTextBox @bind-Value="email" id="admin-email-input" type="email" Placeholder="@L["Auth_EmailPlaceholder"]"
-                           aria-describedby="admin-email-hint" Immediate="true"
-                           data-testid="admin-email" />
-            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color"
-                        id="admin-email-hint">@L["Admin_EmailHint"]</RadzenText>
+            <TextInput id="admin-email-input" Type="email" placeholder="@L["Auth_EmailPlaceholder"]" @bind-Value="email" aria-describedby="admin-email-hint" data-testid="admin-email" />
+            <p class="small muted" id="admin-email-hint">@L["Admin_EmailHint"]</p>
         </div>
-        <RadzenButton Text="@L["Admin_Create"]" Icon="person_add" ButtonStyle="ButtonStyle.Primary" Class="rz-mt-3"
-                      Disabled="busy" Click="@(_ => CreateAsync())" data-testid="admin-create" />
-    </RadzenCard>
+        <DuofyButton Icon="user-plus" Text="@L["Admin_Create"]" OnClick="@(_ => CreateAsync())" TestId="admin-create" Class="mt-3" Disabled="busy" />
+    </div>
 
     @if (!hosted)
     {
-        <RadzenCard Variant="Variant.Outlined" Class="rz-mb-4" data-testid="admin-reset">
-            <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-1">@L["Admin_ResetHeading"]</RadzenText>
-            <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-mb-2">@L["Admin_ResetText"]</RadzenText>
+        <div class="card mb-4" data-testid="admin-reset">
+            <h2 class="section-title mb-1">@L["Admin_ResetHeading"]</h2>
+            <p class="mb-2">@L["Admin_ResetText"]</p>
             <Notice Message="resetMessage" />
             <div class="field">
                 <FieldLabel For="admin-reset-email-input" Text="@L["Admin_ResetEmail"]" />
-                <RadzenTextBox @bind-Value="resetEmail" id="admin-reset-email-input" type="email"
-                               Placeholder="@L["Auth_EmailPlaceholder"]" autocomplete="off"
-                               data-testid="admin-reset-email" />
+                <TextInput id="admin-reset-email-input" Type="email" placeholder="@L["Auth_EmailPlaceholder"]" @bind-Value="resetEmail" autocomplete="off" data-testid="admin-reset-email" />
             </div>
-            <RadzenButton Text="@L["Admin_ResetCreate"]" Icon="lock_reset" ButtonStyle="ButtonStyle.Primary" Class="rz-mt-3"
-                          Disabled="resetBusy" Click="@(_ => CreateResetLinkAsync())" data-testid="admin-reset-create" />
+            <DuofyButton Icon="key-round" Text="@L["Admin_ResetCreate"]" OnClick="@(_ => CreateResetLinkAsync())" TestId="admin-reset-create" Class="mt-3" Disabled="resetBusy" />
             @if (resetLink is { } reset)
             {
-                <RadzenStack Gap="1rem" Class="rz-mt-3">
-                    <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color">@L["Admin_ResetValidUntil", Moment(reset.ExpiresAt)]</RadzenText>
+                <div class="stack mt-3">
+                    <p class="small muted">@L["Admin_ResetValidUntil", Moment(reset.ExpiresAt)]</p>
                     @* Der QR-Code bleibt weiß, auch im Dunkelmodus, damit er sich scannen lässt. *@
                     <div role="img" aria-label="@L["Admin_ResetQr"]" class="qr-code qr-code-small"
                          data-testid="admin-reset-qr">@((MarkupString)InvitationQr.Svg(reset.Url))</div>
-                    <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="long-link" data-testid="admin-reset-link">@reset.Url</RadzenText>
-                    <RadzenButton Text="@L["InviteDialog_Share"]" Icon="share" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary"
-                                  Size="ButtonSize.Small" Class="align-start"
-                                  Click="@(_ => ShareResetAsync(reset.Url))" data-testid="admin-reset-share" />
-                </RadzenStack>
+                    <p class="long-link" data-testid="admin-reset-link">@reset.Url</p>
+                    <DuofyButton Kind="ButtonKind.Secondary" Icon="share-2" Text="@L["InviteDialog_Share"]" Small="true" OnClick="@(_ => ShareResetAsync(reset.Url))" TestId="admin-reset-share" Class="align-start" />
+                </div>
             }
-        </RadzenCard>
+        </div>
     }
 
-    <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-2">@L["Admin_OpenHeading"]</RadzenText>
+    <h2 class="section-title mb-2">@L["Admin_OpenHeading"]</h2>
     @if (invitations.Count == 0)
     {
-        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-text-secondary-color">@L["Admin_Empty"]</RadzenText>
+        <p class="muted">@L["Admin_Empty"]</p>
     }
-    <RadzenStack Gap="0.5rem" Class="rz-mb-4">
+    <div class="stack mb-4">
         @foreach (var invitation in invitations)
         {
-            <RadzenCard Variant="Variant.Outlined" data-testid="@($"admin-invitation-{invitation.Id}")">
-                <RadzenStack Gap="1rem">
-                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Wrap="FlexWrap.Wrap">
-                        <RadzenStack Gap="0" Class="flex-grow-1">
-                            <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="long-link">@(invitation.Email ?? L["Admin_Anyone"])</RadzenText>
-                            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color">@L["Admin_ValidUntil", Day(invitation.ExpiresAt)]</RadzenText>
-                        </RadzenStack>
-                        <RadzenButton Text="@L["Admin_Revoke"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small"
-                                      Click="@(_ => RevokeAsync(invitation))"
-                                      data-testid="@($"admin-invitation-revoke-{invitation.Id}")" />
-                    </RadzenStack>
+            <div class="card" data-testid="@($"admin-invitation-{invitation.Id}")">
+                <div class="stack">
+                    <div class="row">
+                        <div class="stack flex-grow-1">
+                            <p class="long-link">@(invitation.Email ?? L["Admin_Anyone"])</p>
+                            <p class="small muted">@L["Admin_ValidUntil", Day(invitation.ExpiresAt)]</p>
+                        </div>
+                        <DuofyButton Kind="ButtonKind.Ghost" Text="@L["Admin_Revoke"]" Small="true" OnClick="@(_ => RevokeAsync(invitation))" TestId="@($"admin-invitation-revoke-{invitation.Id}")" />
+                    </div>
                     @if (invitation.Url is { } link)
                     {
                         <div role="img" aria-label="@L["InviteDialog_Qr"]" class="qr-code qr-code-small"
                              data-testid="@($"admin-invitation-qr-{invitation.Id}")">@((MarkupString)InvitationQr.Svg(link))</div>
-                        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="long-link"
-                                    data-testid="@($"admin-invitation-link-{invitation.Id}")">@link</RadzenText>
-                        <RadzenButton Text="@L["InviteDialog_Share"]" Icon="share" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary"
-                                      Size="ButtonSize.Small" Class="align-start"
-                                      Click="@(_ => ShareAsync(link))"
-                                      data-testid="@($"admin-invitation-share-{invitation.Id}")" />
+                        <p class="long-link" data-testid="@($"admin-invitation-link-{invitation.Id}")">@link</p>
+                        <DuofyButton Kind="ButtonKind.Secondary" Icon="share-2" Text="@L["InviteDialog_Share"]" Small="true" OnClick="@(_ => ShareAsync(link))" TestId="@($"admin-invitation-share-{invitation.Id}")" Class="align-start" />
                     }
-                </RadzenStack>
-            </RadzenCard>
+                </div>
+            </div>
         }
-    </RadzenStack>
+    </div>
 }
 
 @code {

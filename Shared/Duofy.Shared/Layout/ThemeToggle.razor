@@ -1,0 +1,17 @@
+@inject IStringLocalizer<SharedResources> L
+
+@* Ein einziger Knopf für hell und dunkel (Tom, 03.11.2026: "1 hätte geriecht"). Er wechselt zum jeweils anderen Modus; ohne
+   Wahl gilt die Einstellung des Geräts. Für Screenreader ist er ein Umschaltknopf "Dunkles Design" mit aria-pressed. *@
+
+<DuofyButton Kind="ButtonKind.Ghost" Icon="@(Dark ? "sun" : "moon")" IconOnly="true"
+             OnClick="@(() => ChoiceSelected.InvokeAsync(Dark ? ThemeChoice.Light : ThemeChoice.Dark))"
+             aria-pressed="@(Dark ? "true" : "false")"
+             AriaLabel="@L["Layout_ThemeToggle"]" title="@L[Dark ? "Layout_ThemeToLight" : "Layout_ThemeToDark"]"
+             TestId="theme-toggle" Class="theme-toggle" />
+
+@code {
+    /// <summary>True, wenn gerade dunkel angezeigt wird, gleich ob gewählt oder vom Gerät.</summary>
+    [Parameter, EditorRequired] public bool Dark { get; set; }
+
+    [Parameter] public EventCallback<ThemeChoice> ChoiceSelected { get; set; }
+}

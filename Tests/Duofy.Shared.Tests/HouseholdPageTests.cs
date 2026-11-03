@@ -18,7 +18,7 @@ public class HouseholdPageTests : PageTestContext
 
     public HouseholdPageTests()
     {
-        dialogs = RenderRadzenHost();
+        dialogs = RenderDialogHost();
     }
 
     private IRenderedComponent<Household> OpenPage()
@@ -57,14 +57,14 @@ public class HouseholdPageTests : PageTestContext
         Assert.NotNull(typeof(Household).GetCustomAttribute<AuthorizeAttribute>());
     }
 
-    // A16
+    // A16, seit Spec 82 R12: Der Haushalt hat sein Ziel in der unteren Leiste; Mehr hat keinen zweiten Eintrag dafür.
     [Fact]
-    public void Mehr_leads_to_the_household()
+    public void The_household_has_its_target_in_the_bottom_bar_and_none_under_mehr()
     {
         var cut = Render<Mehr>();
 
-        Assert.Equal("/haushalt", cut.Find("[data-testid='more-household']").GetAttribute("href"));
-        Assert.Contains("Haushalt", cut.Find("[data-testid='more-household']").TextContent);
+        Assert.Empty(cut.FindAll("[data-testid='more-household']"));
+        Assert.Contains(Duofy.Shared.Layout.AppDestinations.All, d => d.Href == "/haushaltsplan");
     }
 
     // A16
@@ -92,7 +92,7 @@ public class HouseholdPageTests : PageTestContext
 
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='household-card']")));
         Assert.Equal(["Familie Muster"], HouseholdApiFake.Founded);
-        Assert.Contains("Familie Muster", cut.Find("[data-testid='household-name']").TextContent);
+        Assert.Contains("Familie Muster", cut.Find("[data-testid='page-title']").TextContent);
         Assert.Empty(cut.FindAll("[data-testid='household-found']"));
     }
 
@@ -142,7 +142,7 @@ public class HouseholdPageTests : PageTestContext
 
         Assert.Contains("Haushalt von Anna", cut.Markup);
         Assert.Contains("2 Mitglieder", cut.Markup);
-        Assert.Contains("Grundbedarf 50 %", cut.Markup);
+        Assert.Equal("page", cut.Find("[data-testid='household-tab-members']").GetAttribute("aria-current"));
         var anna = Row(cut, FakeHouseholdApi.AnnaId).TextContent;
         Assert.Contains("Anna Muster", anna);
         Assert.Contains("(du)", anna);
@@ -153,7 +153,7 @@ public class HouseholdPageTests : PageTestContext
         Assert.Contains("Mitglied", ben);
         Assert.DoesNotContain("(du)", ben);
         Assert.Contains("Einladen", cut.Find("[data-testid='household-invite']").TextContent);
-        Assert.Contains("Richtwerte", cut.Find("[data-testid='household-quotas']").TextContent);
+        Assert.Contains("Bearbeiten", cut.Find("[data-testid='household-edit']").TextContent);
         Assert.True(Has(cut, $"household-member-remove-{FakeHouseholdApi.BenId}"));
         Assert.False(Has(cut, $"household-member-remove-{FakeHouseholdApi.AnnaId}"));
         // Mit anderen im Haushalt ist Austreten ausgegraut (A20), Auflösen gibt es nicht.
@@ -218,7 +218,7 @@ public class HouseholdPageTests : PageTestContext
             new DateTimeOffset(2026, 11, 4, 12, 0, 0, TimeSpan.Zero), $"{FakeHouseholdApi.PublicUrl}/einladung/token0"));
         var cut = OpenPage();
 
-        Assert.False(cut.Find("[data-testid='household-invite']").HasAttribute("aria-disabled"));
+        Assert.NotEqual("true", cut.Find("[data-testid='household-invite']").GetAttribute("aria-disabled"));
         Assert.False(Has(cut, "household-invite-reason"));
     }
 
@@ -351,11 +351,23 @@ public class HouseholdPageTests : PageTestContext
         Assert.Equal("/", CurrentPath);
     }
 
-    // A10 (Seite)
+    // Der Reiter Richtwerte des Haushaltsbereichs (Spec 82, R11), dort ändert der Gründer die Richtwerte.
+    private IRenderedComponent<HouseholdGuidelinesPage> OpenGuidelines()
+    {
+        var cut = Render<HouseholdGuidelinesPage>();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='household-quota-line']")));
+        return cut;
+    }
+
+    private static string QuotaLine(IRenderedComponent<HouseholdGuidelinesPage> cut) =>
+        string.Join(" ", cut.FindAll("[data-testid='household-quota-line'] li").Select(li => string.Join(" ", li.Children.Select(c => c.TextContent.Trim()).Where(t => t.Length > 0))));
+
+    // A10 (Seite), seit Spec 82 R11 im Reiter Richtwerte.
     [Fact]
     public void Richtwerte_saves_quotas_and_name()
     {
-        var cut = OpenPage();
+        var cut = OpenGuidelines();
+        Assert.Equal("page", cut.Find("[data-testid='household-tab-guidelines']").GetAttribute("aria-current"));
 
         cut.Find("[data-testid='household-quotas']").Click();
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='household-dialog-save']")));
@@ -364,7 +376,7 @@ public class HouseholdPageTests : PageTestContext
         Field(dialogs, "household-dialog-quota-wants").Change("20");
         dialogs.Find("[data-testid='household-dialog-save']").Click();
 
-        cut.WaitForAssertion(() => Assert.Contains("Grundbedarf 60 %", cut.Markup));
+        cut.WaitForAssertion(() => Assert.Contains("Grundbedarf 60 %", QuotaLine(cut)));
         Assert.Contains("Familie Muster", cut.Markup);
         Assert.Equal(new UpdateHouseholdRequest("Familie Muster", 60, 20, 20), Assert.Single(HouseholdApiFake.Updates));
     }
@@ -372,15 +384,15 @@ public class HouseholdPageTests : PageTestContext
     [Fact]
     public void Wrong_quotas_stay_in_the_dialog_with_the_reason()
     {
+        var cut = OpenGuidelines();
         HouseholdApiFake.Error = ErrorCodes.QuotaInvalid;
-        var cut = OpenPage();
 
         cut.Find("[data-testid='household-quotas']").Click();
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='household-dialog-save']")));
         dialogs.Find("[data-testid='household-dialog-save']").Click();
 
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='household-dialog-error']")));
-        Assert.Contains("Grundbedarf 50 %", cut.Markup);
+        Assert.Contains("Grundbedarf 50 %", QuotaLine(cut));
     }
 
     // A12 (Seite)
@@ -412,7 +424,7 @@ public class HouseholdPageTests : PageTestContext
             Members = [FakeHouseholdApi.Anna(isMe: false), FakeHouseholdApi.Ben(isMe: true)],
         };
         var cut = OpenPage();
-        var switcher = Render<MemberSwitch>();
+        var switcher = Render<UserMenu>();
         switcher.WaitForAssertion(() => Assert.True(Member.CanShowHousehold));
         Member.ChooseHousehold();
         Assert.True(Member.IsHousehold);
@@ -424,9 +436,9 @@ public class HouseholdPageTests : PageTestContext
         cut.WaitForAssertion(() => Assert.Null(Member.Household));
         Assert.False(Member.CanShowHousehold);
         Assert.False(Member.IsHousehold);
-        switcher.Find("[data-testid='member-profile']").Click();
-        switcher.WaitForAssertion(() => Assert.Equal("true", switcher.Find("[data-testid='member-choice-household']").GetAttribute("aria-disabled")));
-        Assert.Equal("Ich", switcher.Find("[data-testid='member-profile']").TextContent.Trim());
+        switcher.Find("[data-testid='user-menu-open']").Click();
+        dialogs.WaitForAssertion(() => Assert.Equal("true", dialogs.Find("[data-testid='member-choice-household']").GetAttribute("aria-disabled")));
+        Assert.DoesNotContain("Ansicht", switcher.Find("[data-testid='member-profile']").TextContent);
     }
 
     // Spec 69, A12: Nach dem Auflösen gibt es für den Umschalter keinen Haushalt mehr.
@@ -522,7 +534,7 @@ public class HouseholdPageInAppTests : PageTestContext
     public HouseholdPageInAppTests()
     {
         Services.AddSingleton<IAppHost, AppHost>();
-        dialogs = RenderRadzenHost();
+        dialogs = RenderDialogHost();
     }
 
     [Fact]
@@ -539,14 +551,14 @@ public class HouseholdPageInAppTests : PageTestContext
     }
 }
 
-/// <summary>Radzen-Umstellung R20: Der Haushaltsdialog (Name und Richtwerte) ist ein Schritt-Dialog in Radzen.</summary>
-public class HouseholdDialogRadzenTests : PageTestContext
+/// <summary>Der Haushaltsdialog (Name und Richtwerte) ist ein Schritt-Dialog.</summary>
+public class HouseholdDialogBuildTests : PageTestContext
 {
     private readonly IRenderedComponent<IComponent> host;
 
-    public HouseholdDialogRadzenTests()
+    public HouseholdDialogBuildTests()
     {
-        host = RenderRadzenHost();
+        host = RenderDialogHost();
     }
 
     private Task<DialogOutcome<bool>> Open() =>
@@ -556,7 +568,7 @@ public class HouseholdDialogRadzenTests : PageTestContext
                 .Add(d => d.Household, new HouseholdResponse(Guid.NewGuid(), "Haushalt von Anna", 50, 30, 20, [FakeHouseholdApi.Anna(isMe: true)])));
 
     [Fact]
-    public void The_dialog_is_one_step_on_the_scaffold_and_built_with_radzen()
+    public void The_dialog_is_one_step_on_the_scaffold_and_built_from_the_blocks()
     {
         _ = Open();
         host.WaitForAssertion(() => Assert.NotEmpty(host.FindAll("[data-testid='household-dialog-save']")));
@@ -566,7 +578,7 @@ public class HouseholdDialogRadzenTests : PageTestContext
         Assert.Equal("Speichern", host.Find("[data-testid='household-dialog-save']").TextContent.Trim());
         Assert.Equal(3, host.FindAll("[data-testid^='household-dialog-quota-']").Count);
         Assert.Equal("Haushalt von Anna", Field(host, "household-dialog-name").GetAttribute("value"));
-        Assert.Equal("household-dialog-quota-needs-input-label", Field(host, "household-dialog-quota-needs").GetAttribute("aria-labelledby"));
+        Assert.Equal("household-dialog-quota-needs-input", Field(host, "household-dialog-quota-needs").Id);
     }
 
     [Fact]

@@ -53,10 +53,10 @@ public class PlanOverviewPageTests : PageTestContext
         var cut = OpenOverview();
 
         Assert.NotEmpty(cut.FindAll("[data-testid='plan-months']"));
-        Assert.Empty(cut.FindAll("[data-testid='plan-sums']"));
-        Assert.Empty(PlanApiFake.GetCalls);
+        Assert.Empty(cut.FindAll("[data-testid='month-review']"));
+        Assert.Empty(cut.FindAll("[role='tab']"));
         Assert.Equal(1, PlanApiFake.ListMonthsCalls);
-        Assert.Null(Assert.Single(PlanApiFake.Owners));
+        Assert.All(PlanApiFake.Owners, Assert.Null);
     }
 
     // A2
@@ -82,6 +82,21 @@ public class PlanOverviewPageTests : PageTestContext
         Assert.Equal(["2027-1", "2026-12", "2026-11", "2026-10", "2025-12"], RowIds(cut));
     }
 
+    // Spec 82: Jede Karte eines angelegten Monats zeigt Verplanbar, Anstehend und drei Topf-Balken.
+    [Fact]
+    public void A_month_card_shows_allocatable_unpaid_and_three_pot_bars()
+    {
+        PlanApiFake.Months = [new PlanMonthResponse(2026, 10, 300m)];
+        PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10) with { Positions = [FakePlanApi.Position("Strom", 80m, booked: 30m)] };
+
+        var cut = OpenOverview();
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='plan-month-unpaid-2026-10']")));
+        Assert.Contains("300,00 €", cut.Find("[data-testid='plan-month-free-2026-10']").TextContent);
+        Assert.Contains("50,00 €", cut.Find("[data-testid='plan-month-unpaid-2026-10']").TextContent);
+        Assert.Equal(3, cut.FindAll("[data-testid^='plan-month-pot-2026-10-']").Count);
+    }
+
     // A3
     [Fact]
     public void The_current_month_is_highlighted_and_labelled_as_such()
@@ -90,7 +105,7 @@ public class PlanOverviewPageTests : PageTestContext
 
         var cut = OpenOverview();
 
-        var current = cut.FindAll(".plan-month--current");
+        var current = cut.FindAll("[aria-current='date']");
         Assert.Equal("plan-month-row-2026-10", Assert.Single(current).GetAttribute("data-testid"));
         Assert.Contains("aktueller Monat", Row(cut, "2026-10"));
         Assert.DoesNotContain("aktueller Monat", Row(cut, "2026-9"));
@@ -107,7 +122,7 @@ public class PlanOverviewPageTests : PageTestContext
         var cut = OpenOverview();
 
         Assert.Contains("1.234,50 €", Row(cut, "2026-10"));
-        Assert.Contains("Frei", Row(cut, "2026-10"));
+        Assert.Contains("Verplanbar", Row(cut, "2026-10"));
         Assert.Contains("-20,00 €", Row(cut, "2026-9"));
         Assert.Contains("noch nicht angelegt", Row(cut, "2026-11"));
         Assert.DoesNotContain("€", Row(cut, "2026-11"));
@@ -122,7 +137,8 @@ public class PlanOverviewPageTests : PageTestContext
 
         var cut = OpenOverview();
 
-        Assert.Contains("530,00 € inkl. Übertrag", Row(cut, "2026-11"));
+        Assert.Contains("530,00 €", Row(cut, "2026-11"));
+        Assert.Contains("inkl. Übertrag", cut.Find("[data-testid='plan-month-free-2026-11']").TextContent);
         Assert.DoesNotContain("Übertrag", Row(cut, "2026-10"));
     }
 
@@ -149,7 +165,7 @@ public class PlanOverviewPageTests : PageTestContext
         OpenPlanTab(cut);
 
         Assert.Equal((2026, 9), Assert.Single(PlanApiFake.GetCalls));
-        Assert.Equal("September 2026", cut.Find("[data-testid='plan-month']").TextContent.Trim());
+        Assert.Equal("September 2026", cut.Find("[data-testid='page-title']").TextContent.Trim());
     }
 
     [Fact]
@@ -160,7 +176,7 @@ public class PlanOverviewPageTests : PageTestContext
 
         cut.Render(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 12));
 
-        cut.WaitForAssertion(() => Assert.Equal("Dezember 2026", cut.Find("[data-testid='plan-month']").TextContent.Trim()));
+        cut.WaitForAssertion(() => Assert.Equal("Dezember 2026", cut.Find("[data-testid='page-title']").TextContent.Trim()));
         Assert.Equal([(2026, 9), (2026, 12)], PlanApiFake.GetCalls);
     }
 
@@ -173,16 +189,15 @@ public class PlanOverviewPageTests : PageTestContext
         Assert.Empty(PlanApiFake.GetCalls);
     }
 
+    // Spec 82, R15: Der Monat hat keinen Umschalter oben rechts mehr; er führt zurück zur Übersicht der Monate.
     [Fact]
-    public void Paging_between_the_months_keeps_the_address_in_step()
+    public void The_month_has_no_switch_and_leads_back_to_the_months()
     {
         var cut = Render<Plan>(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 9));
         OpenPlanTab(cut);
 
-        cut.Find("[data-testid='plan-next']").Click();
-
-        cut.WaitForAssertion(() => Assert.Equal("Oktober 2026", cut.Find("[data-testid='plan-month']").TextContent.Trim()));
-        Assert.Equal("/plan/2026/10", CurrentPath);
+        Assert.Empty(cut.FindAll("[data-testid='plan-next'],[data-testid='plan-previous']"));
+        Assert.Equal("/plan", cut.Find("[data-testid='plan-back']").GetAttribute("href"));
     }
 
     // A6
@@ -195,7 +210,7 @@ public class PlanOverviewPageTests : PageTestContext
         var back = cut.Find("[data-testid='plan-back']");
 
         Assert.Equal("/plan", back.GetAttribute("href"));
-        Assert.Contains("Alle Monate", back.TextContent);
+        Assert.Contains("Alle Pläne", back.TextContent);
     }
 
     // A6

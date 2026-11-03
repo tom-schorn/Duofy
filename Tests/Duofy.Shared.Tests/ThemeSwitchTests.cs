@@ -6,9 +6,9 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Duofy.Shared.Tests;
 
 /// <summary>
-/// Spec 5 (Umschalter Hell, Dunkel und wie das Gerät): drei Möglichkeiten, die Wahl bleibt erhalten,
-/// ohne Wahl gilt das Gerät, die Anzeige folgt dem Gerät, alte Wahlen (hell, dunkel) bleiben gültig.
-/// Den Wechsel des Geräts spielt der Test über RadzenMediaQuery nach,
+/// Spec 5 (hell und dunkel), geändert durch Spec 82 R11 (Tom, 03.11.2026: "1 hätte geriecht"): ein einziger Knopf wechselt
+/// zum anderen Modus, die Wahl bleibt erhalten, ohne Wahl gilt das Gerät, alte Wahlen (hell, dunkel) bleiben gültig.
+/// Den Wechsel des Geräts spielt der Test über ThemeVariables nach,
 /// so wie das JavaScript im Browser ihn meldet. Der echte Browser ist damit nicht gesehen.
 /// </summary>
 public class ThemeSwitchTests : UiTestContext
@@ -25,42 +25,34 @@ public class ThemeSwitchTests : UiTestContext
 
     private static bool IsDark(IRenderedComponent<MainLayout> cut) => cut.FindComponent<Duofy.Shared.Layout.ThemeVariables>().Instance.Dark;
 
-    private static string Checked(IRenderedComponent<MainLayout> cut)
-    {
-        var active = cut.FindAll("[data-testid^='theme-'][aria-pressed='true']");
-        Assert.Single(active);
-        return active[0].GetAttribute("data-testid")!;
-    }
+    private static string Pressed(IRenderedComponent<MainLayout> cut) =>
+        Assert.Single(cut.FindAll("[data-testid='theme-toggle']")).GetAttribute("aria-pressed")!;
 
-    // A1: drei Möglichkeiten, genau eine ist aktiv, mit Beschriftung für Screenreader.
+    // A1: genau ein Knopf, mit Beschriftung für Screenreader; gedrückt heißt dunkel.
     [Fact]
-    public void A1_the_switch_offers_light_dark_and_device_and_exactly_one_is_active()
+    public void A1_there_is_exactly_one_named_toggle()
     {
         var cut = OpenLayout();
 
-        var radios = cut.FindAll("[data-testid='theme-choice'] button");
-        Assert.Equal(["Hell", "Dunkel", "Wie das Gerät"], radios.Select(r => r.GetAttribute("aria-label")).ToArray());
-        Assert.Equal("group", cut.Find("[data-testid='theme-choice']").GetAttribute("role"));
-        Assert.Empty(cut.FindAll("[data-testid='theme-choice'] [role]"));
-        Assert.Equal("Darstellung", cut.Find("[data-testid='theme-choice']").GetAttribute("aria-label"));
-        Assert.Single(cut.FindAll("[data-testid^='theme-'][aria-pressed='true']"));
-        Assert.Equal(2, cut.FindAll("[data-testid^='theme-'][aria-pressed='false']").Count);
+        var toggle = Assert.Single(cut.FindAll("[data-testid='theme-toggle']"));
+        Assert.Equal("Dunkles Design", toggle.GetAttribute("aria-label"));
+        Assert.Empty(cut.FindAll("[data-testid='theme-choice']"));
+        Assert.Equal("false", Pressed(cut));
     }
 
-    // A1: Wer eine Möglichkeit antippt, macht genau diese aktiv.
+    // A1: Der Knopf wechselt zum anderen Modus und merkt sich die Wahl.
     [Theory]
-    [InlineData("theme-light", ThemeChoice.Light, false)]
-    [InlineData("theme-dark", ThemeChoice.Dark, true)]
-    [InlineData("theme-device", ThemeChoice.Device, false)]
-    public void A1_choosing_an_option_makes_it_the_only_active_one_and_applies_it(string testId, ThemeChoice expected, bool dark)
+    [InlineData(ThemeChoice.Light, ThemeChoice.Dark, true)]
+    [InlineData(ThemeChoice.Dark, ThemeChoice.Light, false)]
+    public void A1_the_toggle_switches_to_the_other_mode_and_applies_it(ThemeChoice stored, ThemeChoice expected, bool dark)
     {
-        store.Stored = expected == ThemeChoice.Light ? ThemeChoice.Dark : ThemeChoice.Light;
+        store.Stored = stored;
         var cut = OpenLayout();
-        cut.WaitForAssertion(() => Assert.NotEqual("theme-device", Checked(cut)));
+        cut.WaitForAssertion(() => Assert.Equal(stored == ThemeChoice.Dark ? "true" : "false", Pressed(cut)));
 
-        cut.Find($"[data-testid='{testId}']").Click();
+        cut.Find("[data-testid='theme-toggle']").Click();
 
-        Assert.Equal(testId, Checked(cut));
+        Assert.Equal(dark ? "true" : "false", Pressed(cut));
         Assert.Equal(dark, IsDark(cut));
         Assert.Equal(expected, store.Saved);
     }
@@ -85,7 +77,7 @@ public class ThemeSwitchTests : UiTestContext
     {
         var cut = OpenLayout();
 
-        cut.Find("[data-testid='theme-dark']").Click();
+        cut.Find("[data-testid='theme-toggle']").Click();
 
         Assert.Equal(ThemeChoice.Dark, await store.LoadAsync());
     }
@@ -105,15 +97,17 @@ public class ThemeSwitchTests : UiTestContext
         Assert.Equal("duofy-theme-dark", Assert.Single(JSInterop.Invocations["localStorage.removeItem"]).Arguments[0]);
     }
 
-    // A3: Ohne gespeicherte Wahl ist Gerät aktiv.
+    // A3: Ohne gespeicherte Wahl gilt das Gerät; hier ist es hell.
     [Fact]
-    public void A3_without_a_saved_choice_the_device_is_active()
+    public void A3_without_a_saved_choice_the_device_applies()
     {
         store.Stored = ThemeChoice.Device;
 
         var cut = OpenLayout();
 
-        cut.WaitForAssertion(() => Assert.Equal("theme-device", Checked(cut)));
+        cut.WaitForAssertion(() => Assert.Equal("false", Pressed(cut)));
+        Assert.False(IsDark(cut));
+        Assert.Null(store.Saved);
     }
 
     [Fact]
@@ -123,51 +117,6 @@ public class ThemeSwitchTests : UiTestContext
         var local = new LocalStorageThemePreferenceStore(JSInterop.JSRuntime);
 
         Assert.Equal(ThemeChoice.Device, await local.LoadAsync());
-    }
-
-    // A4: Bei Gerät und Wechsel des Geräts auf dunkel wird die Anzeige dunkel, ohne neu zu laden.
-    [Fact]
-    public async Task A4_with_device_the_display_follows_a_change_of_the_device()
-    {
-        var cut = OpenLayout();
-        cut.WaitForAssertion(() => Assert.Equal("theme-device", Checked(cut)));
-        Assert.False(IsDark(cut));
-
-        await cut.InvokeAsync(() => cut.FindComponent<Radzen.Blazor.RadzenMediaQuery>().Instance.OnChange(true));
-        Assert.True(IsDark(cut));
-
-        await cut.InvokeAsync(() => cut.FindComponent<Radzen.Blazor.RadzenMediaQuery>().Instance.OnChange(false));
-        Assert.False(IsDark(cut));
-    }
-
-    // A4 (Gegenprobe): Mit gewählter Hell- oder Dunkel-Wahl ändert das Gerät nichts.
-    [Theory]
-    [InlineData(ThemeChoice.Light, true, false)]
-    [InlineData(ThemeChoice.Dark, false, true)]
-    public async Task A4_an_explicit_choice_ignores_a_change_of_the_device(ThemeChoice choice, bool deviceDark, bool expectedDark)
-    {
-        store.Stored = choice;
-        var cut = OpenLayout();
-        cut.WaitForAssertion(() => Assert.Equal(choice == ThemeChoice.Dark, IsDark(cut)));
-
-        await cut.InvokeAsync(() => cut.FindComponent<Radzen.Blazor.RadzenMediaQuery>().Instance.OnChange(deviceDark));
-
-        Assert.Equal(expectedDark, IsDark(cut));
-    }
-
-    // A4: Wer von Hell zurück auf Gerät wechselt, bekommt die zuletzt gemeldete Geräteeinstellung.
-    [Fact]
-    public async Task A4_switching_back_to_device_uses_the_latest_device_setting()
-    {
-        store.Stored = ThemeChoice.Light;
-        var cut = OpenLayout();
-        cut.WaitForAssertion(() => Assert.Equal("theme-light", Checked(cut)));
-        await cut.InvokeAsync(() => cut.FindComponent<Radzen.Blazor.RadzenMediaQuery>().Instance.OnChange(true));
-        Assert.False(IsDark(cut));
-
-        cut.Find("[data-testid='theme-device']").Click();
-
-        Assert.True(IsDark(cut));
     }
 
     // A5: Früher gespeicherte Werte true und false werden als Dunkel und Hell gelesen.
@@ -191,7 +140,7 @@ public class ThemeSwitchTests : UiTestContext
 
         var cut = OpenLayout();
 
-        cut.WaitForAssertion(() => Assert.Equal("theme-dark", Checked(cut)));
+        cut.WaitForAssertion(() => Assert.Equal("true", Pressed(cut)));
         Assert.True(IsDark(cut));
     }
 

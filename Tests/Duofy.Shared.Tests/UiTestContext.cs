@@ -5,23 +5,28 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Duofy.Shared.Tests;
 
 /// <summary>
-/// Gemeinsamer Unterbau der Komponententests: bUnit mit Radzen, den Texten
+/// Gemeinsamer Unterbau der Komponententests: bUnit mit Blueprint, den Texten
 /// und einem Anmeldezustand.
 /// </summary>
-public abstract class UiTestContext : BunitContext
+public abstract class UiTestContext : BunitContext, IAsyncLifetime
 {
     protected UiTestContext()
     {
-        // Radzen ruft viel JavaScript auf; im Test genügt es, wenn die Aufrufe ins Leere gehen.
+        // Blueprint ruft viel JavaScript auf; im Test genügt es, wenn die Aufrufe ins Leere gehen.
         JSInterop.Mode = JSRuntimeMode.Loose;
         Services.AddDuofyUi();
     }
 
+    // Blueprint meldet Dienste an, die sich nur asynchron aufräumen lassen.
+    Task IAsyncLifetime.InitializeAsync() => Task.CompletedTask;
+
+    Task IAsyncLifetime.DisposeAsync() => base.DisposeAsync().AsTask();
+
     /// <summary>
-    /// Stellt die Hülle bereit, in der Radzen-Dialoge aufgehen (im echten Layout steht RadzenComponents in jedem Layout),
-    /// und gibt sie zurück: Dialoginhalt steht dort, nicht in der Seite.
+    /// Stellt die Hülle bereit, in der Dialoge und Menüs aufgehen (im echten Layout steht sie im Rahmen),
+    /// und gibt sie zurück: Ihr Inhalt steht dort, nicht in der Seite.
     /// </summary>
-    protected IRenderedComponent<IComponent> RenderRadzenHost() => Render<Radzen.Blazor.RadzenComponents>();
+    protected IRenderedComponent<IComponent> RenderDialogHost() => Render<TestOverlayHost>();
 
     /// <summary>Ob die Seite im dunklen Modus gerendert wird (die Variablen des Themes wissen es).</summary>
     protected static bool IsDarkMode(IRenderedComponent<IComponent> cut) =>
@@ -31,5 +36,17 @@ public abstract class UiTestContext : BunitContext
     protected const string DialogSelector = "[role='dialog']";
 
     /// <summary>Eine Meldung oben im Seiteninhalt (Erfolg, Hinweis, Fehler).</summary>
-    protected const string AlertSelector = ".rz-alert";
+    protected const string AlertSelector = "[data-testid='notice'] [role='alert'], [data-testid='dialog-error'] [role='alert'], .duofy-alert";
+}
+
+/// <summary>Die Hülle der Tests: dieselben Bausteine, die im echten Layout für Dialoge und Menüs stehen.</summary>
+internal sealed class TestOverlayHost : ComponentBase
+{
+    protected override void BuildRenderTree(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder)
+    {
+        builder.OpenComponent<BlazorBlueprint.Components.BbDialogProvider>(0);
+        builder.CloseComponent();
+        builder.OpenComponent<BlazorBlueprint.Primitives.BbPortalHost>(1);
+        builder.CloseComponent();
+    }
 }

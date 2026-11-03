@@ -1,0 +1,29 @@
+@* Eine Kennzahl als schlichte Karte, wie Metric im alten Duofy: Titel in kleinen Großbuchstaben, darunter der Betrag in
+   ausgerichteter Spalte und ein Zusatz. Linien statt Schatten, kein Farbblock. Für Vorlese-Programme ist sie eine Gruppe mit
+   Titel und Betrag als Name. *@
+<div class="metric" role="group" aria-label="@Label">
+    <p class="metric-title">@Title</p>
+    <p class="@(Over ? "metric-amount over" : "metric-amount")">@Shown</p>
+    @if (Note is not null)
+    {
+        <p class="metric-note">@Note</p>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter, EditorRequired] public decimal Amount { get; set; }
+
+    /// <summary>Statt des Betrags ein eigener Text, zum Beispiel "alles bezahlt".</summary>
+    [Parameter] public string? AmountText { get; set; }
+
+    /// <summary>Ein Zusatz unter dem Betrag.</summary>
+    [Parameter] public string? Note { get; set; }
+
+    /// <summary>Unter null: in der reservierten Farbe.</summary>
+    [Parameter] public bool Over { get; set; }
+
+    private string Shown => AmountText ?? MoneyText.Format(Amount);
+
+    private string Label => Note is null ? $"{Title}: {Shown}" : $"{Title}: {Shown}. {Note}";
+}

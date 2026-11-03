@@ -17,12 +17,12 @@ public class AccountBookingsPageTests : PageTestContext
     private readonly AccountChoice giro = new(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true);
     private readonly AccountChoice cash = new(Guid.NewGuid(), "Bargeld", IsDefault: false, Active: true);
 
-    // Radzen zeichnet Dialoge in RadzenComponents (im echten Layout stehen sie in jedem Layout).
+    // Dialoge gehen in ihrer Hülle auf; im echten Layout steht sie im Rahmen.
     private readonly IRenderedComponent<IComponent> dialogs;
 
     public AccountBookingsPageTests()
     {
-        dialogs = RenderRadzenHost();
+        dialogs = RenderDialogHost();
         Accounts.Accounts.AddRange([giro, cash]);
     }
 
@@ -57,7 +57,7 @@ public class AccountBookingsPageTests : PageTestContext
     {
         var cut = OpenPage();
 
-        cut.WaitForAssertion(() => Assert.Contains("Girokonto", cut.Find("[data-testid='account-bookings-title']").TextContent));
+        cut.WaitForAssertion(() => Assert.Contains("Girokonto", cut.Find("h1").TextContent));
         Assert.Empty(cut.FindAll("[data-testid='bookings-add']"));
         Assert.Empty(cut.FindAll(".app-fab"));
     }
@@ -445,23 +445,21 @@ public class AccountBookingsPageTests : PageTestContext
         var created = Categories.All.Last();
         dialogs.WaitForAssertion(() => Assert.Equal(created.Id.ToString(), SelectedValue(dialogs, "booking-line-category-0")));
     }
-
-    // Radzen-Umstellung R16
     [Fact]
-    public void The_page_and_the_dialog_are_built_with_radzen_and_the_amount_is_german_with_a_numeric_keypad()
+    public void The_page_and_the_dialog_are_built_from_the_blocks_and_the_amount_is_german_with_a_numeric_keypad()
     {
         BookingApiFake.Bookings.Add(FakeBookingApi.Expense(giro.Id, new DateOnly(2026, 10, 5), 11m, FakeCategoryApi.Groceries, "Oktoberkauf"));
         var booking = BookingApiFake.Bookings[0];
         var cut = OpenPage();
         cut.WaitForAssertion(() => Assert.Contains("Oktoberkauf", cut.Markup));
 
-        Assert.Contains("rz-card", cut.Find($"[data-testid='booking-{booking.Id}']").ClassList);
+        Assert.Contains("data-row-frame", cut.Find($"[data-testid='booking-{booking.Id}']").ClassList);
 
         OpenMonthAndNewBooking();
         dialogs.WaitForAssertion(() => Assert.Contains("Neue Buchung", dialogs.Markup));
 
         var amount = Input(dialogs, "booking-amount");
-        Assert.Equal("booking-amount-input-label", amount.GetAttribute("aria-labelledby"));
+        Assert.NotEmpty(dialogs.FindAll($"label[for='{amount.Id}']"));
         Assert.Equal("decimal", amount.GetAttribute("inputmode"));
         amount.Change("1234,5");
         dialogs.WaitForAssertion(() => Assert.Equal("1234,50", Input(dialogs, "booking-amount").GetAttribute("value")));

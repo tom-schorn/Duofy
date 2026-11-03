@@ -53,24 +53,23 @@ public partial class MoneyAndEnterInputTests : PageTestContext
         Assert.Equal("12,34", value);
     }
 
-    // Jedes Zahlenfeld mit Nachkommastellen nennt seine Sprache selbst, auch künftige.
+    // Beträge laufen überall durch MoneyInput, das immer deutsch liest und schreibt: Kein anderes Feld nimmt Geld an.
     [Fact]
-    public void Every_decimal_field_names_its_culture()
+    public void Every_amount_field_is_the_german_money_input()
     {
         var findings = new List<string>();
         foreach (var file in Directory.EnumerateFiles(RepositoryFiles.Path("Shared", "Duofy.Shared"), "*.razor", SearchOption.AllDirectories)
                      .Where(f => !f.Split(Path.DirectorySeparatorChar).Any(part => part is "bin" or "obj")))
         {
-            foreach (Match field in DecimalField().Matches(File.ReadAllText(file)))
+            var text = File.ReadAllText(file);
+            if (text.Contains("BbNumericInput", StringComparison.Ordinal) || text.Contains("BbCurrencyInput", StringComparison.Ordinal))
             {
-                if (!field.Value.Contains("Culture=", StringComparison.Ordinal))
-                {
-                    findings.Add($"{Path.GetFileName(file)}: {field.Value[..Math.Min(70, field.Value.Length)]}");
-                }
+                findings.Add(Path.GetFileName(file));
             }
         }
 
-        Assert.True(findings.Count == 0, string.Join("\n", findings));
+        Assert.True(findings.Count == 0, string.Join(", ", findings));
+        Assert.Contains("de-DE", File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "Blocks", "MoneyInput.razor")));
     }
 
     [Fact]
@@ -96,6 +95,4 @@ public partial class MoneyAndEnterInputTests : PageTestContext
         cut.WaitForAssertion(() => Assert.Equal(new DeleteMeRequest("ein-langes-passwort"), Assert.Single(Users.Deleted)));
     }
 
-    [GeneratedRegex(@"<RadzenNumeric\s+TValue=""decimal\??"".*?/>", RegexOptions.Singleline)]
-    private static partial Regex DecimalField();
 }

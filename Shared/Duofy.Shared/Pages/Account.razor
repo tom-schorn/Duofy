@@ -1,12 +1,10 @@
 @page "/konto"
-@using Radzen
-@using Radzen.Blazor
+@using BlazorBlueprint.Components
 @attribute [Authorize]
 @using Duofy.ApiClient
 @using Duofy.Schemas
 @implements IDisposable
 @inject IAuthApi AuthApi
-@inject IAppHost Host
 @inject AppChrome Chrome
 @inject IUserApi UserApi
 @inject IInstanceApi InstanceApi
@@ -26,148 +24,121 @@
 
 <PageTitle>@L["Account_Title"]</PageTitle>
 
-<AppPageHeading Text="@L["Account_Title"]" />
-@if (!Host.IsApp)
-{
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" Class="rz-mb-1">@L["Account_Title"]</RadzenText>
-}
+
+    <h1 class="page-title mb-1">@L["Account_Title"]</h1>
+
 @if (email is not null)
 {
-    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color rz-mb-4">@L["Account_Email", email]</RadzenText>
+    <p class="muted mb-4">@L["Account_Email", email]</p>
 }
 
-<RadzenStack Gap="1rem">
+<div class="stack">
 
-    <RadzenCard Variant="Variant.Outlined" data-testid="account-names">
-        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-2">@L["Account_NamesHeading"]</RadzenText>
+    <div class="card" data-testid="account-names">
+        <h2 class="section-title mb-2">@L["Account_NamesHeading"]</h2>
         <Notice Message="namesMessage" />
         <div class="field">
             <FieldLabel For="account-first-name-input" Text="@L["Field_FirstName"]" />
-            <RadzenTextBox @bind-Value="firstName" id="account-first-name-input" MaxLength="AccountRules.NameMaxLength"
-                           data-testid="account-first-name" />
+            <TextInput id="account-first-name-input" maxlength="@(AccountRules.NameMaxLength)" @bind-Value="firstName" data-testid="account-first-name" />
         </div>
         <div class="field">
             <FieldLabel For="account-last-name-input" Text="@L["Field_LastName"]" />
-            <RadzenTextBox @bind-Value="lastName" id="account-last-name-input" MaxLength="AccountRules.NameMaxLength"
-                           data-testid="account-last-name" />
+            <TextInput id="account-last-name-input" maxlength="@(AccountRules.NameMaxLength)" @bind-Value="lastName" data-testid="account-last-name" />
         </div>
-        <RadzenButton Text="@L["Account_NamesSave"]" ButtonStyle="ButtonStyle.Primary" Class="rz-mt-2" Click="@(_ => SaveNamesAsync())"
-                      data-testid="account-names-save" />
-    </RadzenCard>
+        <DuofyButton Text="@L["Account_NamesSave"]" OnClick="@(_ => SaveNamesAsync())" TestId="account-names-save" Class="mt-2" />
+    </div>
 
-    <RadzenCard Variant="Variant.Outlined" data-testid="account-email">
-        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-1">@L["Account_EmailHeading"]</RadzenText>
-        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-mb-2">@(hosted ? L["Account_EmailHintHosted"] : L["Account_EmailHintSelfHosted"])</RadzenText>
+    <div class="card" data-testid="account-email">
+        <h2 class="section-title mb-1">@L["Account_EmailHeading"]</h2>
+        <p class="mb-2">@(hosted ? L["Account_EmailHintHosted"] : L["Account_EmailHintSelfHosted"])</p>
         <Notice Message="emailMessage" />
         <div class="field">
             <FieldLabel For="account-new-email-input" Text="@L["Field_NewEmail"]" />
-            <RadzenTextBox @bind-Value="newEmail" id="account-new-email-input" type="email"
-                           Placeholder="@L["Auth_EmailPlaceholder"]" autocomplete="email"
-                           data-testid="account-new-email" />
+            <TextInput id="account-new-email-input" Type="email" placeholder="@L["Auth_EmailPlaceholder"]" @bind-Value="newEmail" autocomplete="email" data-testid="account-new-email" />
         </div>
         <div class="field">
             <FieldLabel For="account-email-password-input" Text="@L["Field_CurrentPassword"]" />
-            <RadzenPassword @bind-Value="emailPassword" id="account-email-password-input" autocomplete="current-password"
-                            data-testid="account-email-password" />
+            <TextInput id="account-email-password-input" Type="password" @bind-Value="emailPassword" autocomplete="current-password" data-testid="account-email-password" />
         </div>
-        <RadzenButton Text="@L["Account_EmailSave"]" ButtonStyle="ButtonStyle.Primary" Class="rz-mt-2" Disabled="changingEmail"
-                      Click="@(_ => ChangeEmailAsync())" data-testid="account-email-save" />
-    </RadzenCard>
+        <DuofyButton Text="@L["Account_EmailSave"]" OnClick="@(_ => ChangeEmailAsync())" TestId="account-email-save" Class="mt-2" Disabled="changingEmail" />
+    </div>
 
     @* Die Zielquoten (Spec 66, R8): ganze Prozent, zusammen 100. Neue Monate übernehmen sie. *@
-    <RadzenCard Variant="Variant.Outlined" data-testid="account-quotas">
-        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-1">@L["Account_QuotasHeading"]</RadzenText>
-        <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-mb-2">@L["Account_QuotasHint"]</RadzenText>
+    <div class="card" data-testid="account-quotas">
+        <h2 class="section-title mb-1">@L["Account_QuotasHeading"]</h2>
+        <p class="mb-2">@L["Account_QuotasHint"]</p>
         <Notice Message="quotasMessage" />
         @foreach (var pot in QuotaPots)
         {
             var key = pot;
             <div class="field">
-                <FieldLabel For="" id="@($"account-quota-{key}-label")" Text="@L["Account_QuotaField", L[$"Pot_{key}"]]" />
-                <RadzenNumeric TValue="int" Value="quotas[key]" ValueChanged="v => quotas[key] = v" Min="0" Max="100"
-                               ShowUpDown="false"
-                               InputAttributes="@(new Dictionary<string, object> { ["aria-labelledby"] = $"account-quota-{key}-label" })"
-                               data-testid="@($"account-quota-{key}")" />
+                <FieldLabel id="@($"account-quota-{key}-label")" Text="@L["Account_QuotaField", L[$"Pot_{key}"]]" />
+                <NumberInput min="0" max="@(100)" aria-labelledby="@($"account-quota-{key}-label")" Value="quotas[key]" ValueChanged="v => quotas[key] = v ?? 0" data-testid="@($"account-quota-{key}")" />
             </div>
         }
-        <RadzenButton Text="@L["Account_QuotasSave"]" ButtonStyle="ButtonStyle.Primary" Class="rz-mt-2" Click="@(_ => SaveQuotasAsync())"
-                      data-testid="account-quotas-save" />
-    </RadzenCard>
+        <DuofyButton Text="@L["Account_QuotasSave"]" OnClick="@(_ => SaveQuotasAsync())" TestId="account-quotas-save" Class="mt-2" />
+    </div>
 
-    <RadzenCard Variant="Variant.Outlined">
-        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-2">@L["Account_PasswordHeading"]</RadzenText>
+    <div class="card">
+        <h2 class="section-title mb-2">@L["Account_PasswordHeading"]</h2>
         <Notice Message="passwordMessage" />
         <div class="field">
             <FieldLabel For="account-current-password-input" Text="@L["Field_CurrentPassword"]" />
-            <RadzenPassword @bind-Value="currentPassword" id="account-current-password-input" autocomplete="current-password"
-                            data-testid="account-current-password" />
+            <TextInput id="account-current-password-input" Type="password" @bind-Value="currentPassword" autocomplete="current-password" data-testid="account-current-password" />
         </div>
         <div class="field">
             <FieldLabel For="account-new-password-input" Text="@L["Field_NewPassword"]" />
-            <RadzenPassword @bind-Value="newPassword" id="account-new-password-input" autocomplete="new-password"
-                            aria-describedby="account-new-password-hint"
-                            data-testid="account-new-password" />
-            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-display-block"
-                        id="account-new-password-hint">@L["Field_PasswordHint"]</RadzenText>
+            <TextInput id="account-new-password-input" Type="password" @bind-Value="newPassword" autocomplete="new-password" aria-describedby="account-new-password-hint" data-testid="account-new-password" />
+            <p class="small muted" id="account-new-password-hint">@L["Field_PasswordHint"]</p>
         </div>
-        <RadzenButton Text="@L["Account_PasswordSave"]" ButtonStyle="ButtonStyle.Primary" Class="rz-mt-2" Click="@(_ => ChangePasswordAsync())"
-                      data-testid="account-password-save" />
-    </RadzenCard>
+        <DuofyButton Text="@L["Account_PasswordSave"]" OnClick="@(_ => ChangePasswordAsync())" TestId="account-password-save" Class="mt-2" />
+    </div>
 
-    <RadzenCard Variant="Variant.Outlined" data-testid="account-sessions">
-        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-2">@L["Account_SessionsHeading"]</RadzenText>
+    <div class="card" data-testid="account-sessions">
+        <h2 class="section-title mb-2">@L["Account_SessionsHeading"]</h2>
         <Notice Message="sessionsMessage" />
-        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
-            <RadzenButton Text="@L["Account_SignOut"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary"
-                          Click="@(_ => SignOutAsync())" data-testid="account-sign-out" />
-            <RadzenButton Text="@L["Account_SignOutEverywhere"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary"
-                          Click="@(_ => SignOutEverywhereAsync())" data-testid="account-sign-out-everywhere" />
-        </RadzenStack>
-        <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-mt-2">@L["Account_SignOutEverywhereHint"]</RadzenText>
-    </RadzenCard>
+        <div class="row">
+            <DuofyButton Kind="ButtonKind.Secondary" Text="@L["Account_SignOut"]" OnClick="@(_ => SignOutAsync())" TestId="account-sign-out" />
+            <DuofyButton Kind="ButtonKind.Secondary" Text="@L["Account_SignOutEverywhere"]" OnClick="@(_ => SignOutEverywhereAsync())" TestId="account-sign-out-everywhere" />
+        </div>
+        <p class="small muted mt-2">@L["Account_SignOutEverywhereHint"]</p>
+    </div>
 
     @if (setupPending && !isAdmin)
     {
-        <RadzenCard Variant="Variant.Outlined" data-testid="account-admin">
-            <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-1">@L["Account_AdminHeading"]</RadzenText>
-            <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-mb-2">@L["Account_AdminText"]</RadzenText>
+        <div class="card" data-testid="account-admin">
+            <h2 class="section-title mb-1">@L["Account_AdminHeading"]</h2>
+            <p class="mb-2">@L["Account_AdminText"]</p>
             <Notice Message="adminMessage" />
             <div class="field">
                 <FieldLabel For="account-setup-code-input" Text="@L["Field_SetupCode"]" />
-                <RadzenTextBox @bind-Value="setupCode" id="account-setup-code-input" Immediate="true" autocomplete="off"
-                               data-testid="account-setup-code" />
+                <TextInput id="account-setup-code-input" @bind-Value="setupCode" autocomplete="off" data-testid="account-setup-code" />
             </div>
-            <RadzenButton Text="@L["Account_ClaimAdmin"]" ButtonStyle="ButtonStyle.Primary" Class="rz-mt-2" Disabled="claiming"
-                          Click="@(_ => ClaimAdminAsync())" data-testid="account-claim-admin" />
-        </RadzenCard>
+            <DuofyButton Text="@L["Account_ClaimAdmin"]" OnClick="@(_ => ClaimAdminAsync())" TestId="account-claim-admin" Class="mt-2" Disabled="claiming" />
+        </div>
     }
     else if (adminMessage is not null)
     {
         <Notice Message="adminMessage" />
     }
 
-    <RadzenCard Variant="Variant.Outlined">
-        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" Class="rz-mb-2">@L["Account_DangerHeading"]</RadzenText>
-        <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-mb-2">@L["Account_DangerText"]</RadzenText>
+    <div class="card">
+        <h2 class="section-title mb-2">@L["Account_DangerHeading"]</h2>
+        <p class="mb-2">@L["Account_DangerText"]</p>
         @if (isAdmin)
         {
             @* Die API antwortet last_admin. Ausgegraut statt angeboten und abgelehnt; aria-disabled statt disabled,
                damit ein Screenreader den Knopf findet und den Grund darunter vorliest. *@
-            <RadzenButton Text="@L["Account_DeleteLink"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Base"
-                          Class="unavailable"
-                          aria-disabled="true" aria-describedby="account-delete-reason"
-                          data-testid="account-delete-link" />
-            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-display-block rz-mt-1"
-                        id="account-delete-reason" data-testid="account-delete-reason">@L["Account_DeleteLastAdminReason"]</RadzenText>
+            <DuofyButton Kind="ButtonKind.Secondary" Text="@L["Account_DeleteLink"]" TestId="account-delete-link" Class="unavailable" aria-disabled="true" aria-describedby="account-delete-reason" />
+            <p class="small muted mt-1" id="account-delete-reason" data-testid="account-delete-reason">@L["Account_DeleteLastAdminReason"]</p>
         }
         else
         {
-            <LinkButton Href="/konto/loeschen" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Base"
-                        data-testid="account-delete-link">@L["Account_DeleteLink"]</LinkButton>
+            <DuofyButton Href="/konto/loeschen" Kind="ButtonKind.Secondary" TestId="account-delete-link">@L["Account_DeleteLink"]</DuofyButton>
         }
-    </RadzenCard>
+    </div>
 
-</RadzenStack>
+</div>
 
 @code {
 
@@ -196,7 +167,7 @@
     // Bis die API antwortet, stehen die Startwerte 50/30/20 in den Feldern.
     private readonly Dictionary<string, int> quotas = new() { [PotKeys.Needs] = 50, [PotKeys.Wants] = 30, [PotKeys.Savings] = 20 };
 
-    // Beim Öffnen der Seite den Titel für die App-Leiste setzen (ohne Plus-Knopf), dann die
+    // Beim Öffnen der Seite den Titel für die obere Leiste setzen, dann die
     // aktuellen Daten von der API holen und in die Felder schreiben.
     protected override async Task OnInitializedAsync()
     {

@@ -19,15 +19,31 @@ public static class PlanView
             .Where(group => group.Item2.Count > 0)
             .ToList();
 
+    /// <summary>
+    /// Das Geplante eines Topfs, wie es die Übersicht und das Flussdiagramm zeigen (Spec 82, R17): aus der Übersicht der API,
+    /// ohne durchlaufende Posten; ohne Übersicht die Summe der Posten.
+    /// </summary>
+    public static decimal PotPlanned(PlanResponse plan, string pot) =>
+        pot == PotKeys.Income
+            ? plan.Overview?.Income ?? plan.Positions.Where(p => p.Pot == pot && !p.PassThrough).Sum(p => p.AmountPlanned)
+            : plan.Overview?.Pots.FirstOrDefault(p => p.Pot == pot)?.Planned ?? plan.Positions.Where(p => p.Pot == pot && !p.PassThrough).Sum(p => p.AmountPlanned);
+
+    /// <summary>Was in den drei Ausgabe-Töpfen ohne Posten gebucht ist, je Topf: die Zeile Ungeplant (Spec 82, R17).</summary>
+    public static IReadOnlyDictionary<string, decimal> UnplannedPerPot(PlanResponse plan) =>
+        new[] { PotKeys.Needs, PotKeys.Wants, PotKeys.Savings }.ToDictionary(pot => pot, pot => Unplanned(plan, pot));
+
+    /// <summary>Was in einem Topf ohne Posten gebucht ist: die Zeile Ungeplant (Spec 82).</summary>
+    public static decimal Unplanned(PlanResponse plan, string pot) => (plan.Overview?.Bookings ?? [])
+        .SelectMany(b => b.Lines)
+        .Where(l => l.PositionId is null && l.Pot == pot)
+        .Sum(l => l.Amount);
+
     /// <summary>Der Monat, der <paramref name="by"/> Monate neben dem angegebenen liegt, auch über den Jahreswechsel.</summary>
     public static (int Year, int Month) Shift(int year, int month, int by)
     {
         var shifted = new DateOnly(year, month, 1).AddMonths(by);
         return (shifted.Year, shifted.Month);
     }
-
-    /// <summary>Was beim Abhaken eines Postens mit Buchungen als Ausgleich vorbelegt ist: der offene Rest, nie weniger als 0.</summary>
-    public static decimal OpenAmount(PlanPositionResponse position) => Math.Max(position.AmountPlanned - position.Booked, 0m);
 
     /// <summary>Ein Posten lässt sich nur löschen, solange keine Buchung auf ihm liegt (R10).</summary>
     public static bool CanDelete(PlanPositionResponse position) => position.Booked == 0m;

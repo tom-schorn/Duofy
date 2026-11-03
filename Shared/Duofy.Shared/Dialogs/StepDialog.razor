@@ -1,12 +1,10 @@
 @inject IStringLocalizer<SharedResources> L
-@inject Radzen.DialogService RadzenDialogs
 @inject FormDialogs Forms
-@inject IAppHost Host
 
 @* Der Rahmen für Dialoge in Schritten (Spec 11). Er ist die Wurzel eines Dialogs.
 
-   Der Dialog geht über FormDialogs.OpenStepAsync auf; der Rahmen zeichnet Kopf, Schritte und Knöpfe selbst in den
-   Radzen-Dialog, der Titel kommt als Parameter Title.
+   Der Dialog geht über FormDialogs.OpenStepAsync auf; der Rahmen zeichnet Kopf, Schritte und Knöpfe selbst, der Titel
+   kommt als Parameter Title.
 
    Die Schritte stehen als DialogStep im Inhalt. Alle Schritte bleiben gezeichnet, nur der aktuelle
    ist sichtbar; so bleiben Eingaben beim Zurückgehen stehen, auch in Feldern ohne Bindung.
@@ -16,12 +14,12 @@
    Escape bricht ab wie der Knopf Abbrechen, also mit der Rückfrage bei Eingaben (Issue #22). Das eigene Escape der
    Bibliothek ist aus (FormDialogs.StepOptions), damit die Rückfrage nicht umgangen wird. *@
 
-@* Radzen zeichnet nur den Inhalt des Dialogs; Kopf und Knöpfe bleiben stehen, nur die Schritte rollen. *@
-<div class="@FrameClass" data-testid="step-dialog">
+@* Kopf und Knöpfe bleiben stehen, nur die Schritte rollen. *@
+<div class="step-dialog" data-testid="step-dialog">
     <div class="step-dialog-top">
         @HeadContent
     </div>
-    <div class="@StepsClass">
+    <div class="step-dialog-scroll">
         @StepsContent
     </div>
     <div class="step-dialog-foot">
@@ -30,10 +28,14 @@
 </div>
 
 @code {
+    [CascadingParameter] private BlazorBlueprint.Components.IDialogReference? DialogRef { get; set; }
+
     private RenderFragment HeadContent => @<text>
         <div class="step-dialog-head" @onkeydown="OnKeyDown">
             <div class="step-dialog-heading">
-                <h2 class="step-dialog-title">@Title</h2>
+                @* Den Namen für Vorlese-Programme trägt die Überschrift des Fensters (FormDialogs); sie ist nur unsichtbar, damit sie
+                   hier neben dem Fortschritt und Abbrechen stehen kann. So steht der Titel nur einmal da. *@
+                <p class="step-dialog-title" aria-hidden="true">@Title</p>
                 @* Mit nur einem Schritt gibt es nichts zu zählen: kein Fortschritt, kein Balken. *@
                 @if (steps.Count != 1)
                 {
@@ -73,9 +75,18 @@
             {
                 <span class="step-dialog-actions-spacer"></span>
             }
+            @if (FootStart is not null)
+            {
+                @FootStart
+                <span class="fill"></span>
+            }
             <DuofyButton Kind="ButtonKind.Primary" Disabled="Busy" OnClick="NextAsync" TestId="@(IsLast ? FinishTestId : NextTestId)">@(IsLast ? FinishText ?? L["StepDialog_Finish"] : L["StepDialog_Next"])</DuofyButton>
         </div>
     </text>;
+
+    /// <summary>Was unten neben Zurück steht, etwa Löschen im Dialog eines Postens.</summary>
+    [Parameter]
+    public RenderFragment? FootStart { get; set; }
 
     /// <summary>Der Titel im Kopf.</summary>
     [Parameter]
@@ -115,11 +126,6 @@
     private readonly List<DialogStep> steps = [];
     private int current;
     private bool typed;
-
-    // In der App füllt der Dialog den Bildschirm: Der Rahmen nimmt die ganze Höhe, und nur die Schritte rollen.
-    private string FrameClass => Host.IsApp ? "step-dialog step-dialog-app" : "step-dialog";
-
-    private string StepsClass => Host.IsApp ? "step-dialog-scroll step-dialog-scroll-app" : "step-dialog-scroll";
 
     private bool IsLast => current >= steps.Count - 1;
 
@@ -186,6 +192,6 @@
             }
         }
 
-        RadzenDialogs.Close();
+        await (DialogRef?.CancelAsync() ?? Task.CompletedTask);
     }
 }

@@ -1,0 +1,14 @@
+@* Das Feld für ganze Zahlen, etwa den Tag im Monat oder Prozente. Tastatur am Handy nur mit Ziffern; leer heißt null. Grenzen
+   (min, max) und weitere Attribute (id, data-testid, aria-*) landen am Feld. *@
+<input type="number" inputmode="numeric" class="field-input" value="@Value" @onchange="OnChangeAsync" @attributes="AdditionalAttributes" />
+
+@code {
+    [Parameter] public int? Value { get; set; }
+
+    [Parameter] public EventCallback<int?> ValueChanged { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private Task OnChangeAsync(ChangeEventArgs e) =>
+        ValueChanged.InvokeAsync(int.TryParse(e.Value?.ToString(), out var value) ? value : null);
+}

@@ -1,12 +1,12 @@
-@using Radzen
-@using Radzen.Blazor
+@using BlazorBlueprint.Components
+@using Duofy.Shared.Dialogs
+@inherits FormDialogBase
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
 @using Duofy.Shared.Dialogs
 @inject ICommitmentApi CommitmentApi
 @inject ActiveMember Member
-@inject DialogService Dialogs
 @inject IStringLocalizer<SharedResources> L
 
 @* Der Dialog zum Anlegen und Ändern eines Vertrags, in drei Schritten (Spec 17) auf dem Schritt-Dialog (Spec 11):
@@ -24,8 +24,7 @@
     <DialogStep Title="@L["CommitmentDialog_StepWhat"]">
         <StepField Label="@L["Field_CommitmentName"]" InputId="commitment-name-input" Required
                    IsFilled="() => !string.IsNullOrWhiteSpace(draft.Name)" TestId="commitment-name-field">
-            <RadzenTextBox @bind-Value="draft.Name" MaxLength="CommitmentRules.NameMaxLength" id="commitment-name-input"
-                           aria-describedby="commitment-name-input-error" data-testid="commitment-name" />
+            <TextInput id="commitment-name-input" maxlength="@(CommitmentRules.NameMaxLength)" @bind-Value="draft.Name" aria-describedby="commitment-name-input-error" data-testid="commitment-name" />
         </StepField>
 
         <StepField Label="@L["Field_CommitmentType"]" InputId="commitment-type-input" TestId="commitment-type-field">
@@ -41,16 +40,13 @@
             else
             {
                 @* Ein gespeichertes Sparziel oder eine Schuld behält ihre Art; anlegen lassen sie sich hier nicht mehr. *@
-                <RadzenTextBox Value="@L[$"CommitmentType_{draft.Type}"].Value" ReadOnly="true" id="commitment-type-input"
-                               data-testid="commitment-type-fixed" />
+                <TextInput id="commitment-type-input" Value="@L[$"CommitmentType_{draft.Type}"].Value" ReadOnly="true" data-testid="commitment-type-fixed" />
             }
         </StepField>
 
-        <StepField Label="@L["Field_CommitmentAmount"]" InputId="commitment-amount-input" AriaLabelled="true" Required IsFilled="() => draft.Amount is not null"
+        <StepField Label="@L["Field_CommitmentAmount"]" InputId="commitment-amount-input" Required IsFilled="() => draft.Amount is not null"
                    Validate="AmountError" TestId="commitment-amount-field">
-            <RadzenNumeric TValue="decimal?" Culture="German" @bind-Value="draft.Amount" Format="0.00" Min="0" ShowUpDown="false"
-                           InputAttributes="@(Describe("commitment-amount-input"))"
-                           data-testid="commitment-amount" />
+            <MoneyInput id="commitment-amount-input" @bind-Value="draft.Amount" Min="0" data-testid="commitment-amount" />
         </StepField>
 
         @* Die Kategorie war schon vorher Pflicht, bevor etwas an die API ging; ihr Satz bleibt derselbe. *@
@@ -76,10 +72,8 @@
             @if (draft.PotIsFixed)
             {
                 @* Die Einnahme hat ihren Topf fest; er steht nur zur Ansicht da. *@
-                <RadzenTextBox Value="@L[$"Pot_{draft.Pot}"].Value" ReadOnly="true" id="commitment-pot-input"
-                               aria-describedby="commitment-pot-hint" data-testid="commitment-pot-fixed" />
-                <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color"
-                            id="commitment-pot-hint">@L["Field_PotFixedHint"]</RadzenText>
+                <TextInput id="commitment-pot-input" Value="@L[$"Pot_{draft.Pot}"].Value" ReadOnly="true" aria-describedby="commitment-pot-hint" data-testid="commitment-pot-fixed" />
+                <p class="small muted" id="commitment-pot-hint">@L["Field_PotFixedHint"]</p>
             }
             else
             {
@@ -94,52 +88,44 @@
     </DialogStep>
 
     <DialogStep Title="@L["CommitmentDialog_StepWhen"]">
-        <StepField Label="@L["Field_IntervalMonths"]" InputId="commitment-interval-input" AriaLabelled="true" Required
+        <StepField Label="@L["Field_IntervalMonths"]" InputId="commitment-interval-input" Required
                    IsFilled="() => draft.IntervalMonths is not null"
                    Validate="@(() => draft.HasValidInterval ? null : ErrorTexts.For(L, ErrorCodes.CommitmentIntervalInvalid))"
                    TestId="commitment-interval-field">
-            <RadzenNumeric TValue="int?" @bind-Value="draft.IntervalMonths" Min="1" Max="CommitmentRules.MaxIntervalMonths"
-                           ShowUpDown="false" InputAttributes="@(Describe("commitment-interval-input", "commitment-interval-hint"))"
-                           data-testid="commitment-interval" />
-            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color"
-                        id="commitment-interval-hint">@L["Field_IntervalMonthsHint"]</RadzenText>
+            <NumberInput id="commitment-interval-input" min="1" max="@(CommitmentRules.MaxIntervalMonths)" @bind-Value="draft.IntervalMonths" data-testid="commitment-interval" />
+            <p class="small muted" id="commitment-interval-hint">@L["Field_IntervalMonthsHint"]</p>
         </StepField>
 
         @* Die erste Zahlung legt auch den Zahltag fest; die letzte ist freiwillig. *@
         <StepField Label="@L["Field_FirstDueDate"]" InputId="commitment-first-due-input" TestId="commitment-first-due-field">
-            <RadzenTextBox Value="@DateText(draft.FirstDueDate)" ValueChanged="OnFirstDueDateChanged" type="date"
-                           id="commitment-first-due-input" data-testid="commitment-first-due" />
+            <TextInput id="commitment-first-due-input" Type="date" Value="@DateText(draft.FirstDueDate)" ValueChanged="OnFirstDueDateChanged" data-testid="commitment-first-due" />
         </StepField>
 
         @* Die letzte Zahlung eines bestehenden Vertrags zu setzen oder zu leeren, beendet ihn oder holt ihn zurück;
            das braucht die Freigabe Löschen (Spec 68, A17). Ohne sie ist das Feld nur lesbar und nennt den Grund. *@
         <StepField Label="@L["Field_LastDueDate"]" InputId="commitment-last-due-input" Validate="EndError" TestId="commitment-last-due-field">
-            <RadzenTextBox Value="@DateText(draft.LastDueDate)" ValueChanged="OnLastDueDateChanged" type="date"
-                           ReadOnly="endLocked" Class="@GrantLock.Class(!endLocked)" id="commitment-last-due-input"
-                           aria-describedby="@LastDueDescribedBy" data-testid="commitment-last-due" />
-            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color"
-                        id="commitment-last-due-hint">@L["Field_LastDueDateHint"]</RadzenText>
+            <TextInput id="commitment-last-due-input" Type="date" class="@GrantLock.Class(!endLocked)" Value="@DateText(draft.LastDueDate)" ValueChanged="OnLastDueDateChanged" readonly="@endLocked" aria-describedby="@LastDueDescribedBy" data-testid="commitment-last-due" />
+            <p class="small muted" id="commitment-last-due-hint">@L["Field_LastDueDateHint"]</p>
             @if (endLocked)
             {
-                <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color" id="@LastDueReasonId"
-                            data-testid="commitment-last-due-reason">@L["Grant_NotGranted", ownerName ?? ""]</RadzenText>
+                <p class="small muted" id="@LastDueReasonId" data-testid="commitment-last-due-reason">@L["Grant_NotGranted", ownerName ?? ""]</p>
             }
         </StepField>
 
         @if (draft.HasValidInterval)
         {
-            <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" aria-live="polite" data-testid="commitment-next-due">
+            <p aria-live="polite" data-testid="commitment-next-due">
                 @(draft.NextDueDate(Today) is { } next
                     ? L["CommitmentDialog_NextDue", next.ToString("dd.MM.yyyy", German)]
                     : L["CommitmentDialog_NoNextDue"])
-            </RadzenText>
+            </p>
         }
     </DialogStep>
 
     <DialogStep Title="@L["CommitmentDialog_StepWhereTo"]">
         @if (error is not null)
         {
-            <ErrorAlert AlertStyle="AlertStyle.Danger" Text="@error" data-testid="commitment-error" />
+            <ErrorAlert Text="@error" data-testid="commitment-error" />
         }
 
         @* Leer heißt beim zahlenden Konto: das Standardkonto, und zwar das, das am Tag der Zahlung Standard ist.
@@ -157,7 +143,7 @@
                 <CommitmentAccountSelect Value="draft.CounterAccountId" ValueChanged="OnCounterAccountChanged" Accounts="Accounts"
                                          EmptyText="@L["CommitmentDialog_PaidToOutside"]" InputId="commitment-counter-account-input"
                                          Label="@L["CommitmentDialog_PaidTo"]" TestId="commitment-counter-account" />
-                <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color">@L["CommitmentDialog_PaidToHint"]</RadzenText>
+                <p class="small muted">@L["CommitmentDialog_PaidToHint"]</p>
             </StepField>
             @* Ein Sparziel gibt es nur, wenn die Person welche hat: Die Rate fließt dann dem Ziel zu (Issue 32). *@
             @* Eine Schuld oder ein Kredit: Die Rate zahlt dann darauf ein; sie geht an den Gläubiger, nicht auf ein eigenes Konto (Issue 31). *@
@@ -172,7 +158,7 @@
                             <option value="@debt.Id">@debt.Name</option>
                         }
                     </NativeSelect>
-                    <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color">@L["CommitmentDialog_DebtHint"]</RadzenText>
+                    <p class="small muted">@L["CommitmentDialog_DebtHint"]</p>
                 </StepField>
             }
             @if (draft.OffersSavingsGoal && SavingsGoals.Count > 0)
@@ -187,7 +173,7 @@
                             <option value="@goal.Id">@goal.Name</option>
                         }
                     </NativeSelect>
-                    <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color">@L["CommitmentDialog_GoalHint"]</RadzenText>
+                    <p class="small muted">@L["CommitmentDialog_GoalHint"]</p>
                 </StepField>
             }
         }
@@ -207,10 +193,10 @@
                                            TestId="commitment-payment-method" />
         </StepField>
 
-        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-            <RadzenSwitch @bind-Value="draft.PassThrough" Name="commitment-pass-through" data-testid="commitment-pass-through" />
-            <RadzenLabel Component="commitment-pass-through" Text="@L["Field_PassThrough"]" />
-        </RadzenStack>
+        <div class="row">
+            <BbSwitch Id="commitment-pass-through" @bind-Checked="draft.PassThrough" data-testid="commitment-pass-through" />
+            <FieldLabel For="commitment-pass-through" Text="@L["Field_PassThrough"]" />
+        </div>
 
         <table class="line-table" data-testid="commitment-summary">
             <caption class="line-table-caption">@L["CommitmentDialog_Summary"]</caption>
@@ -331,7 +317,7 @@
         draft = Existing is null ? CommitmentDraft.ForNew(Today) : CommitmentDraft.From(Existing);
     }
 
-    // Die Verweise eines Zahlenfelds (RadzenNumeric lässt keine Id am input zu): auf seine Beschriftung, seinen Fehler und
+    // Die Verweise eines Zahlenfelds: auf seine Beschriftung, seinen Fehler und
     // auf einen Hinweis darunter, wenn es einen gibt.
     private static Dictionary<string, object> Describe(string inputId, string? hintId = null) => new()
     {
@@ -449,7 +435,7 @@
 
             if (result.Succeeded)
             {
-                Dialogs.Close(true);
+                await CloseAsync(true);
             }
             else
             {

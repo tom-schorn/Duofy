@@ -1,9 +1,7 @@
 @page "/mehr"
-@using Radzen
-@using Radzen.Blazor
+@using BlazorBlueprint.Icons.Lucide.Components
 @attribute [Authorize]
 @implements IDisposable
-@inject IAppHost Host
 @inject AppChrome Chrome
 @inject IAuthApi AuthApi
 @inject NavigationManager Navigation
@@ -12,67 +10,55 @@
 @inject IUserApi UserApi
 @using Duofy.ApiClient
 
-@* Mehr: alles, was man seltener braucht. Sparen, Konten, Verträge, die Verwaltung des Haushalts und das Benutzerkonto, der Schalter für
-   hell und dunkel (die obere Leiste der App hat keinen mehr) und das Abmelden. Wer den Server verwaltet, findet
-   hier auch Admin (Spec 70); alle anderen sehen den Eintrag nicht.
-
-   Den Schalter reicht das App-Layout als CascadingValue. Im Browser gibt es ihn nicht, dort
-   bleibt der Schalter in der oberen Leiste. *@
+@* Mehr am Handy: oben das Profil mit der Auswahl, wessen Zahlen die Seiten zeigen (Spec 82, R11), darunter, was man
+   seltener braucht: Konten, Verträge, das Benutzerkonto, Admin (nur wer den Server verwaltet, Spec 70), Lizenzen, Rechtstexte
+   und das Abmelden. Sparen und der Haushalt haben eigene Ziele in der unteren Leiste und stehen deshalb nicht hier; den
+   Knopf für hell und dunkel trägt die obere Leiste. *@
 
 <PageTitle>@L["Nav_More"]</PageTitle>
+<PageHead Title="@L["Nav_More"]" />
 
-<AppPageHeading Text="@L["Nav_More"]" />
-@if (!Host.IsApp)
-{
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" Class="rz-mb-2">@L["Nav_More"]</RadzenText>
-}
+<section class="card mb-4" aria-labelledby="more-profile-title" data-testid="more-profile">
+    <div class="row">
+        <span class="avatar" aria-hidden="true">@Initials</span>
+        <div class="stack-sm fill">
+            <h2 class="sub-title" id="more-profile-title">@displayName</h2>
+            <span class="small muted">@email</span>
+        </div>
+    </div>
+    <p class="field-label mt-3 mb-2">@L["MemberSwitch_Label"]</p>
+    <MemberSwitch />
+</section>
 
-@* Radzens Knopf kann nicht zu einer Adresse führen, deshalb ist jeder Eintrag ein LinkButton (ein Link im Aussehen
-   eines Knopfs); nur das Abmelden ist ein echter Knopf. Das Symbol steht vor dem Text. *@
-<RadzenCard Variant="Variant.Outlined" Class="rz-p-2" data-testid="more-list">
-    <RadzenStack Gap="0">
-        <LinkButton Href="/sparen" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Class="more-entry"
-                    data-testid="more-savings"><RadzenIcon Icon="savings" /> @L["Nav_Savings"]</LinkButton>
-        <LinkButton Href="/konten" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Class="more-entry"
-                    data-testid="more-accounts"><RadzenIcon Icon="account_balance" /> @L["Nav_Accounts"]</LinkButton>
-        <LinkButton Href="/vertraege" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Class="more-entry"
-                    data-testid="more-contracts"><RadzenIcon Icon="description" /> @L["More_Contracts"]</LinkButton>
-        <LinkButton Href="/haushalt" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Class="more-entry"
-                    data-testid="more-household"><RadzenIcon Icon="groups" /> @L["More_Household"]</LinkButton>
-        <LinkButton Href="/konto" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Class="more-entry"
-                    data-testid="more-user-account"><RadzenIcon Icon="person" /> @L["More_UserAccount"]</LinkButton>
+@* Jeder Eintrag ist ein Link im Aussehen eines Knopfs; nur das Abmelden ist ein echter Knopf. Das Symbol steht vor dem Text. *@
+<div class="card" data-testid="more-list">
+    <div class="stack-sm">
+        <DuofyButton Href="/konten" Kind="ButtonKind.Ghost" TestId="more-accounts" Class="more-entry"><LucideIcon Name="wallet" Size="16" aria-hidden="true" /> @L["Nav_Accounts"]</DuofyButton>
+        <DuofyButton Href="/vertraege" Kind="ButtonKind.Ghost" TestId="more-contracts" Class="more-entry"><LucideIcon Name="file-text" Size="16" aria-hidden="true" /> @L["More_Contracts"]</DuofyButton>
+        <DuofyButton Href="/konto" Kind="ButtonKind.Ghost" TestId="more-user-account" Class="more-entry"><LucideIcon Name="user" Size="16" aria-hidden="true" /> @L["More_UserAccount"]</DuofyButton>
         @if (isAdmin)
         {
-            <LinkButton Href="/admin" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Class="more-entry"
-                        data-testid="more-admin"><RadzenIcon Icon="admin_panel_settings" /> @L["More_Admin"]</LinkButton>
+            <DuofyButton Href="/admin" Kind="ButtonKind.Ghost" TestId="more-admin" Class="more-entry"><LucideIcon Name="shield" Size="16" aria-hidden="true" /> @L["More_Admin"]</DuofyButton>
         }
-        @if (Mode is not null)
-        {
-            <div class="more-item" data-testid="more-mode">
-                <ThemeChoiceSwitch Choice="Mode.Choice" ChoiceSelected="Mode.Select" />
-            </div>
-        }
-        <LinkButton Href="/lizenzen" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Class="more-entry"
-                    data-testid="more-licenses"><RadzenIcon Icon="gavel" /> @L["More_Licenses"]</LinkButton>
+        <DuofyButton Href="/lizenzen" Kind="ButtonKind.Ghost" TestId="more-licenses" Class="more-entry"><LucideIcon Name="scale" Size="16" aria-hidden="true" /> @L["More_Licenses"]</DuofyButton>
         @foreach (var name in legalDocuments)
         {
-            <LinkButton Href="@LegalPages.PathOf(name)" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Class="more-entry"
-                        data-testid="@($"more-legal-{name}")"><RadzenIcon Icon="article" /> @L[LegalPages.LabelKeyOf(name)]</LinkButton>
+            <DuofyButton Href="@LegalPages.PathOf(name)" Kind="ButtonKind.Ghost" TestId="@($"more-legal-{name}")" Class="more-entry"><LucideIcon Name="file-text" Size="16" aria-hidden="true" /> @L[LegalPages.LabelKeyOf(name)]</DuofyButton>
         }
-        <RadzenButton Click="SignOutAsync" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Class="more-entry"
-                      Icon="logout" Text="@L["Account_SignOut"]" data-testid="more-sign-out" />
-    </RadzenStack>
-</RadzenCard>
+        <DuofyButton Kind="ButtonKind.Ghost" Icon="log-out" Text="@L["Account_SignOut"]" OnClick="SignOutAsync" TestId="more-sign-out" Class="more-entry" />
+    </div>
+</div>
 
 @code {
-    [CascadingParameter]
-    private ModeSwitch? Mode { get; set; }
-
     // Die Rechtstexte, die dieser Server anbietet (Spec 70, R8); ohne Antwort des Servers gibt es keine Links.
     private IReadOnlyList<string> legalDocuments = [];
 
     // Ob die Person den Server verwaltet; ohne Antwort des Servers nicht.
     private bool isAdmin;
+    private string displayName = "";
+    private string email = "";
+
+    private string Initials => string.Concat(displayName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(p => char.ToUpperInvariant(p[0])));
 
     protected override void OnInitialized() => Chrome.Set(this, L["Nav_More"]);
 
@@ -86,6 +72,11 @@
 
         var me = await UserApi.GetMeAsync();
         isAdmin = me.Succeeded && me.Value!.IsInstanceAdmin;
+        if (me.Succeeded)
+        {
+            displayName = $"{me.Value!.FirstName} {me.Value.LastName}".Trim();
+            email = me.Value.Email;
+        }
     }
 
     private async Task SignOutAsync()

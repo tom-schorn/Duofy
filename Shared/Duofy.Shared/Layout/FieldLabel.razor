@@ -1,7 +1,5 @@
-@* Die Beschriftung über einem Eingabefeld, wie in der ursprünglichen Oberfläche.
-   For ist die Id des Feldes, damit ein Klick auf den Text das Feld fokussiert und Vorlese-Programme die beiden
-   verbinden. Ein RadzenNumeric lässt keine Id am input zu; dort bleibt For leer, die Beschriftung bekommt eine
-   eigene Id (id="...") und das Feld verweist mit InputAttributes aria-labelledby auf sie. *@
+@* Die Beschriftung über einem Eingabefeld. For ist die Id des Feldes, damit ein Klick auf den Text das Feld fokussiert und
+   Vorlese-Programme die beiden verbinden. *@
 <label class="field-label" for="@(string.IsNullOrEmpty(For) ? null : For)" @attributes="AdditionalAttributes">@Text</label>
 
 @code {

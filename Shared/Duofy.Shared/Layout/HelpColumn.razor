@@ -1,0 +1,46 @@
+@implements IDisposable
+@inject NavigationManager Navigation
+@inject AppChrome Chrome
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Erklärspalte am PC wie im alten Duofy (Spec 82, R13): ab 1280 Pixel rechts neben dem Inhalt, darunter ausgeblendet
+   (das Stylesheet entscheidet nach der Breite). Kurze Abschnitte mit Überschrift, nur zu Regeln, die es bei uns gibt. Das
+   Thema folgt der Adresse; der Monat setzt es je Reiter selbst (AppChrome.HelpTopic). *@
+
+@if (Topic is { } topic && HelpTopics.Count.TryGetValue(topic, out var count))
+{
+    <aside class="help-column" aria-labelledby="help-column-title" data-print="hide" data-testid="help-column" data-topic="@topic">
+        <h2 class="help-column-title" id="help-column-title">@L["Help_Label"]</h2>
+        @for (var n = 1; n <= count; n++)
+        {
+            <section class="help-entry">
+                <h3 class="help-entry-title">@L[$"Help_{topic}_{n}_Title"]</h3>
+                <p class="help-entry-body">@L[$"Help_{topic}_{n}_Body"]</p>
+            </section>
+        }
+    </aside>
+}
+
+@code {
+    // Nur im Monat bestimmt die Seite das Thema selbst (je Reiter); sonst gilt die Adresse, damit kein Thema einer
+    // vorigen Seite stehen bleibt.
+    private string? Topic => HelpTopics.ForPath(Navigation.ToBaseRelativePath(Navigation.Uri)) is var byPath && byPath == HelpTopics.Month
+        ? Chrome.HelpTopic ?? byPath
+        : byPath;
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnChanged;
+        Chrome.Changed += OnChromeChanged;
+    }
+
+    private void OnChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e) => InvokeAsync(StateHasChanged);
+
+    private void OnChromeChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnChanged;
+        Chrome.Changed -= OnChromeChanged;
+    }
+}

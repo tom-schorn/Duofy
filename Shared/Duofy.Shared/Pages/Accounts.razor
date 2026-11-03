@@ -1,6 +1,5 @@
 @page "/konten"
-@using Radzen
-@using Radzen.Blazor
+@using BlazorBlueprint.Icons.Lucide.Components
 @attribute [Authorize]
 @using System.Globalization
 @using Duofy.ApiClient
@@ -9,7 +8,6 @@
 @inject IAccountApi AccountApi
 @implements IDisposable
 @inject FormDialogs Forms
-@inject IAppHost Host
 @inject AppChrome Chrome
 @inject ActiveMember Member
 @inject TimeProvider Time
@@ -26,20 +24,14 @@
 
 <PageTitle>@L["Accounts_Title"]</PageTitle>
 
-@* In der App steht der Titel in der oberen Leiste und das Plus im Layout (AppChrome). *@
-<AppPageHeading Text="@L["Accounts_Title"]" />
-@if (!Host.IsApp)
-{
-    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-2">
-        <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1">@L["Accounts_Title"]</RadzenText>
+@* Auf schmalen Breiten steht der Titel zusätzlich in der oberen Leiste (AppChrome). *@
+<PageHead Title="@L["Accounts_Title"]" Lead="@L["Accounts_Lead"]"><Actions>
         @if (Sees)
         {
-            <RadzenButton Text="@L["Accounts_Add"]" Icon="add" ButtonStyle="ButtonStyle.Primary"
-                          Click="@(_ => AddAsync())" Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)"
-                          data-testid="accounts-add" />
+            <DuofyButton Icon="plus" Text="@L["Accounts_Add"]" OnClick="@(_ => AddAsync())" TestId="accounts-add" Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)" />
         }
-    </RadzenStack>
-}
+</Actions></PageHead>
+
 
 <Notice Message="message" />
 
@@ -53,83 +45,56 @@ else
 
 @if (loaded && open.Count == 0)
 {
-    <RadzenText TextStyle="TextStyle.Body1" TagName="TagName.P" Class="rz-text-secondary-color rz-mb-2">@L["Accounts_Empty"]</RadzenText>
+    <p class="muted mb-2">@L["Accounts_Empty"]</p>
 }
 
 @* Ab 1280 px eine Tabelle mit Spalten (siehe .data-table in app.css), darunter Karten wie bisher. *@
-<RadzenStack Gap="0.5rem" Class="data-table accounts-table page-wide">
-    @if (open.Count > 0)
+<div class="data-table accounts-table">
+        @foreach (var account in open)
     {
-        <div class="data-table-head" aria-hidden="true">
-            <span class="data-column-3">@L["Table_Name"]</span>
-            <span class="data-column-4">@L["Table_Type"]</span>
-            <span class="data-column-5 data-amount">@L["Table_Balance"]</span>
-        </div>
-    }
-    @foreach (var account in open)
-    {
-        <RadzenCard Variant="Variant.Outlined" Class="data-row-frame" data-testid="@($"account-{account.Id}")">
-            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Class="data-row">
+        <div class="data-row-frame" data-testid="@($"account-{account.Id}")">
+            <div class="data-row">
                 @* Der Stern: gefüllt beim Standardkonto. Ein Klick auf einen leeren Stern macht dieses Konto zum Standardkonto. *@
                 @* Das Symbol "star" ist wie "star_border" nur ein Umriss; gefüllt wird es über die Achse FILL der Schrift. *@
-                <RadzenButton Variant="Variant.Text" ButtonStyle="ButtonStyle.Base"
-                              Click="@(_ => MakeDefaultAsync(account))"
-                              Class="@($"data-column-1 {GrantLock.Class(CanEdit)}")" @attributes="GrantLock.Attributes(CanEdit)"
-                              aria-pressed="@(account.IsDefault ? "true" : "false")"
-                              aria-label="@L[account.IsDefault ? "Accounts_IsDefault" : "Accounts_MakeDefault", account.Name]"
-                              data-testid="@($"account-default-{account.Id}")">
-                    <RadzenIcon Icon="star" Class="@(account.IsDefault ? "icon-filled" : null)" />
-                </RadzenButton>
+                <DuofyButton Kind="ButtonKind.Ghost" OnClick="@(_ => MakeDefaultAsync(account))" AriaLabel="@L[account.IsDefault ? "Accounts_IsDefault" : "Accounts_MakeDefault", account.Name]" TestId="@($"account-default-{account.Id}")" Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)" aria-pressed="@(account.IsDefault ? "true" : "false")">
+                    <LucideIcon Name="star" Size="16" aria-hidden="true" Class="@(account.IsDefault ? "icon-filled" : null)" />
+                </DuofyButton>
                 <AccountIconMark Icon="@account.Icon" />
-                <RadzenStack Gap="0" Class="flex-grow-1 data-cells">
-                    <RadzenLink Path="@($"/konten/{account.Id}")" Text="@account.Name" Class="data-column-3 account-open"
-                                aria-label="@L["Accounts_Open", account.Name]" data-testid="@($"account-open-{account.Id}")" />
-                    <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color data-column-4">@L[$"AccountType_{account.Type}"]</RadzenText>
-                </RadzenStack>
-                <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.P" Class="data-column-5 data-amount">@Money(account.Balance)</RadzenText>
-                <RadzenButton Icon="edit" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small"
-                              Click="@(_ => EditAsync(account))"
-                              Class="@($"data-column-6 {GrantLock.Class(CanEdit)}")" @attributes="GrantLock.Attributes(CanEdit)"
-                              aria-label="@L["Accounts_Edit", account.Name]" data-testid="@($"account-edit-{account.Id}")" />
-                <RadzenButton Text="@L["Accounts_Close"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small"
-                              Click="@(_ => CloseAsync(account))"
-                              Class="@($"data-column-7 {GrantLock.Class(CanEdit)}")" @attributes="GrantLock.Attributes(CanEdit)"
-                              aria-label="@L["Accounts_CloseFor", account.Name]" data-testid="@($"account-close-{account.Id}")" />
-            </RadzenStack>
-        </RadzenCard>
+                <div class="data-cells">
+                    <a href="@($"/konten/{account.Id}")" class="data-title account-open" aria-label="@L["Accounts_Open", account.Name]" data-testid="@($"account-open-{account.Id}")">@account.Name</a>
+                    <p class="small muted">@L[$"AccountType_{account.Type}"]</p>
+                </div>
+                <p class="data-amount num">@Money(account.Balance)</p>
+                <DuofyButton Kind="ButtonKind.Ghost" Icon="pencil" IconOnly="true" Small="true" OnClick="@(_ => EditAsync(account))" AriaLabel="@L["Accounts_Edit", account.Name]" TestId="@($"account-edit-{account.Id}")" Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)" />
+                <DuofyButton Kind="ButtonKind.Ghost" Text="@L["Accounts_Close"]" Small="true" OnClick="@(_ => CloseAsync(account))" AriaLabel="@L["Accounts_CloseFor", account.Name]" TestId="@($"account-close-{account.Id}")" Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)" />
+            </div>
+        </div>
     }
-</RadzenStack>
+</div>
 
 @* Aufgelöste Konten: Ihre Buchungen bleiben erhalten, deshalb stehen sie hier und lassen sich wieder öffnen. *@
 @if (closed.Count > 0)
 {
-    <RadzenButton Text="@L["Accounts_ShowClosed", closed.Count]" Icon="@(showClosed ? "expand_less" : "expand_more")"
-                  Variant="Variant.Text" ButtonStyle="ButtonStyle.Primary" Class="rz-mt-4"
-                  Click="@(_ => showClosed = !showClosed)" aria-expanded="@(showClosed ? "true" : "false")"
-                  data-testid="accounts-show-closed" />
+    <DuofyButton Kind="ButtonKind.Ghost" Icon="@(showClosed ? "chevron-up" : "chevron-down")" Text="@L["Accounts_ShowClosed", closed.Count]" OnClick="@(_ => showClosed = !showClosed)" TestId="accounts-show-closed" Class="mt-4" aria-expanded="@(showClosed ? "true" : "false")" />
 
     @if (showClosed)
     {
-        <RadzenStack Gap="0.5rem" Class="rz-mt-2 data-table accounts-table">
+        <div class="mt-2 data-table accounts-table">
             @foreach (var account in closed)
             {
-                <RadzenCard Variant="Variant.Outlined" Class="data-row-frame" data-testid="@($"account-{account.Id}")">
-                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Class="data-row">
+                <div class="data-row-frame" data-testid="@($"account-{account.Id}")">
+                    <div class="data-row">
                         <AccountIconMark Icon="@account.Icon" />
-                        <RadzenStack Gap="0" Class="flex-grow-1 data-cells">
-                            <RadzenLink Path="@($"/konten/{account.Id}")" Text="@account.Name" Class="data-column-3 account-open"
-                                        aria-label="@L["Accounts_Open", account.Name]" data-testid="@($"account-open-{account.Id}")" />
-                            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color data-column-4">@L["Accounts_ClosedMark", L[$"AccountType_{account.Type}"]]</RadzenText>
-                        </RadzenStack>
-                        <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.P" Class="rz-text-secondary-color data-column-5 data-amount">@Money(account.Balance)</RadzenText>
-                        <RadzenButton Text="@L["Accounts_Reopen"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small"
-                                      Click="@(_ => SetActiveAsync(account, true))"
-                                      Class="@($"data-column-7 {GrantLock.Class(CanEdit)}")" @attributes="GrantLock.Attributes(CanEdit)"
-                                      data-testid="@($"account-reopen-{account.Id}")" />
-                    </RadzenStack>
-                </RadzenCard>
+                        <div class="data-cells">
+                            <a href="@($"/konten/{account.Id}")" class="data-title account-open" aria-label="@L["Accounts_Open", account.Name]" data-testid="@($"account-open-{account.Id}")">@account.Name</a>
+                            <p class="small muted">@L["Accounts_ClosedMark", L[$"AccountType_{account.Type}"]]</p>
+                        </div>
+                        <p class="data-amount num muted">@Money(account.Balance)</p>
+                        <DuofyButton Kind="ButtonKind.Ghost" Text="@L["Accounts_Reopen"]" Small="true" OnClick="@(_ => SetActiveAsync(account, true))" TestId="@($"account-reopen-{account.Id}")" Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)" />
+                    </div>
+                </div>
             }
-        </RadzenStack>
+        </div>
     }
 }
 
@@ -155,7 +120,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        Chrome.Set(this, L["Accounts_Title"], AddAsync, L["Accounts_Add"]);
+        Chrome.Set(this, L["Accounts_Title"]);
         // Erst nach dem ersten Laden zuhören: Das Laden selbst meldet sich auch als Änderung.
         await Member.LoadAsync();
         Member.Changed += OnMemberChanged;
@@ -178,7 +143,6 @@ else
     // Alle Konten holen, offene und aufgelöste. Die API liefert das Standardkonto zuerst.
     private async Task LoadAsync()
     {
-        Chrome.LockPlus(this, Sees && !CanAdd ? GrantLock.ReasonId : null);
         open = [];
         closed = [];
         loaded = false;

@@ -145,21 +145,21 @@ public class BrandTests : PageTestContext
     // --- Kopfzeile -------------------------------------------------------------------------------------------
 
     [Fact]
-    public void The_app_bar_of_the_browser_shows_the_plagevo_wordmark_in_light_mode()
+    public void The_side_bar_of_the_browser_shows_the_plagevo_wordmark_in_light_mode()
     {
         UsePlagevo();
         AddAuthorization();
 
         var cut = Render<MainLayout>();
 
-        var logo = Assert.Single(cut.FindAll(".rz-header img[data-testid='brand-logo']"));
-        // Die Leiste ist auch im hellen Modus dunkel, also das Logo für dunklen Grund.
-        Assert.EndsWith("brand/plagevo-wortmarke-dunkel.svg", logo.GetAttribute("src"));
+        var logo = Assert.Single(cut.FindAll(".shell-brand img[data-testid='brand-logo']"));
+        // Die Seitenleiste folgt seit Spec 82 dem Modus, im hellen also das Logo für hellen Grund.
+        Assert.EndsWith("brand/plagevo-wortmarke-hell.svg", logo.GetAttribute("src"));
         Assert.Equal("Plagevo", logo.GetAttribute("alt"));
     }
 
     [Fact]
-    public void The_app_bar_of_the_browser_shows_the_dark_wordmark_in_dark_mode()
+    public void The_side_bar_of_the_browser_shows_the_dark_wordmark_in_dark_mode()
     {
         UsePlagevo();
         AddAuthorization();
@@ -168,7 +168,7 @@ public class BrandTests : PageTestContext
         var cut = Render<MainLayout>();
 
         cut.WaitForAssertion(() =>
-            Assert.EndsWith("brand/plagevo-wortmarke-dunkel.svg", cut.Find(".rz-header img[data-testid='brand-logo']").GetAttribute("src")));
+            Assert.EndsWith("brand/plagevo-wortmarke-dunkel.svg", cut.Find(".shell-brand img[data-testid='brand-logo']").GetAttribute("src")));
     }
 
     [Fact]
@@ -179,22 +179,25 @@ public class BrandTests : PageTestContext
         var cut = Render<MainLayout>();
 
         Assert.Empty(cut.FindAll("[data-testid='brand-logo']"));
-        Assert.Equal("Duofy", cut.Find(".rz-header .app-title").TextContent.Trim());
+        Assert.Equal("Duofy", cut.Find(".shell-side .shell-brand").TextContent.Trim());
+        // Spec 82, R11: Die obere Leiste nennt keinen Seitentitel mehr, nur die Marke.
+        Assert.Equal("Duofy", cut.Find(".shell-top .shell-top-brand").TextContent.Trim());
+        Assert.Empty(cut.FindAll("[data-testid='app-title']"));
     }
 
     [Fact]
-    public void The_app_bar_of_the_app_shows_the_plagevo_symbol_before_the_title_of_the_page()
+    public void The_top_bar_of_the_app_shows_the_plagevo_symbol_before_the_title_of_the_page()
     {
         UsePlagevo();
         Services.AddSingleton<IAppHost, AppHost>();
 
         var cut = Open("/konto");
 
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".rz-header img[data-testid='brand-logo']")));
-        var symbol = cut.Find(".rz-header img[data-testid='brand-logo']");
-        Assert.EndsWith("brand/plagevo-symbol-dunkel.svg", symbol.GetAttribute("src"));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".shell-top img[data-testid='brand-logo']")));
+        var symbol = cut.Find(".shell-top img[data-testid='brand-logo']");
+        Assert.EndsWith("brand/plagevo-symbol-hell.svg", symbol.GetAttribute("src"));
         Assert.Equal("", symbol.GetAttribute("alt"));
-        Assert.NotEmpty(cut.Find("[data-testid='app-title']").TextContent);
+        Assert.Empty(cut.FindAll("[data-testid='app-title']"));
     }
 
     private sealed class FixedThemeStore(BrandTests test) : IThemePreferenceStore

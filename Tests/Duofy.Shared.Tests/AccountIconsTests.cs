@@ -19,7 +19,7 @@ public class AccountIconsTests : PageTestContext
 
     public AccountIconsTests()
     {
-        dialogs = RenderRadzenHost();
+        dialogs = RenderDialogHost();
     }
 
     private static IElement Group(IRenderedComponent<IComponent> cut, string testId) => cut.Find($"[data-testid='{testId}']");
@@ -41,7 +41,7 @@ public class AccountIconsTests : PageTestContext
         foreach (var key in AccountIcons.All)
         {
             var symbol = AccountIconSet.SymbolName(key);
-            Assert.Matches("^[a-z_]+$", symbol);
+            Assert.Matches("^[a-z0-9-]+$", symbol);
         }
         Assert.Equal(AccountIcons.All.Count, AccountIcons.All.Select(AccountIconSet.SymbolName).Distinct().Count());
         Assert.Equal(AccountIconSet.SymbolName(AccountIcons.Bank), AccountIconSet.SymbolName("unbekannt"));
@@ -204,7 +204,7 @@ public class AccountIconsTests : PageTestContext
         Assert.Null(IconOf(options[0]));
         Assert.Equal(AccountIcons.Bank, IconOf(options[1]));
         Assert.Equal(AccountIcons.Piggy, IconOf(options[2]));
-        Assert.NotEmpty(options[1].QuerySelectorAll("i.rzi"));
+        Assert.NotEmpty(options[1].QuerySelectorAll("svg"));
     }
 
     // A3 (Issue 16): Konten ohne Freigabe erscheinen wie bisher nicht (die Liste enthält sie nicht); aufgelöste nur, wenn gewählt.
@@ -252,7 +252,7 @@ public class AccountIconsTests : PageTestContext
         Assert.Contains("account-option-name", cut.Markup);
     }
 
-    private static string AppCss => File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "wwwroot", "app.css"));
+    private static string AppCss => File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "wwwroot", "duofy.css"));
 
     [Fact]
     public void The_style_lets_the_name_break_and_marks_the_chosen_option_not_by_colour_alone_and_shows_the_focus()
@@ -265,7 +265,7 @@ public class AccountIconsTests : PageTestContext
         Assert.DoesNotContain("ellipsis", name);
         Assert.Contains(".account-option:has(input:checked)", css);
         Assert.Contains("font-weight", css[css.IndexOf(".account-option:has(input:checked)", StringComparison.Ordinal)..][..300]);
-        Assert.Contains(".account-option:has(input:focus-visible)", css);
+        Assert.Contains(":has(input:focus-visible)", css);
     }
 
     // A2 (Issue 16): gilt in Buchung, Vertrag und Plan-Posten

@@ -1,0 +1,144 @@
+@using System.Globalization
+@using Duofy.Schemas
+@inject IStringLocalizer<SharedResources> L
+
+@* Das Druckbild eines Monats (Spec 82, R20; Tom: "Die Druckversion sollte net einfach eine seitenkopie sein"): A4 hochkant,
+   schwarz-weiß lesbar. Kopf mit Person oder Haushalt und Monat, eine Zeile Kennzahlen, dann je Topf eine Tabelle mit Posten,
+   Fälligkeit, geplantem und gebuchtem Betrag und Status, am Ende Ungeplant und die Summen. Ohne Navigation, Knöpfe, Sankey und
+   Erklärspalte. Auf dem Bildschirm ist es unsichtbar; beim Drucken blendet das Stylesheet alles andere der Seite aus. Zeilen
+   brechen nicht über eine Seite, der Tabellenkopf wiederholt sich, die Seitenzahlen stehen im Fuß (@page in duofy.css). *@
+<article class="month-print" data-testid="month-print">
+    <header class="print-head">
+        <p class="print-brand">@L["Print_Brand"]</p>
+        <h1 class="print-title">@Title</h1>
+        <p class="print-subject">@Subject · @L["Print_AsOf", Today.ToString("d", German)]</p>
+    </header>
+
+    <table class="print-metrics" data-testid="month-print-metrics">
+        <tr>
+            <th scope="col">@L["Month_Income"]</th>
+            <th scope="col">@L["Month_Allocatable"]</th>
+            <th scope="col">@L["Month_Unpaid"]</th>
+            <th scope="col">@L["Plan_CarryOver"]</th>
+        </tr>
+        <tr>
+            <td>@MoneyText.Format(Income)</td>
+            <td>@MoneyText.Format(Free)</td>
+            <td>@MoneyText.Format(Unpaid)</td>
+            <td>@CarryOver</td>
+        </tr>
+    </table>
+
+    @foreach (var pot in Pots)
+    {
+        <section class="print-pot" data-testid="@($"month-print-pot-{pot.Pot}")">
+            <h2 class="print-pot-title">
+                @L[$"Pot_{pot.Pot}"]
+                <span class="print-pot-sum">@MoneyText.Format(pot.Planned)@(pot.Limit is { } limit ? $" {L["Month_Of", MoneyText.Format(limit)]}" : "")</span>
+            </h2>
+            <table class="print-table">
+                <thead>
+                    <tr>
+                        <th scope="col" class="print-col-label">@L["Month_ColPosition"]</th>
+                        @if (ShowOwner)
+                        {
+                            <th scope="col" class="print-col-owner">@L["Month_ColPerson"]</th>
+                        }
+                        <th scope="col" class="print-col-due">@L["Print_Due"]</th>
+                        <th scope="col" class="num print-col-amount">@L["Chart_Planned"]</th>
+                        <th scope="col" class="num print-col-amount">@L["Chart_Booked"]</th>
+                        <th scope="col" class="print-col-status">@L["Print_Status"]</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in pot.Rows)
+                    {
+                        <tr>
+                            <td>@row.Label</td>
+                            @if (ShowOwner)
+                            {
+                                <td>@row.Owner</td>
+                            }
+                            <td>@Due(row.DueDay)</td>
+                            <td class="num">@MoneyText.Format(row.Planned)</td>
+                            <td class="num">@(row.Booked == 0m ? "—" : MoneyText.Format(row.Booked))</td>
+                            <td>@Status(row)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </section>
+    }
+
+    <section class="print-pot print-end">
+        <table class="print-table print-sums" data-testid="month-print-sums">
+            <tbody>
+                @if (UnplannedTotal != 0m)
+                {
+                    <tr>
+                        <th scope="row">@L["Plan_Unplanned"]</th>
+                        <td>@UnplannedDetail</td>
+                        <td class="num">@MoneyText.Format(UnplannedTotal)</td>
+                    </tr>
+                }
+                <tr>
+                    <th scope="row">@L["Month_Income"]</th>
+                    <td>@L["Print_PlannedBooked", MoneyText.Format(Income), MoneyText.Format(BookedIncome)]</td>
+                    <td class="num">@MoneyText.Format(Income)</td>
+                </tr>
+                <tr>
+                    <th scope="row">@L["Print_Expenses"]</th>
+                    <td>@L["Print_PlannedBooked", MoneyText.Format(PlannedExpenses), MoneyText.Format(BookedExpenses)]</td>
+                    <td class="num">@MoneyText.Format(PlannedExpenses)</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+</article>
+
+@code {
+    private static readonly CultureInfo German = new("de-DE");
+
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    /// <summary>Wessen Plan: die Person oder der Haushalt.</summary>
+    [Parameter, EditorRequired] public string Subject { get; set; } = "";
+
+    [Parameter] public DateOnly Today { get; set; }
+
+    [Parameter] public int Year { get; set; }
+
+    [Parameter] public int Month { get; set; }
+
+    [Parameter] public decimal Income { get; set; }
+
+    [Parameter] public decimal Free { get; set; }
+
+    [Parameter] public decimal Unpaid { get; set; }
+
+    [Parameter] public string CarryOver { get; set; } = "—";
+
+    [Parameter] public decimal BookedIncome { get; set; }
+
+    [Parameter] public decimal PlannedExpenses { get; set; }
+
+    [Parameter] public decimal BookedExpenses { get; set; }
+
+    [Parameter, EditorRequired] public IReadOnlyList<PrintPot> Pots { get; set; } = [];
+
+    [Parameter] public IReadOnlyDictionary<string, decimal> Unplanned { get; set; } = new Dictionary<string, decimal>();
+
+    /// <summary>Im Haushalt eine Spalte mit der Person.</summary>
+    [Parameter] public bool ShowOwner { get; set; }
+
+    private decimal UnplannedTotal => Unplanned.Values.Sum();
+
+    private string UnplannedDetail => string.Join(" · ", Unplanned.Where(u => u.Value != 0m).Select(u => $"{L[$"Pot_{u.Key}"]} {MoneyText.Format(u.Value)}"));
+
+    private string Due(int day) => new DateOnly(Year, Month, Math.Clamp(day, 1, DateTime.DaysInMonth(Year, Month))).ToString("dd.MM.", German);
+
+    private string Status(PrintRow row) => L[row.Done ? "Print_StatusDone"
+        : row.Booked >= row.Planned && row.Planned > 0m ? "Print_StatusPaid"
+        : row.Booked > 0m ? "Print_StatusPartly"
+        : "Print_StatusOpen"];
+}

@@ -1,0 +1,151 @@
+@using System.Globalization
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Tageskurve des Monats (Spec 82, R14; Tom: "ein diagram was aufzeichnet ob und wann eine lücke entsteht"): der Stand am
+   Ende jedes Tages, bis heute durchgezogen aus den echten Buchungen, ab morgen gestrichelt aus den offenen Posten. Links stehen
+   Beträge an der Achse, mindestens null, der Start und der Tiefpunkt (Tom, 03.11.2026); die Null-Linie ist kräftig. Unter null
+   ist der Bereich leicht getönt und die Fläche zwischen Kurve und Null-Linie, die Lücke selbst, kräftig; wo die Kurve zum ersten
+   Mal darunter fällt, sitzt eine Marke. Ein Satz darunter nennt Tag und Betrag der Lücke; für Vorlese-Programme gibt es dazu
+   eine Tabelle aller Tage, der gemalte Teil ist verborgen. *@
+<figure class="chart day-curve" data-testid="month-curve">
+    <figcaption class="chart-caption">@Caption</figcaption>
+    @Picture(Wide)
+    @Picture(Narrow)
+    <p class="@(Model.Gap > 0m ? "day-curve-text day-curve-text--gap" : "day-curve-text")" data-testid="month-curve-text">@Sentence</p>
+    <div class="visually-hidden">
+        <table>
+            <caption>@Caption</caption>
+            <thead><tr><th scope="col">@L["Month_ColDate"]</th><th scope="col">@L["Chart_CurveBalance"]</th></tr></thead>
+            <tbody>
+                @foreach (var p in Model.Points)
+                {
+                    <tr><th scope="row">@p.Day.ToString("d", German)</th><td>@MoneyText.Format(p.Balance)</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</figure>
+
+@code {
+    private static readonly CultureInfo German = new("de-DE");
+    /// <summary>Die Maße eines Bilds: am PC breit und flach, am Handy schmaler und höher, damit die Achse lesbar bleibt.</summary>
+    private sealed record Frame(string Css, decimal Width, decimal Height, decimal Left, decimal Right, decimal Top, decimal Bottom, int Font);
+
+    // Tom, 03.11.2026: "bissle zu groß". Am PC etwa 200 Pixel, am Handy etwa 180 Pixel hoch; die Schrift wächst im Verhältnis
+    // mit, damit die Achse lesbar bleibt.
+    private static readonly Frame Wide = new("day-curve-wide", 640m, 160m, 70m, 8m, 10m, 20m, 12);
+
+    private static readonly Frame Narrow = new("day-curve-narrow", 360m, 200m, 62m, 6m, 10m, 20m, 12);
+
+    // Welches Bild zu sehen ist, entscheidet das Stylesheet; beide sind für Vorlese-Programme verborgen.
+    private RenderFragment Picture(Frame f) => @<svg class="@($"day-curve-svg {f.Css}")" viewBox="@($"0 0 {f.Width} {f.Height}")" aria-hidden="true" focusable="false">
+    <defs>
+        <clipPath id="@($"{ClipId}-{f.Css}")"><rect x="@f.Left" y="@Css(Y(f, 0m))" width="@(f.Width - f.Left - f.Right)" height="@Css(Math.Max(f.Height - f.Bottom - Y(f, 0m), 0m))" /></clipPath>
+    </defs>
+    <rect class="day-curve-below" x="@f.Left" y="@Css(Y(f, 0m))" width="@(f.Width - f.Left - f.Right)" height="@Css(Math.Max(f.Height - f.Bottom - Y(f, 0m), 0m))" />
+    @foreach (var tick in AxisTicks(f))
+    {
+        <line class="day-curve-grid" x1="@f.Left" x2="@(f.Width - f.Right)" y1="@Css(Y(f, tick))" y2="@Css(Y(f, tick))" />
+        <g><text class="day-curve-axis" font-size="@f.Font" x="@(f.Left - 6)" y="@Css(Y(f, tick) + 4)" text-anchor="end" data-testid="month-curve-axis">@Axis(tick)</text></g>
+    }
+    @if (Model.Gap > 0m)
+    {
+        <polygon class="day-curve-gap" points="@GapArea(f)" clip-path="@($"url(#{ClipId}-{f.Css})")" data-testid="month-curve-gap-area" />
+    }
+    <line class="day-curve-zero" x1="@f.Left" x2="@(f.Width - f.Right)" y1="@Css(Y(f, 0m))" y2="@Css(Y(f, 0m))" data-testid="month-curve-zero" />
+    @if (TodayX(f) is { } todayX)
+    {
+        <line class="day-curve-today" x1="@Css(todayX)" x2="@Css(todayX)" y1="@f.Top" y2="@(f.Height - f.Bottom)" />
+    }
+    @if (ActualPath(f) is { } actual)
+    {
+        <polyline class="day-curve-line" points="@actual" />
+    }
+    @if (ForecastPath(f) is { } forecast)
+    {
+        <polyline class="day-curve-line day-curve-line--forecast" points="@forecast" />
+    }
+    @if (Model.FirstBelowZero is { } below)
+    {
+        var point = Model.Points.First(p => p.Day == below);
+        <circle class="day-curve-marker" cx="@Css(X(f, below.Day))" cy="@Css(Y(f, point.Balance))" r="5" data-testid="month-curve-marker" />
+    }
+    @foreach (var day in Ticks)
+    {
+        <g><text class="day-curve-tick" font-size="@f.Font" x="@Css(X(f, day))" y="@(f.Height - 6)" text-anchor="middle">@day.</text></g>
+    }
+</svg>;
+
+    // Eindeutig je Diagramm, damit die Beschneidung der Lückenfläche kein anderes Bild trifft.
+    private readonly string ClipId = $"day-curve-clip-{Guid.NewGuid():N}";
+
+    // Die Beträge an der Achse: null, der Start und der Tiefpunkt zuerst, dann der Höchststand; was zu dicht an einem schon
+    // gesetzten liegt, fällt weg, damit sich keine Beschriftungen überdecken.
+    private IReadOnlyList<decimal> AxisTicks(Frame f)
+    {
+        var kept = new List<decimal>();
+        foreach (var value in new[] { 0m, Model.Start, Model.Lowest.Balance, Max })
+        {
+            if (kept.All(k => Math.Abs(Y(f, k) - Y(f, value)) >= f.Font + 2))
+            {
+                kept.Add(value);
+            }
+        }
+        return kept;
+    }
+
+    private static string Axis(decimal value) => Math.Round(value, 0, MidpointRounding.AwayFromZero).ToString("N0", German) + " €";
+
+    // Die Fläche zwischen Kurve und Null-Linie; die Beschneidung lässt nur den Teil unter null stehen.
+    private string GapArea(Frame f)
+    {
+        var zero = Css(Y(f, 0m));
+        var line = Model.Points.Select(p => $"{Css(X(f, p.Day.Day))},{Css(Y(f, p.Balance))}");
+        return string.Join(" ", new[] { $"{Css(X(f, 1))},{zero}" }.Concat(line).Append($"{Css(X(f, Days))},{zero}"));
+    }
+
+    [Parameter, EditorRequired] public string Caption { get; set; } = "";
+
+    [Parameter, EditorRequired] public MonthCurveModel Model { get; set; } = default!;
+
+    [Parameter, EditorRequired] public DateOnly Today { get; set; }
+
+    private int Days => Model.Points.Count;
+
+    private decimal Max => Math.Max(Math.Max(Model.Points.Max(p => p.Balance), Model.Start), 0m);
+
+    private decimal Min => Math.Min(Math.Min(Model.Points.Min(p => p.Balance), Model.Start), 0m);
+
+    private decimal Span => Max - Min == 0m ? 1m : Max - Min;
+
+    private decimal X(Frame f, int day) => f.Left + (Days <= 1 ? 0m : (day - 1) / (decimal)(Days - 1) * (f.Width - f.Left - f.Right));
+
+    private decimal Y(Frame f, decimal balance) => f.Top + (Max - balance) / Span * (f.Height - f.Top - f.Bottom);
+
+    private decimal? TodayX(Frame f) => Model.Points.Any(p => p.Day == Today) ? X(f, Today.Day) : null;
+
+    private IEnumerable<int> Ticks => new[] { 1, 10, 20, Days }.Distinct();
+
+    private string? ActualPath(Frame f) => Points(f, Model.Points.Where(p => !p.Forecast).ToList());
+
+    // Die gestrichelte Vorschau beginnt am letzten echten Tag, damit die Linie nicht abreißt.
+    private string? ForecastPath(Frame f)
+    {
+        var forecast = Model.Points.Where(p => p.Forecast).ToList();
+        if (forecast.Count == 0)
+        {
+            return null;
+        }
+        var lastActual = Model.Points.LastOrDefault(p => !p.Forecast);
+        return Points(f, lastActual is null ? forecast : [lastActual, .. forecast]);
+    }
+
+    private string? Points(Frame f, IReadOnlyList<CurvePoint> points) =>
+        points.Count == 0 ? null : string.Join(" ", points.Select(p => $"{Css(X(f, p.Day.Day))},{Css(Y(f, p.Balance))}"));
+
+    private string Sentence => Model.FirstBelowZero is { } below
+        ? L["Chart_CurveGap", below.ToString("dddd, d. MMMM", German), MoneyText.Format(Model.Gap), Model.Lowest.Day.ToString("d. MMMM", German)].Value
+        : L["Chart_CurveNoGap", MoneyText.Format(Model.Lowest.Balance), Model.Lowest.Day.ToString("d. MMMM", German)].Value;
+
+    private static string Css(decimal value) => Math.Round(value, 2).ToString("0.##", CultureInfo.InvariantCulture);
+}

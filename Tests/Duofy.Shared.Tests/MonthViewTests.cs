@@ -104,13 +104,42 @@ public class MonthViewTests
     [Fact]
     public void The_gap_is_booked_minus_planned_per_pot_and_the_quota_comes_from_the_plan()
     {
-        var plan = PlanWith(Overview()) with { Quotas = [new PlanQuotaResponse(PotKeys.Needs, 50, 60m)] };
+        var plan = PlanWith(Overview()) with { Quotas = [new PlanQuotaResponse(PotKeys.Needs, 50, 60m)], BookedIncome = 2000m };
 
         var pot = MonthView.ForPerson(plan, Today, _ => null).Pots.Single(p => p.Pot == PotKeys.Needs);
 
         Assert.Equal(200m, pot.Gap);
         Assert.Equal(50, pot.Target);
         Assert.Equal(60m, pot.Actual);
+        Assert.False(pot.OnPlannedIncome);
+    }
+
+    // A20 (Spec 82, R17): Solange keine Einnahme gebucht ist, bezieht sich Ist auf die geplanten Einnahmen statt überall 0 %.
+    [Fact]
+    public void Without_booked_income_the_actual_refers_to_the_planned_income()
+    {
+        var rent = FakePlanApi.Position("Miete", 900m, booked: 900m);
+        var food = FakePlanApi.Position("Essen", 400m, booked: 300m);
+        var through = FakePlanApi.Position("Auslage", 100m, booked: 100m) with { PassThrough = true };
+        var fun = FakePlanApi.Position("Kino", 50m, PotKeys.Wants, booked: 30m);
+        var plan = PlanWith(Overview(), rent, food, through, fun);
+
+        var pots = MonthView.ForPerson(plan, Today, _ => null).Pots;
+
+        // Geplante Einnahmen 3000 (Übersicht); Grundbedarf 900 + 300 gebucht, die Auslage zählt nicht: 40 %. Wünsche 30: 1 %.
+        Assert.Equal(40m, pots.Single(p => p.Pot == PotKeys.Needs).Actual);
+        Assert.Equal(1m, pots.Single(p => p.Pot == PotKeys.Wants).Actual);
+        Assert.All(pots, p => Assert.True(p.OnPlannedIncome));
+    }
+
+    [Fact]
+    public void Without_planned_income_the_actual_stays_the_one_of_the_api()
+    {
+        var (actual, onPlanned) = MonthView.QuotaActual(PotKeys.Needs, 0m, incomeBooked: false, plannedIncome: 0m,
+            [new MonthView.QuotaSource(PotKeys.Needs, false, 100m)]);
+
+        Assert.Equal(0m, actual);
+        Assert.False(onPlanned);
     }
 
     [Fact]

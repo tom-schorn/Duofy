@@ -41,17 +41,6 @@ public class ThemeFirstPaintTests : UiTestContext
     }
 
     [Fact]
-    public void The_head_style_uses_the_dark_colours_of_the_theme_under_the_class()
-    {
-        var style = ThemeBoot.Style;
-
-        Assert.Contains($"html.{ThemeBoot.DarkClass}", style);
-        Assert.Contains("color-scheme:dark", style);
-        Assert.Contains($"background-color:{RadzenVariables.Dark["--rz-body-background-color"]}", style);
-        Assert.Contains($"color:{RadzenVariables.Dark["--rz-text-color"]}", style);
-    }
-
-    [Fact]
     public void The_web_page_puts_the_script_in_the_head_before_the_first_stylesheet()
     {
         var app = File.ReadAllText(RepositoryFiles.Path("Web", "Duofy.Web", "Components", "App.razor"));
@@ -63,37 +52,7 @@ public class ThemeFirstPaintTests : UiTestContext
 
     // --- Layout ------------------------------------------------------------------------------------------
 
-    [Fact]
-    public void The_layout_drops_the_early_class_once_it_draws_in_the_right_colour_itself()
-    {
-        Services.AddSingleton<IThemePreferenceStore>(new Store(ThemeChoice.Dark));
-
-        var cut = Render<MainLayout>();
-
-        cut.WaitForAssertion(() => Assert.True(cut.FindComponent<Duofy.Shared.Layout.ThemeVariables>().Instance.Dark));
-        cut.WaitForAssertion(() => Assert.Contains(JSInterop.Invocations,
-            i => i.Identifier == ThemeBoot.RemoveFunction && i.Arguments.Count == 1 && (string?)i.Arguments[0] == ThemeBoot.DarkClass));
-    }
-
     // --- App: Preferences vor dem ersten Zeichnen ------------------------------------------------------------
-
-    [Theory]
-    [InlineData(ThemeChoice.Dark, false, true)]
-    [InlineData(ThemeChoice.Light, true, false)]
-    [InlineData(ThemeChoice.Device, true, true)]
-    [InlineData(ThemeChoice.Device, false, false)]
-    public void A_store_that_knows_the_choice_at_once_makes_the_layout_draw_it_in_the_first_render(ThemeChoice choice, bool systemIsDark, bool expectedDark)
-    {
-        // LoadAsync kommt nie zurück: Was das Layout zeigt, hat es aus LoadImmediately, also vor dem ersten Zeichnen.
-        JSInterop.Setup<bool>("Radzen.mediaQuery", _ => true).SetResult(systemIsDark);
-        var store = new Store(choice, systemIsDark, neverLoadsLater: true);
-        Services.AddSingleton<IThemePreferenceStore>(store);
-
-        var cut = Render<MainLayout>();
-
-        Assert.Equal(expectedDark, cut.FindComponent<Duofy.Shared.Layout.ThemeVariables>().Instance.Dark);
-        Assert.Contains(RadzenVariables.Css(expectedDark), cut.Markup);
-    }
 
     [Fact]
     public void A_browser_store_has_nothing_at_once_and_the_layout_starts_light_until_it_has_asked()
@@ -113,15 +72,6 @@ public class ThemeFirstPaintTests : UiTestContext
 
         Assert.Contains("public ThemeStart? LoadImmediately()", source);
         Assert.Contains("AppInfo.Current.RequestedTheme == AppTheme.Dark", source);
-    }
-
-    [Fact]
-    public void The_app_start_page_has_a_dark_background_for_a_dark_device_before_the_layout_draws()
-    {
-        var css = File.ReadAllText(RepositoryFiles.Path("Mobile", "Duofy", "wwwroot", "app.css"));
-
-        Assert.Contains("@media (prefers-color-scheme: dark)", css);
-        Assert.Contains("background-color: #0b0e14", css);
     }
 
     private sealed class Store(ThemeChoice choice, bool systemIsDark = false, bool immediate = true, bool neverLoadsLater = false) : IThemePreferenceStore

@@ -18,7 +18,7 @@ public class StartPageTests : PageTestContext
 
     public StartPageTests()
     {
-        dialogs = RenderRadzenHost();
+        dialogs = RenderDialogHost();
         Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true));
     }
 
@@ -62,7 +62,7 @@ public class StartPageTests : PageTestContext
 
         var hero = Text(cut, "start-hero");
         Assert.Contains("Hallo, Anna!", hero);
-        Assert.Contains("Frei im Oktober", hero);
+        Assert.Contains("Verplanbar im Oktober", hero);
         Assert.Contains("340,00 €", hero);
         Assert.DoesNotContain("Hier entsteht bald", cut.Markup);
     }
@@ -120,8 +120,9 @@ public class StartPageTests : PageTestContext
 
         var cut = OpenStart();
 
-        var button = cut.Find("[data-testid='start-new-booking']").Closest("button")!;
-        Assert.True(button.HasAttribute("disabled"));
+        var button = cut.Find("[data-testid='start-new-booking']");
+        Assert.Equal("true", button.GetAttribute("aria-disabled"));
+        Assert.Equal(GrantLock.ReasonId, button.GetAttribute("aria-describedby"));
         Assert.Contains("Dafür hat dir Ben keine Freigabe gegeben.", cut.Markup);
     }
 

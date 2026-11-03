@@ -1,23 +1,21 @@
-@using Radzen
-@using Radzen.Blazor
 @inject IStringLocalizer<SharedResources> L
 
-@* Welche Buchungen zu einem Posten gehören (Spec 51, R8): zugeklappt die Anzahl, aufgeklappt je Buchung der Zweck, das
-   Datum und der Betrag dieser Zeile, nicht der ganzen Buchung. Ist OnAdd gesetzt, geht es von hier zur nächsten Buchung
-   auf diesem Posten. *@
-<details class="position-bookings" data-testid="@TestId">
-    <summary>@Count</summary>
+@* Welche Buchungen zu einem Posten gehören (Spec 51, R8; Spec 82, R15): Die Anzahl steht als Knopf in der Zeile des Postens
+   (PositionBookingsToggle), aufgeklappt stehen hier in voller Breite je Buchung der Zweck, das Datum und der Betrag dieser
+   Zeile, nicht der ganzen Buchung. Zugeklappt ist der Bereich verborgen (hidden), bleibt aber im Dokument, damit der Knopf
+   mit aria-controls auf ihn zeigen kann. Ist OnAdd gesetzt, geht es von hier zur nächsten Buchung auf diesem Posten. *@
+<div class="position-bookings" id="@PanelId" hidden="@(!Open)" data-testid="@TestId">
+    <p class="visually-hidden">@CountText(L, Rows.Count)</p>
     @if (Rows.Count > 0)
     {
         <LineTable Caption="@L["Plan_PositionBookingsCaption", Label]" HideCaption="true" Rows="TableRows" />
     }
     @if (OnAdd.HasDelegate)
     {
-        <RadzenButton Text="@L["Plan_PositionBookingAdd"]" Icon="add" Variant="Variant.Text" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small"
-                      Click="@(() => OnAdd.InvokeAsync())" Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)"
-                      data-testid="@($"{TestId}-add")" />
+        <DuofyButton Kind="ButtonKind.Ghost" Small="true" Icon="plus" Text="@L["Plan_PositionBookingAdd"]" OnClick="@(_ => OnAdd.InvokeAsync())"
+                     Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)" TestId="@($"{TestId}-add")" />
     }
-</details>
+</div>
 
 @code {
     private static readonly System.Globalization.CultureInfo German = new("de-DE");
@@ -27,17 +25,24 @@
 
     [Parameter, EditorRequired] public IReadOnlyList<PositionBookingRow> Rows { get; set; } = [];
 
+    /// <summary>Die Kennung des Bereichs, auf die der Knopf in der Zeile zeigt.</summary>
+    [Parameter, EditorRequired] public string PanelId { get; set; } = "";
+
+    /// <summary>Ob der Bereich aufgeklappt ist.</summary>
+    [Parameter] public bool Open { get; set; }
+
     [Parameter] public string? TestId { get; set; }
 
     [Parameter] public bool CanAdd { get; set; } = true;
 
     [Parameter] public EventCallback OnAdd { get; set; }
 
-    private string Count => Rows.Count switch
+    /// <summary>"1 Buchung", "3 Buchungen" oder "keine Buchung".</summary>
+    public static string CountText(IStringLocalizer<SharedResources> l, int count) => count switch
     {
-        0 => L["Plan_PositionBookingsNone"],
-        1 => L["Plan_PositionBookingsOne"],
-        _ => L["Plan_PositionBookingsMany", Rows.Count],
+        0 => l["Plan_PositionBookingsNone"],
+        1 => l["Plan_PositionBookingsOne"],
+        _ => l["Plan_PositionBookingsMany", count],
     };
 
     private IReadOnlyList<LineTableRow> TableRows => Rows

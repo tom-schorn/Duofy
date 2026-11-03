@@ -1,6 +1,5 @@
 @page "/anmelden"
-@using Radzen
-@using Radzen.Blazor
+@using BlazorBlueprint.Components
 @layout AuthLayout
 @using Duofy.ApiClient
 @using Duofy.Schemas
@@ -22,33 +21,29 @@
 <PageTitle>@L["Login_Title"] · @Brand.Name</PageTitle>
 
 <div class="auth-header">
-    <RadzenText TextStyle="TextStyle.H2" TagName="TagName.H1">@L["Login_Title"]</RadzenText>
+    <h1 class="page-title">@L["Login_Title"]</h1>
     <p class="auth-lead">@L["Login_Lead"]</p>
 </div>
 
 @if (error is not null)
 {
-    <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false" Class="rz-mb-4">@error</RadzenAlert>
+    <BbAlert Variant="AlertVariant.Danger" Class="mb-4">@error</BbAlert>
 }
 
 @if (unconfirmed)
 {
-    <div class="rz-mb-4">
+    <div class="mb-4">
         <Notice Message="resendMessage" />
         @if (resent)
         {
             @* Ausgegraut statt angeboten und abgelehnt; aria-disabled statt disabled, damit ein Screenreader den Knopf
                findet und den Grund darunter vorliest. *@
-            <RadzenButton Text="@L["Login_Resend"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Base"
-                          Class="unavailable"
-                          aria-disabled="true" aria-describedby="login-resend-reason" data-testid="login-resend" />
-            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-display-block rz-mt-1"
-                        id="login-resend-reason" data-testid="login-resend-reason">@L["Login_ResendWait"]</RadzenText>
+            <DuofyButton Kind="ButtonKind.Secondary" Text="@L["Login_Resend"]" TestId="login-resend" Class="unavailable" aria-disabled="true" aria-describedby="login-resend-reason" />
+            <p class="small muted mt-1" id="login-resend-reason" data-testid="login-resend-reason">@L["Login_ResendWait"]</p>
         }
         else
         {
-            <RadzenButton Text="@L["Login_Resend"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary"
-                          Click="@(_ => ResendAsync())" data-testid="login-resend" />
+            <DuofyButton Kind="ButtonKind.Secondary" Text="@L["Login_Resend"]" OnClick="@(_ => ResendAsync())" TestId="login-resend" />
         }
     </div>
 }
@@ -56,47 +51,37 @@
 <div class="field-stack">
     <div class="field">
         <FieldLabel For="login-email-input" Text="@L["Field_Email"]" />
-        <RadzenTextBox @bind-Value="email" Immediate="true" id="login-email-input" type="email" Placeholder="@L["Auth_EmailPlaceholder"]"
-                       autocomplete="email" data-testid="login-email" />
+        <TextInput id="login-email-input" Type="email" placeholder="@L["Auth_EmailPlaceholder"]" @bind-Value="email" autocomplete="email" data-testid="login-email" />
     </div>
     <div class="field">
         <FieldLabel For="login-password-input" Text="@L["Field_Password"]" />
-        <RadzenPassword @bind-Value="password" Immediate="true" id="login-password-input" autocomplete="current-password"
-                        @onkeydown="OnPasswordKeyDown" data-testid="login-password" />
+        <TextInput id="login-password-input" Type="password" @bind-Value="password" autocomplete="current-password" @onkeydown="OnPasswordKeyDown" data-testid="login-password" />
     </div>
 </div>
 
-<RadzenButton Text="@L["Login_Forgot"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small"
-              Class="rz-mt-1" Click="@(_ => ToggleForgot())"
-              aria-expanded="@(forgotOpen ? "true" : "false")" data-testid="login-forgot" />
+<DuofyButton Kind="ButtonKind.Ghost" Text="@L["Login_Forgot"]" Small="true" OnClick="@(_ => ToggleForgot())" TestId="login-forgot" Class="mt-1" aria-expanded="@(forgotOpen ? "true" : "false")" />
 
 @if (forgotOpen)
 {
-    <RadzenCard Variant="Variant.Outlined" Class="rz-mt-2" data-testid="login-forgot-panel">
+    <div class="card mt-2" data-testid="login-forgot-panel">
         @if (instance?.Hosted == true)
         {
-            <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" Class="rz-mb-2">@L["Login_ForgotLead"]</RadzenText>
+            <p class="mb-2">@L["Login_ForgotLead"]</p>
             <Notice Message="forgotMessage" />
             <div class="field">
                 <FieldLabel For="login-forgot-email-input" Text="@L["Field_Email"]" />
-                <RadzenTextBox @bind-Value="forgotEmail" id="login-forgot-email-input" type="email"
-                               Placeholder="@L["Auth_EmailPlaceholder"]" autocomplete="email"
-                               data-testid="login-forgot-email" />
+                <TextInput id="login-forgot-email-input" Type="email" placeholder="@L["Auth_EmailPlaceholder"]" @bind-Value="forgotEmail" autocomplete="email" data-testid="login-forgot-email" />
             </div>
-            <RadzenButton Text="@L["Login_ForgotSubmit"]" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary"
-                          Class="rz-mt-2" Disabled="forgotBusy" Click="@(_ => ForgotAsync())"
-                          data-testid="login-forgot-submit" />
+            <DuofyButton Kind="ButtonKind.Secondary" Text="@L["Login_ForgotSubmit"]" OnClick="@(_ => ForgotAsync())" TestId="login-forgot-submit" Class="mt-2" Disabled="forgotBusy" />
         }
         else
         {
-            <RadzenText TextStyle="TextStyle.Body2" TagName="TagName.P" data-testid="login-forgot-note">@L["Login_ForgotSelfHosted"]</RadzenText>
+            <p data-testid="login-forgot-note">@L["Login_ForgotSelfHosted"]</p>
         }
-    </RadzenCard>
+    </div>
 }
 
-<RadzenButton Text="@(busy ? L["Login_Pending"] : L["Login_Submit"])" ButtonStyle="ButtonStyle.Primary"
-              Class="rz-mt-6 rz-w-100" Disabled="busy" Click="@(_ => SubmitAsync())"
-              data-testid="login-submit" />
+<DuofyButton Text="@(busy ? L["Login_Pending"] : L["Login_Submit"])" OnClick="@(_ => SubmitAsync())" TestId="login-submit" FullWidth="true" Class="mt-4" Disabled="busy" />
 
 <p class="auth-switch">
     @L["Login_NoAccount"]

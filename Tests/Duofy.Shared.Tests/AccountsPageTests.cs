@@ -11,12 +11,12 @@ namespace Duofy.Shared.Tests;
 /// <summary>Die Seite /konten: Liste mit Stand und Standardkonto, aufgelöste Konten, Anlegen und Ändern (Spec 58).</summary>
 public class AccountsPageTests : PageTestContext
 {
-    // Radzen zeichnet Dialoge in RadzenComponents (im echten Layout stehen sie in jedem Layout).
+    // Dialoge gehen in ihrer Hülle auf; im echten Layout steht sie im Rahmen.
     private readonly IRenderedComponent<IComponent> dialogs;
 
     public AccountsPageTests()
     {
-        dialogs = RenderRadzenHost();
+        dialogs = RenderDialogHost();
     }
 
     private IRenderedComponent<Accounts> OpenPage(params AccountResponse[] accounts)
@@ -204,23 +204,21 @@ public class AccountsPageTests : PageTestContext
         Assert.Equal(100m, request.OpeningBalance);
         cut.WaitForAssertion(() => Assert.Contains("Hauptkonto", cut.Markup));
     }
-
-    // Radzen-Umstellung R15
     [Fact]
-    public void The_page_and_the_dialog_are_built_with_radzen_and_the_default_star_is_filled()
+    public void The_page_and_the_dialog_are_built_from_the_blocks_and_the_default_star_is_filled()
     {
         var giro = FakeAccountApi.Account("Giro", isDefault: true);
         var other = FakeAccountApi.Account("Notgroschen", AccountTypes.Savings);
         var cut = OpenPage(giro, other);
         cut.WaitForAssertion(() => Assert.Contains("Giro", Row(cut, giro).TextContent));
 
-        Assert.Contains("rz-card", Row(cut, giro).ClassList);
-        Assert.Contains("icon-filled", Star(cut, giro).QuerySelector(".rzi")!.ClassList);
-        Assert.Equal("", Star(cut, other).QuerySelector(".rzi")!.GetAttribute("style") ?? "");
+        Assert.Contains("data-row-frame", Row(cut, giro).ClassList);
+        Assert.Contains("icon-filled", Star(cut, giro).QuerySelector("svg")!.ClassList);
+        Assert.DoesNotContain("icon-filled", Star(cut, other).QuerySelector("svg")!.ClassList);
 
         cut.Find("[data-testid='accounts-add']").Click();
         dialogs.WaitForAssertion(() => Assert.Contains("Neues Konto", dialogs.Markup));
-        Assert.Equal("account-opening-balance-input-label", Input(dialogs, "account-opening-balance").GetAttribute("aria-labelledby"));
+        Assert.NotEmpty(dialogs.FindAll($"label[for='{Input(dialogs, "account-opening-balance").Id}']"));
         Assert.Equal("date", Input(dialogs, "account-opening-date").GetAttribute("type"));
     }
 
@@ -232,7 +230,7 @@ public class AccountsPageTests : PageTestContext
     private static IElement Star(IRenderedComponent<Accounts> cut, AccountResponse account) =>
         cut.Find($"[data-testid='account-default-{account.Id}']");
 
-    private bool SwitchIsOn() => dialogs.Find("[data-testid='account-counts-as-available']").ClassList.Contains("rz-switch-checked");
+    private bool SwitchIsOn() => dialogs.Find("[data-testid='account-counts-as-available']").GetAttribute("aria-checked") == "true";
 
     private static IElement Input(IRenderedComponent<IComponent> cut, string testId)
     {

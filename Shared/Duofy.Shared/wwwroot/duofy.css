@@ -1,0 +1,854 @@
+/* Layout und Bausteine nach dem alten Duofy (Spec 82). Keine festen Farben hier: alle Werte kommen aus theme.css.
+   Die Breiten stehen auch in Layout/WidthRanges.cs: Handy bis 767 px, Tablet 768 bis 1279 px, PC ab 1280 px.
+   Ein Test prüft, dass beide übereinstimmen. */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { font-size: 16px; }
+
+html, body {
+    margin: 0;
+    font-family: var(--font-sans);
+    line-height: 1.45;
+    background: var(--background);
+    color: var(--foreground);
+    overflow-x: clip;
+}
+
+body { min-height: 100dvh; font-size: 14px; }
+
+a { color: inherit; }
+
+h1, h2, h3, p, ul, ol, figure, blockquote { margin: 0; padding: 0; }
+ul, ol { list-style: none; }
+
+:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+
+.skip-link {
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    z-index: 60;
+    padding: 8px 12px;
+    border-radius: var(--radius);
+    background: var(--primary);
+    color: var(--primary-foreground);
+    transform: translateY(-200%);
+}
+.skip-link:focus { transform: none; }
+
+.focus-box:focus { outline: none; }
+
+/* --- Text --- */
+.page-title { font-family: var(--font-heading); font-size: 30px; line-height: 1.2; font-weight: 600; }
+.page-lead { color: var(--muted-foreground); font-size: 16px; max-width: 42rem; margin-top: 6px; }
+.section-title { font-size: 18px; font-weight: 500; }
+.card-title { font-family: var(--font-heading); font-size: 20px; font-weight: 600; }
+.sub-title { font-size: 14px; font-weight: 600; }
+.muted { color: var(--muted-foreground); }
+.small { font-size: 12px; }
+.strong { font-weight: 500; }
+.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.over { color: var(--destructive); }
+.wrap-anywhere { overflow-wrap: anywhere; }
+.plain-link { text-decoration: underline; text-underline-offset: 3px; }
+
+/* --- Anordnung --- */
+.stack { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.stack-sm { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.stack-lg { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.row-between { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.row-end { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.fill { flex: 1 1 auto; min-width: 0; }
+
+.page-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+.page-head-text { min-width: 0; flex: 1 1 18rem; }
+.page-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.page-narrow { max-width: 42rem; }
+
+/* --- Karten und Listen --- */
+.card {
+    background: var(--card);
+    color: var(--card-foreground);
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) * 1.4);
+    padding: 20px;
+    min-width: 0;
+}
+.card-link { display: block; text-decoration: none; transition: border-color .15s; }
+.card-link:hover, .card-link:focus-visible { border-color: var(--ring); }
+.card-list { display: flex; flex-direction: column; gap: 12px; }
+
+.empty-state {
+    border: 1px dashed var(--border);
+    border-radius: calc(var(--radius) * 1.4);
+    padding: 32px 20px;
+    text-align: center;
+    color: var(--muted-foreground);
+}
+
+.line-table { width: 100%; border-collapse: collapse; }
+.line-table-caption { text-align: left; font-weight: 600; padding-bottom: 6px; }
+.line-table tr { border-bottom: 1px solid var(--border); }
+.line-table tbody tr:last-child { border-bottom: 0; }
+.line-table th, .line-table td { padding: 10px 0; vertical-align: middle; text-align: left; font-weight: 400; }
+.line-table-lead { width: 36px; padding-right: 12px !important; }
+.line-table-label { min-width: 0; overflow-wrap: anywhere; }
+.line-table-text { display: flex; flex-direction: column; gap: 2px; }
+.line-table-title { font-weight: 500; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.line-table-detail { font-size: 12px; color: var(--muted-foreground); }
+.line-table-amount { text-align: right !important; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; padding-left: 12px !important; }
+.line-table-trail { text-align: right !important; padding-left: 8px !important; white-space: nowrap; width: 1%; }
+.line-table-below-row { border-bottom: 1px solid var(--border); }
+.line-table-below { padding-top: 0 !important; }
+
+/* Eine Zeile, die als Ganzes öffnet, wie ListRow im alten Duofy. */
+.list-row { position: relative; display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.list-row:last-child { border-bottom: 0; }
+.list-row-body { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; flex: 1 1 auto; text-align: left; overflow-wrap: anywhere; }
+.list-row-open { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.list-row-open::after { content: ""; position: absolute; inset: 0; }
+.list-row:has(.list-row-open):hover { background: var(--muted); border-radius: calc(var(--radius) * .8); }
+.list-row-title { font-weight: 500; }
+.list-row-detail { font-size: 12px; color: var(--muted-foreground); }
+.list-row-lift { position: relative; z-index: 1; display: flex; align-items: center; flex-shrink: 0; gap: 4px; }
+.list-row-amount { flex-shrink: 0; text-align: right; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--muted);
+    color: var(--muted-foreground);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.icon-box { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: var(--radius); background: var(--muted); color: var(--muted-foreground); flex-shrink: 0; }
+
+.avatar { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--muted); color: var(--foreground); font-size: 12px; font-weight: 500; flex-shrink: 0; }
+
+/* --- Felder --- */
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.field-label { font-size: 14px; font-weight: 500; }
+.field-hint { font-size: 12px; color: var(--muted-foreground); }
+.field-error { font-size: 12px; color: var(--destructive); }
+.field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: 12px; }
+.check-row { display: flex; align-items: center; gap: 8px; }
+
+.native-select {
+    width: 100%;
+    min-height: 36px;
+    padding: 6px 28px 6px 10px;
+    border: 1px solid var(--input);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--foreground);
+    font: inherit;
+}
+.native-select option, .native-select optgroup { background: var(--popover); color: var(--popover-foreground); }
+
+.grant-locked { opacity: .5; cursor: not-allowed; }
+
+/* --- Balken --- */
+.bar { display: block; height: 6px; border-radius: 999px; background: var(--muted); overflow: hidden; }
+.bar-fill { display: block; height: 100%; border-radius: 999px; background: var(--chart-5); }
+.bar-fill--needs { background: var(--chart-1); }
+.bar-fill--wants { background: var(--chart-2); }
+.bar-fill--savings { background: var(--chart-4); }
+.bar-fill--income { background: var(--chart-3); }
+.bar-fill--neutral { background: var(--primary); }
+.bar-fill--over { background: var(--destructive); }
+
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--chart-5); }
+.dot--needs { background: var(--chart-1); }
+.dot--wants { background: var(--chart-2); }
+.dot--savings { background: var(--chart-4); }
+.dot--income { background: var(--chart-5); }
+
+/* --- Rahmen ---
+   PC ab 1280 px: Seitenleiste 256 px, Inhalt, Erklärspalte 300 px. Tablet 768 bis 1279 px: Seitenleiste auf Symbole
+   eingeklappt (56 px), ausklappbar. Handy bis 767 px: keine Seitenleiste, untere Leiste. */
+.shell { --side-width: 256px; display: grid; grid-template-columns: var(--side-width) minmax(0, 1fr); min-height: 100dvh; }
+
+.shell-side {
+    position: sticky;
+    top: 0;
+    z-index: 15;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+    min-width: 0;
+    background: var(--sidebar);
+    color: var(--sidebar-foreground);
+    border-right: 1px solid var(--sidebar-border);
+}
+.shell-brand { font-family: var(--font-heading); font-size: 18px; font-weight: 600; padding: 4px 8px 0; min-height: 28px; display: flex; align-items: center; overflow: hidden; white-space: nowrap; }
+.brand-logo { display: block; height: 28px; width: auto; }
+.brand-logo--symbol { width: 28px; }
+
+.side-nav { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; padding: 8px 0; }
+.side-link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    padding: 6px 8px;
+    border-radius: calc(var(--radius) * .8);
+    text-decoration: none;
+    color: var(--sidebar-foreground);
+}
+.side-link svg { flex-shrink: 0; }
+.side-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-link:hover { background: var(--sidebar-accent); color: var(--sidebar-accent-foreground); }
+.side-link.active, .side-link[aria-current] { background: var(--sidebar-accent); color: var(--sidebar-accent-foreground); font-weight: 500; }
+
+.member-menu-reason { padding: 4px 8px; font-size: 12px; color: var(--muted-foreground); max-width: 16rem; }
+.member-menu-current { font-weight: 600; }
+.member-choices { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.user-trigger {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px;
+    border: 0;
+    border-radius: var(--radius);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.user-trigger:hover { background: var(--sidebar-accent); }
+.user-trigger-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.user-trigger-text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-trigger-mail { font-size: 12px; color: var(--muted-foreground); }
+
+.shell-main { min-width: 0; display: flex; flex-direction: column; }
+
+.shell-top {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 48px;
+    padding: 0 16px 0 8px;
+    background: var(--background);
+    border-bottom: 1px solid var(--border);
+}
+.shell-top-brand { display: none; flex-shrink: 0; font-size: 18px; }
+.shell-top-fill { flex: 1 1 auto; }
+.shell-view { max-width: 12rem; overflow: hidden; text-overflow: ellipsis; }
+
+.shell-body { flex: 1 1 auto; display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; min-width: 0; }
+.shell-content { padding: 24px 32px 40px; min-width: 0; }
+.shell-content:focus { outline: none; }
+
+/* Die Erklärspalte wie im alten Duofy: rechts neben dem Inhalt, eine Linie davor, ruhig und klein. */
+.help-column { display: none; }
+.help-column-title { font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted-foreground); margin-bottom: 16px; }
+.help-entry { display: flex; flex-direction: column; gap: 4px; padding: 12px 0; border-top: 1px solid var(--border); }
+.help-entry-title { font-size: 14px; font-weight: 600; }
+.help-entry-body { font-size: 13px; color: var(--muted-foreground); line-height: 1.5; }
+
+/* PC: Erklärspalte rechts. Nach dem Knopf ist die Seitenleiste auf Symbole eingeklappt, wie am Tablet. */
+@media (min-width: 1280px) {
+    .shell-body { grid-template-columns: minmax(0, 1fr) 300px; }
+    .help-column { display: block; position: sticky; top: 48px; max-height: calc(100dvh - 48px); overflow-y: auto; padding: 24px 24px 40px; border-left: 1px solid var(--border); }
+    .shell--side-toggled { --side-width: 56px; }
+    .shell--side-toggled .shell-brand { visibility: hidden; }
+    .shell--side-toggled .side-link { justify-content: center; padding: 8px; }
+    .shell--side-toggled .side-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .shell--side-toggled .user-trigger { justify-content: center; padding: 8px 0; }
+    .shell--side-toggled .user-trigger-text, .shell--side-toggled .user-trigger > svg { display: none; }
+}
+
+/* Tablet: Seitenleiste auf Symbole eingeklappt; die Beschriftung erscheint beim Darüberfahren und beim Fokus als Hinweis
+   rechts neben dem Symbol und bleibt sonst für Screenreader der Name des Links. Der Knopf klappt sie aus. */
+@media (min-width: 768px) and (max-width: 1279px) {
+    .shell:not(.shell--side-toggled) { --side-width: 56px; }
+    .shell-content { padding: 20px 24px 32px; }
+    .shell:not(.shell--side-toggled) .shell-brand { visibility: hidden; }
+    .shell:not(.shell--side-toggled) .side-link { justify-content: center; padding: 8px; }
+    .shell:not(.shell--side-toggled) .side-label {
+        position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%);
+        padding: 4px 8px; border-radius: var(--radius); border: 1px solid var(--border);
+        background: var(--popover); color: var(--popover-foreground); font-size: 12px; font-weight: 500;
+        opacity: 0; pointer-events: none; transition: opacity .1s; z-index: 40;
+    }
+    .shell:not(.shell--side-toggled) .side-link:hover .side-label,
+    .shell:not(.shell--side-toggled) .side-link:focus-visible .side-label { opacity: 1; }
+    .shell:not(.shell--side-toggled) .user-trigger { justify-content: center; padding: 8px 0; }
+    .shell:not(.shell--side-toggled) .user-trigger-text,
+    .shell:not(.shell--side-toggled) .user-trigger > svg { display: none; }
+}
+
+.bottom-bar { display: none; }
+
+#blazor-error-ui {
+    display: none;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--destructive);
+    color: var(--error-ui-foreground);
+}
+#blazor-error-ui .reload { text-decoration: underline; }
+#blazor-error-ui .dismiss { margin-left: auto; background: none; border: 0; color: inherit; cursor: pointer; font: inherit; }
+
+/* Knopfhöhe wie im alten Duofy; html steht auf 16 Pixel, sonst wären die rem-Größen von Blueprint zu klein. */
+.duofy-button { height: 32px; }
+
+/* Unter 1280 px wird getippt: mindestens 44 Pixel, auch wenn das Kästchen selbst kleiner gezeichnet ist. */
+@media (max-width: 1279px) {
+    .duofy-button { height: auto; min-height: 44px; min-width: 44px; }
+    .back-link { min-height: 44px; }
+    .tick-box { position: relative; flex-shrink: 0; }
+    .tick-box::after { content: ""; position: absolute; inset: -13px; }
+    .side-link { min-height: 44px; }
+}
+
+/* Handy bis 767 px: keine Seitenleiste, stattdessen die untere Leiste; die Marke steht in der oberen Leiste. */
+@media (max-width: 767px) {
+    .consent-banner { bottom: calc(72px + env(safe-area-inset-bottom)); }
+    .shell { grid-template-columns: minmax(0, 1fr); }
+    .shell-side, .shell-side-toggle { display: none; }
+    .shell-top { padding: 0 8px 0 16px; }
+    .shell-top-brand { display: inline-flex; }
+    .shell-content { padding: 16px 16px calc(80px + env(safe-area-inset-bottom)); }
+    .page-title { font-size: 24px; }
+    .card { padding: 16px; }
+
+    .bottom-bar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 20;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        padding-bottom: env(safe-area-inset-bottom);
+        background: var(--sidebar);
+        border-top: 1px solid var(--sidebar-border);
+    }
+    .bottom-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        min-height: 56px;
+        font-size: 11px;
+        text-decoration: none;
+        color: var(--muted-foreground);
+    }
+    .bottom-item[aria-current] { color: var(--primary); font-weight: 600; }
+}
+
+/* --- Anmelden und Registrieren --- */
+.auth-layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); min-height: 100dvh; }
+.auth-brand {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 48px;
+    background: var(--brand-panel);
+    color: var(--brand-panel-foreground);
+}
+.auth-brand-name { font-family: var(--font-heading); font-size: 20px; font-weight: 600; }
+.auth-brand-middle { display: flex; flex-direction: column; gap: 40px; }
+.auth-claim { font-family: var(--font-heading); font-size: 30px; line-height: 1.25; font-weight: 600; max-width: 28rem; }
+.auth-pots { display: flex; flex-direction: column; gap: 12px; opacity: .85; }
+.auth-pots li { display: flex; align-items: center; gap: 12px; }
+.auth-tagline { opacity: .7; max-width: 20rem; }
+.auth-main { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px; padding: 48px 24px; min-width: 0; }
+.auth-mode-switch { position: absolute; top: 16px; right: 16px; }
+.auth-mobile-brand { display: none; font-family: var(--font-heading); font-size: 20px; font-weight: 600; }
+.auth-form { width: 100%; max-width: 24rem; display: flex; flex-direction: column; gap: 16px; }
+.auth-title { font-family: var(--font-heading); font-size: 30px; line-height: 1.2; font-weight: 600; }
+.auth-legal { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; font-size: 12px; color: var(--muted-foreground); }
+.server-line { background: none; border: 0; font: inherit; font-size: 12px; color: var(--muted-foreground); text-decoration: underline; cursor: pointer; }
+.page-footer-legal { margin-top: 40px; justify-content: flex-start; }
+
+@media (max-width: 1279px) {
+    .auth-layout { grid-template-columns: minmax(0, 1fr); }
+    .auth-brand { display: none; }
+    .auth-mobile-brand { display: block; }
+}
+
+/* --- Dialoge: am Handy über die ganze Fläche, Knöpfe bleiben stehen, nur der Inhalt rollt. --- */
+.dialog-body { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+
+[role="dialog"]:has(> .step-dialog) > div:first-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.step-dialog { display: flex; flex-direction: column; gap: 12px; max-height: calc(100dvh - 96px); min-width: 0; }
+.step-dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.step-dialog-heading { min-width: 0; }
+.step-dialog-title { font-family: var(--font-heading); font-size: 20px; font-weight: 600; }
+.step-dialog-progress { font-size: 12px; color: var(--muted-foreground); margin-top: 2px; }
+.step-dialog-bar { display: flex; gap: 4px; margin-top: 8px; }
+.step-dialog-bar-segment { flex: 1 1 0; height: 4px; border-radius: 2px; background: var(--muted); }
+.step-dialog-bar-segment--reached { background: var(--primary); }
+.step-dialog-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 2px; }
+.step-dialog-steps { display: flex; flex-direction: column; }
+.step-dialog-step { display: flex; flex-direction: column; gap: 12px; }
+.step-dialog-step[hidden] { display: none; }
+.step-field { display: flex; flex-direction: column; gap: 6px; }
+.step-field-error { font-size: 12px; color: var(--destructive); }
+.step-dialog-actions { display: flex; justify-content: space-between; gap: 8px; }
+.step-dialog-actions-spacer { flex: 0 0 auto; }
+
+@media (max-width: 767px) {
+    [role="dialog"], [role="alertdialog"] { max-width: 100vw !important; }
+    .step-dialog { max-height: calc(100dvh - 48px); }
+}
+
+/* --- Einwilligung --- */
+.consent-banner { position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 30; max-width: 32rem; margin-left: auto; display: flex; flex-direction: column; gap: 12px; padding: 16px; background: var(--popover); color: var(--popover-foreground); border: 1px solid var(--border); border-radius: calc(var(--radius) * 1.4); }
+.consent-item { display: flex; flex-direction: column; gap: 8px; }
+.consent-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.consent-change { padding: 8px 24px calc(72px + env(safe-area-inset-bottom)); }
+
+@media (min-width: 768px) { .consent-change { padding: 8px 24px 16px 80px; } }
+@media (min-width: 1280px) { .consent-change { padding: 8px 24px 16px 280px; } }
+
+/* --- Drucken: Die Rahmen fallen weg, die Topffarben bleiben, weil sie Bedeutung tragen. --- */
+/* Das Druckbild (Spec 82, R20): auf dem Bildschirm unsichtbar; beim Drucken steht nur es auf der Seite, A4 hochkant,
+   schwarz auf weiß, mit Seitenzahlen im Fuß. */
+.month-print { display: none; }
+@page {
+    size: A4 portrait;
+    margin: 16mm 14mm 18mm;
+    @bottom-center { content: "Seite " counter(page) " von " counter(pages); font-size: 9pt; }
+}
+
+@media print {
+    .shell-content:has(.month-print) > :not(.month-print) { display: none !important; }
+    .month-print { display: block; color: var(--print-ink); background: var(--print-paper); font-size: 10pt; }
+    .print-head { border-bottom: 1.5pt solid var(--print-ink); padding-bottom: 6pt; margin-bottom: 10pt; }
+    .print-brand { font-size: 9pt; letter-spacing: .08em; text-transform: uppercase; }
+    .print-title { font-family: var(--font-heading); font-size: 20pt; margin: 2pt 0; }
+    .print-subject { font-size: 10pt; }
+    .print-metrics { width: 100%; border-collapse: collapse; margin-bottom: 12pt; table-layout: fixed; }
+    .print-metrics th { font-size: 8pt; text-transform: uppercase; letter-spacing: .06em; text-align: left; font-weight: 600; padding: 4pt 6pt 0; }
+    .print-metrics td { font-size: 12pt; font-weight: 600; padding: 2pt 6pt 6pt; border-bottom: .75pt solid var(--print-ink); font-variant-numeric: tabular-nums; }
+    .print-pot { margin-bottom: 12pt; }
+    .print-pot-title { display: flex; justify-content: space-between; font-size: 11pt; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; border-bottom: .75pt solid var(--print-ink); padding-bottom: 2pt; break-after: avoid; }
+    .print-pot-sum { text-transform: none; letter-spacing: 0; font-weight: 600; }
+    html, body, .shell, .shell-main, .shell-body, .shell-content { background: var(--print-paper) !important; }
+    .print-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .print-col-owner { width: 14%; } .print-col-due { width: 11%; } .print-col-amount { width: 16%; } .print-col-status { width: 12%; }
+    .print-sums th { width: 18%; } .print-sums td.num { width: 16%; }
+    .print-table thead { display: table-header-group; }
+    .print-table th, .print-table td { padding: 3pt 6pt; border-bottom: .5pt solid var(--print-rule); text-align: left; vertical-align: top; }
+    .print-table thead th { font-size: 8pt; text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+    .print-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .print-table tr { break-inside: avoid; }
+    .print-sums th { font-weight: 700; }
+    .shell { display: block; }
+    .shell-side, .shell-top, .bottom-bar, [data-print="hide"] { display: none !important; }
+    .shell-content { padding: 0; }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .card { break-inside: avoid; }
+    section { break-inside: avoid; }
+}
+
+/* --- Kennzahlen, Monatskarten und Monat --- */
+.field-input {
+    width: 100%;
+    min-height: 36px;
+    padding: 6px 10px;
+    border: 1px solid var(--input);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--foreground);
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+}
+.field-input::placeholder { color: var(--muted-foreground); }
+.field-input:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+/* Ein Knopf als Link: Die allgemeine Regel für a darf seine Schrift auf dunklem Grund nicht dunkel machen. */
+a.duofy-button--primary { color: var(--primary-foreground); }
+.duofy-button--danger { color: var(--destructive); }
+.duofy-button--full { width: 100%; }
+.notice { margin-bottom: 12px; }
+
+.metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 24px; }
+.metrics > * { display: flex; min-width: 0; }
+.metrics > * > .metric { flex: 1 1 auto; }
+.metric--carry { display: flex; flex-direction: column; gap: 2px; }
+.metric-line { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 8px; font-size: 13px; }
+.metric-line b { font-weight: 500; }
+.metric-action { margin-top: auto; padding-top: 6px; }
+.metric { background: var(--card); border: 1px solid var(--border); border-radius: calc(var(--radius) * 1.4); padding: 12px; min-width: 0; }
+.metric-title { font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted-foreground); margin-bottom: 8px; }
+.metric-amount { font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.metric-note { font-size: 12px; color: var(--muted-foreground); margin-top: 2px; }
+
+.month-card { display: flex; flex-direction: column; gap: 16px; }
+.month-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted-foreground); }
+.month-card-name { font-family: var(--font-heading); font-size: 20px; font-weight: 600; color: var(--foreground); display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.month-card-kpis { display: flex; flex-wrap: wrap; gap: 8px 32px; }
+.month-card-kpis b { font-weight: 500; font-variant-numeric: tabular-nums; }
+.month-card-pots { display: flex; flex-direction: column; gap: 8px; }
+.pot-row { display: grid; grid-template-columns: 8rem minmax(0, 1fr) auto; align-items: center; gap: 12px; font-size: 12px; }
+.pot-row-name { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.pot-row-sum { font-variant-numeric: tabular-nums; text-align: right; }
+.pot-row-sum b { font-weight: 500; }
+
+.month-nav { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 24px; }
+.back-link { display: inline-flex; align-items: center; gap: 6px; color: var(--muted-foreground); text-decoration: none; }
+.back-link:hover { color: var(--foreground); }
+.month-switch { display: flex; align-items: center; gap: 8px; }
+.month-switch-name { font-size: 16px; font-weight: 500; min-width: 9rem; text-align: center; }
+
+.month-tabs { display: inline-flex; gap: 2px; padding: 3px; margin-bottom: 24px; border-radius: var(--radius); background: var(--muted); max-width: 100%; overflow-x: auto; }
+.month-tab { padding: 4px 8px; border: 0; border-radius: calc(var(--radius) * .8); background: transparent; color: var(--muted-foreground); font: inherit; cursor: pointer; white-space: nowrap; }
+.month-tab[aria-selected="true"] { background: var(--background); color: var(--foreground); font-weight: 500; }
+
+
+.pot-section { display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px; }
+.pot-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; }
+.pot-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; }
+.pot-sum { font-variant-numeric: tabular-nums; }
+.pot-sum b { font-weight: 600; }
+.row-done .list-row-title, .row-done .list-row-detail { opacity: .6; }
+.position-bookings { padding: 0 0 8px 36px; }
+.month-sections { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: 16px; }
+
+/* Die runden Diagramme der Auswertung (Spec 82, R14): am Tablet und PC nebeneinander, am Handy untereinander. */
+.review-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr)); gap: 16px; }
+/* Beide runden Diagramme gleich groß und mittig, die Legende in voller Breite darunter: Bezeichnung links, Beträge rechts. */
+.donut-body { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.donut-svg { flex: 0 0 auto; width: 168px; height: 168px; }
+.donut-track { fill: none; stroke: var(--muted); }
+.donut-arc { fill: none; }
+.donut-legend { width: 100%; min-width: 0; border-collapse: collapse; font-size: 13px; }
+.donut-legend th, .donut-legend td { padding: 6px 0 6px 12px; border-bottom: 1px solid var(--border); text-align: left; font-weight: 400; }
+.donut-legend thead th { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted-foreground); }
+.donut-legend th:first-child { padding-left: 0; }
+.donut-legend .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.donut-legend tbody tr:last-child th, .donut-legend tbody tr:last-child td { border-bottom: 0; }
+.donut-dot { margin-right: 6px; }
+.donut-center-value { font-size: 26px; font-weight: 500; fill: var(--foreground); font-variant-numeric: tabular-nums; }
+.donut-center-label { font-size: 12px; fill: var(--muted-foreground); }
+.donut-tone--needs, .donut-tone--c1 { stroke: var(--chart-1); background: var(--chart-1); }
+.donut-tone--wants, .donut-tone--c2 { stroke: var(--chart-2); background: var(--chart-2); }
+.donut-tone--savings, .donut-tone--c3 { stroke: var(--chart-4); background: var(--chart-4); }
+.donut-tone--c4 { stroke: var(--chart-3); background: var(--chart-3); }
+.donut-tone--c5 { stroke: var(--chart-5); background: var(--chart-5); }
+.donut-tone--c6 { stroke: var(--primary); background: var(--primary); }
+.donut-tone--rest { stroke: var(--muted-foreground); background: var(--muted-foreground); }
+
+/* Die Tageskurve: durchgezogen bis heute, gestrichelt ab morgen, unter null getönt, die Marke am ersten Tag unter null. */
+.day-curve-svg { display: block; width: 100%; height: auto; }
+.day-curve-below { fill: var(--destructive); fill-opacity: .06; }
+.day-curve-gap { fill: var(--destructive); fill-opacity: .3; }
+.day-curve-grid { stroke: var(--border); stroke-width: 1; }
+.day-curve-axis { fill: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+/* Am Handy ein eigenes, höheres Bild, damit Achse und Tage lesbar bleiben. */
+.day-curve-narrow { display: none; }
+@media (max-width: 767px) {
+    .day-curve-wide { display: none; }
+    .day-curve-narrow { display: block; }
+}
+.day-curve-zero { stroke: var(--foreground); stroke-width: 1.5; }
+.day-curve-today { stroke: var(--border); stroke-width: 1; stroke-dasharray: 3 3; }
+.day-curve-line { fill: none; stroke: var(--primary); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.day-curve-line--forecast { stroke-dasharray: 6 5; opacity: .8; }
+.day-curve-marker { fill: var(--destructive); stroke: var(--card); stroke-width: 2; }
+.day-curve-tick { fill: var(--muted-foreground); }
+.day-curve-text { font-size: 14px; }
+.day-curve-text--gap { color: var(--destructive); font-weight: 500; }
+/* Die Karten der Auswertung einheitlich (Tom, 03.11.2026: "versuch alles bissle zu standartisieren"): gleicher Abstand
+   zwischen allen Karten, gleiche Innenabstände (.card), eine Überschriftenstufe, Untertitel klein und grau, Karten einer Reihe
+   gleich hoch. */
+.month-review { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.month-review .review-grid, .month-review .month-sections { align-items: stretch; }
+.month-section { display: flex; flex-direction: column; gap: 12px; }
+.month-section-title { font-size: 14px; font-weight: 600; }
+.month-section .chart { gap: 12px; }
+.month-section .chart-caption { margin-top: -8px; font-size: 12px; font-weight: 400; color: var(--muted-foreground); }
+.month-section .line-table { font-size: 13px; }
+.month-hint { font-size: 12px; color: var(--muted-foreground); }
+
+/* Diagramme ohne Bibliothek: Balken und Soll-Ist. */
+.chart { display: flex; flex-direction: column; gap: 8px; }
+.chart-caption { font-size: 14px; font-weight: 500; }
+.chart-empty { font-size: 12px; color: var(--muted-foreground); }
+.chart-bars { display: flex; flex-direction: column; gap: 8px; }
+.chart-bar-row { display: grid; grid-template-columns: minmax(0, 10rem) minmax(0, 1fr) auto; align-items: center; gap: 8px; font-size: 12px; }
+.chart-bar-value { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.chart-target-bar { display: flex; align-items: center; gap: 8px; }
+.chart-target-track { position: relative; flex: 1 1 auto; }
+.chart-target-mark { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--foreground); }
+.chart-percent, .chart-target-summary, .chart-over-note { font-size: 12px; font-variant-numeric: tabular-nums; }
+.chart-target-summary, .chart-over-note { color: var(--muted-foreground); }
+
+/* Eine Monatskarte richtet ihre Topf-Zeilen nach ihrer eigenen Breite, nicht nach dem Bildschirm: Zwei Karten nebeneinander
+   am Tablet sind so schmal wie eine am Handy. Ist sie schmal, steht der Balken unter Name und Betrag. */
+.month-card, .pot-rows-host { container-type: inline-size; }
+@container (max-width: 420px) {
+    .pot-row { grid-template-columns: minmax(0, 1fr) auto; }
+    .pot-row .bar { grid-column: 1 / -1; order: 3; }
+}
+
+/* Handy (Spec 82, R12): ein Hauptknopf plus Menü, Kennzahlen als waagerecht wischbare Reihe, damit der Inhalt im ersten
+   Bildschirm beginnt. */
+.narrow-only { display: none; }
+.page-more {
+    display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px;
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); color: var(--foreground); cursor: pointer;
+}
+.page-more:hover { background: var(--accent); }
+@media (max-width: 767px) {
+    .narrow-only { display: block; }
+    .page-actions .wide-only, .page-head .page-lead.wide-only { display: none; }
+    .page-head { margin-bottom: 16px; gap: 12px; }
+    .metrics {
+        display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none;
+        margin: 0 -16px 16px; padding: 0 16px;
+    }
+    .metrics::-webkit-scrollbar { display: none; }
+    /* Jeder Kasten so hoch wie sein Inhalt (Tom, 03.11.2026), nicht so hoch wie der höchste daneben. */
+    .metrics { align-items: flex-start; }
+    .metrics > * { flex: 0 0 44%; scroll-snap-align: start; min-width: 0; }
+    .metrics .metric { height: auto; padding: 10px 12px; }
+    .metrics .metric-title { margin-bottom: 4px; }
+    .metrics .metric-amount { font-size: 16px; }
+    .position-bookings { padding-left: 0; }
+}
+
+/* --- Zeilen des Monats --- */
+.tick-box {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 1px solid var(--input);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--background);
+    cursor: pointer;
+}
+.tick-box--checked { background: var(--chart-4); border-color: var(--chart-4); }
+.pot-rows { display: flex; flex-direction: column; }
+/* Im Haushaltsmonat: innerhalb eines Topfs eine Gruppe je Person (Spec 82, R16), deutlich abgesetzt (Tom, 03.11.2026: "muss
+   irgendwie präsenter werden"): leicht getönt, mit Farbleiste links über die ganze Gruppe, Kopf mit Initialen-Kreis wie im
+   Profil, Name und Summe in der Schrift der Topf-Köpfe. */
+.pot-member {
+    background: color-mix(in srgb, var(--muted) 55%, transparent);
+    border-left: 3px solid var(--primary);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 4px 12px 4px 12px;
+}
+.pot-member + .pot-member { margin-top: 12px; }
+.pot-member-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+}
+.pot-member-head .avatar { width: 28px; height: 28px; background: var(--card); border: 1px solid var(--border); }
+.pot-member-name { flex: 1 1 auto; min-width: 0; font-size: 14px; font-weight: 600; color: var(--foreground); }
+.pot-member-sum { font-size: 14px; font-weight: 600; color: var(--foreground); }
+.pot-member .plan-row:last-child { border-bottom: 0; }
+/* Die Karte Kontostände in der Auswertung. */
+.balances-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.balances-table th, .balances-table td { padding: 6px 0 6px 12px; text-align: left; font-weight: 400; border-bottom: 1px solid var(--border); vertical-align: baseline; }
+.balances-table th { padding-left: 0; }
+.balances-table td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.balances-group th { padding-top: 12px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted-foreground); }
+.balances-table tbody:first-of-type .balances-group th { padding-top: 0; }
+.balances-type { display: block; font-size: 12px; color: var(--muted-foreground); }
+.balances-sub th, .balances-sub td { color: var(--muted-foreground); font-size: 13px; }
+.balances-total th, .balances-total td { font-weight: 600; border-bottom: 0; padding-top: 10px; }
+.unplanned-people { display: flex; flex-direction: column; gap: 4px; padding: 0 0 4px 0; }
+.plan-row { border-bottom: 1px solid var(--border); }
+.plan-row:last-child { border-bottom: 0; }
+.plan-row .list-row { border-bottom: 0; }
+.list-row-amount .list-row-detail { display: block; font-weight: 400; }
+/* Der Reiter Buchungen als Tabelle in voller Breite (Spec 82, R15); am Handy wird jede Zeile eine kleine Karte. */
+.month-bookings { padding: 0; overflow: hidden; }
+.month-bookings > .month-hint { padding: 16px; }
+.bookings-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.bookings-table th {
+    text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--muted-foreground); padding: 12px 16px; border-bottom: 1px solid var(--border);
+}
+.bookings-table td { padding: 10px 16px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.bookings-table tbody tr:last-child td { border-bottom: 0; }
+.bookings-table tbody tr:hover td { background: var(--muted); }
+.bookings-date { white-space: nowrap; color: var(--muted-foreground); }
+.bookings-date .month-hint { display: block; font-size: 12px; white-space: normal; }
+.bookings-title { display: block; font-weight: 500; margin-bottom: 4px; }
+.bookings-pot-item { display: inline-flex; align-items: center; gap: 6px; margin-right: 10px; white-space: nowrap; }
+.bookings-table .bookings-amount { text-align: right; white-space: nowrap; font-weight: 500; }
+.amount-expense { color: var(--destructive); }
+@media (max-width: 767px) {
+    .bookings-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .bookings-table tbody { display: block; }
+    .bookings-table tr.bookings-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+    .bookings-table tbody tr:last-child { border-bottom: 0; }
+    .bookings-table td { display: block; padding: 0; border: 0; }
+    .bookings-table .bookings-name { flex: 1 1 calc(100% - 128px); min-width: 0; }
+    .bookings-table .bookings-amount { flex: 0 0 auto; }
+    .bookings-table .bookings-date, .bookings-table .bookings-position, .bookings-table .bookings-account, .bookings-table .bookings-pot {
+        flex: 0 1 auto; font-size: 12px; color: var(--muted-foreground);
+    }
+    .bookings-table .bookings-position::before, .bookings-table .bookings-account:not(:empty)::before, .bookings-table .bookings-pot:not(:empty)::before { content: "· "; }
+    .bookings-title { margin-bottom: 2px; }
+}
+
+/* Erfolgsmeldungen als kurze Meldung unten, über allem und ohne etwas zu verschieben (Spec 82). */
+.notice-toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 60;
+    width: max-content; max-width: min(28rem, calc(100vw - 32px)); border-radius: var(--radius);
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--foreground) 14%, transparent);
+}
+@media (max-width: 767px) { .notice-toast { bottom: calc(76px + env(safe-area-inset-bottom)); } }
+
+/* Die Buchungsanzahl in der Zeile des Postens, aufgeklappt die Buchungen in voller Breite darunter (Spec 82, R15). */
+.position-bookings-toggle {
+    display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px;
+    background: transparent; color: var(--muted-foreground); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap;
+}
+.position-bookings-toggle:hover, .position-bookings-toggle[aria-expanded="true"] { background: var(--muted); color: var(--foreground); }
+.position-bookings[hidden] { display: none; }
+
+.page-title:focus { outline: none; }
+.month-card-kpis > span { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px; }
+.pot-row-sum { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.pot-sum { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.pill { font-weight: 400; }
+
+/* --- Abstände und weitere Bausteine der Seiten --- */
+.mt-1 { margin-top: 4px; } .mt-2 { margin-top: 8px; } .mt-3 { margin-top: 12px; } .mt-4 { margin-top: 16px; }
+.mb-1 { margin-bottom: 4px; } .mb-2 { margin-bottom: 8px; } .mb-4 { margin-bottom: 16px; }
+.w-full { width: 100%; }
+.unavailable { opacity: .5; cursor: not-allowed; }
+.auth-header { display: flex; flex-direction: column; gap: 4px; }
+.auth-lead { color: var(--muted-foreground); }
+.auth-switch { text-align: center; color: var(--muted-foreground); }
+.auth-switch a { color: var(--foreground); text-decoration: underline; text-underline-offset: 3px; }
+.field-stack { display: flex; flex-direction: column; gap: 12px; }
+.field-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); gap: 12px; }
+
+.account-select, .payment-select { border: 0; padding: 0; margin: 0; min-width: 0; }
+.account-select-legend, .payment-select-legend { padding: 0; font-weight: 500; margin-bottom: 6px; }
+.account-options, .payment-options { display: flex; flex-wrap: wrap; gap: 6px; }
+.account-option, .payment-option { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--input); border-radius: var(--radius); cursor: pointer; }
+/* Die Wahl ist nie nur an der Farbe zu erkennen: Sie ist auch fett und hat einen dickeren Rahmen. */
+.account-option:has(input:checked), .payment-option:has(input:checked) { border-color: var(--ring); box-shadow: inset 0 0 0 1px var(--ring); background: var(--accent); font-weight: 600; }
+.account-option-name, .payment-option-name { overflow-wrap: anywhere; }
+.account-option:has(input:focus-visible), .payment-option:has(input:focus-visible) { outline: 2px solid var(--ring); outline-offset: 2px; }
+.account-icon, .payment-icon { display: inline-flex; color: var(--muted-foreground); }
+.account-option input, .payment-option input { accent-color: var(--primary); margin: 0; }
+
+.blocks-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); gap: 16px; }
+.blocks-panel { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--background); color: var(--foreground); }
+.blocks-panel-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.step-dialog-demo { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+
+/* --- Zeilen statt Tabellen: Name links, Betrag rechts, darunter Linien wie im alten Duofy --- */
+.data-table { display: flex; flex-direction: column; }
+.data-table-head { display: none; }
+.data-row-frame { border-bottom: 1px solid var(--border); padding: 10px 0; }
+.data-row-frame:last-child { border-bottom: 0; }
+.data-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-width: 0; }
+.data-cells { flex: 1 1 12rem; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+.data-title { font-size: 16px; }
+.data-amount { margin-left: auto; text-align: right; font-size: 16px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.data-actions { display: flex; align-items: center; gap: 2px; }
+.account-open { text-decoration: none; }
+.account-open:hover { text-decoration: underline; text-underline-offset: 3px; }
+.icon-filled { fill: currentColor; }
+.pot-head--line { padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.card .card { border: 0; border-radius: 0; padding: 12px 0 0; border-top: 1px solid var(--border); }
+.flex-grow-1 { flex: 1 1 auto; min-width: 0; }
+.align-start { align-items: flex-start; }
+.plain-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.plain-text-small { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
+.long-link { overflow-wrap: anywhere; font-size: 12px; }
+.qr-code { width: 200px; max-width: 100%; }
+.qr-code svg, .qr-code img { display: block; width: 100%; height: auto; }
+.qr-code-small { width: 140px; }
+.grants-presets { border: 0; padding: 0; margin: 0 0 12px; min-width: 0; }
+.booking-line { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-top: 1px solid var(--border); }
+.booking-line-title { font-weight: 500; }
+.booking-line-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.booking-kinds { display: flex; flex-wrap: wrap; gap: 6px; }
+.bookings-top { display: flex; flex-direction: column; }
+.plan-back { display: inline-block; margin-bottom: 8px; color: var(--muted-foreground); }
+.more-entry { width: 100%; justify-content: flex-start; }
+.more-item { padding: 6px 8px; }
+.brand-name { font-family: var(--font-heading); font-weight: 600; }
+.consent-text { font-size: 14px; }
+.chart-bar-label { overflow-wrap: anywhere; }
+.month-review-total { font-size: 16px; }
+.guideline-people { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: 16px; }
+.guideline-person { display: flex; flex-direction: column; gap: 8px; min-width: 0; overflow-x: auto; }
+.guideline-person-name { font-size: 14px; font-weight: 600; }
+.guideline-summary { font-size: 14px; }
+
+/* --- Start --- */
+.start-hero { display: flex; flex-direction: column; gap: 6px; }
+.start-greeting { font-family: var(--font-heading); font-size: 30px; line-height: 1.2; font-weight: 600; margin-bottom: 12px; }
+.start-amount { font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.start-link { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; width: fit-content; }
+.start-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); gap: 16px; }
+.start-section { display: flex; flex-direction: column; gap: 10px; background: var(--card); border: 1px solid var(--border); border-radius: calc(var(--radius) * 1.4); padding: 20px; min-width: 0; }
+.start-bars { display: flex; flex-direction: column; gap: 14px; }
+
+/* --- Haushaltsbereich: Reiter als Links unter dem Namen des Haushalts (Spec 82, R11) --- */
+.area-tabs { display: flex; gap: 4px; margin: -8px 0 24px; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+.area-tab { padding: 8px 12px; margin-bottom: -1px; border-bottom: 2px solid transparent; color: var(--muted-foreground); text-decoration: none; white-space: nowrap; }
+.area-tab:hover { color: var(--foreground); }
+.area-tab[aria-current] { color: var(--foreground); border-bottom-color: var(--primary); font-weight: 500; }
+.quota-list { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+.quota-item { display: inline-flex; align-items: center; gap: 8px; }
+
+/* Monatskarten: ab Tablet zwei nebeneinander. */
+@media (min-width: 768px) {
+    .card-list:has(> li > .month-card) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 767px) {
+    .area-tabs { margin-top: -12px; }
+    .area-tab { min-height: 44px; display: inline-flex; align-items: center; }
+}

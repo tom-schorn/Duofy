@@ -1,0 +1,92 @@
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Kontostände in der Auswertung (Tom, 03.11.2026: "die kontostände ansich können auch zu auswertung"). Bei einer Person
+   getrennt in "verfügbar" (Konten mit dem Schalter "zählt als verfügbar") und "zurückgelegt", je mit Zwischensumme; im
+   Haushalt je Person, denn die API nennt dort nicht, ob ein Konto als verfügbar zählt. Unten die Summe aller Konten und, im
+   Haushalt, wer seine Konten nicht freigegeben hat. *@
+<section class="month-section card account-balances" aria-labelledby="month-accounts-heading" data-testid="@TestId">
+    <h2 class="month-section-title" id="month-accounts-heading">@L["Month_AccountsHeading"]</h2>
+    @if (NotShared)
+    {
+        <p class="month-hint" data-testid="month-accounts-not-shared">@L["Grant_NotShared"]</p>
+    }
+    else if (Rows.Count == 0)
+    {
+        <p class="month-hint" data-testid="month-accounts-empty">@L["Month_AccountsEmpty"]</p>
+    }
+    else
+    {
+        <table class="balances-table">
+            <caption class="visually-hidden">@L["Month_AccountsHeading"]</caption>
+            @foreach (var group in Groups)
+            {
+                <tbody data-testid="@($"month-accounts-group-{group.Key}")">
+                    <tr class="balances-group">
+                        <th scope="rowgroup" colspan="2">@group.Title</th>
+                    </tr>
+                    @foreach (var row in group.Rows)
+                    {
+                        <tr data-testid="@($"month-account-{row.Id}")">
+                            <th scope="row">
+                                <span class="balances-name">@row.Name</span>
+                                @if (row.Type is { } type)
+                                {
+                                    <span class="balances-type">@L[$"AccountType_{type}"]</span>
+                                }
+                            </th>
+                            <td class="num @(row.Balance < 0m ? "amount-expense" : null)">@MoneyText.Format(row.Balance)</td>
+                        </tr>
+                    }
+                    <tr class="balances-sub">
+                        <th scope="row">@L["Month_AccountsSubtotal"]</th>
+                        <td class="num">@MoneyText.Format(group.Sum)</td>
+                    </tr>
+                </tbody>
+            }
+            <tfoot>
+                <tr class="balances-total" data-testid="month-accounts-total">
+                    <th scope="row">@L["Month_AccountsTotal"]</th>
+                    <td class="num">@MoneyText.Format(Total)</td>
+                </tr>
+            </tfoot>
+        </table>
+        <p class="month-hint">@AsOf</p>
+    }
+    @if (Missing.Count > 0)
+    {
+        <p class="month-hint" data-testid="household-accounts-missing">@L["HouseholdPlan_AccountsMissing", string.Join(", ", Missing)]</p>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<AccountBalanceRow> Rows { get; set; } = [];
+
+    /// <summary>Im Haushalt: je Person statt nach verfügbar und zurückgelegt.</summary>
+    [Parameter] public bool ByOwner { get; set; }
+
+    /// <summary>Wessen Konten fehlen, weil sie nicht freigegeben sind (nur im Haushalt).</summary>
+    [Parameter] public IReadOnlyList<string> Missing { get; set; } = [];
+
+    /// <summary>True, wenn die gewählte Person ihre Konten nicht teilt (Spec 68).</summary>
+    [Parameter] public bool NotShared { get; set; }
+
+    /// <summary>Wann der Stand gilt, als Satz unter der Tabelle.</summary>
+    [Parameter, EditorRequired] public string AsOf { get; set; } = "";
+
+    [Parameter] public string TestId { get; set; } = "month-accounts";
+
+    private decimal Total => Rows.Sum(r => r.Balance);
+
+    private sealed record Group(string Key, string Title, IReadOnlyList<AccountBalanceRow> Rows)
+    {
+        public decimal Sum => Rows.Sum(r => r.Balance);
+    }
+
+    private IReadOnlyList<Group> Groups => ByOwner
+        ? Rows.GroupBy(r => r.Owner ?? "").Select(g => new Group($"owner-{g.Key}", g.Key, g.ToList())).ToList()
+        : new[]
+        {
+            new Group("available", L["Month_AccountsAvailable"].Value, Rows.Where(r => r.Available).ToList()),
+            new Group("reserved", L["Month_AccountsReserved"].Value, Rows.Where(r => !r.Available).ToList()),
+        }.Where(g => g.Rows.Count > 0).ToList();
+}

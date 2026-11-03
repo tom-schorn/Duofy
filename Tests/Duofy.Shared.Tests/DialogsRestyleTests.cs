@@ -21,10 +21,10 @@ public class DialogsRestyleTests : PageTestContext
 
     public DialogsRestyleTests()
     {
-        dialogs = RenderRadzenHost();
+        dialogs = RenderDialogHost();
     }
 
-    // Radzen-Umstellung R16: Der Buchungsdialog geht über FormDialogs als Radzen-Schritt-Dialog auf.
+    // Der Buchungsdialog geht über FormDialogs als Dialog in Schritten auf.
     private Task<DialogOutcome<bool>>? bookingOutcome;
 
     private void OpenBooking(IReadOnlyList<AccountChoice>? accounts = null)
@@ -38,7 +38,7 @@ public class DialogsRestyleTests : PageTestContext
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll(".step-dialog")));
     }
 
-    // Radzen-Umstellung R15: Der Kontodialog geht über FormDialogs als Radzen-Schritt-Dialog auf.
+    // Der Kontodialog geht über FormDialogs als Dialog in Schritten auf.
     private Task<DialogOutcome<bool>>? accountOutcome;
 
     private void OpenAccount()
@@ -157,12 +157,11 @@ public class DialogsRestyleTests : PageTestContext
     [Fact]
     public void No_dialog_is_taller_than_the_screen_because_only_the_content_scrolls()
     {
-        var css = File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "wwwroot", "app.css"));
+        var css = File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "wwwroot", "duofy.css"));
         string Rule(string selector) { var from = css.IndexOf(selector + " {", StringComparison.Ordinal); return css[from..css.IndexOf('}', from)]; }
 
         Assert.Contains("overflow-y: auto;", Rule(".step-dialog-scroll"));
-        Assert.Contains("max-height: 60vh;", Rule(".step-dialog-scroll"));
-        Assert.Contains("min-height: 0;", Rule(".step-dialog-scroll-app"));
-        Assert.Contains("height: 100%;", Rule(".step-dialog-app"));
+        Assert.Contains("min-height: 0;", Rule(".step-dialog-scroll"));
+        Assert.Contains("max-height: calc(100dvh", Rule(".step-dialog"));
     }
 }

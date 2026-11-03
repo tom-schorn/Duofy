@@ -1,13 +1,12 @@
-@using Radzen
-@using Radzen.Blazor
+@using BlazorBlueprint.Components
+@using Duofy.Shared.Dialogs
+@inherits FormDialogBase
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
 @inject IDebtApi DebtApi
 @inject ActiveMember Member
-@inject DialogService Dialogs
 @inject IStringLocalizer<SharedResources> L
-@inject IAppHost Host
 
 @* Der Dialog zum Anlegen und Ändern einer Forderung oder eines Kredits (Issue 31): Name, Gläubiger und Betrag sind
    Pflicht, Fälligkeit und Notiz freiwillig. Die Art (Forderung oder Kredit) steht beim Anlegen fest und ändert sich
@@ -15,49 +14,41 @@
    im Text. *@
 
 <div>
-    @if (Host.IsApp)
-        {
-            <FullScreenFormHeader Title="@Title" SaveText="@L["DebtDialog_Save"]" SaveTestId="debt-save"
-                                  Busy="busy" OnClose="Cancel" OnSave="SaveAsync" />
-        }
-        <RadzenStack Gap="1rem">
+
+        <div class="stack">
             @if (error is not null)
             {
-                <ErrorAlert AlertStyle="AlertStyle.Base" Text="@error" data-testid="debt-error" />
+                <ErrorAlert Text="@error" data-testid="debt-error" />
             }
 
             <div class="field">
                 <FieldLabel For="debt-name-input" Text="@L["Field_DebtName"]" />
-                <RadzenTextBox @bind-Value="name" id="debt-name-input" MaxLength="DebtRules.NameMaxLength" data-testid="debt-name" />
+                <TextInput id="debt-name-input" maxlength="@(DebtRules.NameMaxLength)" @bind-Value="name" data-testid="debt-name" />
             </div>
             <div class="field">
                 <FieldLabel For="debt-creditor-input" Text="@L["Field_DebtCreditor"]" />
-                <RadzenTextBox @bind-Value="creditor" id="debt-creditor-input" MaxLength="DebtRules.CreditorMaxLength" data-testid="debt-creditor" />
+                <TextInput id="debt-creditor-input" maxlength="@(DebtRules.CreditorMaxLength)" @bind-Value="creditor" data-testid="debt-creditor" />
             </div>
             <div class="field">
                 <FieldLabel id="debt-amount-label" Text="@L["Field_DebtAmount"]" />
-                <RadzenNumeric TValue="decimal?" @bind-Value="amount" Culture="German" Format="0.00" ShowUpDown="false"
-                               InputAttributes="@(new Dictionary<string, object> { ["aria-labelledby"] = "debt-amount-label" })"
-                               data-testid="debt-amount" />
+                <MoneyInput aria-labelledby="debt-amount-label" @bind-Value="amount" data-testid="debt-amount" />
             </div>
             <div class="field">
                 <FieldLabel For="debt-due-date-input" Text="@L["Field_DebtDueDate"]" />
-                <RadzenTextBox Value="@dateText" ValueChanged="OnDateChanged" type="date" id="debt-due-date-input" data-testid="debt-due-date" />
+                <TextInput id="debt-due-date-input" Type="date" Value="@dateText" ValueChanged="OnDateChanged" data-testid="debt-due-date" />
             </div>
             <div class="field">
                 <FieldLabel For="debt-note-input" Text="@L["Field_DebtNote"]" />
-                <RadzenTextBox @bind-Value="note" id="debt-note-input" MaxLength="DebtRules.NoteMaxLength" data-testid="debt-note" />
+                <TextInput id="debt-note-input" maxlength="@(DebtRules.NoteMaxLength)" @bind-Value="note" data-testid="debt-note" />
             </div>
 
-            @if (!Host.IsApp)
-            {
-                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
-                    <RadzenButton Text="@L["SavingsGoalDialog_Cancel"]" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Click="@(_ => Cancel())" />
-                    <RadzenButton Text="@L["DebtDialog_Save"]" ButtonStyle="ButtonStyle.Primary" Disabled="busy" Click="@(_ => SaveAsync())"
-                                  data-testid="debt-save" />
-                </RadzenStack>
-            }
-        </RadzenStack>
+
+                <div class="row-end">
+                    <DuofyButton Kind="ButtonKind.Ghost" Text="@L["SavingsGoalDialog_Cancel"]" OnClick="@(_ => Cancel())" />
+                    <DuofyButton Text="@L["DebtDialog_Save"]" OnClick="@(_ => SaveAsync())" TestId="debt-save" Disabled="busy" />
+                </div>
+            
+        </div>
 </div>
 
 @code {
@@ -108,7 +99,7 @@
         date = DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed) ? parsed : null;
     }
 
-    private void Cancel() => Dialogs.Close();
+    private Task Cancel() => CancelAsync();
 
     private async Task SaveAsync()
     {
@@ -125,7 +116,7 @@
 
             if (result.Succeeded)
             {
-                Dialogs.Close(true);
+                await CloseAsync(true);
             }
             else
             {

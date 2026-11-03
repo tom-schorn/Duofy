@@ -16,7 +16,7 @@ public class MonthTabsTests : PageTestContext
     /// <summary>Hält den gewählten Tab wie die Monatsseite.</summary>
     private sealed class Host : ComponentBase
     {
-        private MonthTab active = MonthTab.Overview;
+        private MonthTab active = MonthTab.Plan;
 
         protected override void BuildRenderTree(RenderTreeBuilder builder)
         {
@@ -43,26 +43,26 @@ public class MonthTabsTests : PageTestContext
     {
         var cut = Render<Host>();
 
-        Press(cut, "overview", "ArrowRight");
-        Press(cut, "overview", "ArrowRight");
+        Press(cut, "plan", "ArrowRight");
+        Press(cut, "plan", "ArrowRight");
 
-        Assert.True(Selected(cut, "bookings"));
+        Assert.True(Selected(cut, "review"));
     }
 
     [Fact]
     public void The_focus_follows_each_press_to_the_new_tab()
     {
         var cut = Render<Host>();
-        var plan = ReferenceOf(cut, "plan");
         var bookings = ReferenceOf(cut, "bookings");
+        var review = ReferenceOf(cut, "review");
 
-        Press(cut, "overview", "ArrowRight");
         Press(cut, "plan", "ArrowRight");
+        Press(cut, "bookings", "ArrowRight");
 
-        Assert.True(Selected(cut, "bookings"));
+        Assert.True(Selected(cut, "review"));
         var focus = JSInterop.VerifyFocusAsyncInvoke(2);
-        Assert.Equal(plan, FocusedReference(focus[0]));
-        Assert.Equal(bookings, FocusedReference(focus[1]));
+        Assert.Equal(bookings, FocusedReference(focus[0]));
+        Assert.Equal(review, FocusedReference(focus[1]));
     }
 
     [Fact]
@@ -71,7 +71,7 @@ public class MonthTabsTests : PageTestContext
         var cut = Render<Host>();
         var review = ReferenceOf(cut, "review");
 
-        Press(cut, "overview", "ArrowLeft");
+        Press(cut, "plan", "ArrowLeft");
 
         Assert.True(Selected(cut, "review"));
         Assert.Equal(review, FocusedReference(JSInterop.VerifyFocusAsyncInvoke()));
@@ -82,10 +82,10 @@ public class MonthTabsTests : PageTestContext
     {
         var cut = Render<Host>();
 
-        Press(cut, "overview", "Tab");
-        Tab(cut, "plan").Click();
+        Press(cut, "plan", "Tab");
+        Tab(cut, "bookings").Click();
 
-        Assert.True(Selected(cut, "plan"));
+        Assert.True(Selected(cut, "bookings"));
         JSInterop.VerifyNotInvoke("Blazor._internal.domWrapper.focus");
     }
 }

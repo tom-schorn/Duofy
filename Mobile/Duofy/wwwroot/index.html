@@ -5,19 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Duofy</title>
     <base href="/" />
-    <link rel="stylesheet" href="_content/Duofy.Shared/app.css" />
-    <link rel="stylesheet" href="app.css" />
+    <script>if(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.classList.add('dark');</script>
+    <link rel="stylesheet" href="_content/Duofy.Shared/theme.css" />
+    <link rel="stylesheet" href="_content/BlazorBlueprint.Components/blazorblueprint.css" />
+    <link rel="stylesheet" href="_content/Duofy.Shared/duofy.css" />
     <link rel="stylesheet" href="Duofy.styles.css" />
     <link rel="icon" href="data:,">
 </head>
 
 <body>
 
-    <div class="status-bar-safe-area"></div>
-
     <div id="app">Loading...</div>
 
-    <script src="_content/Radzen.Blazor/Radzen.Blazor.js"></script>
     <script src="_framework/blazor.webview.js" autostart="false"></script>
 
 </body>

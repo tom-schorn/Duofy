@@ -10,9 +10,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Duofy.Shared.Tests;
 
 /// <summary>
-/// Spec 65, das App-Layout: untere Leiste, Plus-Knopf, Titel in der oberen Leiste und Formulare im
-/// Vollbild. Die Tests gehen über den echten Router der App (Routes), damit das Layout wirklich greift;
-/// der Browser behält MainLayout.
+/// Der Rahmen der App (Spec 65, Spec 82): untere Leiste, Titel in der oberen Leiste, Knöpfe im Seitenkopf wie im Browser.
+/// Die Tests gehen über den echten Router der App (Routes), damit das Layout wirklich greift; der Browser behält MainLayout.
 /// </summary>
 public class AppLayoutTests : PageTestContext
 {
@@ -32,18 +31,18 @@ public class AppLayoutTests : PageTestContext
 
     private static IReadOnlyList<(string Text, string? Href, bool Active)> BottomBar(IRenderedComponent<Routes> cut) =>
         cut.FindAll("[data-testid='bottom-bar'] a")
-            .Select(a => (a.QuerySelector(".app-bottom-label")!.TextContent.Trim(), a.GetAttribute("href"), a.GetAttribute("aria-current") == "page"))
+            .Select(a => (a.QuerySelector("span")!.TextContent.Trim(), a.GetAttribute("href"), a.GetAttribute("aria-current") == "page"))
             .ToList();
 
     private static string Active(IRenderedComponent<Routes> cut) =>
         Assert.Single(BottomBar(cut), e => e.Active).Text;
 
-    private static void WaitForPlus(IRenderedComponent<Routes> cut) =>
-        cut.WaitForAssertion(() => Assert.False(cut.Find("[data-testid='app-plus']").HasAttribute("disabled")));
+    private static void WaitForButton(IRenderedComponent<Routes> cut, string testId) =>
+        cut.WaitForAssertion(() => Assert.False(cut.Find($"[data-testid='{testId}']").HasAttribute("disabled")));
 
     // A1
     [Fact]
-    public void Accounts_open_inside_the_app_layout_with_four_entries_and_more_highlighted()
+    public void Accounts_open_inside_the_app_layout_with_five_entries_and_more_highlighted()
     {
         var cut = Open("/konten");
 
@@ -51,7 +50,7 @@ public class AppLayoutTests : PageTestContext
         Assert.Single(cut.FindComponents<AppLayout>());
         Assert.Empty(cut.FindComponents<MainLayout>());
         Assert.Equal(
-            [("Start", "/", false), ("Plan", "/plan", false), ("Haushalt", "/haushaltsplan", false), ("Mehr", "/mehr", true)],
+            [("Start", "/", false), ("Plan", "/plan", false), ("Haushalt", "/haushaltsplan", false), ("Sparen", "/sparen", false), ("Mehr", "/mehr", true)],
             BottomBar(cut));
     }
 
@@ -68,14 +67,14 @@ public class AppLayoutTests : PageTestContext
         cut.WaitForAssertion(() => Assert.Equal("Mehr", Active(cut)));
 
         Navigation.NavigateTo("/konten");
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='app-plus']")));
-        Assert.Equal("Konten", cut.Find("[data-testid='app-title']").TextContent.Trim());
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='accounts-add']")));
+        Assert.Equal("Konten", cut.Find("h1").TextContent.Trim());
         Assert.Equal("Mehr", Active(cut));
     }
 
     // A3
     [Fact]
-    public void Mehr_lists_konten_vertraege_konto_the_mode_switch_and_sign_out()
+    public void Mehr_lists_the_profile_konten_vertraege_konto_and_sign_out_but_no_household_and_no_mode_switch()
     {
         var cut = Open("/mehr");
 
@@ -83,17 +82,20 @@ public class AppLayoutTests : PageTestContext
         Assert.Equal("/konten", cut.Find("[data-testid='more-accounts']").GetAttribute("href"));
         Assert.Equal("/vertraege", cut.Find("[data-testid='more-contracts']").GetAttribute("href"));
         Assert.Equal("/konto", cut.Find("[data-testid='more-user-account']").GetAttribute("href"));
-        Assert.Equal(3, cut.FindAll("[data-testid='more-mode'] button").Count);
+        Assert.Empty(cut.FindAll("[data-testid='more-mode']"));
+        Assert.Empty(cut.FindAll("[data-testid='more-household'], [data-testid='more-savings']"));
+        Assert.NotEmpty(cut.FindAll("[data-testid='more-profile'] [data-testid='member-choice-me']"));
+        Assert.Single(cut.FindAll("[data-testid='theme-toggle']"));
         Assert.Contains("Abmelden", cut.Find("[data-testid='more-sign-out']").TextContent);
     }
 
     [Fact]
-    public void The_mode_switch_on_mehr_turns_dark_mode_on()
+    public void The_one_theme_toggle_of_the_app_turns_dark_mode_on()
     {
         var cut = Open("/mehr");
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='more-mode']")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='theme-toggle']")));
 
-        cut.Find("[data-testid='more-mode'] [data-testid='theme-dark']").Click();
+        cut.Find("[data-testid='theme-toggle']").Click();
 
         cut.WaitForAssertion(() => Assert.True(IsDarkMode(cut)));
     }
@@ -110,17 +112,17 @@ public class AppLayoutTests : PageTestContext
         Assert.Null(Tokens.Tokens);
     }
 
-    // A4, seit Spec 66 (A17): Der Plan ersetzt den Hinweis, das Plus legt einen einmaligen Posten an.
+    // A4, seit Spec 66 (A17): Der Plan ersetzt den Hinweis, der Knopf im Seitenkopf legt einen einmaligen Posten an.
     [Fact]
-    public void Plan_shows_the_month_and_its_plus_button_adds_a_position()
+    public void Plan_shows_the_month_and_its_head_button_adds_a_position()
     {
         var cut = Open("/plan/2026/10");
-        WaitForPlus(cut);
+        WaitForButton(cut, "plan-add");
 
         Assert.Empty(cut.FindAll("[data-testid='plan-note']"));
-        Assert.Equal("Plan", cut.Find("[data-testid='app-title']").TextContent.Trim());
+        Assert.Equal("Oktober 2026", cut.Find("h1").TextContent.Trim());
         Assert.Equal("Plan", Active(cut));
-        cut.Find("[data-testid='app-plus']").Click();
+        cut.Find("[data-testid='plan-add']").Click();
 
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='position-label']")));
     }
@@ -136,25 +138,26 @@ public class AppLayoutTests : PageTestContext
     }
 
     [Fact]
-    public void The_plus_button_opens_the_account_dialog_on_konten()
+    public void The_head_button_opens_the_account_dialog_on_konten()
     {
         var cut = Open("/konten");
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='app-plus']")));
+        WaitForButton(cut, "accounts-add");
 
-        cut.Find("[data-testid='app-plus']").Click();
+        cut.Find("[data-testid='accounts-add']").Click();
 
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='account-name']")));
     }
 
     [Fact]
-    public void The_plus_button_on_start_opens_the_booking_dialog()
+    public void The_booking_button_on_start_opens_the_booking_dialog()
     {
+        PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10);
         var cut = Open("/");
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='app-plus']")));
+        WaitForButton(cut, "start-new-booking");
 
-        cut.Find("[data-testid='app-plus']").Click();
+        cut.Find("[data-testid='start-new-booking']").Click();
 
-        // Spec 51, A6: Das Plus führt in den laufenden Monat, dort geht der Dialog auf; die Adresse ist danach sauber.
+        // Spec 51, A6: Der Knopf führt in den laufenden Monat, dort geht der Dialog auf; die Adresse ist danach sauber.
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='booking-amount']")));
         Assert.EndsWith("/plan/2026/10", Navigation.Uri);
         Assert.Equal("Plan", Active(cut));
@@ -167,31 +170,45 @@ public class AppLayoutTests : PageTestContext
         var cut = Open("/haushalt");
 
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='household-card']")));
-        Assert.Equal("Haushalt", cut.Find("[data-testid='app-title']").TextContent.Trim());
+        Assert.Equal("Haushalt von Anna", cut.Find("h1").TextContent.Trim());
         Assert.Equal("Haushalt", Active(cut));
     }
 
+    // Toms Entscheidung vom 02.11.: kein runder Plus-Knopf, auch nicht am Handy.
     [Theory]
+    [InlineData("/", "start-new-booking")]
+    [InlineData("/plan/2026/10", "plan-add")]
+    [InlineData("/konten", "accounts-add")]
+    [InlineData("/vertraege", "commitments-add")]
+    [InlineData("/sparen", "savings-goal-add")]
     [InlineData("/mehr", "more-accounts")]
     [InlineData("/konto", "account-names")]
-    public void Pages_without_a_main_action_show_no_plus_button(string path, string readyMarker)
+    public void No_page_shows_a_round_plus_button(string path, string readyMarker)
     {
+        PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10);
         var cut = Open(path);
 
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll($"[data-testid='{readyMarker}']")));
         Assert.Empty(cut.FindAll("[data-testid='app-plus']"));
+        Assert.Empty(cut.FindAll(".app-fab"));
     }
 
-    [Fact]
-    public void Leaving_a_page_with_a_plus_button_takes_the_button_away()
+    // A13 (R11, Tom: "Generell immer doppelte titel"): Jede Seite nennt ihren Titel genau einmal, auch nach dem Wechsel.
+    [Theory]
+    [InlineData("/konten", "Konten")]
+    [InlineData("/mehr", "Mehr")]
+    [InlineData("/vertraege", "Verträge")]
+    [InlineData("/plan", "Meine Planung")]
+    [InlineData("/sparen", "Sparen")]
+    public void A13_every_page_names_its_title_exactly_once(string path, string title)
     {
-        var cut = Open("/konten");
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='app-plus']")));
+        var cut = Open("/");
+        Navigation.NavigateTo(path);
 
-        Navigation.NavigateTo("/mehr");
-
-        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[data-testid='app-plus']")));
-        Assert.Equal("Mehr", cut.Find("[data-testid='app-title']").TextContent.Trim());
+        cut.WaitForAssertion(() => Assert.Equal(title, cut.Find("h1").TextContent.Trim()));
+        Assert.Empty(cut.FindAll("[data-testid='app-title']"));
+        var main = cut.Find("main").TextContent + cut.Find(".shell-top").TextContent;
+        Assert.Equal(1, System.Text.RegularExpressions.Regex.Matches(main, System.Text.RegularExpressions.Regex.Escape(title)).Count);
     }
 
     // A6
@@ -226,74 +243,34 @@ public class AppLayoutTests : PageTestContext
         cut.WaitForAssertion(() => Assert.Empty(cut.FindAll(".step-dialog")));
     }
 
-    [Fact]
-    public void In_the_browser_the_same_dialog_is_not_full_screen()
-    {
-        // Ohne AppHost-Anmeldung gilt der Standard aus AddDuofyUi: der Browser.
-        using var web = new WebContext();
-        var dialogs = web.RadzenDialogs();
-        var page = web.Render<Plan>(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 10));
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("[data-testid='month-action-booking']")));
-
-        page.Find("[data-testid='month-action-booking']").Closest("button")!.Click();
-
-        // Der Dialog steht in RadzenComponents, nicht in der Seite.
-        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-amount']")));
-        Assert.DoesNotContain("height: 100%", dialogs.Find(DialogSelector).GetAttribute("style") ?? "");
-        Assert.Empty(dialogs.FindAll("[data-testid='form-header']"));
-        Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-next']"));
-    }
-
     // Spec 65 R4/R5/R6 für Verträge, nachdem Spec 64 gemerged ist.
     [Fact]
-    public void The_plus_button_opens_the_contract_dialog_on_vertraege()
+    public void The_head_button_opens_the_contract_dialog_on_vertraege()
     {
         var cut = Open("/vertraege");
-        WaitForPlus(cut);
+        WaitForButton(cut, "commitments-add");
 
-        cut.Find("[data-testid='app-plus']").Click();
+        cut.Find("[data-testid='commitments-add']").Click();
 
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='commitment-name']")));
     }
 
+    // Spec 82: App und Browser zeigen dieselbe Seite, mit Überschrift und Knopf im Seitenkopf.
     [Fact]
-    public void Vertraege_show_their_title_in_the_top_bar_only_once()
+    public void Vertraege_show_their_heading_and_button_in_the_page()
     {
         var cut = Open("/vertraege");
 
-        cut.WaitForAssertion(() => Assert.Equal("Verträge", cut.Find("[data-testid='app-title']").TextContent.Trim()));
-        Assert.Empty(cut.FindAll("h1:not(.visually-hidden)"));
-        Assert.Empty(cut.FindAll("[data-testid='commitments-add']"));
-    }
-
-    // Spec 17: Der Vertragsdialog ist in der App der Schritt-Dialog (Spec 11). Auf dem Handy füllt er über das
-    // Stylesheet den Bildschirm (bis 599 px, siehe StepDialogTests); Abbrechen steht im Kopf, Weiter unten.
-    [Fact]
-    public void In_the_app_the_contract_dialog_is_the_step_dialog_with_cancel_on_top_and_next_below()
-    {
-        var cut = Open("/vertraege");
-        WaitForPlus(cut);
-
-        cut.Find("[data-testid='app-plus']").Click();
-
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(DialogSelector + " .step-dialog")));
-        Assert.Empty(cut.FindAll("[data-testid='form-header']"));
-        var head = cut.Find(".step-dialog .step-dialog-head");
-        Assert.Contains("Neuer Vertrag", head.TextContent);
-        Assert.Equal("Schritt 1 von 3: Was", head.QuerySelector("[data-testid='step-dialog-progress']")!.TextContent.Trim());
-        Assert.Contains(head.QuerySelectorAll("button"), b => b.TextContent.Trim() == "Abbrechen");
-        Assert.Contains(cut.FindAll(".step-dialog .step-dialog-actions button"), b => b.TextContent.Trim() == "Weiter");
-        // In der App füllt der Dialog den Bildschirm; die Titelzeile von Radzen gibt es nicht.
-        Assert.Empty(cut.FindAll(".rz-dialog-titlebar"));
-        Assert.StartsWith("width: 100%", cut.Find(DialogSelector).GetAttribute("style"));
+        cut.WaitForAssertion(() => Assert.Equal("Verträge", cut.Find("h1").TextContent.Trim()));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='commitments-add']")));
     }
 
     [Fact]
     public void In_the_app_the_contract_dialog_checks_each_step_and_cancelling_closes_it()
     {
         var cut = Open("/vertraege");
-        WaitForPlus(cut);
-        cut.Find("[data-testid='app-plus']").Click();
+        WaitForButton(cut, "commitments-add");
+        cut.Find("[data-testid='commitments-add']").Click();
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(DialogSelector + " .step-dialog")));
 
         // Weiter prüft wie im Browser: ohne Name bleibt der Dialog in Schritt 1 und zeigt den Fehler am Feld.
@@ -305,49 +282,18 @@ public class AppLayoutTests : PageTestContext
         cut.WaitForAssertion(() => Assert.Empty(cut.FindAll(DialogSelector + " .step-dialog")));
     }
 
-    [Fact]
-    public void In_the_browser_the_contract_dialog_is_not_full_screen()
-    {
-        using var web = new WebContext();
-        var dialogs = web.RadzenDialogs();
-        var page = web.Render<Commitments>();
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("[data-testid='commitments-add']")));
-
-        page.Find("[data-testid='commitments-add']").Click();
-
-        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='commitment-name']")));
-        Assert.DoesNotContain("height: 100%", dialogs.Find(DialogSelector).GetAttribute("style") ?? "");
-        Assert.Empty(dialogs.FindAll("[data-testid='form-header']"));
-        Assert.NotEmpty(dialogs.FindAll(DialogSelector + " .step-dialog"));
-    }
-
-    // A7
-    [Fact]
-    public void Konten_show_their_title_in_the_top_bar_and_the_bar_has_no_menu_button()
-    {
-        var cut = Open("/konten");
-
-        cut.WaitForAssertion(() => Assert.Equal("Konten", cut.Find("[data-testid='app-title']").TextContent.Trim()));
-        Assert.Empty(cut.FindAll("button[aria-label='Menü öffnen oder schließen']"));
-        // Der Schalter steht nicht in der oberen Leiste und nicht auf der Seite; ab dem Desktop in der Seitenleiste (Spec 10).
-        Assert.Empty(cut.FindAll("header .mode-switch"));
-        Assert.Empty(cut.FindAll(".app-page .mode-switch"));
-        // Der Titel steht nur einmal da: in der Leiste, nicht noch einmal als Überschrift der Seite.
-        Assert.Empty(cut.FindAll("h1:not(.visually-hidden)"));
-    }
-
     // A8 (seit Spec 10): Der Browser behält MainLayout, hat aber keine ausklappbare Seitenleiste mehr; die Navigation
-    // sind die Seitenleiste (ab 1280 px, volles Menü) und die untere Leiste (vier Ziele).
+    // sind die Seitenleiste (ab Tablet, am PC ausgeklappt) und die untere Leiste am Handy (fünf Ziele).
     [Fact]
-    public void The_browser_keeps_main_layout_with_side_bar_and_bottom_bar_and_no_drawer()
+    public async Task The_browser_keeps_main_layout_with_side_bar_and_bottom_bar_and_no_drawer()
     {
-        using var web = new WebContext();
+        await using var web = new WebContext();
         var layout = web.Render<MainLayout>(p => p.Add(l => l.Body, "<p>Seite</p>"));
 
         Assert.Empty(layout.FindAll("button[aria-label='Menü öffnen oder schließen']"));
         Assert.NotEmpty(layout.FindAll("[data-testid='side-nav']"));
         Assert.NotEmpty(layout.FindAll("[data-testid='bottom-bar']"));
-        Assert.NotEmpty(layout.FindAll(".mode-switch"));
+        Assert.Single(layout.FindAll("[data-testid='theme-toggle']"));
 
         // Der Router des Browsers (WebRoutes.razor) bleibt bei MainLayout und kennt AppLayout nicht.
         var webRoutes = File.ReadAllText(RepositoryFiles.Path("Web", "Duofy.Web", "Components", "WebRoutes.razor"));
@@ -363,75 +309,6 @@ public class AppLayoutTests : PageTestContext
 
         accounts.WaitForAssertion(() => Assert.NotEmpty(accounts.FindAll("[data-testid='accounts-add']")));
         Assert.NotEmpty(accounts.FindAll("h1:not(.visually-hidden)"));
-    }
-
-    // Radzen R9: Rahmen, Kopfzeile, Seitenleiste und Inhalt sind die Bausteine von Radzen, wie im Browser-Layout.
-    [Fact]
-    public void The_app_layout_is_built_from_radzen_parts()
-    {
-        var cut = Open("/konten");
-
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='app-plus']")));
-        Assert.Single(cut.FindComponents<Radzen.Blazor.RadzenLayout>());
-        Assert.Single(cut.FindComponents<Radzen.Blazor.RadzenHeader>());
-        Assert.Single(cut.FindComponents<Radzen.Blazor.RadzenSidebar>());
-        Assert.Single(cut.FindComponents<Radzen.Blazor.RadzenBody>());
-        Assert.Equal("Konten", cut.Find(".rz-header [data-testid='app-title']").TextContent.Trim());
-    }
-
-    [Fact]
-    public void The_plus_button_is_the_radzen_fab_with_its_label()
-    {
-        var cut = Open("/konten");
-
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindComponents<Radzen.Blazor.RadzenFab>()));
-        var plus = cut.Find("[data-testid='app-plus']");
-        Assert.Contains("rz-fab", plus.ClassList);
-        Assert.Contains("app-fab", plus.ClassList);
-        Assert.False(string.IsNullOrEmpty(plus.GetAttribute("aria-label")));
-    }
-
-    // Radzen nimmt im Parameter Icon nur Namen aus Material Symbols, keine SVG-Pfade.
-    [Fact]
-    public void The_destinations_only_name_material_symbols()
-    {
-        Assert.All(AppDestinations.All.Concat(AppDestinations.Side), d => Assert.Matches("^[a-z_]+$", d.Icon));
-    }
-
-    [Fact]
-    public void The_bottom_bar_marks_the_open_page()
-    {
-        Navigation.NavigateTo("/plan");
-
-        var cut = Render<BottomNavigation>();
-
-        Assert.Equal(4, cut.FindComponents<Radzen.Blazor.RadzenIcon>().Count);
-        var active = Assert.Single(cut.FindAll("a"), a => a.GetAttribute("aria-current") == "page");
-        Assert.Contains("app-bottom-item-active", active.ClassList);
-        Assert.Equal("bottom-plan", active.GetAttribute("data-testid"));
-    }
-
-    // A9
-    [Theory]
-    [InlineData(".app-bottom-bar")]
-    [InlineData(".app-fab")]
-    public void Bottom_bar_and_plus_button_reserve_the_bottom_safe_area_inset(string selector)
-    {
-        var css = File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "wwwroot", "app.css"));
-
-        var rule = Regex.Match(css, Regex.Escape(selector) + @"\s*\{(?<body>[^}]*)\}");
-
-        Assert.True(rule.Success, $"{selector} fehlt in app.css");
-        Assert.Contains("env(safe-area-inset-bottom", rule.Groups["body"].Value);
-    }
-
-    [Fact]
-    public void The_layout_renders_the_elements_the_safe_area_styles_belong_to()
-    {
-        var cut = Open("/konten");
-
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".app-fab")));
-        Assert.NotEmpty(cut.FindAll("nav.app-bottom-bar"));
     }
 
     private sealed class MemoryThemeStore : IThemePreferenceStore
@@ -450,53 +327,34 @@ public class AppLayoutTests : PageTestContext
             Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true));
         }
 
-        public IRenderedComponent<IComponent> Dialogs() => RenderRadzenHost();
+        public IRenderedComponent<IComponent> Dialogs() => RenderDialogHost();
 
-        public IRenderedComponent<IComponent> RadzenDialogs() => RenderRadzenHost();
+        public IRenderedComponent<IComponent> OverlayHost() => RenderDialogHost();
     }
 
-    // Spec 44, A1 und A6: Der Profil-Knopf steht in der oberen Leiste, auch wenn niemand etwas teilt und der
-    // Haushalt nur aus einer Person besteht; dieselbe Komponente wie in der Seitenleiste des Browsers.
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void The_member_switch_sits_in_the_top_bar_whether_or_not_somebody_shares(bool shares)
-    {
-        HouseholdApiFake.Household = HouseholdApiFake.Household! with
-        {
-            Members = shares
-                ? [FakeHouseholdApi.Anna(), FakeHouseholdApi.Ben() with { GrantsToMe = GrantLevels.None with { Plan = AccessLevelKeys.View } }]
-                : [FakeHouseholdApi.Ben(isMe: true)],
-        };
-
-        var cut = Open("/plan/2026/10");
-
-        OpenPlanTab(cut);
-        Assert.Single(cut.FindAll(".rz-header [data-testid='member-switch']"));
-        Assert.Single(cut.FindAll(".rz-header [data-testid='member-profile']"));
-    }
-
-    // Spec 68, R8: Das Plus der Startseite bucht für die gewählte Person; ohne deren Freigabe ist es ausgegraut.
+    // Spec 68, R8: Der Knopf der Startseite bucht für die gewählte Person; ohne deren Freigabe ist er ausgegraut.
     [Fact]
-    public async Task The_start_plus_is_greyed_out_with_the_reason_while_anna_does_not_let_ben_book()
+    public async Task The_start_button_is_greyed_out_with_the_reason_while_anna_does_not_let_ben_book()
     {
         HouseholdApiFake.Household = HouseholdApiFake.Household! with
         {
-            Members = [FakeHouseholdApi.Anna(isMe: false) with { GrantsToMe = GrantLevels.None with { Book = AccessLevelKeys.View } }, FakeHouseholdApi.Ben(isMe: true)],
+            Members = [FakeHouseholdApi.Anna(isMe: false) with { GrantsToMe = GrantLevels.None with { Plan = AccessLevelKeys.View, Book = AccessLevelKeys.View } }, FakeHouseholdApi.Ben(isMe: true)],
         };
+        PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10);
         var member = Services.GetRequiredService<ActiveMember>();
         await member.LoadAsync();
         member.Choose(FakeHouseholdApi.AnnaId);
 
         var cut = Open("/");
 
-        cut.WaitForAssertion(() => Assert.Equal("true", cut.Find("[data-testid='app-plus']").GetAttribute("aria-disabled")));
-        Assert.Equal(GrantLock.ReasonId, cut.Find("[data-testid='app-plus']").GetAttribute("aria-describedby"));
+        cut.WaitForAssertion(() => Assert.Equal("true", cut.Find("[data-testid='start-new-booking']").GetAttribute("aria-disabled")));
+        Assert.Equal(GrantLock.ReasonId, cut.Find("[data-testid='start-new-booking']").GetAttribute("aria-describedby"));
         Assert.Equal("Dafür hat dir Anna keine Freigabe gegeben.", cut.Find($"#{GrantLock.ReasonId}").TextContent.Trim());
 
-        cut.Find("[data-testid='app-plus']").Click();
+        cut.Find("[data-testid='start-new-booking']").Click();
 
         Assert.Empty(cut.FindAll("[data-testid='booking-save']"));
+        Assert.EndsWith("/", Navigation.Uri);
     }
 
     // Mangel S9: Auch das Layout der App hat genau ein main-Element für den Seiteninhalt.

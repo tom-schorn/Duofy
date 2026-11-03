@@ -41,7 +41,7 @@ public class HouseholdGuidelinesTests : PageTestContext
         await Member.LoadAsync();
         Member.ChooseHousehold();
         var cut = Render<Plan>(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 10));
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-overview']")));
+        OpenReviewTab(cut);
         return cut;
     }
 
@@ -155,8 +155,8 @@ public class HouseholdGuidelinesTests : PageTestContext
         var cut = await OpenSpecExampleAsync();
 
         Assert.Contains("Anhaltspunkt", Text(cut, "guideline-intro"));
-        Assert.Empty(cut.FindAll("[data-testid='household-guidelines'] .rz-alert"));
-        Assert.Empty(cut.FindAll("[data-testid='household-guidelines'] .rz-color-danger"));
+        Assert.Empty(cut.FindAll("[data-testid='household-guidelines'] [role='alert']"));
+        Assert.Empty(cut.FindAll("[data-testid='household-guidelines'] .over"));
     }
 
     // Jede Tabelle hat eine Beschriftung und Kopfzellen für Vorlese-Programme.
@@ -176,7 +176,7 @@ public class HouseholdGuidelinesTests : PageTestContext
     {
         PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10);
         var cut = Render<Plan>(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 10));
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-overview']")));
+        OpenReviewTab(cut);
 
         Assert.Empty(cut.FindAll("[data-testid='household-guidelines']"));
     }

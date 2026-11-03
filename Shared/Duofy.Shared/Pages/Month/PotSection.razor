@@ -1,0 +1,44 @@
+@using Duofy.Schemas
+@inject IStringLocalizer<SharedResources> L
+
+@* Ein Topf im Monat wie im alten Duofy: Punkt und Name in Großbuchstaben, rechts die Summe und "von" der Quote in Euro, darunter
+   der Balken und die Posten. Über der Quote steht die Summe in der reservierten Farbe. Einnahmen haben weder Quote noch Balken.
+   Die Summe ist das Geplante des Topfs, dieselbe Zahl wie in der Übersicht und im Flussdiagramm (Spec 82, R17); was ohne
+   Posten gebucht ist, steht in der eigenen Zeile Ungeplant (UnplannedLine). *@
+<section class="pot-section" data-testid="@($"pot-section-{Pot}")">
+    <header class="pot-head">
+        <h3 class="pot-title" data-testid="@($"plan-group-{Pot}")"><span class="@($"dot dot--{Pot}")" aria-hidden="true"></span>@L[$"Pot_{Pot}"]</h3>
+        <span class="pot-sum" data-testid="@($"pot-sum-{Pot}")">
+            <b class="@(Over ? "over" : null)">@MoneyText.Format(Sum)</b>
+            @if (HasLimit)
+            {
+                <span class="muted"> @L["Month_Of", MoneyText.Format(Limit)]</span>
+            }
+        </span>
+    </header>
+    @if (HasLimit)
+    {
+        <PotBar Pot="@Pot" Percent="Percent" Over="Over" />
+    }
+    <ul class="pot-rows">
+        @ChildContent
+    </ul>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public string Pot { get; set; } = "";
+
+    /// <summary>Die Summe des Topfs: was in ihm geplant ist.</summary>
+    [Parameter, EditorRequired] public decimal Sum { get; set; }
+
+    /// <summary>Was die Quote bei diesen Einnahmen erlaubt.</summary>
+    [Parameter] public decimal Limit { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool HasLimit => Pot != PotKeys.Income;
+
+    private bool Over => HasLimit && Sum > Limit;
+
+    private decimal Percent => Limit <= 0m ? (Sum > 0m ? 100m : 0m) : Math.Min(Sum / Limit * 100m, 100m);
+}

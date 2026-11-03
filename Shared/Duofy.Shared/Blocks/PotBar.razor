@@ -1,0 +1,19 @@
+@* Der Balken eines Topfs: Anteil in der Farbe des Topfs, über der Quote in der reservierten Farbe. Der Wert steht immer auch
+   als Text daneben, deshalb ist der Balken für Vorlese-Programme verborgen. *@
+<span class="bar" aria-hidden="true">
+    <span class="@FillClass" style="width: @Width"></span>
+</span>
+
+@code {
+    /// <summary>Der Schlüssel des Topfs (PotKeys), zum Beispiel "Needs"; ohne Angabe die Hauptfarbe.</summary>
+    [Parameter] public string? Pot { get; set; }
+
+    /// <summary>Der Anteil in Prozent, auf 0 bis 100 begrenzt.</summary>
+    [Parameter] public decimal Percent { get; set; }
+
+    [Parameter] public bool Over { get; set; }
+
+    private string Width => Duofy.Shared.Charts.ChartMath.CssPercent(Percent);
+
+    private string FillClass => Over ? "bar-fill bar-fill--over" : Pot is null ? "bar-fill bar-fill--neutral" : $"bar-fill bar-fill--{Pot}";
+}

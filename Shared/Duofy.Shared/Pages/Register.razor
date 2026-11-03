@@ -1,6 +1,5 @@
 @page "/registrieren"
-@using Radzen
-@using Radzen.Blazor
+@using BlazorBlueprint.Components
 @layout AuthLayout
 @using Duofy.ApiClient
 @using Duofy.Schemas
@@ -8,6 +7,9 @@
 @inject IInstanceApi InstanceApi
 @inject AppBrand Brand
 @inject NavigationManager Navigation
+@inject IJSRuntime Js
+@using Microsoft.Extensions.Logging
+@inject ILogger<Register> Log
 @inject IStringLocalizer<SharedResources> L
 
 @* Die Registrierung. Ablauf: Eingaben prüfen, Konto bei der API anlegen, gleich
@@ -30,113 +32,100 @@
 <PageTitle>@L["Register_Title"] · @Brand.Name</PageTitle>
 
 <div class="auth-header">
-    <RadzenText TextStyle="TextStyle.H2" TagName="TagName.H1">@L["Register_Title"]</RadzenText>
+    <h1 class="page-title">@L["Register_Title"]</h1>
     <p class="auth-lead">@L["Register_Lead"]</p>
 </div>
 
 @if (error is not null)
 {
-    <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false" Class="rz-mb-4">@error</RadzenAlert>
+    <BbAlert Variant="AlertVariant.Danger" Class="mb-4">@error</BbAlert>
 }
 
 @if (confirmTo is not null)
 {
-    <RadzenAlert AlertStyle="AlertStyle.Success" Variant="Variant.Flat" AllowClose="false" Class="rz-mb-4"
-                 data-testid="register-confirm-notice">@L["Register_ConfirmNotice", confirmTo]</RadzenAlert>
-    <LinkButton Href="@ReturnAddress.With("/anmelden", ReturnUrl)" FullWidth="true"
-                data-testid="register-to-sign-in">@L["Auth_ToSignIn"]</LinkButton>
+    <BbAlert Variant="AlertVariant.Success" Class="mb-4" data-testid="register-confirm-notice">@L["Register_ConfirmNotice", confirmTo]</BbAlert>
+    <DuofyButton Href="@ReturnAddress.With("/anmelden", ReturnUrl)" TestId="register-to-sign-in" FullWidth="true">@L["Auth_ToSignIn"]</DuofyButton>
 }
 else
 {
 
 @if (ModeNotice is { } notice)
 {
-    <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" AllowClose="false" Class="rz-mb-4"
-                 id="register-mode-notice" data-testid="register-mode-notice">@notice</RadzenAlert>
+    <BbAlert Variant="AlertVariant.Info" Class="mb-4" id="register-mode-notice" data-testid="register-mode-notice">@notice</BbAlert>
 }
 
-@* Die Prüfungen stehen als RadzenCustomValidator unter ihrem Feld (Name verbindet beide); die Texte kommen wie
-   vorher über den Fehlercode aus der Ressourcendatei. Alles, was geprüft wird, auch die Zustimmung, liegt im Formular. *@
-<RadzenTemplateForm TItem="Register" Data="@this" Submit="@(_ => SubmitAsync())" InvalidSubmit="@(_ => FocusFirstInvalidAsync())">
+@* Die Prüfungen stehen unter ihrem Feld und zeigen sich nach dem ersten Abschicken; die Texte kommen über den Fehlercode aus
+   der Ressourcendatei. Alles, was geprüft wird, auch die Zustimmung, liegt im Formular. *@
+<form novalidate class="stack" @onsubmit="OnSubmitAsync" @onsubmit:preventDefault="true">
     <div class="field-stack">
         <div class="field-pair">
             <div class="field">
                 <FieldLabel For="register-first-name-input" Text="@L["Field_FirstName"]" />
-                <RadzenTextBox @ref="firstNameBox" @bind-Value="firstName" Name="firstName" id="register-first-name-input"
-                               aria-invalid="@Flag(ValidateFirstName(firstName))" aria-describedby="@Describe(null, "register-first-name", ValidateFirstName(firstName))"
-                               MaxLength="AccountRules.NameMaxLength" autocomplete="given-name"
-                               data-testid="register-first-name" />
-                <RadzenCustomValidator Component="firstName" Validator="@(() => ValidateFirstName(firstName) is null)"
-                                       Text="@ValidateFirstName("")" id="register-first-name-error" role="alert" />
+                <TextInput id="register-first-name-input" maxlength="@(AccountRules.NameMaxLength)" @bind-Value="firstName" aria-invalid="@Flag(ValidateFirstName(firstName))" aria-describedby="@Describe(null, "register-first-name", ValidateFirstName(firstName))" autocomplete="given-name" data-testid="register-first-name" />
+                @if (Flag(ValidateFirstName(firstName)) is not null)
+                {
+                    <p class="field-error" id="register-first-name-error" role="alert">@ValidateFirstName(firstName)</p>
+                }
             </div>
             <div class="field">
                 <FieldLabel For="register-last-name-input" Text="@L["Field_LastName"]" />
-                <RadzenTextBox @ref="lastNameBox" @bind-Value="lastName" Name="lastName" id="register-last-name-input"
-                               aria-invalid="@Flag(ValidateLastName(lastName))" aria-describedby="@Describe(null, "register-last-name", ValidateLastName(lastName))"
-                               MaxLength="AccountRules.NameMaxLength" autocomplete="family-name"
-                               data-testid="register-last-name" />
-                <RadzenCustomValidator Component="lastName" Validator="@(() => ValidateLastName(lastName) is null)"
-                                       Text="@ValidateLastName("")" id="register-last-name-error" role="alert" />
+                <TextInput id="register-last-name-input" maxlength="@(AccountRules.NameMaxLength)" @bind-Value="lastName" aria-invalid="@Flag(ValidateLastName(lastName))" aria-describedby="@Describe(null, "register-last-name", ValidateLastName(lastName))" autocomplete="family-name" data-testid="register-last-name" />
+                @if (Flag(ValidateLastName(lastName)) is not null)
+                {
+                    <p class="field-error" id="register-last-name-error" role="alert">@ValidateLastName(lastName)</p>
+                }
             </div>
         </div>
         <div class="field">
             <FieldLabel For="register-email-input" Text="@L["Field_Email"]" />
-            <RadzenTextBox @ref="emailBox" @bind-Value="email" Name="email" id="register-email-input" type="email"
-                           aria-invalid="@Flag(ValidateEmail(email))" aria-describedby="@Describe(null, "register-email", ValidateEmail(email))"
-                           Placeholder="@L["Auth_EmailPlaceholder"]" autocomplete="email"
-                           data-testid="register-email" />
-            <RadzenCustomValidator Component="email" Validator="@(() => ValidateEmail(email) is null)"
-                                   Text="@ValidateEmail("")" id="register-email-error" role="alert" />
+            <TextInput id="register-email-input" Type="email" placeholder="@L["Auth_EmailPlaceholder"]" @bind-Value="email" aria-invalid="@Flag(ValidateEmail(email))" aria-describedby="@Describe(null, "register-email", ValidateEmail(email))" autocomplete="email" data-testid="register-email" />
+            @if (Flag(ValidateEmail(email)) is not null)
+                {
+                    <p class="field-error" id="register-email-error" role="alert">@ValidateEmail(email)</p>
+                }
         </div>
         <div class="field">
             <FieldLabel For="register-password-input" Text="@L["Field_Password"]" />
-            <RadzenPassword @ref="passwordBox" @bind-Value="password" Name="password" id="register-password-input" autocomplete="new-password"
-                            aria-invalid="@Flag(ValidatePassword(password))"
-                            aria-describedby="@Describe("register-password-hint", "register-password", ValidatePassword(password))" data-testid="register-password" />
-            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-display-block"
-                        id="register-password-hint">@L["Field_PasswordHint"]</RadzenText>
-            <RadzenCustomValidator Component="password" Validator="@(() => ValidatePassword(password) is null)"
-                                   Text="@ValidatePassword("")" id="register-password-error" role="alert" />
+            <TextInput id="register-password-input" Type="password" @bind-Value="password" autocomplete="new-password" aria-invalid="@Flag(ValidatePassword(password))" aria-describedby="@Describe("register-password-hint", "register-password", ValidatePassword(password))" data-testid="register-password" />
+            <p class="small muted" id="register-password-hint">@L["Field_PasswordHint"]</p>
+            @if (Flag(ValidatePassword(password)) is not null)
+                {
+                    <p class="field-error" id="register-password-error" role="alert">@ValidatePassword(password)</p>
+                }
         </div>
         @if (instance?.SetupPending == true)
         {
             <div class="field">
                 <FieldLabel For="register-setup-code-input" Text="@L["Field_SetupCode"]" />
-                <RadzenTextBox @bind-Value="setupCode" Name="setupCode" id="register-setup-code-input" Immediate="true"
-                               aria-describedby="register-setup-code-hint" autocomplete="off"
-                               data-testid="register-setup-code" />
-                <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.P" Class="rz-text-secondary-color rz-display-block"
-                            id="register-setup-code-hint">@L["Register_SetupCodeHint"]</RadzenText>
+                <TextInput id="register-setup-code-input" @bind-Value="setupCode" aria-describedby="register-setup-code-hint" autocomplete="off" data-testid="register-setup-code" />
+                <p class="small muted" id="register-setup-code-hint">@L["Register_SetupCodeHint"]</p>
             </div>
         }
     </div>
 
-    <div class="rz-mt-2">
-        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start" Gap="0.5rem">
-            <RadzenCheckBox @ref="termsBox" @bind-Value="acceptedTerms" Name="acceptedTerms" TValue="bool" data-testid="register-terms"
-                            AriaLabel="@L["Register_AcceptTerms"]" aria-invalid="@Flag(acceptedTerms ? null : "x")"
-                            aria-describedby="@Describe(null, "register-terms", acceptedTerms ? null : "x")" />
-            <RadzenLabel Component="acceptedTerms" Text="@L["Register_AcceptTerms"]" />
-        </RadzenStack>
-        <RadzenCustomValidator Component="acceptedTerms" Validator="@(() => acceptedTerms)"
-                               Text="@ErrorTexts.For(L, ErrorCodes.TermsNotAccepted)" id="register-terms-error" role="alert" />
+    <div class="stack-sm">
+        <div class="check-row">
+            <BbCheckbox Id="register-terms" @bind-Checked="acceptedTerms" aria-invalid="@Flag(acceptedTerms ? null : "x")"
+                        AriaDescribedBy="@Describe(null, "register-terms", acceptedTerms ? null : "x")" data-testid="register-terms" />
+            <FieldLabel For="register-terms" Text="@L["Register_AcceptTerms"]" />
+        </div>
+        @if (submitted && !acceptedTerms)
+        {
+            <p class="field-error" id="register-terms-error" role="alert">@ErrorTexts.For(L, ErrorCodes.TermsNotAccepted)</p>
+        }
     </div>
 
     @if (Blocked)
     {
         @* Der Modus lässt diese Registrierung nicht zu. Der Knopf ist ausgegraut und tut nichts, bleibt aber erreichbar:
            aria-disabled statt disabled, damit ein Screenreader ihn findet und den Hinweis oben vorliest. *@
-        <RadzenButton Text="@L["Register_Submit"]" ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Base"
-                      Class="rz-mt-4 unavailable rz-w-100"
-                      aria-disabled="true" aria-describedby="register-mode-notice" data-testid="register-submit" />
+        <DuofyButton Kind="ButtonKind.Secondary" Text="@L["Register_Submit"]" TestId="register-submit" FullWidth="true" Class="mt-4 unavailable" aria-disabled="true" aria-describedby="register-mode-notice" />
     }
     else
     {
-        <RadzenButton Text="@(busy ? L["Register_Pending"] : L["Register_Submit"])" ButtonType="ButtonType.Submit"
-                      ButtonStyle="ButtonStyle.Primary" Class="rz-mt-4 rz-w-100" Disabled="busy"
-                      data-testid="register-submit" />
+        <DuofyButton Text="@(busy ? L["Register_Pending"] : L["Register_Submit"])" TestId="register-submit" FullWidth="true" Class="mt-4" Submit="true" Disabled="busy" />
     }
-</RadzenTemplateForm>
+</form>
 
 <p class="auth-switch">
     @L["Register_HaveAccount"]
@@ -167,9 +156,6 @@ else
 
     // Erst nach dem ersten Abschicken zeigen die Felder, dass sie falsch sind (aria-invalid und der Verweis auf den Fehlertext).
     private bool submitted;
-    private RadzenTextBox? firstNameBox, lastNameBox, emailBox;
-    private RadzenPassword? passwordBox;
-    private RadzenCheckBox<bool>? termsBox;
     private bool busy;
     private string? error;
 
@@ -198,8 +184,7 @@ else
     }
 
     // Jede Prüfung liefert null, wenn alles passt, sonst den Text, der unter dem Feld steht.
-    // Die Texte kommen über den Fehlercode aus der Ressourcendatei (siehe ErrorTexts). Mit einem leeren Wert
-    // aufgerufen, liefern sie den Text selbst: Er steht als Text des RadzenCustomValidator unter dem Feld.
+    // Die Texte kommen über den Fehlercode aus der Ressourcendatei (siehe ErrorTexts). 
     private string? ValidateFirstName(string value) =>
         string.IsNullOrWhiteSpace(value) ? ErrorTexts.For(L, ErrorCodes.FirstNameRequired) : null;
 
@@ -223,20 +208,32 @@ else
         return ids.Count == 0 ? null : string.Join(' ', ids);
     }
 
-    // Nach einem Abschicken mit Fehlern springt der Fokus auf das erste falsche Feld, in der Reihenfolge der Seite.
-    private async Task FocusFirstInvalidAsync()
+    private bool AllValid => ValidateFirstName(firstName) is null && ValidateLastName(lastName) is null
+        && ValidateEmail(email) is null && ValidatePassword(password) is null && acceptedTerms;
+
+    // Abschicken: Mit Fehlern springt der Fokus auf das erste falsche Feld, in der Reihenfolge der Seite.
+    private async Task OnSubmitAsync()
     {
         submitted = true;
-        if (ValidateFirstName(firstName) is not null) await FocusAsync(firstNameBox);
-        else if (ValidateLastName(lastName) is not null) await FocusAsync(lastNameBox);
-        else if (ValidateEmail(email) is not null) await FocusAsync(emailBox);
-        else if (ValidatePassword(password) is not null) await FocusAsync(passwordBox);
-        else if (!acceptedTerms) await FocusAsync(termsBox);
-    }
-
-    private static async Task FocusAsync<T>(Radzen.FormComponent<T>? component)
-    {
-        if (component is not null) await component.FocusAsync();
+        if (AllValid)
+        {
+            await SubmitAsync();
+            return;
+        }
+        var first = ValidateFirstName(firstName) is not null ? "register-first-name-input"
+            : ValidateLastName(lastName) is not null ? "register-last-name-input"
+            : ValidateEmail(email) is not null ? "register-email-input"
+            : ValidatePassword(password) is not null ? "register-password-input"
+            : "register-terms";
+        try
+        {
+            await using var module = await Js.InvokeAsync<IJSObjectReference>("import", "./_content/Duofy.Shared/focus-notice.js");
+            await module.InvokeVoidAsync("focusById", first);
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            Log.LogWarning(exception, "Der Fokus ließ sich nicht auf das erste falsche Feld setzen.");
+        }
     }
 
     private async Task SubmitAsync()
@@ -244,7 +241,6 @@ else
         if (Blocked) return;
         error = null;
 
-        // Das Formular ruft diese Methode nur, wenn alle Prüfungen bestanden sind.
         busy = true;
         try
         {

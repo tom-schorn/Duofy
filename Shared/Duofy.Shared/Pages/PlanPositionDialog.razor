@@ -1,40 +1,43 @@
-@using Radzen
-@using Radzen.Blazor
+@using BlazorBlueprint.Components
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
 @using Duofy.Shared.Dialogs
+@inherits FormDialogBase
 @inject IPlanApi PlanApi
 @inject ActiveMember Member
-@inject DialogService Dialogs
 @inject IStringLocalizer<SharedResources> L
 
 @* Der Dialog für einen Posten, auf dem Schritt-Dialog (Spec 11) mit einem Schritt (Issue #22): einen einmaligen anlegen (R3) oder einen vorhandenen ändern.
    Ein geänderter Posten aus einem Vertrag gilt danach als von Hand geändert; das entscheidet die API.
-   Geprüft wird beim Speichern von der API; ihre Fehler stehen oben im Dialog. *@
+   Geprüft wird beim Speichern von der API; ihre Fehler stehen oben im Dialog. Löschen steht hier wie im alten Duofy: Eine Zeile
+   hat keine eigenen Menüs. Der Dialog meldet den Wunsch nur (Ergebnis false), die Seite fragt nach und löscht. *@
 
 <StepDialog Title="@Title" OnFinish="SaveAsync" FinishText="@L["PlanPositionDialog_Save"]" Busy="busy" FinishTestId="position-save">
+    <FootStart>
+        @if (OfferDelete)
+        {
+            <DuofyButton Kind="ButtonKind.Danger" Icon="trash-2" Text="@L["Plan_DeleteConfirm"]" OnClick="@(_ => CloseAsync(false))"
+                         Class="@GrantLock.Class(CanDelete)" @attributes="GrantLock.Attributes(CanDelete)" AriaLabel="@L["Plan_Delete", Existing?.Label ?? ""]" TestId="plan-delete" />
+        }
+    </FootStart>
+    <ChildContent>
     <DialogStep Title="@L["PlanPositionDialog_StepAll"]">
         @if (error is not null)
         {
-            <ErrorAlert AlertStyle="AlertStyle.Danger" Text="@error" data-testid="position-error" />
+            <ErrorAlert Text="@error" data-testid="position-error" />
         }
 
         <StepField Label="@L["Field_PositionLabel"]" InputId="position-label-input" TestId="position-label-field">
-            <RadzenTextBox @bind-Value="label" id="position-label-input" MaxLength="PlanRules.LabelMaxLength"
-                           data-testid="position-label" />
+            <TextInput @bind-Value="label" id="position-label-input" maxlength="@PlanRules.LabelMaxLength" data-testid="position-label" />
         </StepField>
 
-        <StepField Label="@L["Field_PlannedAmount"]" InputId="position-amount-input" AriaLabelled="true" TestId="position-amount-field">
-            <RadzenNumeric TValue="decimal?" @bind-Value="amount" Culture="German" Format="0.00" Min="0" ShowUpDown="false"
-                           InputAttributes="@(new Dictionary<string, object> { ["aria-labelledby"] = "position-amount-input-label" })"
-                           data-testid="position-amount" />
+        <StepField Label="@L["Field_PlannedAmount"]" InputId="position-amount-input" TestId="position-amount-field">
+            <MoneyInput @bind-Value="amount" Min="0" id="position-amount-input" data-testid="position-amount" />
         </StepField>
 
-        <StepField Label="@L["Field_DueDay"]" InputId="position-day-input" AriaLabelled="true" TestId="position-day-field">
-            <RadzenNumeric TValue="int?" @bind-Value="dueDay" Min="1" Max="DateTime.DaysInMonth(Year, Month)" ShowUpDown="false"
-                           InputAttributes="@(new Dictionary<string, object> { ["aria-labelledby"] = "position-day-input-label" })"
-                           data-testid="position-day" />
+        <StepField Label="@L["Field_DueDay"]" InputId="position-day-input" TestId="position-day-field">
+            <NumberInput id="position-day-input" min="1" max="@DateTime.DaysInMonth(Year, Month)" @bind-Value="dueDay" data-testid="position-day" />
         </StepField>
 
         <StepField Label="@L["Field_Pot"]" InputId="position-pot-input" TestId="position-pot-field">
@@ -69,6 +72,7 @@
                            InputId="position-account-input" TestId="position-account" />
         </StepField>
     </DialogStep>
+    </ChildContent>
 </StepDialog>
 
 @code {
@@ -88,6 +92,12 @@
     [Parameter] public List<CategoryResponse> Categories { get; set; } = [];
 
     [Parameter] public IReadOnlyList<AccountChoice> Accounts { get; set; } = [];
+
+    /// <summary>Ob Löschen angeboten wird: Nur ein Posten ohne Buchung lässt sich löschen (R10).</summary>
+    [Parameter] public bool OfferDelete { get; set; }
+
+    /// <summary>Ob die Freigabe das Löschen erlaubt (Spec 68); sonst ist der Knopf ausgegraut.</summary>
+    [Parameter] public bool CanDelete { get; set; } = true;
 
     private string label = "";
     private decimal? amount;
@@ -158,7 +168,7 @@
 
             if (result.Succeeded)
             {
-                Dialogs.Close(true);
+                await CloseAsync(true);
             }
             else
             {

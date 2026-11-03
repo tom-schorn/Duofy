@@ -82,7 +82,7 @@ public class MailPagesTests : PageTestContext
         Field(cut, "register-last-name").Change("Muster");
         Field(cut, "register-email").Change("anna@example.org");
         Field(cut, "register-password").Change("ein-langes-passwort");
-        Field(cut, "register-terms").Change(true);
+        Field(cut, "register-terms").Click();
 
         Field(cut, "register-submit").Click();
 
@@ -295,7 +295,7 @@ public class MailPagesTests : PageTestContext
     public void On_a_hosted_server_the_invitation_can_name_an_address_and_the_dialog_says_it_may_be_on_its_way()
     {
         Hosted();
-        var dialogs = RenderRadzenHost();
+        var dialogs = RenderDialogHost();
         var cut = Render<Household>();
         cut.WaitForAssertion(() => Assert.True(Has(cut, "household-invite-email")));
         Field(cut, "household-invite-email").Change("ben@example.org");
@@ -310,7 +310,7 @@ public class MailPagesTests : PageTestContext
     [Fact]
     public void On_a_self_hosted_server_the_invitation_has_no_address_field()
     {
-        var dialogs = RenderRadzenHost();
+        var dialogs = RenderDialogHost();
         var cut = Render<Household>();
         cut.WaitForAssertion(() => Assert.True(Has(cut, "household-invite")));
 
@@ -323,13 +323,13 @@ public class MailPagesTests : PageTestContext
     }
 }
 
-public class ResetPasswordRadzenTests : PageTestContext
+public class ResetPasswordBuildTests : PageTestContext
 {
     private bool Has(IRenderedComponent<ResetPassword> cut, string testId) => cut.FindAll($"[data-testid='{testId}']").Count > 0;
 
-    // Radzen-Umstellung R11: Passwort zurücksetzen in Radzen.
+    // Passwort zurücksetzen.
     [Fact]
-    public void The_new_password_page_is_built_with_radzen_and_offers_a_link_to_sign_in_after_resetting()
+    public void The_new_password_page_is_built_from_the_blocks_and_offers_a_link_to_sign_in_after_resetting()
     {
         Navigation.NavigateTo("/passwort-neu?link=abc_-1");
         var cut = Render<ResetPassword>();
@@ -346,46 +346,46 @@ public class ResetPasswordRadzenTests : PageTestContext
     }
 
     [Fact]
-    public void An_incomplete_new_password_link_shows_its_warning_in_a_radzen_alert()
+    public void An_incomplete_new_password_link_shows_its_warning_in_an_alert()
     {
         Navigation.NavigateTo("/passwort-neu");
         var cut = Render<ResetPassword>();
 
-        Assert.Contains("rz-alert", cut.Find("[data-testid='reset-incomplete']").ClassList);
+        Assert.Equal("alert", cut.Find("[data-testid='reset-incomplete']").GetAttribute("role"));
     }
 }
 
-/// <summary>Radzen-Umstellung R12: Die Bestätigungsseiten sind in Radzen gebaut.</summary>
-public class ConfirmPagesRadzenTests : PageTestContext
+/// <summary>Die Bestätigungsseiten sind aus den Bausteinen gebaut.</summary>
+public class ConfirmPagesBuildTests : PageTestContext
 {
     [Fact]
-    public void The_confirmation_page_is_built_with_radzen_and_ends_with_a_link_to_sign_in()
+    public void The_confirmation_page_is_built_from_the_blocks_and_ends_with_a_link_to_sign_in()
     {
         Navigation.NavigateTo($"/bestaetigen?id={Guid.NewGuid()}&token=t");
         var cut = Render<ConfirmEmail>();
 
-        Assert.Contains("rz-button", cut.Find("[data-testid='confirm-submit']").ClassList);
+        Assert.Contains("duofy-button", cut.Find("[data-testid='confirm-submit']").ClassList);
         Assert.Equal("Adresse bestätigen", cut.Find("[data-testid='confirm-submit']").TextContent.Trim());
 
         Field(cut, "confirm-submit").Click();
 
         cut.WaitForAssertion(() => Assert.Equal("/anmelden", cut.Find("a[data-testid='confirm-sign-in']").GetAttribute("href")));
-        Assert.Contains("rz-alert", cut.Find(".rz-alert").ClassList);
+        Assert.Equal("alert", cut.Find("[role='alert']").GetAttribute("role"));
     }
 
     [Fact]
-    public void An_incomplete_confirmation_link_shows_its_warning_in_a_radzen_alert()
+    public void An_incomplete_confirmation_link_shows_its_warning_in_an_alert()
     {
         Navigation.NavigateTo("/bestaetigen");
         var cut = Render<ConfirmEmail>();
 
-        Assert.Contains("rz-alert", cut.Find("[data-testid='confirm-incomplete']").ClassList);
+        Assert.Equal("alert", cut.Find("[data-testid='confirm-incomplete']").GetAttribute("role"));
         Assert.Contains("Dieser Link ist unvollständig.", cut.Find("[data-testid='confirm-incomplete']").TextContent);
         Assert.Empty(cut.FindAll("[data-testid='confirm-submit']"));
     }
 
     [Fact]
-    public void The_email_change_page_is_built_with_radzen_and_ends_with_a_link_to_sign_in()
+    public void The_email_change_page_is_built_from_the_blocks_and_ends_with_a_link_to_sign_in()
     {
         Navigation.NavigateTo($"/email-bestaetigen?id={Guid.NewGuid()}&email=anna%40neu.de&token=t");
         var cut = Render<ConfirmEmailChange>();
@@ -398,11 +398,11 @@ public class ConfirmPagesRadzenTests : PageTestContext
     }
 
     [Fact]
-    public void An_incomplete_email_change_link_shows_its_warning_in_a_radzen_alert()
+    public void An_incomplete_email_change_link_shows_its_warning_in_an_alert()
     {
         Navigation.NavigateTo("/email-bestaetigen");
         var cut = Render<ConfirmEmailChange>();
 
-        Assert.Contains("rz-alert", cut.Find("[data-testid='email-confirm-incomplete']").ClassList);
+        Assert.Equal("alert", cut.Find("[data-testid='email-confirm-incomplete']").GetAttribute("role"));
     }
 }

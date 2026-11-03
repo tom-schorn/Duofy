@@ -56,20 +56,20 @@ public class DeleteAccountPageTests : PageTestContext
     }
 }
 
-/// <summary>Radzen-Umstellung R22: Konto löschen in Radzen.</summary>
-public class DeleteAccountPageRadzenTests : PageTestContext
+/// <summary>Konto löschen.</summary>
+public class DeleteAccountPageBuildTests : PageTestContext
 {
     [Fact]
-    public void The_page_is_built_with_radzen_and_keeps_its_warning_field_and_buttons()
+    public void The_page_is_built_from_the_blocks_and_keeps_its_warning_field_and_buttons()
     {
         var cut = Render<DeleteAccount>();
 
-        Assert.Contains("rz-card", cut.Find(".rz-card").ClassList);
-        Assert.Contains("rz-alert", cut.Find(".rz-alert").ClassList);
+        Assert.NotEmpty(cut.FindAll(".card"));
+        Assert.Equal("alert", cut.Find("[role='alert']").GetAttribute("role"));
         Assert.Equal("password", Field(cut, "delete-password").GetAttribute("type"));
         Assert.Equal("current-password", Field(cut, "delete-password").GetAttribute("autocomplete"));
         Assert.Equal("delete-password-input", Field(cut, "delete-password").Id);
-        Assert.Contains("rz-danger", cut.Find("[data-testid='delete-submit']").ClassList);
+        Assert.Contains("duofy-button--danger", cut.Find("[data-testid='delete-submit']").ClassList);
         Assert.Equal("/konto", cut.Find("a[href='/konto']").GetAttribute("href"));
         Assert.Equal("Konto löschen", cut.Find("h1").TextContent.Trim());
     }
@@ -95,6 +95,6 @@ public class DeleteAccountPageRadzenTests : PageTestContext
 
         Field(cut, "delete-submit").Click();
 
-        cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll(".rz-alert").Count));
+        cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll("[role='alert']").Count));
     }
 }

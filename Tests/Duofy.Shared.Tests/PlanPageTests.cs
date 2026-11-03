@@ -20,7 +20,7 @@ public class PlanPageTests : PageTestContext
 
     public PlanPageTests()
     {
-        dialogs = RenderRadzenHost();
+        dialogs = RenderDialogHost();
         Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true));
     }
 
@@ -54,14 +54,17 @@ public class PlanPageTests : PageTestContext
         var cut = OpenPage(rent, groceries, streaming, salary);
 
         Assert.Equal((2026, 10), Assert.Single(PlanApiFake.GetCalls));
-        Assert.Equal("Oktober 2026", Text(cut, "plan-month").Trim());
+        Assert.Equal("Oktober 2026", Text(cut, "page-title").Trim());
         var groups = cut.FindAll("[data-testid^='plan-group-']").Select(g => g.TextContent.Trim()).ToList();
         Assert.Equal(["Einnahmen", "Grundbedarf", "Wünsche"], groups);
-        Assert.Contains("600,00 € geplant · 250,00 € gebucht", Text(cut, $"plan-amounts-{groceries.Id}"));
-        Assert.Contains("890,00 € geplant · 890,00 € gebucht", Text(cut, $"plan-amounts-{rent.Id}"));
-        Assert.Contains("am 5.", Text(cut, $"plan-position-{groceries.Id}"));
-        Assert.Contains("Grundbedarf: Ziel 50 %, Ist 0 %", Text(cut, "plan-quota-needs"));
+        Assert.Contains("600,00 €", Text(cut, $"plan-amounts-{groceries.Id}"));
+        Assert.Contains("250,00 € gebucht", Text(cut, $"plan-amounts-{groceries.Id}"));
+        // Gebucht wie geplant: Der Betrag steht nur einmal da.
+        Assert.Contains("890,00 €", Text(cut, $"plan-amounts-{rent.Id}"));
+        Assert.DoesNotContain("gebucht", Text(cut, $"plan-amounts-{rent.Id}"));
+        Assert.Contains("5.", Text(cut, $"plan-position-{groceries.Id}"));
         Assert.Empty(cut.FindAll("[data-testid='plan-note']"));
+
     }
 
     // A17
@@ -70,39 +73,27 @@ public class PlanPageTests : PageTestContext
     {
         var cut = OpenPage();
 
-        cut.Find("[data-testid='plan-next']").Click();
-        cut.WaitForAssertion(() => Assert.Equal("November 2026", Text(cut, "plan-month").Trim()));
-        cut.Find("[data-testid='plan-previous']").Click();
-        cut.Find("[data-testid='plan-previous']").Click();
+        // Spec 82, R15: Der Monat wechselt über die Adresse.
+        cut.Render(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 11));
+        cut.WaitForAssertion(() => Assert.Equal("November 2026", Text(cut, "page-title").Trim()));
+        cut.Render(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 10));
+        cut.Render(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 9));
 
-        cut.WaitForAssertion(() => Assert.Equal("September 2026", Text(cut, "plan-month").Trim()));
+        cut.WaitForAssertion(() => Assert.Equal("September 2026", Text(cut, "page-title").Trim()));
         Assert.Equal([(2026, 10), (2026, 11), (2026, 10), (2026, 9)], PlanApiFake.GetCalls);
     }
 
+    // Spec 82: Hat ein Posten schon Buchungen, entsteht keine weitere; das Kästchen setzt ihn ohne Dialog auf erledigt.
     [Fact]
-    public void Ticking_a_position_without_bookings_books_it_at_once()
-    {
-        var rent = FakePlanApi.Position("Miete", 890m);
-        var cut = OpenPage(rent);
-
-        Field(cut, $"plan-tick-{rent.Id}").Change(true);
-
-        cut.WaitForAssertion(() => Assert.Contains("890,00 € gebucht", Text(cut, $"plan-amounts-{rent.Id}")));
-        Assert.Null(Assert.Single(PlanApiFake.Ticks).Request.Amount);
-    }
-
-    [Fact]
-    public void Ticking_a_position_with_bookings_offers_the_open_rest_as_balance()
+    public void Ticking_a_position_with_bookings_creates_no_further_booking()
     {
         var groceries = FakePlanApi.Position("Lebensmittel", 600m, booked: 550m);
         var cut = OpenPage(groceries);
 
-        Field(cut, $"plan-tick-{groceries.Id}").Change(true);
-        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='tick-amount']")));
-        Assert.Equal("50,00", Field(dialogs, "tick-amount").GetAttribute("value"));
-        dialogs.Find("[data-testid='tick-save']").Click();
+        cut.Find($"[data-testid='plan-tick-{groceries.Id}']").Click();
 
-        cut.WaitForAssertion(() => Assert.Equal(50m, Assert.Single(PlanApiFake.Ticks).Request.Amount));
+        cut.WaitForAssertion(() => Assert.Equal(0m, Assert.Single(PlanApiFake.Ticks).Request.Amount));
+        Assert.Empty(dialogs.FindAll("[data-testid='tick-amount']"));
     }
 
     [Fact]
@@ -111,7 +102,7 @@ public class PlanPageTests : PageTestContext
         var rent = FakePlanApi.Position("Miete", 890m, booked: 890m, done: true);
         var cut = OpenPage(rent);
 
-        Field(cut, $"plan-tick-{rent.Id}").Change(false);
+        cut.Find($"[data-testid='plan-tick-{rent.Id}']").Click();
 
         cut.WaitForAssertion(() => Assert.Equal(rent.Id, Assert.Single(PlanApiFake.Unticks)));
     }
@@ -123,8 +114,13 @@ public class PlanPageTests : PageTestContext
         var gift = FakePlanApi.Position("Geschenk", 50m, PotKeys.Wants);
         var cut = OpenPage(rent, gift);
 
-        Assert.Empty(cut.FindAll($"[data-testid='plan-delete-{rent.Id}']"));
-        cut.Find($"[data-testid='plan-delete-{gift.Id}']").Click();
+        cut.Find($"[data-testid='plan-edit-{rent.Id}']").Click();
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='position-save']")));
+        Assert.Empty(dialogs.FindAll("[data-testid='plan-delete']"));
+        dialogs.Find("[data-testid='step-dialog-cancel']").Click();
+        dialogs.WaitForAssertion(() => Assert.Empty(dialogs.FindAll("[data-testid='position-save']")));
+
+        OpenDelete(cut, gift);
         dialogs.WaitForAssertion(() => Assert.Contains("Posten löschen?", dialogs.Markup));
         dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Löschen").Click();
 
@@ -140,7 +136,7 @@ public class PlanPageTests : PageTestContext
         var cut = OpenPage(gift);
         var gate = new TaskCompletionSource();
         PlanApiFake.DeleteGate = gate.Task;
-        cut.Find($"[data-testid='plan-delete-{gift.Id}']").Click();
+        OpenDelete(cut, gift);
         dialogs.WaitForAssertion(() => Assert.Contains("Posten löschen?", dialogs.Markup));
         dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Löschen").Click();
         var loadsBefore = PlanApiFake.GetCalls.Count;
@@ -152,6 +148,14 @@ public class PlanPageTests : PageTestContext
         Assert.Equal(loadsBefore, PlanApiFake.GetCalls.Count);
     }
 
+    // Löschen steht im Dialog des Postens (Spec 82); der fragt dann noch einmal nach.
+    private void OpenDelete(IRenderedComponent<Plan> cut, PlanPositionResponse position)
+    {
+        cut.Find($"[data-testid='plan-edit-{position.Id}']").Click();
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='plan-delete']")));
+        dialogs.Find("[data-testid='plan-delete']").Click();
+    }
+
     // Mangel S1: Löschen und Entfernen lassen sich nicht zurücknehmen, deshalb fragt die Seite erst nach.
     [Fact]
     public void Deleting_a_position_asks_first_and_keeps_it_when_cancelled()
@@ -159,7 +163,7 @@ public class PlanPageTests : PageTestContext
         var gift = FakePlanApi.Position("Geschenk", 50m, PotKeys.Wants);
         var cut = OpenPage(gift);
 
-        cut.Find($"[data-testid='plan-delete-{gift.Id}']").Click();
+        OpenDelete(cut, gift);
 
         dialogs.WaitForAssertion(() => Assert.Contains("Posten löschen?", dialogs.Markup));
         Assert.Empty(PlanApiFake.DeletedPositions);
@@ -292,7 +296,7 @@ public class PlanPageTests : PageTestContext
         Assert.Empty(PlanApiFake.CarryOvers);
     }
 
-    // Die Schrift in der Warnung ist die der Meldung; die von RadzenText hätte auf der Warnfläche nur 3,4 zu 1.
+    // Die Schrift in der Warnung ist die der Meldung; eine eigene Schriftfarbe hätte auf der Warnfläche zu wenig Kontrast.
     [Fact]
     public void The_difference_warning_keeps_the_text_colour_of_the_alert()
     {
@@ -302,7 +306,7 @@ public class PlanPageTests : PageTestContext
         dialogs.Find("[data-testid='carry-over-save']").Click();
 
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='carry-over-differences']")));
-        Assert.Empty(dialogs.Find("[data-testid='carry-over-differences']").QuerySelectorAll(".rz-text-body2, p"));
+        Assert.Empty(dialogs.Find("[data-testid='carry-over-differences']").QuerySelectorAll("p"));
     }
 
     [Fact]
@@ -374,7 +378,7 @@ public class PlanPageInAppTests : PageTestContext
     public PlanPageInAppTests()
     {
         Services.AddSingleton<IAppHost, AppHost>();
-        dialogs = RenderRadzenHost();
+        dialogs = RenderDialogHost();
         Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true));
     }
 

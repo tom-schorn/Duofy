@@ -1,8 +1,5 @@
 @page "/lizenzen"
-@using Radzen
-@using Radzen.Blazor
 @implements IDisposable
-@inject IAppHost Host
 @inject AppChrome Chrome
 @inject IStringLocalizer<SharedResources> L
 
@@ -11,24 +8,22 @@
 
 <PageTitle>@L["Licenses_Title"]</PageTitle>
 
-<AppPageHeading Text="@L["Licenses_Title"]" />
-@if (!Host.IsApp)
-{
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1">@L["Licenses_Title"]</RadzenText>
-}
 
-<RadzenText TextStyle="TextStyle.Body1">@L["Licenses_Intro"]</RadzenText>
+    <h1 class="page-title">@L["Licenses_Title"]</h1>
 
-<RadzenStack Gap="1rem">
+
+<p>@L["Licenses_Intro"]</p>
+
+<div class="stack">
     @foreach (var license in ThirdPartyLicenses.All)
     {
-        <RadzenCard Variant="Variant.Outlined" data-testid="@($"license-{license.Name}")">
-            <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2">@license.Name @license.Version</RadzenText>
-            <RadzenText TextStyle="TextStyle.Body2">@license.License · @license.Url</RadzenText>
+        <div class="card" data-testid="@($"license-{license.Name}")">
+            <h2 class="section-title">@license.Name @license.Version</h2>
+            <p>@license.License · @license.Url</p>
             <pre class="plain-text plain-text-small">@license.Text</pre>
-        </RadzenCard>
+        </div>
     }
-</RadzenStack>
+</div>
 
 @code {
     protected override void OnInitialized() => Chrome.Set(this, L["Licenses_Title"]);
