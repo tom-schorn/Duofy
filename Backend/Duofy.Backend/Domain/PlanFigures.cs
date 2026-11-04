@@ -94,18 +94,35 @@ public static class PlanFigures
         positions.Where(p => !p.PassThrough && p.Pot != Pot.Income).Sum(p => p.AmountPlanned);
 
     /// <summary>
-    /// Der Frei-Betrag eines oder mehrerer Monate (Spec 23; Spec 66, R9): die geplanten Einnahmen minus die geplanten
-    /// Ausgaben plus der Übertrag aus dem Vormonat. Durchlaufende Posten zählen weder als Einnahme noch als Ausgabe, wie
-    /// bei den Quoten. Der Parameter ist Pflicht, damit keine Stelle den Übertrag aus Versehen vergisst.
+    /// Der Frei-Betrag eines oder mehrerer Monate (Spec 23; Spec 66, R9; Spec 93): die Einnahme-Posten minus die
+    /// Ausgabe-Posten plus der Übertrag aus dem Vormonat, dazu die gebuchten Einnahmen ohne Posten und abzüglich der
+    /// gebuchten Ausgaben ohne Posten. Jeder Posten zählt mit seinem geplanten Betrag, oder mit dem gebuchten, wenn mehr
+    /// gebucht ist (Spec 93, R7), offen oder abgehakt: Ein Budget wie Lebensmittel wird oft früh abgehakt und trotzdem
+    /// weiter ausgegeben, deshalb macht weniger Gebuchtes kein Geld frei. Durchlaufende Posten zählen weder als Einnahme
+    /// noch als Ausgabe, wie bei den Quoten. Alle Parameter sind Pflicht, damit keine Stelle das Gebuchte, den Übertrag
+    /// oder das Ungeplante aus Versehen vergisst.
     /// </summary>
+    /// <param name="booked">
+    /// Gebucht je Posten, siehe <see cref="BookedPerPosition"/>, aus den Buchungen, die der Betrachter sehen darf; ohne
+    /// Sicht leer, dann zählt jeder Posten mit seinem geplanten Betrag.
+    /// </param>
     /// <param name="carriedIn">
     /// Der Übertrag, den der Betrachter sehen darf, siehe <see cref="CarriedIn"/>; 0 ohne Übertrag. Über mehrere Monate
     /// die Summe. Der Übertrag in den nächsten Monat gehört nicht hierher, er ändert den Frei-Betrag dieses Monats nicht.
     /// </param>
-    public static decimal Free(IEnumerable<PlanPosition> positions, decimal carriedIn)
+    /// <param name="unplanned">
+    /// Die Buchungen ohne Posten je Topf, die der Betrachter sehen darf, siehe <see cref="Unplanned"/>: ohne Umbuchungen und
+    /// ohne die Buchungen der Überträge. Über mehrere Monate die Summe; ein fehlender Topf zählt als 0.
+    /// </param>
+    public static decimal Free(
+        IEnumerable<PlanPosition> positions, IReadOnlyDictionary<Guid, decimal> booked, decimal carriedIn, IReadOnlyDictionary<Pot, decimal> unplanned)
     {
-        var counting = positions.ToList();
-        return Income(counting) - Fixed(counting) + carriedIn;
+        var counting = positions.Where(p => !p.PassThrough).ToList();
+        decimal Counted(PlanPosition p) => Math.Max(p.AmountPlanned, booked.GetValueOrDefault(p.Id));
+        var income = counting.Where(p => p.Pot == Pot.Income).Sum(Counted);
+        var expenses = counting.Where(p => p.Pot != Pot.Income).Sum(Counted);
+        var unplannedExpenses = unplanned.Where(entry => entry.Key != Pot.Income).Sum(entry => entry.Value);
+        return income - expenses + carriedIn + unplanned.GetValueOrDefault(Pot.Income) - unplannedExpenses;
     }
 
     /// <summary>

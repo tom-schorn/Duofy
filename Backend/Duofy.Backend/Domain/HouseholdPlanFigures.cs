@@ -21,13 +21,15 @@ public sealed record PotTotal(decimal Planned, decimal Booked);
 /// <param name="QuotaActual">Das Ist der Quoten in Prozent mit einer Nachkommastelle.</param>
 /// <param name="Unplanned">Die Buchungen des Planmonats ohne Posten je Topf, Einnahmen eingeschlossen.</param>
 /// <param name="QuotaIncome">Die gebuchten Einnahmen, durch die das Ist der Quoten geteilt wird; 0 heißt, es gab keine.</param>
+/// <param name="Booked">Gebucht je Posten über alle Monate, wie es die Posten des Haushaltsplans zeigen.</param>
 public sealed record HouseholdFigures(
     decimal Income,
     IReadOnlyDictionary<Pot, PotTotal> Pots,
     decimal Unpaid,
     IReadOnlyDictionary<Pot, decimal> QuotaActual,
     IReadOnlyDictionary<Pot, decimal> Unplanned,
-    decimal QuotaIncome);
+    decimal QuotaIncome,
+    IReadOnlyDictionary<Guid, decimal> Booked);
 
 /// <summary>
 /// Die Zahlen des zusammengesetzten Haushaltsplans (Spec 69, R4): dieselben Regeln wie beim Plan einer Person
@@ -71,6 +73,7 @@ public static class HouseholdPlanFigures
             unpaid,
             PlanFigures.QuotaActual(quotaMonths),
             unplanned,
-            PlanFigures.QuotaIncome(quotaMonths));
+            PlanFigures.QuotaIncome(quotaMonths),
+            booked);
     }
 }

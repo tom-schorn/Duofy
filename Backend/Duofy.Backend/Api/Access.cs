@@ -123,7 +123,7 @@ internal sealed class DbAccess(DuofyDbContext db, OwnerContext owners, IHttpCont
 
     public async Task<AccessCheck> RequireAnyViewAsync(Guid ownerId, CancellationToken cancellationToken)
     {
-        foreach (var area in Enum.GetValues<Area>())
+        foreach (var area in Enum.GetValues<Area>().Where(area => area != Area.Reminders))
         {
             if ((await LevelAsync(ownerId, area, cancellationToken)).Includes(AccessLevel.View))
             {
@@ -159,5 +159,5 @@ internal static class GrantKeys
     }
 
     public static GrantLevels ToResponse(IReadOnlyDictionary<Area, AccessLevel> levels) => new(
-        ToKey(levels[Area.Plan]), ToKey(levels[Area.Book]), ToKey(levels[Area.Accounts]), ToKey(levels[Area.Commitments]), ToKey(levels[Area.Savings]));
+        ToKey(levels[Area.Plan]), ToKey(levels[Area.Book]), ToKey(levels[Area.Accounts]), ToKey(levels[Area.Commitments]), ToKey(levels[Area.Savings]), ToKey(levels[Area.Reminders]));
 }

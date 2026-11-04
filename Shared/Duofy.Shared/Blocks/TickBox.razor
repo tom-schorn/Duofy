@@ -2,7 +2,7 @@
 @* Das Kästchen eines Postens, grün mit Haken wie im alten Duofy. Ein eigener Baustein, weil der Haken erst nach der Antwort
    der API gilt: Bleibt der Dialog ohne Bestätigung, muss das Kästchen leer bleiben. Es zeigt deshalb immer genau den Wert,
    den die Seite ihm gibt, und hat keinen eigenen Zustand. *@
-<button type="button" role="checkbox" aria-checked="@(Checked ? "true" : "false")" class="@CssClass" aria-label="@Label" @onclick="() => OnToggle.InvokeAsync()" @attributes="Attributes">
+<button type="button" role="checkbox" aria-checked="@(Checked ? "true" : "false")" class="@CssClass" aria-label="@(string.IsNullOrEmpty(Label) ? null : Label)" @onclick="() => OnToggle.InvokeAsync()" @attributes="Attributes">
     @if (Checked)
     {
         <LucideIcon Name="check" Size="14" StrokeWidth="3" aria-hidden="true" />

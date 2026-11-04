@@ -130,7 +130,8 @@ internal sealed class HouseholdPlanStore(
             members,
             PlanFigures.Fixed(positionsOf),
             // Alle sehen alle Posten: Ein fremder Übertrag in der Summe ließe sich herausrechnen, deshalb nur die sichtbaren.
-            PlanFigures.Free(positionsOf, visibleMonths.Sum(m => PlanFigures.CarriedIn(m.Plan, m.Bookings) ?? 0m)),
+            // Das Ungeplante aller Mitglieder steht dagegen ohnehin für alle im Plan (Spec 46, R4) und zählt ganz (Spec 93).
+            PlanFigures.Free(positionsOf, figures.Booked, visibleMonths.Sum(m => PlanFigures.CarriedIn(m.Plan, m.Bookings) ?? 0m), figures.Unplanned),
             bookingsOf,
             bookingsMissing,
             carryOvers);
@@ -191,16 +192,19 @@ internal sealed class HouseholdPlanStore(
                 visible.Add(id);
             }
         }
-        var carried = await plans.CarryOverBookingsAsync(rows.Where(r => visible.Contains(r.OwnerId)), cancellationToken);
-        return rows
-            .Where(r => IsCounted(members[r.OwnerId], r.Year, r.Month))
-            .GroupBy(r => (r.Year, r.Month))
+        // Wie im Haushaltsplan: das Ungeplante aller gezählten Mitglieder, die Überträge nur derer, deren Buchungen der
+        // Betrachter sieht.
+        var bookings = await plans.BookingsOfAsync(ids, cancellationToken);
+        return PlanStore.MonthFigures(rows, bookings)
+            .Where(m => IsCounted(members[m.Plan.OwnerId], m.Plan.Year, m.Plan.Month))
+            .GroupBy(m => (m.Plan.Year, m.Plan.Month))
             .Select(g =>
             {
-                // Wie im Haushaltsplan: nur die Überträge derer, deren Buchungen der Betrachter sieht.
-                var amounts = g.Select(p => PlanFigures.CarriedIn(p, carried)).OfType<decimal>().ToList();
+                var amounts = g.Where(m => visible.Contains(m.Plan.OwnerId)).Select(m => m.CarriedIn).OfType<decimal>().ToList();
                 var carriedIn = amounts.Count > 0 ? amounts.Sum() : (decimal?)null;
-                return new HouseholdPlanMonth(g.Key.Year, g.Key.Month, PlanFigures.Free(g.SelectMany(p => p.Positions), carriedIn ?? 0m), carriedIn);
+                var unplanned = Enum.GetValues<Pot>().ToDictionary(pot => pot, pot => g.Sum(m => m.Unplanned[pot]));
+                return new HouseholdPlanMonth(
+                    g.Key.Year, g.Key.Month, PlanFigures.Free(g.SelectMany(m => m.Plan.Positions), g.SelectMany(m => m.Booked).ToDictionary(), carriedIn ?? 0m, unplanned), carriedIn);
             })
             .OrderByDescending(m => m.Year)
             .ThenByDescending(m => m.Month)

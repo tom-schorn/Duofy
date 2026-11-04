@@ -139,6 +139,26 @@ public class HelpColumnTests : PageTestContext
         Assert.Equal(expected.OrderBy(e => e.Item1 + e.Item2, StringComparer.Ordinal), built.OrderBy(e => e.Item1 + e.Item2, StringComparer.Ordinal));
     }
 
+    // Spec 93, A6: Der Text zu Verplanbar nennt die Regel, dass Ausgaben ohne Posten abgezogen werden.
+    [Fact]
+    public void The_free_amount_text_says_that_expenses_without_a_position_are_subtracted()
+    {
+        var body = Resources()["Help_month_2_Body"];
+
+        Assert.Contains("Ausgaben ohne Posten werden abgezogen", body);
+        Assert.Contains("Einnahmen ohne Posten kommen dazu", body);
+    }
+
+    // Spec 93, A8 (R7): Der Text zu Verplanbar sagt in einem Satz, dass jeder Posten mit dem Geplanten oder dem höheren
+    // Gebuchten zählt, auch abgehakt.
+    [Fact]
+    public void The_free_amount_text_says_that_a_position_counts_with_the_planned_or_the_higher_booked_amount()
+    {
+        var body = Resources()["Help_month_2_Body"];
+
+        Assert.Contains("Jeder Posten zählt mit dem geplanten Betrag oder, wenn mehr gebucht ist, mit dem gebuchten, auch abgehakt.", body);
+    }
+
     private static Dictionary<string, string> Resources()
     {
         var resx = File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "Resources", "SharedResources.resx"));

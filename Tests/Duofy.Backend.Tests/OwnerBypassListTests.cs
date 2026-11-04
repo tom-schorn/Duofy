@@ -18,6 +18,9 @@ public partial class OwnerBypassListTests
         ("Backend/Duofy.Backend/Api/HouseholdPlanStore.cs", "Haushaltsplan zusammensetzen"),
         ("Backend/Duofy.Backend/Api/HouseholdPlanStore.cs", "Haushaltsplan zusammensetzen"),
         ("Backend/Duofy.Backend/Api/AuthEndpoints.cs", "Erstes Konto bei der Registrierung"),
+        ("Backend/Duofy.Backend/Api/ReminderRunner.cs", "Erinnerungen: Job ohne angemeldete Person"),
+        ("Backend/Duofy.Backend/Api/ReminderEndpoints.cs", "Erinnerung lesen"),
+        ("Backend/Duofy.Backend/Api/ReminderEndpoints.cs", "Erinnerung lesen"),
         // Ebenfalls genehmigt, aber noch nicht gebaut; der Eintrag kommt mit dem Code:
         // Prüfungen beim Start.
     ];

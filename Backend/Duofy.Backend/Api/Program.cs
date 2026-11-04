@@ -111,6 +111,30 @@ builder.Services.AddScoped<Mailer>();
 builder.Services.AddSingleton<MailQueue>();
 builder.Services.AddHostedService<MailDispatcher>();
 builder.Services.AddSingleton<MailThrottle>();
+// Erinnerungen an fällige Posten (Spec 84): nur gehostet und mit Duofy:Reminders:Enabled. FCM (Android) und WNS (Windows)
+// sind angebunden, sobald ihre Zugangsdaten gesetzt sind (Dienstkonto-Datei, Client-Kennung und Geheimnis aus der Umgebung);
+// ohne sie schickt UnconfiguredPush nichts und sagt es im Log, damit ein Server ohne Zugang nicht still bleibt.
+builder.Services.AddSingleton<ReminderSwitch>();
+builder.Services.AddSingleton<UnconfiguredPush>();
+if (!string.IsNullOrWhiteSpace(builder.Configuration[PushSettings.FcmServiceAccountFile]))
+{
+    builder.Services.AddSingleton<IFcmClient, FcmClient>();
+}
+else
+{
+    builder.Services.AddSingleton<IFcmClient>(services => services.GetRequiredService<UnconfiguredPush>());
+}
+if (!string.IsNullOrWhiteSpace(builder.Configuration[PushSettings.WnsClientId]))
+{
+    builder.Services.AddHttpClient<IWnsClient, WnsClient>(client => client.Timeout = TimeSpan.FromSeconds(10));
+}
+else
+{
+    builder.Services.AddSingleton<IWnsClient>(services => services.GetRequiredService<UnconfiguredPush>());
+}
+builder.Services.AddSingleton<PushSender>();
+builder.Services.AddScoped<ReminderRunner>();
+builder.Services.AddHostedService<ReminderJob>();
 builder.Services.AddHealthChecks();
 builder.Services.AddProblemDetails();
 
@@ -160,6 +184,7 @@ v1.MapDebtEndpoints();
 v1.MapPlanEndpoints();
 v1.MapHouseholdEndpoints();
 v1.MapHouseholdPlanEndpoints();
+v1.MapReminderEndpoints();
 v1.MapInvitationEndpoints();
 v1.MapAdminEndpoints();
 // Die Mail-Wege gibt es nur auf der gehosteten Version, den Link des Administrators nur ohne sie (Spec 53).

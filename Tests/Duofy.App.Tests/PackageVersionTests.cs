@@ -17,6 +17,9 @@ public class PackageVersionTests
     {
         var references = Directory.EnumerateFiles(RepositoryFiles.Root, "*.csproj", SearchOption.AllDirectories)
             .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
+            // Fremde Worktrees im Hauptverzeichnis haben ihren eigenen Stand und gehören nicht zu dieser Lösung.
+            .Where(path => !Path.GetRelativePath(RepositoryFiles.Root, path)
+                .Split(Path.DirectorySeparatorChar).Contains(".worktrees"))
             .SelectMany(path => XDocument.Load(path).Descendants("PackageReference")
                 .Select(e => (Project: Path.GetFileName(path), Package: (string?)e.Attribute("Include") ?? "", Version: (string?)e.Attribute("Version") ?? "")))
             .Where(r => SameReleasePrefixes.Any(r.Package.StartsWith))

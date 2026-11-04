@@ -76,6 +76,8 @@ public class StoreFilesTests
     [InlineData("docs/store/README.md")]
     [InlineData("docs/store/beschreibung.md")]
     [InlineData("docs/store/datenschutz.md")]
+    [InlineData("Mobile/Windows-Testpaket.ps1")]
+    [InlineData("docs/app-installieren.md")]
     public void The_store_files_hold_no_secrets(string path)
     {
         var text = Read(path.Split('/'));
@@ -84,6 +86,20 @@ public class StoreFilesTests
         Assert.DoesNotContain(".pfx", text, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("PackageCertificateKeyFile", text);
         Assert.DoesNotContain("PackageCertificatePassword", text);
+    }
+
+    // Das signierte Testpaket entsteht nur mit dem Fingerabdruck; ohne ihn bleibt es beim unsignierten Store-Paket.
+    [Fact]
+    public void The_sideload_group_only_applies_with_the_sign_thumbprint()
+    {
+        var sideload = Project.Descendants("PackageCertificateThumbprint").Single().Parent!;
+        var condition = (string)sideload.Attribute("Condition")!;
+
+        Assert.Contains("'$(DuofyStorePackage)' == 'true'", condition);
+        Assert.Contains("'$(DUOFY_SIGN_THUMBPRINT)' != ''", condition);
+        Assert.Contains(sideload.Elements("AppxPackageSigningEnabled"), e => e.Value.Trim() == "true");
+        Assert.Equal("SideloadOnly", sideload.Element("UapAppxPackageBuildMode")!.Value.Trim());
+        Assert.Equal("$(DUOFY_SIGN_THUMBPRINT)", sideload.Element("PackageCertificateThumbprint")!.Value.Trim());
     }
 
     [Fact]

@@ -62,10 +62,12 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
     }
 
     /// <summary>
-    /// Die Monate, für die die Person einen Plan hat, der neueste zuerst, mit dem Frei-Betrag je Monat (Spec 23).
+    /// Die Monate, für die die Person einen Plan hat, der neueste zuerst, mit dem Frei-Betrag je Monat (Spec 23; Spec 93).
     /// Legt nichts an; die Zahl der Monate ist die der vorhandenen Pläne.
     /// </summary>
-    /// <param name="seesBookings">False, wenn der Betrachter die Buchungen nicht sieht: Der Übertrag bleibt dann draußen (Spec 68, R4).</param>
+    /// <param name="seesBookings">
+    /// False, wenn der Betrachter die Buchungen nicht sieht: Der Übertrag und das Ungeplante bleiben dann draußen (Spec 68, R4).
+    /// </param>
     public async Task<List<PlanMonthResponse>> MonthsAsync(Guid ownerId, bool seesBookings, CancellationToken cancellationToken)
     {
         var plans = await db.Plans
@@ -73,30 +75,52 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
             .Include(p => p.Positions)
             .Where(p => p.OwnerId == ownerId)
             .ToListAsync(cancellationToken);
-        var carried = seesBookings ? await CarryOverBookingsAsync(plans, cancellationToken) : [];
-        return plans
-            .OrderByDescending(p => p.Year)
-            .ThenByDescending(p => p.Month)
-            .Select(p =>
-            {
-                var carriedIn = PlanFigures.CarriedIn(p, carried);
-                return new PlanMonthResponse(p.Year, p.Month, PlanFigures.Free(p.Positions, carriedIn ?? 0m), carriedIn);
-            })
+        var bookings = seesBookings ? await BookingsOfAsync([ownerId], cancellationToken) : [];
+        return MonthFigures(plans, bookings)
+            .OrderByDescending(m => m.Plan.Year)
+            .ThenByDescending(m => m.Plan.Month)
+            .Select(m => new PlanMonthResponse(
+                m.Plan.Year, m.Plan.Month, PlanFigures.Free(m.Plan.Positions, m.Booked, m.CarriedIn ?? 0m, m.Unplanned), m.CarriedIn))
             .ToList();
     }
 
     /// <summary>
-    /// Die Buchungen der Überträge in die genannten Monate, ohne ihre Zeilen, für <see cref="PlanFigures.CarriedIn"/> in den
-    /// Listen der Monate. Wer aufruft, prüft vorher, wessen Buchungen zu sehen sind.
+    /// Alle Buchungen dieser Personen mit ihren Zeilen, für die Frei-Beträge in den Listen der Monate. Wer aufruft, prüft
+    /// vorher, wessen Buchungen zu sehen sind.
     /// </summary>
-    public async Task<List<Booking>> CarryOverBookingsAsync(IEnumerable<Plan> plans, CancellationToken cancellationToken)
+    public Task<List<Booking>> BookingsOfAsync(IReadOnlyCollection<Guid> ownerIds, CancellationToken cancellationToken) =>
+        BookingEndpoints.WithLines(db)
+            .AsNoTracking()
+            .Where(b => ownerIds.Contains(b.OwnerId))
+            .ToListAsync(cancellationToken);
+
+    /// <summary>
+    /// Gebucht je Posten, Übertrag und Ungeplantes je Plan für die Frei-Beträge in den Listen der Monate, mit denselben Regeln wie im Monat
+    /// selbst (<see cref="ResponseAsync"/>): die Buchungen des Planmonats, ohne die Buchungen der Überträge rund um ihn.
+    /// </summary>
+    /// <param name="plans">Die Pläne; der Übertrag in den nächsten Monat kommt aus dessen Plan, wenn er in der Liste ist.</param>
+    /// <param name="bookings">Die Buchungen, die der Betrachter sehen darf; ohne Sicht leer.</param>
+    public static List<(Plan Plan, Dictionary<Guid, decimal> Booked, decimal? CarriedIn, Dictionary<Pot, decimal> Unplanned)> MonthFigures(IReadOnlyCollection<Plan> plans, IReadOnlyCollection<Booking> bookings)
     {
-        var ids = plans
-            .SelectMany(p => new[] { p.CarryOverIncomeBookingId, p.CarryOverExpenseBookingId })
+        var byMonth = bookings.ToLookup(b => (b.OwnerId, b.PlanYear, b.PlanMonth));
+        var byPlan = plans.ToDictionary(p => (p.OwnerId, p.Year, p.Month));
+        return plans.Select(plan =>
+        {
+            var inMonth = byMonth[(plan.OwnerId, plan.Year, plan.Month)].ToList();
+            var next = new DateOnly(plan.Year, plan.Month, 1).AddMonths(1);
+            var carryOverIds = CarryOverIds(plan, byPlan.GetValueOrDefault((plan.OwnerId, next.Year, next.Month)));
+            return (plan, PlanFigures.BookedPerPosition(inMonth), PlanFigures.CarriedIn(plan, inMonth), PlanFigures.Unplanned(inMonth, carryOverIds));
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Die Buchungen aller Überträge rund um einen Monat: die beiden des eigenen und die beiden des Übertrags in den nächsten
+    /// Monat, von denen eine in diesem Planmonat steht. Keine davon zählt als ungeplant (Spec 72) oder in einer Summe.
+    /// </summary>
+    public static List<Guid> CarryOverIds(Plan plan, Plan? next) =>
+        new[] { plan.CarryOverIncomeBookingId, plan.CarryOverExpenseBookingId, next?.CarryOverIncomeBookingId, next?.CarryOverExpenseBookingId }
             .OfType<Guid>()
             .ToList();
-        return await db.Bookings.AsNoTracking().Where(b => ids.Contains(b.Id)).ToListAsync(cancellationToken);
-    }
 
     private async Task<Plan> NewAsync(Guid ownerId, int year, int month, CancellationToken cancellationToken)
     {
@@ -219,6 +243,7 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
         // Die Buchungen aller Überträge rund um den Monat; sie zählen nicht als ungeplant (Spec 72) und in keiner Summe:
         // Die Summen zeigen nur echtes Geld, der Übertrag steht in seiner eigenen Zeile (Spec 66, R9).
         var carryOverIds = nextCarryOver.Append(plan.CarryOverIncomeBookingId).Append(plan.CarryOverExpenseBookingId).OfType<Guid>().ToList();
+        var unplanned = PlanFigures.Unplanned(bookings, carryOverIds);
         var sums = MonthBook.SumsOf(bookings.Where(b => !carryOverIds.Contains(b.Id)), accountId: null);
 
         var commitments = sight.Commitments
@@ -268,9 +293,10 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
             new PlanOverviewResponse(
                 PlanFigures.Income(plan.Positions),
                 PlanFigures.Fixed(plan.Positions),
-                // Ohne Sicht auf die Buchungen ist die Liste leer, und so bleibt auch der Übertrag draußen (Spec 68, R4).
-                PlanFigures.Free(plan.Positions, PlanFigures.CarriedIn(plan, bookings) ?? 0m),
-                PlanFigures.PotTotals(plan.Positions, booked, PlanFigures.Unplanned(bookings, carryOverIds))
+                // Ohne Sicht auf die Buchungen ist die Liste leer, und so bleiben auch der Übertrag und das Ungeplante
+                // draußen (Spec 68, R4).
+                PlanFigures.Free(plan.Positions, booked, PlanFigures.CarriedIn(plan, bookings) ?? 0m, unplanned),
+                PlanFigures.PotTotals(plan.Positions, booked, unplanned)
                     .Select(entry => new PlanPotResponse(PotKey.ToKey(entry.Key), entry.Value.Planned, entry.Value.Booked))
                     .ToList(),
                 bookings

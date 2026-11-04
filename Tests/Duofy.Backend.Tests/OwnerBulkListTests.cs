@@ -27,6 +27,10 @@ public partial class OwnerBulkListTests
         new("Backend/Duofy.Backend/Api/PlanEndpoints.cs", "DeleteCarryOverAsync", "Area.Book, AccessLevel.Delete", "Übertrag entfernen löscht sein Paar"),
         new("Backend/Duofy.Backend/Api/AdminEndpoints.cs", "RevokeInvitationAsync", null, "Einladung zur Registrierung: keine Daten mit Besitzer, nur für Administratoren"),
         new("Backend/Duofy.Backend/Api/HouseholdStore.cs", "DropGrantsAsync", null, "Freigaben beim Austreten und Entfernen: keine Daten mit Besitzer"),
+        new("Backend/Duofy.Backend/Api/ReminderEndpoints.cs", "DeleteDeviceAsync", null, "Gerät abmelden: nur die eigene Zeile der Person aus dem Token, keine Daten mit Besitzer"),
+        // Review-Befund S4: PUT /me/devices löscht Zeilen anderer Personen mit demselben Push-Token oder derselben Installation.
+        // Tom hat diese Massenlöschung für die Erinnerungen am 04.11.2026 freigegeben.
+        new("Backend/Duofy.Backend/Api/ReminderEndpoints.cs", "PutDeviceAsync", null, "Gerät anmelden: entfernt Zeilen anderer Personen mit gleichem Token oder gleicher Installation (S4, von Tom am 04.11.2026 freigegeben)"),
     ];
 
     [GeneratedRegex(@"\.Execute(Update|Delete)(Async)?\(")]

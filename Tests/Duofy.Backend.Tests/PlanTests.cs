@@ -972,7 +972,9 @@ public class PlanTests : IDisposable
 
         Assert.Equal(3000.00m, overview.Income);
         Assert.Equal(1200.00m, overview.Fixed);
-        Assert.Equal(1800.00m, overview.Free);
+        // Die Miete ist mit 1200 überbucht und zählt deshalb mit 1200 statt der geplanten 1000 (Spec 93, R7);
+        // Einnahmen und Festes zeigen weiter die geplanten Beträge.
+        Assert.Equal(1600.00m, overview.Free);
         Assert.Equal(new PlanPotResponse(PotKeys.Needs, 1000.00m, 1200.00m), overview.Pots.Single(p => p.Pot == PotKeys.Needs));
         Assert.Equal(new PlanPotResponse(PotKeys.Wants, 0m, 0m), overview.Pots.Single(p => p.Pot == PotKeys.Wants));
         Assert.Equal(200.00m, overview.Pots.Single(p => p.Pot == PotKeys.Savings).Planned);

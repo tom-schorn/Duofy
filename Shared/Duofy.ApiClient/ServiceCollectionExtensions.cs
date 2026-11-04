@@ -52,6 +52,7 @@ public static class DuofyApiClientServiceCollectionExtensions
         services.AddScoped<ILegalApi, LegalApi>();
         services.AddScoped<IInstanceApi, InstanceApi>();
         services.AddScoped<IAdminApi, AdminApi>();
+        services.AddScoped<IReminderApi, ReminderApi>();
 
         return services;
     }

@@ -6,7 +6,8 @@ namespace Duofy.Shared.Services;
 public sealed record CurvePoint(DateOnly Day, decimal Balance, bool Forecast);
 
 /// <summary>Eine echte Buchung für die Kurve: ihr Datum und ihr Betrag mit Vorzeichen (Einnahme plus, Ausgabe minus).</summary>
-public sealed record CurveMove(DateOnly Date, decimal Signed);
+/// <param name="Income">Eine Einnahme: Sie zählt am 1. des Planmonats, nicht an ihrem Tag (Tom, 04.11.2026).</param>
+public sealed record CurveMove(DateOnly Date, decimal Signed, bool Income = false);
 
 /// <summary>Was von einem offenen Posten noch kommt oder noch abgeht, mit Vorzeichen, an seinem Fälligkeitstag.</summary>
 /// <param name="Income">Ein Einnahmen-Posten: Er zählt am 1. des Monats, nicht an seinem Tag (Tom, 03.11.2026).</param>
@@ -27,7 +28,10 @@ public sealed record MonthCurveModel(decimal Start, IReadOnlyList<CurvePoint> Po
 /// Regeln (Spec 82, R14, mit der Korrektur vom 03.11.2026):
 /// - Die Kurve beginnt mit dem Übertrag in diesen Monat und den Buchungen, die per Planzuordnung schon zu diesem Monat gehören,
 ///   aber vor seinem ersten Tag datiert sind, etwa das Gehalt vom 28. des Vormonats.
-/// - Jede Buchung des Planmonats zählt an ihrem Tag; eine, die erst nach dem Monat datiert ist, am letzten Tag.
+/// - Jede gebuchte Einnahme des Planmonats zählt am 1. des Monats, egal an welchem Tag sie gebucht ist (Tom, 04.11.2026: "Ja,
+///   Einnahmen am 1."); sonst zeigte ein vergangener Monat eine Lücke bis zum Kindergeld am 19. Eine Einnahme, die vor dem Monat
+///   datiert ist, steckt schon im Anfangsstand.
+/// - Jede gebuchte Ausgabe des Planmonats zählt an ihrem Tag; eine, die erst nach dem Monat datiert ist, am letzten Tag.
 ///   Umbuchungen zwischen eigenen Konten ändern den Stand nicht.
 /// - Ab morgen kommen die offenen Ausgabe-Posten an ihrem Fälligkeitstag dazu, mit dem Rest, der noch nicht gebucht ist. Ein
 ///   offener Posten, dessen Tag schon vorbei ist, zählt morgen: Er ist noch zu bezahlen. Durchlaufende und abgehakte Posten
@@ -52,7 +56,8 @@ public static class MonthCurve
         var perDay = new decimal[days + 1];
         foreach (var move in moves.Where(m => m.Date >= first))
         {
-            perDay[move.Date > last ? days : move.Date.Day] += move.Signed;
+            var day = move.Income ? 1 : move.Date > last ? days : move.Date.Day;
+            perDay[day] += move.Signed;
         }
         var past = last < today;
         foreach (var item in open.Where(o => o.Income && !past))
@@ -88,22 +93,31 @@ public static class MonthCurve
     }
 
     /// <summary>Die Kurve eines eigenen Monats aus der Antwort der API.</summary>
-    public static MonthCurveModel ForPerson(PlanResponse plan, DateOnly today) => Build(
+    public static MonthCurveModel ForPerson(PlanResponse plan, DateOnly today) => FromPlan(
         plan.Year, plan.Month, today,
-        CarryIn(plan.Overview?.CarryOvers),
-        (plan.Overview?.Bookings ?? []).Select(b => new CurveMove(b.Date, Signed(b.Kind, b.Amount))),
-        plan.Positions
-            .Where(p => !p.PassThrough && p.DoneAt is null && p.AmountPlanned - p.Booked > 0m)
-            .Select(p => new CurveOpen(p.DueDay, (p.Pot == PotKeys.Income ? 1 : -1) * (p.AmountPlanned - p.Booked), p.Pot == PotKeys.Income)));
+        plan.Overview?.CarryOvers,
+        (plan.Overview?.Bookings ?? []).Select(b => (b.Date, b.Kind, b.Amount)),
+        plan.Positions.Select(p => (p.DueDay, p.Pot, p.AmountPlanned, p.Booked, p.PassThrough, p.DoneAt)));
 
     /// <summary>Die Kurve des Haushaltsplans: Buchungen nur von denen, die sie freigegeben haben.</summary>
-    public static MonthCurveModel ForHousehold(HouseholdPlanResponse plan, DateOnly today) => Build(
+    public static MonthCurveModel ForHousehold(HouseholdPlanResponse plan, DateOnly today) => FromPlan(
         plan.Year, plan.Month, today,
-        CarryIn(plan.CarryOvers),
-        (plan.Bookings ?? []).Select(b => new CurveMove(b.Date, Signed(b.Kind, b.Amount))),
-        plan.Positions
-            .Where(p => !p.PassThrough && p.DoneAt is null && p.AmountPlanned - p.Booked > 0m)
-            .Select(p => new CurveOpen(p.DueDay, (p.Pot == PotKeys.Income ? 1 : -1) * (p.AmountPlanned - p.Booked), p.Pot == PotKeys.Income)));
+        plan.CarryOvers,
+        (plan.Bookings ?? []).Select(b => (b.Date, b.Kind, b.Amount)),
+        plan.Positions.Select(p => (p.DueDay, p.Pot, p.AmountPlanned, p.Booked, p.PassThrough, p.DoneAt)));
+
+    /// <summary>Die gemeinsame Abbildung beider Pläne: Buchungen werden zu <see cref="CurveMove"/>, offene Posten zu <see cref="CurveOpen"/>.</summary>
+    private static MonthCurveModel FromPlan(
+        int year, int month, DateOnly today,
+        IEnumerable<PlanCarryOverLineResponse>? carryOvers,
+        IEnumerable<(DateOnly Date, string Kind, decimal Amount)> bookings,
+        IEnumerable<(int DueDay, string Pot, decimal Planned, decimal Booked, bool PassThrough, DateTimeOffset? DoneAt)> positions) => Build(
+        year, month, today,
+        CarryIn(carryOvers),
+        bookings.Select(b => new CurveMove(b.Date, Signed(b.Kind, b.Amount), b.Kind == BookingKinds.Income)),
+        positions
+            .Where(p => !p.PassThrough && p.DoneAt is null && p.Planned - p.Booked > 0m)
+            .Select(p => new CurveOpen(p.DueDay, (p.Pot == PotKeys.Income ? 1 : -1) * (p.Planned - p.Booked), p.Pot == PotKeys.Income)));
 
     private static decimal CarryIn(IEnumerable<PlanCarryOverLineResponse>? lines) =>
         (lines ?? []).Where(l => l.Direction == CarryOverDirections.In).Sum(l => l.Amount);

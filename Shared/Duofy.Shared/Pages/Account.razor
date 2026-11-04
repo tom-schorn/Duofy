@@ -48,6 +48,9 @@
         <DuofyButton Text="@L["Account_NamesSave"]" OnClick="@(_ => SaveNamesAsync())" TestId="account-names-save" Class="mt-2" />
     </div>
 
+    @* Erinnerungen (Spec 84): am PC und Tablet gibt es die Seite Mehr nicht; ein eigener Baustein, der nur erscheint, wenn der Server Erinnerungen hat. *@
+    <ReminderSettings />
+
     <div class="card" data-testid="account-email">
         <h2 class="section-title mb-1">@L["Account_EmailHeading"]</h2>
         <p class="mb-2">@(hosted ? L["Account_EmailHintHosted"] : L["Account_EmailHintSelfHosted"])</p>

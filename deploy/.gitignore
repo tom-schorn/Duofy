@@ -2,3 +2,5 @@
 .env
 backups/
 legal/
+# Push-Zugangsdaten (Erinnerungen, Spec 84): die Dienstkonto-Datei von Firebase.
+push/

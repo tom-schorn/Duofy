@@ -61,11 +61,19 @@ services:
       # Die Web-Variante ruft die API für alle Web-Nutzer; sie ist von der Bremse ausgenommen, vor ihr bremst Cloudflare.
       RateLimiting__AuthPermitLimit: ${RateLimiting__AuthPermitLimit:-${RATE_LIMIT_AUTH_PERMIT_LIMIT:-10}}
       RateLimiting__ExemptAddresses: 172.30.10.12
+      # Erinnerungen (Spec 84): aus, solange nichts gesetzt ist. Die Werte stehen nur in der .env, nie im Repository;
+      # die Dienstkonto-Datei von Firebase liegt in deploy/push und ist unter /push nur lesbar eingehängt.
+      Duofy__Reminders__Enabled: ${Duofy__Reminders__Enabled:-false}
+      Duofy__Reminders__Fcm__ServiceAccountFile: ${Duofy__Reminders__Fcm__ServiceAccountFile:-}
+      Duofy__Reminders__Wns__ClientId: ${Duofy__Reminders__Wns__ClientId:-}
+      Duofy__Reminders__Wns__ClientSecret: ${Duofy__Reminders__Wns__ClientSecret:-}
       Duofy__KeysDirectory: /keys
     volumes:
       - keys:/keys
       # Rechtstexte (Impressum, Datenschutz, Nutzungsbedingungen), nur lesbar.
       - ./legal:/legal:ro
+      # Zugangsdaten für Push (Firebase-Dienstkonto), nur lesbar; der Ordner darf leer sein, muss aber bestehen.
+      - ./push:/push:ro
     networks:
       plagevo:
         ipv4_address: 172.30.10.11

@@ -654,6 +654,102 @@ public class MonthPageTests : PageTestContext
         Assert.EndsWith("/plan/2026/10", Navigation.Uri);
     }
 
+    // Spec 84, R5: Der Tipp auf die Erinnerung öffnet /plan/{Jahr}/{Monat}?haken={Posten}&besitzer={Besitzer}.
+    private static readonly GrantLevels BenGrantsAnnaTicking = GrantLevels.None with
+    {
+        Plan = AccessLevelKeys.View, Book = AccessLevelKeys.Edit, Accounts = AccessLevelKeys.View,
+    };
+
+    private async Task ShareWithBenAsync(GrantLevels grants)
+    {
+        HouseholdApiFake.Household = new HouseholdResponse(Guid.NewGuid(), "Haushalt von Anna", 50, 30, 20,
+            [FakeHouseholdApi.Anna(isMe: true), FakeHouseholdApi.Ben() with { GrantsToMe = grants }]);
+        await Member.LoadAsync();
+    }
+
+    private IRenderedComponent<Plan> OpenFromReminder(PlanPositionResponse? position, Guid? positionId, Guid owner)
+    {
+        PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10) with
+        {
+            Positions = position is null ? [] : [position],
+            Overview = Overview(),
+        };
+        Navigation.NavigateTo($"/plan/2026/10?haken={positionId}&besitzer={owner}");
+        return Render<Plan>(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 10));
+    }
+
+    [Fact]
+    public async Task A_reminder_link_opens_the_tick_dialog_of_that_position_prefilled_and_clears_the_address()
+    {
+        await ShareWithBenAsync(GrantLevels.None);
+        var rent = FakePlanApi.Position("Miete", 890m);
+
+        OpenFromReminder(rent, rent.Id, FakeHouseholdApi.AnnaId);
+
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='tick-save']")));
+        Assert.Equal("2026-10-21", Field(dialogs, "tick-date").GetAttribute("value"));
+        Assert.Equal("890,00", Field(dialogs, "tick-amount").GetAttribute("value"));
+        Assert.Empty(PlanApiFake.Ticks);
+        Assert.EndsWith("/plan/2026/10", Navigation.Uri);
+    }
+
+    [Fact]
+    public async Task A_reminder_link_for_a_shared_owner_switches_to_that_member_before_opening_the_dialog()
+    {
+        await ShareWithBenAsync(BenGrantsAnnaTicking);
+        var rent = FakePlanApi.Position("Miete", 890m);
+
+        OpenFromReminder(rent, rent.Id, FakeHouseholdApi.BenId);
+
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='tick-save']")));
+        Assert.Equal(FakeHouseholdApi.BenId, Member.Owner);
+    }
+
+    [Fact]
+    public async Task A_reminder_link_for_an_owner_the_caller_may_not_see_is_ignored_silently()
+    {
+        await ShareWithBenAsync(GrantLevels.None);
+        var rent = FakePlanApi.Position("Miete", 890m);
+
+        var cut = Render(rent, Guid.NewGuid());
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-metrics']")));
+        Assert.Null(Member.Owner);
+        Assert.Empty(dialogs.FindAll("[data-testid='tick-save']"));
+
+        IRenderedComponent<Plan> Render(PlanPositionResponse position, Guid owner)
+        {
+            PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10) with { Positions = [position], Overview = Overview() };
+            Navigation.NavigateTo($"/plan/2026/10?haken={position.Id}&besitzer={owner}");
+            return Render<Plan>(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 10));
+        }
+    }
+
+    [Fact]
+    public async Task A_reminder_link_for_an_unknown_position_just_shows_the_month()
+    {
+        await ShareWithBenAsync(GrantLevels.None);
+
+        var cut = OpenFromReminder(FakePlanApi.Position("Miete", 890m), Guid.NewGuid(), FakeHouseholdApi.AnnaId);
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-metrics']")));
+        dialogs.WaitForAssertion(() => Assert.Empty(dialogs.FindAll("[data-testid='tick-save']")));
+        Assert.Contains("2026", Navigation.Uri);
+    }
+
+    [Fact]
+    public async Task A_reminder_link_for_an_already_ticked_position_just_shows_the_month_and_books_nothing()
+    {
+        await ShareWithBenAsync(GrantLevels.None);
+        var rent = FakePlanApi.Position("Miete", 890m, done: true);
+
+        var cut = OpenFromReminder(rent, rent.Id, FakeHouseholdApi.AnnaId);
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-metrics']")));
+        dialogs.WaitForAssertion(() => Assert.Empty(dialogs.FindAll("[data-testid='tick-save']")));
+        Assert.Empty(PlanApiFake.Ticks);
+    }
+
     // Spec 51, A10: am Posten die Buchungen, mit dem Betrag der Zeile und nicht der ganzen Buchung.
     [Fact]
     public void A_position_lists_the_bookings_that_belong_to_it()

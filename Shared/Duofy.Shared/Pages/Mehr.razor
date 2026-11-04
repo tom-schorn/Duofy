@@ -9,6 +9,7 @@
 @inject ILegalApi LegalApi
 @inject IUserApi UserApi
 @using Duofy.ApiClient
+@using Duofy.Schemas
 
 @* Mehr am Handy: oben das Profil mit der Auswahl, wessen Zahlen die Seiten zeigen (Spec 82, R11), darunter, was man
    seltener braucht: Konten, Verträge, das Benutzerkonto, Admin (nur wer den Server verwaltet, Spec 70), Lizenzen, Rechtstexte
@@ -29,6 +30,9 @@
     <p class="field-label mt-3 mb-2">@L["MemberSwitch_Label"]</p>
     <MemberSwitch />
 </section>
+
+@* Erinnerungen (Spec 84): derselbe Baustein steht am PC und Tablet auf der Kontoseite. *@
+<ReminderSettings Class="mb-4" />
 
 @* Jeder Eintrag ist ein Link im Aussehen eines Knopfs; nur das Abmelden ist ein echter Knopf. Das Symbol steht vor dem Text. *@
 <div class="card" data-testid="more-list">
