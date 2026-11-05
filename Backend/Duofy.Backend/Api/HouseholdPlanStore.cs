@@ -87,6 +87,10 @@ internal sealed class HouseholdPlanStore(
             }
         }
         bookingsMissing.Sort(StringComparer.CurrentCultureIgnoreCase);
+        // Umbuchungen über die Grenze zwischen verfügbar und nicht verfügbar (Spec 98) zeigen, wie der Übertrag, etwas über Konten
+        // und Buchungen; deshalb zählen nur die Monate, deren Buchungen der Betrachter sehen darf.
+        var available = await plans.AvailableAccountIdsAsync(visibleMonths.Select(m => m.Plan.OwnerId).ToList(), cancellationToken);
+        var transfers = visibleMonths.Sum(m => PlanFigures.TransferEffect(m.Bookings, available, m.CarryOverBookingIds));
         var positionLabels = positionsOf.ToDictionary(p => p.Id, p => p.Label);
         var categoryNames = await CategoryNamesAsync(visibleMonths.SelectMany(m => m.Bookings), cancellationToken);
         var bookingsOf = visibleMonths
@@ -131,7 +135,7 @@ internal sealed class HouseholdPlanStore(
             PlanFigures.Fixed(positionsOf),
             // Alle sehen alle Posten: Ein fremder Übertrag in der Summe ließe sich herausrechnen, deshalb nur die sichtbaren.
             // Das Ungeplante aller Mitglieder steht dagegen ohnehin für alle im Plan (Spec 46, R4) und zählt ganz (Spec 93).
-            PlanFigures.Free(positionsOf, figures.Booked, visibleMonths.Sum(m => PlanFigures.CarriedIn(m.Plan, m.Bookings) ?? 0m), figures.Unplanned),
+            PlanFigures.Free(positionsOf, figures.Booked, visibleMonths.Sum(m => PlanFigures.CarriedIn(m.Plan, m.Bookings) ?? 0m), figures.Unplanned, transfers),
             bookingsOf,
             bookingsMissing,
             carryOvers);
@@ -192,10 +196,11 @@ internal sealed class HouseholdPlanStore(
                 visible.Add(id);
             }
         }
-        // Wie im Haushaltsplan: das Ungeplante aller gezählten Mitglieder, die Überträge nur derer, deren Buchungen der
-        // Betrachter sieht.
+        // Wie im Haushaltsplan: das Ungeplante aller gezählten Mitglieder, die Überträge und Umbuchungen nur derer, deren
+        // Buchungen der Betrachter sieht.
         var bookings = await plans.BookingsOfAsync(ids, cancellationToken);
-        return PlanStore.MonthFigures(rows, bookings)
+        var available = await plans.AvailableAccountIdsAsync(ids, cancellationToken);
+        return PlanStore.MonthFigures(rows, bookings, available)
             .Where(m => IsCounted(members[m.Plan.OwnerId], m.Plan.Year, m.Plan.Month))
             .GroupBy(m => (m.Plan.Year, m.Plan.Month))
             .Select(g =>
@@ -204,7 +209,7 @@ internal sealed class HouseholdPlanStore(
                 var carriedIn = amounts.Count > 0 ? amounts.Sum() : (decimal?)null;
                 var unplanned = Enum.GetValues<Pot>().ToDictionary(pot => pot, pot => g.Sum(m => m.Unplanned[pot]));
                 return new HouseholdPlanMonth(
-                    g.Key.Year, g.Key.Month, PlanFigures.Free(g.SelectMany(m => m.Plan.Positions), g.SelectMany(m => m.Booked).ToDictionary(), carriedIn ?? 0m, unplanned), carriedIn);
+                    g.Key.Year, g.Key.Month, PlanFigures.Free(g.SelectMany(m => m.Plan.Positions), g.SelectMany(m => m.Booked).ToDictionary(), carriedIn ?? 0m, unplanned, g.Where(m => visible.Contains(m.Plan.OwnerId)).Sum(m => m.Transfers)), carriedIn);
             })
             .OrderByDescending(m => m.Year)
             .ThenByDescending(m => m.Month)

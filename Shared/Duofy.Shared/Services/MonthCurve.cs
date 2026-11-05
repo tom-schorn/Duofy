@@ -5,12 +5,14 @@ namespace Duofy.Shared.Services;
 /// <summary>Der Stand am Ende eines Tages; <paramref name="Forecast"/> heißt: ab morgen, aus den offenen Posten gerechnet.</summary>
 public sealed record CurvePoint(DateOnly Day, decimal Balance, bool Forecast);
 
-/// <summary>Eine echte Buchung für die Kurve: ihr Datum und ihr Betrag mit Vorzeichen (Einnahme plus, Ausgabe minus).</summary>
-/// <param name="Income">Eine Einnahme: Sie zählt am 1. des Planmonats, nicht an ihrem Tag (Tom, 04.11.2026).</param>
-public sealed record CurveMove(DateOnly Date, decimal Signed, bool Income = false);
+/// <summary>
+/// Eine echte Buchung für die Kurve: ihr Datum und ihr Betrag mit Vorzeichen (Einnahme plus, Ausgabe minus). Seit 05.11.2026
+/// (Spec 99, P-104) zählt jede Buchung an ihrem Tag, auch eine Einnahme; ein Merkmal "Einnahme" gibt es dafür nicht mehr.
+/// </summary>
+public sealed record CurveMove(DateOnly Date, decimal Signed);
 
 /// <summary>Was von einem offenen Posten noch kommt oder noch abgeht, mit Vorzeichen, an seinem Fälligkeitstag.</summary>
-/// <param name="Income">Ein Einnahmen-Posten: Er zählt am 1. des Monats, nicht an seinem Tag (Tom, 03.11.2026).</param>
+/// <param name="Income">Ein Einnahmen-Posten: Sein offener Rest zählt am 1. des Monats, nicht an seinem Tag (Tom, 03.11.2026; gilt weiter, Spec 99, 05.11.2026).</param>
 public sealed record CurveOpen(int DueDay, decimal Signed, bool Income = false);
 
 /// <summary>
@@ -25,13 +27,12 @@ public sealed record MonthCurveModel(decimal Start, IReadOnlyList<CurvePoint> Po
 /// <summary>
 /// Rechnet die Tageskurve aus dem, was die API liefert; die API hat dafür keinen eigenen Verlauf (Spec 82: keine Backend-Änderung).
 ///
-/// Regeln (Spec 82, R14, mit der Korrektur vom 03.11.2026):
+/// Regeln (Spec 82, R14, mit der Korrektur vom 03.11.2026 und Spec 99 vom 05.11.2026):
 /// - Die Kurve beginnt mit dem Übertrag in diesen Monat und den Buchungen, die per Planzuordnung schon zu diesem Monat gehören,
 ///   aber vor seinem ersten Tag datiert sind, etwa das Gehalt vom 28. des Vormonats.
-/// - Jede gebuchte Einnahme des Planmonats zählt am 1. des Monats, egal an welchem Tag sie gebucht ist (Tom, 04.11.2026: "Ja,
-///   Einnahmen am 1."); sonst zeigte ein vergangener Monat eine Lücke bis zum Kindergeld am 19. Eine Einnahme, die vor dem Monat
-///   datiert ist, steckt schon im Anfangsstand.
-/// - Jede gebuchte Ausgabe des Planmonats zählt an ihrem Tag; eine, die erst nach dem Monat datiert ist, am letzten Tag.
+/// - Jede gebuchte Buchung des Planmonats zählt an ihrem Tag, auch eine Einnahme (Tom, 05.11.2026, Spec 99, P-104; hebt die
+///   Regel "Einnahmen am 1." von Spec 92 auf): Ein Monat zeigt so die Lücke bis zum Kindergeld am 19. Eine Buchung, die erst
+///   nach dem Monat datiert ist, zählt am letzten Tag; eine, die vor dem Monat datiert ist, steckt schon im Anfangsstand.
 ///   Umbuchungen zwischen eigenen Konten ändern den Stand nicht.
 /// - Ab morgen kommen die offenen Ausgabe-Posten an ihrem Fälligkeitstag dazu, mit dem Rest, der noch nicht gebucht ist. Ein
 ///   offener Posten, dessen Tag schon vorbei ist, zählt morgen: Er ist noch zu bezahlen. Durchlaufende und abgehakte Posten
@@ -56,7 +57,7 @@ public static class MonthCurve
         var perDay = new decimal[days + 1];
         foreach (var move in moves.Where(m => m.Date >= first))
         {
-            var day = move.Income ? 1 : move.Date > last ? days : move.Date.Day;
+            var day = move.Date > last ? days : move.Date.Day;
             perDay[day] += move.Signed;
         }
         var past = last < today;
@@ -114,7 +115,7 @@ public static class MonthCurve
         IEnumerable<(int DueDay, string Pot, decimal Planned, decimal Booked, bool PassThrough, DateTimeOffset? DoneAt)> positions) => Build(
         year, month, today,
         CarryIn(carryOvers),
-        bookings.Select(b => new CurveMove(b.Date, Signed(b.Kind, b.Amount), b.Kind == BookingKinds.Income)),
+        bookings.Select(b => new CurveMove(b.Date, Signed(b.Kind, b.Amount))),
         positions
             .Where(p => !p.PassThrough && p.DoneAt is null && p.Planned - p.Booked > 0m)
             .Select(p => new CurveOpen(p.DueDay, (p.Pot == PotKeys.Income ? 1 : -1) * (p.Planned - p.Booked), p.Pot == PotKeys.Income)));

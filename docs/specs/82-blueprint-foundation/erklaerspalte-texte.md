@@ -31,7 +31,7 @@ Ein Monat wird nicht abgeschlossen. Geplant wird vor dem Monat, nachgetragen wir
 Der Plan enthält alles, was in diesem Monat hereinkommen und hinausgehen soll. Er beschreibt den Soll-Zustand; was tatsächlich passiert ist, steht unter Buchungen. (Komponente Plan, Zweck)
 
 **Verplanbar**
-Die geplanten Einnahmen minus die geplanten Ausgaben, dazu ein Übertrag aus dem Vormonat, wenn es einen gibt. Jeder Posten zählt mit dem geplanten Betrag oder, wenn mehr gebucht ist, mit dem gebuchten, auch abgehakt. Gebuchte Ausgaben ohne Posten werden abgezogen, Einnahmen ohne Posten kommen dazu. Der Text an der Zahl sagt, ob ein Übertrag enthalten ist. (Komponente Plan: free amount, PlanFigures.Free)
+Die geplanten Einnahmen minus die geplanten Ausgaben, dazu ein Übertrag aus dem Vormonat, wenn es einen gibt. Jeder Posten zählt mit dem geplanten Betrag oder, wenn mehr gebucht ist, mit dem gebuchten, auch abgehakt. Gebuchte Ausgaben ohne Posten werden abgezogen, Einnahmen ohne Posten kommen dazu. Geld, das du von einem nicht verfügbaren Konto auf ein verfügbares zurückholst, erhöht Verplanbar; Geld, das du ohne Posten auf ein nicht verfügbares Konto zurücklegst, senkt es. Der Text an der Zahl sagt, ob ein Übertrag enthalten ist. (Komponente Plan: free amount, PlanFigures.Free)
 
 **Posten abhaken**
 Der Haken öffnet einen Dialog mit dem heutigen Datum und dem geplanten Betrag; beides lässt sich vor dem Bestätigen ändern. Erst dann entsteht die Buchung, und der Posten fällt aus „Anstehend“. Liegen auf dem Posten schon Buchungen, entsteht keine weitere. Ein anderes Buchungsdatum verschiebt den Posten nicht in einen anderen Monat. (PlanTickDialog, Spec 82 A11)

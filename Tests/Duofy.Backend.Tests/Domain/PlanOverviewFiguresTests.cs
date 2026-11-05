@@ -23,7 +23,7 @@ public class PlanOverviewFiguresTests
 
         Assert.Equal(3000m, PlanFigures.Income(positions));
         Assert.Equal(1200m, PlanFigures.Fixed(positions));
-        Assert.Equal(1800m, PlanFigures.Free(positions, booked: new Dictionary<Guid, decimal>(), carriedIn: 0m, unplanned: new Dictionary<Pot, decimal>()));
+        Assert.Equal(1800m, PlanFigures.Free(positions, booked: new Dictionary<Guid, decimal>(), carriedIn: 0m, unplanned: new Dictionary<Pot, decimal>(), transfers: 0m));
     }
 
     [Fact]

@@ -120,6 +120,71 @@ public class PlanFiguresTests
         Assert.True(Booking.IsPlanMonthAllowed(new DateOnly(2027, 1, 2), 2026, 12));
     }
 
+    // Spec 98: Umbuchungen über die Grenze zwischen verfügbaren und nicht verfügbaren Konten.
+    private static readonly Guid Kontokorrent = Guid.NewGuid();
+    private static readonly Guid Kreditkarte = Guid.NewGuid();
+    private static readonly Guid Depot = Guid.NewGuid();
+    private static readonly Guid Tagesgeld = Guid.NewGuid();
+    private static readonly HashSet<Guid> Available = [Kontokorrent, Kreditkarte];
+
+    private static Booking Transfer(Guid from, Guid to, decimal amount, Guid? positionId = null) => new()
+    {
+        Id = Guid.NewGuid(),
+        AccountId = from,
+        CounterAccountId = to,
+        PaymentDate = new DateOnly(2026, 10, 5),
+        Amount = amount,
+        Lines = [new BookingLine { Amount = amount, Pot = Pot.Savings, PositionId = positionId }],
+    };
+
+    private static decimal FreeWith(IEnumerable<Booking> bookings, params Guid[] carryOverIds) =>
+        PlanFigures.Free(
+            [], new Dictionary<Guid, decimal>(), carriedIn: 0m, new Dictionary<Pot, decimal>(),
+            PlanFigures.TransferEffect(bookings, Available, carryOverIds));
+
+    // A1: 270 von Depot-Verrechnung (nicht verfügbar) auf das Kontokorrent heben Verplanbar um 270.
+    [Fact]
+    public void A1_a_withdrawal_from_savings_raises_free()
+    {
+        Assert.Equal(270m, FreeWith([Transfer(Depot, Kontokorrent, 270m)]));
+    }
+
+    // A2: 120 vom Kontokorrent auf Tagesgeld-Verrechnung senken Verplanbar um 120, auf einem Posten ändern sie nichts.
+    [Fact]
+    public void A2_a_deposit_without_position_lowers_free_and_on_a_savings_position_counts_once()
+    {
+        var savings = Position("Tagesgeld sparen", 120m, Pot.Savings);
+        var deposit = Transfer(Kontokorrent, Tagesgeld, 120m, savings.Id);
+        var effect = PlanFigures.TransferEffect([deposit], Available, []);
+
+        // Mit Posten: der Posten (geplant 120, gebucht 120) zählt einmal, die Umbuchung nicht noch einmal.
+        var withPosition = PlanFigures.Free(
+            [savings], new Dictionary<Guid, decimal> { [savings.Id] = 120m }, carriedIn: 0m, new Dictionary<Pot, decimal>(), effect);
+
+        Assert.Equal(0m, effect);
+        Assert.Equal(-120m, withPosition);
+
+        // Ohne Posten senkt die Umbuchung Verplanbar um ihren Betrag.
+        Assert.Equal(-120m, FreeWith([Transfer(Kontokorrent, Tagesgeld, 120m)]));
+    }
+
+    // A3: Umbuchungen auf derselben Seite ändern nichts, ebenso die Buchungen des Übertrags.
+    [Fact]
+    public void A3_transfers_on_the_same_side_change_nothing()
+    {
+        var carryOver = Transfer(Depot, Kontokorrent, 500m);
+
+        Assert.Equal(0m, FreeWith([Transfer(Kontokorrent, Kreditkarte, 90m), Transfer(Depot, Tagesgeld, 160m)]));
+        Assert.Equal(0m, FreeWith([carryOver], carryOver.Id));
+    }
+
+    // Ausgaben und Einnahmen zählen hier nicht, nur Umbuchungen.
+    [Fact]
+    public void Plain_expenses_and_incomes_are_not_transfers()
+    {
+        Assert.Equal(0m, FreeWith([Expense(50m, Pot.Needs, null), Income(20m, null)]));
+    }
+
     private static PlanPosition Position(string label, decimal amount, Pot pot) => new()
     {
         Id = Guid.NewGuid(),

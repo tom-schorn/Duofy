@@ -106,10 +106,12 @@ public class MonthCurveTests
     [Fact]
     public void Open_income_counts_on_the_first_even_when_today_is_later_and_only_its_open_rest()
     {
-        var curve = MonthCurve.Build(2026, 11, Today, 0m, [new CurveMove(new DateOnly(2026, 11, 5), 300m, Income: true)],
+        // Spec 99: Die gebuchte Einnahme zählt an ihrem Tag (5.), nur der offene Rest am 1.
+        var curve = MonthCurve.Build(2026, 11, Today, 0m, [new CurveMove(new DateOnly(2026, 11, 5), 300m)],
             [new CurveOpen(29, 700m, Income: true)]);
 
-        Assert.Equal(1000m, curve.Points[0].Balance);
+        Assert.Equal(700m, curve.Points[0].Balance);
+        Assert.Equal(700m, curve.Points[3].Balance);
         Assert.Equal(1000m, curve.Points[4].Balance);
         Assert.Equal(1000m, curve.Points[29].Balance);
     }
@@ -143,28 +145,37 @@ public class MonthCurveTests
         Assert.Equal(1735.20m, curve.Points[28].Balance);
     }
 
-    // Tom, 04.11.2026: "Ja, Einnahmen am 1." Eine gebuchte Einnahme des Planmonats zählt am 1., egal an welchem Tag sie gebucht ist;
-    // sonst zeigt ein vergangener Monat eine Lücke bis zum Kindergeld am 19.
+    // Spec 99 (Tom, 05.11.2026, ersetzt Spec 92 A1): Eine gebuchte Einnahme im Monat zählt an ihrem Tag, also zeigt der Monat
+    // eine Lücke bis zum Kindergeld am 19.
     [Fact]
-    public void A1_booked_income_of_a_past_month_counts_on_the_first_so_there_is_no_gap_before_the_child_benefit()
+    public void A1_booked_income_inside_the_month_counts_on_its_day_so_a_gap_shows()
     {
         var curve = MonthCurve.Build(2026, 9, Today, 0m,
-            [new CurveMove(new DateOnly(2026, 9, 19), 758m, Income: true), new CurveMove(new DateOnly(2026, 9, 5), -600m)], []);
+            [new CurveMove(new DateOnly(2026, 9, 19), 758m), new CurveMove(new DateOnly(2026, 9, 5), -600m)], []);
 
-        Assert.Equal(758m, curve.Points[0].Balance);
-        Assert.Equal(158m, curve.Points[4].Balance);
-        Assert.Equal(158m, curve.Points[29].Balance);
-        Assert.All(curve.Points, p => Assert.True(p.Balance >= 0m));
-        Assert.Null(curve.FirstBelowZero);
+        Assert.Equal(-600m, curve.Points[4].Balance);
+        Assert.Equal(new DateOnly(2026, 9, 5), curve.FirstBelowZero);
+        Assert.Equal(-600m, curve.Points[17].Balance);
+        Assert.Equal(158m, curve.Points[18].Balance);
     }
 
     [Fact]
-    public void A2_booked_income_dated_after_the_month_end_counts_on_the_first()
+    public void A2_income_dated_before_the_month_counts_in_the_start()
     {
-        var curve = MonthCurve.Build(2026, 9, Today, 0m, [new CurveMove(new DateOnly(2026, 10, 2), 400m, Income: true)], []);
+        var curve = MonthCurve.Build(2026, 11, Today, 0m, [new CurveMove(new DateOnly(2026, 10, 28), 2000m)], []);
 
-        Assert.Equal(400m, curve.Points[0].Balance);
-        Assert.All(curve.Points, p => Assert.Equal(400m, p.Balance));
+        Assert.Equal(2000m, curve.Start);
+        Assert.Equal(2000m, curve.Points[0].Balance);
+    }
+
+    // Spec 99 (ersetzt Spec 92 A2): Eine Einnahme nach dem Monatsende zählt am letzten Tag, nicht früher.
+    [Fact]
+    public void A4_income_dated_after_the_month_counts_on_the_last_day()
+    {
+        var curve = MonthCurve.Build(2026, 9, Today, 0m, [new CurveMove(new DateOnly(2026, 10, 2), 400m)], []);
+
+        Assert.All(curve.Points.Take(29), p => Assert.Equal(0m, p.Balance));
+        Assert.Equal(400m, curve.Points[29].Balance);
     }
 
     [Fact]
@@ -199,9 +210,9 @@ public class MonthCurveTests
         Assert.Equal(700m, curve.Points[0].Balance);
     }
 
-    // Der Aufrufer reicht die Art der Buchung durch: Eine gebuchte Einnahme aus der Antwort der API zählt am 1.
+    // Spec 99: Eine gebuchte Einnahme aus der Antwort der API zählt an ihrem Tag.
     [Fact]
-    public void From_the_plan_a_booked_income_counts_on_the_first()
+    public void From_the_plan_a_booked_income_counts_on_its_day()
     {
         var giro = Guid.NewGuid();
         var plan = FakePlanApi.Empty(2026, 9) with
@@ -215,14 +226,14 @@ public class MonthCurveTests
 
         var curve = MonthCurve.ForPerson(plan, Today);
 
-        Assert.Equal(758m, curve.Points[0].Balance);
-        Assert.Equal(158m, curve.Points[4].Balance);
-        Assert.Null(curve.FirstBelowZero);
+        Assert.Equal(-600m, curve.Points[4].Balance);
+        Assert.Equal(new DateOnly(2026, 9, 5), curve.FirstBelowZero);
+        Assert.Equal(158m, curve.Points[18].Balance);
     }
 
-    // Spec 92: Auch im Haushaltsplan zählt eine gebuchte Einnahme am 1., nicht an ihrem Tag (sonst Lücke bis zum 19.).
+    // Spec 99: Auch im Haushaltsplan zählt eine gebuchte Einnahme an ihrem Tag.
     [Fact]
-    public void In_the_household_plan_a_booked_income_counts_on_the_first()
+    public void In_the_household_plan_a_booked_income_counts_on_its_day()
     {
         var owner = Guid.NewGuid();
         var plan = new HouseholdPlanResponse(
@@ -235,8 +246,8 @@ public class MonthCurveTests
 
         var curve = MonthCurve.ForHousehold(plan, Today);
 
-        Assert.Equal(758m, curve.Points[0].Balance);
-        Assert.Equal(158m, curve.Points[4].Balance);
-        Assert.Null(curve.FirstBelowZero);
+        Assert.Equal(-600m, curve.Points[4].Balance);
+        Assert.Equal(new DateOnly(2026, 9, 5), curve.FirstBelowZero);
+        Assert.Equal(158m, curve.Points[18].Balance);
     }
 }

@@ -114,15 +114,48 @@ public static class PlanFigures
     /// Die Buchungen ohne Posten je Topf, die der Betrachter sehen darf, siehe <see cref="Unplanned"/>: ohne Umbuchungen und
     /// ohne die Buchungen der Überträge. Über mehrere Monate die Summe; ein fehlender Topf zählt als 0.
     /// </param>
+    /// <param name="transfers">
+    /// Was die Umbuchungen über die Grenze zwischen verfügbaren und nicht verfügbaren Konten ändern (Spec 98), siehe
+    /// <see cref="TransferEffect"/>; 0 ohne solche Umbuchungen. Über mehrere Monate die Summe.
+    /// </param>
     public static decimal Free(
-        IEnumerable<PlanPosition> positions, IReadOnlyDictionary<Guid, decimal> booked, decimal carriedIn, IReadOnlyDictionary<Pot, decimal> unplanned)
+        IEnumerable<PlanPosition> positions, IReadOnlyDictionary<Guid, decimal> booked, decimal carriedIn, IReadOnlyDictionary<Pot, decimal> unplanned,
+        decimal transfers)
     {
         var counting = positions.Where(p => !p.PassThrough).ToList();
         decimal Counted(PlanPosition p) => Math.Max(p.AmountPlanned, booked.GetValueOrDefault(p.Id));
         var income = counting.Where(p => p.Pot == Pot.Income).Sum(Counted);
         var expenses = counting.Where(p => p.Pot != Pot.Income).Sum(Counted);
         var unplannedExpenses = unplanned.Where(entry => entry.Key != Pot.Income).Sum(entry => entry.Value);
-        return income - expenses + carriedIn + unplanned.GetValueOrDefault(Pot.Income) - unplannedExpenses;
+        return income - expenses + carriedIn + unplanned.GetValueOrDefault(Pot.Income) - unplannedExpenses + transfers;
+    }
+
+    /// <summary>
+    /// Was die Umbuchungen eines Planmonats am Frei-Betrag ändern (Spec 98): Geld, das von einem nicht verfügbaren auf ein
+    /// verfügbares Konto zurückgeholt wird, erhöht ihn um den Betrag; Geld, das von einem verfügbaren auf ein nicht verfügbares
+    /// Konto wandert, senkt ihn, außer die Zeile liegt auf einem Posten, denn dann zählt der Posten schon. Umbuchungen auf
+    /// derselben Seite und die Buchungen der Überträge ändern nichts. Die Regel steht nur hier, für eine Person und für den Haushalt.
+    /// </summary>
+    /// <param name="availableAccountIds">Die Konten, die als verfügbar zählen; jedes andere gilt als nicht verfügbar.</param>
+    /// <param name="carryOverBookingIds">Alle Buchungen der Überträge rund um den Monat, siehe <see cref="Unplanned"/>.</param>
+    public static decimal TransferEffect(
+        IEnumerable<Booking> bookings, IReadOnlySet<Guid> availableAccountIds, IReadOnlyCollection<Guid> carryOverBookingIds)
+    {
+        var effect = 0m;
+        foreach (var transfer in bookings.Where(b => b.IsTransfer && !carryOverBookingIds.Contains(b.Id)))
+        {
+            var fromAvailable = availableAccountIds.Contains(transfer.AccountId);
+            var toAvailable = availableAccountIds.Contains(transfer.CounterAccountId!.Value);
+            if (!fromAvailable && toAvailable)
+            {
+                effect += transfer.Amount;
+            }
+            else if (fromAvailable && !toAvailable && transfer.Lines.All(l => l.PositionId is null))
+            {
+                effect -= transfer.Amount;
+            }
+        }
+        return effect;
     }
 
     /// <summary>

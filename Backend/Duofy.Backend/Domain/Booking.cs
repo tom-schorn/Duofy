@@ -10,7 +10,8 @@ namespace Duofy.Domain;
 /// - Einnahme: Geld kommt auf ein Konto. Die Zeilen liegen im Topf Einnahmen.
 /// - Umbuchung: Geld wandert von einem eigenen Konto auf ein anderes
 ///   (<see cref="CounterAccountId"/> ist gesetzt), ohne Kategorie. Neue Umbuchungen merken sich Quell- und
-///   Zieltopf, siehe <see cref="TargetPot"/>; sie ändern keine Zahl im Plan.
+///   Zieltopf, siehe <see cref="TargetPot"/>. Sie ändern keine Zahl im Plan außer Verplanbar:
+    ///   Wandert Geld über die Grenze zwischen verfügbaren und nicht verfügbaren Konten, ändert es Verplanbar (Spec 98).
 ///
 /// Aus den Buchungen ergibt sich der Kontostand, siehe <see cref="Account.Balance"/>.
 /// </summary>
