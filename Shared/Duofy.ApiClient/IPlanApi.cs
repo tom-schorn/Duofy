@@ -21,6 +21,12 @@ public interface IPlanApi
     /// </summary>
     Task<ApiResult<IReadOnlyList<PlanMonthResponse>>> ListMonthsAsync(Guid? owner = null, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Die Monate eines Jahres mit Verplanbar, Anstehend und den Töpfen in einem Aufruf, dazu die vorhandenen künftigen
+    /// Monate, der neueste zuerst (Issue #94); legt nichts an. Ein Jahr außerhalb von <see cref="PlanRules"/> ergibt einen Fehler.
+    /// </summary>
+    Task<ApiResult<IReadOnlyList<PlanOverviewMonthResponse>>> GetOverviewAsync(int year, Guid? owner = null, CancellationToken cancellationToken = default);
+
     /// <summary>Legt einen einmaligen Posten an.</summary>
     Task<ApiResult<PlanPositionResponse>> CreatePositionAsync(
         int year, int month, CreatePositionRequest request, Guid? owner = null, CancellationToken cancellationToken = default);

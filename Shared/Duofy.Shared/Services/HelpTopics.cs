@@ -24,7 +24,7 @@ public static class HelpTopics
     /// <summary>Wie viele Abschnitte ein Thema hat.</summary>
     public static IReadOnlyDictionary<string, int> Count { get; } = new Dictionary<string, int>
     {
-        [Start] = 2, [Plans] = 3, [Month] = 6, [Bookings] = 3, [Review] = 2, [Household] = 4, [HouseholdPlan] = 4,
+        [Start] = 4, [Plans] = 3, [Month] = 6, [Bookings] = 3, [Review] = 2, [Household] = 4, [HouseholdPlan] = 4,
         [Grants] = 4, [Commitments] = 4, [Accounts] = 4, [Savings] = 3, [UserAccount] = 2, [Admin] = 2,
     };
 

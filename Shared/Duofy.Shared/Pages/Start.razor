@@ -8,6 +8,7 @@
 @implements IDisposable
 @inject IUserApi UserApi
 @inject IPlanApi PlanApi
+@inject IAccountApi AccountApi
 @inject IHouseholdApi HouseholdApi
 @inject AppChrome Chrome
 @inject ActiveMember Member
@@ -16,15 +17,18 @@
 @inject AppBrand Brand
 @inject IStringLocalizer<SharedResources> L
 
-@* Die Startseite (Spec 33): Begrüßung und Frei-Betrag des laufenden Monats im Farbblock, der Weg zu einer neuen
-   Buchung, was in den nächsten Tagen fällig ist, die Soll-Ist-Balken der Töpfe und, solange es keinen Haushalt gibt,
-   der Hinweis darauf. Jeder Block führt zur passenden Seite. Am PC stehen die Blöcke in zwei Spalten, am Handy in einer.
+@* Die Startseite (Spec 33, Issue #94): Begrüßung und Verplanbar des laufenden Monats groß im Kopf, direkt darunter die Zeile mit den
+   verfügbaren Konten und ihrer Summe, der Weg zu einer neuen Buchung, was in den nächsten Tagen fällig ist und je Topf eine Zeile
+   "<gebucht> von <geplant>". Wer in einem Haushalt ist, sieht darunter einen kleineren Haushaltsblock, dann die Jahreslinie
+   (ein Balken je Monat bis heute); solange es keinen Haushalt gibt, steht der Hinweis darauf da. Jeder Block führt zur passenden
+   Seite. Am PC stehen die Blöcke in zwei Spalten, am Handy in einer.
 
    Die Seite rechnet nichts: Die Zahlen schickt die API, MonthView wählt aus (wie in der Monatsübersicht). Sie legt
-   auch keinen Monat an, nur weil jemand die Startseite sieht: Erst fragt sie die Liste der Monate, und nur wenn der
+   auch keinen Monat an, nur weil jemand die Startseite sieht: Erst fragt sie die Übersicht des Jahres, und nur wenn der
    laufende darin steht, holt sie ihn; sonst steht der Leerzustand mit dem Weg zum Anlegen da.
 
-   Die Zahlen sind die der Person, die im Umschalter gewählt ist, oder die des Haushalts (Spec 68, Spec 69).
+   Die Zahlen sind die der Person, die im Umschalter gewählt ist, oder die des Haushalts (Spec 68, Spec 69); bei der Wahl
+   des Haushalts gibt es weder einen zweiten Haushaltsblock noch Konten und Jahreslinie.
    [Authorize] heißt: Nur wer angemeldet ist, sieht die Seite; alle anderen schickt der Router zur Anmeldung.
    Der Knopf Neue Buchung bucht für die Person, deren Zahlen gerade offen sind; ohne deren Freigabe ist er ausgegraut. *@
 
@@ -63,7 +67,7 @@ else if (firstName is not null)
     {
         <StartHero Greeting="@L["Start_Greeting", firstName].Value" Title="@L["Start_FreeIn", MonthName].Value"
                    Amount="model.Free" AmountText="@(model.Free == 0m ? L["Month_AllPlanned"].Value : null)"
-                   Note="@StartFreeNote.For(model, bookingsMissing, L)"
+                   Note="@StartFreeNote.For(model, bookingsMissing, L)" Accounts="accounts"
                    ViewOf="@(ViewName is null ? null : L["Start_ViewOf", ViewName].Value)"
                    Href="@MonthHref" LinkText="@L["Start_OpenMonth", MonthName].Value" />
 
@@ -90,18 +94,8 @@ else if (firstName is not null)
                 }
             </StartSection>
 
-            <StartSection Title="@L["Start_TargetActual"].Value" TestId="start-bars" Href="@MonthHref" LinkText="@L["Start_OpenPots"].Value">
-                <div class="start-bars">
-                    @foreach (var pot in model.Pots)
-                    {
-                        <TargetActualBar Caption="@L["Plan_Quota", L[$"Pot_{pot.Pot}"], pot.Target, pot.Actual.ToString("0.#", German)]"
-                                         Target="pot.Target" Actual="pot.Actual" AsPercent="true" />
-                    }
-                    @if (model.Pots.Any(p => p.OnPlannedIncome))
-                    {
-                        <p class="month-hint" data-testid="quota-on-planned-income">@L["Quota_OnPlannedIncome"]</p>
-                    }
-                </div>
+            <StartSection Title="@L["Start_PotsTitle"].Value" TestId="start-pots" Href="@MonthHref" LinkText="@L["Start_OpenPots"].Value">
+                <StartPots Pots="model.Pots" TestId="start-pot" />
             </StartSection>
         </div>
 
@@ -117,6 +111,25 @@ else if (firstName is not null)
                 }
             </StartSection>
         }
+    }
+
+    @if (householdModel is not null && Member.Household is { } together)
+    {
+        @* Der kleinere Haushaltsblock unter dem eigenen (Issue #94, R4): Verplanbar des Haushalts und seine Töpfe. *@
+        <StartSection Title="@L["Start_HouseholdTitle"].Value" TestId="start-household"
+                      Href="@($"/haushaltsplan/{today.Year}/{today.Month}")" LinkText="@L["Start_HouseholdOpen"].Value">
+            <p class="metric-title">@L["Start_HouseholdFree", MonthName]</p>
+            <p class="start-amount start-amount--small" data-testid="start-household-free">@(householdModel.Free == 0m ? L["Month_AllPlanned"].Value : MoneyText.Format(householdModel.Free))</p>
+            <StartPots Pots="householdModel.Pots" TestId="start-household-pot" />
+        </StartSection>
+    }
+
+    @if (!Member.IsHousehold && yearMonths.Count > 0)
+    {
+        @* Die Jahreslinie (Issue #94, R5): was in jedem Monat dieses Jahres übrig war oder fehlte. *@
+        <StartSection Title="@L["Start_YearTitle"].Value" TestId="start-year-section" Href="/plan" LinkText="@L["Start_YearOpen"].Value">
+            <StartYearLine Months="yearMonths" Today="today" />
+        </StartSection>
     }
 
     @if (loaded && Member.Household is null)
@@ -142,6 +155,9 @@ else if (firstName is not null)
     private MonthOverviewModel? model;
     private IReadOnlyList<string> bookingsMissing = [];
     private IReadOnlyList<string> deviating = [];
+    private IReadOnlyList<(string Name, decimal Balance)>? accounts;
+    private MonthOverviewModel? householdModel;
+    private IReadOnlyList<PlanOverviewMonthResponse> yearMonths = [];
     private DateOnly today;
 
     private bool SeesPlan => Member.IsHousehold || Member.Allows(GrantAreas.Plan, AccessLevelKeys.View);
@@ -215,8 +231,9 @@ else if (firstName is not null)
         {
             firstName = me.Value!.FirstName;
         }
-        else
+        else if (me.ErrorCode != ClientErrorCodes.NotSignedIn)
         {
+            // Ist die Anmeldung zu Ende, zeigt die Seite keinen Fehler: Der Router schickt zur Anmeldung (Spec 97, R4).
             error = ErrorTexts.For(L, me.ErrorCode);
         }
 
@@ -230,6 +247,9 @@ else if (firstName is not null)
         model = null;
         bookingsMissing = [];
         deviating = [];
+        accounts = null;
+        householdModel = null;
+        yearMonths = [];
         message = null;
         loaded = false;
         failed = false;
@@ -253,18 +273,48 @@ else if (firstName is not null)
     private void Fail(string? errorCode)
     {
         failed = true;
+        if (errorCode == ClientErrorCodes.NotSignedIn)
+        {
+            // Keine Meldung bei beendeter Anmeldung: Es folgt die Weiterleitung zur Anmeldung (Spec 97, R4).
+            return;
+        }
         message = new NoticeMessage(ErrorTexts.For(L, errorCode), NoticeSeverity.Error);
     }
 
     private async Task LoadPersonAsync()
     {
-        var months = await PlanApi.ListMonthsAsync(Member.Owner);
-        if (!months.Succeeded)
+        // Eine Anfrage für das ganze Jahr: Sie zeigt, ob der laufende Monat einen Plan hat, und füttert die Jahreslinie.
+        var overview = await PlanApi.GetOverviewAsync(today.Year, Member.Owner);
+        bool hasMonth;
+        if (overview.Succeeded)
         {
-            Fail(months.ErrorCode);
+            yearMonths = overview.Value!;
+            hasMonth = yearMonths.Any(m => m.Year == today.Year && m.Month == today.Month);
+        }
+        else if (overview.ErrorCode == ClientErrorCodes.NotFound)
+        {
+            // Ein älterer Server kennt die Übersicht noch nicht (App und Server werden zu verschiedenen Zeiten aktualisiert):
+            // Alles andere kommt aus den bisherigen Aufrufen, es fehlt nur die Jahreslinie, und es gibt keine Fehlermeldung.
+            var months = await PlanApi.ListMonthsAsync(Member.Owner);
+            if (!months.Succeeded)
+            {
+                Fail(months.ErrorCode);
+                return;
+            }
+            hasMonth = months.Value!.Any(m => m.Year == today.Year && m.Month == today.Month);
+        }
+        else
+        {
+            Fail(overview.ErrorCode);
             return;
         }
-        if (!months.Value!.Any(m => m.Year == today.Year && m.Month == today.Month))
+
+        // Der Haushaltsblock hängt nicht am eigenen Plan des Monats, und er gehört nur in die eigene Sicht.
+        if (Member.Owner is null)
+        {
+            await LoadHouseholdBlockAsync();
+        }
+        if (!hasMonth)
         {
             return;
         }
@@ -276,13 +326,29 @@ else if (firstName is not null)
             return;
         }
         model = MonthView.ForPerson(plan.Value!, today, _ => null);
-        await LoadGuidelineHintAsync();
+        await LoadAccountsAsync();
     }
 
-    // Wer im Haushalt ist, bekommt den Hinweis auch in der eigenen Sicht: dafür kommt der Haushaltsplan des Monats dazu.
-    // Der Hinweis ist ein Zusatz. Scheitert das Laden, fehlt er nur; den Fehler zeigt der Haushaltsplan selbst, sobald
-    // jemand ihn öffnet, und die Startseite bleibt ruhig.
-    private async Task LoadGuidelineHintAsync()
+    // Die verfügbaren Konten unter Verplanbar (Issue #94, R1). Die Zeile ist ein Zusatz: Fehlt die Freigabe für die Konten oder
+    // scheitert das Laden, fehlt nur sie; die Konten selbst zeigt die Kontenseite mit ihrem Fehler.
+    private async Task LoadAccountsAsync()
+    {
+        if (!Member.Allows(GrantAreas.Accounts, AccessLevelKeys.View))
+        {
+            return;
+        }
+
+        var result = await AccountApi.ListAsync(activeOnly: true, owner: Member.Owner);
+        if (result.Succeeded)
+        {
+            accounts = result.Value!.Where(a => a.CountsAsAvailable).Select(a => (a.Name, a.Balance)).ToList();
+        }
+    }
+
+    // Wer im Haushalt ist, bekommt unter dem eigenen Block den Haushaltsblock und den Richtwert-Hinweis: dafür kommt der
+    // Haushaltsplan des Monats dazu. Beides ist ein Zusatz. Scheitert das Laden, fehlt er nur; den Fehler zeigt der Haushaltsplan
+    // selbst, sobald jemand ihn öffnet, und die Startseite bleibt ruhig.
+    private async Task LoadHouseholdBlockAsync()
     {
         if (Member.Household is not { } household)
         {
@@ -298,6 +364,7 @@ else if (firstName is not null)
         var plan = await HouseholdApi.GetPlanAsync(household.Id, today.Year, today.Month);
         if (plan.Succeeded)
         {
+            householdModel = MonthView.ForHousehold(plan.Value!, today);
             deviating = DeviatingNames(plan.Value!);
         }
     }

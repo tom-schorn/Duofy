@@ -7,6 +7,11 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Eine Anmeldung hält sieben Tage. Jede Erneuerung gibt ein neues Refresh-Token aus,
+// das wieder sieben Tage gilt: Wer die App oder Web öfter als alle sieben Tage benutzt,
+// bleibt angemeldet (Spec 97).
+var RefreshTokenLifetime = TimeSpan.FromDays(7);
+
 // Die Verbindung zur Datenbank. Die Verbindungszeichenfolge kommt aus der
 // Umgebungsvariable ConnectionStrings__Duofy oder aus dotnet user-secrets.
 // Sie wird erst beim ersten Zugriff gelesen, damit Tests sie vorher setzen können.
@@ -23,7 +28,7 @@ builder.Services
     .AddBearerToken(IdentityConstants.BearerScheme, options =>
     {
         options.BearerTokenExpiration = TimeSpan.FromMinutes(15);
-        options.RefreshTokenExpiration = TimeSpan.FromDays(30);
+        options.RefreshTokenExpiration = RefreshTokenLifetime;
     });
 builder.Services.AddAuthorization();
 // Die Schlüssel der Tokens überleben einen Neustart, wenn Duofy:KeysDirectory gesetzt ist (Spec 79, siehe KeyRing).
@@ -135,7 +140,7 @@ else
 builder.Services.AddSingleton<PushSender>();
 builder.Services.AddScoped<ReminderRunner>();
 builder.Services.AddHostedService<ReminderJob>();
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");
 builder.Services.AddProblemDetails();
 
 var app = builder.Build();

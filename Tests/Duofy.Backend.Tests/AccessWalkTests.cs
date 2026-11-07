@@ -79,6 +79,7 @@ public class AccessWalkTests
             ["PUT /api/v1/categories/{id:guid}"] = (HttpMethod.Put, $"/api/v1/categories/{f.Category}", new SaveCategoryRequest("Fremd", CategoryGroupKeys.All[0], PotKeys.Needs)),
             ["DELETE /api/v1/categories/{id:guid}"] = (HttpMethod.Delete, $"/api/v1/categories/{f.Category}", null),
             ["GET /api/v1/plans"] = (HttpMethod.Get, $"/api/v1/plans?{owner}", null),
+            ["GET /api/v1/plans/overview"] = (HttpMethod.Get, $"/api/v1/plans/overview?year=2026&{owner}", null),
             ["GET /api/v1/plans/{year:int}/{month:int}"] =(HttpMethod.Get, $"{plan}?{owner}", null),
             ["POST /api/v1/plans/{year:int}/{month:int}/positions"] = (HttpMethod.Post, $"{plan}/positions?{owner}",
                 new CreatePositionRequest("Fremd", 5m, 3, Groceries, PotKeys.Needs)),

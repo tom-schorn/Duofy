@@ -164,6 +164,17 @@ public sealed record PlanCarryOverLineResponse(string Direction, int Year, int M
 /// <param name="CarryOver">Der in <paramref name="Free"/> enthaltene Übertrag; null ohne Übertrag oder ohne Sicht auf die Buchungen.</param>
 public sealed record PlanMonthResponse(int Year, int Month, decimal Free, decimal? CarryOver = null);
 
+/// <summary>
+/// Ein Monat in der Übersicht mit Zahlen (GET /api/v1/plans/overview, Issue #94): alles, was eine Monatskarte der
+/// Plan-Übersicht und die Jahreslinie der Startseite zeigen, mit denselben Zahlen wie der Monat selbst.
+/// </summary>
+/// <param name="Free">Verplanbar wie im Monat (<see cref="PlanOverviewResponse.Free"/>), auch negativ möglich.</param>
+/// <param name="CarriedIn">True, wenn im Verplanbar-Betrag ein Übertrag aus dem Vormonat steckt.</param>
+/// <param name="Unpaid">Was von den nicht abgehakten Posten noch offen ist, ohne Einnahmen und durchlaufende Posten.</param>
+/// <param name="Pots">Geplant und gebucht je Topf (Grundbedarf, Wünsche, Sparen), wie im Monat.</param>
+public sealed record PlanOverviewMonthResponse(
+    int Year, int Month, decimal Free, bool CarriedIn, decimal Unpaid, IReadOnlyList<PlanPotResponse> Pots);
+
 /// <summary>Ein einmaliger Posten (POST /api/v1/plans/{year}/{month}/positions).</summary>
 /// <param name="Label">Die Bezeichnung, 1 bis <see cref="PlanRules.LabelMaxLength"/> Zeichen.</param>
 /// <param name="Amount">Der geplante Betrag in Euro, größer als null.</param>

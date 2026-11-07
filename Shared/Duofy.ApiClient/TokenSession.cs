@@ -17,6 +17,9 @@ internal sealed class TokenSession
 
     public Task<AuthTokens?> GetAsync(CancellationToken cancellationToken) => store.GetAsync(cancellationToken);
 
+    /// <summary>Die Ablage war leer, obwohl die Seiten noch "angemeldet" zeigen können: Zustand neu ermitteln.</summary>
+    public void NoteTokensMissing() => authenticationState.NotifyTokensMissing();
+
     public async Task SaveAsync(AuthTokens tokens, CancellationToken cancellationToken)
     {
         await store.SaveAsync(tokens, cancellationToken);

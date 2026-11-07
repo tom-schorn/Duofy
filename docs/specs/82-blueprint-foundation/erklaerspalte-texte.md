@@ -2,6 +2,8 @@
 
 Stand: 03.11.2026. Von Tom am 03.11.2026 freigegeben („Ja, so einbauen“) mit zwei Korrekturen des Leads: „Letzte Buchungen“ auf Start gestrichen, Beginn der Tageskurve präzisiert. Am 03.11.2026 ergänzt nach Toms Entscheidung „Am 1. des Monats“: Einnahmen, die noch nicht gebucht sind, zählen am Monatsanfang.
 
+Änderung vom 06.11.2026 (Issue #94, Start und Plan-Übersicht): Die Texte „Dein Monat auf einen Blick“, „Töpfe in Euro“ (neu), „Haushalt und Jahr“ (neu), „Die Monatsübersicht“, „Ungeplant“ und „Geänderte Verträge“ beschreiben die neue Oberfläche. Von Tom am 06.11.2026 freigegeben, mit einer Änderung: In „Ungeplant“ entfällt der Halbsatz zum Ist der Richtwerte.
+
 Die Erklärspalte steht am PC ab 1280 Pixel Breite rechts neben dem Inhalt, wie im alten Duofy. Jede Seite hat zwei bis vier kurze Abschnitte, jeder mit Überschrift und ein bis drei Sätzen. Die Texte folgen dem Ton des alten Duofy (`Duofy-alt/frontend/src/locales/de.help.json`), beschreiben aber nur Regeln, die es bei uns gibt. Hinter jedem Abschnitt steht in Klammern, wo die Regel im neuen Duofy festgelegt ist; diese Klammer erscheint nicht in der App.
 
 Am Ende steht, was aus dem alten Duofy bewusst fehlt und warum.
@@ -9,15 +11,21 @@ Am Ende steht, was aus dem alten Duofy bewusst fehlt und warum.
 ## Start
 
 **Dein Monat auf einen Blick**
-Hier steht der laufende Monat: was verplanbar ist, was noch ansteht und wie die drei Töpfe gegen ihre Richtwerte stehen. (MonthView, Spec 33)
+Hier steht der laufende Monat: was verplanbar ist, was auf deinen verfügbaren Konten liegt und wie viel du in jedem Topf schon gebucht hast, gemessen an dem, was du geplant hast. (Start, Issue #94 R1, R2)
 
 **Anstehend und überfällig**
 Anstehend ist eine Zahlung, die heute oder in den nächsten sieben Tagen fällig ist und noch nicht abgehakt wurde. Überfällig ist sie ab dem Tag nach ihrer Fälligkeit, ohne Schonfrist. Einnahmen und durchlaufende Posten stehen nicht in dieser Liste. (MonthView.UpcomingDays, DueRows)
 
+**Töpfe in Euro**
+Jeder Topf zeigt, wie viel du schon gebucht hast und wie viel du geplant hast. Ist mehr gebucht als geplant, endet der Balken rot, und der Topf ist überzogen. Jeder Topf hat überall dieselbe Farbe: Grundbedarf blau, Wünsche gelb, Sparen grün. (Start, Plan-Übersicht, Monat; Issue #94 R2, R3)
+
+**Haushalt und Jahr**
+Bist du in einem Haushalt, steht unter deinen Zahlen ein kleinerer Block mit Verplanbar und den Töpfen des Haushalts. Die Jahreslinie zeigt für jeden Monat bis heute, was übrig war (grün) oder fehlte (rot); ein Tipp öffnet die Monatsübersicht. (Start; Issue #94 R4, R5)
+
 ## Meine Planung (Monatsübersicht)
 
 **Die Monatsübersicht**
-Jeder Monat mit seinen Kennzahlen: Verplanbar, was noch ansteht und wie die drei Töpfe stehen. Steht bei einem Monat „noch nicht angelegt“, entsteht er beim ersten Öffnen. (Komponente Plan, Regel 1)
+Oben steht der laufende Monat, darunter die vergangenen. Jeder zeigt Verplanbar, was noch ansteht und seine drei Töpfe: Der Balken eines Topfs ist die geplante Summe, gefüllt ist, was schon gebucht ist. Künftige Monate stehen nur da, wenn es sie schon gibt; den nächsten legst du mit „Nächsten Monat anlegen“ an. Steht beim laufenden Monat „noch nicht angelegt“, entsteht er beim ersten Öffnen. (Komponente Plan, Regel 1; Issue #94 R6, R7)
 
 **Wie ein Monat entsteht**
 Beim ersten Öffnen übernimmt Duofy alle Verträge, die in diesem Monat fällig sind, als Posten. Die Posten sind Kopien: Was du im Monat änderst, ändert den Vertrag nicht. (Komponente Plan, Regel 1)
@@ -37,13 +45,13 @@ Die geplanten Einnahmen minus die geplanten Ausgaben, dazu ein Übertrag aus dem
 Der Haken öffnet einen Dialog mit dem heutigen Datum und dem geplanten Betrag; beides lässt sich vor dem Bestätigen ändern. Erst dann entsteht die Buchung, und der Posten fällt aus „Anstehend“. Liegen auf dem Posten schon Buchungen, entsteht keine weitere. Ein anderes Buchungsdatum verschiebt den Posten nicht in einen anderen Monat. (PlanTickDialog, Spec 82 A11)
 
 **Ungeplant**
-Was du ohne Posten gebucht hast, steht als eigene Zeile Ungeplant unter den Töpfen. Es zählt beim gebuchten Betrag mit, nicht aber beim Ist der Richtwerte, denn das rechnet nur mit Posten. Umbuchungen zwischen deinen Konten und der Übertrag sind keine Ausgabe und fehlen hier. (Komponente Plan: Booked per pot, Spec 72 R5)
+Was du ohne Posten gebucht hast, steht als Zeile Ungeplant am Ende des Topfs, in dem du gebucht hast, mit Anzahl und Summe der Buchungen. Ein Tipp zeigt die Buchungen. Es zählt beim gebuchten Betrag mit. Umbuchungen zwischen deinen Konten und der Übertrag sind keine Ausgabe und fehlen hier. (Komponente Plan: Booked per pot, Spec 72 R5; Issue #94 R8)
 
 **Übertrag**
 Der Übertrag hält fest, was vom Vormonat wirklich übrig ist, auch null oder weniger. Vorgeschlagen wird der gerechnete Stand; weicht deine Bank ab, trägst du den echten Stand ein und entscheidest, ob noch Buchungen fehlen oder der Unterschied ausgeglichen wird. (PlanCarryOverDialog, Komponente Plan)
 
 **Geänderte Verträge**
-Hat sich ein Vertrag geändert, nachdem der Monat entstanden ist, zeigt der Monat das als Hinweis. Übernommen wird es erst, wenn du zustimmst; abgehakte und von Hand geänderte Posten ändert Duofy nie von selbst. (Komponente Plan, Regel 2)
+Hat sich ein Vertrag geändert, nachdem der Monat entstanden ist, zeigt der Monat das oben als eine schmale Zeile „Verträge geändert · Ansehen“. Ein Tipp zeigt die Unterschiede und die Knöpfe zum Übernehmen. Übernommen wird es erst, wenn du zustimmst; abgehakte und von Hand geänderte Posten ändert Duofy nie von selbst. (Komponente Plan, Regel 2; Issue #94 R9)
 
 ## Monat, Reiter Buchungen
 

@@ -12,14 +12,14 @@
 @inject TimeProvider Time
 @inject IStringLocalizer<SharedResources> L
 
-@* Die Plan-Übersicht (Spec 23, Spec 82) wie im alten Duofy: Monatskarten mit Verplanbar, Anstehend und drei Topf-Balken. Die Liste
-   hat alle Monate mit Plan, den laufenden und die drei kommenden, den neuesten oben. Eine Karte ist ein gewöhnlicher Link, darum
-   geht sie mit Tastatur, Vorlese-Programm und als Adresse zum Merken. Ein Monat ohne Plan wird erst beim Öffnen angelegt, nicht
-   beim Anschauen der Liste; deshalb fragt die Seite nur Monate mit Plan ab.
+@* Die Plan-Übersicht (Spec 23, Spec 82, Issue #94): Monatskarten mit Verplanbar, Anstehend und drei Topf-Balken. Oben steht der
+   laufende Monat, darunter die vorhandenen künftigen und die vergangenen Monate; statt leerer Karten für künftige Monate gibt es den
+   Knopf "Nächsten Monat anlegen". Eine Karte ist ein gewöhnlicher Link, darum geht sie mit Tastatur, Vorlese-Programm und als
+   Adresse zum Merken. Ein Monat ohne Plan wird erst beim Öffnen angelegt, nicht beim Anschauen der Liste.
 
-   Die Seite rechnet nichts: Verplanbar schickt die API, der Rest steht in MonthCards. Die Karten stehen sofort da und füllen sich,
-   sobald ihr Monat geladen ist. Mit dem Umschalter zeigt die Seite die Monate eines anderen Mitglieds (Spec 68) oder des Haushalts
-   (Spec 69). *@
+   Die Seite rechnet nichts: Alle Zahlen eines Jahres kommen in einer Anfrage von der API (GET /plans/overview), der Rest steht in
+   MonthCards. Frühere Jahre lädt ein Knopf nach. Mit dem Umschalter zeigt die Seite die Monate eines anderen Mitglieds (Spec 68)
+   oder des Haushalts (Spec 69); der Haushalt hat noch keine Übersicht in einer Anfrage und lädt seine Karten einzeln. *@
 
 <PageTitle>@L["PlanOverview_Title"]</PageTitle>
 
@@ -38,7 +38,17 @@
 }
 else if (rows is not null)
 {
-    <MonthCardList Rows="rows" Cards="cards" />
+    <MonthCardList Rows="rows" Cards="cards" ShowUnpaid="SeesBookings" />
+    <div class="page-actions" data-testid="plan-list-actions">
+        @if (nextToCreate is { } next)
+        {
+            <DuofyButton Href="@($"/plan/{next.Year}/{next.Month}")" Kind="ButtonKind.Secondary" Icon="plus" TestId="plan-next-month">@L["PlanOverview_NextMonth"]</DuofyButton>
+        }
+        @if (canLoadEarlier)
+        {
+            <DuofyButton OnClick="LoadEarlierAsync" Kind="ButtonKind.Ghost" TestId="plan-earlier">@L["PlanOverview_Earlier"]</DuofyButton>
+        }
+    </div>
 }
 
 @code {
@@ -49,12 +59,25 @@ else if (rows is not null)
     private readonly Dictionary<string, MonthCard> cards = [];
     private NoticeMessage? message;
 
+    // Die Monate mit Plan, die die Seite kennt: Jahr, Monat, Verplanbar, Übertrag.
+    private readonly Dictionary<(int Year, int Month), (decimal Free, bool WithCarryOver)> known = [];
+    private (int Year, int Month)? nextToCreate;
+    private int loadedFromYear;
+    private bool canLoadEarlier;
+    private DateOnly today;
+
     // Zählt die Ladevorgänge: Wechselt die Sicht, während Karten laden, bleibt das Ergebnis der alten Sicht liegen.
     private int loading;
     private bool disposed;
 
     // Beim Haushalt gibt es keine Freigabe zu prüfen: Er zeigt die Monate aller gezählten Mitglieder (Spec 69).
     private bool SeesPlan => Member.IsHousehold || Member.Allows(GrantAreas.Plan, AccessLevelKeys.View);
+
+    // Anstehend rechnet die API aus den Buchungen; ohne Freigabe dafür ist es leer und damit alles Geplante (Spec 68).
+    private bool SeesBookings => Member.IsHousehold || Member.Allows(GrantAreas.Book, AccessLevelKeys.View);
+
+    // Den nächsten Monat legt an, wer im gewählten Plan anlegen darf; der Haushaltsplan entsteht aus den Plänen der Mitglieder.
+    private bool CanCreateNext => !Member.IsHousehold && Member.Allows(GrantAreas.Plan, AccessLevelKeys.Create);
 
     protected override async Task OnInitializedAsync()
     {
@@ -79,78 +102,181 @@ else if (rows is not null)
         StateHasChanged();
     });
 
+    // Ein Monat mit Plan, wie ihn eine Antwort der API liefert; die Karte gibt es nur, wenn die Antwort Zahlen hatte.
+    private sealed record LoadedMonth(int Year, int Month, decimal Free, bool WithCarryOver, MonthCard? Card);
+
     private async Task LoadAsync()
     {
         var run = ++loading;
         message = null;
         rows = null;
         cards.Clear();
+        known.Clear();
+        nextToCreate = null;
+        canLoadEarlier = false;
+        today = DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
+        loadedFromYear = today.Year;
         if (!SeesPlan)
         {
             return;
         }
 
-        var known = new List<(int Year, int Month, decimal Free, bool WithCarryOver)>();
-        string? errorCode = null;
+        // Antworten bleiben lokal, bis feststeht, dass dieser Lauf noch der gültige ist: Eine verspätete Antwort der alten Sicht
+        // darf weder die Monate noch die Karten der neuen Sicht verändern.
+        string? errorCode;
+        IReadOnlyList<LoadedMonth> loaded = [];
+        var fallback = false;
+        var household = Member.IsHousehold ? Member.Household : null;
         if (Member.IsHousehold)
         {
-            if (Member.Household is { } household)
+            errorCode = null;
+            if (household is not null)
             {
                 var result = await HouseholdApi.ListPlansAsync(household.Id);
                 errorCode = result.ErrorCode;
-                known.AddRange(result.Succeeded ? result.Value!.Select(m => (m.Year, m.Month, m.Free, m.CarryOver is not null)) : []);
+                loaded = (result.Succeeded ? result.Value! : []).Select(m => new LoadedMonth(m.Year, m.Month, m.Free, m.CarryOver is not null, null)).ToList();
             }
         }
         else
         {
-            var result = await PlanApi.ListMonthsAsync(Member.Owner);
-            errorCode = result.ErrorCode;
-            known.AddRange(result.Succeeded ? result.Value!.Select(m => (m.Year, m.Month, m.Free, m.CarryOver is not null)) : []);
+            (errorCode, loaded) = await FetchYearAsync(today.Year);
+            if (errorCode == ClientErrorCodes.NotFound)
+            {
+                // Ein älterer Server kennt die Übersicht noch nicht: wie früher die Liste der Monate und ihre Karten einzeln.
+                fallback = true;
+                (errorCode, loaded) = await FetchPerMonthAsync();
+            }
+        }
+        if (disposed || run != loading)
+        {
+            return;
         }
 
+        Apply(loaded);
+        if (!Member.IsHousehold && !fallback)
+        {
+            canLoadEarlier = errorCode is null && today.Year > PlanRules.FirstYear;
+        }
         if (errorCode is not null)
         {
             message = new NoticeMessage(ErrorTexts.For(L, errorCode), NoticeSeverity.Error);
         }
 
-        // Auch ohne Liste bleiben der laufende und die kommenden Monate wählbar.
-        rows = PlanOverviewRows.Build(known, DateOnly.FromDateTime(Time.GetLocalNow().DateTime));
+        // Auch ohne Liste bleibt der laufende Monat wählbar.
+        Rebuild();
 
-        // Die Karten füllen sich von oben nach unten, die Seite ist schon vorher benutzbar.
-        _ = InvokeAsync(() => FillCardsAsync(run, rows.Where(r => r.Free is not null).ToList()));
+        if (Member.IsHousehold || fallback)
+        {
+            // Der Haushalt (und ein älterer Server) lädt die Karten von oben nach unten; die Seite ist schon vorher benutzbar.
+            var withCards = rows!.Where(r => r.Free is not null).ToList();
+            _ = InvokeAsync(() => FillCardsOneByOneAsync(run, withCards));
+        }
     }
 
-    private async Task FillCardsAsync(int run, IReadOnlyList<PlanOverviewRow> withPlan)
+    private void Apply(IEnumerable<LoadedMonth> months)
     {
-        foreach (var row in withPlan)
+        foreach (var month in months)
         {
-            var card = await LoadCardAsync(row);
+            known[(month.Year, month.Month)] = (month.Free, month.WithCarryOver);
+            if (month.Card is not null)
+            {
+                cards[$"{month.Year}-{month.Month}"] = month.Card;
+            }
+        }
+    }
+
+    // Die Übersicht eines Jahres in einer Anfrage: Karten und Zeilen kommen aus derselben Antwort. Fasst den Zustand nicht an.
+    private async Task<(string? ErrorCode, IReadOnlyList<LoadedMonth> Months)> FetchYearAsync(int year)
+    {
+        var overview = await PlanApi.GetOverviewAsync(year, Member.Owner);
+        if (!overview.Succeeded)
+        {
+            return (overview.ErrorCode, []);
+        }
+        return (null, overview.Value!.Select(m => new LoadedMonth(m.Year, m.Month, m.Free, m.CarriedIn, MonthCards.ForOverview(m))).ToList());
+    }
+
+    // Frühere Monate: das Jahr davor in einer weiteren Anfrage. Ist es leer, geht es Jahr für Jahr weiter zurück, bis ein Jahr
+    // mit Plänen kommt oder das erste mögliche erreicht ist; so sperrt ein Jahr ohne Plan die älteren nicht aus.
+    private async Task LoadEarlierAsync()
+    {
+        var run = loading;
+        var year = loadedFromYear;
+        IReadOnlyList<LoadedMonth> months = [];
+        var found = false;
+        do
+        {
+            year--;
+            var (errorCode, fetched) = await FetchYearAsync(year);
             if (disposed || run != loading)
             {
                 return;
             }
+            if (errorCode is not null)
+            {
+                message = new NoticeMessage(ErrorTexts.For(L, errorCode), NoticeSeverity.Error);
+                return;
+            }
+            // Die API liefert auch vorhandene künftige Monate späterer Jahre mit; für die Suche zählt nur das gefragte Jahr.
+            months = fetched;
+            found = fetched.Any(m => m.Year == year);
+        }
+        while (!found && year > PlanRules.FirstYear);
+
+        Apply(months);
+        loadedFromYear = year;
+        canLoadEarlier = year > PlanRules.FirstYear;
+        Rebuild();
+    }
+
+    private void Rebuild()
+    {
+        var withPlan = known.Select(k => (k.Key.Year, k.Key.Month, k.Value.Free, k.Value.WithCarryOver)).ToList();
+        rows = PlanOverviewRows.Build(withPlan, today);
+        nextToCreate = CanCreateNext ? PlanOverviewRows.NextToCreate(withPlan, today) : null;
+    }
+
+    // Ohne Übersicht in einer Anfrage: die Liste der Monate, wie die Seite sie vor der Übersicht hatte. Fasst den Zustand nicht an.
+    private async Task<(string? ErrorCode, IReadOnlyList<LoadedMonth> Months)> FetchPerMonthAsync()
+    {
+        var months = await PlanApi.ListMonthsAsync(Member.Owner);
+        if (!months.Succeeded)
+        {
+            return (months.ErrorCode, []);
+        }
+        return (null, months.Value!.Select(m => new LoadedMonth(m.Year, m.Month, m.Free, m.CarryOver is not null, null)).ToList());
+    }
+
+    private async Task FillCardsOneByOneAsync(int run, IReadOnlyList<PlanOverviewRow> withPlan)
+    {
+        foreach (var row in withPlan)
+        {
+            MonthCard? card;
+            if (Member.IsHousehold)
+            {
+                if (Member.Household is not { } household)
+                {
+                    return;
+                }
+                var plan = await HouseholdApi.GetPlanAsync(household.Id, row.Year, row.Month);
+                card = plan.Succeeded ? MonthCards.ForHousehold(plan.Value!) : null;
+            }
+            else
+            {
+                var plan = await PlanApi.GetAsync(row.Year, row.Month, Member.Owner);
+                card = plan.Succeeded ? MonthCards.ForPerson(plan.Value!) : null;
+            }
+            if (disposed || run != loading)
+            {
+                return;
+            }
+            // Eine Karte, die nicht lädt, bleibt bei Verplanbar aus der Liste; der Grund steht im Monat selbst, wenn man ihn öffnet.
             if (card is not null)
             {
                 cards[row.Key] = card;
                 StateHasChanged();
             }
         }
-    }
-
-    // Eine Karte, die nicht lädt, bleibt bei Verplanbar aus der Liste; der Grund steht im Monat selbst, wenn man ihn öffnet.
-    private async Task<MonthCard?> LoadCardAsync(PlanOverviewRow row)
-    {
-        if (Member.IsHousehold)
-        {
-            if (Member.Household is not { } household)
-            {
-                return null;
-            }
-            var plan = await HouseholdApi.GetPlanAsync(household.Id, row.Year, row.Month);
-            return plan.Succeeded ? MonthCards.ForHousehold(plan.Value!) : null;
-        }
-        var own = await PlanApi.GetAsync(row.Year, row.Month, Member.Owner);
-        return own.Succeeded ? MonthCards.ForPerson(own.Value!) : null;
     }
 
 }

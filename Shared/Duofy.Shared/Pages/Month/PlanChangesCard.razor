@@ -1,0 +1,62 @@
+@using BlazorBlueprint.Icons.Lucide.Components
+@using Duofy.Schemas
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Karte der geänderten Verträge (R2; Issue #94, R9): eine schmale Zeile "2 Verträge geändert · Ansehen" oben im Monat. Ein Tipp
+   klappt darunter die Liste mit vorher und nachher und die Knöpfe zum Übernehmen auf. Zugeklappt ist die Liste verborgen, bleibt
+   aber im Dokument, damit aria-controls auf sie zeigen kann. Was übernommen wird und wer das darf, entscheidet die Planseite. *@
+@if (Changes.Count > 0)
+{
+    <div class="plan-changes-card notice" data-testid="plan-changes">
+        <button type="button" class="plan-changes-toggle" aria-expanded="@(open ? "true" : "false")" aria-controls="plan-changes-panel"
+                data-testid="plan-changes-toggle" @onclick="() => open = !open">
+            <span>@L[Changes.Count == 1 ? "Plan_ChangesLineOne" : "Plan_ChangesLineMany", Changes.Count] · @L["Plan_ChangesLook"]</span>
+            <LucideIcon Name="@(open ? "chevron-up" : "chevron-down")" Size="14" aria-hidden="true" />
+        </button>
+        <div class="stack plan-changes-panel" id="plan-changes-panel" hidden="@(!open)" data-testid="plan-changes-panel">
+            <h3 class="sub-title">@L["Plan_ChangesHeading"]</h3>
+            @foreach (var change in Changes)
+            {
+                var current = change;
+                <div class="row-between" data-testid="plan-change">
+                    <div class="fill stack-sm">
+                        <p>@L[$"Plan_Change_{change.Kind}", change.Label]</p>
+                        @foreach (var field in change.Fields)
+                        {
+                            <p class="small muted">@L["Plan_ChangeField", L[$"PlanField_{field.Field}"], FieldText(field.Field, field.Before), FieldText(field.Field, field.After)]</p>
+                        }
+                        @if (change.Protected)
+                        {
+                            <p class="small muted">@L["Plan_ChangeProtected"]</p>
+                        }
+                    </div>
+                    <DuofyButton Kind="ButtonKind.Ghost" Small="true" Text="@L["Plan_ChangeApply"]" OnClick="@(_ => OnApply.InvokeAsync(current))"
+                                 Class="@GrantLock.Class(CanApplyChange(current))" @attributes="GrantLock.Attributes(CanApplyChange(current))"
+                                 TestId="plan-change-apply" />
+                </div>
+            }
+            <div>
+                <DuofyButton Kind="ButtonKind.Secondary" Text="@L["Plan_ChangesApplyAll"]" OnClick="@(_ => OnApply.InvokeAsync(null))"
+                             Class="@GrantLock.Class(CanApplyAll)" @attributes="GrantLock.Attributes(CanApplyAll)" TestId="plan-changes-apply-all" />
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool open;
+
+    [Parameter, EditorRequired] public IReadOnlyList<PlanChangeResponse> Changes { get; set; } = [];
+
+    /// <summary>Wird mit dem Unterschied aufgerufen, der übernommen werden soll, oder mit null für alle ungeschützten.</summary>
+    [Parameter, EditorRequired] public EventCallback<PlanChangeResponse?> OnApply { get; set; }
+
+    /// <summary>Ob "Alle übernehmen" erlaubt ist.</summary>
+    [Parameter] public bool CanApplyAll { get; set; } = true;
+
+    /// <summary>Ob dieser Unterschied übernommen werden darf.</summary>
+    [Parameter] public Func<PlanChangeResponse, bool> CanApplyChange { get; set; } = _ => true;
+
+    /// <summary>Schreibt den Wert eines Feldes lesbar (Betrag, Topf, Konto).</summary>
+    [Parameter, EditorRequired] public Func<string, string?, string> FieldText { get; set; } = (_, value) => value ?? "";
+}

@@ -10,9 +10,10 @@ public class MonthSizeTests
     public void On_the_phone_each_metric_box_is_only_as_high_as_its_content()
     {
         var css = Css;
-        var phone = css[css.IndexOf("    .metrics {\n        display: flex;", StringComparison.Ordinal)..];
+        var phone = css[css.IndexOf("@media (max-width: 599px) {\n    .narrow-only", StringComparison.Ordinal)..];
+        phone = phone[phone.IndexOf("    .metrics {", StringComparison.Ordinal)..];
         phone = phone[..phone.IndexOf("\n}\n", StringComparison.Ordinal)];
-        Assert.Contains(".metrics { align-items: flex-start; }", phone);
+        Assert.Contains("align-items: start;", phone);
         Assert.Contains(".metrics .metric { height: auto;", phone);
     }
 

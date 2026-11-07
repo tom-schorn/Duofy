@@ -60,6 +60,55 @@ public sealed class FakePlanApi : IPlanApi
         return Task.FromResult(ApiResult<IReadOnlyList<PlanMonthResponse>>.Success(months));
     }
 
+    /// <summary>Die Monate, die die Übersicht mit Zahlen (Issue #94) vorfindet; null heißt: aus den gespeicherten Plänen gerechnet.</summary>
+    public List<PlanOverviewMonthResponse>? Overview { get; set; }
+
+    /// <summary>True: Der Server kennt die Übersicht noch nicht und antwortet 404 (älterer Server, neuere App).</summary>
+    public bool OverviewMissing { get; set; }
+
+    /// <summary>Wie oft die Übersicht mit Zahlen gefragt wurde, mit dem Jahr.</summary>
+    public List<int> OverviewCalls { get; } = [];
+
+    /// <summary>Die Monate je Jahr und Person, wenn ein Test sie unterscheiden will; hat Vorrang vor <see cref="Overview"/>.</summary>
+    public Func<int, Guid?, IReadOnlyList<PlanOverviewMonthResponse>>? OverviewProvider { get; set; }
+
+    /// <summary>Hält die Antwort der Übersicht zurück, bis die Aufgabe fertig ist: so trifft eine Antwort verspätet ein.</summary>
+    public Func<int, Guid?, Task?>? OverviewGate { get; set; }
+
+    /// <summary>Die Aufgaben, die die Übersicht herausgegeben hat: Ein Test wartet auf eine verspätete Antwort, indem er die Aufgabe abwartet.</summary>
+    public List<Task> OverviewTasks { get; } = [];
+
+    public Task<ApiResult<IReadOnlyList<PlanOverviewMonthResponse>>> GetOverviewAsync(int year, Guid? owner = null, CancellationToken cancellationToken = default)
+    {
+        var task = GetOverviewCoreAsync(year, owner);
+        OverviewTasks.Add(task);
+        return task;
+    }
+
+    private async Task<ApiResult<IReadOnlyList<PlanOverviewMonthResponse>>> GetOverviewCoreAsync(int year, Guid? owner)
+    {
+        Owners.Add(owner);
+        OverviewCalls.Add(year);
+        if (OverviewGate?.Invoke(year, owner) is { } gate)
+        {
+            await gate;
+        }
+        if (OverviewMissing)
+        {
+            return ApiResult<IReadOnlyList<PlanOverviewMonthResponse>>.Failure(ClientErrorCodes.NotFound);
+        }
+        if (Error is not null)
+        {
+            return ApiResult<IReadOnlyList<PlanOverviewMonthResponse>>.Failure(Error);
+        }
+        IReadOnlyList<PlanOverviewMonthResponse> months = OverviewProvider?.Invoke(year, owner) ?? Overview
+            ?? Plans.Values
+                .Select(p => new PlanOverviewMonthResponse(
+                    p.Year, p.Month, p.Overview?.Free ?? 0m, p.CarryOver.Amount is not null, Duofy.Shared.Services.MonthView.Unpaid(p.Positions), p.Overview?.Pots ?? []))
+                .OrderByDescending(m => m.Year).ThenByDescending(m => m.Month).ToList();
+        return ApiResult<IReadOnlyList<PlanOverviewMonthResponse>>.Success(months);
+    }
+
     public Task<ApiResult<PlanResponse>> GetAsync(int year, int month, Guid? owner = null, CancellationToken cancellationToken = default)
     {
         Owners.Add(owner);

@@ -30,6 +30,12 @@ public static class SessionCookie
     /// <summary>Unter diesem Claim steht die Kennung der Sitzung im ClaimsPrincipal der Anfrage.</summary>
     public const string ClaimType = "duofy:session";
 
+    /// <summary>
+    /// So lange hält eine Anmeldung im Web: sieben Tage, wie ein Refresh-Token der API.
+    /// Cookie und Token-Speicher des Servers richten sich beide danach.
+    /// </summary>
+    public static readonly TimeSpan Lifetime = TimeSpan.FromDays(7);
+
     private const string ItemKey = "Duofy.SessionId";
 
     // Hierüber baut Blazor die dauerhafte Verbindung der interaktiven Seiten auf.
@@ -60,18 +66,24 @@ public static class SessionCookie
     private static string NameFor(HttpContext context) => IsDevelopment(context) ? DevelopmentName : Name;
 
     /// <summary>
-    /// Setzt das Cookie, wenn der Browser noch keines mitgeschickt hat. Die Verbindung
-    /// der interaktiven Seiten bekommt keines: Kommt sie ohne Cookie, hat der Browser
+    /// Setzt das Cookie, wenn der Browser noch keines mitgeschickt hat, und erneuert es
+    /// bei jeder normalen Seitenanfrage mit gültiger Kennung (dieselbe Kennung, wieder
+    /// sieben Tage), damit die Anmeldung mit der Nutzung wandert. Die Verbindung der
+    /// interaktiven Seiten bekommt nie ein Cookie: Kommt sie ohne Cookie, hat der Browser
     /// das Cookie der Seite nicht angenommen, und eine neue Kennung nur für diese
     /// Verbindung fände er nie wieder. Ohne Kennung bittet die Anmeldung um Cookies.
     /// </summary>
     public static IApplicationBuilder UseWebSessionCookie(this IApplicationBuilder app) => app.Use(async (context, next) =>
     {
-        if (Read(context) is null && !context.Request.Path.StartsWithSegments(InteractiveConnectionPath))
+        if (!context.Request.Path.StartsWithSegments(InteractiveConnectionPath))
         {
-            var id = NewId();
-            // Diese Anfrage soll die neue Kennung schon kennen, nicht erst die nächste.
-            context.Items[ItemKey] = id;
+            var id = Read(context);
+            if (id is null)
+            {
+                id = NewId();
+                // Diese Anfrage soll die neue Kennung schon kennen, nicht erst die nächste.
+                context.Items[ItemKey] = id;
+            }
             // Im iframe einer fremden Seite schickt der Browser ein Lax-Cookie nicht mit. None verlangt immer Secure.
             var embeddable = context.RequestServices.GetRequiredService<FrameAncestors>().AllowsForeignSites;
             context.Response.Cookies.Append(NameFor(context), id, new CookieOptions
@@ -83,8 +95,8 @@ public static class SessionCookie
                 Secure = embeddable || !IsDevelopment(context) || context.Request.IsHttps,
                 IsEssential = true,
                 Path = "/",
-                // So lange wie ein Refresh-Token gilt.
-                MaxAge = TimeSpan.FromDays(30),
+                // So lange wie ein Refresh-Token gilt, ab jetzt gerechnet.
+                MaxAge = Lifetime,
             });
         }
         await next(context);

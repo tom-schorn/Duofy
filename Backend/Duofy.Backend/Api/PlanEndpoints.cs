@@ -27,6 +27,7 @@ internal static class PlanEndpoints
     public static void MapPlanEndpoints(this IEndpointRouteBuilder v1)
     {
         v1.MapGet("/plans", ListMonthsAsync).RequireAuthorization();
+        v1.MapGet("/plans/overview", OverviewAsync).RequireAuthorization();
 
         var plan = v1.MapGroup("/plans/{year:int}/{month:int}").RequireAuthorization();
         plan.MapGet("", GetAsync);
@@ -78,6 +79,27 @@ internal static class PlanEndpoints
         }
         var seesBookings = (await access.LevelAsync(ownerId, Area.Book, cancellationToken)).Includes(AccessLevel.View);
         return Results.Ok(await plans.MonthsAsync(ownerId, seesBookings, cancellationToken));
+    }
+
+    /// <summary>
+    /// Die Monate eines Jahres mit Verplanbar, Anstehend und den Töpfen in einem Aufruf (Issue #94, R10), dazu die vorhandenen
+    /// künftigen Monate. Nur lesend; die Freigabe ist die der Monatsliste (<c>?owner=</c> mit Planung ansehen), das Jahr muss in
+    /// <see cref="PlanRules"/> liegen, sonst 400.
+    /// </summary>
+    private static async Task<IResult> OverviewAsync(
+        int? year, Guid? owner, IAccess access, PlanStore plans, CancellationToken cancellationToken)
+    {
+        var (ownerId, denied) = await OwnerAsync(access, owner, Area.Plan, AccessLevel.View, ErrorCodes.OwnerNotFound, cancellationToken);
+        if (denied is not null)
+        {
+            return denied;
+        }
+        if (year is not (>= PlanRules.FirstYear and <= PlanRules.LastYear))
+        {
+            return ApiErrors.BadRequest(ErrorCodes.MonthInvalid);
+        }
+        var seesBookings = (await access.LevelAsync(ownerId, Area.Book, cancellationToken)).Includes(AccessLevel.View);
+        return Results.Ok(await plans.OverviewAsync(ownerId, year.Value, seesBookings, cancellationToken));
     }
 
     /// <summary>Öffnet den Monat (R1); beim ersten Mal wird er aus den Verträgen angelegt.</summary>

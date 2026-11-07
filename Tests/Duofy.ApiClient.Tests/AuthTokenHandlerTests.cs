@@ -98,6 +98,33 @@ public class AuthTokenHandlerTests
         Assert.False((await authState.GetAuthenticationStateAsync()).User.Identity!.IsAuthenticated);
     }
 
+    // Spec 97, Review: Läuft der Eintrag des Web-Servers ab, während die Verbindung noch "angemeldet" zeigt,
+    // meldet die nächste Anfrage die Person ab (Zustandswechsel), statt ohne Token weiterzulaufen.
+    [Fact]
+    public async Task Signs_out_and_notifies_when_the_stored_tokens_have_disappeared()
+    {
+        var api = new FakeApi { Respond = _ => new HttpResponseMessage(HttpStatusCode.Unauthorized) };
+        var store = new InMemoryTokenStore { Tokens = new AuthTokens("access", "refresh") };
+        using var provider = TestHost.Create(api, store);
+        using var scope = provider.CreateScope();
+        var authState = scope.ServiceProvider.GetRequiredService<AuthenticationStateProvider>();
+        Assert.True((await authState.GetAuthenticationStateAsync()).User.Identity!.IsAuthenticated);
+        var changes = 0;
+        authState.AuthenticationStateChanged += _ => changes++;
+        store.Tokens = null; // der Eintrag ist abgelaufen
+
+        var result = await scope.ServiceProvider.GetRequiredService<IUserApi>().GetMeAsync();
+
+        Assert.Equal(ClientErrorCodes.NotSignedIn, result.ErrorCode);
+        Assert.Equal(0, api.CountOf("/api/v1/auth/refresh"));
+        Assert.Equal(1, changes);
+        Assert.False((await authState.GetAuthenticationStateAsync()).User.Identity!.IsAuthenticated);
+
+        // Eine weitere Anfrage ohne Tokens löst keine neue Meldung aus.
+        await scope.ServiceProvider.GetRequiredService<IUserApi>().GetMeAsync();
+        Assert.Equal(1, changes);
+    }
+
     [Fact]
     public async Task Does_not_refresh_when_no_tokens_are_stored()
     {

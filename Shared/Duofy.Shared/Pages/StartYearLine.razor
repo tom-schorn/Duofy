@@ -1,0 +1,58 @@
+@using Duofy.Schemas
+@using System.Globalization
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Jahreslinie der Startseite (Issue #94, R5): ein kleiner Balken je Monat von Januar bis zum laufenden Monat für das, was
+   übrig war (grün, über der Linie) oder fehlte (rot, unter der Linie). Künftige Monate gibt es nicht; ein Monat ohne Plan ist ein
+   leerer Platz. Jeder Balken hat den Namen "<Monat>: <Betrag>", die Farbe steht nie allein: Übriges liegt über, Fehlendes unter
+   der Linie. Ein Tipp führt zur Plan-Übersicht; für die Tastatur gibt es den Link darunter. *@
+<a class="year-line" href="@Href" tabindex="-1" data-testid="start-year-link">
+    <ul class="year-bars" data-testid="start-year">
+        @for (var month = 1; month <= Today.Month; month++)
+        {
+            var figure = Months.FirstOrDefault(m => m.Year == Today.Year && m.Month == month);
+            var name = new DateOnly(Today.Year, month, 1).ToString("MMMM", German);
+            <li class="@ClassOf(figure)" role="img" aria-label="@Label(name, figure)" data-testid="@($"start-year-bar-{month}")">
+                <span class="year-bar-up">
+                    @if (figure is { Free: > 0m })
+                    {
+                        <span class="year-bar-fill" style="height: @Height(figure.Free)"></span>
+                    }
+                </span>
+                <span class="year-bar-down">
+                    @if (figure is { Free: < 0m })
+                    {
+                        <span class="year-bar-fill" style="height: @Height(-figure.Free)"></span>
+                    }
+                </span>
+                <span class="year-bar-month" aria-hidden="true">@name[..1]</span>
+            </li>
+        }
+    </ul>
+</a>
+
+@code {
+    private static readonly CultureInfo German = new("de-DE");
+
+    /// <summary>Die Monate mit Plan aus der Übersicht; Monate anderer Jahre und künftige zählen nicht.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<PlanOverviewMonthResponse> Months { get; set; } = [];
+
+    [Parameter, EditorRequired] public DateOnly Today { get; set; }
+
+    [Parameter] public string Href { get; set; } = "/plan";
+
+    // Der größte Betrag des Jahres ist die volle Höhe; so bleiben die Balken untereinander vergleichbar.
+    private decimal Largest => Months.Where(m => m.Year == Today.Year && m.Month <= Today.Month).Select(m => Math.Abs(m.Free)).DefaultIfEmpty(0m).Max();
+
+    private string Height(decimal value) => Duofy.Shared.Charts.ChartMath.CssPercent(Largest <= 0m ? 0m : Math.Max(value / Largest * 100m, 4m));
+
+    private static string ClassOf(PlanOverviewMonthResponse? figure) => figure switch
+    {
+        null => "year-bar year-bar--empty",
+        { Free: < 0m } => "year-bar year-bar--negative",
+        _ => "year-bar year-bar--positive",
+    };
+
+    private string Label(string month, PlanOverviewMonthResponse? figure) =>
+        figure is null ? L["Start_YearNoPlan", month].Value : L["Start_YearBar", month, MoneyText.Format(figure.Free)].Value;
+}

@@ -20,6 +20,16 @@ public static class PlanView
             .ToList();
 
     /// <summary>
+    /// Die Töpfe der Planseite (Issue #94, R8): die mit Posten und dazu die Ausgabe-Töpfe, in denen etwas ohne Posten gebucht ist, damit
+    /// auch dort die Zeile Ungeplant steht; sonst wie <see cref="Groups"/>.
+    /// </summary>
+    public static IReadOnlyList<(string Pot, IReadOnlyList<PlanPositionResponse> Positions)> GroupsWithUnplanned(PlanResponse plan) =>
+        PotOrder
+            .Select(pot => (pot, (IReadOnlyList<PlanPositionResponse>)plan.Positions.Where(p => p.Pot == pot).ToList()))
+            .Where(group => group.Item2.Count > 0 || (group.pot != PotKeys.Income && Unplanned(plan, group.pot) != 0m))
+            .ToList();
+
+    /// <summary>
     /// Das Geplante eines Topfs, wie es die Übersicht und das Flussdiagramm zeigen (Spec 82, R17): aus der Übersicht der API,
     /// ohne durchlaufende Posten; ohne Übersicht die Summe der Posten.
     /// </summary>
@@ -28,12 +38,20 @@ public static class PlanView
             ? plan.Overview?.Income ?? plan.Positions.Where(p => p.Pot == pot && !p.PassThrough).Sum(p => p.AmountPlanned)
             : plan.Overview?.Pots.FirstOrDefault(p => p.Pot == pot)?.Planned ?? plan.Positions.Where(p => p.Pot == pot && !p.PassThrough).Sum(p => p.AmountPlanned);
 
+    /// <summary>Das Gebuchte eines Topfs aus der Übersicht der API, dieselbe Zahl wie auf Start und Übersicht; ohne Übersicht null.</summary>
+    public static decimal? PotBooked(PlanResponse plan, string pot) =>
+        plan.Overview is null ? null : plan.Overview.Pots.FirstOrDefault(p => p.Pot == pot)?.Booked ?? 0m;
+
     /// <summary>Was in den drei Ausgabe-Töpfen ohne Posten gebucht ist, je Topf: die Zeile Ungeplant (Spec 82, R17).</summary>
     public static IReadOnlyDictionary<string, decimal> UnplannedPerPot(PlanResponse plan) =>
         new[] { PotKeys.Needs, PotKeys.Wants, PotKeys.Savings }.ToDictionary(pot => pot, pot => Unplanned(plan, pot));
 
-    /// <summary>Was in einem Topf ohne Posten gebucht ist: die Zeile Ungeplant (Spec 82).</summary>
+    /// <summary>
+    /// Was in einem Topf ohne Posten gebucht ist: die Zeile Ungeplant (Spec 82). Umbuchungen zählen nie dazu, auch wenn ihre
+    /// Zeilen einen Topf und keinen Posten haben; so rechnet auch die API.
+    /// </summary>
     public static decimal Unplanned(PlanResponse plan, string pot) => (plan.Overview?.Bookings ?? [])
+        .Where(b => b.Kind != BookingKinds.Transfer)
         .SelectMany(b => b.Lines)
         .Where(l => l.PositionId is null && l.Pot == pot)
         .Sum(l => l.Amount);

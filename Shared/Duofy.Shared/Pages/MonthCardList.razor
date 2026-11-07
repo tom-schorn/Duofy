@@ -28,18 +28,25 @@
                 {
                     <span class="month-card-kpis">
                         <span class="plan-month-free" data-testid="@($"plan-month-free-{row.Key}")">
-                            <span class="muted">@L["Month_Allocatable"]</span>
-                            <b class="@(free < 0m ? "over" : null)">@MoneyText.Format(free)</b>
+                            <span class="plan-month-free-figure">
+                                <span class="muted">@L["Month_Allocatable"]</span>
+                                <b class="@(free < 0m ? "over" : null)">@MoneyText.Format(free)</b>
+                            </span>
                             @if (row.WithCarryOver)
                             {
-                                <span class="muted small"> @L["PlanOverview_WithCarryOver"]</span>
+                                <span class="plan-month-free-hint muted small">@L["PlanOverview_WithCarryOver"]</span>
                             }
                         </span>
                         @if (card is not null)
                         {
                             <span data-testid="@($"plan-month-unpaid-{row.Key}")">
                                 <span class="muted">@L["Month_Unpaid"]</span>
-                                @if (card.Unpaid > 0m)
+                                @if (!ShowUnpaid)
+                                {
+                                    @* Ohne Sicht auf die Buchungen wäre alles Geplante noch offen: wie in der Monatsseite steht dann nur ein Strich. *@
+                                    <span class="muted strong">–</span>
+                                }
+                                else if (card.Unpaid > 0m)
                                 {
                                     <b>@MoneyText.Format(card.Unpaid)</b>
                                 }
@@ -59,12 +66,14 @@
                                     <span class="pot-row-name">
                                         <span class="@($"dot dot--{pot.Pot}")" aria-hidden="true"></span>
                                         @L[$"Pot_{pot.Pot}"]
-                                        <span class="muted">@pot.Target %</span>
                                     </span>
                                     <PotBar Pot="@pot.Pot" Percent="pot.Percent" Over="pot.Over" />
                                     <span class="pot-row-sum">
-                                        <b class="@(pot.Over ? "over" : null)">@MoneyText.Format(pot.Planned)</b>
-                                        <span class="muted">@L["Month_Of", MoneyText.Format(pot.Limit)]</span>
+                                        <b class="@(pot.Over ? "over" : null)">@L["PlanOverview_PotOf", MoneyText.Format(pot.Booked), MoneyText.Format(pot.Planned)]</b>
+                                        @if (pot.Over)
+                                        {
+                                            <span class="over">@L["Pot_OverBy"]</span>
+                                        }
                                     </span>
                                 </span>
                             }
@@ -87,6 +96,9 @@
 
     /// <summary>Die geladenen Karten je <see cref="PlanOverviewRow.Key"/>.</summary>
     [Parameter, EditorRequired] public IReadOnlyDictionary<string, MonthCard> Cards { get; set; } = new Dictionary<string, MonthCard>();
+
+    /// <summary>False, wenn der Betrachter die Buchungen nicht sieht: Anstehend ist dann nicht aussagekräftig und bleibt aus.</summary>
+    [Parameter] public bool ShowUnpaid { get; set; } = true;
 
     private string MonthTitle(PlanOverviewRow row) => new DateOnly(row.Year, row.Month, 1).ToString("MMMM yyyy", German);
 }

@@ -94,16 +94,19 @@ public class WebHostTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.DoesNotContain("domain=", cookie, StringComparison.OrdinalIgnoreCase);
     }
 
+    // Spec 97, P-107: Ein bekanntes Cookie behält seine Kennung, bekommt aber wieder sieben Tage.
     [Fact]
-    public async Task Known_session_cookie_is_not_replaced()
+    public async Task Known_session_cookie_is_renewed_with_the_same_id()
     {
+        var id = SessionCookie.NewId();
         var request = new HttpRequestMessage(HttpMethod.Get, "/not-found");
-        request.Headers.Add("Cookie", $"{SessionCookie.DevelopmentName}={SessionCookie.NewId()}");
+        request.Headers.Add("Cookie", $"{SessionCookie.DevelopmentName}={id}");
 
         var response = await Client().SendAsync(request);
 
-        Assert.False(response.Headers.TryGetValues("Set-Cookie", out var cookies)
-            && cookies.Any(c => c.StartsWith(SessionCookie.DevelopmentName + "=")));
+        var cookie = Assert.Single(response.Headers.GetValues("Set-Cookie"), c => c.StartsWith(SessionCookie.DevelopmentName + "="));
+        Assert.StartsWith($"{SessionCookie.DevelopmentName}={id};", cookie);
+        Assert.Contains($"max-age={7 * 24 * 60 * 60}", cookie, StringComparison.OrdinalIgnoreCase);
     }
 
     // Kommt die Verbindung der interaktiven Seiten ohne Cookie, hat der Browser das

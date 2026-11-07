@@ -52,6 +52,9 @@ internal sealed class AuthTokenHandler : DelegatingHandler
         var tokens = await session.GetAsync(cancellationToken);
         if (tokens is null)
         {
+            // Ohne Tokens ist die Person abgemeldet (etwa weil der Eintrag des Web-Servers
+            // abgelaufen ist); die laufende Verbindung soll das erfahren und zur Anmeldung gehen.
+            session.NoteTokensMissing();
             return await base.SendAsync(request, cancellationToken);
         }
 

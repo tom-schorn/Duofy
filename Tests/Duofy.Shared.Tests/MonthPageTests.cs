@@ -1,6 +1,8 @@
 using Bunit;
 using Duofy.Schemas;
 using Duofy.Shared.Pages;
+using Duofy.Shared.Resources;
+using Microsoft.Extensions.Localization;
 using Duofy.Shared.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Components;
@@ -286,10 +288,9 @@ public class MonthPageTests : PageTestContext
         Assert.Contains("890,00 €", needs.QuerySelector($"[data-testid='plan-amounts-{rent.Id}']")!.TextContent);
         var wants = cut.Find($"[data-testid='pot-section-{PotKeys.Wants}']");
         Assert.Contains("12,99 €", wants.QuerySelector($"[data-testid='plan-amounts-{fun.Id}']")!.TextContent);
-        Assert.Null(wants.QuerySelector("[data-testid='plan-unplanned']"));
-        var unplanned = cut.Find("[data-testid='plan-unplanned']").TextContent;
-        Assert.Contains("45,00 €", unplanned);
-        Assert.Contains("Wünsche 45,00 €", unplanned);
+        var unplanned = wants.QuerySelector("[data-testid='plan-unplanned-wants']")!.TextContent;
+        Assert.Contains("Ungeplant · 1 Buchung · 45,00 €", unplanned);
+        Assert.Empty(cut.FindAll("[data-testid='plan-unplanned']"));
         Assert.Contains("12,99 €", Text(cut, $"pot-sum-{PotKeys.Wants}"));
         Assert.DoesNotContain("57,99", Text(cut, $"pot-sum-{PotKeys.Wants}"));
 
@@ -298,6 +299,113 @@ public class MonthPageTests : PageTestContext
         OpenReviewTab(cut);
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-review']")));
         Assert.Empty(cut.FindAll(".flow-chart, [data-testid='month-flow']"));
+    }
+
+    // A8 (Issue #94, R8): je Topf eine Zeile Ungeplant am Ende, ohne Kästchen, aufklappbar zu den Buchungen
+    [Fact]
+    public void A8_unplanned_bookings_form_one_row_per_pot()
+    {
+        var groceries = FakePlanApi.Position("Lebensmittel", 400m);
+        BookingResponse Loose(decimal amount, string pot = PotKeys.Needs, Guid? position = null) =>
+            new(Guid.NewGuid(), BookingKinds.Expense, Guid.NewGuid(), null, new DateOnly(2026, 10, 3), amount, null,
+                [new BookingLineResponse(Guid.NewGuid(), amount, pot, FakeCategoryApi.Groceries.Id, position)], 2026, 10);
+        var bookings = new[] { Loose(30m), Loose(28.89m), Loose(30m), Loose(20m, position: groceries.Id) };
+        var cut = Open(2026, 10, Overview(pots: [new PlanPotResponse(PotKeys.Needs, 400m, 108.89m), new PlanPotResponse(PotKeys.Wants, 0m, 0m), new PlanPotResponse(PotKeys.Savings, 0m, 0m)], bookings: bookings), groceries);
+
+        var needs = cut.Find($"[data-testid='pot-section-{PotKeys.Needs}']");
+        var row = needs.QuerySelector("[data-testid='plan-unplanned-needs']")!;
+        Assert.Contains("Ungeplant · 3 Buchungen · 88,89 €", row.TextContent);
+        Assert.Empty(row.QuerySelectorAll("[role='checkbox'], input[type='checkbox'], .tick-box"));
+        Assert.Equal(row, needs.QuerySelectorAll("ul.pot-rows > li").Last());
+        Assert.Empty(cut.FindAll("[data-testid='plan-unplanned-wants']"));
+
+        var toggle = row.QuerySelector("[data-testid='plan-unplanned-needs-toggle']")!;
+        var panel = row.QuerySelector("[data-testid='plan-unplanned-needs-bookings']")!;
+        Assert.Equal("false", toggle.GetAttribute("aria-expanded"));
+        Assert.NotNull(panel.GetAttribute("hidden"));
+        toggle.Click();
+        Assert.Equal("true", cut.Find("[data-testid='plan-unplanned-needs-toggle']").GetAttribute("aria-expanded"));
+        panel = cut.Find("[data-testid='plan-unplanned-needs-bookings']");
+        Assert.Null(panel.GetAttribute("hidden"));
+        Assert.Equal(3, panel.QuerySelectorAll("[data-testid^='position-booking-']").Length);
+    }
+
+    // Review M5: Eine Umbuchung hat Topfzeilen ohne Posten, ist aber nie ungeplant (wie PlanFigures.Unplanned); weder eine Zeile
+    // Ungeplant noch ein sichtbarer Topf entsteht daraus, und die Helfer stimmen mit dem gebuchten Topfwert überein.
+    [Fact]
+    public void M5_a_transfer_with_pot_lines_is_not_shown_as_unplanned()
+    {
+        var rent = FakePlanApi.Position("Miete", 400m);
+        var transfer = new BookingResponse(Guid.NewGuid(), BookingKinds.Transfer, Guid.NewGuid(), Guid.NewGuid(), new DateOnly(2026, 10, 4), 150m, null,
+            [new BookingLineResponse(Guid.NewGuid(), 150m, PotKeys.Savings, null)], 2026, 10, PotKeys.Savings);
+        var loose = new BookingResponse(Guid.NewGuid(), BookingKinds.Expense, Guid.NewGuid(), null, new DateOnly(2026, 10, 3), 30m, null,
+            [new BookingLineResponse(Guid.NewGuid(), 30m, PotKeys.Needs, FakeCategoryApi.Groceries.Id)], 2026, 10);
+        var cut = Open(2026, 10, Overview(pots: [new PlanPotResponse(PotKeys.Needs, 400m, 30m), new PlanPotResponse(PotKeys.Wants, 0m, 0m), new PlanPotResponse(PotKeys.Savings, 0m, 0m)], bookings: [transfer, loose]), rent);
+
+        Assert.Empty(cut.FindAll("[data-testid='pot-section-savings']"));
+        Assert.Empty(cut.FindAll("[data-testid='plan-unplanned-savings']"));
+        Assert.Contains("Ungeplant · 1 Buchung · 30,00 €", cut.Find("[data-testid='plan-unplanned-needs']").TextContent);
+    }
+
+    // Review M5: dieselbe Regel im Helfer für die Summe und in dem für die Zeilen
+    [Fact]
+    public void M5_both_helpers_leave_transfers_out()
+    {
+        var transfer = new BookingResponse(Guid.NewGuid(), BookingKinds.Transfer, Guid.NewGuid(), Guid.NewGuid(), new DateOnly(2026, 10, 4), 150m, null,
+            [new BookingLineResponse(Guid.NewGuid(), 150m, PotKeys.Savings, null)], 2026, 10, PotKeys.Savings);
+        var plan = FakePlanApi.Empty(2026, 10) with { Overview = new PlanOverviewResponse(0m, 0m, 0m, [], [transfer]) };
+
+        Assert.Equal(0m, PlanView.Unplanned(plan, PotKeys.Savings));
+        Assert.Empty(BookingPurpose.UnplannedLinesOf([transfer], PotKeys.Savings, _ => null, Services.GetRequiredService<IStringLocalizer<SharedResources>>()));
+        Assert.Empty(PlanView.GroupsWithUnplanned(plan));
+    }
+
+    // A9 (Issue #94, R9): die Karte der geänderten Verträge ist eine Zeile; ein Tipp zeigt Liste und Knöpfe
+    [Fact]
+    public void A9_the_contract_change_card_is_one_line()
+    {
+        var rent = FakePlanApi.Position("Miete", 890m);
+        var power = FakePlanApi.Position("Strom", 80m);
+        PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10) with
+        {
+            Positions = [rent, power],
+            Changes =
+            [
+                new PlanChangeResponse(PlanChangeKinds.Changed, rent.Id, rent.CommitmentId!.Value, "Miete", [new PlanFieldChangeResponse(PlanFields.Amount, "890.00", "950.00")], Protected: false),
+                new PlanChangeResponse(PlanChangeKinds.Changed, power.Id, power.CommitmentId!.Value, "Strom", [new PlanFieldChangeResponse(PlanFields.Amount, "80.00", "90.00")], Protected: false),
+            ],
+        };
+        var cut = Render<Plan>(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 10));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='plan-changes']")));
+
+        var toggle = cut.Find("[data-testid='plan-changes-toggle']");
+        Assert.Equal("2 Verträge geändert · Ansehen", toggle.TextContent.Trim());
+        Assert.Equal("false", toggle.GetAttribute("aria-expanded"));
+        Assert.NotNull(cut.Find("[data-testid='plan-changes-panel']").GetAttribute("hidden"));
+
+        toggle.Click();
+
+        Assert.Equal("true", cut.Find("[data-testid='plan-changes-toggle']").GetAttribute("aria-expanded"));
+        var panel = cut.Find("[data-testid='plan-changes-panel']");
+        Assert.Null(panel.GetAttribute("hidden"));
+        Assert.Equal(2, panel.QuerySelectorAll("[data-testid='plan-change']").Length);
+        Assert.Equal(2, panel.QuerySelectorAll("[data-testid='plan-change-apply']").Length);
+        Assert.NotNull(panel.QuerySelector("[data-testid='plan-changes-apply-all']"));
+    }
+
+    [Fact]
+    public void One_changed_contract_reads_in_the_singular()
+    {
+        var rent = FakePlanApi.Position("Miete", 890m);
+        PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10) with
+        {
+            Positions = [rent],
+            Changes = [new PlanChangeResponse(PlanChangeKinds.Changed, rent.Id, rent.CommitmentId!.Value, "Miete", [], Protected: false)],
+        };
+        var cut = Render<Plan>(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 10));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='plan-changes']")));
+
+        Assert.Equal("1 Vertrag geändert · Ansehen", cut.Find("[data-testid='plan-changes-toggle']").TextContent.Trim());
     }
 
     // A11 (Spec 82): Das Kästchen öffnet den Dialog mit Datum und Betrag; erst die Bestätigung bucht, und zwar genau einmal.
@@ -369,9 +477,9 @@ public class MonthPageTests : PageTestContext
         Assert.Contains("Girokonto", Text(cut, $"month-booking-{plain.Id}"));
     }
 
-    // A8 (R7), seit Spec 82 R12: Die Kennzahlen stehen nebeneinander; am Handy als waagerecht wischbare Reihe statt untereinander.
+    // A8 (R7), seit Spec 101: Die Kennzahlen stehen in einer Reihe; unter 600 px zwei mal zwei, ohne Wischstreifen.
     [Fact]
-    public void The_blocks_stand_side_by_side_and_swipe_sideways_on_phones()
+    public void The_blocks_stand_in_one_row_and_as_two_by_two_on_phones()
     {
         var css = File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "wwwroot", "duofy.css")).Replace("\r\n", "\n");
 
@@ -380,13 +488,13 @@ public class MonthPageTests : PageTestContext
         Assert.Contains("repeat(4, minmax(0, 1fr))", basic[..basic.IndexOf('}')]);
         Assert.Contains(".metrics > * > .metric { flex: 1 1 auto; }", css);
 
-        var phone = css[css.IndexOf("@media (max-width: 767px) {\n    .narrow-only", StringComparison.Ordinal)..];
-        var row = phone[phone.IndexOf("    .metrics {", StringComparison.Ordinal)..];
-        row = row[..row.IndexOf('}')];
-        Assert.Contains("display: flex", row);
-        Assert.Contains("overflow-x: auto", row);
-        Assert.Contains("scroll-snap-type: x mandatory", row);
-    }
+        var phone = css[css.IndexOf("@media (max-width: 599px) {\n    .narrow-only", StringComparison.Ordinal)..];
+        var grid = phone[phone.IndexOf("    .metrics {", StringComparison.Ordinal)..];
+        grid = grid[..grid.IndexOf('}')];
+        Assert.Contains("repeat(2, minmax(0, 1fr))", grid);
+        Assert.DoesNotContain("display: flex", grid);
+        Assert.DoesNotContain("overflow-x", grid);
+        Assert.DoesNotContain("scroll-snap-type", grid);    }
 
     // Spec 82, R12: Am Handy bleibt "Buchung anlegen" der Hauptknopf; Posten anlegen und Drucken stehen im Menü.
     [Fact]

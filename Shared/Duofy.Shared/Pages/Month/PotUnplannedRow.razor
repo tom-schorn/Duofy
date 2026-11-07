@@ -1,0 +1,33 @@
+@using BlazorBlueprint.Icons.Lucide.Components
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Zeile Ungeplant am Ende eines Topfs (Issue #94, R8): "Ungeplant · 3 Buchungen · 88,89 €" für die Buchungen ohne Posten in
+   diesem Topf. Sie sieht anders aus als ein Posten (gedämpft, gestrichelte Linie) und hat kein Kästchen, denn es gibt nichts
+   abzuhaken. Ein Tipp klappt darunter die Buchungen auf (PositionBookings, ohne Knopf zum Anlegen). Zugeklappt ist der Bereich
+   verborgen, bleibt aber im Dokument, damit aria-controls auf ihn zeigen kann. Ohne Buchungen ohne Posten gibt es die Zeile nicht. *@
+@if (Rows.Count > 0)
+{
+    <li class="plan-row unplanned-row" data-testid="@($"plan-unplanned-{Pot}")">
+        <button type="button" class="unplanned-row-toggle" aria-expanded="@(open ? "true" : "false")" aria-controls="@PanelId"
+                data-testid="@($"plan-unplanned-{Pot}-toggle")" @onclick="() => open = !open">
+            <span class="unplanned-row-text">@Text</span>
+            <LucideIcon Name="@(open ? "chevron-up" : "chevron-down")" Size="14" aria-hidden="true" />
+        </button>
+        <PositionBookings Label="@L["Plan_Unplanned"]" TestId="@($"plan-unplanned-{Pot}-bookings")" PanelId="@PanelId" Open="open"
+                          Rows="Rows" CanAdd="false" />
+    </li>
+}
+
+@code {
+    private bool open;
+
+    /// <summary>Der Topf, in dem die Zeile steht (PotKeys).</summary>
+    [Parameter, EditorRequired] public string Pot { get; set; } = "";
+
+    /// <summary>Die Buchungen ohne Posten in diesem Topf, je Buchung die Summe ihrer Zeilen dort.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<PositionBookingRow> Rows { get; set; } = [];
+
+    private string PanelId => $"plan-unplanned-panel-{Pot}";
+
+    private string Text => $"{L["Plan_Unplanned"]} · {PositionBookings.CountText(L, Rows.Count)} · {MoneyText.Format(Rows.Sum(r => r.Amount))}";
+}

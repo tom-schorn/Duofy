@@ -86,6 +86,48 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
     }
 
     /// <summary>
+    /// Die Monate mit Plan für die Plan-Übersicht und die Jahreslinie (Issue #94): alle des Jahres und die vorhandenen
+    /// künftigen Monate, der neueste zuerst, mit Verplanbar, Anstehend und den Töpfen. Die Zahlen kommen aus denselben
+    /// <see cref="PlanFigures"/> wie im Monat selbst. Legt nichts an; die Menge ist begrenzt durch die vorhandenen Pläne ab dem Jahr.
+    /// </summary>
+    /// <param name="ownerId">Wessen Pläne.</param>
+    /// <param name="year">Das Jahr; wer aufruft, prüft es gegen <see cref="PlanRules"/>.</param>
+    /// <param name="seesBookings">False, wenn der Betrachter die Buchungen nicht sieht: Gebucht, Übertrag und Ungeplantes bleiben draußen.</param>
+    public async Task<List<PlanOverviewMonthResponse>> OverviewAsync(Guid ownerId, int year, bool seesBookings, CancellationToken cancellationToken)
+    {
+        // Ab dem Jahr laden: Der Übertrag in den nächsten Monat kommt aus dessen Plan, auch aus dem Januar des Folgejahres.
+        var plans = await db.Plans
+            .AsNoTracking()
+            .Include(p => p.Positions)
+            .Where(p => p.OwnerId == ownerId && p.Year >= year)
+            .ToListAsync(cancellationToken);
+        var bookings = seesBookings
+            ? await BookingEndpoints.WithLines(db)
+                .AsNoTracking()
+                .Where(b => b.OwnerId == ownerId && b.PlanYear >= year)
+                .ToListAsync(cancellationToken)
+            : [];
+        var available = seesBookings ? await AvailableAccountIdsAsync([ownerId], cancellationToken) : [];
+        var today = DateOnly.FromDateTime(time.GetLocalNow().DateTime);
+        return MonthFigures(plans, bookings, available)
+            .Where(m => m.Plan.Year == year || (m.Plan.Year, m.Plan.Month).CompareTo((today.Year, today.Month)) > 0)
+            .OrderByDescending(m => m.Plan.Year)
+            .ThenByDescending(m => m.Plan.Month)
+            .Select(m => new PlanOverviewMonthResponse(
+                m.Plan.Year,
+                m.Plan.Month,
+                PlanFigures.Free(m.Plan.Positions, m.Booked, m.CarriedIn ?? 0m, m.Unplanned, m.Transfers),
+                m.CarriedIn is not null,
+                m.Plan.Positions
+                    .Where(p => p.Pot != Pot.Income && !p.PassThrough && p.DoneAt is null)
+                    .Sum(p => Math.Max(p.AmountPlanned - m.Booked.GetValueOrDefault(p.Id), 0m)),
+                PlanFigures.PotTotals(m.Plan.Positions, m.Booked, m.Unplanned)
+                    .Select(entry => new PlanPotResponse(PotKey.ToKey(entry.Key), entry.Value.Planned, entry.Value.Booked))
+                    .ToList()))
+            .ToList();
+    }
+
+    /// <summary>
     /// Alle Buchungen dieser Personen mit ihren Zeilen, für die Frei-Beträge in den Listen der Monate. Wer aufruft, prüft
     /// vorher, wessen Buchungen zu sehen sind.
     /// </summary>

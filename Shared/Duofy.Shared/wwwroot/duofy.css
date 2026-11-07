@@ -1,5 +1,5 @@
 /* Layout und Bausteine nach dem alten Duofy (Spec 82). Keine festen Farben hier: alle Werte kommen aus theme.css.
-   Die Breiten stehen auch in Layout/WidthRanges.cs: Handy bis 767 px, Tablet 768 bis 1279 px, PC ab 1280 px.
+   Die Breiten stehen auch in Layout/WidthRanges.cs: Handy bis 599 px, Tablet 600 bis 839 px, PC ab 840 px, Erklärspalte ab 1280 px.
    Ein Test prüft, dass beide übereinstimmen. */
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -174,25 +174,32 @@ ul, ol { list-style: none; }
 
 .grant-locked { opacity: .5; cursor: not-allowed; }
 
+/* --- Farben der Töpfe (Issue #94, R3) ---
+   Jeder Topf hat auf jeder Seite genau eine Farbe: Grundbedarf blau, Wünsche gelb, Sparen grün. Startseite, Plan-Übersicht und
+   Monat nehmen die Variablen --pot-needs, --pot-wants und --pot-savings aus theme.css (hell und dunkel) und nie die Farben der
+   Diagramme direkt. Die Farbe steht nie allein, der Name steht daneben. */
+
 /* --- Balken --- */
 .bar { display: block; height: 6px; border-radius: 999px; background: var(--muted); overflow: hidden; }
 .bar-fill { display: block; height: 100%; border-radius: 999px; background: var(--chart-5); }
-.bar-fill--needs { background: var(--chart-1); }
-.bar-fill--wants { background: var(--chart-2); }
-.bar-fill--savings { background: var(--chart-4); }
+.bar-fill--needs { --pot-colour: var(--pot-needs); background: var(--pot-needs); }
+.bar-fill--wants { --pot-colour: var(--pot-wants); background: var(--pot-wants); }
+.bar-fill--savings { --pot-colour: var(--pot-savings); background: var(--pot-savings); }
+/* Überzogen: der Balken ist voll und endet rot; das Wort "überzogen" steht daneben. */
+.bar-fill--over-end { background: linear-gradient(to right, var(--pot-colour) calc(100% - 10px), var(--destructive) calc(100% - 10px)); }
 .bar-fill--income { background: var(--chart-3); }
 .bar-fill--neutral { background: var(--primary); }
 .bar-fill--over { background: var(--destructive); }
 
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--chart-5); }
-.dot--needs { background: var(--chart-1); }
-.dot--wants { background: var(--chart-2); }
-.dot--savings { background: var(--chart-4); }
+.dot--needs { background: var(--pot-needs); }
+.dot--wants { background: var(--pot-wants); }
+.dot--savings { background: var(--pot-savings); }
 .dot--income { background: var(--chart-5); }
 
 /* --- Rahmen ---
-   PC ab 1280 px: Seitenleiste 256 px, Inhalt, Erklärspalte 300 px. Tablet 768 bis 1279 px: Seitenleiste auf Symbole
-   eingeklappt (56 px), ausklappbar. Handy bis 767 px: keine Seitenleiste, untere Leiste. */
+   PC ab 840 px: Seitenleiste 256 px und Inhalt, ab 1280 px zusätzlich die Erklärspalte 300 px. Tablet 600 bis 839 px:
+   Seitenleiste auf Symbole eingeklappt (56 px), ausklappbar. Handy bis 599 px: keine Seitenleiste, untere Leiste. */
 .shell { --side-width: 256px; display: grid; grid-template-columns: var(--side-width) minmax(0, 1fr); min-height: 100dvh; }
 
 .shell-side {
@@ -282,10 +289,8 @@ ul, ol { list-style: none; }
 .help-entry-title { font-size: 14px; font-weight: 600; }
 .help-entry-body { font-size: 13px; color: var(--muted-foreground); line-height: 1.5; }
 
-/* PC: Erklärspalte rechts. Nach dem Knopf ist die Seitenleiste auf Symbole eingeklappt, wie am Tablet. */
-@media (min-width: 1280px) {
-    .shell-body { grid-template-columns: minmax(0, 1fr) 300px; }
-    .help-column { display: block; position: sticky; top: 48px; max-height: calc(100dvh - 48px); overflow-y: auto; padding: 24px 24px 40px; border-left: 1px solid var(--border); }
+/* PC ab 840 px: Nach dem Knopf ist die Seitenleiste auf Symbole eingeklappt, wie am Tablet. */
+@media (min-width: 840px) {
     .shell--side-toggled { --side-width: 56px; }
     .shell--side-toggled .shell-brand { visibility: hidden; }
     .shell--side-toggled .side-link { justify-content: center; padding: 8px; }
@@ -294,9 +299,15 @@ ul, ol { list-style: none; }
     .shell--side-toggled .user-trigger-text, .shell--side-toggled .user-trigger > svg { display: none; }
 }
 
+/* Ab 1280 px: Erklärspalte rechts neben dem Inhalt. */
+@media (min-width: 1280px) {
+    .shell-body { grid-template-columns: minmax(0, 1fr) 300px; }
+    .help-column { display: block; position: sticky; top: 48px; max-height: calc(100dvh - 48px); overflow-y: auto; padding: 24px 24px 40px; border-left: 1px solid var(--border); }
+}
+
 /* Tablet: Seitenleiste auf Symbole eingeklappt; die Beschriftung erscheint beim Darüberfahren und beim Fokus als Hinweis
    rechts neben dem Symbol und bleibt sonst für Screenreader der Name des Links. Der Knopf klappt sie aus. */
-@media (min-width: 768px) and (max-width: 1279px) {
+@media (min-width: 600px) and (max-width: 839px) {
     .shell:not(.shell--side-toggled) { --side-width: 56px; }
     .shell-content { padding: 20px 24px 32px; }
     .shell:not(.shell--side-toggled) .shell-brand { visibility: hidden; }
@@ -344,8 +355,8 @@ ul, ol { list-style: none; }
     .side-link { min-height: 44px; }
 }
 
-/* Handy bis 767 px: keine Seitenleiste, stattdessen die untere Leiste; die Marke steht in der oberen Leiste. */
-@media (max-width: 767px) {
+/* Handy bis 599 px: keine Seitenleiste, stattdessen die untere Leiste; die Marke steht in der oberen Leiste. */
+@media (max-width: 599px) {
     .consent-banner { bottom: calc(72px + env(safe-area-inset-bottom)); }
     .shell { grid-template-columns: minmax(0, 1fr); }
     .shell-side, .shell-side-toggle { display: none; }
@@ -434,7 +445,7 @@ ul, ol { list-style: none; }
 .step-dialog-actions { display: flex; justify-content: space-between; gap: 8px; }
 .step-dialog-actions-spacer { flex: 0 0 auto; }
 
-@media (max-width: 767px) {
+@media (max-width: 599px) {
     [role="dialog"], [role="alertdialog"] { max-width: 100vw !important; }
     .step-dialog { max-height: calc(100dvh - 48px); }
 }
@@ -445,8 +456,8 @@ ul, ol { list-style: none; }
 .consent-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .consent-change { padding: 8px 24px calc(72px + env(safe-area-inset-bottom)); }
 
-@media (min-width: 768px) { .consent-change { padding: 8px 24px 16px 80px; } }
-@media (min-width: 1280px) { .consent-change { padding: 8px 24px 16px 280px; } }
+@media (min-width: 600px) { .consent-change { padding: 8px 24px 16px 80px; } }
+@media (min-width: 840px) { .consent-change { padding: 8px 24px 16px 280px; } }
 
 /* --- Drucken: Die Rahmen fallen weg, die Topffarben bleiben, weil sie Bedeutung tragen. --- */
 /* Das Druckbild (Spec 82, R20): auf dem Bildschirm unsichtbar; beim Drucken steht nur es auf der Seite, A4 hochkant,
@@ -518,7 +529,7 @@ a.duofy-button--primary { color: var(--primary-foreground); }
 .metric-action { margin-top: auto; padding-top: 6px; }
 .metric { background: var(--card); border: 1px solid var(--border); border-radius: calc(var(--radius) * 1.4); padding: 12px; min-width: 0; }
 .metric-title { font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted-foreground); margin-bottom: 8px; }
-.metric-amount { font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.metric-amount { font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .metric-note { font-size: 12px; color: var(--muted-foreground); margin-top: 2px; }
 
 .month-card { display: flex; flex-direction: column; gap: 16px; }
@@ -568,9 +579,12 @@ a.duofy-button--primary { color: var(--primary-foreground); }
 .donut-dot { margin-right: 6px; }
 .donut-center-value { font-size: 26px; font-weight: 500; fill: var(--foreground); font-variant-numeric: tabular-nums; }
 .donut-center-label { font-size: 12px; fill: var(--muted-foreground); }
-.donut-tone--needs, .donut-tone--c1 { stroke: var(--chart-1); background: var(--chart-1); }
-.donut-tone--wants, .donut-tone--c2 { stroke: var(--chart-2); background: var(--chart-2); }
-.donut-tone--savings, .donut-tone--c3 { stroke: var(--chart-4); background: var(--chart-4); }
+.donut-tone--needs { stroke: var(--pot-needs); background: var(--pot-needs); }
+.donut-tone--wants { stroke: var(--pot-wants); background: var(--pot-wants); }
+.donut-tone--savings { stroke: var(--pot-savings); background: var(--pot-savings); }
+.donut-tone--c1 { stroke: var(--chart-1); background: var(--chart-1); }
+.donut-tone--c2 { stroke: var(--chart-2); background: var(--chart-2); }
+.donut-tone--c3 { stroke: var(--chart-4); background: var(--chart-4); }
 .donut-tone--c4 { stroke: var(--chart-3); background: var(--chart-3); }
 .donut-tone--c5 { stroke: var(--chart-5); background: var(--chart-5); }
 .donut-tone--c6 { stroke: var(--primary); background: var(--primary); }
@@ -584,7 +598,7 @@ a.duofy-button--primary { color: var(--primary-foreground); }
 .day-curve-axis { fill: var(--muted-foreground); font-variant-numeric: tabular-nums; }
 /* Am Handy ein eigenes, höheres Bild, damit Achse und Tage lesbar bleiben. */
 .day-curve-narrow { display: none; }
-@media (max-width: 767px) {
+@media (max-width: 599px) {
     .day-curve-wide { display: none; }
     .day-curve-narrow { display: block; }
 }
@@ -629,28 +643,21 @@ a.duofy-button--primary { color: var(--primary-foreground); }
     .pot-row .bar { grid-column: 1 / -1; order: 3; }
 }
 
-/* Handy (Spec 82, R12): ein Hauptknopf plus Menü, Kennzahlen als waagerecht wischbare Reihe, damit der Inhalt im ersten
-   Bildschirm beginnt. */
+/* Handy (Spec 82, R12): ein Hauptknopf plus Menü, Kennzahlen zwei mal zwei (Spec 101), damit der Inhalt früh beginnt. */
 .narrow-only { display: none; }
 .page-more {
     display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px;
     border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); color: var(--foreground); cursor: pointer;
 }
 .page-more:hover { background: var(--accent); }
-@media (max-width: 767px) {
+@media (max-width: 599px) {
     .narrow-only { display: block; }
     .page-actions .wide-only, .page-head .page-lead.wide-only { display: none; }
     .page-head { margin-bottom: 16px; gap: 12px; }
-    .metrics {
-        display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none;
-        margin: 0 -16px 16px; padding: 0 16px;
-    }
-    .metrics::-webkit-scrollbar { display: none; }
-    /* Jeder Kasten so hoch wie sein Inhalt (Tom, 03.11.2026), nicht so hoch wie der höchste daneben. */
-    .metrics { align-items: flex-start; }
-    .metrics > * { flex: 0 0 44%; scroll-snap-align: start; min-width: 0; }
+    /* Zwei mal zwei innerhalb der Seitenränder, ohne Wischstreifen; Beträge eine Stufe kleiner statt abgeschnitten. */
+    .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 16px; align-items: start; }
     .metrics .metric { height: auto; padding: 10px 12px; }
-    .metrics .metric-title { margin-bottom: 4px; }
+    .metrics .metric-title { margin-bottom: 4px; overflow-wrap: anywhere; }
     .metrics .metric-amount { font-size: 16px; }
     .position-bookings { padding-left: 0; }
 }
@@ -721,7 +728,7 @@ a.duofy-button--primary { color: var(--primary-foreground); }
 .bookings-pot-item { display: inline-flex; align-items: center; gap: 6px; margin-right: 10px; white-space: nowrap; }
 .bookings-table .bookings-amount { text-align: right; white-space: nowrap; font-weight: 500; }
 .amount-expense { color: var(--destructive); }
-@media (max-width: 767px) {
+@media (max-width: 599px) {
     .bookings-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
     .bookings-table tbody { display: block; }
     .bookings-table tr.bookings-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
@@ -742,7 +749,7 @@ a.duofy-button--primary { color: var(--primary-foreground); }
     width: max-content; max-width: min(28rem, calc(100vw - 32px)); border-radius: var(--radius);
     box-shadow: 0 8px 24px color-mix(in srgb, var(--foreground) 14%, transparent);
 }
-@media (max-width: 767px) { .notice-toast { bottom: calc(76px + env(safe-area-inset-bottom)); } }
+@media (max-width: 599px) { .notice-toast { bottom: calc(76px + env(safe-area-inset-bottom)); } }
 
 /* Die Buchungsanzahl in der Zeile des Postens, aufgeklappt die Buchungen in voller Breite darunter (Spec 82, R15). */
 .position-bookings-toggle {
@@ -754,6 +761,9 @@ a.duofy-button--primary { color: var(--primary-foreground); }
 
 .page-title:focus { outline: none; }
 .month-card-kpis > span { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px; }
+/* "Verplanbar 6.339,37 €" bricht nie um (Issue #94, R11); "inkl. Übertrag" steht darunter und bricht selbst um. */
+.plan-month-free { flex-direction: column; align-items: flex-start; }
+.plan-month-free-figure { display: inline-flex; align-items: baseline; gap: 4px; white-space: nowrap; }
 .pot-row-sum { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
 .pot-sum { display: inline-flex; flex-wrap: wrap; gap: 4px; }
 .pill { font-weight: 400; }
@@ -834,7 +844,32 @@ a.duofy-button--primary { color: var(--primary-foreground); }
 .start-link { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; width: fit-content; }
 .start-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); gap: 16px; }
 .start-section { display: flex; flex-direction: column; gap: 10px; background: var(--card); border: 1px solid var(--border); border-radius: calc(var(--radius) * 1.4); padding: 20px; min-width: 0; }
-.start-bars { display: flex; flex-direction: column; gap: 14px; }
+.start-amount--small { font-size: 22px; }
+/* Konten unter Verplanbar: Name und Stand bleiben zusammen, die Summe steht am Ende. */
+.start-accounts { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 14px; }
+.start-account { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.start-account b { font-weight: 500; color: var(--foreground); }
+.start-account--sum { font-weight: 500; color: var(--foreground); }
+/* Töpfe der Startseite: Name, Balken, "gebucht von geplant". */
+.start-pots { display: flex; flex-direction: column; gap: 14px; }
+.start-pot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; font-size: 14px; }
+.start-pot-name { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; max-width: 100%; }
+.start-pot > .bar { flex: 1 0 100%; order: 3; }
+/* Der Betrag steht rechts neben dem Namen; reicht die Zeile nicht, rutscht er unter den Namen (rechtsbündig) statt zu quetschen. */
+.start-pot-sum { display: inline-flex; flex: 1 1 auto; flex-wrap: wrap; justify-content: flex-end; gap: 0 6px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.start-pot-sum b { font-weight: 500; }
+/* Jahreslinie: ein Balken je Monat, Übriges grün über der Linie, Fehlendes rot darunter. */
+.year-line { display: block; color: inherit; text-decoration: none; }
+.year-bars { display: flex; gap: 4px; list-style: none; margin: 0; padding: 0; align-items: stretch; }
+.year-bar { flex: 1 1 0; min-width: 0; display: grid; grid-template-rows: 40px 40px auto; gap: 0; justify-items: center; }
+.year-bar-up, .year-bar-down { width: 100%; max-width: 28px; display: flex; }
+.year-bar-up { align-items: flex-end; border-bottom: 1px solid var(--border); }
+.year-bar-down { align-items: flex-start; }
+.year-bar-fill { display: block; width: 100%; }
+.year-bar--positive .year-bar-fill { background: var(--chart-4); border-radius: 3px 3px 0 0; }
+.year-bar--negative .year-bar-fill { background: var(--destructive); border-radius: 0 0 3px 3px; }
+.year-bar--empty .year-bar-up { border-bottom-style: dashed; }
+.year-bar-month { font-size: 11px; color: var(--muted-foreground); padding-top: 2px; }
 
 /* --- Haushaltsbereich: Reiter als Links unter dem Namen des Haushalts (Spec 82, R11) --- */
 .area-tabs { display: flex; gap: 4px; margin: -8px 0 24px; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
@@ -845,10 +880,24 @@ a.duofy-button--primary { color: var(--primary-foreground); }
 .quota-item { display: inline-flex; align-items: center; gap: 8px; }
 
 /* Monatskarten: ab Tablet zwei nebeneinander. */
-@media (min-width: 768px) {
+@media (min-width: 600px) {
     .card-list:has(> li > .month-card) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (max-width: 767px) {
+@media (max-width: 599px) {
     .area-tabs { margin-top: -12px; }
     .area-tab { min-height: 44px; display: inline-flex; align-items: center; }
 }
+
+/* --- Ungeplant je Topf und Karte der geänderten Verträge (Issue #94, R8, R9) --- */
+/* Die Zeile Ungeplant: gedämpft und mit gestrichelter Linie, anders als ein Posten; ohne Kästchen. */
+.unplanned-row { border-top: 1px dashed var(--border); color: var(--muted-foreground); font-style: italic; }
+.unplanned-row-toggle, .plan-changes-toggle {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px; padding: 8px 4px;
+    border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.unplanned-row-toggle:hover, .plan-changes-toggle:hover { background: var(--muted); }
+.unplanned-row [hidden], .plan-changes-panel[hidden] { display: none; }
+/* Die Karte der geänderten Verträge ist eine schmale Zeile; erst aufgeklappt wird sie groß. */
+.plan-changes-card { border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); padding: 0 12px; }
+.plan-changes-toggle { font-size: 14px; }
+.plan-changes-panel { padding: 0 0 12px; }

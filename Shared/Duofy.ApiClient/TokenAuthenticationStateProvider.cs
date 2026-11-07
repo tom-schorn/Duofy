@@ -54,6 +54,19 @@ public class TokenAuthenticationStateProvider : AuthenticationStateProvider
         NotifyAuthenticationStateChanged(current);
     }
 
+    /// <summary>
+    /// Ein Client hat gemerkt, dass keine Tokens mehr in der Ablage liegen (zum Beispiel
+    /// weil der Eintrag des Web-Servers abgelaufen ist). Galt die Person bisher als
+    /// angemeldet, wird sie jetzt abgemeldet und allen Seiten Bescheid gesagt.
+    /// </summary>
+    internal void NotifyTokensMissing()
+    {
+        if (current is { IsCompletedSuccessfully: true } known && known.Result.User.Identity?.IsAuthenticated == true)
+        {
+            NotifyTokensChanged();
+        }
+    }
+
     private async Task<AuthenticationState> LoadAsync()
     {
         var tokens = await tokenStore.GetAsync();

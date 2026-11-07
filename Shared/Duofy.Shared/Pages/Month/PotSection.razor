@@ -2,7 +2,8 @@
 @inject IStringLocalizer<SharedResources> L
 
 @* Ein Topf im Monat wie im alten Duofy: Punkt und Name in Großbuchstaben, rechts die Summe und "von" der Quote in Euro, darunter
-   der Balken und die Posten. Über der Quote steht die Summe in der reservierten Farbe. Einnahmen haben weder Quote noch Balken.
+   der Balken und die Posten. Über der Quote steht die Summe in der reservierten Farbe, der Balken endet rot und das Wort "überzogen" steht dabei
+   (Issue #94, R3); die Farbe des Topfs ist dieselbe wie auf der Startseite und in der Plan-Übersicht. Einnahmen haben weder Quote noch Balken.
    Die Summe ist das Geplante des Topfs, dieselbe Zahl wie in der Übersicht und im Flussdiagramm (Spec 82, R17); was ohne
    Posten gebucht ist, steht in der eigenen Zeile Ungeplant (UnplannedLine). *@
 <section class="pot-section" data-testid="@($"pot-section-{Pot}")">
@@ -13,6 +14,10 @@
             @if (HasLimit)
             {
                 <span class="muted"> @L["Month_Of", MoneyText.Format(Limit)]</span>
+            }
+            @if (Over)
+            {
+                <span class="over">@L["Pot_OverBy"]</span>
             }
         </span>
     </header>
@@ -34,11 +39,19 @@
     /// <summary>Was die Quote bei diesen Einnahmen erlaubt.</summary>
     [Parameter] public decimal Limit { get; set; }
 
+    /// <summary>
+    /// Das Gebuchte des Topfs, dieselbe Zahl wie auf Start und Übersicht. Ist es gesetzt, ist der Topf überzogen, wenn mehr gebucht
+    /// als geplant ist, und der Balken füllt sich mit dem Gebuchten gegen das Geplante; ohne Angabe gilt die Summe gegen die Quote.
+    /// </summary>
+    [Parameter] public decimal? Booked { get; set; }
+
     [Parameter] public RenderFragment? ChildContent { get; set; }
 
     private bool HasLimit => Pot != PotKeys.Income;
 
-    private bool Over => HasLimit && Sum > Limit;
+    private bool Over => HasLimit && (Booked is { } booked ? booked > Sum : Sum > Limit);
 
-    private decimal Percent => Limit <= 0m ? (Sum > 0m ? 100m : 0m) : Math.Min(Sum / Limit * 100m, 100m);
+    private decimal Percent => Booked is { } booked
+        ? (Sum <= 0m ? (booked > 0m ? 100m : 0m) : Math.Min(booked / Sum * 100m, 100m))
+        : (Limit <= 0m ? (Sum > 0m ? 100m : 0m) : Math.Min(Sum / Limit * 100m, 100m));
 }

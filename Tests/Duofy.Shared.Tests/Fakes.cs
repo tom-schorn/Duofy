@@ -104,8 +104,11 @@ public sealed class FakeUserApi(FakeTokenStore store) : IUserApi
     public ApiResult ChangePasswordResult { get; set; } = ApiResult.Success();
     public ApiResult DeleteResult { get; set; } = ApiResult.Success();
 
+    /// <summary>Ist es gesetzt, schlägt GetMeAsync mit diesem Fehlercode fehl.</summary>
+    public string? MeFailure { get; set; }
+
     public Task<ApiResult<MeResponse>> GetMeAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult(ApiResult<MeResponse>.Success(Me));
+        Task.FromResult(MeFailure is null ? ApiResult<MeResponse>.Success(Me) : ApiResult<MeResponse>.Failure(MeFailure));
 
     public Task<ApiResult<MeResponse>> UpdateMeAsync(UpdateMeRequest request, CancellationToken cancellationToken = default)
     {

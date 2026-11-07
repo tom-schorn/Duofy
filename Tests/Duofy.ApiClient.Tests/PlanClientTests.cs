@@ -56,6 +56,26 @@ public class PlanClientTests
     }
 
     [Fact]
+    public async Task GetOverview_reads_the_overview_path_with_the_year_and_names_the_owner_only_when_one_is_given()
+    {
+        var months = new[] { new PlanOverviewMonthResponse(2026, 11, 120m, true, 10m, [new PlanPotResponse(PotKeys.Needs, 100m, 40m)]) };
+        var (api, provider, scope) = Start(_ => FakeApi.Json(HttpStatusCode.OK, months));
+        using var _p = provider;
+        using var _s = scope;
+        var owner = Guid.NewGuid();
+
+        var own = await scope.ServiceProvider.GetRequiredService<IPlanApi>().GetOverviewAsync(2026);
+        await scope.ServiceProvider.GetRequiredService<IPlanApi>().GetOverviewAsync(2026, owner);
+
+        var month = Assert.Single(own.Value!);
+        Assert.Equal((2026, 11, 120m, true, 10m), (month.Year, month.Month, month.Free, month.CarriedIn, month.Unpaid));
+        Assert.Equal(new PlanPotResponse(PotKeys.Needs, 100m, 40m), Assert.Single(month.Pots));
+        Assert.Equal([("/api/v1/plans/overview", "?year=2026"), ("/api/v1/plans/overview", $"?year=2026&owner={owner}")],
+            api.Requests.Select(r => (r.Path, r.Query)));
+        Assert.All(api.Requests, r => Assert.Equal((HttpMethod.Get, "Bearer access"), (r.Method, r.Authorization)));
+    }
+
+    [Fact]
     public async Task Positions_ticks_changes_and_carry_over_go_to_their_addresses()
     {
         var (api, provider, scope) = Start(request => request.Method == HttpMethod.Delete && !request.Path.EndsWith("/tick")

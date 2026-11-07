@@ -141,36 +141,7 @@ else
     else
     {
         @* Geänderte Verträge: vorher und nachher je Unterschied, alle oder einzeln übernehmen (R2). *@
-        @if (plan.Changes.Count > 0)
-        {
-            <div class="card stack notice" data-testid="plan-changes">
-                <h3 class="sub-title">@L["Plan_ChangesHeading"]</h3>
-                @foreach (var change in plan.Changes)
-                {
-                    var current = change;
-                    <div class="row-between" data-testid="plan-change">
-                        <div class="fill stack-sm">
-                            <p>@L[$"Plan_Change_{change.Kind}", change.Label]</p>
-                            @foreach (var field in change.Fields)
-                            {
-                                <p class="small muted">@L["Plan_ChangeField", L[$"PlanField_{field.Field}"], FieldText(field.Field, field.Before), FieldText(field.Field, field.After)]</p>
-                            }
-                            @if (change.Protected)
-                            {
-                                <p class="small muted">@L["Plan_ChangeProtected"]</p>
-                            }
-                        </div>
-                        <DuofyButton Kind="ButtonKind.Ghost" Small="true" Text="@L["Plan_ChangeApply"]" OnClick="@(_ => ApplyAsync(current))"
-                                     Class="@GrantLock.Class(CanApplyChange(current))" @attributes="GrantLock.Attributes(CanApplyChange(current))"
-                                     TestId="plan-change-apply" />
-                    </div>
-                }
-                <div>
-                    <DuofyButton Kind="ButtonKind.Secondary" Text="@L["Plan_ChangesApplyAll"]" OnClick="@(_ => ApplyAsync(null))"
-                                 Class="@GrantLock.Class(CanApplyAll)" @attributes="GrantLock.Attributes(CanApplyAll)" TestId="plan-changes-apply-all" />
-                </div>
-            </div>
-        }
+        <PlanChangesCard Changes="plan.Changes" OnApply="ApplyAsync" CanApplyAll="CanApplyAll" CanApplyChange="CanApplyChange" FieldText="FieldText" />
 
         @if (plan.Positions.Count == 0)
         {
@@ -178,9 +149,9 @@ else
         }
 
         @* Die Posten nach Topf (Spec 24, R5). *@
-        @foreach (var group in PlanView.Groups(plan))
+        @foreach (var group in PlanView.GroupsWithUnplanned(plan))
         {
-            <PotSection Pot="@group.Pot" Sum="PlanView.PotPlanned(plan, group.Pot)" Limit="LimitOf(group.Pot)">
+            <PotSection Pot="@group.Pot" Sum="PlanView.PotPlanned(plan, group.Pot)" Booked="PlanView.PotBooked(plan, group.Pot)" Limit="LimitOf(group.Pot)">
                 @foreach (var position in group.Positions)
                 {
                     var current = position;
@@ -230,9 +201,12 @@ else
                         }
                     </li>
                 }
+                @if (SeesBookings && group.Pot != PotKeys.Income)
+                {
+                    <PotUnplannedRow Pot="@group.Pot" Rows="BookingPurpose.UnplannedLinesOf(plan.Overview?.Bookings ?? [], group.Pot, CategoryName, L)" />
+                }
             </PotSection>
         }
-        <UnplannedLine Amounts="PlanView.UnplannedPerPot(plan)" />
 
     }
 }

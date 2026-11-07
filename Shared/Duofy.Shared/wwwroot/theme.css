@@ -41,6 +41,10 @@
     --chart-3: #8e3b6b;
     --chart-4: #4f9e6a;
     --chart-5: #5a6270;
+    /* Farben der Töpfe (Issue #94): überall gleich; das Gelb ist hell etwas dunkler, damit Balken 3 : 1 erreichen. */
+    --pot-needs: var(--chart-1);
+    --pot-wants: #b87d0b;
+    --pot-savings: var(--chart-4);
     --radius: 0.5rem;
     --sidebar: #f6f3ec;
     --sidebar-foreground: #0f141c;
@@ -84,6 +88,9 @@
     --chart-3: #a55b86;
     --chart-4: #4da87c;
     --chart-5: #8e98a8;
+    --pot-needs: var(--chart-1);
+    --pot-wants: var(--chart-2);
+    --pot-savings: var(--chart-4);
     --sidebar: #0e1218;
     --sidebar-foreground: #eceff3;
     --sidebar-primary: #86ace0;

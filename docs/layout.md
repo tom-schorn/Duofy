@@ -1,17 +1,20 @@
 # Layout: Breitenbereiche und Rahmen
 
-Alle Seiten der Web-Version und der App benutzen dieselben drei Breitenbereiche (Spec 9):
+Alle Seiten der Web-Version und der App benutzen dieselben Breitenstufen (Spec 9, geändert durch Spec 101 am 05.11.2026):
 
 | Bereich | Breite | Inhalt |
 | --- | --- | --- |
-| Handy | bis 599 px | volle Breite mit seitlichem Abstand, untere Navigation |
-| Tablet | 600 bis 1279 px | volle Breite mit größerem seitlichem Abstand, untere Navigation |
-| Desktop | ab 1280 px | Inhalt mittig, höchstens 1180 px breit oder 1600 px bei breiten Seiten (siehe unten), Seitenleiste mit dem vollen Menü |
+| Handy | bis 599 px | volle Breite mit seitlichem Abstand, untere Navigation, Kennzahlen des Monats zwei mal zwei |
+| Tablet | 600 bis 839 px | Seitenleiste auf Symbole eingeklappt (ausklappbar), Kennzahlen des Monats in einer Reihe |
+| Desktop | ab 840 px | Seitenleiste mit dem vollen Menü; Inhalt mittig, höchstens 1180 px breit oder 1600 px bei breiten Seiten (siehe unten) |
+| Erklärspalte | ab 1280 px | rechts neben dem Inhalt, zusätzlich zum Desktop-Bereich |
+
+Unter 1280 px wird getippt: Tippflächen sind dort mindestens 44 px hoch (`WidthRanges.TouchMax`).
 
 ## Navigation (Spec 10)
 
-Handy und Tablet haben die untere Leiste mit Start, Plan, Haushalt und Mehr (Spec 51). Ab 1280 px steht links die Seitenleiste
-mit dem vollen Menü: Start, Plan, Buchungen, Konten, Verträge, Haushalt, Benutzerkonto, Admin (nur für Personen, die den
+Das Handy hat die untere Leiste mit Start, Plan, Haushalt, Sparen und Mehr (Spec 51); ab 600 px steht links die Seitenleiste,
+bis 839 px auf Symbole eingeklappt. Ab 840 px zeigt sie das volle Menü: Start, Plan, Buchungen, Konten, Verträge, Haushalt, Benutzerkonto, Admin (nur für Personen, die den
 Server verwalten), Lizenzen, die Rechtstexte des Servers und Abmelden. "Mehr" gibt es dort nicht.
 
 **Änderung vom 01.11.2026, von Tom verlangt (Spec 10, R2):** Die ursprüngliche Regel "gleiche Einträge und Reihenfolge wie
@@ -29,16 +32,16 @@ Element in ihr die Klasse `page-wide` trägt. Listen werden zu Tabellen, ohne da
 - `data-row` an der Zeile, `data-row-frame` am Rahmen darum, `data-cells` an Gruppen, die sich auflösen
 - `data-column-N` legt die Spalte fest, `data-amount` richtet Beträge rechts aus
 
-Alle diese Regeln stehen im Desktop-Bereich von `app.css`; darunter bleibt alles, wie es war. Ein Test prüft das.
+Alle diese Regeln stehen im Desktop-Bereich von `duofy.css`; darunter bleibt alles, wie es war. Ein Test prüft das.
 
 ## Wo die Werte stehen
 
 - Die Grenzen und die festen Maße (1180 und 1600 px Inhaltsbreite, 44 px Tippfläche) stehen als Konstanten in
   `Shared/Duofy.Shared/Layout/WidthRanges.cs`.
-- Das Stylesheet `Shared/Duofy.Shared/wwwroot/app.css` kann sie nicht lesen und wiederholt sie in seinen
-  Medienabfragen. Der Test `ResponsiveScaffoldTests` prüft, dass beide übereinstimmen.
+- Das Stylesheet `Shared/Duofy.Shared/wwwroot/duofy.css` kann sie nicht lesen und wiederholt sie in seinen
+  Medienabfragen. Der Test `InterfaceRulesTests.A1_the_width_steps_are_599_600_839_840_and_1280` prüft, dass beide übereinstimmen.
 - Die Randwerte (`--page-gutter`, `--block-gap`) und die Schriftgrößen (`--type-*`) stehen im ersten `:root`-Block
-  von `app.css`; nur die drei Bereiche darunter überschreiben sie. Die Layouts benutzen die Klasse `app-page`.
+  von `duofy.css`; nur die Bereiche darunter überschreiben sie. Die Layouts benutzen die Klasse `app-page`.
 - Die Schriftskala (Titel, Abschnitt, Betrag, Text, Zusatz) kommt aus `DuofyTheme.TypeScale`; die Werte im
   Stylesheet sind die des Desktops, der Abschnittstitel ist auf dem Handy und dem Tablet kleiner.
 

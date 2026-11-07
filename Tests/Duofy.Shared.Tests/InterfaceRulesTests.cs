@@ -110,22 +110,40 @@ public partial class InterfaceRulesTests
 
     // ---- Breitenbereiche ----
 
+    // A1 (R1, R2): Handy bis 599, Tablet 600 bis 839, Seitenleiste voll ab 840, Erklärspalte ab 1280.
     [Fact]
-    public void The_ranges_are_phone_to_767_tablet_to_1279_and_desktop_from_1280_without_a_gap()
+    public void A1_the_width_steps_are_599_600_839_840_and_1280()
     {
-        Assert.Equal(767, WidthRanges.PhoneMax);
+        Assert.Equal(599, WidthRanges.PhoneMax);
         Assert.Equal(WidthRanges.PhoneMax + 1, WidthRanges.TabletMin);
-        Assert.Equal(1279, WidthRanges.TabletMax);
+        Assert.Equal(600, WidthRanges.TabletMin);
+        Assert.Equal(839, WidthRanges.TabletMax);
         Assert.Equal(WidthRanges.TabletMax + 1, WidthRanges.DesktopMin);
+        Assert.Equal(840, WidthRanges.DesktopMin);
+        Assert.Equal(1280, WidthRanges.HelpColumnMin);
+        Assert.Equal(WidthRanges.HelpColumnMin - 1, WidthRanges.TouchMax);
+
+        // Das Stylesheet wiederholt genau diese Werte.
+        Assert.Contains($"@media (max-width: {WidthRanges.PhoneMax}px)", Duofy);
+        Assert.Contains($"@media (min-width: {WidthRanges.TabletMin}px) and (max-width: {WidthRanges.TabletMax}px)", Duofy);
+        Assert.Contains($"@media (min-width: {WidthRanges.DesktopMin}px)", Duofy);
+        Assert.Contains($"@media (min-width: {WidthRanges.HelpColumnMin}px)", Duofy);
+        Assert.DoesNotContain("767px", Duofy);
+        Assert.DoesNotContain("768px", Duofy);
     }
 
     // Das Stylesheet kann keine C#-Werte lesen; es darf nur an den festgelegten Grenzen umbrechen.
     [Fact]
     public void The_stylesheet_only_breaks_at_the_defined_widths()
     {
-        var allowed = new[] { $"max-width: {WidthRanges.PhoneMax}px", $"min-width: {WidthRanges.TabletMin}px", $"max-width: {WidthRanges.TabletMax}px", $"min-width: {WidthRanges.DesktopMin}px" };
+        var allowed = new[]
+        {
+            $"max-width: {WidthRanges.PhoneMax}px", $"min-width: {WidthRanges.TabletMin}px",
+            $"min-width: {WidthRanges.TabletMin}px) and (max-width: {WidthRanges.TabletMax}px", $"min-width: {WidthRanges.DesktopMin}px",
+            $"min-width: {WidthRanges.HelpColumnMin}px", $"max-width: {WidthRanges.TouchMax}px",
+        };
 
-        var used = Regex.Matches(Duofy, @"@media\s*\(([^)]*)\)").Select(m => m.Groups[1].Value).Distinct().ToList();
+        var used = Regex.Matches(Duofy, @"@media\s*\(([^{]*?)\)\s*\{").Select(m => m.Groups[1].Value).Distinct().ToList();
 
         Assert.NotEmpty(used);
         Assert.All(used, condition => Assert.Contains(condition, allowed));
@@ -138,7 +156,7 @@ public partial class InterfaceRulesTests
     {
         var phone = Media(Duofy, $"(max-width: {WidthRanges.PhoneMax}px)");
         var tablet = Media(Duofy, $"(min-width: {WidthRanges.TabletMin}px) and (max-width: {WidthRanges.TabletMax}px)");
-        var desktop = Media(Duofy, $"(min-width: {WidthRanges.DesktopMin}px)");
+        var desktop = Media(Duofy, $"(min-width: {WidthRanges.HelpColumnMin}px)");
 
         Assert.Contains("display: none", Rule(phone, ".shell-side, .shell-side-toggle"));
         Assert.Contains("position: fixed", Rule(phone, ".bottom-bar"));
@@ -174,7 +192,7 @@ public partial class InterfaceRulesTests
     [Fact]
     public void Below_the_desktop_everything_to_tap_is_at_least_44_px()
     {
-        var below = Media(Duofy, $"(max-width: {WidthRanges.TabletMax}px)");
+        var below = Media(Duofy, $"(max-width: {WidthRanges.TouchMax}px)");
 
         Assert.Contains("min-height: 44px", Rule(below, ".duofy-button"));
         Assert.Contains("min-width: 44px", Rule(below, ".duofy-button"));

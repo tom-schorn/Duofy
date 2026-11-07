@@ -53,6 +53,29 @@ public static class BookingPurpose
                     ?? localizer[$"BookingKind_{x.Booking.Kind}"].Value))
             .ToList();
 
+    /// <summary>
+    /// Die Buchungen ohne Posten in einem Topf (Issue #94, R8): je Buchung die Summe ihrer Zeilen ohne Posten in diesem Topf, in der
+    /// Reihenfolge der API. Dieselbe Regel wie <see cref="PlanView.Unplanned"/>, darum ergibt die Summe dieselbe Zahl; Umbuchungen
+    /// sind nie ungeplant und fehlen hier.
+    /// </summary>
+    public static IReadOnlyList<PositionBookingRow> UnplannedLinesOf(
+        IEnumerable<BookingResponse> bookings,
+        string pot,
+        Func<Guid, string?> categoryName,
+        IStringLocalizer<SharedResources> localizer) =>
+        bookings
+            .Where(b => b.Kind != BookingKinds.Transfer)
+            .Select(b => (Booking: b, Lines: b.Lines.Where(l => l.PositionId is null && l.Pot == pot).ToList()))
+            .Where(x => x.Lines.Count > 0)
+            .Select(x => new PositionBookingRow(
+                x.Booking.Id,
+                x.Booking.Date,
+                x.Lines.Sum(l => l.Amount),
+                (x.Lines[0].CategoryId is { } category ? categoryName(category) : null)
+                    ?? x.Booking.Note
+                    ?? localizer[$"BookingKind_{x.Booking.Kind}"].Value))
+            .ToList();
+
     /// <summary>Dasselbe im Haushaltsplan: mit dem Vornamen der Person, ohne Notiz.</summary>
     public static IReadOnlyList<PositionBookingRow> LinesOf(IEnumerable<HouseholdBookingResponse> bookings, Guid positionId) =>
         bookings

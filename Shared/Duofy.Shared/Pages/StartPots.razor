@@ -1,0 +1,43 @@
+@using Duofy.Schemas
+@using Duofy.Shared.Blocks
+@inject IStringLocalizer<SharedResources> L
+
+@* Die Töpfe der Startseite (Issue #94, R2, R3): je Topf eine Zeile mit Namen, Balken und "<gebucht> von <geplant>" in Euro. Das
+   Ziel des Balkens ist die geplante Summe des Topfs, gefüllt wird mit dem Gebuchten; keine Prozent-Richtwerte. Die Farbe ist die
+   feste des Topfs, der Name steht immer daneben; ist mehr gebucht als geplant, endet der Balken rot und das Wort "überzogen"
+   steht dabei. Die Kennung jeder Zeile ist "{TestId}-{Topf}". *@
+<div class="start-pots">
+    @foreach (var pot in Pots)
+    {
+        var over = pot.Booked > pot.Planned;
+        var empty = pot.Planned == 0m && pot.Booked == 0m;
+        <div class="start-pot" data-testid="@($"{TestId}-{pot.Pot}")">
+            <span class="start-pot-name"><span class="@($"dot dot--{pot.Pot}")" aria-hidden="true"></span>@L[$"Pot_{pot.Pot}"]</span>
+            @if (empty)
+            {
+                @* Nichts geplant und nichts gebucht: kein Nullbetrag und kein leerer Balken. *@
+                <span class="start-pot-sum muted">@L["Start_PotNothing"]</span>
+            }
+            else
+            {
+                <span class="start-pot-sum">
+                    <b class="@(over ? "over" : null)">@L["Start_PotLine", MoneyText.Format(pot.Booked), MoneyText.Format(pot.Planned)]</b>
+                    @if (over)
+                    {
+                        <span class="over">@L["Pot_OverBy"]</span>
+                    }
+                </span>
+                <PotBar Pot="@pot.Pot" Percent="Percent(pot)" Over="over" />
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<MonthPotRow> Pots { get; set; } = [];
+
+    [Parameter, EditorRequired] public string TestId { get; set; } = "";
+
+    private static decimal Percent(MonthPotRow pot) =>
+        pot.Planned <= 0m ? (pot.Booked > 0m ? 100m : 0m) : Math.Min(pot.Booked / pot.Planned * 100m, 100m);
+}

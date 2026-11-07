@@ -1,6 +1,7 @@
 @* Der Kopf der Startseite (Spec 33, R1): Begrüßung und Verplanbar des Monats auf einer schlichten Karte, keine Farbfläche.
    Für Vorlese-Programme ist der Block eine Gruppe mit Titel und Betrag als Name, die Begrüßung ist die Überschrift der Seite.
    Der Link unten führt in den Monat, aus dem die Zahl kommt (R7). *@
+@inject IStringLocalizer<SharedResources> L
 <div class="start-hero" role="group" aria-label="@Label" data-testid="start-hero">
     <h1 class="start-greeting">@Greeting</h1>
     @if (ViewOf is not null)
@@ -9,6 +10,17 @@
     }
     <p class="metric-title" data-testid="start-free">@Title</p>
     <p class="start-amount">@Shown</p>
+    @if (Accounts is { Count: > 0 })
+    {
+        @* Die verfügbaren Konten und ihre Summe, direkt unter Verplanbar (Issue #94, R1). *@
+        <p class="start-accounts muted" data-testid="start-accounts">
+            @foreach (var account in Accounts)
+            {
+                <span class="start-account">@account.Name <b>@MoneyText.Format(account.Balance)</b></span>
+            }
+            <span class="start-account start-account--sum">@AccountsSum</span>
+        </p>
+    }
     @if (Note is not null)
     {
         <p class="muted small">@Note</p>
@@ -29,8 +41,13 @@
     /// <summary>Ein Zusatz unter dem Betrag, zum Beispiel der enthaltene Übertrag.</summary>
     [Parameter] public string? Note { get; set; }
 
+    /// <summary>Die verfügbaren Konten mit ihrem Stand; ohne Freigabe oder ohne Konten leer, dann steht die Zeile nicht da.</summary>
+    [Parameter] public IReadOnlyList<(string Name, decimal Balance)>? Accounts { get; set; }
+
     /// <summary>Wessen Zahlen es sind, wenn nicht die eigenen ("Zahlen von Ben").</summary>
     [Parameter] public string? ViewOf { get; set; }
+
+    private string AccountsSum => L["Start_AccountsSum", MoneyText.Format(Accounts?.Sum(a => a.Balance) ?? 0m)].Value;
 
     private string Shown => AmountText ?? MoneyText.Format(Amount);
 

@@ -17,7 +17,7 @@ public sealed class SessionTokenCache
 {
     private static readonly DistributedCacheEntryOptions Lifetime = new()
     {
-        AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(30),
+        AbsoluteExpirationRelativeToNow = SessionCookie.Lifetime,
     };
 
     private readonly IDistributedCache cache;

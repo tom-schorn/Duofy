@@ -1,7 +1,11 @@
 using Bunit;
+using Duofy.ApiClient;
 using Duofy.Schemas;
 using Duofy.Shared.Pages;
 using Duofy.Shared.Services;
+using Duofy.Shared.Theme;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Duofy.Shared.Tests;
@@ -12,25 +16,39 @@ namespace Duofy.Shared.Tests;
 /// </summary>
 public class StartPageTests : PageTestContext
 {
+    private const string NotSignedInText = "Du bist nicht angemeldet";
     private const string NotShared = "Diese Person teilt diesen Bereich nicht mit dir.";
 
     private readonly IRenderedComponent<Microsoft.AspNetCore.Components.IComponent> dialogs;
 
+    private readonly TokenAuthenticationStateProvider signIn;
+
     public StartPageTests()
     {
+        Services.AddSingleton<IThemePreferenceStore>(new NoThemeStore());
+        Services.AddCascadingAuthenticationState();
+        AddAuthorization().SetAuthorized("anna");
+        // Wie in der App: Die Token-Ablage entscheidet, ob jemand angemeldet ist, und [Authorize] verlangt eine angemeldete Person.
+        // bUnits Ersatz der Berechtigungsprüfung folgt dem Anmeldezustand nicht, deshalb steht hier die einfache Prüfung.
+        signIn = new TokenAuthenticationStateProvider(Tokens);
+        Services.AddSingleton<AuthenticationStateProvider>(signIn);
+        Services.AddSingleton<IAuthorizationService>(new SignedInAuthorizationService());
         dialogs = RenderDialogHost();
         Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true));
     }
 
     private ActiveMember Member => Services.GetRequiredService<ActiveMember>();
 
-    private static PlanOverviewResponse Overview(decimal free = 340m, IReadOnlyList<PlanCarryOverLineResponse>? carryOvers = null) =>
+    private static PlanOverviewResponse Overview(decimal free = 340m, IReadOnlyList<PlanCarryOverLineResponse>? carryOvers = null, IReadOnlyList<PlanPotResponse>? pots = null) =>
         new(3000m, 2660m, free,
-            [new PlanPotResponse(PotKeys.Needs, 1000m, 1200m), new PlanPotResponse(PotKeys.Wants, 0m, 0m), new PlanPotResponse(PotKeys.Savings, 0m, 0m)],
+            pots ?? [new PlanPotResponse(PotKeys.Needs, 1000m, 1200m), new PlanPotResponse(PotKeys.Wants, 0m, 0m), new PlanPotResponse(PotKeys.Savings, 0m, 0m)],
             [], carryOvers);
 
     private void SeedPlan(decimal free = 340m, IReadOnlyList<PlanCarryOverLineResponse>? carryOvers = null, params PlanPositionResponse[] positions) =>
         PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10) with { Positions = positions, Overview = Overview(free, carryOvers) };
+
+    private static AccountResponse Account(string name, decimal balance, bool available = true) =>
+        new(Guid.NewGuid(), name, AccountTypes.Checking, 0m, new DateOnly(2026, 1, 1), available, null, false, true, balance);
 
     private IRenderedComponent<Start> OpenStart()
     {
@@ -99,6 +117,60 @@ public class StartPageTests : PageTestContext
         Assert.DoesNotContain("Übertrag", Text(cut, "start-hero"));
     }
 
+    // Spec 97, R4: Ist die Anmeldung zu Ende, zeigt die Startseite keinen Fehler; der Router leitet zur Anmeldung.
+    [Fact]
+    public void An_ended_sign_in_shows_no_error_when_the_user_cannot_be_loaded()
+    {
+        Users.MeFailure = ClientErrorCodes.NotSignedIn;
+
+        var cut = Render<Start>();
+
+        Assert.Empty(cut.FindAll("[role='alert']"));
+        Assert.DoesNotContain(NotSignedInText, cut.Markup);
+    }
+
+    [Fact]
+    public void An_ended_sign_in_shows_no_error_when_the_plan_cannot_be_loaded()
+    {
+        PlanApiFake.Error = ClientErrorCodes.NotSignedIn;
+
+        var cut = Render<Start>();
+
+        Assert.Empty(cut.FindAll("[role='alert']"));
+        Assert.DoesNotContain(NotSignedInText, cut.Markup);
+    }
+
+    // Spec 97, A7: Endet die Anmeldung, schaltet der Anmeldezustand um, und der echte Router führt von der
+    // Startseite zur Anmeldeseite (RedirectToSignIn), ohne dass die Startseite einen Fehler zeigt.
+    [Fact]
+    public void An_ended_sign_in_leads_from_the_start_page_to_the_sign_in_page_through_the_router()
+    {
+        SeedPlan();
+        Navigation.NavigateTo("/");
+        var cut = Render<CascadingAuthenticationState>(p => p.AddChildContent<Routes>());
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='start-hero']")));
+        Assert.DoesNotContain("/anmelden", CurrentPath);
+
+        Tokens.Tokens = null;
+        signIn.NotifyTokensChanged();
+
+        cut.WaitForAssertion(() => Assert.StartsWith("/anmelden", CurrentPath));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".auth-layout")));
+        Assert.Empty(cut.FindAll("[data-testid='start-hero']"));
+        Assert.Empty(cut.FindAll(AlertSelector));
+        Assert.DoesNotContain(NotSignedInText, cut.Markup);
+    }
+
+    [Fact]
+    public void Another_user_error_is_still_shown()
+    {
+        Users.MeFailure = ClientErrorCodes.Unexpected;
+
+        var cut = Render<Start>();
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[role='alert']")));
+    }
+
     // A3 (R2)
     [Fact]
     public void A_new_booking_goes_to_the_current_month()
@@ -162,7 +234,7 @@ public class StartPageTests : PageTestContext
         Assert.Contains("Hallo, Anna!", cut.Markup);
         Assert.Empty(cut.FindAll("[data-testid='start-free']"));
         Assert.Empty(cut.FindAll("[data-testid='start-due']"));
-        Assert.Empty(cut.FindAll("[data-testid='start-bars']"));
+        Assert.Empty(cut.FindAll("[data-testid='start-pots']"));
         Assert.Empty(PlanApiFake.GetCalls);
     }
 
@@ -205,19 +277,250 @@ public class StartPageTests : PageTestContext
         Assert.Equal(5, cut.FindAll("[data-testid^='start-due-item-']").Count);
     }
 
-    // A7 (R6)
+    // A1 (R1): unter Verplanbar nur die verfügbaren Konten und ihre Summe
     [Fact]
-    public void The_target_actual_bars_show_one_bar_per_pot()
+    public void A1_the_account_line_lists_available_accounts_and_their_sum()
+    {
+        SeedPlan();
+        Accounts.Accounts.Clear();
+        AccountApiFake.Accounts.AddRange([Account("Girokonto", 1200m), Account("Tagesgeld", 5000m, available: false)]);
+
+        var cut = OpenStart();
+
+        var line = Text(cut, "start-accounts");
+        Assert.Contains("Girokonto 1.200,00 €", line);
+        Assert.Contains("Summe 1.200,00 €", line);
+        Assert.DoesNotContain("Tagesgeld", line);
+        Assert.Contains("start-accounts", cut.Find("[data-testid='start-hero']").InnerHtml);
+        Assert.Null(AccountApiFake.ListOwners.Last());
+    }
+
+    [Fact]
+    public void Without_a_grant_for_the_accounts_the_line_is_missing()
+    {
+        SeedPlan();
+        AccountApiFake.Accounts.Add(Account("Girokonto", 1200m));
+        HouseholdApiFake.Household = new HouseholdResponse(Guid.NewGuid(), "Haushalt von Anna", 50, 30, 20,
+        [
+            FakeHouseholdApi.Anna(),
+            FakeHouseholdApi.Ben(isMe: false) with { GrantsToMe = GrantLevels.None with { Plan = AccessLevelKeys.View } },
+        ]);
+        Member.LoadAsync().GetAwaiter().GetResult();
+        Member.Choose(FakeHouseholdApi.BenId);
+
+        var cut = OpenStart();
+
+        Assert.Empty(cut.FindAll("[data-testid='start-accounts']"));
+    }
+
+    // A2 (R2): eine Zeile je Topf in Euro, ohne Richtwerte in Prozent
+    [Fact]
+    public void A2_a_pot_line_reads_booked_of_planned_without_guide_values()
+    {
+        PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10) with
+        {
+            Overview = Overview(pots: [new PlanPotResponse(PotKeys.Needs, 1778m, 1634m), new PlanPotResponse(PotKeys.Wants, 100m, 130m), new PlanPotResponse(PotKeys.Savings, 0m, 0m)]),
+        };
+
+        var cut = OpenStart();
+
+        var pots = cut.Find("[data-testid='start-pots']");
+        Assert.Equal(3, pots.QuerySelectorAll("[data-testid^='start-pot-']").Length);
+        var needs = cut.Find("[data-testid='start-pot-needs']");
+        Assert.Contains("Grundbedarf", needs.TextContent);
+        Assert.Contains("1.634,00 € von 1.778,00 €", needs.TextContent);
+        Assert.Contains("width: 91.9", needs.InnerHtml);
+        Assert.DoesNotContain("überzogen", needs.TextContent);
+        Assert.DoesNotContain("%", pots.TextContent);
+        Assert.DoesNotContain("Ziel", pots.TextContent);
+        Assert.Empty(cut.FindAll("[data-testid='quota-on-planned-income']"));
+        var wants = cut.Find("[data-testid='start-pot-wants']");
+        Assert.Contains("überzogen", wants.TextContent);
+        Assert.NotEmpty(wants.QuerySelectorAll(".bar-fill--over-end"));
+    }
+
+    // Ein Topf ohne Plan und ohne Buchung zeigt "nichts geplant" statt Nullbeträgen und leerem Balken.
+    [Fact]
+    public void A_pot_with_nothing_planned_and_nothing_booked_says_so_without_amounts_and_bar()
     {
         SeedPlan();
 
         var cut = OpenStart();
 
-        var bars = cut.Find("[data-testid='start-bars']");
-        Assert.Equal(3, bars.QuerySelectorAll("figure.chart").Length);
-        Assert.Contains("Grundbedarf", bars.TextContent);
-        Assert.Contains("Wünsche", bars.TextContent);
-        Assert.Contains("Sparen", bars.TextContent);
+        var savings = cut.Find("[data-testid='start-pot-savings']");
+        Assert.Contains("Sparen", savings.TextContent);
+        Assert.Contains("nichts geplant", savings.TextContent);
+        Assert.DoesNotContain("0,00", savings.TextContent);
+        Assert.Empty(savings.QuerySelectorAll(".bar"));
+        Assert.Contains("muted", cut.Find("[data-testid='start-pot-savings'] .start-pot-sum").ClassName);
+        Assert.NotEmpty(cut.Find("[data-testid='start-pot-needs']").QuerySelectorAll(".bar"));
+    }
+
+    // Name und Betrag haben immer einen Abstand, und der Betrag rutscht unter den Namen, wenn die Zeile nicht reicht (360 und 412 px).
+    [Fact]
+    public void The_pot_line_keeps_a_gap_and_lets_the_amount_wrap_below_the_name()
+    {
+        var css = File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "wwwroot", "duofy.css"));
+
+        var line = System.Text.RegularExpressions.Regex.Match(css, @"\.start-pot\s*\{([^}]*)\}").Groups[1].Value;
+        Assert.Contains("flex-wrap: wrap", line);
+        Assert.Matches(@"gap:\s*\d+px\s+\d+px", line);
+        var sum = System.Text.RegularExpressions.Regex.Match(css, @"\.start-pot-sum\s*\{([^}]*)\}").Groups[1].Value;
+        Assert.Contains("flex: 1 1", sum);
+        Assert.Contains("flex-wrap: wrap", sum);
+    }
+
+    // A4 (R4): der Haushaltsblock unter dem eigenen, nur für Mitglieder
+    [Fact]
+    public async Task A4_the_household_block_shows_only_for_members()
+    {
+        SeedPlan();
+        var household = new HouseholdResponse(Guid.NewGuid(), "Haushalt von Anna", 50, 30, 20, [FakeHouseholdApi.Anna(), FakeHouseholdApi.Ben()]);
+        HouseholdApiFake.Household = household;
+        HouseholdApiFake.PlanMonths.Add(new HouseholdPlanMonth(2026, 10, 700m));
+        HouseholdApiFake.HouseholdPlans[(2026, 10)] = FakeHouseholdApi.EmptyPlan(household.Id, household.Name, 2026, 10) with
+        {
+            Free = 700m,
+            Pots = [new HouseholdPotResponse(PotKeys.Needs, 2000m, 1500m), new HouseholdPotResponse(PotKeys.Wants, 0m, 0m), new HouseholdPotResponse(PotKeys.Savings, 0m, 0m)],
+        };
+        await Member.LoadAsync();
+
+        var cut = OpenStart();
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='start-household']")));
+        var block = Text(cut, "start-household");
+        Assert.Contains("Haushalt", block);
+        Assert.Contains("700,00 €", block);
+        Assert.Contains("1.500,00 € von 2.000,00 €", cut.Find("[data-testid='start-household-pot-needs']").TextContent);
+        Assert.True(cut.Markup.IndexOf("start-hero", StringComparison.Ordinal) < cut.Markup.IndexOf("start-household\"", StringComparison.Ordinal));
+        Assert.Equal("/haushaltsplan", cut.Find("[data-testid='start-household-link']").GetAttribute("href")![..14]);
+    }
+
+    [Fact]
+    public void A4_without_a_household_there_is_no_household_block()
+    {
+        SeedPlan();
+        HouseholdApiFake.Household = null;
+
+        var cut = OpenStart();
+
+        Assert.Empty(cut.FindAll("[data-testid='start-household']"));
+    }
+
+    // Review M2: Der Haushaltsblock hängt nicht am eigenen Plan des Monats.
+    [Fact]
+    public async Task M2_the_household_block_shows_although_the_own_month_has_no_plan()
+    {
+        var household = new HouseholdResponse(Guid.NewGuid(), "Haushalt von Anna", 50, 30, 20, [FakeHouseholdApi.Anna(), FakeHouseholdApi.Ben()]);
+        HouseholdApiFake.Household = household;
+        HouseholdApiFake.PlanMonths.Add(new HouseholdPlanMonth(2026, 10, 700m));
+        HouseholdApiFake.HouseholdPlans[(2026, 10)] = FakeHouseholdApi.EmptyPlan(household.Id, household.Name, 2026, 10) with { Free = 700m };
+        await Member.LoadAsync();
+
+        var cut = Render<Start>();
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='start-household']")));
+        Assert.NotEmpty(cut.FindAll("[data-testid='start-empty']"));
+        Assert.Contains("700,00 €", Text(cut, "start-household"));
+    }
+
+    // Review M2: In der Sicht auf ein anderes Mitglied gibt es keinen Haushaltsblock, und er wird nicht einmal geholt.
+    [Fact]
+    public async Task M2_the_household_block_is_missing_and_not_loaded_in_the_view_of_another_member()
+    {
+        SeedPlan();
+        var household = new HouseholdResponse(Guid.NewGuid(), "Haushalt von Anna", 50, 30, 20,
+            [FakeHouseholdApi.Anna(), FakeHouseholdApi.Ben(isMe: false) with { GrantsToMe = GrantLevels.None with { Plan = AccessLevelKeys.View } }]);
+        HouseholdApiFake.Household = household;
+        HouseholdApiFake.PlanMonths.Add(new HouseholdPlanMonth(2026, 10, 700m));
+        HouseholdApiFake.HouseholdPlans[(2026, 10)] = FakeHouseholdApi.EmptyPlan(household.Id, household.Name, 2026, 10) with { Free = 700m };
+        await Member.LoadAsync();
+        Member.Choose(FakeHouseholdApi.BenId);
+
+        var cut = OpenStart();
+
+        Assert.Empty(cut.FindAll("[data-testid='start-household']"));
+        Assert.Empty(HouseholdApiFake.PlanCalls);
+    }
+
+    // Review M3: Die Jahreslinie steht auch ohne Plan im laufenden Monat, wenn frühere Monate einen haben.
+    [Fact]
+    public void M3_the_year_line_shows_although_the_current_month_has_no_plan()
+    {
+        PlanApiFake.Overview = [new PlanOverviewMonthResponse(2026, 8, 20m, false, 0m, []), new PlanOverviewMonthResponse(2026, 7, 10m, false, 0m, [])];
+
+        var cut = Render<Start>();
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='start-year-section']")));
+        Assert.NotEmpty(cut.FindAll("[data-testid='start-empty']"));
+        Assert.Equal("Juli: 10,00 €", cut.Find("[data-testid='start-year-bar-7']").GetAttribute("aria-label"));
+    }
+
+    // A5 (R5): Jahreslinie von Januar bis zum laufenden Monat, grün und rot, ohne künftige Monate
+    [Fact]
+    public void A5_the_year_line_has_one_bar_per_past_month()
+    {
+        SeedPlan();
+        PlanApiFake.Overview =
+        [
+            .. Enumerable.Range(1, 10).Select(m => new PlanOverviewMonthResponse(2026, m, m == 3 ? -120m : 100m * m, false, 0m, [])).Reverse(),
+            new PlanOverviewMonthResponse(2026, 11, 50m, false, 0m, []),
+        ];
+
+        var cut = OpenStart();
+
+        var bars = cut.FindAll("[data-testid^='start-year-bar-']");
+        Assert.Equal(10, bars.Count);
+        Assert.Empty(cut.FindAll("[data-testid='start-year-bar-11']"));
+        Assert.Equal("Januar: 100,00 €", cut.Find("[data-testid='start-year-bar-1']").GetAttribute("aria-label"));
+        Assert.Equal("März: -120,00 €", cut.Find("[data-testid='start-year-bar-3']").GetAttribute("aria-label"));
+        Assert.Contains("year-bar--positive", cut.Find("[data-testid='start-year-bar-1']").ClassName);
+        Assert.Contains("year-bar--negative", cut.Find("[data-testid='start-year-bar-3']").ClassName);
+        Assert.Equal("/plan", cut.Find("[data-testid='start-year-link']").GetAttribute("href"));
+        Assert.Equal([2026], PlanApiFake.OverviewCalls.Distinct());
+    }
+
+    // Ein älterer Server kennt die Übersicht nicht (404): Die Startseite zeigt alles andere, nur ohne Jahreslinie und ohne Fehlermeldung.
+    [Fact]
+    public void Against_a_server_without_the_overview_the_start_page_shows_everything_but_the_year_line()
+    {
+        SeedPlan(free: 340m);
+        PlanApiFake.OverviewMissing = true;
+        AccountApiFake.Accounts.Add(Account("Girokonto", 1200m));
+
+        var cut = OpenStart();
+
+        Assert.Contains("340,00 €", Text(cut, "start-hero"));
+        Assert.Contains("Girokonto 1.200,00 €", Text(cut, "start-accounts"));
+        Assert.Equal(3, cut.FindAll("[data-testid^='start-pot-']").Count);
+        Assert.Empty(cut.FindAll("[data-testid='start-year-section']"));
+        Assert.Empty(cut.FindAll(AlertSelector));
+        Assert.DoesNotContain("Das gibt es nicht mehr", cut.Markup);
+        Assert.Equal(1, PlanApiFake.ListMonthsCalls);
+    }
+
+    [Fact]
+    public void Against_a_server_without_the_overview_a_missing_month_still_shows_the_empty_state()
+    {
+        PlanApiFake.OverviewMissing = true;
+
+        var cut = Render<Start>();
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='start-empty']")));
+        Assert.Empty(cut.FindAll(AlertSelector));
+    }
+
+    [Fact]
+    public void A_month_without_a_plan_is_an_empty_slot_in_the_year_line()
+    {
+        SeedPlan();
+        PlanApiFake.Overview = [new PlanOverviewMonthResponse(2026, 10, 340m, false, 0m, []), new PlanOverviewMonthResponse(2026, 8, 20m, false, 0m, [])];
+
+        var cut = OpenStart();
+
+        Assert.Equal(10, cut.FindAll("[data-testid^='start-year-bar-']").Count);
+        Assert.Equal("Januar: kein Plan", cut.Find("[data-testid='start-year-bar-1']").GetAttribute("aria-label"));
+        Assert.Contains("year-bar--empty", cut.Find("[data-testid='start-year-bar-1']").ClassName);
     }
 
     // A8 (R7)
@@ -228,7 +531,7 @@ public class StartPageTests : PageTestContext
 
         var cut = OpenStart();
 
-        foreach (var id in new[] { "start-hero-link", "start-due-link", "start-bars-link" })
+        foreach (var id in new[] { "start-hero-link", "start-due-link", "start-pots-link" })
         {
             Assert.Equal("/plan/2026/10", cut.Find($"[data-testid='{id}']").GetAttribute("href"));
         }
@@ -386,5 +689,20 @@ public class StartPageTests : PageTestContext
         var again = OpenStart();
         Assert.Empty(again.FindAll("[data-testid='start-guideline']"));
         Assert.Empty(HouseholdApiFake.PlanCalls);
+    }
+
+    private sealed class SignedInAuthorizationService : IAuthorizationService
+    {
+        public Task<AuthorizationResult> AuthorizeAsync(System.Security.Claims.ClaimsPrincipal user, object? resource, IEnumerable<IAuthorizationRequirement> requirements) =>
+            Task.FromResult(user.Identity?.IsAuthenticated == true ? AuthorizationResult.Success() : AuthorizationResult.Failed());
+
+        public Task<AuthorizationResult> AuthorizeAsync(System.Security.Claims.ClaimsPrincipal user, object? resource, string policyName) =>
+            AuthorizeAsync(user, resource, []);
+    }
+
+    private sealed class NoThemeStore : IThemePreferenceStore
+    {
+        public Task<ThemeChoice> LoadAsync() => Task.FromResult(ThemeChoice.Device);
+        public Task SaveAsync(ThemeChoice choice) => Task.CompletedTask;
     }
 }
