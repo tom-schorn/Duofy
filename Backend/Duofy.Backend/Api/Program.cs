@@ -148,6 +148,7 @@ var app = builder.Build();
 // Eine gehostete Version ohne vollständige Mail-Einstellungen startet nicht (Spec 53, R1).
 var hosted = app.Services.GetRequiredService<HostedSettings>();
 hosted.StopIfIncomplete();
+app.Services.GetRequiredService<LegalDocuments>().StopIfInvalid();
 
 // Neue Migrationen werden beim Start eingespielt.
 using (var scope = app.Services.CreateScope())

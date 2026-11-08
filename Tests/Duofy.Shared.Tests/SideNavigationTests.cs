@@ -152,6 +152,20 @@ public class SideNavigationTests : PageTestContext
         Assert.Empty(host.FindAll("[data-testid='side-legal-privacy']"));
     }
 
+    // Review 07.11.: Mit einer äußeren Adresse führt der Eintrag im Benutzermenü dorthin, nicht zur Seite des Servers.
+    [Fact]
+    public void The_user_menu_uses_the_external_address_of_a_text_when_there_is_one()
+    {
+        LegalApiFake.Documents["imprint"] = "Max Muster";
+        LegalApiFake.Urls["privacy"] = "https://example.org/datenschutz";
+
+        var host = OpenUserMenu();
+
+        host.WaitForAssertion(() => Assert.NotEmpty(host.FindAll("[data-testid='side-legal-privacy']")));
+        Assert.Equal("https://example.org/datenschutz", host.Find("[data-testid='side-legal-privacy']").GetAttribute("href"));
+        Assert.Equal("/rechtliches/impressum", host.Find("[data-testid='side-legal-imprint']").GetAttribute("href"));
+    }
+
     [Fact]
     public void Sign_out_in_the_side_bar_signs_out_and_leads_to_the_sign_in()
     {

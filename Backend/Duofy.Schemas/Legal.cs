@@ -24,8 +24,12 @@ public static class LegalErrorCodes
 }
 
 /// <summary>Die Antwort von GET /api/v1/legal: die Namen der Texte, die dieser Server anbietet.</summary>
-/// <param name="Documents">Teilmenge von <see cref="LegalDocumentNames.All"/>, nur lesbare, nicht leere Texte.</param>
-public sealed record LegalListResponse(IReadOnlyList<string> Documents);
+/// <param name="Documents">Teilmenge von <see cref="LegalDocumentNames.All"/>: lesbare, nicht leere Texte und Texte mit äußerer Adresse.</param>
+/// <param name="Urls">
+/// Optional (Spec 109): je Name die äußere https-Adresse, auf die der Link statt auf die Seite des Servers zeigt;
+/// null oder ohne Eintrag heißt: der Text liegt auf diesem Server.
+/// </param>
+public sealed record LegalListResponse(IReadOnlyList<string> Documents, IReadOnlyDictionary<string, string>? Urls = null);
 
 /// <summary>Die Antwort von GET /api/v1/legal/{name}: der Text, reiner Text mit Zeilenumbrüchen.</summary>
 public sealed record LegalTextResponse(string Text);

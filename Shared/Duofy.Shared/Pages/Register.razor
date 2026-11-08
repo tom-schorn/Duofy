@@ -5,9 +5,13 @@
 @using Duofy.Schemas
 @inject IAuthApi AuthApi
 @inject IInstanceApi InstanceApi
+@inject ILegalApi LegalApi
+@inject IAppHost Host
 @inject AppBrand Brand
 @inject NavigationManager Navigation
 @inject IJSRuntime Js
+@inject LegalOverlay Overlay
+@implements IDisposable
 @using Microsoft.Extensions.Logging
 @inject ILogger<Register> Log
 @inject IStringLocalizer<SharedResources> L
@@ -56,7 +60,7 @@ else
 
 @* Die Prüfungen stehen unter ihrem Feld und zeigen sich nach dem ersten Abschicken; die Texte kommen über den Fehlercode aus
    der Ressourcendatei. Alles, was geprüft wird, auch die Zustimmung, liegt im Formular. *@
-<form novalidate class="stack" @onsubmit="OnSubmitAsync" @onsubmit:preventDefault="true">
+<form novalidate class="stack" inert="@(overlayName is not null)" @onsubmit="OnSubmitAsync" @onsubmit:preventDefault="true">
     <div class="field-stack">
         <div class="field-pair">
             <div class="field">
@@ -107,7 +111,32 @@ else
         <div class="check-row">
             <BbCheckbox Id="register-terms" @bind-Checked="acceptedTerms" aria-invalid="@Flag(acceptedTerms ? null : "x")"
                         AriaDescribedBy="@Describe(null, "register-terms", acceptedTerms ? null : "x")" data-testid="register-terms" />
-            <FieldLabel For="register-terms" Text="@L["Register_AcceptTerms"]" />
+            @if (privacyKnown || termsKnown)
+            {
+                @* Der Satz nennt nur die Texte, die es gibt (Spec 109); jeder Name ist ein Link. Im Browser öffnet er einen
+                   neuen Tab, in der App eine äußere Adresse den Browser des Telefons und ein eigener Text ein Fenster über
+                   dem Formular: Das ausgefüllte Formular bleibt immer stehen. *@
+                <label for="register-terms" class="field-label" data-testid="register-terms-label">
+                    @(privacyKnown ? L["Register_AcceptPrefixPrivacy"] : L["Register_AcceptPrefixTerms"])
+                    @if (privacyKnown)
+                    {
+                        <a href="@LegalPages.HrefOf(LegalDocumentNames.Privacy, legalUrls)" target="@TargetOf(LegalDocumentNames.Privacy)" rel="noopener noreferrer" @ref="privacyLink" @onclick="() => OpenText(LegalDocumentNames.Privacy, privacyLink)" @onclick:preventDefault="UsesOverlay(LegalDocumentNames.Privacy)" data-testid="register-link-privacy">@L["Register_AcceptPrivacyName"]</a>
+                    }
+                    @if (privacyKnown && termsKnown)
+                    {
+                        @L["Register_AcceptAnd"]
+                    }
+                    @if (termsKnown)
+                    {
+                        <a href="@LegalPages.HrefOf(LegalDocumentNames.Terms, legalUrls)" target="@TargetOf(LegalDocumentNames.Terms)" rel="noopener noreferrer" @ref="termsLink" @onclick="() => OpenText(LegalDocumentNames.Terms, termsLink)" @onclick:preventDefault="UsesOverlay(LegalDocumentNames.Terms)" data-testid="register-link-terms">@L["Legal_Terms"]</a>
+                    }
+                    @L["Register_AcceptSuffix"]
+                </label>
+            }
+            else
+            {
+                <FieldLabel For="register-terms" Text="@L["Register_AcceptTerms"]" />
+            }
         </div>
         @if (submitted && !acceptedTerms)
         {
@@ -131,6 +160,11 @@ else
     @L["Register_HaveAccount"]
     <a href="@ReturnAddress.With("/anmelden", ReturnUrl)">@L["Register_LoginLink"]</a>
 </p>
+}
+
+@if (overlayName is not null)
+{
+    <LegalTextOverlay Name="@overlayName" Opener="overlayOpener" OnClose="CloseText" />
 }
 
 @code {
@@ -179,9 +213,57 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        // In der App öffnet auch die Zeile unter dem Formular einen eigenen Text als Fenster.
+        if (Host.IsApp) Overlay.Register(OpenFromFooterAsync);
+
         var result = await InstanceApi.GetAsync();
         instance = result.Succeeded ? result.Value : null;
+
+        // Welche Rechtstexte es gibt und wohin ihre Links gehen (Spec 109); ohne Antwort bleibt der einfache Satz.
+        var legal = await LegalApi.ListAsync();
+        if (legal.Succeeded)
+        {
+            privacyKnown = legal.Value!.Documents.Contains(LegalDocumentNames.Privacy);
+            termsKnown = legal.Value.Documents.Contains(LegalDocumentNames.Terms);
+            legalUrls = legal.Value.Urls;
+        }
     }
+
+    private bool privacyKnown;
+    private bool termsKnown;
+    private IReadOnlyDictionary<string, string>? legalUrls;
+
+    // Im Browser öffnet jeder Link der Einwilligung einen neuen Tab. In der App bekommt er kein target: Eine äußere Adresse lädt
+    // die Ansicht, und MainPage schickt sie an den Browser des Telefons (ein target="_blank" erreichte sie nicht).
+    private string? TargetOf(string name) => Host.IsApp ? null : "_blank";
+
+    // Ein eigener Text (keine äußere Adresse) öffnet sich in der App als Fenster über dem Formular, damit die Eingaben bleiben.
+    private bool UsesOverlay(string name) => Host.IsApp && !LegalPages.IsExternal(LegalPages.HrefOf(name, legalUrls));
+
+    private string? overlayName;
+    private ElementReference privacyLink;
+    private ElementReference termsLink;
+
+    // Der angeklickte Link wird beim Klick festgehalten; das Fenster gibt ihm beim Schließen den Fokus zurück.
+    private ElementReference? overlayOpener;
+
+    private void OpenText(string name, ElementReference link)
+    {
+        if (!UsesOverlay(name)) return;
+        overlayOpener = link;
+        overlayName = name;
+    }
+
+    private Task OpenFromFooterAsync(string name) => InvokeAsync(() =>
+    {
+        overlayOpener = null;
+        overlayName = name;
+        StateHasChanged();
+    });
+
+    private void CloseText() => overlayName = null;
+
+    public void Dispose() => Overlay.Unregister(OpenFromFooterAsync);
 
     // Jede Prüfung liefert null, wenn alles passt, sonst den Text, der unter dem Feld steht.
     // Die Texte kommen über den Fehlercode aus der Ressourcendatei (siehe ErrorTexts). 

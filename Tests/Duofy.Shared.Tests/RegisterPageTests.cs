@@ -142,6 +142,51 @@ public class RegisterPageTests : PageTestContext
         cut.WaitForAssertion(() => Assert.Single(Auth.Registered));
     }
 
+    // A2
+    [Fact]
+    public void A2_the_consent_links_privacy_and_terms()
+    {
+        LegalApiFake.Documents["privacy"] = "P";
+        LegalApiFake.Documents["terms"] = "T";
+        LegalApiFake.Urls["privacy"] = "https://example.org/datenschutz";
+
+        var cut = Render<Register>();
+
+        cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll("label[for='register-terms'] a").Count));
+        var label = cut.Find("label[for='register-terms']");
+        var links = label.QuerySelectorAll("a").ToArray();
+        Assert.Equal(["Datenschutzerklärung", "Nutzungsbedingungen"], links.Select(a => a.TextContent.Trim()));
+        Assert.Equal(["https://example.org/datenschutz", "/rechtliches/nutzungsbedingungen"], links.Select(a => a.GetAttribute("href")));
+        Assert.Equal("Ich stimme der Datenschutzerklärung und den Nutzungsbedingungen zu.", label.TextContent.Trim());
+        // Ein Link öffnet sich in einem neuen Tab: Das ausgefüllte Formular bleibt stehen.
+        Assert.All(links, a => Assert.Equal("_blank", a.GetAttribute("target")));
+    }
+
+    // A5
+    [Fact]
+    public void A5_the_consent_names_only_the_privacy_policy_when_there_are_no_terms()
+    {
+        LegalApiFake.Documents["privacy"] = "P";
+
+        var cut = Render<Register>();
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("label[for='register-terms'] a")));
+        var label = cut.Find("label[for='register-terms']");
+        Assert.Equal("Ich stimme der Datenschutzerklärung zu.", label.TextContent.Trim());
+        Assert.DoesNotContain("Nutzungsbedingungen", label.TextContent);
+    }
+
+    [Fact]
+    public void The_consent_names_only_the_terms_when_there_is_no_privacy_policy()
+    {
+        LegalApiFake.Documents["terms"] = "T";
+
+        var cut = Render<Register>();
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("label[for='register-terms'] a")));
+        Assert.Equal("Ich stimme den Nutzungsbedingungen zu.", cut.Find("label[for='register-terms']").TextContent.Trim());
+    }
+
     // Mangel S2: Der Haken hat einen Namen: Die Beschriftung mit dem Text der Zustimmung ist über for und id mit ihm verbunden.
     [Fact]
     public void The_consent_checkbox_has_the_consent_text_as_its_name()

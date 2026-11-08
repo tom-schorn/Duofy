@@ -28,6 +28,20 @@ public class MehrPageTests : PageTestContext
         Assert.Contains("card", cut.Find("[data-testid='more-list']").ClassList);
     }
 
+    // Review 07.11.: Mit einer äußeren Adresse führt der Eintrag dorthin; ohne Adresse zur Seite des Servers.
+    [Fact]
+    public void A_legal_entry_uses_the_external_address_of_its_text_when_there_is_one()
+    {
+        LegalApiFake.Documents["imprint"] = "Max Muster";
+        LegalApiFake.Urls["privacy"] = "https://example.org/datenschutz";
+
+        var cut = Render<Mehr>();
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='more-legal-privacy']")));
+        Assert.Equal("https://example.org/datenschutz", cut.Find("[data-testid='more-legal-privacy']").GetAttribute("href"));
+        Assert.Equal("/rechtliches/impressum", cut.Find("[data-testid='more-legal-imprint']").GetAttribute("href"));
+    }
+
     [Fact]
     public void Sign_out_leads_to_the_sign_in()
     {

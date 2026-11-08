@@ -6,6 +6,7 @@
 @inject IUserApi UserApi
 @inject ILegalApi LegalApi
 @inject NavigationManager Navigation
+@inject IAppHost Host
 @inject ActiveMember Member
 @implements IDisposable
 @inject IStringLocalizer<SharedResources> L
@@ -37,7 +38,7 @@
             <BbDropdownMenuItem Href="/lizenzen" data-testid="side-licenses">@L["More_Licenses"]</BbDropdownMenuItem>
             @foreach (var name in legalDocuments)
             {
-                <BbDropdownMenuItem Href="@LegalPages.PathOf(name)" data-testid="@($"side-legal-{name}")">@L[LegalPages.LabelKeyOf(name)]</BbDropdownMenuItem>
+                <BbDropdownMenuItem Href="@LegalPages.HrefOf(name, legalUrls)" target="@LegalTarget" rel="@LegalRel" data-testid="@($"side-legal-{name}")">@L[LegalPages.LabelKeyOf(name)]</BbDropdownMenuItem>
             }
             <BbDropdownMenuSeparator />
             <BbDropdownMenuItem OnClick="SignOutAsync" data-testid="side-sign-out">@L["Account_SignOut"]</BbDropdownMenuItem>
@@ -48,6 +49,14 @@
 @code {
     // Die Rechtstexte, die dieser Server anbietet (Spec 70, R8); ohne Antwort des Servers gibt es keine Links.
     private IReadOnlyList<string> legalDocuments = [];
+
+    // Die äußeren Adressen der Texte (Spec 109); ein Eintrag geht dorthin, wenn der Server eine nennt (siehe LegalPages.HrefOf).
+    private IReadOnlyDictionary<string, string>? legalUrls;
+
+    // Im Browser öffnet ein Rechtstext einen neuen Tab (Spec 109, R5); in der App bekommt der Eintrag kein target, damit die
+    // Ansicht eine äußere Adresse an den Browser des Telefons weiterreichen kann.
+    private string? LegalTarget => Host.IsApp ? null : "_blank";
+    private string? LegalRel => Host.IsApp ? null : "noopener noreferrer";
 
     // Ob die Person den Server verwaltet; ohne Antwort des Servers nicht.
     private bool isAdmin;
@@ -64,6 +73,7 @@
         if (result.Succeeded)
         {
             legalDocuments = LegalPages.Known(result.Value!.Documents);
+            legalUrls = result.Value.Urls;
         }
 
         var me = await UserApi.GetMeAsync();

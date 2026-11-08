@@ -9,6 +9,9 @@ public sealed class FakeLegalApi : ILegalApi
     /// <summary>Die Texte, die der gespielte Server anbietet, nach Namen (imprint, privacy, terms).</summary>
     public Dictionary<string, string> Documents { get; } = [];
 
+    /// <summary>Die äußeren Adressen (Duofy:ImprintUrl und so weiter) nach Namen; ein Text mit Adresse gilt als vorhanden.</summary>
+    public Dictionary<string, string> Urls { get; } = [];
+
     /// <summary>Wenn gesetzt, scheitern beide Aufrufe mit diesem Fehlercode.</summary>
     public string? Failure { get; set; }
 
@@ -18,7 +21,8 @@ public sealed class FakeLegalApi : ILegalApi
         Task.FromResult(Failure is not null
             ? ApiResult<LegalListResponse>.Failure(Failure)
             : ApiResult<LegalListResponse>.Success(new LegalListResponse(
-                LegalDocumentNames.All.Where(Documents.ContainsKey).ToList())));
+                LegalDocumentNames.All.Where(n => Documents.ContainsKey(n) || Urls.ContainsKey(n)).ToList(),
+                Urls.Count == 0 ? null : new Dictionary<string, string>(Urls))));
 
     public Task<ApiResult<LegalTextResponse>> GetAsync(string name, CancellationToken cancellationToken = default)
     {

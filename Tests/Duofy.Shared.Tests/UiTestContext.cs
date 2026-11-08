@@ -15,6 +15,9 @@ public abstract class UiTestContext : BunitContext, IAsyncLifetime
         // Blueprint ruft viel JavaScript auf; im Test genügt es, wenn die Aufrufe ins Leere gehen.
         JSInterop.Mode = JSRuntimeMode.Loose;
         Services.AddDuofyUi();
+
+        // Jedes Layout zeigt die Rechtstexte (Spec 109); ohne eigenen Fake bietet der gespielte Server keine an.
+        Services.AddSingleton<Duofy.ApiClient.ILegalApi>(new FakeLegalApi());
     }
 
     // Blueprint meldet Dienste an, die sich nur asynchron aufräumen lassen.

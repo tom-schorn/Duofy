@@ -413,7 +413,7 @@ ul, ol { list-style: none; }
 .auth-mobile-brand { display: none; font-family: var(--font-heading); font-size: 20px; font-weight: 600; }
 .auth-form { width: 100%; max-width: 24rem; display: flex; flex-direction: column; gap: 16px; }
 .auth-title { font-family: var(--font-heading); font-size: 30px; line-height: 1.2; font-weight: 600; }
-.auth-legal { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; font-size: 12px; color: var(--muted-foreground); }
+.auth-legal { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 12px; font-size: 12px; color: var(--muted-foreground); }
 .server-line { background: none; border: 0; font: inherit; font-size: 12px; color: var(--muted-foreground); text-decoration: underline; cursor: pointer; }
 .page-footer-legal { margin-top: 40px; justify-content: flex-start; }
 
@@ -901,3 +901,10 @@ a.duofy-button--primary { color: var(--primary-foreground); }
 .plan-changes-card { border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); padding: 0 12px; }
 .plan-changes-toggle { font-size: 14px; }
 .plan-changes-panel { padding: 0 0 12px; }
+
+/* Ein Rechtstext als Fenster über der Registrierung in der App (Spec 109). */
+.legal-overlay-backdrop { position: fixed; inset: 0; z-index: 70; display: flex; align-items: center; justify-content: center; padding: 16px; background: color-mix(in srgb, var(--foreground) 50%, transparent); }
+.legal-overlay { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 40rem; max-height: 100%; padding: 16px; background: var(--popover); color: var(--popover-foreground); border: 1px solid var(--border); border-radius: calc(var(--radius) * 1.4); }
+.legal-overlay:focus { outline: none; }
+.legal-overlay-title { margin: 0; font-size: 1.125rem; font-weight: 600; }
+.legal-overlay-body { overflow-y: auto; min-height: 0; }

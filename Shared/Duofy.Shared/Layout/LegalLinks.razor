@@ -1,30 +1,60 @@
 @using Duofy.ApiClient
+@implements IDisposable
 @inject ILegalApi LegalApi
+@inject IAppHost Host
+@inject LegalOverlay Overlay
 @inject IStringLocalizer<SharedResources> L
 
-@* Die Links zu den Rechtstexten unter Anmelden und Registrieren (Spec 70, R8): nur zu den Texten, die dieser
-   Server anbietet. Solange die Liste lädt, der Server nicht antwortet oder es keinen Text gibt, steht hier
-   nichts; die Seiten funktionieren auch so. *@
+@* Die Zeile mit den Rechtstexten (Spec 70, R8, Spec 109): "Impressum · Datenschutz · Nutzungsbedingungen", im Rahmen der
+   angemeldeten Seiten und unter dem Formular von Anmelden und Registrieren. Jeder Link geht zur äußeren Adresse des
+   Servers, wenn er eine nennt, sonst zur Seite dieses Servers; ein Text, den es nicht gibt, fehlt. Im Browser öffnet jeder
+   Link einen neuen Tab; in der App öffnet eine äußere Adresse den Browser des Telefons (ohne target, sonst erreicht sie die
+   App nicht, siehe MainPage), und auf der Registrierung öffnet ein eigener Text als Fenster über dem Formular. Solange die
+   Liste lädt, der Server nicht antwortet oder es keinen Text gibt, steht hier nichts; die Seiten funktionieren auch so. *@
 
 @if (documents.Count > 0)
 {
-    <nav class="auth-legal" aria-label="@L["Legal_Footer"]" data-testid="legal-links">
-        @foreach (var name in documents)
+    <nav class="@CssClass" aria-label="@L["Legal_Footer"]" data-testid="legal-links" data-print="hide">
+        @for (var i = 0; i < documents.Count; i++)
         {
-            <a href="@LegalPages.PathOf(name)" data-testid="@($"legal-link-{name}")">@L[LegalPages.LabelKeyOf(name)]</a>
+            var name = documents[i];
+            var href = LegalPages.HrefOf(name, urls);
+            var asOverlay = Host.IsApp && Overlay.IsAvailable && !LegalPages.IsExternal(href);
+            if (i != 0)
+            {
+                <span aria-hidden="true">@L["Legal_Separator"]</span>
+            }
+            <a href="@href" target="@(Host.IsApp ? null : "_blank")" rel="@(Host.IsApp ? null : "noopener noreferrer")"
+               @onclick="() => OpenAsync(name, asOverlay)" @onclick:preventDefault="asOverlay"
+               data-testid="@($"legal-link-{name}")">@L[LegalPages.LabelKeyOf(name)]</a>
         }
     </nav>
 }
 
 @code {
     private IReadOnlyList<string> documents = [];
+    private IReadOnlyDictionary<string, string>? urls;
+
+    /// <summary>Zusätzliche Klasse, damit der Rahmen die Zeile an seine Stelle setzen kann.</summary>
+    [Parameter] public string? Class { get; set; }
+
+    private string CssClass => string.IsNullOrEmpty(Class) ? "auth-legal" : "auth-legal " + Class;
 
     protected override async Task OnInitializedAsync()
     {
+        Overlay.Changed += OnOverlayChanged;
         var result = await LegalApi.ListAsync();
         if (result.Succeeded)
         {
             documents = LegalPages.Known(result.Value!.Documents);
+            urls = result.Value.Urls;
         }
     }
+
+    // Nur ein eigener Text in der App wird zum Fenster; sonst tut der Link, was ein Link tut.
+    private Task OpenAsync(string name, bool asOverlay) => asOverlay ? Overlay.OpenAsync(name) : Task.CompletedTask;
+
+    private void OnOverlayChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Overlay.Changed -= OnOverlayChanged;
 }

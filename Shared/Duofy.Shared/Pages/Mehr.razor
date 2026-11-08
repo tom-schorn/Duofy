@@ -5,6 +5,7 @@
 @inject AppChrome Chrome
 @inject IAuthApi AuthApi
 @inject NavigationManager Navigation
+@inject IAppHost Host
 @inject IStringLocalizer<SharedResources> L
 @inject ILegalApi LegalApi
 @inject IUserApi UserApi
@@ -47,7 +48,7 @@
         <DuofyButton Href="/lizenzen" Kind="ButtonKind.Ghost" TestId="more-licenses" Class="more-entry"><LucideIcon Name="scale" Size="16" aria-hidden="true" /> @L["More_Licenses"]</DuofyButton>
         @foreach (var name in legalDocuments)
         {
-            <DuofyButton Href="@LegalPages.PathOf(name)" Kind="ButtonKind.Ghost" TestId="@($"more-legal-{name}")" Class="more-entry"><LucideIcon Name="file-text" Size="16" aria-hidden="true" /> @L[LegalPages.LabelKeyOf(name)]</DuofyButton>
+            <DuofyButton Href="@LegalPages.HrefOf(name, legalUrls)" target="@LegalTarget" rel="@LegalRel" Kind="ButtonKind.Ghost" TestId="@($"more-legal-{name}")" Class="more-entry"><LucideIcon Name="file-text" Size="16" aria-hidden="true" /> @L[LegalPages.LabelKeyOf(name)]</DuofyButton>
         }
         <DuofyButton Kind="ButtonKind.Ghost" Icon="log-out" Text="@L["Account_SignOut"]" OnClick="SignOutAsync" TestId="more-sign-out" Class="more-entry" />
     </div>
@@ -56,6 +57,14 @@
 @code {
     // Die Rechtstexte, die dieser Server anbietet (Spec 70, R8); ohne Antwort des Servers gibt es keine Links.
     private IReadOnlyList<string> legalDocuments = [];
+
+    // Die äußeren Adressen der Texte (Spec 109); ein Eintrag geht dorthin, wenn der Server eine nennt (siehe LegalPages.HrefOf).
+    private IReadOnlyDictionary<string, string>? legalUrls;
+
+    // Im Browser öffnet ein Rechtstext einen neuen Tab (Spec 109, R5); in der App bekommt der Eintrag kein target, damit die
+    // Ansicht eine äußere Adresse an den Browser des Telefons weiterreichen kann.
+    private string? LegalTarget => Host.IsApp ? null : "_blank";
+    private string? LegalRel => Host.IsApp ? null : "noopener noreferrer";
 
     // Ob die Person den Server verwaltet; ohne Antwort des Servers nicht.
     private bool isAdmin;
@@ -72,6 +81,7 @@
         if (result.Succeeded)
         {
             legalDocuments = LegalPages.Known(result.Value!.Documents);
+            legalUrls = result.Value.Urls;
         }
 
         var me = await UserApi.GetMeAsync();

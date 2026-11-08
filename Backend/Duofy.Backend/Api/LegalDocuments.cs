@@ -8,6 +8,9 @@ namespace Duofy.Api;
 /// je eine Textdatei aus den Einstellungen Duofy:ImprintFile, Duofy:PrivacyFile und Duofy:TermsFile
 /// (Umgebungsvariablen Duofy__ImprintFile und so weiter).
 ///
+/// Zusätzlich darf jeder Text eine äußere Adresse haben (Spec 109): Duofy:ImprintUrl, Duofy:PrivacyUrl und
+/// Duofy:TermsUrl, absolut und https. Ein Text mit Adresse gilt als vorhanden; eine ungültige Adresse stoppt den Start.
+///
 /// Ein Text, der nicht eingestellt, nicht lesbar, leer oder größer als 200 KB ist, gibt es nicht. Der Pfad
 /// kommt immer aus der Einstellung und nie aus einer Anfrage; im Log steht nur der Name des Textes, nie sein
 /// Pfad. Die Dateien werden bei jeder Anfrage frisch gelesen, damit eine geänderte Datei ohne Neustart gilt.
@@ -27,13 +30,57 @@ internal sealed class LegalDocuments(IConfiguration configuration, ILoggerFactor
         [LegalDocumentNames.Terms] = "Duofy:TermsFile",
     };
 
-    /// <summary>Die Namen der Texte, die es gibt, in der festen Reihenfolge von <see cref="LegalDocumentNames.All"/>.</summary>
+    /// <summary>Der Name in der Adresse und der Schlüssel der Einstellung für die äußere Adresse.</summary>
+    private static readonly IReadOnlyDictionary<string, string> UrlSettings = new Dictionary<string, string>
+    {
+        [LegalDocumentNames.Imprint] = "Duofy:ImprintUrl",
+        [LegalDocumentNames.Privacy] = "Duofy:PrivacyUrl",
+        [LegalDocumentNames.Terms] = "Duofy:TermsUrl",
+    };
+
+    /// <summary>Die Namen der Einstellungen mit einer ungültigen Adresse; leer, wenn alles stimmt.</summary>
+    public IReadOnlyList<string> InvalidUrlSettings() =>
+        UrlSettings.Values.Where(key => Raw(key) is { } value && !IsHttpsUrl(value)).ToList();
+
+    /// <summary>Stoppt den Start mit einer klaren Meldung, wenn eine äußere Adresse nicht absolut und https ist.</summary>
+    public void StopIfInvalid()
+    {
+        var invalid = InvalidUrlSettings();
+        if (invalid.Count == 0)
+        {
+            return;
+        }
+        var names = string.Join(", ", invalid);
+        logger.LogCritical("Die Einstellung {Settings} muss eine absolute https-Adresse sein; der Server startet nicht.", names);
+        throw new InvalidOperationException($"Die Einstellung {names} muss eine absolute https-Adresse sein.");
+    }
+
+    /// <summary>Die äußere Adresse zu einem Namen; null, wenn keine eingestellt ist. Nur nach <see cref="StopIfInvalid"/> verwenden.</summary>
+    public string? UrlOf(string name) =>
+        UrlSettings.TryGetValue(name, out var key) && Raw(key) is { } value && IsHttpsUrl(value) ? value : null;
+
+    /// <summary>Die äußeren Adressen je Name; null, wenn keine eingestellt ist.</summary>
+    public IReadOnlyDictionary<string, string>? Urls()
+    {
+        var urls = LegalDocumentNames.All
+            .Select(name => (name, url: UrlOf(name)))
+            .Where(p => p.url is not null)
+            .ToDictionary(p => p.name, p => p.url!);
+        return urls.Count == 0 ? null : urls;
+    }
+
+    private string? Raw(string key) => configuration[key] is { } value && !string.IsNullOrWhiteSpace(value) ? value.Trim() : null;
+
+    private static bool IsHttpsUrl(string value) =>
+        Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps && !string.IsNullOrEmpty(uri.Host);
+
+    /// <summary>Die Namen der Texte, die es gibt (Datei oder äußere Adresse), in der festen Reihenfolge von <see cref="LegalDocumentNames.All"/>.</summary>
     public async Task<IReadOnlyList<string>> AvailableAsync(CancellationToken cancellationToken)
     {
         var available = new List<string>();
         foreach (var name in LegalDocumentNames.All)
         {
-            if (await ReadAsync(name, cancellationToken) is not null)
+            if (UrlOf(name) is not null || await ReadAsync(name, cancellationToken) is not null)
             {
                 available.Add(name);
             }

@@ -21,6 +21,17 @@ public static class LegalPages
     /// <summary>Die Adresse der Seite zu einem Namen der API.</summary>
     public static string PathOf(string name) => "/rechtliches/" + All.Single(p => p.Name == name).Slug;
 
+    /// <summary>
+    /// Wohin der Link zu einem Text geht (Spec 109): die äußere Adresse des Servers, wenn er eine nennt, sonst die Seite
+    /// dieses Servers. Eine Adresse, die nicht absolut https ist, wird nie ein Link (kein javascript:).
+    /// </summary>
+    public static string HrefOf(string name, IReadOnlyDictionary<string, string>? urls) =>
+        urls is not null && urls.TryGetValue(name, out var url) && IsExternal(url) ? url : PathOf(name);
+
+    /// <summary>Ob die Adresse zu einer anderen Seite führt: absolut und https.</summary>
+    public static bool IsExternal(string? href) =>
+        Uri.TryCreate(href, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps && !string.IsNullOrEmpty(uri.Host);
+
     /// <summary>Der Name der API zu einer Adresse der Seite; null für alles, was keine der drei Adressen ist.</summary>
     public static string? NameOf(string? slug) => All.FirstOrDefault(p => p.Slug == slug).Name;
 

@@ -37,6 +37,9 @@ public static class DuofyUiExtensions
 
         // Wessen Zahlen die Seiten zeigen (Spec 68): eine Wahl je Sitzung, beim Abmelden wieder "Ich".
         services.AddScoped<ActiveMember>();
+
+        // Rechtstexte als Fenster über der Registrierung in der App (Spec 109).
+        services.AddScoped<LegalOverlay>();
         return services;
     }
 }

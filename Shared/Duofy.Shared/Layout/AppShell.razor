@@ -45,6 +45,8 @@
         <div class="shell-body">
             <main class="shell-content" id="@SkipLink.TargetId" tabindex="-1" @ref="mainContent">
                 @ChildContent
+                @* Die Rechtstexte stehen am Ende jeder Seite (Spec 109). *@
+                <LegalLinks Class="page-footer-legal" />
             </main>
             <HelpColumn />
         </div>

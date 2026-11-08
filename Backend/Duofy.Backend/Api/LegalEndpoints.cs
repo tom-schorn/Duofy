@@ -17,7 +17,7 @@ internal static class LegalEndpoints
     }
 
     private static async Task<IResult> ListAsync(LegalDocuments documents, CancellationToken cancellationToken) =>
-        Results.Ok(new LegalListResponse(await documents.AvailableAsync(cancellationToken)));
+        Results.Ok(new LegalListResponse(await documents.AvailableAsync(cancellationToken), documents.Urls()));
 
     private static async Task<IResult> GetAsync(string name, LegalDocuments documents, CancellationToken cancellationToken) =>
         await documents.ReadAsync(name, cancellationToken) is { } text

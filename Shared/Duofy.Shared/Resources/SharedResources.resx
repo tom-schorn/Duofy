@@ -73,6 +73,7 @@
   <data name="Auth_PotWants"><value>Wünsche</value></data>
   <data name="Auth_PotSavings"><value>Sparen</value></data>
   <data name="Legal_Footer"><value>Rechtliches</value></data>
+  <data name="Legal_Separator"><value>·</value></data>
   <data name="Legal_Imprint"><value>Impressum</value></data>
   <data name="Legal_Privacy"><value>Datenschutz</value></data>
   <data name="Legal_Terms"><value>Nutzungsbedingungen</value></data>
@@ -109,6 +110,11 @@
   <data name="Register_Pending"><value>Wird angelegt…</value></data>
   <data name="Register_LoginLink"><value>Anmelden</value></data>
   <data name="Register_AcceptTerms"><value>Ich stimme der Datenschutzerklärung und den Nutzungsbedingungen zu.</value></data>
+  <data name="Register_AcceptPrefixPrivacy" xml:space="preserve"><value>Ich stimme der </value></data>
+  <data name="Register_AcceptPrefixTerms" xml:space="preserve"><value>Ich stimme den </value></data>
+  <data name="Register_AcceptPrivacyName"><value>Datenschutzerklärung</value></data>
+  <data name="Register_AcceptAnd" xml:space="preserve"><value> und den </value></data>
+  <data name="Register_AcceptSuffix" xml:space="preserve"><value> zu.</value></data>
   <data name="Register_Submit"><value>Konto anlegen</value></data>
   <data name="Register_HaveAccount"><value>Schon ein Konto?</value></data>
 

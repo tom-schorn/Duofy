@@ -1,0 +1,120 @@
+@using Duofy.ApiClient
+@using Microsoft.Extensions.Logging
+@inject ILegalApi LegalApi
+@inject ILogger<LegalTextOverlay> Log
+@inject IJSRuntime Js
+@implements IAsyncDisposable
+@inject IStringLocalizer<SharedResources> L
+
+@* Ein Rechtstext als Fenster über der Seite (Spec 109, Entscheidung 3): In der App verlässt ein Link die Registrierung
+   nicht, das ausgefüllte Formular bleibt darunter stehen. Das Fenster hat einen Namen (die Überschrift), nimmt den Fokus,
+   schließt mit dem Knopf und mit Escape. Solange es offen ist, ist alles dahinter inert (legal-overlay.js), und beim Schließen
+   kehrt der Fokus zum Link zurück, der es geöffnet hat. Scheitert das Skript, bleibt das Fenster ohne aria-modal stehen
+   (die Seite dahinter ist dann nicht abgeschirmt, also sagen wir es Screenreadern auch nicht) und nimmt den Fokus über Blazor. Der Text ist reiner Text und wird maskiert geschrieben, wie auf der Seite. *@
+
+<div class="legal-overlay-backdrop">
+    <div class="legal-overlay" role="dialog" aria-modal="@(focusScriptWorks ? "true" : null)" aria-labelledby="legal-overlay-title" tabindex="-1"
+         @ref="panel" @onkeydown="OnKeyDown" data-testid="legal-overlay">
+        <h2 class="legal-overlay-title" id="legal-overlay-title">@L[LegalPages.LabelKeyOf(Name)]</h2>
+        <div class="legal-overlay-body">
+            @if (error is not null)
+            {
+                <p class="field-error" role="alert">@error</p>
+            }
+            else if (missing)
+            {
+                <p data-testid="legal-overlay-missing">@L["Legal_Missing"]</p>
+            }
+            else if (text is not null)
+            {
+                <div class="plain-text" data-testid="legal-overlay-text">@text</div>
+            }
+        </div>
+        <DuofyButton Kind="ButtonKind.Secondary" Text="@L["AppLayout_Close"]" OnClick="Close" TestId="legal-overlay-close" />
+    </div>
+</div>
+
+@code {
+    /// <summary>Der Name des Textes in der API (imprint, privacy, terms).</summary>
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    /// <summary>Der Link, der angeklickt wurde. Ohne ihn (Fußzeile) gilt das Element mit dem Fokus beim Öffnen.</summary>
+    [Parameter] public ElementReference? Opener { get; set; }
+
+    private const string ModulePath = "./_content/Duofy.Shared/legal-overlay.js";
+
+    private ElementReference panel;
+    private IJSObjectReference? module;
+    private string? text;
+    private string? error;
+    private bool missing;
+    private bool focusScriptWorks = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await LegalApi.GetAsync(Name);
+        if (result.Succeeded)
+        {
+            text = result.Value!.Text;
+        }
+        else if (result.ErrorCode == ClientErrorCodes.NotFound)
+        {
+            missing = true;
+        }
+        else
+        {
+            error = ErrorTexts.For(L, result.ErrorCode);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            module = await Js.InvokeAsync<IJSObjectReference>("import", ModulePath);
+            await module.InvokeVoidAsync("open", panel, Opener);
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            Log.LogWarning(exception, "Der Fokus ließ sich nicht in das Fenster des Rechtstextes {Name} setzen.", Name);
+            await FallBackAsync();
+        }
+    }
+
+    // Ohne das Skript ist nichts inert: Das Fenster gibt sich nicht mehr als modal aus und holt sich den Fokus ohne das Skript.
+    private async Task FallBackAsync()
+    {
+        focusScriptWorks = false;
+        StateHasChanged();
+        try
+        {
+            await panel.FocusAsync();
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            Log.LogWarning(exception, "Auch der Fokus über Blazor ließ sich nicht in das Fenster des Rechtstextes {Name} setzen.", Name);
+        }
+    }
+
+    // Schließt das Fenster hinter sich auf: alles wieder bedienbar, der Fokus zurück zum Öffner.
+    public async ValueTask DisposeAsync()
+    {
+        if (module is null) return;
+        try
+        {
+            await module.InvokeVoidAsync("close");
+            await module.DisposeAsync();
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            Log.LogWarning(exception, "Der Fokus ließ sich nicht aus dem Fenster des Rechtstextes {Name} zurückgeben.", Name);
+        }
+    }
+
+    private Task Close() => OnClose.InvokeAsync();
+
+    private Task OnKeyDown(KeyboardEventArgs e) => e.Key == "Escape" ? Close() : Task.CompletedTask;
+}
