@@ -18,7 +18,7 @@
         </label>
         <div class="field mt-2">
             <FieldLabel For="more-reminders-time" Text="@L["More_RemindersTime"]" />
-            <TextInput Type="time" Value="@reminders.Time" ValueChanged="ChangeTimeAsync" id="more-reminders-time" data-testid="more-reminders-time" />
+            <TextInput Type="time" Value="@reminders.Time" ValueChanged="ChangeTimeAsync" Reset="resetCount" id="more-reminders-time" data-testid="more-reminders-time" />
         </div>
         <Notice Message="message" />
     </section>
@@ -29,6 +29,8 @@
 
     private ReminderSettingsResponse? reminders;
     private NoticeMessage? message;
+    private int resetCount;
+    private int timeRequests;
 
     protected override async Task OnInitializedAsync()
     {
@@ -37,11 +39,13 @@
         reminders = settings.Succeeded ? settings.Value : null;
     }
 
-    private Task ToggleAsync() => SaveAsync(new UpdateReminderSettingsRequest(Enabled: !reminders!.Enabled));
+    private Task ToggleAsync() => SaveAsync(new UpdateReminderSettingsRequest(Enabled: !reminders!.Enabled), timeRequest: null);
 
-    private Task ChangeTimeAsync(string time) => SaveAsync(new UpdateReminderSettingsRequest(Time: time));
+    private Task ChangeTimeAsync(string time) => SaveAsync(new UpdateReminderSettingsRequest(Time: time), ++timeRequests);
 
-    private async Task SaveAsync(UpdateReminderSettingsRequest request)
+    // timeRequest ist die laufende Nummer einer Zeitänderung (null beim Schalter). Das Feld wird nur zurückgesetzt, wenn die
+    // abgelehnte Anfrage eine Zeitänderung und noch die jüngste ist; sonst überschriebe eine späte Antwort, was inzwischen getippt wurde.
+    private async Task SaveAsync(UpdateReminderSettingsRequest request, int? timeRequest)
     {
         var result = await ReminderApi.UpdateSettingsAsync(request);
         if (result.Succeeded)
@@ -53,6 +57,10 @@
         {
             // Das Feld bekommt seinen gespeicherten Wert zurück (neu gezeichnet); die Meldung sagt, warum nicht.
             reminders = reminders! with { };
+            if (timeRequest == timeRequests)
+            {
+                resetCount++;
+            }
             message = result.ErrorCode == ClientErrorCodes.NotSignedIn
                 ? null
                 : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);

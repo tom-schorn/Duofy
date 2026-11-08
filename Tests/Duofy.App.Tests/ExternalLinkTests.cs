@@ -20,4 +20,15 @@ public class ExternalLinkTests
         Assert.Contains("UrlLoadingStrategy.OpenExternally", source);
         Assert.Contains("UrlLoadingStrategy.CancelLoad", source);
     }
+
+    // Issue 111: Auf Windows liefert die Ansicht die Oberfläche unter 0.0.0.1 aus. Welche Rechnernamen der App gehören, steht nur
+    // in ExternalLinks (mit Test); die Seite darf keine eigene, engere Prüfung daneben haben, die Windows aussperrt.
+    [Fact]
+    public void Issue_111_the_page_has_no_host_check_of_its_own_next_to_the_decision_function()
+    {
+        var source = MainPage();
+
+        Assert.DoesNotContain("0.0.0.", source);
+        Assert.DoesNotContain("AppHostAddressAlways0000", source);
+    }
 }

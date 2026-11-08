@@ -1,12 +1,43 @@
+@using Microsoft.Extensions.Logging
 @* Das Textfeld der Seiten. Der Wert kommt schon beim Tippen an und noch einmal beim Verlassen, damit auch Autofill und Einfügen
    zählen. Enter schickt also immer ab, was gerade dasteht (Review von Issue 41); BbInput sammelt Tastenanschläge dagegen bis zum
-   nächsten Zeichnen des Browsers. Weitere Attribute (id, autocomplete, placeholder, data-testid, aria-*) landen am Feld. *@
-<input type="@Type" class="@CssClass" value="@Value" @oninput="OnInputAsync" @onchange="OnInputAsync" @attributes="Attributes" />
+   nächsten Zeichnen des Browsers. Weitere Attribute (id, autocomplete, placeholder, data-testid, aria-*) landen am Feld.
+
+   Issue 111: Im Web (Blazor Server) antwortet der Server erst nach einer Weile. Schriebe das Feld jede Antwort zurück in den Browser,
+   überschriebe sie, was inzwischen weitergetippt wurde. Darum bleibt das value-Attribut, solange der Wert nur das Echo des eigenen
+   Tippens ist und das Feld den Fokus hat, unverändert; der Browser behält, was dasteht. Ein Wert von außen (Seite lädt, leert, ändert)
+   kommt ins Feld, ebenso der getippte Wert, sobald das Feld den Fokus nicht mehr hat.
+
+   Lehnt eine Seite einen getippten Wert ab und behält den alten, ändert sich Value nicht und das Feld kann das nicht von einem noch
+   unterwegs befindlichen Echo unterscheiden (Review von Issue 111). Darum zählt die Seite dann Reset hoch: Bei jeder neuen Zahl
+   bekommt das Feld den Wert der Seite wieder in den Browser, auch wenn er derselbe geblieben ist. *@
+@inject IJSRuntime Js
+@inject ILogger<TextInput> Log
+@implements IAsyncDisposable
+<input @ref="field" type="@Type" class="@CssClass" value="@shown" @oninput="OnInputAsync" @onchange="OnInputAsync" @onfocus="OnFocus" @onblur="OnBlur" @attributes="Attributes" />
 
 @code {
+    // So viele eigene Werte merkt sich das Feld höchstens, auf deren Echo es wartet.
+    private const int MaxPending = 64;
+
+    private ElementReference field;
+    private IJSObjectReference? module;
+    private readonly List<string> pending = new();
+    private string shown = "";
+    private string current = "";
+    private string? lastParent;
+    private int lastReset;
+    private bool initialized;
+    private bool focused;
+    private bool pushToBrowser;
+    private string? lastSent;
+
     [Parameter] public string Type { get; set; } = "text";
 
     [Parameter] public string? Value { get; set; }
+
+    /// <summary>Die Seite zählt das hoch, wenn sie einen getippten Wert abgelehnt hat: Das Feld zeigt dann wieder Value.</summary>
+    [Parameter] public int Reset { get; set; }
 
     [Parameter] public EventCallback<string> ValueChanged { get; set; }
 
@@ -16,5 +47,123 @@
 
     private Dictionary<string, object>? Attributes => AdditionalAttributes?.Where(a => a.Key != "class").ToDictionary(a => a.Key, a => a.Value);
 
-    private Task OnInputAsync(ChangeEventArgs e) => ValueChanged.InvokeAsync(e.Value?.ToString() ?? "");
+    protected override void OnParametersSet()
+    {
+        var incoming = Value ?? "";
+        if (!initialized)
+        {
+            initialized = true;
+            shown = current = incoming;
+            lastParent = incoming;
+            lastReset = Reset;
+            return;
+        }
+
+        if (Reset != lastReset)
+        {
+            lastReset = Reset;
+            lastParent = incoming;
+            pending.Clear();
+            lastSent = null;
+            shown = current = incoming;
+            pushToBrowser = true;
+            return;
+        }
+
+        if (incoming == lastParent)
+        {
+            return;
+        }
+        lastParent = incoming;
+
+        // Das Echo eines eigenen Werts (auch eines älteren): nicht zurückschreiben.
+        var echo = pending.IndexOf(incoming);
+        if (echo >= 0)
+        {
+            pending.RemoveRange(0, echo + 1);
+            // Ohne Fokus tippt niemand gerade; dann darf das Attribut dem getippten Wert folgen.
+            if (!focused && pending.Count == 0)
+            {
+                shown = current;
+            }
+            return;
+        }
+
+        // Ein Wert von außen.
+        pending.Clear();
+        lastSent = null;
+        shown = incoming;
+        if (incoming != current)
+        {
+            current = incoming;
+            pushToBrowser = true;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!pushToBrowser)
+        {
+            return;
+        }
+        pushToBrowser = false;
+
+        try
+        {
+            module ??= await Js.InvokeAsync<IJSObjectReference>("import", "./_content/Duofy.Shared/text-input.js");
+            await module.InvokeVoidAsync("setValue", field, current);
+        }
+        catch (JSDisconnectedException)
+        {
+            Log.LogDebug("Die Verbindung zum Browser ist weg; das Textfeld bekommt den neuen Wert nicht mehr.");
+        }
+        catch (JSException exception)
+        {
+            Log.LogWarning(exception, "Das Textfeld ließ sich nicht auf den neuen Wert setzen.");
+        }
+    }
+
+    private void OnFocus(FocusEventArgs e) => focused = true;
+
+    private void OnBlur(FocusEventArgs e)
+    {
+        focused = false;
+        if (pending.Count == 0)
+        {
+            shown = current;
+        }
+    }
+
+    private Task OnInputAsync(ChangeEventArgs e)
+    {
+        var text = e.Value?.ToString() ?? "";
+        current = text;
+        if (text != lastSent)
+        {
+            lastSent = text;
+            pending.Add(text);
+            if (pending.Count > MaxPending)
+            {
+                pending.RemoveAt(0);
+            }
+        }
+        return ValueChanged.InvokeAsync(text);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (module is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await module.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            Log.LogDebug("Die Verbindung zum Browser ist weg; das Skript des Textfelds ist schon frei.");
+        }
+    }
 }

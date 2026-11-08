@@ -100,6 +100,73 @@ public class MehrPageTests : PageTestContext
         Assert.NotEmpty(cut.FindAll("[role='alert']"));
     }
 
+    // Review von Issue 111: Nach einer abgelehnten Zeit steht im Browser-Feld wieder die gespeicherte, nicht nur im value-Attribut.
+    [Fact]
+    public void A_refused_time_is_put_back_into_the_field_of_the_browser()
+    {
+        var module = JSInterop.SetupModule("./_content/Duofy.Shared/text-input.js");
+        module.SetupVoid("setValue", _ => true).SetVoidResult();
+        ReminderApiFake.Available = true;
+        ReminderApiFake.UpdateFailure = Duofy.Schemas.ReminderErrorCodes.ReminderTimeInvalid;
+        var cut = Render<Mehr>();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='more-reminders']")));
+
+        cut.Find("[data-testid='more-reminders-time']").Change("25:99");
+
+        cut.WaitForAssertion(() => Assert.Contains(module.Invocations, i => i.Identifier == "setValue" && Equals(i.Arguments[1], "09:00")));
+    }
+
+    // Review von Issue 111: Nur die jüngste abgelehnte Zeitänderung setzt das Feld zurück; eine ältere Antwort überschreibt keine neuere Eingabe.
+    [Fact]
+    public void An_older_refused_time_answer_does_not_reset_a_newer_input_but_the_newest_does()
+    {
+        var module = JSInterop.SetupModule("./_content/Duofy.Shared/text-input.js");
+        module.SetupVoid("setValue", _ => true).SetVoidResult();
+        var answers = new Dictionary<string, TaskCompletionSource>();
+        ReminderApiFake.UpdateGate = request => request.Time is { } time ? (answers[time] = new TaskCompletionSource()).Task : Task.CompletedTask;
+        ReminderApiFake.Available = true;
+        ReminderApiFake.UpdateFailure = Duofy.Schemas.ReminderErrorCodes.ReminderTimeInvalid;
+        var cut = Render<Mehr>();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='more-reminders']")));
+        int Resets() => module.Invocations.Count(i => i.Identifier == "setValue" && Equals(i.Arguments[1], "09:00"));
+        var before = Resets();
+
+        cut.Find("[data-testid='more-reminders-time']").Change("25:00");
+        cut.Find("[data-testid='more-reminders-time']").Change("26:00");
+        cut.WaitForAssertion(() => Assert.Equal(2, answers.Count));
+
+        answers["25:00"].SetResult();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[role='alert']")));
+        Assert.Equal(before, Resets());
+
+        answers["26:00"].SetResult();
+        cut.WaitForAssertion(() => Assert.Equal(before + 1, Resets()));
+    }
+
+    // Review von Issue 111: Auch die abgelehnte Antwort eines Schalters setzt das Zeitfeld nicht zurück.
+    [Fact]
+    public void A_refused_toggle_does_not_reset_the_time_field()
+    {
+        var module = JSInterop.SetupModule("./_content/Duofy.Shared/text-input.js");
+        module.SetupVoid("setValue", _ => true).SetVoidResult();
+        var answer = new TaskCompletionSource();
+        ReminderApiFake.UpdateGate = request => request.Time is not null ? answer.Task : Task.CompletedTask;
+        ReminderApiFake.Available = true;
+        ReminderApiFake.UpdateFailure = Duofy.Schemas.ReminderErrorCodes.ReminderTimeInvalid;
+        var cut = Render<Mehr>();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='more-reminders']")));
+        int Resets() => module.Invocations.Count(i => i.Identifier == "setValue" && Equals(i.Arguments[1], "09:00"));
+        var before = Resets();
+
+        cut.Find("[data-testid='more-reminders-time']").Change("25:00");
+        cut.Find("[data-testid='more-reminders-enabled']").Click();
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[role='alert']")));
+        Assert.Equal(before, Resets());
+        answer.SetResult();
+        cut.WaitForAssertion(() => Assert.Equal(before + 1, Resets()));
+    }
+
     // N6: Die Beschriftung gehört zum Kästchen (ein Label, kein doppelter Text), und ein Klick auf den Text schaltet es um.
     [Fact]
     public void The_label_belongs_to_the_checkbox_and_its_text_is_shown_once()

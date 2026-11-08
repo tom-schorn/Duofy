@@ -17,6 +17,9 @@ public sealed class FakeReminderApi : IReminderApi
     /// <summary>Wenn gesetzt, scheitert das Ändern der Einstellung mit diesem Fehlercode.</summary>
     public string? UpdateFailure { get; set; }
 
+    /// <summary>Wenn gesetzt, wartet das Ändern der Einstellung auf diese Aufgabe, bevor es antwortet (für sich überlagernde Antworten).</summary>
+    public Func<UpdateReminderSettingsRequest, Task>? UpdateGate { get; set; }
+
     public List<UpdateReminderSettingsRequest> Updates { get; } = [];
     public List<(string InstallationId, string Platform, string Token)> Registered { get; } = [];
     public List<string> Removed { get; } = [];
@@ -46,19 +49,23 @@ public sealed class FakeReminderApi : IReminderApi
             ? ApiResult<ReminderSettingsResponse>.Success(Settings)
             : ApiResult<ReminderSettingsResponse>.Failure(ClientErrorCodes.NotFound));
 
-    public Task<ApiResult<ReminderSettingsResponse>> UpdateSettingsAsync(UpdateReminderSettingsRequest request, CancellationToken cancellationToken = default)
+    public async Task<ApiResult<ReminderSettingsResponse>> UpdateSettingsAsync(UpdateReminderSettingsRequest request, CancellationToken cancellationToken = default)
     {
         Updates.Add(request);
+        if (UpdateGate is not null)
+        {
+            await UpdateGate(request);
+        }
         if (!Available)
         {
-            return Task.FromResult(ApiResult<ReminderSettingsResponse>.Failure(ClientErrorCodes.NotFound));
+            return ApiResult<ReminderSettingsResponse>.Failure(ClientErrorCodes.NotFound);
         }
         if (UpdateFailure is not null)
         {
-            return Task.FromResult(ApiResult<ReminderSettingsResponse>.Failure(UpdateFailure));
+            return ApiResult<ReminderSettingsResponse>.Failure(UpdateFailure);
         }
         Settings = new ReminderSettingsResponse(request.Enabled ?? Settings.Enabled, request.Time ?? Settings.Time);
-        return Task.FromResult(ApiResult<ReminderSettingsResponse>.Success(Settings));
+        return ApiResult<ReminderSettingsResponse>.Success(Settings);
     }
 
     public Task<ApiResult<ReminderResponse>> GetAsync(Guid reminderId, CancellationToken cancellationToken = default) =>
