@@ -19,7 +19,7 @@ None.
 1. The security engineer runs gitleaks (pinned version) over all commits of all branches of duofy-dotnet and writes the findings into a report: each with file, commit, kind of secret and whether it still works or is a placeholder or test value. The engineer changes nothing.
 2. A developer rewrites the README: what Duofy is (a finance app that plans instead of tracks), what works today (web, Android and Windows app, API, household, plan, bookings, reminders, legal pages), the project layout, how to start it locally with Docker and `.env.example`, and a short note that the old Python version is archived under Duofy-python. The developer adds SECURITY.md with the instruction to use GitHub's private vulnerability reporting and the supported version (main).
 3. The reviewer checks the README against the code, SECURITY.md, and the scan report, and runs the gate.
-4. A developer replaces the address example.org in all files (README.md, docs/betrieb.md, deploy/.env.example, deploy/docker-compose.yml and any other) by placeholders; the compose file gets no built-in sender address. After the review, the lead saves a backup bundle, rewrites the history of main and the branch with git filter-repo (pinned version) so that the address is replaced in every file of every commit and author and committer addresses become the GitHub noreply address, and force-pushes main with lease after the human's yes. plagevo is reconnected once with a merge of the new history that keeps plagevo's content.
+4. A developer replaces the sender mail address and domain in all files (README.md, docs/betrieb.md, deploy/.env.example, deploy/docker-compose.yml and any other) by placeholders; the compose file gets no built-in sender address. After the review, the lead saves a backup bundle, rewrites the history of main and the branch with git filter-repo (pinned version) so that the address is replaced in every file of every commit and author and committer addresses become the GitHub noreply address, and force-pushes main with lease after the human's yes. plagevo is reconnected once with a merge of the new history that keeps plagevo's content.
 5. After the human's yes on the merge card, the branch is merged to main. The lead switches on private vulnerability reporting, renames the archived "Duofy" to "Duofy-python", renames duofy-dotnet to "Duofy", makes it public and updates the local origin.
 
 ## Behaviour
@@ -28,7 +28,7 @@ None.
 - R2: the README contains no sentence that says the project is at the very beginning and no link that presents the old Python repository as the current Duofy.
 - R3: SECURITY.md exists in the repository root and names private vulnerability reporting; the repository setting is on before it is public.
 - R4: the visibility changes only after R1 to R3 are met and the human said yes.
-- R7: after the rewrite, no file in any commit of main and no author or committer address contains example.org; the backup bundle of the old main stays on the server.
+- R7: after the rewrite, no file in any commit of main and no author or committer address contains the sender domain; the backup bundle of the old main stays on the server.
 - R5: the old repository keeps its content and stays archived; GitHub forwards its old address.
 
 ## Data and interfaces
@@ -43,7 +43,7 @@ External input: no
 - [ ] A2 (R2): Given README.md on the branch, when it is searched, then it does not contain "ganz am Anfang" and does not link tom-schorn/Duofy as the current project, and it names how to start Duofy with Docker and `.env.example`.
 - [ ] A3 (R3): Given the repository root on the branch, when SECURITY.md is read, then it exists and points to GitHub private vulnerability reporting; and the GitHub API reports private vulnerability reporting as enabled before the visibility changes.
 - [ ] A4 (R4): Given A1 to A3 are met and the human said yes, when the GitHub API is asked for tom-schorn/Duofy, then it is the former duofy-dotnet and its visibility is public.
-- [ ] A6 (R7): Given the rewritten main on GitHub, when `git log --all -p` and `git log --format='%ae %ce'` of a fresh clone are searched for example.org, then there is no match, and the working tree of the branch has no match either.
+- [ ] A6 (R7): Given the rewritten main on GitHub, when `git log --all -p` and `git log --format='%ae %ce'` of a fresh clone are searched for the sender domain, then there is no match, and the working tree of the branch has no match either.
 - [ ] A5 (R5): Given the renaming is done, when the GitHub API is asked for tom-schorn/Duofy-python, then it exists, is archived and holds the old Python version.
 
 ## Tracing
@@ -77,4 +77,4 @@ None.
 
 Approved by the human on 2026-11-09
 
-In the lead session, outside a meeting, after the kickoff. Amended the same day with R7 and A6 (address example.org out of files and history), approved by the human in the lead session.
+In the lead session, outside a meeting, after the kickoff. Amended the same day with R7 and A6 (sender mail domain out of files and history), approved by the human in the lead session.

@@ -18,7 +18,7 @@ A Docker Compose setup in `deploy/` with images for the API and the web version,
 ## Solution
 
 - **Images**: `Backend/Duofy.Backend/Dockerfile` and `Web/Duofy.Web/Dockerfile`, multi-stage (SDK build, ASP.NET runtime), non-root user, `HEALTHCHECK` on the health endpoints, labels `org.opencontainers.image.version` and `org.opencontainers.image.created` from build arguments.
-- **Compose** (`deploy/docker-compose.yml`): services `api`, `web`, `db` (PostgreSQL 18 with a named volume), `tunnel` (cloudflared with `TUNNEL_TOKEN`), `backup` (pg_dump daily into `./backups`, 14 days kept); only internal networks, no published ports; `deploy/.env.example` lists every setting (connection, Duofy:Hosted, PublicUrl https://app.plagevo.de, RegistrationMode, SetupCode, mail settings for noreply@example.org, analytics token, tunnel token) without values for secrets.
+- **Compose** (`deploy/docker-compose.yml`): services `api`, `web`, `db` (PostgreSQL 18 with a named volume), `tunnel` (cloudflared with `TUNNEL_TOKEN`), `backup` (pg_dump daily into `./backups`, 14 days kept); only internal networks, no published ports; `deploy/.env.example` lists every setting (connection, Duofy:Hosted, PublicUrl https://app.plagevo.de, RegistrationMode, SetupCode, mail settings for <absender-adresse>, analytics token, tunnel token) without values for secrets.
 - **Tunnel ingress** (configured in the Cloudflare dashboard, documented): app.plagevo.de to http://web:8080, api.plagevo.de to http://api:8080.
 - **Client address**: API and web use forwarded headers and take the client address from `CF-Connecting-IP` only when the request comes from the tunnel container's network; the API's rate limit partitions by that address.
 - **Keys**: ASP.NET data protection persists to a volume (`/keys`); the application name is fixed so restarts keep tokens valid.
@@ -50,7 +50,7 @@ External input: yes
 - [ ] A4 (R6): Given Hosted true, when PublicUrl is http://app.plagevo.de or Mail:UseTls is false, then the API stops at start and the log names the setting.
 - [ ] A7 (R8, #35, #43): Given an analytics token, when a page of the web version is served, then it does not contain the beacon; the browser loads it only after the person agreed in the consent banner (Tests/Duofy.Shared.Tests/ConsentBannerTests.cs); without a token nothing is asked and nothing loads.
 - [ ] A8 (R9): Given the backup service, when it runs, then a dump file with the date appears and files older than 14 days are removed; the guide's restore command restores it into an empty database, tested once by hand and noted in the guide.
-- [ ] A9 (R3, R10): Given docs/betrieb.md, when it is read, then it covers the Cloudflare steps (domain, tunnel with app and api, one rate limit rule, Turnstile, analytics), the environment file, mail through noreply@example.org, first start with the setup code, update, backup and restore.
+- [ ] A9 (R3, R10): Given docs/betrieb.md, when it is read, then it covers the Cloudflare steps (domain, tunnel with app and api, one rate limit rule, Turnstile, analytics), the environment file, mail through <absender-adresse>, first start with the setup code, update, backup and restore.
 
 ## Tracing
 
@@ -82,7 +82,7 @@ External input: yes
 ## Risks
 
 - Availability depends on the home server, its power and internet; acceptable for the first release with testers.
-- The sending limits of the mail provider provider; checked when mail goes live.
+- The sending limits of the mail provider; checked when mail goes live.
 
 ## Open questions
 
@@ -92,7 +92,7 @@ None.
 
 Approved by the human on 2026-10-26
 
-Decided in the check-in of 2026-10-26: home server behind a Cloudflare Tunnel, app.plagevo.de and api.plagevo.de, Cloudflare free plan (Tunnel, DNS, Pages, WAF with one rate limit rule, Turnstile, Web Analytics), mail through noreply@example.org, daily local backups instead of R2.
+Decided in the check-in of 2026-10-26: home server behind a Cloudflare Tunnel, app.plagevo.de and api.plagevo.de, Cloudflare free plan (Tunnel, DNS, Pages, WAF with one rate limit rule, Turnstile, Web Analytics), mail through <absender-adresse>, daily local backups instead of R2.
 
 Amendment 2026-10-26 (decided by the human in the check-in): Turnstile moves to V2 (R7 wont, A5 and A6 removed), because the first release runs in invite mode and the app would need a separate widget page.
 

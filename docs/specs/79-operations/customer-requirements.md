@@ -4,7 +4,7 @@ Format: 2
 
 ## Background
 
-Plagevo is the hosted SaaS offering of Duofy ("Plagevo by Duofy", decided 2026-10-26). In the check-in of 2026-10-26 the human decided: it runs on the human's home server behind a Cloudflare Tunnel; plagevo.de is the landing page (built separately), app.plagevo.de the web version and api.plagevo.de the backend; only Cloudflare's free plan is used (Tunnel, DNS, Pages, WAF with one rate limit rule, Turnstile, Web Analytics); mails are sent through the SMTP access of noreply@example.org, which the imprint also names. Review round 5 (P-019) named three points that must be fixed before going public: the rate limit behind a proxy, persistent data protection keys, and https and TLS on hosted servers.
+Plagevo is the hosted SaaS offering of Duofy ("Plagevo by Duofy", decided 2026-10-26). In the check-in of 2026-10-26 the human decided: it runs on the human's home server behind a Cloudflare Tunnel; plagevo.de is the landing page (built separately), app.plagevo.de the web version and api.plagevo.de the backend; only Cloudflare's free plan is used (Tunnel, DNS, Pages, WAF with one rate limit rule, Turnstile, Web Analytics); mails are sent through the SMTP access of <absender-adresse>, which the imprint also names. Review round 5 (P-019) named three points that must be fixed before going public: the rate limit behind a proxy, persistent data protection keys, and https and TLS on hosted servers.
 
 ## Goal
 
@@ -25,7 +25,7 @@ R6 (must): A hosted server refuses to start without an https public address and 
 R7 (wont): Cloudflare Turnstile on registration, forgot password and sign-in — because the first release runs in invite mode for the human and a few testers, where nobody registers without a link, and the API checks would need a widget page that also serves the Android app; it comes with opening the registration (V2).
 R8 (should): Web Analytics can be switched on by a token in the environment and then counts page views of the web version, but only after the person has agreed in a consent banner (amended 2026-11-01, #35, #43: the landing page asks for consent as well) — because the human wants to know the usage and the privacy policy must be true.
 R9 (must): The database is backed up every day into a folder on the home server, the last 14 days are kept, and restoring is described and tested once — because the records loss of 2026-10-26 showed what an unsaved state costs.
-R10 (must): An operations guide describes the setup step by step: Cloudflare (domain, tunnel, DNS, the one rate limit rule, Turnstile, analytics), the environment file, mail through noreply@example.org, first start with the setup code, update, backup and restore — because the human does it rarely and must be able to repeat it.
+R10 (must): An operations guide describes the setup step by step: Cloudflare (domain, tunnel, DNS, the one rate limit rule, Turnstile, analytics), the environment file, mail through <absender-adresse>, first start with the setup code, update, backup and restore — because the human does it rarely and must be able to repeat it.
 R11 (wont): The landing page, R2 storage, Email Routing, another mail provider, chat support, a rented server — because the human decided against them for now or they come separately.
 
 ## Constraints
