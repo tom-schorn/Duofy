@@ -21,12 +21,14 @@ R2 (must): The README describes the current state of Duofy (what works today, ho
 R3 (must): A SECURITY.md tells people to report security problems through GitHub's private vulnerability reporting, and that reporting is switched on — because problems must reach the human without being public and without exposing an email address.
 R4 (must): The repository is public under the name "Duofy" only after R1 to R3 are met — because publishing first and cleaning up later leaks what the clean-up removes.
 R5 (should): The archived old repository is renamed to "Duofy-python", so the name "Duofy" is free — because the human wants the current project under the plain name.
+R7 (must): The address example.org appears neither in the files nor anywhere in the history of the public repository, including commit author and committer addresses — because a public repository exposes it to anyone, including address collectors (human, 09.11.2026).
 R6 (wont): A version tag, a GitHub release or a store upload — because v2.5 is released together with the store upload.
 
 ## Constraints
 
 - No release or version tag today (decision of the human, 09.11.2026).
 - Renaming and switching visibility are done by the lead, each with the human's yes.
+- The history of main is rewritten once for R7 and force-pushed, after a backup bundle and the human's yes right before the push; plagevo is reconnected once without changing its content (human, 09.11.2026).
 - If the scan finds a secret, the human decides whether the key is replaced or the history is rewritten; nothing is rewritten without that decision.
 
 ## Open questions
