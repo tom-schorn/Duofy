@@ -8,6 +8,7 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- README describes the current Duofy, and SECURITY.md asks for reports through GitHub private vulnerability reporting (issue #113).
 - Each account shows its movements by date, with edit and delete, at `/konten/{id}` (spec 51).
 - A position shows which bookings belong to it and offers a booking on this position, also in the household plan (spec 51).
 - `/haushaltsplan`: the household plan as its own page, also for a household of one (spec 51).
