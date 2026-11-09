@@ -36,7 +36,7 @@ alle drei sprechen mit derselben API. Die alte Version mit Python-Backend und Re
 | `Backend/Duofy.Schemas` | Anfragen und Antworten der API, gemeinsam für API, Web, App und Tests |
 | `Shared/Duofy.ApiClient` | Clients für die API mit Token-Ablage und automatischem Token-Refresh |
 | `Shared/Duofy.Shared` | Seiten und Komponenten, die Web und App gemeinsam nutzen |
-| `Web/Duofy.Web` | Web-Variante (Blazor mit Radzen), ohne Datenbank; holt alles von der API |
+| `Web/Duofy.Web` | Web-Variante (Blazor mit Blazor Blueprint), ohne Datenbank; holt alles von der API |
 | `Mobile/Duofy` | App für Android und Windows (.NET MAUI) |
 | `Mobile/Duofy.Push` | Empfang der Erinnerungen in der App |
 | `Tests/` | xUnit-Tests je Projekt (`Duofy.Backend.Tests` gegen eine echte PostgreSQL in Docker mit Testcontainers) und Browserprüfungen (`*/check.mjs`) |
@@ -144,11 +144,11 @@ Antiforgery-Token und an der Verbindung, die fremde Seiten nicht aufbauen könne
 
 ## Schrift
 
-Die Anwendung setzt die Schrift Inter 5.3.0 (Variable, Latin) in der Version aus dem npm-Paket `@fontsource-variable/inter`. Quelle: https://github.com/rsms/inter, Lizenz SIL Open Font License 1.1. Die Datei liegt in `Shared/Duofy.Shared/wwwroot/fonts/` und wird mit der Anwendung ausgeliefert, zusammen mit dem Lizenztext `LICENSE-Inter-OFL.txt`. Es gibt keinen Aufruf an einen Fremdserver.
+Die Anwendung setzt die Schrift Geist (Variable, Latin) aus dem npm-Paket `@fontsource-variable/geist`. Quelle: https://github.com/vercel/geist-font, Lizenz SIL Open Font License 1.1. Die Datei liegt in `Shared/Duofy.Shared/wwwroot/fonts/` und wird mit der Anwendung ausgeliefert, zusammen mit dem Lizenztext `LICENSE-Geist-OFL.txt` und der Herkunftsangabe `QUELLE.txt`. Es gibt keinen Aufruf an einen Fremdserver.
 
 ## Symbole
 
-Die Symbole sind Material Symbols (Apache-2.0), die im Paket Radzen.Blazor mitkommen; es gibt keine Anfrage an fremde Server. Die Oberfläche baut auf Radzen Blazor 12.1.8 (MIT). Welches Symbol zu einem Konto oder einer Zahlungsart gehört, steht in `Shared/Duofy.Shared/Services/AccountIconSet.cs` und `PaymentMethodIconSet.cs`.
+Die Symbole sind Lucide (ISC und MIT), die im Paket BlazorBlueprint.Icons.Lucide mitkommen; es gibt keine Anfrage an fremde Server. Die Oberfläche baut auf Blazor Blueprint 4.1.0 (Apache-2.0). Welches Symbol zu einem Konto oder einer Zahlungsart gehört, steht in `Shared/Duofy.Shared/Services/AccountIconSet.cs` und `PaymentMethodIconSet.cs`. Die Lizenzen aller mitgelieferten Bausteine zeigt die App auf der Seite Lizenzen.
 
 ## Regeln
 
