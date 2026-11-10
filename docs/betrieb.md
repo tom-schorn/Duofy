@@ -49,7 +49,7 @@ Web-Nutzer ein Budget. Vor der Web-Variante bremst deshalb die Regel bei Cloudfl
 - den Server mit Docker und dem Compose-Plugin (`docker compose version` zeigt eine Version 2.24 oder neuer)
 - Tailscale auf dem Server und auf deinem PostgreSQL-Server zu Hause, beide im selben Tailnet
 - die Domain `plagevo.de` in Cloudflare (kostenloser Plan reicht)
-- das Postfach `noreply@example.org` mit seinen SMTP-Zugangsdaten
+- das Postfach der Absender-Adresse (`<absender-adresse>`) mit seinen SMTP-Zugangsdaten
 - dieses Repository auf dem Server unter `<installationsordner>`:
 
   ```bash
@@ -307,17 +307,17 @@ pro Minute gelten für alle zusammen.
 `docker compose config` zeigt die ganze Einstellung mit allen Passwörtern im Klartext; die Ausgabe nie weitergeben.
 `docker compose config --quiet` prüft nur und zeigt nichts.
 
-## 5. Mails über noreply@example.org
+## 5. Mails über das Absender-Postfach
 
-Plagevo verschickt Mails (Adresse bestätigen, Passwort vergessen, Einladungen) über das Postfach `noreply@example.org`.
+Plagevo verschickt Mails (Adresse bestätigen, Passwort vergessen, Einladungen) über das Postfach `<absender-adresse>`.
 Das Postfach liegt bei netcup; so sieht es dann in der `.env` aus:
 
 ```text
 DUOFY_MAIL_HOST=mx2f38.netcup.net
 DUOFY_MAIL_PORT=465
-DUOFY_MAIL_USER=noreply@example.org
+DUOFY_MAIL_USER=<absender-adresse>
 DUOFY_MAIL_PASSWORD=<das Passwort des Postfachs>
-DUOFY_MAIL_FROM=noreply@example.org
+DUOFY_MAIL_FROM=<absender-adresse>
 DUOFY_MAIL_FROM_NAME=Plagevo
 DUOFY_MAIL_USE_TLS=true
 ```

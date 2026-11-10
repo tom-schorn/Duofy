@@ -53,7 +53,7 @@ services:
       Duofy__Mail__Port: ${Duofy__Mail__Port:-${DUOFY_MAIL_PORT:-587}}
       Duofy__Mail__User: ${Duofy__Mail__User:-${DUOFY_MAIL_USER:-}}
       Duofy__Mail__Password: ${Duofy__Mail__Password:-${DUOFY_MAIL_PASSWORD:-}}
-      Duofy__Mail__From: ${Duofy__Mail__From:-${DUOFY_MAIL_FROM:noreply@example.org}}
+      Duofy__Mail__From: ${Duofy__Mail__From:-${DUOFY_MAIL_FROM:-}}
       Duofy__Mail__FromName: ${Duofy__Mail__FromName:-${Duofy__Mail__From__Name:-${DUOFY_MAIL_FROM_NAME:-Plagevo}}}
       Duofy__Mail__UseTls: ${Duofy__Mail__UseTls:-${DUOFY_MAIL_USE_TLS:-true}}
       # Nur der Tunnel an seiner festen Adresse darf die Adresse der Person nennen (CF-Connecting-IP).

@@ -10,7 +10,7 @@ public class ReadmeTests
     {
         var readme = File.ReadAllText(RepositoryFiles.Path("README.md"));
 
-        var start = readme.IndexOf("## Testing on an Android phone over Wi-Fi", StringComparison.Ordinal);
+        var start = readme.IndexOf("## Die Android-App auf dem eigenen Telefon testen", StringComparison.Ordinal);
         Assert.True(start >= 0, "Abschnitt fehlt");
         var next = readme.IndexOf("\n## ", start + 5, StringComparison.Ordinal);
         var section = next < 0 ? readme[start..] : readme[start..next];
@@ -20,5 +20,8 @@ public class ReadmeTests
         Assert.Contains("3. **Install the app**", section);
         Assert.Contains("adb pair", section);
         Assert.Contains("adb connect", section);
+        Assert.Contains("dotnet run --project Backend/Duofy.Backend --urls http://0.0.0.0:5080", section);
+        Assert.Contains("dotnet build Mobile/Duofy -f net10.0-android -t:Run", section);
+        Assert.Contains("appsettings.local.json", section);
     }
 }
