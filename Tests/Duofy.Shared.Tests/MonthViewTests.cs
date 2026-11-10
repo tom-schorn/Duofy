@@ -148,6 +148,23 @@ public class MonthViewTests
         Assert.Equal(6.7m, pots.Single(p => p.Pot == PotKeys.Savings).Actual);
     }
 
+    // Das Ist einer Quote zählt die Posten, nicht das Ungeplante (Spec 72, R5); der gebuchte Betrag der API enthält es, die Oberfläche zieht es ab.
+    [Fact]
+    public void Without_booked_income_an_unplanned_booking_does_not_raise_the_actual()
+    {
+        var rent = FakePlanApi.Position("Miete", 900m, booked: 900m);
+        var unplanned = new BookingResponse(Guid.NewGuid(), BookingKinds.Expense, Guid.NewGuid(), null, new DateOnly(2026, 10, 5), 150m, null,
+            [new BookingLineResponse(Guid.NewGuid(), 150m, PotKeys.Needs, null)], 2026, 10);
+        var overview = new PlanOverviewResponse(3000m, 900m, 2100m, [new PlanPotResponse(PotKeys.Needs, 900m, 1050m)], [unplanned]);
+        var plan = PlanWith(overview, rent);
+
+        var needs = MonthView.ForPerson(plan, Today, _ => null).Pots.Single(p => p.Pot == PotKeys.Needs);
+
+        // Die Miete 900 von 3000 sind 30 %; die ungeplanten 150 stehen im gebuchten Betrag, aber nicht im Ist.
+        Assert.Equal(30m, needs.Actual);
+        Assert.Equal(1050m, needs.Booked);
+    }
+
     [Fact]
     public void Without_planned_income_the_actual_stays_the_one_of_the_api()
     {

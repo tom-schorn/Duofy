@@ -200,8 +200,9 @@ public static class PlanFigures
     /// <summary>
     /// Was die Umbuchungen zwischen zwei verschiedenen Töpfen verschieben (Spec 112): der Betrag geht vom Quelltopf ab (der Topf
     /// der Zeile) und kommt im Zieltopf dazu. Umbuchungen mit demselben Topf auf beiden Seiten, ohne Zieltopf oder ohne Zeile
-    /// ändern nichts, ebenso eine Zeile auf einem Posten (R7: sie zählt über den Posten). Nur der gebuchte Betrag je Topf und das Ist der Quoten rechnen damit, nie der Frei-Betrag, das Feste
-    /// oder ein Kontostand. Die Regel steht nur hier, für eine Person und für den Haushalt.
+    /// ändern nichts, ebenso eine Zeile auf einem Posten (R7: sie zählt über den Posten). Nur der gebuchte Betrag je Topf und das
+    /// Ist der Quoten rechnen damit, nie der Frei-Betrag, das Feste oder ein Kontostand. Die Regel steht nur hier, für eine Person
+    /// und für den Haushalt.
     /// </summary>
     public static Dictionary<Pot, decimal> PotShift(IEnumerable<Booking> bookings)
     {

@@ -128,7 +128,7 @@ public static class MonthView
         var sources = plan.Positions.Select(p => new QuotaSource(p.Pot, p.PassThrough, p.Booked)).ToList();
         var plannedIncome = overview?.Income ?? plan.PlannedIncome;
         var pots = PotKeysInOrder
-            .Select(key => Pot(key, plan.Quotas, overview?.Pots.FirstOrDefault(p => p.Pot == key), plan.BookedIncome != 0m, plannedIncome, sources))
+            .Select(key => Pot(key, plan.Quotas, overview?.Pots.FirstOrDefault(p => p.Pot == key), plan.BookedIncome != 0m, plannedIncome, sources, PlanView.Unplanned(plan, key)))
             .ToList();
         var bookings = BookingRows(overview?.Bookings ?? [], accountName, purpose);
         var due = DueRows(
@@ -144,7 +144,7 @@ public static class MonthView
         var incomeBooked = (plan.Bookings ?? []).Any(b => b.Kind == BookingKinds.Income) || plan.Unplanned.Income != 0m;
         var pots = PotKeysInOrder
             .Select(key => Pot(key, plan.Quotas, plan.Pots.Where(p => p.Pot == key).Select(p => new PlanPotResponse(p.Pot, p.Planned, p.Booked)).FirstOrDefault(),
-                incomeBooked, plan.Income, sources))
+                incomeBooked, plan.Income, sources, HouseholdUnplanned(plan.Unplanned, key)))
             .ToList();
         var bookings = HouseholdBookingRows(plan);
         var due = DueRows(
@@ -210,11 +210,21 @@ public static class MonthView
     private static bool OtherMonth(DateOnly date, int planYear, int planMonth) =>
         planYear != 0 && (date.Year, date.Month) != (planYear, planMonth);
 
+    // Das Ist einer Quote zählt die Posten, nicht das Ungeplante (Spec 72, R5); der gebuchte Betrag des Topfs enthält es, also geht es hier ab.
+    private static decimal HouseholdUnplanned(HouseholdUnplannedResponse unplanned, string pot) => pot switch
+    {
+        PotKeys.Needs => unplanned.Needs,
+        PotKeys.Wants => unplanned.Wants,
+        PotKeys.Savings => unplanned.Savings,
+        _ => 0m,
+    };
+
     private static MonthPotRow Pot(string key, IReadOnlyList<PlanQuotaResponse> quotas, PlanPotResponse? totals,
-        bool incomeBooked, decimal plannedIncome, IReadOnlyList<QuotaSource> sources)
+        bool incomeBooked, decimal plannedIncome, IReadOnlyList<QuotaSource> sources, decimal unplanned)
     {
         var quota = quotas.FirstOrDefault(q => q.Pot == key);
-        var (actual, onPlanned) = QuotaActual(key, quota?.Actual ?? 0m, incomeBooked, plannedIncome, sources, totals?.Booked);
+        var (actual, onPlanned) = QuotaActual(key, quota?.Actual ?? 0m, incomeBooked, plannedIncome, sources,
+            totals is null ? null : totals.Booked - unplanned);
         return new MonthPotRow(key, quota?.Target ?? 0, actual, totals?.Planned ?? 0m, totals?.Booked ?? 0m, onPlanned);
     }
 
