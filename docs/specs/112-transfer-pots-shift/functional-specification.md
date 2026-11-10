@@ -47,11 +47,11 @@ External input: no
 
 | Requirement | Criterion | Test |
 | --- | --- | --- |
-| R1 | A1, A4 | pending |
-| R2 | A2 | pending |
-| R3 | A3 | pending |
-| R4 | A5 | pending |
-| R5 | A6 | pending |
+| R1 | A1, A4 | Tests/Duofy.Backend.Tests/Domain/PlanPotShiftTests.cs: A_transfer_from_needs_to_savings_lowers_booked_needs_and_raises_booked_savings, The_shift_follows_the_amount_and_only_the_bookings_of_the_month |
+| R2 | A2 | Tests/Duofy.Backend.Tests/Domain/PlanPotShiftTests.cs: The_same_transfer_moves_the_quota_actual |
+| R3 | A3 | Tests/Duofy.Backend.Tests/Domain/PlanPotShiftTests.cs: A_transfer_within_one_pot_and_an_older_transfer_without_pots_change_nothing |
+| R4 | A5 | Tests/Duofy.Backend.Tests/Domain/PlanPotShiftTests.cs: The_household_adds_the_shifts_of_its_members |
+| R5 | A6 | Tests/Duofy.Backend.Tests/Domain/PlanPotShiftTests.cs: Free_and_fixed_do_not_depend_on_the_shift |
 
 ## Non-goals
 

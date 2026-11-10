@@ -1047,7 +1047,7 @@
   <data name="Help_bookings_2_Title"><value>Datum und Planmonat</value></data>
   <data name="Help_bookings_2_Body"><value>Eine Buchung kann in einem anderen Monat zählen, als ihr Datum sagt, höchstens einen Monat davor oder danach. Ein Gehalt vom 28. September kann zum Oktober gehören.</value></data>
   <data name="Help_bookings_3_Title"><value>Umbuchung</value></data>
-  <data name="Help_bookings_3_Body"><value>Geld zwischen zwei eigenen Konten ist keine Ausgabe, es liegt nur woanders. Eine Umbuchung ändert keinen Topf, keinen Richtwert und keine Summe.</value></data>
+  <data name="Help_bookings_3_Body"><value>Geld zwischen zwei eigenen Konten ist keine Ausgabe, es liegt nur woanders. Gehört zur Umbuchung ein anderer Topf als Quelle und Ziel, verschiebt sie den Betrag zwischen den Töpfen: Der Quelltopf sinkt, der Zieltopf steigt, beim gebuchten Betrag und beim Richtwert, in ihrem Planmonat. Verplanbar, das Feste und die Kontostände ändern sich dadurch nicht; ein Quelltopf darf dabei unter null fallen.</value></data>
   <data name="Help_review_1_Title"><value>Soll und Ist</value></data>
   <data name="Help_review_1_Body"><value>Die runden Diagramme zeigen je Topf und je Kategorie, was geplant ist und was davon gebucht ist. Solange im Monat noch keine Einnahme gebucht ist, rechnet Duofy die Anteile mit den geplanten Einnahmen.</value></data>
   <data name="Help_review_2_Title"><value>Die Tageskurve</value></data>

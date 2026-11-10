@@ -17,13 +17,13 @@ What really happened with money: an expense, an income or a transfer between own
 ## Data
 
 - `account_id`, `counter_account_id` (transfer only), `date`, `amount` (> 0, two decimals), `pot`, `category_id`, `note` (≤ 200), `owner_id`.
-- `target_pot` (transfer only, nullable): the target pot of a transfer; the source pot is the pot of its one line. Empty for older transfers.
+- `target_pot` (transfer only, nullable): the target pot of a transfer; the source pot is the pot of its one line. Empty for older transfers, which move nothing between pots.
 
 ## Rules
 
 - The amount is positive; the sign follows from the pot or the transfer direction.
 - Every booking except a transfer has a pot and a category; a position is voluntary. The dialog starts an expense without a pot (spec 72).
-- A new transfer has exactly one line without a category (its pot is the source pot) and a target pot. Both pots are required, each is needs, wants or savings, and they may be the same; a missing one is answered with `transfer_pots_required`. The pots are only remembered: they change no pot total, no quota, no sum and no balance (spec 72, R9). A transfer goes between own accounts only.
+- A new transfer has exactly one line without a category (its pot is the source pot) and a target pot. Both pots are required, each is needs, wants or savings, and they may be the same; a missing one is answered with `transfer_pots_required`. The pots move money: when source and target pot differ, the amount lowers the source pot and raises the target pot in the booked sum per pot and in the quota actual of the plan month; the same pot on both sides moves nothing, and no sum, free amount, fixed sum or balance changes (spec 112, amending spec 72, R9). A transfer goes between own accounts only.
 - An older transfer without pots stays readable and listed; the dialog asks for the missing pots when it is changed.
 - Ticking a position with a target account books a transfer with the pot of the position on both sides.
 - The plan year of a booking lies between 2000 and 2100.
