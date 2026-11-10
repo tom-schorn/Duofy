@@ -49,7 +49,7 @@ public class PlanOverviewFiguresTests
         var fun = Position(100m, Pot.Wants);
         var booked = new Dictionary<Guid, decimal> { [rent.Id] = 1200m, [passThrough.Id] = 300m };
 
-        var totals = PlanFigures.PotTotals([rent, passThrough, fun], booked, new Dictionary<Pot, decimal>());
+        var totals = PlanFigures.PotTotals([rent, passThrough, fun], booked, new Dictionary<Pot, decimal>(), new Dictionary<Pot, decimal>());
 
         Assert.Equal(new PotTotal(1000m, 1200m), totals[Pot.Needs]);
         Assert.Equal(new PotTotal(100m, 0m), totals[Pot.Wants]);
@@ -64,7 +64,7 @@ public class PlanOverviewFiguresTests
         var booked = new Dictionary<Guid, decimal> { [rent.Id] = 100m };
         var unplanned = new Dictionary<Pot, decimal> { [Pot.Needs] = 40m, [Pot.Income] = 25m };
 
-        var totals = PlanFigures.PotTotals([rent], booked, unplanned);
+        var totals = PlanFigures.PotTotals([rent], booked, unplanned, new Dictionary<Pot, decimal>());
 
         Assert.Equal(new PotTotal(1000m, 140m), totals[Pot.Needs]);
         Assert.False(totals.ContainsKey(Pot.Income));

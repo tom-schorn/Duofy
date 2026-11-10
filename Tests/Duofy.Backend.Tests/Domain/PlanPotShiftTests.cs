@@ -95,6 +95,23 @@ public class PlanPotShiftTests
         Assert.Equal(500m, PlanFigures.Fixed([rent]));
     }
 
+    // A7 (R7): Eine Umbuchung, deren Zeile auf einem Posten liegt, zählt nur über den Posten und verschiebt nichts obendrauf.
+    [Fact]
+    public void A_transfer_line_on_a_position_shifts_nothing_and_counts_only_through_the_position()
+    {
+        var sparrate = new PlanPosition { Id = Guid.NewGuid(), Label = "Sparrate", AmountPlanned = 200m, DueDay = 1, Pot = Pot.Savings, Type = CommitmentType.Contract };
+        var transfer = Transfer(200.00m, Pot.Needs, Pot.Savings);
+        transfer.Lines[0].PositionId = sparrate.Id;
+
+        var shift = PlanFigures.PotShift([transfer]);
+        var booked = PlanFigures.BookedPerPosition([transfer]);
+        var totals = PlanFigures.PotTotals([sparrate], booked, new Dictionary<Pot, decimal>(), shift);
+
+        Assert.All(shift.Values, value => Assert.Equal(0m, value));
+        Assert.Equal(200.00m, totals[Pot.Savings].Booked);
+        Assert.Equal(0m, totals[Pot.Needs].Booked);
+    }
+
     private static MemberMonth Month(params Booking[] bookings)
     {
         var plan = Plan.CreateFrom([], 2026, 11);
