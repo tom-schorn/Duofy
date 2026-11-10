@@ -132,6 +132,22 @@ public class MonthViewTests
         Assert.All(pots, p => Assert.True(p.OnPlannedIncome));
     }
 
+    // Spec 112, R2: Die Umbuchung zwischen Töpfen steckt schon im gebuchten Betrag des Topfs, den die API liefert; das Ist ohne gebuchte Einnahme nimmt diesen Betrag.
+    [Fact]
+    public void Without_booked_income_the_actual_includes_the_pot_shift_of_transfers()
+    {
+        var rent = FakePlanApi.Position("Miete", 900m, booked: 900m);
+        var overview = new PlanOverviewResponse(3000m, 900m, 2100m,
+            [new PlanPotResponse(PotKeys.Needs, 900m, 700m), new PlanPotResponse(PotKeys.Savings, 0m, 200m)], []);
+        var plan = PlanWith(overview, rent);
+
+        var pots = MonthView.ForPerson(plan, Today, _ => null).Pots;
+
+        // Die Miete 900 allein gäbe 30 %; mit der Verschiebung von 200 an das Sparen: Grundbedarf 700 = 23,3 %, Sparen 200 = 6,7 %.
+        Assert.Equal(23.3m, pots.Single(p => p.Pot == PotKeys.Needs).Actual);
+        Assert.Equal(6.7m, pots.Single(p => p.Pot == PotKeys.Savings).Actual);
+    }
+
     [Fact]
     public void Without_planned_income_the_actual_stays_the_one_of_the_api()
     {

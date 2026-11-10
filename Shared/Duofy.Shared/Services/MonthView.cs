@@ -71,14 +71,18 @@ public static class MonthView
     /// Einnahmen und liefert 0, solange keine Einnahme gebucht ist. Dann rechnet die Oberfläche mit denselben Regeln gegen die
     /// geplanten Einnahmen (ohne durchlaufende Posten), damit "Ist" nicht überall 0 % zeigt. Sonst gilt die Zahl der API.
     /// </summary>
+    /// <param name="potBooked">
+    /// Der gebuchte Betrag des Topfs, wie ihn die API liefert; in ihm steckt schon, was Umbuchungen zwischen Töpfen verschieben
+    /// (Spec 112, R2). Ohne ihn zählen die Posten allein. Die Verschiebung rechnet nur die API, nie die Oberfläche.
+    /// </param>
     public static (decimal Actual, bool OnPlannedIncome) QuotaActual(
-        string pot, decimal apiActual, bool incomeBooked, decimal plannedIncome, IEnumerable<QuotaSource> positions)
+        string pot, decimal apiActual, bool incomeBooked, decimal plannedIncome, IEnumerable<QuotaSource> positions, decimal? potBooked = null)
     {
         if (incomeBooked || plannedIncome <= 0m)
         {
             return (apiActual, false);
         }
-        var spent = positions.Where(p => p.Pot == pot && !p.PassThrough).Sum(p => p.Booked);
+        var spent = potBooked ?? positions.Where(p => p.Pot == pot && !p.PassThrough).Sum(p => p.Booked);
         return (decimal.Round(spent / plannedIncome * 100m, 1, MidpointRounding.AwayFromZero), true);
     }
 
@@ -210,7 +214,7 @@ public static class MonthView
         bool incomeBooked, decimal plannedIncome, IReadOnlyList<QuotaSource> sources)
     {
         var quota = quotas.FirstOrDefault(q => q.Pot == key);
-        var (actual, onPlanned) = QuotaActual(key, quota?.Actual ?? 0m, incomeBooked, plannedIncome, sources);
+        var (actual, onPlanned) = QuotaActual(key, quota?.Actual ?? 0m, incomeBooked, plannedIncome, sources, totals?.Booked);
         return new MonthPotRow(key, quota?.Target ?? 0, actual, totals?.Planned ?? 0m, totals?.Booked ?? 0m, onPlanned);
     }
 
