@@ -21,6 +21,7 @@ R2 (must): The same transfer moves the actual of the quotas the same way — bec
 R3 (must): A transfer with the same source and target pot, and an older transfer without pots, changes no pot sum and no quota actual — because nothing moved between pots.
 R4 (should): The household month adds up the moved amounts of the members the same way it adds up their other bookings, with the same visibility rules — because the household view must match the members' own months.
 R5 (must): The free amount (Verplanbar), the fixed sum and the account balances stay as they are — because a transfer between own accounts neither earns nor spends money.
+R7 (must): A transfer whose line sits on a plan position (for example the savings rate or a savings goal tick) shifts nothing between pots; only the position counts it — because otherwise the amount is counted twice (human, 10.11.2026, card P-064).
 R6 (wont): Changing how ticking a position with a target account books its transfer — because it uses the position's pot on both sides and therefore moves nothing.
 
 ## Constraints

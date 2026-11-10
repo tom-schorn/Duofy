@@ -8,7 +8,7 @@ A transfer whose source and target pot differ now moves its amount between the p
 
 ## Customer requirements
 
-[customer-requirements.md](customer-requirements.md), R1 to R5; R6 is a non-goal.
+[customer-requirements.md](customer-requirements.md), R1 to R5 and R7; R6 is a non-goal.
 
 ## Components
 
@@ -26,6 +26,7 @@ The figures of a plan month (PlanFigures, HouseholdPlanFigures) add a pot shift 
 - R3: transfer from savings to savings, or a transfer stored before spec 72 without pots: all pot sums and quota actuals unchanged.
 - R1 edge cases: changing the amount, the date (month) or a pot of a transfer, or deleting it, changes the shift accordingly; a source pot may become negative and is shown as negative.
 - R4: the household month adds the shifts of the counted members; a member whose bookings the viewer may not see is treated as for all other bookings of that member.
+- R7: a transfer of 200 € from needs to savings whose line fills the position "Sparrate" (savings): booked savings +200 € through the position, needs unchanged; no shift on top.
 - R5: free amount, fixed sum and account balances are the same before and after the change.
 
 ## Data and interfaces
@@ -43,6 +44,8 @@ External input: no
 - [ ] A5 (R4): Given a household of two members who see each other's bookings and each books a transfer of 100 € from wants to savings, when the household month is read, then booked wants is 200 € lower and booked savings 200 € higher than without the transfers.
 - [ ] A6 (R5): Given the transfer of A1, when the plan month and the accounts are read, then the free amount, the fixed sum and both account balances equal those of the same month with the transfer under spec 72 rules.
 
+- [ ] A7 (R7): Given a savings position of 200 € and a transfer of 200 € from needs to savings whose line sits on that position, when the plan month is read, then booked savings is +200 €, booked needs unchanged, and the quota actuals change the same way.
+
 ## Tracing
 
 | Requirement | Criterion | Test |
@@ -51,6 +54,7 @@ External input: no
 | R2 | A2 | Tests/Duofy.Backend.Tests/Domain/PlanPotShiftTests.cs: The_same_transfer_moves_the_quota_actual |
 | R3 | A3 | Tests/Duofy.Backend.Tests/Domain/PlanPotShiftTests.cs: A_transfer_within_one_pot_and_an_older_transfer_without_pots_change_nothing |
 | R4 | A5 | Tests/Duofy.Backend.Tests/Domain/PlanPotShiftTests.cs: The_household_adds_the_shifts_of_its_members |
+| R7 | A7 | pending |
 | R5 | A6 | Tests/Duofy.Backend.Tests/Domain/PlanPotShiftTests.cs: Free_and_fixed_do_not_depend_on_the_shift |
 
 ## Non-goals
@@ -74,4 +78,4 @@ None.
 
 Approved by the human on 2026-11-10
 
-In the lead session, outside a meeting, after the late kickoff.
+In the lead session, outside a meeting, after the late kickoff. Amended on 2026-11-10 with R7 and A7 (no shift for a transfer line on a plan position, card P-064), approved by the human in the lead session.
