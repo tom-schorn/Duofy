@@ -43,7 +43,7 @@ External input: no
 - [ ] A2 (R2): Given README.md on the branch, when it is searched, then it does not contain "ganz am Anfang" and does not link tom-schorn/Duofy as the current project, and it names how to start Duofy with Docker and `.env.example`.
 - [ ] A3 (R3): Given the repository root on the branch, when SECURITY.md is read, then it exists and points to GitHub private vulnerability reporting; and the GitHub API reports private vulnerability reporting as enabled before the visibility changes.
 - [ ] A4 (R4): Given A1 to A3 are met and the human said yes, when the GitHub API is asked for tom-schorn/Duofy, then it is the former duofy-dotnet and its visibility is public.
-- [ ] A6 (R7): Given the rewritten main on GitHub, when `git log --all -p` and `git log --format='%ae %ce'` of a fresh clone are searched for the sender domain, then there is no match, and the working tree of the branch has no match either.
+- [ ] A6 (R7): Given the rewritten main on GitHub, when `git log --all -p` and `git log --all --format='%ae %ce'` of a fresh clone are searched for the sender domain, then there is no match, and the working tree of the branch has no match either.
 - [ ] A5 (R5): Given the renaming is done, when the GitHub API is asked for tom-schorn/Duofy-python, then it exists, is archived and holds the old Python version.
 
 ## Tracing
@@ -77,4 +77,4 @@ None.
 
 Approved by the human on 2026-11-09
 
-In the lead session, outside a meeting, after the kickoff. Amended the same day with R7 and A6 (sender mail domain out of files and history), approved by the human in the lead session.
+In the lead session, outside a meeting, after the kickoff. Amended the same day with R7 and A6 (sender mail domain out of files and history), approved by the human in the lead session. Amended on 2026-11-10: A6 checks author and committer addresses on all refs (--all), approved by the human in the lead session.
