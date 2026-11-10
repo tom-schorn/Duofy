@@ -1024,7 +1024,8 @@ public class PlanTests : IDisposable
         Assert.Equal(new PlanPotResponse(PotKeys.Needs, 1000.00m, 140.00m), overview.Pots.Single(p => p.Pot == PotKeys.Needs));
     }
 
-    // Spec 72, A11 (R9) und Spec 112, A1/A2/A6: Quelle und Ziel einer Umbuchung verschieben den Betrag im gebuchten Topf und im Ist der Quote; Plan und Posten bleiben gleich.
+    // Spec 72, A11 (R9) und Spec 112, A1/A2/A6: Quelle und Ziel einer Umbuchung verschieben den Betrag im gebuchten Topf und im Ist der Quote;
+    // Plan, Posten, Frei-Betrag, Festes und beide Kontostände folgen nur der Buchung selbst, nicht der Verschiebung.
     [Fact]
     public async Task A_transfer_between_pots_moves_booked_sums_and_quota_actuals_but_not_the_plan()
     {
@@ -1039,6 +1040,11 @@ public class PlanTests : IDisposable
             [new SaveBookingLine(100.00m, PotKeys.Savings, null)], TargetPot: PotKeys.Wants));
 
         var after = await PlanAsync(person, 2026, 10);
+        Assert.Equal(before.Overview!.Free, after.Overview!.Free);
+        Assert.Equal(before.Overview.Fixed, after.Overview.Fixed);
+        var balances = await BalancesAsync(person);
+        Assert.Equal(400.00m, balances[savingsAccount]);
+        Assert.Equal(2100.00m, balances[person.Giro]);
         PlanPotResponse Pot(PlanResponse plan, string key) => plan.Overview!.Pots.Single(p => p.Pot == key);
         Assert.Equal(Pot(before, PotKeys.Savings) with { Booked = Pot(before, PotKeys.Savings).Booked - 100.00m }, Pot(after, PotKeys.Savings));
         Assert.Equal(Pot(before, PotKeys.Wants) with { Booked = Pot(before, PotKeys.Wants).Booked + 100.00m }, Pot(after, PotKeys.Wants));
@@ -1046,6 +1052,69 @@ public class PlanTests : IDisposable
         Assert.Equal(before.Quotas.Single(q => q.Pot == PotKeys.Savings).Actual - 10.0m, after.Quotas.Single(q => q.Pot == PotKeys.Savings).Actual);
         Assert.Equal(before.Quotas.Single(q => q.Pot == PotKeys.Wants).Actual + 10.0m, after.Quotas.Single(q => q.Pot == PotKeys.Wants).Actual);
         Assert.Equal(before.Positions.Select(p => (p.Id, p.Booked)), after.Positions.Select(p => (p.Id, p.Booked)));
+    }
+
+    private async Task<Dictionary<Guid, decimal>> BalancesAsync(Person person)
+    {
+        var response = await SendAsync(HttpMethod.Get, "/api/v1/accounts", person);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return (await response.Content.ReadFromJsonAsync<List<AccountResponse>>())!.ToDictionary(a => a.Id, a => a.Balance);
+    }
+
+    private static PlanPotResponse PotOf(PlanResponse plan, string key) => plan.Overview!.Pots.Single(p => p.Pot == key);
+
+    // Spec 112, A4 (R1): Betrag ändern, in den nächsten Planmonat verschieben und löschen; beide Monate werden nach jedem Schritt gelesen.
+    [Fact]
+    public async Task A_transfer_shift_follows_the_amount_the_plan_month_and_the_deletion()
+    {
+        var person = await SignUpAsync();
+        var savingsAccount = await AccountAsync(person, "Sparkonto", 500m);
+        SaveBookingRequest Transfer(decimal amount, int month) =>
+            new(BookingKinds.Transfer, person.Giro, savingsAccount, October5, amount, null,
+                [new SaveBookingLine(amount, PotKeys.Needs, null)], 2026, month, TargetPot: PotKeys.Savings);
+        async Task ExpectAsync(decimal october, decimal november)
+        {
+            foreach (var (month, shift) in new[] { (10, october), (11, november) })
+            {
+                var plan = await PlanAsync(person, 2026, month);
+                Assert.Equal(-shift, PotOf(plan, PotKeys.Needs).Booked);
+                Assert.Equal(shift, PotOf(plan, PotKeys.Savings).Booked);
+            }
+        }
+        var booking = await BookAsync(person, Transfer(200.00m, 10));
+        await ExpectAsync(200.00m, 0m);
+
+        var changed = await SendAsync(HttpMethod.Put, $"{Bookings}/{booking.Id}", person, Transfer(50.00m, 10));
+        Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
+        await ExpectAsync(50.00m, 0m);
+
+        var moved = await SendAsync(HttpMethod.Put, $"{Bookings}/{booking.Id}", person, Transfer(50.00m, 11));
+        Assert.Equal(HttpStatusCode.OK, moved.StatusCode);
+        await ExpectAsync(0m, 50.00m);
+
+        var deleted = await SendAsync(HttpMethod.Delete, $"{Bookings}/{booking.Id}", person);
+        Assert.True(deleted.IsSuccessStatusCode, await deleted.Content.ReadAsStringAsync());
+        await ExpectAsync(0m, 0m);
+    }
+
+    // Spec 112, A7 (R7): Eine Umbuchung, deren Zeile auf einem Posten liegt, zählt nur über den Posten, nichts obendrauf.
+    [Fact]
+    public async Task A_transfer_line_on_a_position_counts_only_through_the_position()
+    {
+        var person = await SignUpAsync();
+        var savingsAccount = await AccountAsync(person, "Sparkonto", 500m);
+        var sparrate = await OneOffAsync(person, 2026, 10, "Sparrate", 200.00m, person.Savings, PotKeys.Savings);
+        await BookAsync(person, Income(person, 1000.00m));
+        var before = await PlanAsync(person, 2026, 10);
+
+        await BookAsync(person, new SaveBookingRequest(BookingKinds.Transfer, person.Giro, savingsAccount, October5, 200.00m, null,
+            [new SaveBookingLine(200.00m, PotKeys.Needs, null, sparrate.Id)], TargetPot: PotKeys.Savings));
+
+        var after = await PlanAsync(person, 2026, 10);
+        Assert.Equal(PotOf(before, PotKeys.Savings).Booked + 200.00m, PotOf(after, PotKeys.Savings).Booked);
+        Assert.Equal(PotOf(before, PotKeys.Needs).Booked, PotOf(after, PotKeys.Needs).Booked);
+        Assert.Equal(before.Quotas.Single(q => q.Pot == PotKeys.Savings).Actual + 20.0m, after.Quotas.Single(q => q.Pot == PotKeys.Savings).Actual);
+        Assert.Equal(before.Quotas.Single(q => q.Pot == PotKeys.Needs).Actual, after.Quotas.Single(q => q.Pot == PotKeys.Needs).Actual);
     }
 
     // Spec 72, A4; seit Spec 112 mit Quelle und Ziel im selben Topf (verschiebt nichts)
