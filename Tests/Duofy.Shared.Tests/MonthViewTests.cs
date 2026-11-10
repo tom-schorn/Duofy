@@ -132,6 +132,39 @@ public class MonthViewTests
         Assert.All(pots, p => Assert.True(p.OnPlannedIncome));
     }
 
+    // Spec 112, R2: Die Umbuchung zwischen Töpfen steckt schon im gebuchten Betrag des Topfs, den die API liefert; das Ist ohne gebuchte Einnahme nimmt diesen Betrag.
+    [Fact]
+    public void Without_booked_income_the_actual_includes_the_pot_shift_of_transfers()
+    {
+        var rent = FakePlanApi.Position("Miete", 900m, booked: 900m);
+        var overview = new PlanOverviewResponse(3000m, 900m, 2100m,
+            [new PlanPotResponse(PotKeys.Needs, 900m, 700m), new PlanPotResponse(PotKeys.Savings, 0m, 200m)], []);
+        var plan = PlanWith(overview, rent);
+
+        var pots = MonthView.ForPerson(plan, Today, _ => null).Pots;
+
+        // Die Miete 900 allein gäbe 30 %; mit der Verschiebung von 200 an das Sparen: Grundbedarf 700 = 23,3 %, Sparen 200 = 6,7 %.
+        Assert.Equal(23.3m, pots.Single(p => p.Pot == PotKeys.Needs).Actual);
+        Assert.Equal(6.7m, pots.Single(p => p.Pot == PotKeys.Savings).Actual);
+    }
+
+    // Das Ist einer Quote zählt die Posten, nicht das Ungeplante (Spec 72, R5); der gebuchte Betrag der API enthält es, die Oberfläche zieht es ab.
+    [Fact]
+    public void Without_booked_income_an_unplanned_booking_does_not_raise_the_actual()
+    {
+        var rent = FakePlanApi.Position("Miete", 900m, booked: 900m);
+        var unplanned = new BookingResponse(Guid.NewGuid(), BookingKinds.Expense, Guid.NewGuid(), null, new DateOnly(2026, 10, 5), 150m, null,
+            [new BookingLineResponse(Guid.NewGuid(), 150m, PotKeys.Needs, null)], 2026, 10);
+        var overview = new PlanOverviewResponse(3000m, 900m, 2100m, [new PlanPotResponse(PotKeys.Needs, 900m, 1050m)], [unplanned]);
+        var plan = PlanWith(overview, rent);
+
+        var needs = MonthView.ForPerson(plan, Today, _ => null).Pots.Single(p => p.Pot == PotKeys.Needs);
+
+        // Die Miete 900 von 3000 sind 30 %; die ungeplanten 150 stehen im gebuchten Betrag, aber nicht im Ist.
+        Assert.Equal(30m, needs.Actual);
+        Assert.Equal(1050m, needs.Booked);
+    }
+
     [Fact]
     public void Without_planned_income_the_actual_stays_the_one_of_the_api()
     {

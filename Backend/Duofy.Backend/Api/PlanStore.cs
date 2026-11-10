@@ -121,7 +121,7 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
                 m.Plan.Positions
                     .Where(p => p.Pot != Pot.Income && !p.PassThrough && p.DoneAt is null)
                     .Sum(p => Math.Max(p.AmountPlanned - m.Booked.GetValueOrDefault(p.Id), 0m)),
-                PlanFigures.PotTotals(m.Plan.Positions, m.Booked, m.Unplanned)
+                PlanFigures.PotTotals(m.Plan.Positions, m.Booked, m.Unplanned, m.PotShift)
                     .Select(entry => new PlanPotResponse(PotKey.ToKey(entry.Key), entry.Value.Planned, entry.Value.Booked))
                     .ToList()))
             .ToList();
@@ -156,7 +156,7 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
     /// <param name="plans">Die Pläne; der Übertrag in den nächsten Monat kommt aus dessen Plan, wenn er in der Liste ist.</param>
     /// <param name="bookings">Die Buchungen, die der Betrachter sehen darf; ohne Sicht leer.</param>
     /// <param name="availableAccountIds">Die verfügbaren Konten der Besitzer der Pläne, für die Umbuchungen (Spec 98).</param>
-    public static List<(Plan Plan, Dictionary<Guid, decimal> Booked, decimal? CarriedIn, Dictionary<Pot, decimal> Unplanned, decimal Transfers)> MonthFigures(
+    public static List<(Plan Plan, Dictionary<Guid, decimal> Booked, decimal? CarriedIn, Dictionary<Pot, decimal> Unplanned, decimal Transfers, Dictionary<Pot, decimal> PotShift)> MonthFigures(
         IReadOnlyCollection<Plan> plans, IReadOnlyCollection<Booking> bookings, IReadOnlySet<Guid> availableAccountIds)
     {
         var byMonth = bookings.ToLookup(b => (b.OwnerId, b.PlanYear, b.PlanMonth));
@@ -167,7 +167,7 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
             var next = new DateOnly(plan.Year, plan.Month, 1).AddMonths(1);
             var carryOverIds = CarryOverIds(plan, byPlan.GetValueOrDefault((plan.OwnerId, next.Year, next.Month)));
             return (plan, PlanFigures.BookedPerPosition(inMonth), PlanFigures.CarriedIn(plan, inMonth), PlanFigures.Unplanned(inMonth, carryOverIds),
-                PlanFigures.TransferEffect(inMonth, availableAccountIds, carryOverIds));
+                PlanFigures.TransferEffect(inMonth, availableAccountIds, carryOverIds), PlanFigures.PotShift(inMonth));
         }).ToList();
     }
 
@@ -356,7 +356,7 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
                 // Ohne Sicht auf die Buchungen ist die Liste leer, und so bleiben auch der Übertrag und das Ungeplante
                 // draußen (Spec 68, R4).
                 PlanFigures.Free(plan.Positions, booked, PlanFigures.CarriedIn(plan, bookings) ?? 0m, unplanned, transfers),
-                PlanFigures.PotTotals(plan.Positions, booked, unplanned)
+                PlanFigures.PotTotals(plan.Positions, booked, unplanned, PlanFigures.PotShift(bookings))
                     .Select(entry => new PlanPotResponse(PotKey.ToKey(entry.Key), entry.Value.Planned, entry.Value.Booked))
                     .ToList(),
                 bookings

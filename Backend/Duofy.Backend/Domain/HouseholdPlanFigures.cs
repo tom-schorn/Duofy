@@ -59,7 +59,10 @@ public static class HouseholdPlanFigures
             pot => pot,
             pot => months.Sum(m => PlanFigures.Unplanned(m.Bookings, m.CarryOverBookingIds)[pot]));
 
-        var pots = PlanFigures.PotTotals(positions, booked, unplanned);
+        var potShift = Enum.GetValues<Pot>().ToDictionary(
+            pot => pot,
+            pot => months.Sum(m => PlanFigures.PotShift(m.Bookings).GetValueOrDefault(pot)));
+        var pots = PlanFigures.PotTotals(positions, booked, unplanned, potShift);
 
         // Ohne Übertrag, wie bei der Quote einer Person; das Ist und sein Nenner kommen aus denselben Monaten.
         var quotaMonths = months.Select(m => (

@@ -39,8 +39,8 @@ public sealed record SaveBookingLine(decimal Amount, string? Pot, Guid? Category
 /// bleibt die Buchung bei ihrem Besitzer.
 /// </param>
 /// <param name="TargetPot">
-/// Nur bei einer Umbuchung und dort Pflicht: der Zieltopf ("needs", "wants" oder "savings"). Quelle und Ziel werden
-/// nur gemerkt; keine Zahl im Plan ändert sich dadurch (Spec 72, R9).
+/// Nur bei einer Umbuchung und dort Pflicht: der Zieltopf ("needs", "wants" oder "savings"). Sind Quelle und Ziel
+/// verschieden, verschiebt die Umbuchung den Betrag zwischen den Töpfen (gebuchte Summe und Quoten-Ist, Spec 112).
 /// </param>
 public sealed record SaveBookingRequest(
     string? Kind,

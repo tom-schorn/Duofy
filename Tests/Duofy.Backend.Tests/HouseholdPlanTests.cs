@@ -463,6 +463,34 @@ public class HouseholdPlanTests : IDisposable
         Assert.Equal(new HouseholdUnplannedResponse(0m, 0m, 40.00m, 0m), plan.Unplanned);
     }
 
+    // Spec 112, A5 (R4): Der Haushaltsmonat zählt die Verschiebungen der Umbuchungen zwischen Töpfen aller Mitglieder, deren Buchungen zu sehen sind.
+    [Fact]
+    public async Task The_household_month_adds_the_pot_shifts_of_the_transfers_of_its_members()
+    {
+        var (household, anna, ben) = await AnnaAndBenWithGiroAsync();
+        await client.GrantAsync(ben.Person, anna.Person, new UpdateGrantsRequest(Book: AccessLevelKeys.View));
+        await BookAsync(anna, 2000.00m, PotKeys.Income, Salary);
+        var before = await HouseholdPlanAsync(anna.Person, household.Id);
+        foreach (var member in new[] { anna, ben })
+        {
+            var target = await WithGiroAsync(member.Person);
+            (await client.SendAsync(member.Person, HttpMethod.Post, "/api/v1/bookings",
+                new SaveBookingRequest(BookingKinds.Transfer, member.Giro, target.Giro, new DateOnly(2026, 11, 6), 100.00m, null,
+                    [new SaveBookingLine(100.00m, PotKeys.Wants, null)], TargetPot: PotKeys.Savings)))
+                .EnsureSuccessStatusCode();
+        }
+
+        var after = await HouseholdPlanAsync(anna.Person, household.Id);
+
+        decimal Booked(HouseholdPlanResponse plan, string pot) => plan.Pots.Single(p => p.Pot == pot).Booked;
+        decimal Actual(HouseholdPlanResponse plan, string pot) => plan.Quotas.Single(q => q.Pot == pot).Actual;
+        Assert.Equal(Booked(before, PotKeys.Wants) - 200.00m, Booked(after, PotKeys.Wants));
+        Assert.Equal(Booked(before, PotKeys.Savings) + 200.00m, Booked(after, PotKeys.Savings));
+        Assert.Equal(Booked(before, PotKeys.Needs), Booked(after, PotKeys.Needs));
+        Assert.Equal(Actual(before, PotKeys.Wants) - 10.0m, Actual(after, PotKeys.Wants));
+        Assert.Equal(Actual(before, PotKeys.Savings) + 10.0m, Actual(after, PotKeys.Savings));
+    }
+
     // A13: Ein negativer Rest bucht die Einnahme "Übertrag nach November" in den Oktober; sie ist kein verdientes
     // Geld und zählt im Haushaltsplan des Oktobers weder bei den Einnahmen der Quoten noch bei den nicht
     // zugeordneten Einnahmen.

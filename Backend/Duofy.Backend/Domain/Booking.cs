@@ -10,8 +10,9 @@ namespace Duofy.Domain;
 /// - Einnahme: Geld kommt auf ein Konto. Die Zeilen liegen im Topf Einnahmen.
 /// - Umbuchung: Geld wandert von einem eigenen Konto auf ein anderes
 ///   (<see cref="CounterAccountId"/> ist gesetzt), ohne Kategorie. Neue Umbuchungen merken sich Quell- und
-///   Zieltopf, siehe <see cref="TargetPot"/>. Sie ändern keine Zahl im Plan außer Verplanbar:
-    ///   Wandert Geld über die Grenze zwischen verfügbaren und nicht verfügbaren Konten, ändert es Verplanbar (Spec 98).
+///   Zieltopf, siehe <see cref="TargetPot"/>. Sind beide Töpfe verschieden, verschiebt die Umbuchung den Betrag
+///   zwischen den Töpfen (gebucht und Quoten-Ist, Spec 112); sonst ändert sie keine Zahl im Plan außer Verplanbar:
+///   Wandert Geld über die Grenze zwischen verfügbaren und nicht verfügbaren Konten, ändert es Verplanbar (Spec 98).
 ///
 /// Aus den Buchungen ergibt sich der Kontostand, siehe <see cref="Account.Balance"/>.
 /// </summary>
@@ -47,8 +48,9 @@ public class Booking
     public List<BookingLine> Lines { get; set; } = [];
 
     /// <summary>
-    /// Nur bei einer Umbuchung: der Zieltopf (Spec 72, R9). Der Quelltopf ist der Topf der Zeile. Beide werden nur
-    /// gemerkt; keine Zahl im Plan rechnet damit. Null bei Ausgabe, Einnahme und bei älteren Umbuchungen, die vor
+    /// Nur bei einer Umbuchung: der Zieltopf (Spec 72, R9). Der Quelltopf ist der Topf der Zeile. Sind beide
+    /// verschieden, sinkt der Quelltopf und steigt der Zieltopf um den Betrag, beim gebuchten Betrag und im
+    /// Quoten-Ist (Spec 112). Null bei Ausgabe, Einnahme und bei älteren Umbuchungen, die vor
     /// dieser Regel gebucht wurden.
     /// </summary>
     public Pot? TargetPot { get; set; }

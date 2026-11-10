@@ -80,6 +80,12 @@ public static class PlanFigures
                     .Where(p => p.Pot == pot && !p.PassThrough)
                     .Sum(p => booked.GetValueOrDefault(p.Id));
             }
+
+            // Umbuchungen zwischen zwei Töpfen verschieben ihren Betrag (Spec 112, R2); Einnahmen und Nenner bleiben.
+            foreach (var (pot, moved) in PotShift(bookings))
+            {
+                spentPerPot[pot] += moved;
+            }
         }
 
         return (income, spentPerPot);
@@ -177,15 +183,47 @@ public static class PlanFigures
     /// als Abweichung unsichtbar. Gleiche Regel für eine Person und für den Haushalt.
     /// </summary>
     /// <param name="unplanned">Die Buchungen ohne Posten je Topf, siehe <see cref="Unplanned"/>.</param>
+    /// <param name="potShift">Was Umbuchungen zwischen Töpfen verschieben (Spec 112), siehe <see cref="PotShift"/>; Pflicht, damit keine Stelle sie vergisst, leer ohne Umbuchungen.</param>
     public static Dictionary<Pot, PotTotal> PotTotals(
-        IEnumerable<PlanPosition> positions, IReadOnlyDictionary<Guid, decimal> booked, IReadOnlyDictionary<Pot, decimal> unplanned)
+        IEnumerable<PlanPosition> positions, IReadOnlyDictionary<Guid, decimal> booked, IReadOnlyDictionary<Pot, decimal> unplanned,
+        IReadOnlyDictionary<Pot, decimal> potShift)
     {
         var counting = positions.Where(p => !p.PassThrough).ToList();
         return new[] { Pot.Needs, Pot.Wants, Pot.Savings }.ToDictionary(
             pot => pot,
             pot => new PotTotal(
                 counting.Where(p => p.Pot == pot).Sum(p => p.AmountPlanned),
-                counting.Where(p => p.Pot == pot).Sum(p => booked.GetValueOrDefault(p.Id)) + unplanned.GetValueOrDefault(pot)));
+                counting.Where(p => p.Pot == pot).Sum(p => booked.GetValueOrDefault(p.Id)) + unplanned.GetValueOrDefault(pot)
+                    + potShift.GetValueOrDefault(pot)));
+    }
+
+    /// <summary>
+    /// Was die Umbuchungen zwischen zwei verschiedenen Töpfen verschieben (Spec 112): der Betrag geht vom Quelltopf ab (der Topf
+    /// der Zeile) und kommt im Zieltopf dazu. Umbuchungen mit demselben Topf auf beiden Seiten, ohne Zieltopf oder ohne Zeile
+    /// ändern nichts, ebenso eine Zeile auf einem Posten (R7: sie zählt über den Posten). Nur der gebuchte Betrag je Topf und das
+    /// Ist der Quoten rechnen damit, nie der Frei-Betrag, das Feste oder ein Kontostand. Die Regel steht nur hier, für eine Person
+    /// und für den Haushalt.
+    /// </summary>
+    public static Dictionary<Pot, decimal> PotShift(IEnumerable<Booking> bookings)
+    {
+        var shift = new Dictionary<Pot, decimal> { [Pot.Needs] = 0m, [Pot.Wants] = 0m, [Pot.Savings] = 0m };
+        foreach (var transfer in bookings.Where(b => b.IsTransfer && b.TargetPot is not null))
+        {
+            // Eine Zeile auf einem Posten zählt schon über den Posten (BookedPerPosition), wie beim Frei-Betrag in TransferEffect (R7).
+            if (transfer.Lines.Count != 1 || transfer.Lines[0].PositionId is not null)
+            {
+                continue;
+            }
+            var source = transfer.Lines[0].Pot;
+            var target = transfer.TargetPot!.Value;
+            if (source == target || source == Pot.Income || target == Pot.Income)
+            {
+                continue;
+            }
+            shift[source] -= transfer.Amount;
+            shift[target] += transfer.Amount;
+        }
+        return shift;
     }
 
     /// <summary>
