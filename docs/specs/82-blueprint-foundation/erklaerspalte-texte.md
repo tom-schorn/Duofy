@@ -62,7 +62,7 @@ Alle Buchungen, die in diesem Monat zählen, nach Datum. Ausgaben stehen rot mit
 Eine Buchung kann in einem anderen Monat zählen, als ihr Datum sagt, höchstens einen Monat davor oder danach. Ein Gehalt vom 28. September kann zum Oktober gehören. (Komponente Booking, Spec 66 R7)
 
 **Umbuchung**
-Geld zwischen zwei eigenen Konten ist keine Ausgabe, es liegt nur woanders. Eine Umbuchung ändert keinen Topf, keinen Richtwert und keine Summe. (Komponente Booking, Spec 72 R9)
+Geld zwischen zwei eigenen Konten ist keine Ausgabe, es liegt nur woanders. Gehört zur Umbuchung ein anderer Topf als Quelle und Ziel, verschiebt sie den Betrag zwischen den Töpfen: Der Quelltopf sinkt, der Zieltopf steigt, beim gebuchten Betrag und beim Richtwert, in ihrem Planmonat. Verplanbar, das Feste und die Kontostände ändern sich dadurch nicht; ein Quelltopf darf dabei unter null fallen. (Komponente Booking, Spec 112)
 
 ## Monat, Reiter Auswertung
 

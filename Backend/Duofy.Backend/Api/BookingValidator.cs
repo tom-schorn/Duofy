@@ -203,7 +203,7 @@ public static class BookingValidator
     /// <summary>
     /// Eine Umbuchung hat zwei verschiedene Konten und genau eine Zeile ohne Kategorie über den ganzen Betrag.
     /// Der Topf der Zeile ist der Quelltopf, dazu kommt der Zieltopf (Spec 72, R9). Beide sind Pflicht, jeder aus
-    /// Grundbedarf, Wünsche oder Sparen, und es darf derselbe sein. Sie werden nur gemerkt.
+    /// Grundbedarf, Wünsche oder Sparen, und es darf derselbe sein. Verschiedene Töpfe verschieben den Betrag zwischen den Töpfen (Spec 112); hier wird nur geprüft.
     /// </summary>
     private static string? CheckTransfer(SaveBookingRequest request)
     {
