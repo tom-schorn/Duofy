@@ -1024,9 +1024,9 @@ public class PlanTests : IDisposable
         Assert.Equal(new PlanPotResponse(PotKeys.Needs, 1000.00m, 140.00m), overview.Pots.Single(p => p.Pot == PotKeys.Needs));
     }
 
-    // Spec 72, A11 (R9): Quelle und Ziel einer Umbuchung werden nur gemerkt; Plan, Gebucht und Quoten bleiben gleich.
+    // Spec 72, A11 (R9) und Spec 112, A1/A2/A6: Quelle und Ziel einer Umbuchung verschieben den Betrag im gebuchten Topf und im Ist der Quote; Plan und Posten bleiben gleich.
     [Fact]
-    public async Task A_transfer_between_pots_changes_no_figure_of_the_plan()
+    public async Task A_transfer_between_pots_moves_booked_sums_and_quota_actuals_but_not_the_plan()
     {
         var person = await SignUpAsync();
         var savingsAccount = await AccountAsync(person, "Sparkonto", 500m);
@@ -1039,12 +1039,16 @@ public class PlanTests : IDisposable
             [new SaveBookingLine(100.00m, PotKeys.Savings, null)], TargetPot: PotKeys.Wants));
 
         var after = await PlanAsync(person, 2026, 10);
-        Assert.Equal(before.Overview!.Pots, after.Overview!.Pots);
-        Assert.Equal(before.Quotas, after.Quotas);
+        PlanPotResponse Pot(PlanResponse plan, string key) => plan.Overview!.Pots.Single(p => p.Pot == key);
+        Assert.Equal(Pot(before, PotKeys.Savings) with { Booked = Pot(before, PotKeys.Savings).Booked - 100.00m }, Pot(after, PotKeys.Savings));
+        Assert.Equal(Pot(before, PotKeys.Wants) with { Booked = Pot(before, PotKeys.Wants).Booked + 100.00m }, Pot(after, PotKeys.Wants));
+        Assert.Equal(Pot(before, PotKeys.Needs), Pot(after, PotKeys.Needs));
+        Assert.Equal(before.Quotas.Single(q => q.Pot == PotKeys.Savings).Actual - 10.0m, after.Quotas.Single(q => q.Pot == PotKeys.Savings).Actual);
+        Assert.Equal(before.Quotas.Single(q => q.Pot == PotKeys.Wants).Actual + 10.0m, after.Quotas.Single(q => q.Pot == PotKeys.Wants).Actual);
         Assert.Equal(before.Positions.Select(p => (p.Id, p.Booked)), after.Positions.Select(p => (p.Id, p.Booked)));
     }
 
-    // Spec 72, A4
+    // Spec 72, A4; seit Spec 112 mit Quelle und Ziel im selben Topf (verschiebt nichts)
     [Fact]
     public async Task Transfers_and_the_carry_over_count_as_booked_in_no_pot()
     {
@@ -1052,7 +1056,7 @@ public class PlanTests : IDisposable
         var cash = await AccountAsync(person, "Bar", 0m);
         await BookAsync(person, Income(person, 2000.00m));
         await BookAsync(person, new SaveBookingRequest(BookingKinds.Transfer, person.Giro, cash, October5, 100.00m, null,
-            [new SaveBookingLine(100.00m, PotKeys.Savings, null)], TargetPot: PotKeys.Wants));
+            [new SaveBookingLine(100.00m, PotKeys.Savings, null)], TargetPot: PotKeys.Savings));
         await PlanAsync(person, 2026, 11);
 
         // Der Rest geht als Paar in den November: die Ausgabe "Übertrag nach November" liegt im Planmonat Oktober.

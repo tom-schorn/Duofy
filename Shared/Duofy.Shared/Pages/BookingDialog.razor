@@ -83,7 +83,7 @@
 
         @if (draft.Kind == BookingKinds.Transfer)
         {
-            @* Quelle und Ziel werden nur gemerkt (Spec 72, R9): Pflicht, ohne Vorauswahl, aus den drei Töpfen. *@
+            @* Quelle und Ziel verschieben den Betrag zwischen den Töpfen (Spec 72, R9; Spec 112): Pflicht, ohne Vorauswahl, aus den drei Töpfen. *@
             <StepField Label="@L["Field_TransferSourcePotRequired"]" InputId="booking-transfer-source-pot-input" TestId="booking-transfer-source-pot-field">
                 <NativeSelect Value="@draft.TransferSourcePot" ValueChanged="OnTransferSourcePotChanged" id="booking-transfer-source-pot-input"
                               aria-required="true" data-testid="booking-transfer-source-pot">
