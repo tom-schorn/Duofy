@@ -1,4 +1,5 @@
 using Duofy.Data;
+using Duofy.Domain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -92,7 +93,34 @@ public class ReminderMigrationTests(ApiFixture fixture)
         var second = Assert.Single(rows, r => r.UserId == off);
         Assert.Equal((false, false, false, false), (second.DueToday, second.Overdue, second.AdvanceWarning, second.Household));
 
+        // Nach dem Update gibt es mehrere Erinnerungen je Posten und Person: zwei "heute fällig" an verschiedenen Tagen, eine
+        // Vorwarnung, eine Zusammenfassung. Zurück bleibt je Posten und Person nur die jüngste, sonst scheitert der eindeutige Index.
+        var plan = Guid.NewGuid();
+        var rent = Guid.NewGuid();
+        var power = Guid.NewGuid();
+        await db.Database.ExecuteSqlRawAsync(
+            "INSERT INTO plans (id, owner_id, quota_needs, quota_wants, quota_savings, created_at, year, month) VALUES ({0}, {1}, 50, 30, 20, now(), 2026, 11)", plan, on);
+        foreach (var (position, label) in new[] { (rent, "Miete"), (power, "Strom") })
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                "INSERT INTO plan_positions (id, label, amount_planned, due_day, type, category_id, pot, pass_through, payment_method, changed_by_hand, plan_id) " +
+                "VALUES ({0}, {1}, 10, 10, 'contract', {2}, 'needs', false, 'transfer', false, {3})", position, label, CategoryCatalog.IdFor("household.groceries"), plan);
+        }
+        var newest = Guid.NewGuid();
+        var other = Guid.NewGuid();
+        await db.Database.ExecuteSqlRawAsync(
+            "INSERT INTO reminders (id, position_id, recipient_id, day, state, kind) VALUES " +
+            "({0}, {2}, {4}, DATE '2026-11-10', 'done', 'due'), ({1}, {2}, {4}, DATE '2026-11-11', 'done', 'due'), " +
+            "({5}, {2}, {4}, DATE '2026-11-09', 'done', 'advance'), ({6}, {3}, {4}, DATE '2026-11-10', 'sent', 'due')",
+            Guid.NewGuid(), newest, rent, power, on, Guid.NewGuid(), other);
+        await db.Database.ExecuteSqlRawAsync(
+            "INSERT INTO reminders (id, position_id, recipient_id, day, state, kind, covers_from, covers_until) VALUES ({0}, NULL, {1}, DATE '2026-11-10', 'sent', 'household', now(), now())",
+            Guid.NewGuid(), on);
+
         await migrator.MigrateAsync("AddReminders");
+
+        var kept = await db.Database.SqlQueryRaw<Guid>("SELECT id AS \"Value\" FROM reminders").ToListAsync();
+        Assert.Equal(new[] { newest, other }.Order(), kept.Order());
 
         var back = await db.Database.SqlQueryRaw<BackSettings>("SELECT user_id, enabled, time FROM reminder_settings").ToListAsync();
         Assert.Equal((true, new TimeOnly(7, 30)), (back.Single(r => r.UserId == on).Enabled, back.Single(r => r.UserId == on).Time));

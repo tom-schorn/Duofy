@@ -173,9 +173,13 @@ namespace Duofy.Backend.Data.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            // Zurück zu einer Erinnerung je Posten und Person: Alles außer der ersten "heute fällig" und die Zusammenfassungen fallen weg;
-            // "Erinnerungen an" war, wer "heute fällig" an hatte.
-            migrationBuilder.Sql("DELETE FROM reminders WHERE position_id IS NULL OR kind <> 'due';");
+            // Zurück zu einer Erinnerung je Posten und Person: Die Zusammenfassungen fallen weg, und von den Erinnerungen eines Postens
+            // an eine Person bleibt nur die jüngste (sonst scheitert der eindeutige Index); "Erinnerungen an" war, wer "heute fällig" an hatte.
+            migrationBuilder.Sql("DELETE FROM reminders WHERE position_id IS NULL;");
+            migrationBuilder.Sql(
+                "DELETE FROM reminders WHERE id IN (" +
+                "SELECT id FROM (SELECT id, ROW_NUMBER() OVER (PARTITION BY position_id, recipient_id ORDER BY day DESC, id DESC) AS newest FROM reminders) ranked " +
+                "WHERE newest > 1);");
             migrationBuilder.Sql("UPDATE reminder_settings SET overdue = due_today;");
 
             migrationBuilder.DropTable(
