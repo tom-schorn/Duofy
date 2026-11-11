@@ -22,6 +22,9 @@ internal sealed record PushPayload(Guid ReminderId, string Type)
     /// <summary>Ein Posten ist fällig: Die App holt den Text und zeigt die Benachrichtigung.</summary>
     public const string Due = "due";
 
+    /// <summary>Die Abendzusammenfassung des Haushalts liegt bereit: Die App holt den Text und zeigt die Benachrichtigung.</summary>
+    public const string Household = "household";
+
     /// <summary>Der Posten ist abgehakt: Die App nimmt die Benachrichtigung weg.</summary>
     public const string Withdraw = "withdraw";
 }

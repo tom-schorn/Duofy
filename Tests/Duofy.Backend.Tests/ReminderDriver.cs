@@ -151,11 +151,24 @@ internal sealed class ReminderServer : IAsyncDisposable
             return position.Id;
         });
 
-    /// <summary>Stellt die Uhrzeit ein, zu der die Person erinnert wird.</summary>
-    public Task SettingsAsync(Person person, TimeOnly time, bool enabled = true) =>
+    /// <summary>
+    /// Stellt die Uhrzeit am Morgen ein; <paramref name="enabled"/> false schaltet alle vier Schalter aus. Mit
+    /// <paramref name="change"/> lässt sich jedes Feld weiter anpassen (Abend, Vorwarnung, einzelne Schalter).
+    /// </summary>
+    public Task SettingsAsync(Person person, TimeOnly time, bool enabled = true, Action<ReminderSettings>? change = null) =>
         Factory.WithDbAsync(async db =>
         {
-            db.ReminderSettings.Add(new ReminderSettings { UserId = person.Id, Time = time, Enabled = enabled });
+            var settings = new ReminderSettings
+            {
+                UserId = person.Id,
+                MorningTime = time,
+                DueToday = enabled,
+                Overdue = enabled,
+                AdvanceWarning = enabled,
+                Household = enabled,
+            };
+            change?.Invoke(settings);
+            db.ReminderSettings.Add(settings);
             await db.SaveChangesAsync();
             return 0;
         });

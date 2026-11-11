@@ -100,24 +100,47 @@ public class ReminderEndpointTests(ApiFixture fixture)
         Assert.Equal(ReminderErrorCodes.TooManyDevices, await tooMany.ReadCodeAsync());
     }
 
+    // A1
     [Fact]
-    public async Task The_settings_start_with_reminders_on_at_nine_and_keep_what_the_person_sets()
+    public async Task A_new_person_has_all_four_switches_on_morning_nine_evening_nineteen_and_two_warning_days()
     {
         await using var server = ReminderServer.Start(fixture);
         var anna = await server.PersonAsync("Anna");
 
         var first = await server.Client.SendAsync(anna, HttpMethod.Get, SettingsPath);
-        Assert.Equal(new ReminderSettingsResponse(true, "09:00"), await first.Content.ReadFromJsonAsync<ReminderSettingsResponse>());
 
-        var put = await server.Client.SendAsync(anna, HttpMethod.Put, SettingsPath, new UpdateReminderSettingsRequest(Enabled: false, Time: "07:30"));
-        Assert.Equal(new ReminderSettingsResponse(false, "07:30"), await put.Content.ReadFromJsonAsync<ReminderSettingsResponse>());
+        Assert.Equal(new ReminderSettingsResponse(true, true, true, true, "09:00", true, "19:00", 2), await first.Content.ReadFromJsonAsync<ReminderSettingsResponse>());
+    }
 
-        var onlyTime = await server.Client.SendAsync(anna, HttpMethod.Put, SettingsPath, new UpdateReminderSettingsRequest(Time: "08:15"));
-        Assert.Equal(new ReminderSettingsResponse(false, "08:15"), await onlyTime.Content.ReadFromJsonAsync<ReminderSettingsResponse>());
+    [Fact]
+    public async Task The_settings_keep_what_the_person_sets_field_by_field()
+    {
+        await using var server = ReminderServer.Start(fixture);
+        var anna = await server.PersonAsync("Anna");
 
-        var invalid = await server.Client.SendAsync(anna, HttpMethod.Put, SettingsPath, new UpdateReminderSettingsRequest(Time: "25:00"));
-        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
-        Assert.Equal(ReminderErrorCodes.ReminderTimeInvalid, await invalid.ReadCodeAsync());
+        var put = await server.Client.SendAsync(anna, HttpMethod.Put, SettingsPath, new UpdateReminderSettingsRequest(
+            DueToday: false, Household: false, MorningTime: "07:30", EveningEnabled: false, WarningDays: 5));
+        Assert.Equal(new ReminderSettingsResponse(false, true, true, false, "07:30", false, "19:00", 5), await put.Content.ReadFromJsonAsync<ReminderSettingsResponse>());
+
+        var onlyEvening = await server.Client.SendAsync(anna, HttpMethod.Put, SettingsPath, new UpdateReminderSettingsRequest(EveningTime: "20:15", EveningEnabled: true));
+        Assert.Equal(new ReminderSettingsResponse(false, true, true, false, "07:30", true, "20:15", 5), await onlyEvening.Content.ReadFromJsonAsync<ReminderSettingsResponse>());
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(8)]
+    [InlineData(-1)]
+    public async Task Warning_days_outside_one_to_seven_are_refused(int days)
+    {
+        await using var server = ReminderServer.Start(fixture);
+        var anna = await server.PersonAsync("Anna");
+
+        var put = await server.Client.SendAsync(anna, HttpMethod.Put, SettingsPath, new UpdateReminderSettingsRequest(WarningDays: days));
+
+        Assert.Equal(HttpStatusCode.BadRequest, put.StatusCode);
+        Assert.Equal(ReminderErrorCodes.ReminderWarningDaysInvalid, await put.ReadCodeAsync());
+        var settings = await server.Client.SendAsync(anna, HttpMethod.Get, SettingsPath);
+        Assert.Equal(2, (await settings.Content.ReadFromJsonAsync<ReminderSettingsResponse>())!.WarningDays);
     }
 
     // #117 / #118 A2: Der Android-Dialog liefert die Zeit nicht immer als "HH:mm"; auch "HH:mm:ss" gilt, die Sekunden fallen weg.
@@ -131,11 +154,11 @@ public class ReminderEndpointTests(ApiFixture fixture)
         await using var server = ReminderServer.Start(fixture);
         var anna = await server.PersonAsync("Anna");
 
-        var put = await server.Client.SendAsync(anna, HttpMethod.Put, SettingsPath, new UpdateReminderSettingsRequest(Time: sent));
+        var put = await server.Client.SendAsync(anna, HttpMethod.Put, SettingsPath, new UpdateReminderSettingsRequest(MorningTime: sent));
 
         Assert.Equal(HttpStatusCode.OK, put.StatusCode);
         var settings = await server.Client.SendAsync(anna, HttpMethod.Get, SettingsPath);
-        Assert.Equal(stored, (await settings.Content.ReadFromJsonAsync<ReminderSettingsResponse>())!.Time);
+        Assert.Equal(stored, (await settings.Content.ReadFromJsonAsync<ReminderSettingsResponse>())!.MorningTime);
     }
 
     [Theory]
@@ -147,14 +170,14 @@ public class ReminderEndpointTests(ApiFixture fixture)
     {
         await using var server = ReminderServer.Start(fixture);
         var anna = await server.PersonAsync("Anna");
-        await server.Client.SendAsync(anna, HttpMethod.Put, SettingsPath, new UpdateReminderSettingsRequest(Time: "07:30"));
+        await server.Client.SendAsync(anna, HttpMethod.Put, SettingsPath, new UpdateReminderSettingsRequest(MorningTime: "07:30"));
 
-        var put = await server.Client.SendAsync(anna, HttpMethod.Put, SettingsPath, new UpdateReminderSettingsRequest(Time: sent));
+        var put = await server.Client.SendAsync(anna, HttpMethod.Put, SettingsPath, new UpdateReminderSettingsRequest(MorningTime: sent));
 
         Assert.Equal(HttpStatusCode.BadRequest, put.StatusCode);
         Assert.Equal(ReminderErrorCodes.ReminderTimeInvalid, await put.ReadCodeAsync());
         var settings = await server.Client.SendAsync(anna, HttpMethod.Get, SettingsPath);
-        Assert.Equal("07:30", (await settings.Content.ReadFromJsonAsync<ReminderSettingsResponse>())!.Time);
+        Assert.Equal("07:30", (await settings.Content.ReadFromJsonAsync<ReminderSettingsResponse>())!.MorningTime);
     }
 
     // A4
@@ -310,7 +333,7 @@ public class ReminderEndpointTests(ApiFixture fixture)
             (HttpMethod.Put, Devices + "x", new RegisterDeviceRequest(DevicePlatforms.Android, "t")),
             (HttpMethod.Delete, Devices + "x", null),
             (HttpMethod.Get, SettingsPath, null),
-            (HttpMethod.Put, SettingsPath, new UpdateReminderSettingsRequest(Enabled: true)),
+            (HttpMethod.Put, SettingsPath, new UpdateReminderSettingsRequest(DueToday: true)),
             (HttpMethod.Get, ReminderPath(anyId), null),
             (HttpMethod.Post, ReminderPath(anyId) + "/later", null),
         })

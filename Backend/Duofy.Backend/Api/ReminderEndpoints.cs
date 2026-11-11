@@ -126,14 +126,27 @@ internal static class ReminderEndpoints
         {
             return Results.Unauthorized();
         }
-        TimeOnly? time = null;
-        if (request.Time is not null)
+        TimeOnly? morning = null;
+        TimeOnly? evening = null;
+        if (request.MorningTime is not null)
         {
-            if (!TryParseTime(request.Time, out var parsed))
+            if (!TryParseTime(request.MorningTime, out var parsed))
             {
                 return ApiErrors.BadRequest(ReminderErrorCodes.ReminderTimeInvalid);
             }
-            time = parsed;
+            morning = parsed;
+        }
+        if (request.EveningTime is not null)
+        {
+            if (!TryParseTime(request.EveningTime, out var parsed))
+            {
+                return ApiErrors.BadRequest(ReminderErrorCodes.ReminderTimeInvalid);
+            }
+            evening = parsed;
+        }
+        if (request.WarningDays is { } days && (days < ReminderSettings.MinWarningDays || days > ReminderSettings.MaxWarningDays))
+        {
+            return ApiErrors.BadRequest(ReminderErrorCodes.ReminderWarningDaysInvalid);
         }
 
         var settings = await db.ReminderSettings.FirstOrDefaultAsync(s => s.UserId == userId, cancellationToken);
@@ -142,12 +155,21 @@ internal static class ReminderEndpoints
             settings = new ReminderSettings { UserId = userId };
             db.ReminderSettings.Add(settings);
         }
-        settings.Enabled = request.Enabled ?? settings.Enabled;
-        settings.Time = time ?? settings.Time;
+        settings.DueToday = request.DueToday ?? settings.DueToday;
+        settings.Overdue = request.Overdue ?? settings.Overdue;
+        settings.AdvanceWarning = request.AdvanceWarning ?? settings.AdvanceWarning;
+        settings.Household = request.Household ?? settings.Household;
+        settings.MorningTime = morning ?? settings.MorningTime;
+        settings.EveningEnabled = request.EveningEnabled ?? settings.EveningEnabled;
+        settings.EveningTime = evening ?? settings.EveningTime;
+        settings.WarningDays = request.WarningDays ?? settings.WarningDays;
         await db.SaveChangesAsync(cancellationToken);
 
         loggers.CreateLogger(LogCategory).LogInformation(
-            "Erinnerungen von {UserId}: {State} um {Time}.", userId, settings.Enabled ? "an" : "aus", settings.Time.ToString("HH:mm", CultureInfo.InvariantCulture));
+            "Benachrichtigungen von {UserId}: heute fällig {DueToday}, überfällig {Overdue}, Vorwarnung {Advance} ({Days} Tage), Haushalt {Household}, morgens {Morning}, abends {Evening}.",
+            userId, settings.DueToday, settings.Overdue, settings.AdvanceWarning, settings.WarningDays, settings.Household,
+            settings.MorningTime.ToString("HH:mm", CultureInfo.InvariantCulture),
+            settings.EveningEnabled ? settings.EveningTime.ToString("HH:mm", CultureInfo.InvariantCulture) : "aus");
         return Results.Ok(ToResponse(settings));
     }
 
@@ -156,13 +178,21 @@ internal static class ReminderEndpoints
     /// liest sie am Besitzer-Filter vorbei, weil die Freigabe der Erinnerungen genau das erlaubt: den Namen dieses
     /// einen Postens, sonst nichts; den Betrag nur mit dem Recht, den Plan des Besitzers anzusehen.
     /// </summary>
-    private static async Task<IResult> GetReminderAsync(Guid id, IAccess access, DuofyDbContext db, CancellationToken cancellationToken)
+    private static async Task<IResult> GetReminderAsync(Guid id, IAccess access, DuofyDbContext db, TimeProvider time, CancellationToken cancellationToken)
     {
         if (access.CallerId is not { } userId)
         {
             return Results.Unauthorized();
         }
         using var bypass = db.Owners.Bypass("Erinnerung lesen");
+        var own = await db.Reminders.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id && r.RecipientId == userId, cancellationToken);
+        if (own is { Kind: ReminderKind.Household })
+        {
+            var events = await HouseholdSummary.VisibleAsync(db, userId, own.CoversFrom ?? DateTimeOffset.MinValue, own.CoversUntil ?? DateTimeOffset.MaxValue, cancellationToken);
+            return Results.Ok(new ReminderResponse(
+                own.Id, null, userId, "", null, own.Day.Year, own.Day.Month, own.Day.Day, own.State.ToString().ToLowerInvariant(),
+                ReminderKinds.Household, 0, 0, false, events));
+        }
         if (await FindAsync(db, id, userId, cancellationToken) is not { } found)
         {
             return ApiErrors.NotFound(ReminderErrorCodes.ReminderNotFound);
@@ -170,12 +200,22 @@ internal static class ReminderEndpoints
         var (reminder, plan, position) = found;
         // Die Freigabe der Erinnerungen erlaubt den Namen, nicht den Betrag: den sieht nur, wer den Plan ansehen darf.
         var mayViewPlan = (await access.LevelAsync(plan.OwnerId, Area.Plan, cancellationToken)).Includes(AccessLevel.View);
+        var dueDate = ReminderRules.DueDate(plan.Year, plan.Month, position.DueDay);
+        var daysUntilDue = dueDate.DayNumber - Berlin.Today(time).DayNumber;
+        var postponed = await PostponeCountOfAsync(db, position.Id, dueDate, cancellationToken);
+        var kind = daysUntilDue switch { > 0 => ReminderKinds.Advance, 0 => ReminderKinds.Due, _ => ReminderKinds.Overdue };
         return Results.Ok(new ReminderResponse(
             reminder.Id, position.Id, plan.OwnerId, position.Label, mayViewPlan ? position.AmountPlanned : null, plan.Year, plan.Month, position.DueDay,
-            reminder.State.ToString().ToLowerInvariant()));
+            reminder.State.ToString().ToLowerInvariant(), kind, daysUntilDue, postponed, postponed < ReminderLimits.MaxPostpones));
     }
 
-    /// <summary>"Später": Die Erinnerung kommt morgen zur Uhrzeit der Person wieder, nicht mehr heute.</summary>
+    private static async Task<int> PostponeCountOfAsync(DuofyDbContext db, Guid positionId, DateOnly dueDate, CancellationToken cancellationToken) =>
+        await db.PostponeCounts.AsNoTracking().Where(c => c.PositionId == positionId && c.DueDate == dueDate).Select(c => c.Count).FirstOrDefaultAsync(cancellationToken);
+
+    /// <summary>
+    /// "Später": Die Erinnerung kommt morgen am Morgen der Person wieder, nicht mehr heute. Das zählt je Posten und Fälligkeitstag;
+    /// nach dem dritten Mal gibt es kein "Später" mehr (Spec 118, R6).
+    /// </summary>
     private static async Task<IResult> LaterAsync(
         Guid id, IAccess access, DuofyDbContext db, TimeProvider time, ILoggerFactory loggers, CancellationToken cancellationToken)
     {
@@ -188,16 +228,29 @@ internal static class ReminderEndpoints
         {
             return ApiErrors.NotFound(ReminderErrorCodes.ReminderNotFound);
         }
-        var reminder = found.Reminder;
+        var (reminder, plan, position) = found;
         if (reminder.State == ReminderState.Done)
         {
             return ApiErrors.NotFound(ReminderErrorCodes.ReminderNotFound);
         }
+        var dueDate = ReminderRules.DueDate(plan.Year, plan.Month, position.DueDay);
+        var count = await db.PostponeCounts.FirstOrDefaultAsync(c => c.PositionId == position.Id && c.DueDate == dueDate, cancellationToken);
+        if (count is { Count: >= ReminderLimits.MaxPostpones })
+        {
+            return ApiErrors.BadRequest(ReminderErrorCodes.ReminderLaterLimitReached);
+        }
+        if (count is null)
+        {
+            count = new PostponeCount { PositionId = position.Id, DueDate = dueDate };
+            db.PostponeCounts.Add(count);
+        }
+        count.Count++;
         reminder.State = ReminderState.Later;
         reminder.Day = Berlin.Today(time).AddDays(1);
         await db.SaveChangesAsync(cancellationToken);
 
-        loggers.CreateLogger(LogCategory).LogInformation("Erinnerung {ReminderId} von {UserId} auf {Day} verschoben.", id, userId, reminder.Day);
+        loggers.CreateLogger(LogCategory).LogInformation(
+            "Erinnerung {ReminderId} von {UserId} auf {Day} verschoben ({Count}. Mal von {Max}).", id, userId, reminder.Day, count.Count, ReminderLimits.MaxPostpones);
         return Results.NoContent();
     }
 
@@ -205,7 +258,7 @@ internal static class ReminderEndpoints
     private static async Task<(Reminder Reminder, Plan Plan, PlanPosition Position)?> FindAsync(
         DuofyDbContext db, Guid id, Guid userId, CancellationToken cancellationToken)
     {
-        var reminder = await db.Reminders.FirstOrDefaultAsync(r => r.Id == id && r.RecipientId == userId, cancellationToken);
+        var reminder = await db.Reminders.FirstOrDefaultAsync(r => r.Id == id && r.RecipientId == userId && r.PositionId != null, cancellationToken);
         if (reminder is null)
         {
             return null;
@@ -238,7 +291,9 @@ internal static class ReminderEndpoints
     }
 
     private static ReminderSettingsResponse ToResponse(ReminderSettings settings) =>
-        new(settings.Enabled, settings.Time.ToString("HH:mm", CultureInfo.InvariantCulture));
+        new(settings.DueToday, settings.Overdue, settings.AdvanceWarning, settings.Household,
+            settings.MorningTime.ToString("HH:mm", CultureInfo.InvariantCulture), settings.EveningEnabled,
+            settings.EveningTime.ToString("HH:mm", CultureInfo.InvariantCulture), settings.WarningDays);
 
     private static bool TryParsePlatform(string? key, out DevicePlatform platform)
     {

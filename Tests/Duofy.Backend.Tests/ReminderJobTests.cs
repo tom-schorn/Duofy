@@ -189,7 +189,8 @@ public class ReminderJobTests(ApiFixture fixture)
         await server.Client.GrantAsync(anna, ben, new UpdateGrantsRequest(Reminders: AccessLevelKeys.None));
         await server.RunAtAsync(Morning.AddDays(1).AddMinutes(90));
 
-        Assert.Equal(2, server.Push.To(annaToken).Count);
+        // Am 11. kommt für Anna "Zweiter" fällig und "Erster" überfällig (Spec 118); Ben bekommt nichts mehr.
+        Assert.Equal(3, server.Push.To(annaToken).Count);
         Assert.Single(server.Push.To(benToken));
     }
 
