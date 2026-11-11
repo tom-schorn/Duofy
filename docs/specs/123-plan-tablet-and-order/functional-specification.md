@@ -41,9 +41,9 @@ External input: no
 
 | Requirement | Criterion | Test |
 | --- | --- | --- |
-| R1 | A1 | `PlanBookingsTableTests.A1_the_table_sits_in_its_own_region_that_scrolls_sideways`, `A1_the_card_frame_no_longer_clips_the_table`, `A1_the_tablet_range_uses_narrower_cell_padding`; measured in a real browser at 360, 412, 600, 800 and 840 px |
-| R2 | A2 | `PlanBookingsTableTests.A2_the_list_runs_newest_first_and_the_carry_over_stands_at_the_end`, `A2_a_booking_on_the_first_stands_above_the_carry_over_which_carries_the_first_of_the_plan_month`, `A2_the_household_plan_lists_in_the_same_order` |
-| R3 | A3 | `PlanBookingsTableTests.A3_the_personal_and_the_household_plan_use_the_same_bookings_component` |
+| R1 | A1 | `Tests/Duofy.Shared.Tests/PlanBookingsTableTests.cs`: `A1_the_table_sits_in_its_own_region_that_scrolls_sideways`, `A1_the_card_frame_no_longer_clips_the_table`, `A1_the_tablet_range_uses_narrower_cell_padding`; measured in a real browser at 360, 412, 600, 800 and 840 px |
+| R2 | A2 | `Tests/Duofy.Shared.Tests/PlanBookingsTableTests.cs`: `A2_the_list_runs_newest_first_and_the_carry_over_stands_at_the_end`, `A2_a_booking_on_the_first_stands_above_the_carry_over_which_carries_the_first_of_the_plan_month`, `A2_the_household_plan_lists_in_the_same_order` |
+| R3 | A3 | `Tests/Duofy.Shared.Tests/PlanBookingsTableTests.cs`: `A3_the_personal_and_the_household_plan_use_the_same_bookings_component` |
 
 ## Non-goals
 
