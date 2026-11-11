@@ -236,7 +236,7 @@ public static class MonthView
         foreach (var p in positions)
         {
             var open = Math.Max(p.Planned - p.Booked, 0m);
-            if (p.Pot == PotKeys.Income || p.PassThrough || p.DoneAt is not null || open == 0m)
+            if (!PositionOpen.Is(p.Pot == PotKeys.Income, p.PassThrough, p.DoneAt is not null, p.Planned, p.Booked))
             {
                 continue;
             }

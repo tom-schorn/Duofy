@@ -124,7 +124,7 @@ internal sealed class ReminderServer : IAsyncDisposable
     /// <summary>Legt dem Besitzer einen Posten im Monat von <see cref="Morning"/> an; gibt seine Kennung zurück.</summary>
     public Task<Guid> PositionAsync(
         Person owner, string label = "GEZ", PaymentMethod method = PaymentMethod.Transfer, int dueDay = 10,
-        CommitmentType type = CommitmentType.Contract, bool done = false) =>
+        CommitmentType type = CommitmentType.Contract, bool done = false, bool passThrough = false) =>
         Factory.WithDbAsync(async db =>
         {
             var plan = await db.Plans.Include(p => p.Positions)
@@ -145,6 +145,7 @@ internal sealed class ReminderServer : IAsyncDisposable
                 CategoryId = categoryId,
                 PaymentMethod = method,
                 DoneAt = done ? Morning.ToUniversalTime() : null,
+                PassThrough = passThrough,
             };
             plan.Positions.Add(position);
             await db.SaveChangesAsync();
@@ -192,6 +193,29 @@ internal sealed class ReminderServer : IAsyncDisposable
         Factory.WithDbAsync(async db =>
         {
             HouseholdSummary.Record(db, household, kind, actor.Id, at.ToUniversalTime(), owner?.Id, subject?.Id, label, amount);
+            await db.SaveChangesAsync();
+            return 0;
+        });
+
+    /// <summary>Bucht einen Betrag auf den Posten (eine Ausgabe im Planmonat des Postens), an der API vorbei.</summary>
+    public Task BookAsync(Person owner, Guid positionId, decimal amount) =>
+        Factory.WithDbAsync(async db =>
+        {
+            var position = await db.PlanPositions.SingleAsync(p => p.Id == positionId);
+            var accountId = await db.Accounts.Where(a => a.OwnerId == owner.Id).Select(a => a.Id).FirstAsync();
+            db.Bookings.Add(new Booking
+            {
+                Id = Guid.NewGuid(),
+                OwnerId = owner.Id,
+                AccountId = accountId,
+                PaymentDate = DateOnly.FromDateTime(Morning.Date),
+                PlanYear = Morning.Year,
+                PlanMonth = Morning.Month,
+                Amount = amount,
+                Lines = [new BookingLine { Id = Guid.NewGuid(), Amount = amount, Pot = position.Pot, CategoryId = position.CategoryId, PositionId = positionId }],
+                CreatedAt = Morning.ToUniversalTime(),
+                UpdatedAt = Morning.ToUniversalTime(),
+            });
             await db.SaveChangesAsync();
             return 0;
         });

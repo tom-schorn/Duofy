@@ -1,3 +1,4 @@
+using Duofy.Schemas;
 using Duofy.Data;
 using Duofy.Domain;
 using Microsoft.EntityFrameworkCore;
@@ -68,7 +69,7 @@ internal sealed class ReminderRunner(DuofyDbContext db, ReminderSwitch reminders
         return sent;
     }
 
-    private sealed record Candidate(Guid Id, CommitmentType Type, PaymentMethod PaymentMethod, DateOnly DueDate, Guid OwnerId);
+    private sealed record Candidate(Guid Id, CommitmentType Type, PaymentMethod PaymentMethod, DateOnly DueDate, Guid OwnerId, bool Open);
 
     /// <summary>
     /// Die offenen Posten mit Zahlung von Hand, die heute, in den nächsten Tagen oder schon länger fällig sind, je nach
@@ -83,11 +84,21 @@ internal sealed class ReminderRunner(DuofyDbContext db, ReminderSwitch reminders
                 && (plan.Year < last.Year || (plan.Year == last.Year && plan.Month <= last.Month)))
             .SelectMany(plan => plan.Positions
                 .Where(position => position.DoneAt == null)
-                .Select(position => new { position.Id, position.Type, position.PaymentMethod, position.DueDay, plan.Year, plan.Month, plan.OwnerId }))
+                .Select(position => new { position.Id, position.Type, position.PaymentMethod, position.DueDay, position.PassThrough, position.AmountPlanned, plan.Year, plan.Month, plan.OwnerId }))
             .ToListAsync(cancellationToken);
-        var candidates = rows
-            .Where(p => ReminderRules.IsPayable(p.Type) && ReminderRules.NeedsManualPayment(p.PaymentMethod))
-            .Select(p => new Candidate(p.Id, p.Type, p.PaymentMethod, ReminderRules.DueDate(p.Year, p.Month, p.DueDay), p.OwnerId))
+        var payable = rows.Where(p => ReminderRules.IsPayable(p.Type) && ReminderRules.NeedsManualPayment(p.PaymentMethod)).ToList();
+        var ids = payable.Select(p => p.Id).ToList();
+        // Gebucht je Posten wie im Plan (PlanFigures.BookedPerPosition): die Summe der Buchungszeilen auf dem Posten.
+        var booked = (await db.Bookings
+            .SelectMany(b => b.Lines)
+            .Where(l => l.PositionId != null && ids.Contains(l.PositionId.Value))
+            .Select(l => new { PositionId = l.PositionId!.Value, l.Amount })
+            .ToListAsync(cancellationToken))
+            .GroupBy(l => l.PositionId)
+            .ToDictionary(g => g.Key, g => g.Sum(l => l.Amount));
+        var candidates = payable
+            .Select(p => new Candidate(p.Id, p.Type, p.PaymentMethod, ReminderRules.DueDate(p.Year, p.Month, p.DueDay), p.OwnerId,
+                PositionOpen.Is(income: false, p.PassThrough, done: false, p.AmountPlanned, booked.GetValueOrDefault(p.Id))))
             .Where(p => p.DueDate <= last)
             .ToList();
         if (candidates.Count == 0)
@@ -114,7 +125,7 @@ internal sealed class ReminderRunner(DuofyDbContext db, ReminderSwitch reminders
                 }
                 foreach (var position in owner)
                 {
-                    foreach (var kind in KindsOf(position.DueDate, today, settings, morning, evening))
+                    foreach (var kind in KindsOf(position.DueDate, position.Open, today, settings, morning, evening))
                     {
                         sent += await SendNewAsync(position.Id, recipientId, today, kind, devices, cancellationToken);
                     }
@@ -124,8 +135,8 @@ internal sealed class ReminderRunner(DuofyDbContext db, ReminderSwitch reminders
         return sent;
     }
 
-    /// <summary>Welche Erinnerungen dieser Posten für diese Person jetzt verdient (ob sie schon gesendet wurden, prüft der Aufrufer).</summary>
-    private static IEnumerable<ReminderKind> KindsOf(DateOnly due, DateOnly today, ReminderSettings settings, bool morning, bool evening)
+    /// <summary>Welche Erinnerungen dieser Posten für diese Person jetzt verdient (ob sie schon gesendet wurden, prüft der Aufrufer). Am Abend und für "überfällig" muss der Posten offen sein (<see cref="PositionOpen"/>, wie im Plan).</summary>
+    private static IEnumerable<ReminderKind> KindsOf(DateOnly due, bool open, DateOnly today, ReminderSettings settings, bool morning, bool evening)
     {
         if (due == today)
         {
@@ -133,7 +144,7 @@ internal sealed class ReminderRunner(DuofyDbContext db, ReminderSwitch reminders
             {
                 yield return ReminderKind.Due;
             }
-            if (settings.DueToday && evening)
+            if (settings.DueToday && evening && open)
             {
                 yield return ReminderKind.Evening;
             }
@@ -145,7 +156,7 @@ internal sealed class ReminderRunner(DuofyDbContext db, ReminderSwitch reminders
                 yield return ReminderKind.Advance;
             }
         }
-        else if (settings.Overdue && morning)
+        else if (settings.Overdue && morning && open)
         {
             yield return ReminderKind.Overdue;
         }

@@ -36,6 +36,16 @@ public static class ReminderLimits
     public const int MaxPostpones = 3;
 }
 
+/// <summary>
+/// Wann ein Posten "offen" ist (Spec 23, Begriffe; Spec 118, R4, R7): verplant, nicht abgehakt und weniger gebucht als geplant,
+/// ohne Einnahmen und durchlaufende Posten. Der Plan (Anstehend, Überfällig) und der Erinnerungs-Job rechnen beide damit.
+/// </summary>
+public static class PositionOpen
+{
+    public static bool Is(bool income, bool passThrough, bool done, decimal planned, decimal booked) =>
+        !income && !passThrough && !done && planned - booked > 0m;
+}
+
 /// <summary>Meldet ein Gerät an (PUT /api/v1/me/devices/{installationId}); die App wiederholt es bei jedem Start.</summary>
 public sealed record RegisterDeviceRequest(string Platform, string PushToken);
 

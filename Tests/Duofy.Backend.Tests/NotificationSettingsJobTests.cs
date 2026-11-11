@@ -157,6 +157,48 @@ public class NotificationSettingsJobTests(ApiFixture fixture)
         Assert.DoesNotContain(server.Push.To(token).Skip(3), s => s.Payload.Type == PushPayload.Due);
     }
 
+    // A4, A7 (Entscheidung 1): offen heißt weniger gebucht als geplant und nicht durchlaufend, wie im Plan.
+    [Fact]
+    public async Task A_fully_booked_position_gets_no_evening_notification_but_a_partly_booked_one_does()
+    {
+        await using var server = ReminderServer.Start(fixture);
+        var anna = await server.FounderAsync("Anna");
+        var token = await server.DeviceAsync(anna);
+        var full = await server.PositionAsync(anna, "Miete", dueDay: 10);
+        var part = await server.PositionAsync(anna, "Strom", dueDay: 10);
+        var through = await server.PositionAsync(anna, "Durchlauf", dueDay: 10, passThrough: true);
+        await server.RunAtAsync(NineOClock);
+        await server.BookAsync(anna, full, 18.36m);
+        await server.BookAsync(anna, part, 10m);
+
+        await server.RunAtAsync(Evening);
+
+        Assert.Empty((await server.RemindersOfAsync(full)).Where(r => r.Kind == ReminderKind.Evening));
+        Assert.Single((await server.RemindersOfAsync(part)).Where(r => r.Kind == ReminderKind.Evening));
+        Assert.Empty((await server.RemindersOfAsync(through)).Where(r => r.Kind == ReminderKind.Evening));
+        Assert.Equal(4, server.Push.To(token).Count); // drei am Morgen, eine am Abend
+    }
+
+    // A7 (Entscheidung 1)
+    [Fact]
+    public async Task A_fully_booked_or_pass_through_position_past_its_day_is_not_overdue()
+    {
+        await using var server = ReminderServer.Start(fixture);
+        var anna = await server.FounderAsync("Anna");
+        await server.DeviceAsync(anna);
+        var full = await server.PositionAsync(anna, "Miete", dueDay: 8);
+        var part = await server.PositionAsync(anna, "Strom", dueDay: 8);
+        var through = await server.PositionAsync(anna, "Durchlauf", dueDay: 8, passThrough: true);
+        await server.BookAsync(anna, full, 18.36m);
+        await server.BookAsync(anna, part, 10m);
+
+        await server.RunAtAsync(NineOClock);
+
+        Assert.Empty(await server.RemindersOfAsync(full));
+        Assert.Equal(ReminderKind.Overdue, Assert.Single(await server.RemindersOfAsync(part)).Kind);
+        Assert.Empty(await server.RemindersOfAsync(through));
+    }
+
     // A7
     [Fact]
     public async Task With_the_overdue_switch_off_nothing_overdue_comes()
