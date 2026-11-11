@@ -22,7 +22,7 @@ Rebuild the booking dialog on the spec-11 step component. Steps: 1 kind, amount,
 
 ## Behaviour
 
-- R1: step x of y visible; back keeps input; save only in the last step.
+- R1: step x of y visible; back keeps input; save in the last step, or earlier with the early save of R6.
 - R2: selected kind visible in both themes.
 - R3: typing filters the list; no extra button.
 - R4: with three split lines the dialog stays within the screen at 360 px and 800 px.
