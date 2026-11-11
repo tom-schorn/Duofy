@@ -47,10 +47,10 @@ External input: yes
 
 | Requirement | Criterion | Test |
 | --- | --- | --- |
-| R1 | A1 | pending |
-| R2 | A2 | pending |
-| R3 | A3 | pending |
-| R4 | A4 | pending |
+| R1 | A1 | `Tests/Duofy.Shared.Tests/HouseholdPlanWorkTests.cs`: `Both_plans_show_print_booking_and_position_in_the_same_toolbar_at_the_same_place` |
+| R2 | A2 | `Tests/Duofy.Shared.Tests/HouseholdPlanWorkTests.cs`: `Adding_a_position_asks_for_the_person_first_and_the_position_belongs_to_the_chosen_one`, `Adding_a_booking_offers_only_those_who_granted_creating_bookings`; `Tests/Duofy.Shared.Tests/ActiveMemberActingTests.cs`: `People_with_a_level_are_me_first_and_then_the_members_whose_grant_reaches_it` |
+| R3 | A3 | `Tests/Duofy.Shared.Tests/HouseholdPlanWorkTests.cs`: `Ticking_a_position_of_another_member_runs_as_that_member_under_their_grant`, `Ticking_without_the_grant_is_refused_and_says_what_is_missing`; `Tests/Duofy.Shared.Tests/ActiveMemberActingTests.cs`: `What_a_member_may_do_for_another_follows_that_members_grants_also_in_the_household_view` |
+| R4 | A4 | `Tests/Duofy.Shared.Tests/HouseholdPlanWorkTests.cs`: `Print_in_the_personal_plan_prints_the_month_at_once`, `Print_in_the_household_plan_asks_for_one_person_or_the_whole_household_and_prints_the_household`, `Print_for_one_person_prints_that_persons_plan_from_their_grant` |
 | R5 | A5 | pending |
 
 ## Threats
