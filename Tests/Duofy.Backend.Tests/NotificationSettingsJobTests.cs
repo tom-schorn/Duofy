@@ -173,9 +173,9 @@ public class NotificationSettingsJobTests(ApiFixture fixture)
 
         await server.RunAtAsync(Evening);
 
-        Assert.Empty((await server.RemindersOfAsync(full)).Where(r => r.Kind == ReminderKind.Evening));
-        Assert.Single((await server.RemindersOfAsync(part)).Where(r => r.Kind == ReminderKind.Evening));
-        Assert.Empty((await server.RemindersOfAsync(through)).Where(r => r.Kind == ReminderKind.Evening));
+        Assert.DoesNotContain(await server.RemindersOfAsync(full), r => r.Kind == ReminderKind.Evening);
+        Assert.Single(await server.RemindersOfAsync(part), r => r.Kind == ReminderKind.Evening);
+        Assert.DoesNotContain(await server.RemindersOfAsync(through), r => r.Kind == ReminderKind.Evening);
         Assert.Equal(4, server.Push.To(token).Count); // drei am Morgen, eine am Abend
     }
 
@@ -304,6 +304,69 @@ public class NotificationSettingsJobTests(ApiFixture fixture)
         Assert.Equal(ReminderKind.Advance, reminder.Kind);
         (await server.Client.SendAsync(anna, HttpMethod.Post, ReminderPath(reminder.Id) + "/later")).EnsureSuccessStatusCode();
         await server.SettingsAsync(anna, new TimeOnly(9, 0), change: s => s.AdvanceWarning = false);
+
+        await server.RunAtAsync(NineOClock.AddDays(1));
+
+        Assert.Single(server.Push.To(token));
+        Assert.Equal(ReminderState.Done, Assert.Single(await server.RemindersOfAsync(position)).State);
+    }
+
+    // A8 (Fund Mitternacht): Liegt die Abendzeit kurz vor Mitternacht, kommt die Zusammenfassung trotzdem, auch noch beim Nachholen.
+    [Theory]
+    [InlineData(0)]
+    [InlineData(15)]
+    public async Task A_summary_at_an_evening_time_before_midnight_is_sent_at_the_time_and_caught_up(int minutesLate)
+    {
+        await using var server = ReminderServer.Start(fixture);
+        var tom = await server.FounderAsync("Tom");
+        var jasmin = await server.PersonAsync("Jasmin");
+        await server.Client.JoinAsync(tom, jasmin);
+        var token = await server.DeviceAsync(tom);
+        await server.Client.GrantAsync(jasmin, tom, new UpdateGrantsRequest(Plan: AccessLevelKeys.View, Book: AccessLevelKeys.View));
+        await server.SettingsAsync(tom, new TimeOnly(7, 30), change: s => s.EveningTime = new TimeOnly(23, 30));
+        var household = await server.HouseholdOfAsync(tom);
+        await server.ClearEventsAsync();
+        var lateEvening = ReminderServer.Morning.AddHours(16); // 23:30
+        await server.EventAsync(household, HouseholdEventKind.Booked, jasmin, owner: jasmin, label: "Spaet", amount: 5m, at: lateEvening.AddHours(-2));
+
+        await server.RunAtAsync(lateEvening.AddMinutes(minutesLate));
+
+        Assert.Equal(PushPayload.Household, Assert.Single(server.Push.To(token)).Payload.Type);
+    }
+
+    // A8 (Fund Mitternacht): Nach Mitternacht holt der Job die Zusammenfassung des Vortags nicht mehr nach.
+    [Fact]
+    public async Task A_summary_of_an_evening_before_midnight_is_not_sent_after_midnight()
+    {
+        await using var server = ReminderServer.Start(fixture);
+        var tom = await server.FounderAsync("Tom");
+        var jasmin = await server.PersonAsync("Jasmin");
+        await server.Client.JoinAsync(tom, jasmin);
+        var token = await server.DeviceAsync(tom);
+        await server.Client.GrantAsync(jasmin, tom, new UpdateGrantsRequest(Plan: AccessLevelKeys.View, Book: AccessLevelKeys.View));
+        await server.SettingsAsync(tom, new TimeOnly(7, 30), change: s => s.EveningTime = new TimeOnly(23, 30));
+        var household = await server.HouseholdOfAsync(tom);
+        await server.ClearEventsAsync();
+        var lateEvening = ReminderServer.Morning.AddHours(16);
+        await server.EventAsync(household, HouseholdEventKind.Booked, jasmin, owner: jasmin, label: "Spaet", amount: 5m, at: lateEvening.AddHours(-2));
+
+        await server.RunAtAsync(lateEvening.AddMinutes(45)); // 00:15 am nächsten Tag
+
+        Assert.DoesNotContain(server.Push.To(token), s => s.Payload.Type == PushPayload.Household);
+    }
+
+    // Fund 2: Eine verschobene Erinnerung endet, wenn ihr Posten inzwischen nicht mehr offen ist (voll gebucht).
+    [Fact]
+    public async Task A_postponed_reminder_ends_when_its_position_is_fully_booked_meanwhile()
+    {
+        await using var server = ReminderServer.Start(fixture);
+        var anna = await server.FounderAsync("Anna");
+        var token = await server.DeviceAsync(anna);
+        var position = await server.PositionAsync(anna, "Miete", dueDay: 10);
+        await server.RunAtAsync(NineOClock);
+        var reminder = Assert.Single(await server.RemindersOfAsync(position));
+        (await server.Client.SendAsync(anna, HttpMethod.Post, ReminderPath(reminder.Id) + "/later")).EnsureSuccessStatusCode();
+        await server.BookAsync(anna, position, 18.36m);
 
         await server.RunAtAsync(NineOClock.AddDays(1));
 
