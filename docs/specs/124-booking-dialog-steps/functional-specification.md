@@ -4,7 +4,7 @@ Format: 2
 
 ## Summary
 
-The booking dialog becomes a step dialog (kind and amount, accounts, category and position, split, check and save), with combo boxes and a clear kind selection; Android pickers follow the theme.
+The booking dialog becomes a step dialog (what and when, account and category, position, split, check and save), with combo boxes and a clear kind selection; Android pickers follow the theme.
 
 ## Customer requirements
 
@@ -18,7 +18,7 @@ The booking dialog becomes a step dialog (kind and amount, accounts, category an
 
 ## Solution
 
-Rebuild the booking dialog on the spec-11 step component. Steps: 1 kind, amount, date; 2 account(s); 3 pot/category and optional position; 4 split (only if chosen); 5 summary and save. Combo boxes reuse one searchable select component. The Android theme sets the dialog theme from the app's chosen theme (not only the device's night mode).
+Rebuild the booking dialog on the spec-11 step component. Steps: 1 what and when (kind, amount, date); 2 account and category (account, pot, category; for a transfer target account and both pots); 3 position (optional); 4 split (only if chosen); 5 check and save. The early save in the foot appears from step 2 on as soon as amount, account, pot and category are set. Combo boxes reuse one searchable select component. The Android theme sets the dialog theme from the app's chosen theme (not only the device's night mode).
 
 ## Behaviour
 
