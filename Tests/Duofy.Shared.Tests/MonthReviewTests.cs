@@ -247,6 +247,7 @@ public class MonthReviewTests : PageTestContext
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-review']")));
         Assert.Contains("Insgesamt gebucht: 2.000,00 €, geplant: 1.800,00 €.", Text(cut, "month-review-total"));
         Assert.Contains("Ben", Text(cut, "month-review-missing"));
-        Assert.Empty(cut.FindAll("[data-testid='month-action-booking']"));
+        // Spec 125: Die Zentrale hat denselben Knopf wie der eigene Plan.
+        Assert.NotEmpty(cut.FindAll("[data-testid='month-action-booking']"));
     }
 }
