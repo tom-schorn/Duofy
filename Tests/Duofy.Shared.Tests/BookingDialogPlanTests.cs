@@ -29,15 +29,15 @@ public class BookingDialogPlanTests : PageTestContext
     {
         OpenDialog();
 
-        var pot = dialogs.Find("[data-testid='booking-line-pot-0']");
-        Assert.Equal("", pot.GetAttribute("value"));
+        var pot = dialogs.Find("[data-testid='booking-line-pot-0-input']");
+        Assert.Equal("", BookingDialogSteps.Chosen(dialogs, "booking-line-pot-0"));
         Assert.Equal("true", pot.GetAttribute("aria-required"));
-        Assert.Contains("(bitte wählen)", pot.TextContent);
+        Assert.Equal("Topf wählen oder suchen", pot.GetAttribute("placeholder"));
         Assert.Contains("Topf (Pflicht)", dialogs.Markup);
 
-        dialogs.Find("[data-testid='booking-line-category-0']").Change(FakeCategoryApi.Restaurant.Id.ToString());
+        BookingDialogSteps.Choose(dialogs, "booking-line-category-0", FakeCategoryApi.Restaurant.Id.ToString());
 
-        Assert.Equal(PotKeys.Wants, dialogs.Find("[data-testid='booking-line-pot-0']").GetAttribute("value"));
+        Assert.Equal(PotKeys.Wants, BookingDialogSteps.Chosen(dialogs, "booking-line-pot-0"));
     }
 
     [Fact]
@@ -47,9 +47,8 @@ public class BookingDialogPlanTests : PageTestContext
 
         dialogs.Find("[data-testid='booking-kind-income']").Click();
 
-        var pot = dialogs.Find("[data-testid='booking-line-pot-0']");
-        Assert.Equal(PotKeys.Income, pot.GetAttribute("value"));
-        Assert.DoesNotContain("(bitte wählen)", pot.TextContent);
+        Assert.Equal(PotKeys.Income, BookingDialogSteps.Chosen(dialogs, "booking-line-pot-0"));
+        Assert.Equal(["Einnahmen"], BookingDialogSteps.OptionLabels(dialogs, "booking-line-pot-0"));
     }
 
     [Fact]
@@ -67,8 +66,8 @@ public class BookingDialogPlanTests : PageTestContext
         Assert.DoesNotContain("Gehalt", options);
 
         Field(dialogs, "booking-amount").Change("42");
-        dialogs.Find("[data-testid='booking-line-position-0']").Change(groceries.Id.ToString());
-        dialogs.Find("[data-testid='booking-next']").Click();
+        BookingDialogSteps.Choose(dialogs, "booking-line-position-0", groceries.Id.ToString());
+        BookingDialogSteps.ToLast(dialogs);
         dialogs.Find("[data-testid='booking-save']").Click();
 
         dialogs.WaitForAssertion(() => Assert.Single(BookingApiFake.Created));
@@ -93,8 +92,8 @@ public class BookingDialogPlanTests : PageTestContext
             Assert.Contains("Miete November", dialogs.Find("[data-testid='booking-line-position-0']").TextContent));
         Assert.Contains((2026, 11), PlanApiFake.GetCalls);
         Field(dialogs, "booking-amount").Change("890");
-        dialogs.Find("[data-testid='booking-line-category-0']").Change(FakeCategoryApi.Groceries.Id.ToString());
-        dialogs.Find("[data-testid='booking-next']").Click();
+        BookingDialogSteps.Choose(dialogs, "booking-line-category-0", FakeCategoryApi.Groceries.Id.ToString());
+        BookingDialogSteps.ToLast(dialogs);
         dialogs.Find("[data-testid='booking-save']").Click();
 
         dialogs.WaitForAssertion(() => Assert.Equal((2026, 11), (BookingApiFake.Created.Single().PlanYear, BookingApiFake.Created.Single().PlanMonth)));
@@ -109,9 +108,9 @@ public class BookingDialogPlanTests : PageTestContext
         OpenDialog();
 
         Field(dialogs, "booking-amount").Change("5");
-        dialogs.Find("[data-testid='booking-line-category-0']").Change(FakeCategoryApi.Restaurant.Id.ToString());
-        dialogs.Find("[data-testid='booking-line-position-0']").Change(gez.Id.ToString());
-        dialogs.Find("[data-testid='booking-next']").Click();
+        BookingDialogSteps.Choose(dialogs, "booking-line-category-0", FakeCategoryApi.Restaurant.Id.ToString());
+        BookingDialogSteps.Choose(dialogs, "booking-line-position-0", gez.Id.ToString());
+        BookingDialogSteps.ToLast(dialogs);
         dialogs.Find("[data-testid='booking-save']").Click();
 
         dialogs.WaitForAssertion(() => Assert.Single(BookingApiFake.Created));

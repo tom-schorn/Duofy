@@ -30,6 +30,24 @@
 
     internal async Task<bool> LeaveAsync() => Leave is null || await Leave();
 
+    /// <summary>
+    /// Ein übersprungener Schritt steht weder im Fortschritt ("Schritt x von y") noch kommt Weiter zu ihm; seine Felder bleiben
+    /// gezeichnet und gefüllt. So kann ein Schritt nur dann erscheinen, wenn ihn die Eingaben davor verlangen (Spec 124).
+    /// </summary>
+    [Parameter]
+    public bool Skipped { get; set; }
+
+    private bool skippedBefore;
+
+    protected override void OnParametersSet()
+    {
+        if (skippedBefore != Skipped)
+        {
+            skippedBefore = Skipped;
+            Parent?.StepsChanged();
+        }
+    }
+
     private readonly List<StepField> fields = [];
 
     /// <summary>Ob die Felder ihre Fehler zeigen; erst nach dem ersten Weiter in diesem Schritt.</summary>

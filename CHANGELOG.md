@@ -26,6 +26,8 @@ uses [Semantic Versioning](https://semver.org/).
 - The web container keeps its data protection keys on its own volume `web-keys`, so forms and page state survive a rebuild; browser sessions still end when the web container restarts, because they live in memory (issue #38)
 - From 1280 px the side bar shows the full menu directly instead of "Mehr" (accounts, contracts, household, user account, admin for admins, licences, legal texts, sign-out); phone and tablet keep the bottom bar unchanged (spec 10, amendment 2026-11-01)
 - From 1280 px plan, month overview, bookings, accounts, contracts and household use up to 1600 px: blocks in columns and lists as tables with columns; below 1280 px nothing changes
+- The booking dialog runs in steps (what and when, account, category and position, split only when chosen, check and save) with a clear kind choice that carries a check mark in both themes. Account, category and position are combo boxes with a search field instead of a list with a "bitte wählen" button; categories are grouped by pot and can be cleared again, positions are grouped by due day. Splitting into lines has its own step, so the dialog stays inside the screen at 360 and 800 px (issue #124).
+- From step 2 on, as soon as amount and account are set, the booking dialog shows an extra "Speichern" in the foot that saves at once, like the last step (issue #124).
 
 ### Removed
 
@@ -33,6 +35,7 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- The Android date and time pickers follow the theme chosen in the app, not only the night mode of the device (issue #124).
 - Amounts no longer depend on the language of the machine: in a container 12,34 became 1234,00 in the account and contract dialogs. The web host now sets de-DE itself.
 - Enter in the password field of sign-in and delete account sends what was just typed, not the value from when the field was last left.
 - Links and buttons show the focus outline, also in the app bar; MudBlazor had reset it.

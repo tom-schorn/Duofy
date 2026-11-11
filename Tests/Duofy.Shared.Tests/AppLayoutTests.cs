@@ -234,12 +234,15 @@ public class AppLayoutTests : PageTestContext
         var cut = Open("/plan/2026/10?buchen=1");
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='booking-next']")));
 
-        // Lehnt die API ab, steht der Fehler im Dialog wie im Browser.
-        cut.Find("[data-testid='booking-next']").Click();
+        // Lehnt die API ab, steht der Fehler im Dialog wie im Browser. Topf und Kategorie braucht schon Schritt 2, so wie die API sie verlangt.
+        BookingDialogSteps.Choose(cut, "booking-line-category-0", FakeCategoryApi.Groceries.Id.ToString());
+        BookingDialogSteps.ToLast(cut);
         cut.Find("[data-testid='booking-save']").Click();
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='booking-error']")));
 
+        // Die Kategorie ist gewählt, also fragt Abbrechen vor dem Verwerfen nach (Spec 11, R5).
         cut.Find("[data-testid='step-dialog-cancel']").Click();
+        cut.WaitForAssertion(() => cut.FindAll("button").Single(b => b.TextContent.Trim() == "Verwerfen").Click());
         cut.WaitForAssertion(() => Assert.Empty(cut.FindAll(".step-dialog")));
     }
 

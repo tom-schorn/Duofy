@@ -247,7 +247,7 @@ public class HouseholdPlanWorkTests : PageTestContext
         host.Find($"[data-testid='{testId}']").Closest(".step-dialog-step")!.GetAttribute("hidden") is null;
 
     [Fact]
-    public async Task Tapping_a_person_in_the_position_dialog_shows_step_two_and_the_next_Weiter_goes_to_step_three()
+    public async Task Tapping_a_person_in_the_position_dialog_shows_step_two_of_two_and_a_second_tap_after_Zurueck_shows_it_again()
     {
         var cut = await OpenHouseholdAsync();
         cut.Find("[data-testid='plan-add']").Click();
@@ -291,6 +291,11 @@ public class HouseholdPlanWorkTests : PageTestContext
         dialogs.WaitForAssertion(() => Assert.Contains("Schritt 2 von", Progress(dialogs)));
         Assert.True(IsShown(dialogs, "booking-amount"));
         Assert.DoesNotContain("Schritt 3 von", Progress(dialogs));
+
+        // Weiter führt erst jetzt weiter: Der Betragsschritt war nicht übersprungen, danach ist er verborgen.
+        dialogs.Find("[data-testid='booking-next']").Click();
+        dialogs.WaitForAssertion(() => Assert.Contains("Schritt 3 von", Progress(dialogs)));
+        Assert.False(IsShown(dialogs, "booking-amount"));
     }
 
     [Fact]
