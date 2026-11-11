@@ -73,8 +73,10 @@ public sealed class PositionActions(
         var scope = member.ActAs(owner);
         void Left(object? sender, LocationChangedEventArgs e)
         {
-            _ = forms.CancelAllAsync();
+            _ = ObserveAsync(forms.CancelAllAsync(), "Die Dialoge schließen beim Verlassen der Seite");
             scope.Dispose();
+            // Die Seitenleiste hat beim Wechsel der Seite schon gezeichnet, als die Rolle noch galt; sie muss danach noch einmal.
+            member.NotifyActingEnded();
         }
         navigation.LocationChanged += Left;
         return new Release(() =>
@@ -82,6 +84,19 @@ public sealed class PositionActions(
             navigation.LocationChanged -= Left;
             scope.Dispose();
         });
+    }
+
+    // Eine Aufgabe, auf die niemand wartet: Scheitert sie, steht der Grund im Protokoll und geht nicht verloren.
+    private async Task ObserveAsync(Task task, string what)
+    {
+        try
+        {
+            await task;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            log.LogError(exception, "{What} ist gescheitert.", what);
+        }
     }
 
     private sealed class Release(Action end) : IDisposable

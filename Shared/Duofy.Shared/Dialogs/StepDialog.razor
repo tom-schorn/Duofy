@@ -80,7 +80,7 @@
                 @FootStart
                 <span class="fill"></span>
             }
-            <DuofyButton Kind="ButtonKind.Primary" Disabled="Busy" OnClick="NextAsync" TestId="@(IsLast ? FinishTestId : NextTestId)">@(IsLast ? FinishText ?? L["StepDialog_Finish"] : L["StepDialog_Next"])</DuofyButton>
+            <DuofyButton Kind="ButtonKind.Primary" Disabled="Busy || leaving" OnClick="NextAsync" TestId="@(IsLast ? FinishTestId : NextTestId)">@(IsLast ? FinishText ?? L["StepDialog_Finish"] : L["StepDialog_Next"])</DuofyButton>
         </div>
     </text>;
 
@@ -126,6 +126,7 @@
     private readonly List<DialogStep> steps = [];
     private int current;
     private bool typed;
+    private bool leaving;
 
     private bool IsLast => current >= steps.Count - 1;
 
@@ -167,24 +168,39 @@
     /// <summary>Geht wie Weiter zum nächsten Schritt; für einen Schritt, dessen Wahl schon die Antwort ist.</summary>
     internal Task AdvanceAsync() => NextAsync();
 
+    /// <summary>Wahr, solange ein Schritt verlassen wird (er lädt noch); dann tut ein weiterer Tipp oder Weiter nichts.</summary>
+    internal bool Leaving => leaving;
+
     private async Task NextAsync()
     {
-        if (steps.Count == 0 || !steps[current].Check())
+        if (leaving || steps.Count == 0 || !steps[current].Check())
         {
             return;
         }
 
-        if (!await steps[current].LeaveAsync())
+        // Verlassen kann dauern (die Person lädt); währenddessen zählt kein zweiter Tipp. Der Rahmen zeichnet sich danach selbst neu,
+        // denn ein Tipp im Schritt selbst (PersonChoice) zeichnet sonst nur den Schritt neu und nicht Titel, Fortschritt und Knöpfe.
+        leaving = true;
+        StateHasChanged();
+        try
         {
-            return;
-        }
+            if (!await steps[current].LeaveAsync())
+            {
+                return;
+            }
 
-        if (IsLast)
-        {
-            await OnFinish.InvokeAsync();
-            return;
+            if (IsLast)
+            {
+                await OnFinish.InvokeAsync();
+                return;
+            }
+            current++;
         }
-        current++;
+        finally
+        {
+            leaving = false;
+            StateHasChanged();
+        }
     }
 
     // Ohne Eingaben schließt Abbrechen sofort, mit Eingaben fragt es erst nach (Spec 11, R5).

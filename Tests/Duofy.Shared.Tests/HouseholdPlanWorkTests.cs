@@ -240,6 +240,80 @@ public class HouseholdPlanWorkTests : PageTestContext
         Assert.Null(Member.Owner);
     }
 
+    // Der sichtbare Schritt zählt, nicht nur, was im DOM steht: Alle Schritte stehen gezeichnet da, nur der aktuelle ist nicht hidden.
+    private static string Progress(IRenderedComponent<IComponent> host) => host.Find("[data-testid='step-dialog-progress']").TextContent;
+
+    private static bool IsShown(IRenderedComponent<IComponent> host, string testId) =>
+        host.Find($"[data-testid='{testId}']").Closest(".step-dialog-step")!.GetAttribute("hidden") is null;
+
+    [Fact]
+    public async Task Tapping_a_person_in_the_position_dialog_shows_step_two_and_the_next_Weiter_goes_to_step_three()
+    {
+        var cut = await OpenHouseholdAsync();
+        cut.Find("[data-testid='plan-add']").Click();
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid^='person-choice-']")));
+
+        dialogs.Find($"[data-testid='person-choice-{JasminId}']").Click();
+
+        dialogs.WaitForAssertion(() => Assert.Contains("Schritt 2 von", Progress(dialogs)));
+        Assert.True(IsShown(dialogs, "position-label"));
+        Assert.False(IsShown(dialogs, "person-step"));
+        Assert.DoesNotContain("Bitte gib dem Posten eine Bezeichnung", dialogs.Markup);
+
+        // Ist die Person schon geladen, zeichnet nichts anderes den Rahmen neu: Der Tipp allein muss den Schritt wechseln.
+        dialogs.FindAll(".step-dialog-actions button").Single(b => b.TextContent.Trim() == "Zurück").Click();
+        dialogs.WaitForAssertion(() => Assert.Contains("Schritt 1 von", Progress(dialogs)));
+        dialogs.Find($"[data-testid='person-choice-{JasminId}']").Click();
+        dialogs.WaitForAssertion(() => Assert.Contains("Schritt 2 von", Progress(dialogs)));
+        Assert.True(IsShown(dialogs, "position-label"));
+        Assert.Contains("Schritt 2 von 2", Progress(dialogs));
+        Assert.DoesNotContain("Bitte gib dem Posten eine Bezeichnung", dialogs.Markup);
+    }
+
+    [Fact]
+    public async Task Tapping_a_person_in_the_booking_dialog_shows_step_two_and_Weiter_does_not_skip_the_amount_step()
+    {
+        Grant(Levels(plan: AccessLevelKeys.Edit, book: AccessLevelKeys.Create, accounts: AccessLevelKeys.View));
+        var cut = await OpenHouseholdAsync();
+        cut.Find("[data-testid='month-action-booking']").Click();
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid^='person-choice-']")));
+
+        dialogs.Find($"[data-testid='person-choice-{JasminId}']").Click();
+
+        dialogs.WaitForAssertion(() => Assert.Contains("Schritt 2 von", Progress(dialogs)));
+        Assert.True(IsShown(dialogs, "booking-amount"));
+        Assert.False(IsShown(dialogs, "person-step"));
+
+        // Ist die Person schon geladen, zeichnet nichts anderes den Rahmen neu: Der Tipp allein muss den Schritt wechseln.
+        dialogs.FindAll(".step-dialog-actions button").Single(b => b.TextContent.Trim() == "Zurück").Click();
+        dialogs.WaitForAssertion(() => Assert.Contains("Schritt 1 von", Progress(dialogs)));
+        dialogs.Find($"[data-testid='person-choice-{JasminId}']").Click();
+        dialogs.WaitForAssertion(() => Assert.Contains("Schritt 2 von", Progress(dialogs)));
+        Assert.True(IsShown(dialogs, "booking-amount"));
+        Assert.DoesNotContain("Schritt 3 von", Progress(dialogs));
+    }
+
+    [Fact]
+    public async Task A_second_tap_while_the_person_is_loading_does_not_advance_twice()
+    {
+        var gate = new TaskCompletionSource();
+        Categories.ListGate = null;
+        var cut = await OpenHouseholdAsync();
+        cut.Find("[data-testid='plan-add']").Click();
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid^='person-choice-']")));
+        Categories.ListGate = gate.Task;
+
+        dialogs.Find($"[data-testid='person-choice-{JasminId}']").Click();
+        // Während Jasmin lädt, sind die Personen gesperrt, und Weiter tut nichts.
+        dialogs.WaitForAssertion(() => Assert.All(dialogs.FindAll("[data-testid^='person-choice-']"), b => Assert.True(b.HasAttribute("disabled"))));
+        dialogs.Find("[data-testid='position-next']").Click();
+        gate.SetResult();
+
+        dialogs.WaitForAssertion(() => Assert.Contains("Schritt 2 von", Progress(dialogs)));
+        Assert.True(IsShown(dialogs, "position-label"));
+        Assert.Equal(1, Categories.Owners.Count(o => o == JasminId));
+    }
+
     [Fact]
     public async Task Adding_a_position_works_with_Anlegen_but_without_Ansehen_on_the_accounts()
     {
@@ -427,6 +501,21 @@ public class HouseholdPlanWorkTests : PageTestContext
         cut.WaitForAssertion(() => Assert.Null(Member.Owner));
         Assert.Null(Member.Name);
         Assert.True(Member.IsHousehold);
+    }
+
+    [Fact]
+    public async Task Going_back_in_the_browser_with_a_dialog_for_another_member_open_resets_the_side_navigation()
+    {
+        var side = Render<SideNavigation>();
+        var water = AddJasminPosition();
+        var cut = await OpenHouseholdAsync();
+        cut.Find($"[data-testid='household-edit-{water.Id}']").Click();
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='position-label']")));
+
+        Navigation.NavigateTo("/konten");
+
+        dialogs.WaitForAssertion(() => Assert.Empty(dialogs.FindAll("[data-testid='position-label']")));
+        side.WaitForAssertion(() => Assert.DoesNotContain("Planung von Jasmin", side.Markup));
     }
 
     // --- Drucken ---

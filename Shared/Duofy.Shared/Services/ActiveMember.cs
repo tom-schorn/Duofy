@@ -109,6 +109,12 @@ public sealed class ActiveMember : IDisposable
         return new ActingScope(() => acting = previous);
     }
 
+    /// <summary>
+    /// Sagt, dass eine Rolle (<see cref="ActAs"/>) von außen beendet wurde, etwa weil die Seite verlassen wurde: Wer die Rolle anzeigt
+    /// (Seitenleiste, Kopf), zeichnet sich dann neu. Das normale Ende eines Dialogs braucht das nicht.
+    /// </summary>
+    internal void NotifyActingEnded() => Changed?.Invoke();
+
     private sealed class ActingScope(Action end) : IDisposable
     {
         private Action? end = end;

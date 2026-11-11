@@ -16,8 +16,8 @@
         @foreach (var person in People)
         {
             var chosen = person;
-            <DuofyButton Kind="ButtonKind.Secondary" Text="@Label(person)" OnClick="@(_ => ChooseAsync(chosen))" TestId="@($"person-choice-{person.UserId}")"
-                         Class="duofy-button--full" aria-pressed="@(person.UserId == selected?.UserId ? "true" : "false")" />
+            <DuofyButton Kind="@(person.UserId == selected?.UserId ? ButtonKind.Primary : ButtonKind.Secondary)" Text="@Label(person)" OnClick="@(_ => ChooseAsync(chosen))" TestId="@($"person-choice-{person.UserId}")"
+                         Class="duofy-button--full" Disabled="@(Dialog?.Leaving == true)" aria-pressed="@(person.UserId == selected?.UserId ? "true" : "false")" />
         }
     </div>
 </div>

@@ -13,7 +13,7 @@
    Geprüft wird beim Speichern von der API; ihre Fehler stehen oben im Dialog. Löschen steht hier wie im alten Duofy: Eine Zeile
    hat keine eigenen Menüs. Der Dialog meldet den Wunsch nur (Ergebnis false), die Seite fragt nach und löscht. *@
 
-<StepDialog Title="@shownTitle" OnFinish="SaveAsync" FinishText="@L["PlanPositionDialog_Save"]" Busy="busy" FinishTestId="position-save">
+<StepDialog Title="@shownTitle" OnFinish="SaveAsync" FinishText="@L["PlanPositionDialog_Save"]" Busy="busy" FinishTestId="position-save" NextTestId="position-next">
     <FootStart>
         @if (OfferDelete)
         {
