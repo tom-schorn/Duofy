@@ -80,6 +80,11 @@
                 @FootStart
                 <span class="fill"></span>
             }
+            @if (EarlyFinishShown)
+            {
+                @* Spec 124, R6: ab Schritt 2 speichert dieser Knopf sofort, wie der Knopf im letzten Schritt. *@
+                <DuofyButton Kind="ButtonKind.Secondary" Disabled="Busy" OnClick="EarlyFinishAsync" TestId="@EarlyFinishTestId">@(FinishText ?? L["StepDialog_Finish"])</DuofyButton>
+            }
             <DuofyButton Kind="ButtonKind.Primary" Disabled="Busy" OnClick="NextAsync" TestId="@(IsLast ? FinishTestId : NextTestId)">@(IsLast ? FinishText ?? L["StepDialog_Finish"] : L["StepDialog_Next"])</DuofyButton>
         </div>
     </text>;
@@ -112,6 +117,18 @@
     [Parameter]
     public string? NextTestId { get; set; }
 
+    /// <summary>
+    /// Ob der Dialog schon vor dem letzten Schritt speichern darf (der Aufrufer sagt, ob genug eingegeben ist). Dann steht ab dem
+    /// zweiten Schritt neben Weiter ein Knopf mit dem Text von FinishText, der OnFinish ruft, ohne die Schritte davor zu durchlaufen.
+    /// Im ersten und im letzten Schritt gibt es ihn nicht.
+    /// </summary>
+    [Parameter]
+    public bool EarlyFinish { get; set; }
+
+    /// <summary>Die Kennung (data-testid) des frühen Knopfs zum Speichern.</summary>
+    [Parameter]
+    public string? EarlyFinishTestId { get; set; }
+
     /// <summary>Sperrt Weiter, etwa während gespeichert wird.</summary>
     [Parameter]
     public bool Busy { get; set; }
@@ -123,11 +140,32 @@
     [Parameter]
     public Func<bool>? HasInput { get; set; }
 
-    private readonly List<DialogStep> steps = [];
+    // Alle angemeldeten Schritte in ihrer Reihenfolge; gezählt und angesteuert werden nur die, die nicht übersprungen sind.
+    private readonly List<DialogStep> all = [];
+    private List<DialogStep> steps => all.Where(step => !step.Skipped).ToList();
     private int current;
     private bool typed;
 
     private bool IsLast => current >= steps.Count - 1;
+
+    private bool EarlyFinishShown => EarlyFinish && current > 0 && !IsLast;
+
+    /// <summary>Zeigt den letzten Schritt, etwa damit ein Fehler beim frühen Speichern dort zu lesen ist.</summary>
+    public void ShowLast()
+    {
+        current = Math.Max(steps.Count - 1, 0);
+        StateHasChanged();
+    }
+
+    // Wie Weiter im letzten Schritt: erst die Felder des aktuellen Schritts prüfen, dann OnFinish.
+    private async Task EarlyFinishAsync()
+    {
+        if (steps.Count == 0 || !steps[current].Check())
+        {
+            return;
+        }
+        await OnFinish.InvokeAsync();
+    }
 
     private string ProgressText => steps.Count == 0
         ? ""
@@ -135,18 +173,26 @@
 
     internal bool IsCurrent(DialogStep step) => steps.IndexOf(step) == current;
 
-    internal int StepNumber(DialogStep step) => steps.IndexOf(step) + 1;
+    // Die Nummer im Test-Kennzeichen zählt alle Schritte, auch übersprungene; so behält jeder Schritt seine Nummer.
+    internal int StepNumber(DialogStep step) => all.IndexOf(step) + 1;
 
     internal void Add(DialogStep step)
     {
-        steps.Add(step);
+        all.Add(step);
+        StateHasChanged();
+    }
+
+    // Ein Schritt wird übersprungen oder kommt wieder dazu; Fortschritt und Weiter richten sich danach.
+    internal void StepsChanged()
+    {
+        current = Math.Clamp(current, 0, Math.Max(steps.Count - 1, 0));
         StateHasChanged();
     }
 
     internal void Remove(DialogStep step)
     {
         // Kein Neuzeichnen: Meist geht hier der ganze Dialog zu.
-        steps.Remove(step);
+        all.Remove(step);
         current = Math.Clamp(current, 0, Math.Max(steps.Count - 1, 0));
     }
 

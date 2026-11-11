@@ -1,0 +1,226 @@
+@using Duofy.Shared.Pages
+@inject IStringLocalizer<SharedResources> L
+@inject IJSRuntime Js
+@implements IAsyncDisposable
+
+@* Die Auswahl mit Suchfeld (Spec 124, R3): Ein Feld, in dem der gewählte Name steht. Wer hineintippt, filtert die Liste; wer
+   hineintippt oder es antippt, sieht darunter alle Optionen, nach Gruppen geordnet. Es gibt keinen Knopf "Bitte wählen" daneben.
+   Die Liste steht im Fluss unter dem Feld (nicht darüber), damit der rollende Inhalt eines Dialogs sie nicht abschneidet.
+
+   Es folgt dem ARIA-Muster Combobox: Das Feld hat role combobox, die Liste role listbox, die gewählte Option aria-selected, die
+   mit den Pfeiltasten angesteuerte steht in aria-activedescendant. Enter wählt sie, Escape schließt die Liste (und nur sie: solange die Liste offen ist, steigt Escape nicht zum Dialog auf).
+
+   Die Kennung (TestId) steht am Rahmen; dort steht auch data-value mit dem gewählten Wert. Die Optionen tragen
+   data-testid="{TestId}-option-{Wert}". Weitere Attribute (aria-required ...) landen am Feld. *@
+
+<div class="combo" data-testid="@TestId" data-value="@Value">
+    <input type="text" role="combobox" class="combo-input" id="@FieldId" autocomplete="off" spellcheck="false" aria-autocomplete="list"
+           aria-expanded="@(open ? "true" : "false")" aria-controls="@ListId" aria-activedescendant="@ActiveId"
+           aria-describedby="@DescribedBy" placeholder="@(Placeholder ?? EmptyText)" value="@FieldText" @attributes="AdditionalAttributes"
+           data-testid="@(TestId is null ? null : $"{TestId}-input")"
+           @onfocus="OpenAsync" @onclick="OpenAsync" @onblur="CloseAsync" @oninput="OnInput" @onkeydown="OnKeyDown" @onkeydown:stopPropagation="@open" />
+    <span class="combo-chevron" aria-hidden="true"></span>
+    <ul class="combo-list" id="@ListId" role="listbox" aria-label="@Label" hidden="@(!open)" @onmousedown:preventDefault>
+        @{ var number = 0; }
+        @foreach (var group in Visible.GroupBy(o => o.Group))
+        {
+            @if (group.Key is not null)
+            {
+                <li class="combo-group" role="presentation">@group.Key</li>
+            }
+            @foreach (var option in group)
+            {
+                var position = number++;
+                var value = option.Value;
+                <li class="@OptionClass(position, value)" role="option" id="@OptionId(position)" aria-selected="@(value == Value ? "true" : "false")"
+                    data-value="@value" data-testid="@(TestId is null ? null : $"{TestId}-option-{value}")" @onclick="() => ChooseAsync(value)">
+                    @if (option.Icon is not null)
+                    {
+                        <AccountIconMark Icon="@option.Icon" />
+                    }
+                    <span class="combo-option-label">@option.Label</span>
+                    @if (option.Detail is not null)
+                    {
+                        @(" ")
+                        <span class="combo-option-detail">@option.Detail</span>
+                    }
+                </li>
+            }
+        }
+        @if (number == 0)
+        {
+            <li class="combo-empty" role="presentation">@L["Combo_NoMatch"]</li>
+        }
+    </ul>
+</div>
+
+@code {
+    private readonly string generatedId = $"combo-{Guid.NewGuid():N}";
+    private IJSObjectReference? module;
+    private bool open;
+    // Solange der Text im Feld vom Namen der Wahl abweicht, weil die Person tippt, gilt er als Filter.
+    private string? filter;
+    private int active = -1;
+    // Nach dem Aufklappen schiebt die Seite die Liste ins Bild (auf dem Handy liegt sie sonst unter dem Rand des rollenden Dialogs).
+    private string? revealId;
+
+    private string FieldId => InputId ?? generatedId;
+    private string ListId => $"{FieldId}-list";
+    private string OptionId(int position) => $"{ListId}-{position}";
+    private string? ActiveId => open && active >= 0 ? OptionId(active) : null;
+
+    /// <summary>Die gewählte Option ("" = die leere Wahl, falls es sie gibt).</summary>
+    [Parameter] public string Value { get; set; } = "";
+
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+
+    [Parameter, EditorRequired] public IReadOnlyList<ComboOption> Options { get; set; } = [];
+
+    /// <summary>Die Beschriftung für Vorlese-Programme; im Dialog steht die sichtbare Beschriftung schon im StepField daneben.</summary>
+    [Parameter] public string Label { get; set; } = "";
+
+    /// <summary>Die Id des Felds, damit eine Beschriftung (for) darauf zeigt.</summary>
+    [Parameter] public string? InputId { get; set; }
+
+    [Parameter] public string? DescribedBy { get; set; }
+
+    /// <summary>Was im leeren Feld steht.</summary>
+    [Parameter] public string? Placeholder { get; set; }
+
+    /// <summary>Der Text der leeren Wahl, zum Beispiel "Kein Posten"; mit ihr lässt sich die Wahl wieder löschen. Ohne Angabe gibt es sie nicht.</summary>
+    [Parameter] public string? EmptyText { get; set; }
+
+    [Parameter] public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (revealId is { } id)
+        {
+            revealId = null;
+            await RevealAsync(id);
+        }
+    }
+
+    private ComboOption? Selected => Options.FirstOrDefault(o => o.Value == Value && o.Value != "");
+
+    // Im Feld steht, was die Person tippt, sonst der Name der Wahl (bei der leeren Wahl nichts, dann zeigt das Feld den Platzhalter).
+    private string FieldText => filter ?? Selected?.Label ?? "";
+
+    private IReadOnlyList<ComboOption> Visible
+    {
+        get
+        {
+            // Die Liste steht nach Gruppen geordnet (in der Reihenfolge, in der die Gruppen in Options zuerst vorkommen, innerhalb einer
+            // Gruppe in der Reihenfolge von Options). Die Pfeiltasten laufen über genau diese Reihenfolge; sie ist die gezeichnete.
+            if (string.IsNullOrWhiteSpace(filter))
+            {
+                return ByGroup(EmptyText is null ? Options : [new ComboOption("", EmptyText), .. Options]);
+            }
+            var words = filter.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            return ByGroup(Options.Where(o => words.All(w =>
+                o.Label.Contains(w, StringComparison.CurrentCultureIgnoreCase)
+                || (o.Detail?.Contains(w, StringComparison.CurrentCultureIgnoreCase) ?? false)
+                || (o.Group?.Contains(w, StringComparison.CurrentCultureIgnoreCase) ?? false))));
+        }
+    }
+
+    private static IReadOnlyList<ComboOption> ByGroup(IEnumerable<ComboOption> options) =>
+        options.GroupBy(o => o.Group).SelectMany(g => g).ToList();
+
+    private string OptionClass(int position, string value) =>
+        "combo-option" + (position == active ? " is-active" : "") + (value == Value && value != "" ? " is-selected" : "");
+
+    private Task OpenAsync()
+    {
+        if (!open)
+        {
+            open = true;
+            active = Visible.ToList().FindIndex(o => o.Value == Value && o.Value != "");
+            revealId = ListId;
+        }
+        return Task.CompletedTask;
+    }
+
+    private Task CloseAsync()
+    {
+        open = false;
+        filter = null;
+        active = -1;
+        return Task.CompletedTask;
+    }
+
+    private void OnInput(ChangeEventArgs e)
+    {
+        filter = e.Value?.ToString() ?? "";
+        open = true;
+        active = Visible.Count > 0 ? 0 : -1;
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        var count = Visible.Count;
+        switch (e.Key)
+        {
+            case "ArrowDown":
+                await OpenAsync();
+                active = count == 0 ? -1 : (active + 1) % count;
+                revealId = ActiveId;
+                break;
+            case "ArrowUp":
+                await OpenAsync();
+                active = count == 0 ? -1 : (active <= 0 ? count - 1 : active - 1);
+                revealId = ActiveId;
+                break;
+            case "Enter" when open && active >= 0 && active < count:
+                await ChooseAsync(Visible[active].Value);
+                break;
+            case "Escape":
+                await CloseAsync();
+                break;
+        }
+    }
+
+    private async Task ChooseAsync(string value)
+    {
+        await CloseAsync();
+        if (value != Value)
+        {
+            await ValueChanged.InvokeAsync(value);
+        }
+    }
+
+    // Die Pfeiltasten schieben die Liste so, dass die angesteuerte Option zu sehen ist.
+    private async Task RevealAsync(string id)
+    {
+        try
+        {
+            module ??= await Js.InvokeAsync<IJSObjectReference>("import", "./_content/Duofy.Shared/combo-box.js");
+            await module.InvokeVoidAsync("reveal", id);
+        }
+        catch (JSException)
+        {
+            // Nur die Hilfe beim Rollen fehlt; die Auswahl selbst geht weiter.
+        }
+        catch (InvalidOperationException)
+        {
+            // Beim Vorrendern gibt es noch kein JavaScript.
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (module is not null)
+        {
+            try
+            {
+                await module.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // Die Verbindung ist schon weg; es gibt nichts mehr aufzuräumen.
+            }
+        }
+    }
+}

@@ -4,6 +4,7 @@ using Android.Content.PM;
 using Android.Content.Res;
 using AColor = Android.Graphics.Color;
 using Android.OS;
+using AndroidX.AppCompat.App;
 using AndroidX.Core.View;
 
 namespace Duofy
@@ -25,6 +26,8 @@ namespace Duofy
 
         protected override void OnCreate(Bundle? savedInstanceState)
         {
+            // Vor base.OnCreate, damit schon das erste Fenster der Activity den richtigen Nachtmodus hat (Spec 124, R5).
+            ApplyNightMode();
             base.OnCreate(savedInstanceState);
             KeepContentInsideSystemBars();
             WatchThemeChoice();
@@ -59,12 +62,26 @@ namespace Duofy
             ViewCompat.RequestApplyInsets(content);
         }
 
+        // Die Wahl der Person in der App (true = dunkel), oder null, wenn sie keine getroffen hat. Direkt aus den SharedPreferences gelesen,
+        // denn Preferences.Default gehört zu MAUI und ist vor base.OnCreate noch nicht verlässlich bereit.
+        private bool? DarkChoice()
+        {
+            var preferences = GetSharedPreferences(PreferencesFileName, FileCreationMode.Private);
+            return preferences is not null && preferences.Contains(ThemeKey) ? preferences.GetBoolean(ThemeKey, false) : null;
+        }
+
+        // Spec 124, R5: Die Datums- und Zeitwähler sind Fenster des Systems; sie nehmen den Nachtmodus der Activity, nicht das Theme der
+        // Web-Oberfläche. Ohne diese Zeile waren sie auf einem Gerät im Dunkelmodus dunkel, obwohl die App hell war (und umgekehrt).
+        // AppCompat wendet den Wert auf die offene Activity an und meldet ihr die geänderte Konfiguration (UiMode ist in
+        // ConfigurationChanges, die Activity wird also nicht neu gebaut).
+        private void ApplyNightMode() => AppCompatDelegate.DefaultNightMode = NightModeChoice.For(DarkChoice());
+
         // Die Wahl in der App gilt (Preferences, true = dunkel); ohne Wahl folgt die App dem Systemmodus.
         private bool IsDark()
         {
-            if (Preferences.Default.ContainsKey(ThemeKey))
+            if (DarkChoice() is { } choice)
             {
-                return Preferences.Default.Get(ThemeKey, false);
+                return choice;
             }
             return (Resources?.Configuration?.UiMode & UiMode.NightMask) == UiMode.NightYes;
         }
@@ -77,7 +94,11 @@ namespace Duofy
         {
             if (key == ThemeKey || key is null)
             {
-                RunOnUiThread(PaintSystemBarArea);
+                RunOnUiThread(() =>
+                {
+                    ApplyNightMode();
+                    PaintSystemBarArea();
+                });
             }
         }
 

@@ -39,6 +39,6 @@ public class StatusBarThemeTests
 
         Assert.Contains("$\"{PackageName}_preferences\"", activity);
         Assert.DoesNotContain("microsoft.maui.essentials.preferences\";", activity);
-        Assert.Contains("Preferences.Default.Get(ThemeKey", activity);
+        Assert.Contains("DarkChoice() is { } choice", activity);
     }
 }

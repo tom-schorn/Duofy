@@ -808,7 +808,7 @@ public class MonthPageTests : PageTestContext
 
         cut.Find($"[data-testid='position-bookings-{salary.Id}-add']").Click();
 
-        dialogs.WaitForAssertion(() => Assert.Equal(salary.Id.ToString(), dialogs.Find("[data-testid='booking-line-position-0']").GetAttribute("value")));
+        dialogs.WaitForAssertion(() => Assert.Equal(salary.Id.ToString(), BookingDialogSteps.Chosen(dialogs, "booking-line-position-0")));
         Assert.Equal("true", dialogs.Find("[data-testid='booking-kind-income']").GetAttribute("aria-pressed"));
     }
 

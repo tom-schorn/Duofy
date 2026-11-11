@@ -17,6 +17,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Die Wahl des Nachtmodus für Android (Spec 124, R5) kennt Android nicht und wird hier ohne die Workload getestet. -->
+    <Compile Include="..\..\Mobile\Duofy\Platforms\Android\NightModeChoice.cs" Link="NightModeChoice.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
 
