@@ -489,4 +489,78 @@ public class NotificationSettingsJobTests(ApiFixture fixture)
         var next = Assert.Single(server.Push.To(token).Skip(1));
         Assert.Equal(["Nachher"], (await FetchAsync(server, tom, next.Payload.ReminderId)).Events!.Select(e => e.Label));
     }
+
+    // A8 (Fund 6a): Ereignisse eines anderen Haushalts kommen nie in die Zusammenfassung.
+    [Fact]
+    public async Task Events_of_another_household_never_appear_in_the_summary()
+    {
+        await using var server = ReminderServer.Start(fixture);
+        var tom = await server.FounderAsync("Tom");
+        var jasmin = await server.PersonAsync("Jasmin");
+        await server.Client.JoinAsync(tom, jasmin);
+        var stranger = await server.FounderAsync("Fremd");
+        var strangerMate = await server.PersonAsync("Mitbewohner");
+        await server.Client.JoinAsync(stranger, strangerMate);
+        var token = await server.DeviceAsync(tom);
+        await server.Client.GrantAsync(jasmin, tom, new UpdateGrantsRequest(Book: AccessLevelKeys.View));
+        var own = await server.HouseholdOfAsync(tom);
+        var foreign = await server.HouseholdOfAsync(stranger);
+        await server.ClearEventsAsync();
+        var before = Evening.AddHours(-2);
+        await server.EventAsync(foreign, HouseholdEventKind.Invited, strangerMate, subject: strangerMate, label: "Fremdes", at: before);
+        await server.EventAsync(foreign, HouseholdEventKind.Booked, strangerMate, owner: strangerMate, label: "Fremdkauf", amount: 7m, at: before);
+
+        await server.RunAtAsync(Evening);
+        Assert.Empty(server.Push.To(token));
+
+        await server.EventAsync(own, HouseholdEventKind.Booked, jasmin, owner: jasmin, label: "Eigenkauf", amount: 3m, at: before.AddMinutes(5));
+        await server.RunAtAsync(Evening.AddMinutes(1));
+        var signal = Assert.Single(server.Push.To(token));
+        Assert.Equal(["Eigenkauf"], (await FetchAsync(server, tom, signal.Payload.ReminderId)).Events!.Select(e => e.Label));
+    }
+
+    // A8 (Fund 6b): "Abgehakt" liest nur, wer den Plan des Besitzers ansehen darf; die Buchung daneben darf er sehen.
+    [Fact]
+    public async Task A_tick_without_the_right_to_view_the_plan_does_not_appear()
+    {
+        await using var server = ReminderServer.Start(fixture);
+        var tom = await server.FounderAsync("Tom");
+        var jasmin = await server.PersonAsync("Jasmin");
+        await server.Client.JoinAsync(tom, jasmin);
+        var token = await server.DeviceAsync(tom);
+        await server.Client.GrantAsync(jasmin, tom, new UpdateGrantsRequest(Book: AccessLevelKeys.View));
+        var household = await server.HouseholdOfAsync(tom);
+        await server.ClearEventsAsync();
+        var before = Evening.AddHours(-2);
+        await server.EventAsync(household, HouseholdEventKind.Ticked, jasmin, owner: jasmin, label: "Miete", amount: 850m, at: before);
+        await server.EventAsync(household, HouseholdEventKind.Booked, jasmin, owner: jasmin, label: "REWE", amount: 23.40m, at: before.AddMinutes(5));
+
+        await server.RunAtAsync(Evening);
+
+        var signal = Assert.Single(server.Push.To(token));
+        Assert.Equal(["REWE"], (await FetchAsync(server, tom, signal.Payload.ReminderId)).Events!.Select(e => e.Label));
+    }
+
+    // A8 (Fund 6c): Wird die Freigabe zwischen Ereignis und Abruf zurückgenommen, zeigt der Abruf das Ereignis nicht mehr.
+    [Fact]
+    public async Task A_grant_revoked_between_the_event_and_the_fetch_hides_the_event()
+    {
+        await using var server = ReminderServer.Start(fixture);
+        var tom = await server.FounderAsync("Tom");
+        var jasmin = await server.PersonAsync("Jasmin");
+        await server.Client.JoinAsync(tom, jasmin);
+        var token = await server.DeviceAsync(tom);
+        await server.Client.GrantAsync(jasmin, tom, new UpdateGrantsRequest(Plan: AccessLevelKeys.View));
+        var household = await server.HouseholdOfAsync(tom);
+        await server.ClearEventsAsync();
+        await server.EventAsync(household, HouseholdEventKind.Ticked, jasmin, owner: jasmin, label: "Miete", amount: 850m, at: Evening.AddHours(-2));
+        await server.RunAtAsync(Evening);
+        var signal = Assert.Single(server.Push.To(token));
+        Assert.Equal(["Miete"], (await FetchAsync(server, tom, signal.Payload.ReminderId)).Events!.Select(e => e.Label));
+
+        await server.Client.GrantAsync(jasmin, tom, new UpdateGrantsRequest(Plan: AccessLevelKeys.None));
+
+        // Die Rücknahme selbst vermerkt noch ein Ereignis (Freigabe geändert); der Posten ist nicht mehr zu sehen.
+        Assert.DoesNotContain((await FetchAsync(server, tom, signal.Payload.ReminderId)).Events!, e => e.Kind == "ticked");
+    }
 }
