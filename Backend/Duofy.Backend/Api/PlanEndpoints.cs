@@ -369,6 +369,9 @@ internal static class PlanEndpoints
         }
 
         position.DoneAt = now;
+        // Für die Abendzusammenfassung des Haushalts (Spec 118, R8).
+        await HouseholdSummary.RecordForAsync(
+            db, ownerId, HouseholdEventKind.Ticked, access.CallerId ?? ownerId, now, cancellationToken, ownerId: ownerId, label: position.Label, amount: amount);
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         loggers.CreateLogger(LogCategory).LogInformation(

@@ -203,6 +203,25 @@ public class NotificationSettingsJobTests(ApiFixture fixture)
         Assert.Equal(3, (await FetchAsync(server, anna, reminder.Id)).PostponeCount);
     }
 
+    // A6: Der Plan nennt, wie oft ein Posten verschoben wurde.
+    [Fact]
+    public async Task The_plan_returns_how_often_a_position_was_postponed()
+    {
+        await using var server = ReminderServer.Start(fixture);
+        var anna = await server.FounderAsync("Anna");
+        await server.DeviceAsync(anna);
+        var position = await server.PositionAsync(anna, "Miete", dueDay: 10);
+        await server.PositionAsync(anna, "Strom", dueDay: 10);
+        await server.RunAtAsync(NineOClock);
+        var reminder = Assert.Single(await server.RemindersOfAsync(position));
+        (await server.Client.SendAsync(anna, HttpMethod.Post, ReminderPath(reminder.Id) + "/later")).EnsureSuccessStatusCode();
+
+        var plan = await (await server.Client.SendAsync(anna, HttpMethod.Get, "/api/v1/plans/2026/11")).Content.ReadFromJsonAsync<PlanResponse>();
+
+        Assert.Equal(1, plan!.Positions.Single(p => p.Id == position).PostponeCount);
+        Assert.Equal(0, plan.Positions.Single(p => p.Id != position).PostponeCount);
+    }
+
     // A6, A7: Der Text sagt, ob der Posten heute fällig, bald fällig oder überfällig ist.
     [Fact]
     public async Task The_fetch_says_whether_the_position_is_due_soon_due_or_overdue()
@@ -260,6 +279,7 @@ public class NotificationSettingsJobTests(ApiFixture fixture)
         var token = await server.DeviceAsync(tom);
         await server.Client.GrantAsync(jasmin, tom, new UpdateGrantsRequest(Plan: AccessLevelKeys.View, Book: AccessLevelKeys.View));
         var household = await server.HouseholdOfAsync(tom);
+        await server.ClearEventsAsync();
         var before = Evening.AddHours(-5);
         await server.EventAsync(household, HouseholdEventKind.Booked, jasmin, owner: jasmin, label: "REWE", amount: 23.40m, at: before);
         await server.EventAsync(household, HouseholdEventKind.Booked, jasmin, owner: jasmin, label: "Tankstelle", amount: 50m, at: before.AddMinutes(30));
@@ -293,6 +313,7 @@ public class NotificationSettingsJobTests(ApiFixture fixture)
         await server.SettingsAsync(tom, new TimeOnly(9, 0), change: s => s.Household = false);
         var household = await server.HouseholdOfAsync(tom);
         await server.Client.GrantAsync(jasmin, tom, new UpdateGrantsRequest(Plan: AccessLevelKeys.View));
+        await server.ClearEventsAsync();
 
         await server.RunAtAsync(Evening);
         Assert.Empty(server.Push.To(tomToken));
@@ -316,6 +337,7 @@ public class NotificationSettingsJobTests(ApiFixture fixture)
         var tomToken = await server.DeviceAsync(tom);
         var jasminToken = await server.DeviceAsync(jasmin);
         var household = await server.HouseholdOfAsync(tom);
+        await server.ClearEventsAsync();
         await server.EventAsync(household, HouseholdEventKind.GrantChanged, tom, subject: jasmin, at: Evening.AddHours(-2));
 
         await server.RunAtAsync(Evening);

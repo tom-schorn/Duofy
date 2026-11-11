@@ -34,6 +34,20 @@ internal static class HouseholdSummary
         });
     }
 
+    /// <summary>
+    /// Vermerkt das Ereignis in dem Haushalt, in dem <paramref name="personId"/> Mitglied ist (nichts, wenn die Person in keinem
+    /// ist: Dann gibt es niemanden, der es lesen soll). Gespeichert wird mit dem nächsten SaveChanges des Aufrufers.
+    /// </summary>
+    public static async Task RecordForAsync(
+        DuofyDbContext db, Guid personId, HouseholdEventKind kind, Guid actorId, DateTimeOffset now, CancellationToken cancellationToken,
+        Guid? ownerId = null, Guid? subjectId = null, string? label = null, decimal? amount = null)
+    {
+        foreach (var householdId in await HouseholdsOfAsync(db, personId, cancellationToken))
+        {
+            Record(db, householdId, kind, actorId, now, ownerId, subjectId, label, amount);
+        }
+    }
+
     /// <summary>Die Haushalte, in denen die Person Mitglied ist.</summary>
     public static Task<List<Guid>> HouseholdsOfAsync(DuofyDbContext db, Guid userId, CancellationToken cancellationToken) =>
         db.HouseholdMembers.Where(m => m.UserId == userId).Select(m => m.HouseholdId).ToListAsync(cancellationToken);

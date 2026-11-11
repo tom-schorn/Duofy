@@ -177,6 +177,14 @@ internal sealed class ReminderServer : IAsyncDisposable
     public Task<Guid> HouseholdOfAsync(Person person) =>
         Factory.WithDbAsync(db => db.HouseholdMembers.Where(m => m.UserId == person.Id).Select(m => m.HouseholdId).SingleAsync());
 
+    /// <summary>Löscht die Ereignisse, die das Einrichten der Personen (Beitritt, Freigaben) schon vermerkt hat.</summary>
+    public Task ClearEventsAsync() =>
+        Factory.WithDbAsync(async db =>
+        {
+            await db.HouseholdEvents.ExecuteDeleteAsync();
+            return 0;
+        });
+
     /// <summary>Vermerkt ein Haushaltsereignis zu diesem Zeitpunkt, an der API vorbei.</summary>
     public Task EventAsync(
         Guid household, HouseholdEventKind kind, Person actor, DateTimeOffset at, Person? owner = null, Person? subject = null,

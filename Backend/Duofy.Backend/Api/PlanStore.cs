@@ -269,10 +269,31 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
     {
         if (!sight.Book)
         {
-            return Hide(ToResponse(position, 0m));
+            return Hide(ToResponse(position, 0m, await PostponedOfAsync(position, cancellationToken)));
         }
         var booked = await BookedAsync(ownerId, [position.Id], cancellationToken);
-        return ToResponse(position, booked.GetValueOrDefault(position.Id));
+        return ToResponse(position, booked.GetValueOrDefault(position.Id), await PostponedOfAsync(position, cancellationToken));
+    }
+
+    /// <summary>Wie oft der Posten zu seinem heutigen Fälligkeitstag mit "Später" verschoben wurde (Spec 118).</summary>
+    private async Task<int> PostponedOfAsync(PlanPosition position, CancellationToken cancellationToken)
+    {
+        var month = await db.Plans.AsNoTracking().Where(plan => plan.Positions.Any(p => p.Id == position.Id))
+            .Select(plan => new { plan.Year, plan.Month }).FirstOrDefaultAsync(cancellationToken);
+        return month is null
+            ? 0
+            : (await PostponedAsync([position], month.Year, month.Month, cancellationToken)).GetValueOrDefault(position.Id);
+    }
+
+    /// <summary>Die Verschiebungen je Posten des Monats, gezählt zu dem Fälligkeitstag, den der Posten jetzt hat.</summary>
+    private async Task<Dictionary<Guid, int>> PostponedAsync(IReadOnlyCollection<PlanPosition> positions, int year, int month, CancellationToken cancellationToken)
+    {
+        var ids = positions.Select(p => p.Id).ToList();
+        var counts = await db.PostponeCounts.AsNoTracking().Where(c => ids.Contains(c.PositionId)).ToListAsync(cancellationToken);
+        return positions
+            .Select(p => (p.Id, Count: counts.FirstOrDefault(c => c.PositionId == p.Id && c.DueDate == ReminderRules.DueDate(year, month, p.DueDay))?.Count ?? 0))
+            .Where(x => x.Count > 0)
+            .ToDictionary(x => x.Id, x => x.Count);
     }
 
     /// <summary>Ein Posten ohne Verweis auf die Buchung vom Abhaken, für wen die Buchungen nicht sieht.</summary>
@@ -288,6 +309,7 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
     {
         var bookings = sight.Book ? await BookingsInPlanMonthAsync(plan.OwnerId, plan.Year, plan.Month, cancellationToken) : [];
         var booked = PlanFigures.BookedPerPosition(bookings);
+        var postponed = await PostponedAsync(plan.Positions, plan.Year, plan.Month, cancellationToken);
         // Der Übertrag in den nächsten Monat bucht eine seiner Buchungen in diesen Planmonat, bei einem negativen
         // Rest eine Einnahme. Sie ist kein verdientes Geld und zählt in den Quoten so wenig wie der eigene Übertrag.
         var next = new DateOnly(plan.Year, plan.Month, 1).AddMonths(1);
@@ -342,7 +364,9 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
             plan.Id,
             plan.Year,
             plan.Month,
-            plan.Positions.Select(p => sight.Book ? ToResponse(p, booked.GetValueOrDefault(p.Id)) : Hide(ToResponse(p, 0m))).ToList(),
+            plan.Positions.Select(p => sight.Book
+                ? ToResponse(p, booked.GetValueOrDefault(p.Id), postponed.GetValueOrDefault(p.Id))
+                : Hide(ToResponse(p, 0m, postponed.GetValueOrDefault(p.Id)))).ToList(),
             plan.Positions.Where(p => p.Pot == Pot.Income).Sum(p => p.AmountPlanned),
             plan.Positions.Where(p => p.Pot != Pot.Income).Sum(p => p.AmountPlanned),
             sums.Income,
@@ -404,7 +428,7 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
             .Where(b => b.OwnerId == ownerId && b.PlanYear == year && b.PlanMonth == month)
             .ToListAsync(cancellationToken);
 
-    public static PlanPositionResponse ToResponse(PlanPosition position, decimal booked) => new(
+    public static PlanPositionResponse ToResponse(PlanPosition position, decimal booked, int postponed = 0) => new(
         position.Id,
         position.CommitmentId,
         position.Label,
@@ -420,7 +444,8 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
         booked,
         position.DoneAt,
         position.ChangedByHand,
-        position.TickBookingId);
+        position.TickBookingId,
+        postponed);
 
     private static PlanChangeResponse ToResponse(PlanChange change, Plan plan, IReadOnlyList<Commitment> commitments)
     {
