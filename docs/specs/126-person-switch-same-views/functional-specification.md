@@ -35,19 +35,19 @@ External input: no
 
 ## Acceptance criteria
 
-- [ ] A1 (R1): Given Tom with a household and Jasmin's grants, when the profile menu opens, then it lists Ich and Jasmin and no entry Haushalt.
-- [ ] A2 (R2): Given Tom on the plan, bookings, accounts or contracts page, when he chooses Jasmin, then the page shows Jasmin's data without navigation, and the choice stays when changing pages.
-- [ ] A3 (R3): Given Jasmin granted Tom all areas, when Tom chooses Jasmin on the start page, then it greets 'Hallo Jasmin' and shows the same blocks as Tom's own start page, filled with Jasmin's data.
-- [ ] A4 (R4): Given test data where Tom's and Jasmin's totals differ, when the evaluations are shown for Jasmin, then they show Jasmin's totals and the same components render as for Tom.
+- [x] A1 (R1): Given Tom with a household and Jasmin's grants, when the profile menu opens, then it lists Ich and Jasmin and no entry Haushalt.
+- [x] A2 (R2): Given Tom on the plan, bookings, accounts or contracts page, when he chooses Jasmin, then the page shows Jasmin's data without navigation, and the choice stays when changing pages.
+- [x] A3 (R3): Given Jasmin granted Tom all areas, when Tom chooses Jasmin on the start page, then it greets 'Hallo Jasmin' and shows the same blocks as Tom's own start page, filled with Jasmin's data.
+- [x] A4 (R4): Given test data where Tom's and Jasmin's totals differ, when the evaluations are shown for Jasmin, then they show Jasmin's totals and the same components render as for Tom.
 
 ## Tracing
 
 | Requirement | Criterion | Test |
 | --- | --- | --- |
-| R1 | A1 | pending |
-| R2 | A2 | pending |
-| R3 | A3 | pending |
-| R4 | A4 | pending |
+| R1 | A1 | MemberSwitchTests.A1_the_menu_lists_me_and_the_person_and_no_household_entry |
+| R2 | A2 | PersonSwitchTests.A2_* (accounts, contracts, plan pages, top bar) |
+| R3 | A3 | StartPageTests.A3_* and Without_a_grant_for_the_accounts_a_hint_says_so |
+| R4 | A4 | PersonSwitchTests.A4_the_review_shows_the_totals_of_the_chosen_person |
 
 ## Non-goals
 
