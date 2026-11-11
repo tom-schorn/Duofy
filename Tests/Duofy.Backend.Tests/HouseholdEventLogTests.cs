@@ -64,4 +64,22 @@ public class HouseholdEventLogTests(ApiFixture fixture)
         // Das Abhaken legt selbst eine Buchung an, ist aber nur ein Ereignis.
         Assert.Equal(2, events.Count(e => e.Kind is HouseholdEventKind.Booked or HouseholdEventKind.Ticked));
     }
+
+    // Fund 3: Hakt jemand einen Posten ab, auf dem schon gebucht ist, legt das Abhaken keine Buchung an; das Ereignis nennt den geplanten Betrag, nicht 0 €.
+    [Fact]
+    public async Task Ticking_a_position_that_is_already_booked_logs_the_planned_amount_not_zero()
+    {
+        await using var server = ReminderServer.Start(fixture);
+        var anna = await server.FounderAsync("Anna");
+        await server.Client.SendAsync(anna, HttpMethod.Post, "/api/v1/accounts",
+            new CreateAccountRequest("Giro", AccountTypes.Checking, 500m, new DateOnly(2026, 1, 1)));
+        var position = await server.PositionAsync(anna, "Miete");
+        await server.BookAsync(anna, position, 10m);
+
+        var tick = await server.Client.SendAsync(anna, HttpMethod.Post, $"/api/v1/plans/2026/11/positions/{position}/tick");
+        Assert.True(tick.IsSuccessStatusCode, await tick.Content.ReadAsStringAsync());
+
+        var ticked = Assert.Single(await EventsAsync(server, anna), e => e.Kind == HouseholdEventKind.Ticked);
+        Assert.Equal(("Miete", 18.36m), (ticked.Label, ticked.Amount));
+    }
 }

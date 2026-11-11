@@ -369,9 +369,9 @@ internal static class PlanEndpoints
         }
 
         position.DoneAt = now;
-        // Für die Abendzusammenfassung des Haushalts (Spec 118, R8).
+        // Für die Abendzusammenfassung des Haushalts (Spec 118, R8): der geplante Betrag, auch wenn das Abhaken selbst nichts bucht.
         await HouseholdSummary.RecordForAsync(
-            db, ownerId, HouseholdEventKind.Ticked, access.CallerId ?? ownerId, now, cancellationToken, ownerId: ownerId, label: position.Label, amount: amount);
+            db, ownerId, HouseholdEventKind.Ticked, access.CallerId ?? ownerId, now, cancellationToken, ownerId: ownerId, label: position.Label, amount: position.AmountPlanned == 0m ? null : position.AmountPlanned);
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         loggers.CreateLogger(LogCategory).LogInformation(
