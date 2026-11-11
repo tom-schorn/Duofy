@@ -40,6 +40,7 @@
   <data name="Start_HouseholdFree"><value>Verplanbar im Haushalt, {0}</value></data>
   <data name="Start_HouseholdOpen"><value>Haushaltsplan ansehen</value></data>
   <data name="Start_YearTitle"><value>Dein Jahr</value></data>
+  <data name="Start_YearTitleOf"><value>Jahr von {0}</value></data>
   <data name="Start_YearOpen"><value>Alle Monate ansehen</value></data>
   <data name="Start_YearBar"><value>{0}: {1}</value></data>
   <data name="Start_YearNoPlan"><value>{0}: kein Plan</value></data>
@@ -289,6 +290,7 @@
   <data name="Accounts_Title"><value>Konten</value></data>
   <data name="Accounts_Add"><value>Konto anlegen</value></data>
   <data name="Accounts_Empty"><value>Du hast noch kein Konto. Lege dein erstes an, zum Beispiel dein Girokonto.</value></data>
+  <data name="Accounts_EmptyOf"><value>{0} hat noch kein Konto.</value></data>
   <data name="Accounts_IsDefault"><value>{0} ist das Standardkonto: beim Buchen vorgewählt</value></data>
   <data name="Accounts_MakeDefault"><value>{0} zum Standardkonto machen</value></data>
   <data name="Accounts_DefaultSet"><value>{0} ist jetzt dein Standardkonto.</value></data>
@@ -344,6 +346,7 @@
   <data name="Commitments_Title"><value>Verträge</value></data>
   <data name="Commitments_Add"><value>Vertrag anlegen</value></data>
   <data name="Commitments_Empty"><value>Du hast noch keinen Vertrag. Lege deinen ersten an, zum Beispiel die Miete oder dein Gehalt.</value></data>
+  <data name="Commitments_EmptyOf"><value>{0} hat noch keinen Vertrag.</value></data>
   <data name="Commitments_ShowEnded"><value>Beendete zeigen</value></data>
   <data name="Commitments_EndedHidden"><value>Beendete Verträge sind ausgeblendet. Schalte „Beendete zeigen“ ein, um sie zu sehen.</value></data>
   <data name="Commitments_Edit"><value>Vertrag {0} ändern</value></data>
@@ -420,6 +423,7 @@
   <data name="Savings_Section_debts"><value>Schulden</value></data>
   <data name="Savings_Section_loans"><value>Kredite</value></data>
   <data name="Savings_Empty_goals"><value>Noch kein Sparziel. Wenn du etwas Bestimmtes zurücklegen möchtest, legst du hier ein Ziel an.</value></data>
+  <data name="Savings_Empty_goalsOf"><value>{0} hat noch kein Sparziel.</value></data>
   <data name="Savings_Empty_debts"><value>Keine Forderung eingetragen. Das ist in Ordnung, hier steht nur, was du eintragen möchtest.</value></data>
   <data name="Savings_Empty_loans"><value>Kein Kredit eingetragen.</value></data>
   <data name="Savings_AddGoal"><value>Neues Sparziel</value></data>
@@ -522,6 +526,7 @@
   <!-- Monatsplan (Spec 66) -->
   <data name="Plan_AddPosition"><value>Posten anlegen</value></data>
   <data name="Plan_ChangesHeading"><value>Deine Verträge haben sich geändert</value></data>
+  <data name="Plan_ChangesHeadingOf"><value>Die Verträge von {0} haben sich geändert</value></data>
   <data name="Plan_Change_changed"><value>{0}: geändert</value></data>
   <data name="Plan_Change_new"><value>{0}: neu in diesem Monat</value></data>
   <data name="Plan_Change_no_longer_due"><value>{0}: in diesem Monat nicht mehr fällig</value></data>
@@ -739,6 +744,9 @@
   <data name="MemberSwitch_HouseholdReason"><value>Nicht verfügbar: Dafür braucht es einen Haushalt mit mindestens zwei Mitgliedern. Gründe einen oder tritt einem bei.</value></data>
   <data name="Grant_NotGranted"><value>Dafür hat dir {0} keine Freigabe gegeben.</value></data>
   <data name="Grant_NotShared"><value>Diese Person teilt diesen Bereich nicht mit dir.</value></data>
+  <data name="Grant_NotSharedArea"><value>Diese Person teilt {0} nicht mit dir.</value></data>
+  <data name="Area_Accounts"><value>Konten</value></data>
+  <data name="Area_Bookings"><value>Buchungen</value></data>
   <data name="Grants_Title"><value>Freigaben</value></data>
   <data name="Grants_Lead"><value>Hier legst du für jede Person in deinem Haushalt fest, was sie mit deinen Daten tun darf. Jede Wahl gilt sofort.</value></data>
   <data name="Grants_Empty"><value>Sobald noch jemand in deinem Haushalt ist, legst du hier fest, was diese Person mit deinen Daten tun darf.</value></data>
@@ -935,6 +943,8 @@
   <data name="UserMenu_Label"><value>Benutzermenü</value></data>
   <data name="PlanOverview_Title"><value>Meine Planung</value></data>
   <data name="PlanOverview_Lead"><value>Deine Monatspläne. Klick einen an, um ihn zu verplanen.</value></data>
+  <data name="PlanOverview_TitleOf"><value>Planung von {0}</value></data>
+  <data name="PlanOverview_LeadOf"><value>Monatspläne von {0}. Klick einen an, um ihn anzusehen.</value></data>
   <data name="PlanOverview_NextMonth"><value>Nächsten Monat anlegen</value></data>
   <data name="PlanOverview_Earlier"><value>Frühere Monate zeigen</value></data>
   <data name="PlanOverview_PotOf"><value>{0} von {1} geplant</value></data>
@@ -947,12 +957,14 @@
   <data name="Month_UnpaidNote"><value>noch nicht bezahlt</value></data>
   <data name="Month_Of"><value>von {0}</value></data>
   <data name="Plan_Lead"><value>Verplane den Monat, bevor er anfängt. Die Quoten sind Richtwerte — es zählt, dass es aufgeht.</value></data>
+  <data name="Plan_LeadOf"><value>Der Plan von {0}. Die Quoten sind Richtwerte — es zählt, dass es aufgeht.</value></data>
   <data name="Plan_Print"><value>Drucken</value></data>
   <data name="Plan_FromContract"><value>aus Vertrag</value></data>
   <data name="Plan_Unplanned"><value>Ungeplant</value></data>
   <data name="Plan_UnplannedNote"><value>Buchungen ohne Posten</value></data>
   <data name="Plan_BookedOf"><value>{0} gebucht</value></data>
   <data name="Accounts_Lead"><value>Wo dein Geld liegt. Jedes Konto ist privat — für die gemeinsame Planung zählt, was auf den Posten steht.</value></data>
+  <data name="Accounts_LeadOf"><value>Wo das Geld von {0} liegt. Jedes Konto ist privat — für die gemeinsame Planung zählt, was auf den Posten steht.</value></data>
   <data name="Commitments_Lead"><value>Alles Wiederkehrende — Miete, Abos, Sparpläne, Kredite. Einmal angelegt, erzeugt es seine Posten selbst.</value></data>
   <data name="Household_Lead"><value>Ein Haushalt sagt nur, wer zusammen plant, und besitzt nichts — Konten und Verträge gehören immer einer Person. Du bist in höchstens einem Haushalt.</value></data>
   <data name="Commitments_PerMonth"><value>{0} Ø / Monat</value></data>

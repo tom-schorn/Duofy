@@ -74,7 +74,7 @@ else if (firstName is not null)
         @if (!Member.IsHousehold && !Member.Allows(GrantAreas.Accounts, AccessLevelKeys.View))
         {
             @* Ohne die Freigabe der Konten fehlt die Kontenzeile; ein kurzer Hinweis sagt es, statt sie still wegzulassen (Spec 126). *@
-            <p class="month-hint" data-testid="start-accounts-not-shared">@L["Grant_NotShared"]</p>
+            <p class="month-hint" data-testid="start-accounts-not-shared">@L["Grant_NotSharedArea", L["Area_Accounts"].Value]</p>
         }
 
         @if (!Member.IsHousehold)
@@ -88,7 +88,7 @@ else if (firstName is not null)
             <StartSection Title="@L["Month_DueHeading"].Value" TestId="start-due" Href="@MonthHref" LinkText="@L["Start_OpenPlan"].Value">
                 @if (!SeesBookings)
                 {
-                    <p class="month-hint">@L["Grant_NotShared"]</p>
+                    <p class="month-hint" data-testid="start-due-not-shared">@L["Grant_NotSharedArea", L["Area_Bookings"].Value]</p>
                 }
                 else if (model.Due.Count == 0)
                 {
@@ -129,7 +129,7 @@ else if (firstName is not null)
     @if (!Member.IsHousehold && yearMonths.Count > 0)
     {
         @* Die Jahreslinie (Issue #94, R5): was in jedem Monat dieses Jahres übrig war oder fehlte. *@
-        <StartSection Title="@L["Start_YearTitle"].Value" TestId="start-year-section" Href="/plan" LinkText="@L["Start_YearOpen"].Value">
+        <StartSection Title="@(Member.Name is { } who ? L["Start_YearTitleOf", who].Value : L["Start_YearTitle"].Value)" TestId="start-year-section" Href="/plan" LinkText="@L["Start_YearOpen"].Value">
             <StartYearLine Months="yearMonths" Today="today" />
         </StartSection>
     }

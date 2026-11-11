@@ -350,6 +350,9 @@ ul, ol { list-style: none; }
 @media (max-width: 1279px) {
     .duofy-button { height: auto; min-height: 44px; min-width: 44px; }
     .back-link { min-height: 44px; }
+    /* Trefferfläche von 44 px für die Ansichtsmarke und die Einträge ihres Menüs (Spec 126, S2). */
+    .shell-view { min-height: 44px; min-width: 44px; padding-inline: 12px; font-size: 14px; }
+    .member-menu-item { min-height: 44px; }
     .tick-box { position: relative; flex-shrink: 0; }
     .tick-box::after { content: ""; position: absolute; inset: -13px; }
     .side-link { min-height: 44px; }

@@ -457,13 +457,21 @@ public class StartPageTests : PageTestContext
 
         HouseholdApiFake.Household = household with
         {
-            Members = [FakeHouseholdApi.Anna(), FakeHouseholdApi.Ben(isMe: false) with { GrantsToMe = new GrantLevels("delete", "delete", "delete", "delete", "delete", "view") }],
+            Members = [FakeHouseholdApi.Anna(), FakeHouseholdApi.Ben(isMe: false) with { GrantsToMe = new GrantLevels("delete", "delete", "delete", "delete", "delete") }],
         };
         await Member.RefreshAsync();
+        SeedPlan(free: 120m, positions: []);
+        Assert.Contains("340,00 €", Text(own, "start-hero"));
         Member.Choose(FakeHouseholdApi.BenId);
 
         own.WaitForAssertion(() => Assert.Contains("Hallo, Ben!", own.Markup));
         own.WaitForAssertion(() => Assert.Equal(ownBlocks, Blocks(own)));
+        // Die Blöcke zeigen Bens Zahlen, nicht mehr die eigenen: Der Besitzer ging mit, und das Verplanbar ist neu.
+        own.WaitForAssertion(() => Assert.Contains("120,00 €", Text(own, "start-hero")));
+        Assert.DoesNotContain("340,00 €", Text(own, "start-hero"));
+        Assert.Equal(FakeHouseholdApi.BenId, PlanApiFake.Owners.Last());
+        Assert.Contains("Jahr von Ben", Text(own, "start-year-section"));
+        Assert.DoesNotContain("Dein Jahr", own.Markup);
         Assert.DoesNotContain("Hallo, Anna!", own.Markup);
     }
 
@@ -475,6 +483,100 @@ public class StartPageTests : PageTestContext
     private static List<string> Blocks(IRenderedComponent<Start> cut) =>
         BlockIds.Where(id => cut.FindAll($"[data-testid='{id}']").Count > 0).ToList();
 
+    // Review M3: Die Jahreslinie steht auch ohne Plan im laufenden Monat, wenn frühere Monate einen haben.
+    [Fact]
+    public void M3_the_year_line_shows_although_the_current_month_has_no_plan()
+    {
+        PlanApiFake.Overview = [new PlanOverviewMonthResponse(2026, 8, 20m, false, 0m, []), new PlanOverviewMonthResponse(2026, 7, 10m, false, 0m, [])];
+
+        var cut = Render<Start>();
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='start-year-section']")));
+        Assert.NotEmpty(cut.FindAll("[data-testid='start-empty']"));
+        Assert.Equal("Juli: 10,00 €", cut.Find("[data-testid='start-year-bar-7']").GetAttribute("aria-label"));
+    }
+
+    // A5 (R5): Jahreslinie von Januar bis zum laufenden Monat, grün und rot, ohne künftige Monate
+    [Fact]
+    public void A5_the_year_line_has_one_bar_per_past_month()
+    {
+        SeedPlan();
+        PlanApiFake.Overview =
+        [
+            .. Enumerable.Range(1, 10).Select(m => new PlanOverviewMonthResponse(2026, m, m == 3 ? -120m : 100m * m, false, 0m, [])).Reverse(),
+            new PlanOverviewMonthResponse(2026, 11, 50m, false, 0m, []),
+        ];
+
+        var cut = OpenStart();
+
+        var bars = cut.FindAll("[data-testid^='start-year-bar-']");
+        Assert.Equal(10, bars.Count);
+        Assert.Empty(cut.FindAll("[data-testid='start-year-bar-11']"));
+        Assert.Equal("Januar: 100,00 €", cut.Find("[data-testid='start-year-bar-1']").GetAttribute("aria-label"));
+        Assert.Equal("März: -120,00 €", cut.Find("[data-testid='start-year-bar-3']").GetAttribute("aria-label"));
+        Assert.Contains("year-bar--positive", cut.Find("[data-testid='start-year-bar-1']").ClassName);
+        Assert.Contains("year-bar--negative", cut.Find("[data-testid='start-year-bar-3']").ClassName);
+        Assert.Equal("/plan", cut.Find("[data-testid='start-year-link']").GetAttribute("href"));
+        Assert.Equal([2026], PlanApiFake.OverviewCalls.Distinct());
+    }
+
+    // Ein älterer Server kennt die Übersicht nicht (404): Die Startseite zeigt alles andere, nur ohne Jahreslinie und ohne Fehlermeldung.
+    [Fact]
+    public void Against_a_server_without_the_overview_the_start_page_shows_everything_but_the_year_line()
+    {
+        SeedPlan(free: 340m);
+        PlanApiFake.OverviewMissing = true;
+        AccountApiFake.Accounts.Add(Account("Girokonto", 1200m));
+
+        var cut = OpenStart();
+
+        Assert.Contains("340,00 €", Text(cut, "start-hero"));
+        Assert.Contains("Girokonto 1.200,00 €", Text(cut, "start-accounts"));
+        Assert.Equal(3, cut.FindAll("[data-testid^='start-pot-']").Count);
+        Assert.Empty(cut.FindAll("[data-testid='start-year-section']"));
+        Assert.Empty(cut.FindAll(AlertSelector));
+        Assert.DoesNotContain("Das gibt es nicht mehr", cut.Markup);
+        Assert.Equal(1, PlanApiFake.ListMonthsCalls);
+    }
+
+    [Fact]
+    public void Against_a_server_without_the_overview_a_missing_month_still_shows_the_empty_state()
+    {
+        PlanApiFake.OverviewMissing = true;
+
+        var cut = Render<Start>();
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='start-empty']")));
+        Assert.Empty(cut.FindAll(AlertSelector));
+    }
+
+    [Fact]
+    public void A_month_without_a_plan_is_an_empty_slot_in_the_year_line()
+    {
+        SeedPlan();
+        PlanApiFake.Overview = [new PlanOverviewMonthResponse(2026, 10, 340m, false, 0m, []), new PlanOverviewMonthResponse(2026, 8, 20m, false, 0m, [])];
+
+        var cut = OpenStart();
+
+        Assert.Equal(10, cut.FindAll("[data-testid^='start-year-bar-']").Count);
+        Assert.Equal("Januar: kein Plan", cut.Find("[data-testid='start-year-bar-1']").GetAttribute("aria-label"));
+        Assert.Contains("year-bar--empty", cut.Find("[data-testid='start-year-bar-1']").ClassName);
+    }
+
+    // A8 (R7)
+    [Fact]
+    public void The_blocks_open_the_month_of_the_plan()
+    {
+        SeedPlan();
+
+        var cut = OpenStart();
+
+        foreach (var id in new[] { "start-hero-link", "start-due-link", "start-pots-link" })
+        {
+            Assert.Equal("/plan/2026/10", cut.Find($"[data-testid='{id}']").GetAttribute("href"));
+        }
+    }
+
     // Spec 126, R3: Ohne die Freigabe der Konten fehlt die Kontenzeile nicht stumm, sondern ein kurzer Hinweis sagt es.
     [Fact]
     public async Task Without_a_grant_for_the_accounts_a_hint_says_so()
@@ -484,7 +586,7 @@ public class StartPageTests : PageTestContext
 
         var cut = OpenStart();
 
-        Assert.Contains(NotShared, Text(cut, "start-accounts-not-shared"));
+        Assert.Equal("Diese Person teilt Konten nicht mit dir.", Text(cut, "start-accounts-not-shared").Trim());
     }
 
     [Fact]
@@ -497,7 +599,7 @@ public class StartPageTests : PageTestContext
 
         Assert.Equal(FakeHouseholdApi.BenId, PlanApiFake.Owners.Last());
         Assert.Contains("120,00 €", Text(cut, "start-hero"));
-        Assert.Contains(NotShared, Text(cut, "start-due"));
+        Assert.Contains("Diese Person teilt Buchungen nicht mit dir.", Text(cut, "start-due"));
         Assert.Empty(cut.FindAll("[data-testid^='start-due-item-']"));
     }
 

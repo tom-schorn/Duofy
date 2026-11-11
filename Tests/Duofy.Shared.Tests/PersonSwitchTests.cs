@@ -25,7 +25,7 @@ public class PersonSwitchTests : PageTestContext
         Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: true, Active: true));
         HouseholdApiFake.Household = new HouseholdResponse(Guid.NewGuid(), "Haushalt von Anna", 50, 30, 20,
         [
-            FakeHouseholdApi.Anna(isMe: false) with { GrantsToMe = new GrantLevels("delete", "delete", "delete", "delete", "delete", "view") },
+            FakeHouseholdApi.Anna(isMe: false) with { GrantsToMe = new GrantLevels("delete", "delete", "delete", "delete", "delete") },
             FakeHouseholdApi.Ben(isMe: true),
         ]);
     }
@@ -99,6 +99,7 @@ public class PersonSwitchTests : PageTestContext
         Member.Choose(Anna);
 
         cut.WaitForAssertion(() => Assert.Contains("200,00 €", cut.Find("[data-testid='month-review']").TextContent));
+        Assert.Equal(Anna, PlanApiFake.Owners.Last());
         Assert.DoesNotContain("2.000,00 €", cut.Find("[data-testid='month-review']").TextContent);
     }
 
@@ -110,6 +111,7 @@ public class PersonSwitchTests : PageTestContext
         var chip = Render<ViewChip>();
         var trigger = chip.Find("[data-testid='shell-view']");
         Assert.Equal("Ich", trigger.TextContent.Trim());
+        Assert.Equal("Wessen Zahlen: Ich", trigger.GetAttribute("aria-label"));
 
         trigger.Click();
         menu.WaitForAssertion(() => Assert.NotEmpty(menu.FindAll($"[data-testid='member-choice-{Anna}']")));
@@ -118,6 +120,27 @@ public class PersonSwitchTests : PageTestContext
 
         Assert.Equal(Anna, Member.Owner);
         chip.WaitForAssertion(() => Assert.Equal("Ansicht: Anna", chip.Find("[data-testid='shell-view']").TextContent.Trim()));
+        Assert.Equal("Ansicht: Anna", chip.Find("[data-testid='shell-view']").GetAttribute("aria-label"));
+    }
+
+    // Spec 126, S1: In der Sicht auf Anna sprechen die Seiten von Anna, nicht von "dir".
+    [Fact]
+    public async Task The_pages_speak_about_the_chosen_person()
+    {
+        await Member.LoadAsync();
+        Member.Choose(Anna);
+
+        var overview = Render<PlanOverview>();
+        overview.WaitForAssertion(() => Assert.Contains("Planung von Anna", overview.Markup));
+        Assert.Contains("Monatspläne von Anna", overview.Markup);
+        Assert.DoesNotContain("Meine Planung", overview.Markup);
+        Assert.DoesNotContain("Deine Monatspläne", overview.Markup);
+
+        AccountApiFake.Accounts.Clear();
+        var accounts = Render<Accounts>();
+        accounts.WaitForAssertion(() => Assert.Contains("Wo das Geld von Anna liegt", accounts.Markup));
+        Assert.Contains("Anna hat noch kein Konto.", accounts.Markup);
+        Assert.DoesNotContain("dein", accounts.Markup);
     }
 
     // Ohne Freigabe gibt es nichts zu wählen: die Marke fehlt.

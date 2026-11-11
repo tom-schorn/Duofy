@@ -11,7 +11,7 @@
 @if (Member.Sharing.Count > 0 || Member.Name is not null)
 {
     <BbDropdownMenu>
-        <BbDropdownMenuTrigger AsChild="false" Class="pill shell-view" aria-label="@L["MemberSwitch_Label"]" data-testid="shell-view">@(ViewLabel ?? L["MemberSwitch_Me"].Value)</BbDropdownMenuTrigger>
+        <BbDropdownMenuTrigger AsChild="false" Class="pill shell-view" aria-label="@(ViewLabel ?? $"{L["MemberSwitch_Label"].Value}: {L["MemberSwitch_Me"].Value}")" data-testid="shell-view">@(ViewLabel ?? L["MemberSwitch_Me"].Value)</BbDropdownMenuTrigger>
         <BbDropdownMenuContent Side="PopoverSide.Bottom" Align="PopoverAlign.End">
             <MemberSwitch InMenu="true" />
         </BbDropdownMenuContent>

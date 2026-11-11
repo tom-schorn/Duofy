@@ -44,7 +44,7 @@ else
 <MonthNav BackHref="/plan" BackText="@L["Plan_BackToMonths"]" />
 
 @* Am Handy bleibt "Buchung anlegen" als Hauptknopf; Posten anlegen und Drucken stehen dort im Menü (Spec 82, R12). *@
-<PageHead Title="@MonthTitle" Lead="@L["Plan_Lead"]" CompactLead="true" Menu="@(SeesPlan ? PhoneMenu : null)">
+<PageHead Title="@MonthTitle" Lead="@(Member.Name is { } who ? L["Plan_LeadOf", who].Value : L["Plan_Lead"].Value)" CompactLead="true" Menu="@(SeesPlan ? PhoneMenu : null)">
     <Actions>
         @if (SeesPlan)
         {

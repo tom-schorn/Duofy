@@ -60,7 +60,7 @@ else
 
     private static ButtonKind Kind(bool value) => value ? ButtonKind.Secondary : ButtonKind.Ghost;
 
-    private static string? CurrentClass(bool value) => value ? "member-menu-current" : null;
+    private static string CurrentClass(bool value) => value ? "member-menu-item member-menu-current" : "member-menu-item";
 
     private void ChooseMe() => Member.Choose(null);
 

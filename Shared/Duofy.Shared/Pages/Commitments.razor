@@ -56,7 +56,7 @@ else
 
 @if (loaded && all.Count == 0)
 {
-    <p class="muted mb-2">@L["Commitments_Empty"]</p>
+    <p class="muted mb-2">@(Member.Name is { } who ? L["Commitments_EmptyOf", who].Value : L["Commitments_Empty"].Value)</p>
 }
 else if (loaded && !Shown.Any())
 {
