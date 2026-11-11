@@ -51,8 +51,8 @@ External input: no
 | R1 | A1 | Tests/Duofy.Shared.Tests/BookingDialogStepsTests.cs |
 | R2 | A2 | Tests/Duofy.Shared.Tests/BookingDialogStepsTests.cs |
 | R3 | A3 | Tests/Duofy.Shared.Tests/BookingDialogStepsTests.cs |
-| R4 | A4 | Tests/Duofy.Shared.Tests/BookingDialogStepsTests.cs |
-| R6 | A6 | pending |
+| R4 | A4 | Tests/Duofy.Shared.Tests/BookingDialogStepsTests.cs, Tests/booking-dialog-viewport/check.mjs |
+| R6 | A6 | Tests/Duofy.Shared.Tests/BookingDialogStepsTests.cs |
 | R5 | A5 | Tests/Duofy.App.Tests/AndroidNightModeTests.cs |
 
 ## Non-goals

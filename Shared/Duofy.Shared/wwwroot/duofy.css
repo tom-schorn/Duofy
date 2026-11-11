@@ -827,7 +827,7 @@ a.duofy-button--primary { color: var(--primary-foreground); }
    weit über 3:1 zu den anderen) und trägt ein Häkchen, damit die Wahl nicht allein an der Farbe hängt. */
 .booking-kinds { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .booking-kinds > * { min-width: 0; }
-.booking-kinds button { width: 100%; min-width: 0; padding-inline: 4px; white-space: normal; overflow-wrap: anywhere; line-height: 1.2; text-align: center; background: var(--secondary); color: var(--secondary-foreground); border: 1px solid var(--input); }
+.booking-kinds button { width: 100%; min-width: 0; gap: 0; padding-inline: 2px; font-size: 13px; white-space: normal; overflow-wrap: anywhere; line-height: 1.2; text-align: center; background: var(--secondary); color: var(--secondary-foreground); border: 1px solid var(--input); }
 .booking-kinds button[aria-pressed="true"] { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); font-weight: 600; }
 .booking-kinds button[aria-pressed="true"]::before { content: "\2713"; margin-right: 4px; flex: 0 0 auto; }
 .booking-split-switch { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding-top: 4px; }
