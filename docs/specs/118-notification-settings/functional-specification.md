@@ -103,4 +103,6 @@ None.
 
 Approved by the human on 2026-11-11
 
+Amended on 2026-11-11 after the review, approved by the human: "open" means booked less than planned and not pass-through, as in the plan (R4, R7); the household summary is sent only at the evening time, later events go into the next evening's summary (R8).
+
 In the lead session at night, outside a meeting, including R11 (carry-over of existing settings) and the bugs of #117.
