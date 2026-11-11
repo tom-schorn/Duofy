@@ -33,17 +33,17 @@ External input: no
 
 ## Acceptance criteria
 
-- [ ] A1 (R1): Given the personal plan with ten bookings, when it renders at 360, 412, 600, 800 and 840 px, then the page has no sideways scroll and the table either fits or sits in a container with horizontal scrolling enabled (overflow-x auto), verified by a test of the rendered markup and by a screenshot check on a tablet-sized browser.
-- [ ] A2 (R2): Given bookings on the 10th and 5th and a carry-over from the previous month, when the personal and the household plan list them, then the order is 10th, 5th, carry-over.
-- [ ] A3 (R3): Given the personal and the household plan, when their bookings sections render, then both use the same table component.
+- [x] A1 (R1): Given the personal plan with ten bookings, when it renders at 360, 412, 600, 800 and 840 px, then the page has no sideways scroll and the table either fits or sits in a container with horizontal scrolling enabled (overflow-x auto), verified by a test of the rendered markup and by a screenshot check on a tablet-sized browser.
+- [x] A2 (R2): Given bookings on the 10th and 5th and a carry-over from the previous month, when the personal and the household plan list them, then the order is 10th, 5th, carry-over.
+- [x] A3 (R3): Given the personal and the household plan, when their bookings sections render, then both use the same table component.
 
 ## Tracing
 
 | Requirement | Criterion | Test |
 | --- | --- | --- |
-| R1 | A1 | pending |
-| R2 | A2 | pending |
-| R3 | A3 | pending |
+| R1 | A1 | `PlanBookingsTableTests.A1_the_table_sits_in_its_own_region_that_scrolls_sideways`, `A1_the_card_frame_no_longer_clips_the_table`, `A1_the_tablet_range_uses_narrower_cell_padding`; measured in a real browser at 360, 412, 600, 800 and 840 px |
+| R2 | A2 | `PlanBookingsTableTests.A2_the_list_runs_newest_first_and_the_carry_over_stands_at_the_end`, `A2_a_booking_on_the_first_stands_above_the_carry_over_which_carries_the_first_of_the_plan_month`, `A2_the_household_plan_lists_in_the_same_order` |
+| R3 | A3 | `PlanBookingsTableTests.A3_the_personal_and_the_household_plan_use_the_same_bookings_component` |
 
 ## Non-goals
 

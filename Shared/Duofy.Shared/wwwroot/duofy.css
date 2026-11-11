@@ -712,7 +712,11 @@ a.duofy-button--primary { color: var(--primary-foreground); }
 .plan-row .list-row { border-bottom: 0; }
 .list-row-amount .list-row-detail { display: block; font-weight: 400; }
 /* Der Reiter Buchungen als Tabelle in voller Breite (Spec 82, R15); am Handy wird jede Zeile eine kleine Karte. */
-.month-bookings { padding: 0; overflow: hidden; }
+/* Wo die Tabelle nicht passt (600 bis 839 px, lange Kontonamen), scrollt sie in ihrem eigenen Bereich waagerecht, statt vom
+   Rahmen abgeschnitten zu werden (Spec 123, R1); die Seite selbst scrollt nie seitwärts. */
+.month-bookings { padding: 0; min-width: 0; }
+.bookings-scroll { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; border-radius: inherit; }
+.bookings-scroll:focus-visible { outline: 2px solid var(--ring, currentColor); outline-offset: -2px; }
 .month-bookings > .month-hint { padding: 16px; }
 .bookings-table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .bookings-table th {
@@ -728,6 +732,10 @@ a.duofy-button--primary { color: var(--primary-foreground); }
 .bookings-pot-item { display: inline-flex; align-items: center; gap: 6px; margin-right: 10px; white-space: nowrap; }
 .bookings-table .bookings-amount { text-align: right; white-space: nowrap; font-weight: 500; }
 .amount-expense { color: var(--destructive); }
+/* Tablet hochkant (800 px, Lenovo TB330FU): engeres Polster, damit die sechs Spalten ohne Wischen passen (Spec 123). */
+@media (min-width: 600px) and (max-width: 839px) {
+    .bookings-table th, .bookings-table td { padding-left: 12px; padding-right: 12px; }
+}
 @media (max-width: 599px) {
     .bookings-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
     .bookings-table tbody { display: block; }
