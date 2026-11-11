@@ -62,4 +62,6 @@ None.
 
 Approved by the human on 2026-11-11
 
+Amended on 2026-11-11 after the review, approved by the human: the outgoing carry-over keeps its booking date (end of month) and stands at the top; only the incoming one stands at the end with the 1st.
+
 In the lead session: the human gave the points on 11.11.2026 and ordered "spezifizieren und zur Arbeit schicken".

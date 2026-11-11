@@ -17,7 +17,7 @@ Every person using the app or portal on a tablet or phone.
 ## Requirements
 
 R1 (must): The bookings table of the personal plan fits the width at 360, 412, 600, 800 and 840 px or scrolls sideways inside its own area by swiping, exactly like the household plan's table — because the human cannot use it on his tablet (11.11.2026).
-R2 (must): Bookings are sorted newest first by booking date in the personal and the household plan; the carry-over counts as booked on the 1st of the month and stands at the end of the month's list — because the carry-over happens on the 1st (11.11.2026).
+R2 (must): Bookings are sorted newest first by booking date in the personal and the household plan; the incoming carry-over ("Übertrag aus" the previous month) counts as booked on the 1st of the month and stands at the end of the month's list; the outgoing carry-over ("Übertrag nach" the next month) keeps its booking date at the end of the month and therefore stands at the top — because the carry-over happens on the 1st (11.11.2026).
 R3 (must): The personal plan and the household plan use the same table component with the same layout rules — because components are reused (human's standing rule).
 
 ## Constraints
