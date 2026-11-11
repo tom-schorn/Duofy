@@ -165,7 +165,7 @@ public partial class BookingDialogStepsTests : PageTestContext
 
         input.Focus();
         Assert.Equal("true", dialogs.Find("[data-testid='booking-line-category-0-input']").GetAttribute("aria-expanded"));
-        Assert.Equal(["Lebensmittel", "Körperpflege", "Essen gehen"], BookingDialogSteps.OptionLabels(dialogs, "booking-line-category-0"));
+        Assert.Equal(["Keine Kategorie", "Lebensmittel", "Körperpflege", "Essen gehen"], BookingDialogSteps.OptionLabels(dialogs, "booking-line-category-0"));
 
         dialogs.Find("[data-testid='booking-line-category-0-input']").Input("essen");
 
@@ -202,11 +202,11 @@ public partial class BookingDialogStepsTests : PageTestContext
 
         Assert.Equal(["Grundbedarf", "Wünsche"], headings);
         var items = dialogs.Find("[data-testid='booking-line-category-0'] ul").Children.Select(c => c.TextContent.Trim()).ToList();
-        Assert.Equal(["Grundbedarf", "Lebensmittel", "Körperpflege", "Wünsche", "Essen gehen"], items);
+        Assert.Equal(["Keine Kategorie", "Grundbedarf", "Lebensmittel", "Körperpflege", "Wünsche", "Essen gehen"], items);
     }
 
     [Fact]
-    public void Positions_show_name_due_day_and_planned_amount_grouped_by_due_day()
+    public void Positions_show_name_and_planned_amount_under_their_due_day()
     {
         var rent = FakePlanApi.Position("Miete", 890m, day: 3);
         var gym = FakePlanApi.Position("Fitness", 29.9m, day: 15);
@@ -216,7 +216,7 @@ public partial class BookingDialogStepsTests : PageTestContext
         OpenDialog();
 
         var list = dialogs.Find("[data-testid='booking-line-position-0'] ul");
-        Assert.Equal(["Kein Posten", "Fällig am 3.", "Miete 3. · 890,00 €", "Fällig am 15.", "Fitness 15. · 29,90 €", "GEZ (abgehakt) 15. · 18,36 €"],
+        Assert.Equal(["Kein Posten", "Fällig am 3.", "Miete 890,00 €", "Fällig am 15.", "Fitness 29,90 €", "GEZ (abgehakt) 18,36 €"],
             list.Children.Select(c => Regex.Replace(c.TextContent.Trim(), @"\s+", " ")).ToList());
     }
 
@@ -288,5 +288,170 @@ public partial class BookingDialogStepsTests : PageTestContext
         Assert.Equal(
             [new SaveBookingLine(60m, PotKeys.Needs, FakeCategoryApi.Groceries.Id), new SaveBookingLine(30m, PotKeys.Wants, FakeCategoryApi.Restaurant.Id)],
             BookingApiFake.Created[0].Lines);
+    }
+
+    // S1: Escape in einer offenen Auswahl schließt nur die Liste, nicht den Dialog
+    [Fact]
+    public void Escape_in_an_open_combo_box_closes_only_the_list_not_the_dialog()
+    {
+        OpenDialog();
+        Field(dialogs, "booking-amount").Change("42");
+        Next();
+        var input = dialogs.Find("[data-testid='booking-account-input']");
+        input.Focus();
+        Assert.Equal("true", dialogs.Find("[data-testid='booking-account-input']").GetAttribute("aria-expanded"));
+
+        dialogs.Find("[data-testid='booking-account-input']").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.Equal("false", dialogs.Find("[data-testid='booking-account-input']").GetAttribute("aria-expanded"));
+        Assert.NotEmpty(dialogs.FindAll("[data-testid='step-dialog']"));
+        Assert.Empty(dialogs.FindAll("[data-testid='confirm-dialog'], [role='alertdialog']"));
+    }
+
+    // S2: die Kategorie lässt sich wieder löschen
+    [Fact]
+    public void The_category_can_be_cleared_again_with_no_category()
+    {
+        OpenDialog();
+        Field(dialogs, "booking-amount").Change("42");
+        Next();
+        Next();
+        BookingDialogSteps.Choose(dialogs, "booking-line-category-0", FakeCategoryApi.Restaurant.Id.ToString());
+        Assert.Equal(FakeCategoryApi.Restaurant.Id.ToString(), BookingDialogSteps.Chosen(dialogs, "booking-line-category-0"));
+
+        BookingDialogSteps.Choose(dialogs, "booking-line-category-0", "");
+
+        Assert.Equal("", BookingDialogSteps.Chosen(dialogs, "booking-line-category-0"));
+        BookingDialogSteps.ToLast(dialogs);
+        dialogs.Find("[data-testid='booking-save']").Click();
+        dialogs.WaitForAssertion(() => Assert.Single(BookingApiFake.Created));
+        Assert.Null(BookingApiFake.Created[0].Lines[0].CategoryId);
+    }
+
+    // N2: die Pfeiltasten laufen über die gezeichnete Reihenfolge, auch wenn die Optionen nicht nach Gruppen geordnet kommen
+    [Fact]
+    public void The_list_is_ordered_by_group_so_the_arrow_keys_follow_what_is_drawn()
+    {
+        var chosen = "";
+        var cut = Render<Duofy.Shared.Layout.ComboBox>(p => p
+            .Add(c => c.ValueChanged, EventCallback.Factory.Create<string>(this, v => chosen = v))
+            .Add(c => c.Options, new[]
+            {
+                new Duofy.Shared.Layout.ComboOption("a1", "A eins", "A"), new Duofy.Shared.Layout.ComboOption("b1", "B eins", "B"),
+                new Duofy.Shared.Layout.ComboOption("a2", "A zwei", "A"),
+            })
+            .Add(c => c.TestId, "order"));
+        cut.Find("[data-testid='order-input']").Focus();
+
+        Assert.Equal(["A eins", "A zwei", "B eins"], BookingDialogSteps.OptionLabels(cut, "order"));
+        cut.Find("[data-testid='order-input']").KeyDown(new KeyboardEventArgs { Key = "ArrowDown" });
+        cut.Find("[data-testid='order-input']").KeyDown(new KeyboardEventArgs { Key = "ArrowDown" });
+        cut.Find("[data-testid='order-input']").KeyDown(new KeyboardEventArgs { Key = "Enter" });
+        Assert.Equal("a2", chosen);
+    }
+
+    // N4: keine Überschrift "Zeile 1" direkt über "Zeile 1 bekommt den Rest"
+    [Fact]
+    public void The_first_split_line_has_no_heading_above_its_label()
+    {
+        OpenDialog();
+        Field(dialogs, "booking-amount").Change("90");
+        Next();
+        Next();
+        dialogs.Find("[data-testid='booking-split']").Click();
+        Next();
+
+        Assert.Empty(dialogs.FindAll("[data-testid='booking-line-0'] .booking-line-title"));
+        Assert.Contains("Zeile 1 bekommt den Rest", dialogs.Find("[data-testid='booking-line-0']").TextContent);
+        Assert.Equal("Zeile 2", dialogs.Find("[data-testid='booking-line-1'] .booking-line-title").TextContent.Trim());
+    }
+
+    // N5
+    [Fact]
+    public void The_account_field_invites_to_choose_or_search()
+    {
+        OpenDialog();
+        Accounts.Accounts.Clear();
+        Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: false, Active: true));
+        dialogs.Render();
+
+        Assert.Equal("Konto wählen oder suchen", dialogs.Find("[data-testid='booking-account-input']").GetAttribute("placeholder"));
+    }
+
+    // A6: der frühe Speichern-Knopf
+    [Fact]
+    public void Early_save_is_not_shown_in_step_one_nor_before_amount_and_account_are_set()
+    {
+        OpenDialog();
+        Field(dialogs, "booking-amount").Change("42");
+        Assert.Empty(dialogs.FindAll("[data-testid='booking-save-early']"));
+
+        Next();
+        Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-save-early']"));
+        Assert.Equal("Speichern", dialogs.Find("[data-testid='booking-save-early']").TextContent.Trim());
+
+        Next();
+        Next();
+        Assert.Empty(dialogs.FindAll("[data-testid='booking-save-early']"));
+        Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-save']"));
+    }
+
+    [Fact]
+    public void Early_save_waits_for_the_amount()
+    {
+        OpenDialog();
+        Next();
+
+        Assert.Empty(dialogs.FindAll("[data-testid='booking-save-early']"));
+
+        Back();
+        Field(dialogs, "booking-amount").Change("42");
+        Next();
+        Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-save-early']"));
+    }
+
+    [Fact]
+    public void Early_save_waits_for_the_account()
+    {
+        Accounts.Accounts.Clear();
+        Accounts.Accounts.Add(new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: false, Active: true));
+        OpenDialog();
+        Field(dialogs, "booking-amount").Change("42");
+        Next();
+        Assert.Empty(dialogs.FindAll("[data-testid='booking-save-early']"));
+
+        BookingDialogSteps.Choose(dialogs, "booking-account", Accounts.Accounts[0].Id.ToString());
+
+        Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-save-early']"));
+    }
+
+    [Fact]
+    public void Early_save_saves_like_the_last_step()
+    {
+        OpenDialog();
+        Field(dialogs, "booking-amount").Change("42");
+        Next();
+        BookingDialogSteps.Choose(dialogs, "booking-account", spar.Id.ToString());
+
+        dialogs.Find("[data-testid='booking-save-early']").Click();
+
+        dialogs.WaitForAssertion(() => Assert.Single(BookingApiFake.Created));
+        Assert.Equal(spar.Id, BookingApiFake.Created[0].AccountId);
+        Assert.Equal(42m, BookingApiFake.Created[0].Lines.Sum(l => l.Amount));
+        dialogs.WaitForAssertion(() => Assert.Empty(dialogs.FindAll("[data-testid='step-dialog']")));
+    }
+
+    [Fact]
+    public void A_failed_early_save_shows_the_error_in_the_last_step()
+    {
+        BookingApiFake.CreateError = "validation";
+        OpenDialog();
+        Field(dialogs, "booking-amount").Change("42");
+        Next();
+
+        dialogs.Find("[data-testid='booking-save-early']").Click();
+
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-error']")));
+        Assert.Equal("step-dialog-step-5", CurrentStep(dialogs));
     }
 }

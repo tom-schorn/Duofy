@@ -8,7 +8,7 @@
    Die Liste steht im Fluss unter dem Feld (nicht darüber), damit der rollende Inhalt eines Dialogs sie nicht abschneidet.
 
    Es folgt dem ARIA-Muster Combobox: Das Feld hat role combobox, die Liste role listbox, die gewählte Option aria-selected, die
-   mit den Pfeiltasten angesteuerte steht in aria-activedescendant. Enter wählt sie, Escape schließt die Liste.
+   mit den Pfeiltasten angesteuerte steht in aria-activedescendant. Enter wählt sie, Escape schließt die Liste (und nur sie: solange die Liste offen ist, steigt Escape nicht zum Dialog auf).
 
    Die Kennung (TestId) steht am Rahmen; dort steht auch data-value mit dem gewählten Wert. Die Optionen tragen
    data-testid="{TestId}-option-{Wert}". Weitere Attribute (aria-required ...) landen am Feld. *@
@@ -18,7 +18,7 @@
            aria-expanded="@(open ? "true" : "false")" aria-controls="@ListId" aria-activedescendant="@ActiveId"
            aria-describedby="@DescribedBy" placeholder="@(Placeholder ?? EmptyText)" value="@FieldText" @attributes="AdditionalAttributes"
            data-testid="@(TestId is null ? null : $"{TestId}-input")"
-           @onfocus="OpenAsync" @onclick="OpenAsync" @onblur="CloseAsync" @oninput="OnInput" @onkeydown="OnKeyDown" />
+           @onfocus="OpenAsync" @onclick="OpenAsync" @onblur="CloseAsync" @oninput="OnInput" @onkeydown="OnKeyDown" @onkeydown:stopPropagation="@open" />
     <span class="combo-chevron" aria-hidden="true"></span>
     <ul class="combo-list" id="@ListId" role="listbox" aria-label="@Label" hidden="@(!open)" @onmousedown:preventDefault>
         @{ var number = 0; }
@@ -112,17 +112,22 @@
     {
         get
         {
+            // Die Liste steht nach Gruppen geordnet (in der Reihenfolge, in der die Gruppen in Options zuerst vorkommen, innerhalb einer
+            // Gruppe in der Reihenfolge von Options). Die Pfeiltasten laufen über genau diese Reihenfolge; sie ist die gezeichnete.
             if (string.IsNullOrWhiteSpace(filter))
             {
-                return EmptyText is null ? Options : [new ComboOption("", EmptyText), .. Options];
+                return ByGroup(EmptyText is null ? Options : [new ComboOption("", EmptyText), .. Options]);
             }
             var words = filter.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            return Options.Where(o => words.All(w =>
+            return ByGroup(Options.Where(o => words.All(w =>
                 o.Label.Contains(w, StringComparison.CurrentCultureIgnoreCase)
                 || (o.Detail?.Contains(w, StringComparison.CurrentCultureIgnoreCase) ?? false)
-                || (o.Group?.Contains(w, StringComparison.CurrentCultureIgnoreCase) ?? false))).ToList();
+                || (o.Group?.Contains(w, StringComparison.CurrentCultureIgnoreCase) ?? false))));
         }
     }
+
+    private static IReadOnlyList<ComboOption> ByGroup(IEnumerable<ComboOption> options) =>
+        options.GroupBy(o => o.Group).SelectMany(g => g).ToList();
 
     private string OptionClass(int position, string value) =>
         "combo-option" + (position == active ? " is-active" : "") + (value == Value && value != "" ? " is-selected" : "");

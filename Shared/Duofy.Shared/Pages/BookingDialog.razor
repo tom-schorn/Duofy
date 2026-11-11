@@ -28,7 +28,7 @@
    (die erste Zeile nimmt den Rest, der Topf folgt der Kategorie). Der Dialog zeigt sie nur an. Weiter verlangt ein Konto
    (derselbe Satz wie zuvor beim Speichern); alles andere prüft wie bisher die API, ihre Fehler stehen oben im letzten Schritt. *@
 
-<StepDialog Title="@Title" OnFinish="SaveAsync" FinishText="@L["BookingDialog_Save"]" Busy="busy" FinishTestId="booking-save" NextTestId="booking-next" HasInput="@(() => touched)">
+<StepDialog @ref="stepDialog" Title="@Title" OnFinish="SaveAsync" EarlyFinish="@(draft.Amount is > 0 && draft.AccountId is not null)" EarlyFinishTestId="booking-save-early" FinishText="@L["BookingDialog_Save"]" Busy="busy" FinishTestId="booking-save" NextTestId="booking-next" HasInput="@(() => touched)">
     <DialogStep Title="@L["BookingDialog_StepWhat"]">
         @* Ausgabe, Einnahme oder Umbuchung. Die gewählte Art ist gefüllt und trägt ein Häkchen (Spec 124, R2); aria-pressed sagt es auch Vorlesegeräten. *@
         <div class="booking-kinds" role="group" aria-label="@L["BookingDialog_KindLabel"]">
@@ -133,7 +133,11 @@
             var index = i;
             var line = draft.Lines[index];
             <div class="booking-line" data-testid="@($"booking-line-{index}")">
-                <h3 class="booking-line-title">@L["BookingDialog_Line", index + 1]</h3>
+                @* Die erste Zeile trägt ihre Nummer schon in der Beschriftung ("Zeile 1 bekommt den Rest"), eine Überschrift darüber wäre doppelt. *@
+                @if (index > 0)
+                {
+                    <h3 class="booking-line-title">@L["BookingDialog_Line", index + 1]</h3>
+                }
                 @* Die erste Zeile ist nicht bearbeitbar: Sie zeigt, was übrig bleibt. *@
                 <StepField Label="@(index == 0 ? L["BookingDialog_SplitRest"] : L["Field_Amount"])" InputId="@($"booking-line-amount-{index}-input")">
                     <MoneyInput id="@($"booking-line-amount-{index}-input")" Value="line.Amount" ValueChanged="@(v => OnLineAmountChanged(index, v))" ReadOnly="@(index == 0)" data-testid="@($"booking-line-amount-{index}")" />
@@ -225,6 +229,8 @@
     /// <summary>Beim Anlegen: der Posten, zu dem die Buchung gehört; die Art folgt seinem Topf (Spec 51, R7).</summary>
     [Parameter]
     public Guid? PositionId { get; set; }
+
+    private StepDialog? stepDialog;
 
     private BookingDraft draft = default!;
 
@@ -401,7 +407,7 @@
 
     private static int PotOrder(string pot) => Math.Max(PotKeys.All.ToList().IndexOf(pot), 0);
 
-    // Die Posten des Planmonats nach Fälligkeitstag geordnet, jeder mit Name, Tag und geplantem Betrag (Spec 124, R3).
+    // Die Posten des Planmonats nach Fälligkeitstag geordnet, jeder mit Name und geplantem Betrag, der Fälligkeitstag steht als Gruppe darüber (Spec 124, R3).
     private IReadOnlyList<ComboOption> PositionOptions() => PlanView.OfferedPositions(plan, draft.Kind)
         .OrderBy(p => p.DueDay > 0 ? p.DueDay : int.MaxValue)
         .ThenBy(p => p.Label, StringComparer.CurrentCultureIgnoreCase)
@@ -409,7 +415,7 @@
             p.Id.ToString(),
             PositionText(p),
             p.DueDay > 0 ? L["BookingDialog_PositionDue", p.DueDay].Value : L["BookingDialog_PositionNoDue"].Value,
-            p.DueDay > 0 ? $"{L["Plan_DueDay", p.DueDay]} · {Money(p.AmountPlanned)}" : Money(p.AmountPlanned)))
+            Money(p.AmountPlanned)))
         .ToList();
 
     // Die Konten mit Symbol; aufgelöste nur, wenn es das gewählte ist, damit es beim Ändern sichtbar bleibt.
@@ -454,7 +460,7 @@
             var line = draft.Lines[index];
         }
         <StepField Label="@L["Field_Category"]" InputId="@($"booking-line-category-{index}-input")">
-            <ComboBox Value="@Key(line.CategoryId)" ValueChanged="v => OnCategoryChanged(index, v)" Options="CategoryOptions()" Label="@L["Field_Category"]"
+            <ComboBox Value="@Key(line.CategoryId)" ValueChanged="v => OnCategoryChanged(index, v)" Options="CategoryOptions()" EmptyText="@L["BookingDialog_NoCategory"]" Label="@L["Field_Category"]"
                       Placeholder="@L["BookingDialog_ChooseCategory"]" InputId="@($"booking-line-category-{index}-input")"
                       TestId="@($"booking-line-category-{index}")" />
         </StepField>
@@ -579,6 +585,8 @@
             else
             {
                 error = ErrorTexts.For(L, result.ErrorCode);
+                // Beim frühen Speichern steht der Fehler im letzten Schritt; dorthin geht der Dialog, damit er zu lesen ist.
+                stepDialog?.ShowLast();
             }
         }
         finally

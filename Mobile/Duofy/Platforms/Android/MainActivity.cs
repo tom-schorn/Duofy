@@ -79,9 +79,9 @@ namespace Duofy
         // Die Wahl in der App gilt (Preferences, true = dunkel); ohne Wahl folgt die App dem Systemmodus.
         private bool IsDark()
         {
-            if (Preferences.Default.ContainsKey(ThemeKey))
+            if (DarkChoice() is { } choice)
             {
-                return Preferences.Default.Get(ThemeKey, false);
+                return choice;
             }
             return (Resources?.Configuration?.UiMode & UiMode.NightMask) == UiMode.NightYes;
         }

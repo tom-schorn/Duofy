@@ -238,8 +238,8 @@
   <data name="BookingDialog_Kind_expense"><value>Ausgabe</value></data>
   <data name="BookingDialog_Kind_income"><value>Einnahme</value></data>
   <data name="BookingDialog_Kind_transfer"><value>Umbuchung</value></data>
-  <data name="BookingDialog_ChooseAccount"><value>(bitte wählen)</value></data>
-  <data name="BookingDialog_ChooseCategory"><value>(bitte wählen)</value></data>
+  <data name="BookingDialog_ChooseAccount"><value>Konto wählen oder suchen</value></data>
+  <data name="BookingDialog_ChooseCategory"><value>Kategorie wählen oder suchen</value></data>
   <data name="BookingDialog_ChoosePot"><value>(bitte wählen)</value></data>
   <data name="BookingDialog_AccountRequired"><value>Bitte wähle ein Konto.</value></data>
   <data name="BookingDialog_Line"><value>Zeile {0}</value></data>
