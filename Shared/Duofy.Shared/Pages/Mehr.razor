@@ -9,6 +9,7 @@
 @inject IStringLocalizer<SharedResources> L
 @inject ILegalApi LegalApi
 @inject IUserApi UserApi
+@inject IReminderApi ReminderApi
 @using Duofy.ApiClient
 @using Duofy.Schemas
 
@@ -32,15 +33,17 @@
     <MemberSwitch />
 </section>
 
-@* Erinnerungen (Spec 84): derselbe Baustein steht am PC und Tablet auf der Kontoseite. *@
-<ReminderSettings Class="mb-4" />
-
 @* Jeder Eintrag ist ein Link im Aussehen eines Knopfs; nur das Abmelden ist ein echter Knopf. Das Symbol steht vor dem Text. *@
 <div class="card" data-testid="more-list">
     <div class="stack-sm">
         <DuofyButton Href="/konten" Kind="ButtonKind.Ghost" TestId="more-accounts" Class="more-entry"><LucideIcon Name="wallet" Size="16" aria-hidden="true" /> @L["Nav_Accounts"]</DuofyButton>
         <DuofyButton Href="/vertraege" Kind="ButtonKind.Ghost" TestId="more-contracts" Class="more-entry"><LucideIcon Name="file-text" Size="16" aria-hidden="true" /> @L["More_Contracts"]</DuofyButton>
         <DuofyButton Href="/konto" Kind="ButtonKind.Ghost" TestId="more-user-account" Class="more-entry"><LucideIcon Name="user" Size="16" aria-hidden="true" /> @L["More_UserAccount"]</DuofyButton>
+        @* Benachrichtigungen (Spec 84, 118): eine eigene Seite; der Eintrag erscheint nur, wenn der Server Erinnerungen hat. *@
+        @if (hasNotifications)
+        {
+            <DuofyButton Href="/benachrichtigungen" Kind="ButtonKind.Ghost" TestId="more-notifications" Class="more-entry"><LucideIcon Name="bell" Size="16" aria-hidden="true" /> @L["Notify_Title"]</DuofyButton>
+        }
         @if (isAdmin)
         {
             <DuofyButton Href="/admin" Kind="ButtonKind.Ghost" TestId="more-admin" Class="more-entry"><LucideIcon Name="shield" Size="16" aria-hidden="true" /> @L["More_Admin"]</DuofyButton>
@@ -68,6 +71,9 @@
 
     // Ob die Person den Server verwaltet; ohne Antwort des Servers nicht.
     private bool isAdmin;
+
+    // Ob der Server Benachrichtigungen kennt (gehostet und eingeschaltet); sonst antwortet er 404 und der Eintrag fehlt.
+    private bool hasNotifications;
     private string displayName = "";
     private string email = "";
 
@@ -83,6 +89,8 @@
             legalDocuments = LegalPages.Known(result.Value!.Documents);
             legalUrls = result.Value.Urls;
         }
+
+        hasNotifications = (await ReminderApi.GetSettingsAsync()).Succeeded;
 
         var me = await UserApi.GetMeAsync();
         isAdmin = me.Succeeded && me.Value!.IsInstanceAdmin;

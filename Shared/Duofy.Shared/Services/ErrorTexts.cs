@@ -147,6 +147,8 @@ public static class ErrorTexts
         ErrorCodes.NoEditGranted => L["Error_no_edit_granted"],
         ErrorCodes.NoDeleteGranted => L["Error_no_delete_granted"],
         ReminderErrorCodes.ReminderTimeInvalid => L["Error_reminder_time_invalid"],
+        ReminderErrorCodes.ReminderWarningDaysInvalid => L["Error_reminder_warning_days_invalid"],
+        ReminderErrorCodes.ReminderLaterLimitReached => L["Error_reminder_later_limit_reached"],
         ClientErrorCodes.NotFound => L["Error_not_found"],
         ClientErrorCodes.NotSignedIn => L["Error_not_signed_in"],
         ClientErrorCodes.ServerUnreachable => L["Error_server_unreachable"],

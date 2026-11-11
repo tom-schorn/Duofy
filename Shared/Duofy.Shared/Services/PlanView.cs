@@ -9,6 +9,13 @@ namespace Duofy.Shared.Services;
 /// </summary>
 public static class PlanView
 {
+    /// <summary>
+    /// True, wenn der Plan den Posten als überfällig zeigt, weil seine Erinnerung dreimal mit "Später" verschoben wurde und er
+    /// noch offen ist (Spec 118, R6). Sonst entscheidet allein der Fälligkeitstag (siehe <see cref="MonthView"/>).
+    /// </summary>
+    public static bool IsPostponedOverdue(PlanPositionResponse position) =>
+        position.DoneAt is null && position.PostponeCount >= ReminderLimits.MaxPostpones;
+
     /// <summary>Die Töpfe in der Reihenfolge der Seite: zuerst, was hereinkommt, dann was hinausgeht.</summary>
     public static IReadOnlyList<string> PotOrder { get; } = [PotKeys.Income, PotKeys.Needs, PotKeys.Wants, PotKeys.Savings];
 
