@@ -41,7 +41,6 @@ External input: yes
 - [ ] A2 (R2): Given Tom in a household with Jasmin who granted Anlegen on Plan but not on Buchungen, when Tom chooses Posten hinzufügen, then Tom and Jasmin are offered; for Buchung hinzufügen only Tom; the created position belongs to the chosen person.
 - [ ] A3 (R3): Given Jasmin granted Tom Ändern on Plan, when Tom ticks Jasmin's position in the household plan, then the booking belongs to Jasmin; without the grant the tick is refused with the missing step.
 - [ ] A4 (R4): Given the personal plan, when Drucken is pressed, then a print view of the month opens; in the household plan, when Drucken is pressed, then a choice person/household appears and the chosen view opens.
-- [ ] A5 (R5): Given a contract whose amount changes from next month, when the current month's plan is read, then its position shows the old amount and the next month the new one.
 
 ## Tracing
 
@@ -51,7 +50,6 @@ External input: yes
 | R2 | A2 | `Tests/Duofy.Shared.Tests/HouseholdPlanWorkTests.cs`: `Adding_a_position_asks_for_the_person_first_and_the_position_belongs_to_the_chosen_one`, `Adding_a_booking_offers_only_those_who_granted_creating_bookings`; `Tests/Duofy.Shared.Tests/ActiveMemberActingTests.cs`: `People_with_a_level_are_me_first_and_then_the_members_whose_grant_reaches_it` |
 | R3 | A3 | `Tests/Duofy.Shared.Tests/HouseholdPlanWorkTests.cs`: `Ticking_a_position_of_another_member_runs_as_that_member_under_their_grant`, `Ticking_without_the_grant_is_refused_and_says_what_is_missing`; `Tests/Duofy.Shared.Tests/ActiveMemberActingTests.cs`: `What_a_member_may_do_for_another_follows_that_members_grants_also_in_the_household_view` |
 | R4 | A4 | `Tests/Duofy.Shared.Tests/HouseholdPlanWorkTests.cs`: `Print_in_the_personal_plan_prints_the_month_at_once`, `Print_in_the_household_plan_asks_for_one_person_or_the_whole_household_and_prints_the_household`, `Print_for_one_person_prints_that_persons_plan_from_their_grant` |
-| R5 | A5 | pending |
 
 ## Threats
 
@@ -78,5 +76,7 @@ None.
 ## Approval
 
 Approved by the human on 2026-11-11
+
+Amended on 2026-11-11: R5 is wont (human: ending the old contract and starting a new one already covers it; card P-065 rejected).
 
 In the lead session: the human gave the points on 11.11.2026 and ordered "spezifizieren und zur Arbeit schicken".
