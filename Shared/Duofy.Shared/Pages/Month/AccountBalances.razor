@@ -1,3 +1,4 @@
+@using Duofy.Schemas
 @inject IStringLocalizer<SharedResources> L
 @inject ActiveMember Member
 
@@ -9,7 +10,7 @@
     <h2 class="month-section-title" id="month-accounts-heading">@L["Month_AccountsHeading"]</h2>
     @if (NotShared)
     {
-        <p class="month-hint" data-testid="month-accounts-not-shared">@NotSharedText.For(L, Member, "accounts")</p>
+        <p class="month-hint" data-testid="month-accounts-not-shared">@NotSharedText.For(L, Member, GrantAreas.Accounts)</p>
     }
     else if (Rows.Count == 0)
     {

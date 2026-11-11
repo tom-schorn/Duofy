@@ -1,3 +1,4 @@
+@using Duofy.Schemas
 @using System.Globalization
 @using Duofy.Shared.Charts
 @inject IStringLocalizer<SharedResources> L
@@ -15,7 +16,7 @@
 <div class="month-review" data-testid="month-review">
     @if (!SeesBookings)
     {
-        <p class="month-hint" data-testid="month-review-not-shared">@NotSharedText.For(L, Member, "book")</p>
+        <p class="month-hint" data-testid="month-review-not-shared">@NotSharedText.For(L, Member, GrantAreas.Book)</p>
     }
     else
     {

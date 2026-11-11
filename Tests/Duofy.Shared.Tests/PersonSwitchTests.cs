@@ -119,7 +119,7 @@ public class PersonSwitchTests : PageTestContext
         Assert.Empty(menu.FindAll("[data-testid='member-choice-household']"));
         menu.Find($"[data-testid='member-choice-{Anna}']").Click();
 
-        Assert.Equal(Anna, Member.Owner);
+        chip.WaitForAssertion(() => Assert.Equal(Anna, Member.Owner));
         chip.WaitForAssertion(() => Assert.Equal("Ansicht: Anna", chip.Find("[data-testid='shell-view']").TextContent.Trim()));
         Assert.Equal("Ansicht: Anna", chip.Find("[data-testid='shell-view']").GetAttribute("aria-label"));
     }
@@ -202,5 +202,24 @@ public class PersonSwitchTests : PageTestContext
         var chip = Render<ViewChip>();
 
         Assert.Empty(chip.FindAll("[data-testid='shell-view']"));
+    }
+
+    // Kontostände in der Auswertung: Teilt die gewählte Person ihre Konten nicht, steht der Satz mit Namen und Bereich statt einer leeren Tabelle.
+    [Fact]
+    public async Task The_account_balances_say_whose_accounts_are_not_shared()
+    {
+        HouseholdApiFake.Household = new HouseholdResponse(Guid.NewGuid(), "Haushalt von Anna", 50, 30, 20,
+        [
+            FakeHouseholdApi.Anna(isMe: false) with { GrantsToMe = GrantLevels.None with { Plan = AccessLevelKeys.View } },
+            FakeHouseholdApi.Ben(isMe: true),
+        ]);
+        await Member.LoadAsync();
+        Member.Choose(Anna);
+
+        var cut = Render<AccountBalances>(p => p.Add(x => x.NotShared, true).Add(x => x.AsOf, "heute"));
+
+        var hint = cut.Find("[data-testid='month-accounts-not-shared']").TextContent;
+        Assert.Contains("Anna", hint);
+        Assert.Empty(cut.FindAll("table"));
     }
 }
