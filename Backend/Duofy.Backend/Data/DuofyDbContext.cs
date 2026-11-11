@@ -130,6 +130,12 @@ public class DuofyDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Gui
     /// <summary>Die Erinnerungen an Posten (Spec 84), je Posten und Person eine.</summary>
     public DbSet<Reminder> Reminders => Set<Reminder>();
 
+    /// <summary>Wie oft ein Posten zu einem Fälligkeitstag mit "Später" verschoben wurde (Spec 118).</summary>
+    public DbSet<PostponeCount> PostponeCounts => Set<PostponeCount>();
+
+    /// <summary>Was im Haushalt geschah, für die Abendzusammenfassung (Spec 118).</summary>
+    public DbSet<HouseholdEvent> HouseholdEvents => Set<HouseholdEvent>();
+
     /// <summary>Der Name der Schatten-Spalte, die den Plan eines Postens nennt.</summary>
     public const string PositionPlan = "PlanId";
 
@@ -241,8 +247,11 @@ public class DuofyDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Gui
         reminder.Property(r => r.State)
             .HasMaxLength(20)
             .HasConversion(state => state.ToString().ToLowerInvariant(), key => Enum.Parse<ReminderState>(key, ignoreCase: true));
-        reminder.HasIndex(r => new { r.PositionId, r.RecipientId }).IsUnique();
-        reminder.HasIndex(r => r.RecipientId);
+        reminder.Property(r => r.Kind)
+            .HasMaxLength(20)
+            .HasConversion(kind => kind.ToString().ToLowerInvariant(), key => Enum.Parse<ReminderKind>(key, ignoreCase: true));
+        reminder.HasIndex(r => new { r.PositionId, r.RecipientId, r.Day, r.Kind }).IsUnique();
+        reminder.HasIndex(r => new { r.RecipientId, r.Day, r.Kind });
         reminder.HasOne<AppUser>()
             .WithMany()
             .HasForeignKey(r => r.RecipientId)
@@ -250,6 +259,28 @@ public class DuofyDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Gui
         reminder.HasOne<PlanPosition>()
             .WithMany()
             .HasForeignKey(r => r.PositionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var postpones = modelBuilder.Entity<PostponeCount>();
+        postpones.ToTable("postpone_counts");
+        postpones.HasKey(c => new { c.PositionId, c.DueDate });
+        postpones.HasOne<PlanPosition>()
+            .WithMany()
+            .HasForeignKey(c => c.PositionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var events = modelBuilder.Entity<HouseholdEvent>();
+        events.ToTable("household_events");
+        events.Property(e => e.Id).ValueGeneratedNever();
+        events.Property(e => e.Label).HasMaxLength(200);
+        events.Property(e => e.Amount).HasPrecision(18, 2);
+        events.Property(e => e.Kind)
+            .HasMaxLength(20)
+            .HasConversion(kind => kind.ToString().ToLowerInvariant(), key => Enum.Parse<HouseholdEventKind>(key, ignoreCase: true));
+        events.HasIndex(e => new { e.HouseholdId, e.OccurredAt });
+        events.HasOne<Household>()
+            .WithMany()
+            .HasForeignKey(e => e.HouseholdId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 

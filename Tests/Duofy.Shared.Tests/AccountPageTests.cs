@@ -180,29 +180,27 @@ public class AccountPageBuildTests : PageTestContext
         Assert.Contains("duofy-button", cut.Find("[data-testid='account-sign-out-everywhere']").ClassList);
     }
 
-    // Spec 84, M3: Die Erinnerungen sind auch am PC und am Tablet erreichbar, wo es die Seite Mehr nicht gibt: auf der Kontoseite.
+    // Spec 118, R1: Auch am PC und Tablet, wo es die Seite Mehr nicht gibt, führt die Kontoseite zur Seite "Benachrichtigungen".
     [Fact]
-    public void The_account_page_shows_the_reminder_settings_and_saves_each_choice_at_once()
+    public void The_account_page_links_to_the_notifications_page()
     {
         ReminderApiFake.Available = true;
-        ReminderApiFake.Settings = new ReminderSettingsResponse(true, "07:30");
 
         var cut = Render<Account>();
 
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='more-reminders']")));
-        Assert.Equal("07:30", cut.Find("[data-testid='more-reminders-time']").GetAttribute("value"));
-        cut.Find("[data-testid='more-reminders-enabled']").Click();
-        cut.WaitForAssertion(() => Assert.Equal(new UpdateReminderSettingsRequest(Enabled: false), Assert.Single(ReminderApiFake.Updates)));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='account-notifications']")));
+        Assert.Equal("/benachrichtigungen", cut.Find("[data-testid='account-notifications-open']").GetAttribute("href"));
+        Assert.Empty(cut.FindAll("[data-testid='notifications']"));
     }
 
     [Fact]
-    public void The_account_page_hides_the_reminder_settings_without_reminders_on_the_server()
+    public void The_account_page_hides_the_notifications_link_without_reminders_on_the_server()
     {
         ReminderApiFake.Available = false;
 
         var cut = Render<Account>();
 
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='account-names']")));
-        Assert.Empty(cut.FindAll("[data-testid='more-reminders']"));
+        Assert.Empty(cut.FindAll("[data-testid='account-notifications']"));
     }
 }

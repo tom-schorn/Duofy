@@ -22,6 +22,7 @@ What a person expects to pay and receive in one month, and how far it has happen
 
 - Plan: `owner_id`, `year`, `month`, `quota_needs`, `quota_wants`, `quota_savings`, `carry_over_income_booking_id` and `carry_over_expense_booking_id` (the two bookings of its carry-over pair, both empty without one).
 - Position: `plan_id`, `commitment_id` (optional), `label`, `amount_planned`, `due_day`, `category_id`, `pot`, `account_id`, `counter_account_id`, `pass_through`, `payment_method`, `done_at`, `changed_by_hand`, `tick_booking_id`.
+- Postpone count (spec 118): `position_id`, `due_date`, `count`; how often the reminder of a position was postponed with "Später" for that due date; changing the due day starts a new count.
 
 ## Rules
 
@@ -37,6 +38,9 @@ What a person expects to pay and receive in one month, and how far it has happen
 - The free amount is planned income minus planned expenses plus the carry-over from the previous month, plus booked income lines without a position and minus booked expense lines without a position (transfers and carry-over bookings do not count; spec 93), computed in `PlanFigures.Free`; each position counts there with its planned amount, or with its booked amount when more was booked, for income and expense positions, open or ticked, pass-through positions staying out (spec 93, R7); the text at the number says when a carry-over is included. Fixed, quotas, pots and booked sums stay without it, and the carry-over going out of a month does not lower that month's free amount. Whoever does not see a person's bookings gets that person's free amount without the carry-over, also as a share of the household sum, so the household sum depends on the viewer; the household month names every member without the grant (spec 66, amendment 2026-11-01). The unplanned lines of all counted members count in the household sum regardless of the grant, as the household's unplanned figure already shows them to everyone (spec 93).
 - Stored pairs with the income on the first of the month stay as they are and are recognised through the two booking ids of the plan (spec 66, amendment 2026-11-01).
 - If an entered real balance differs from the computed one, the carry-over dialog shows the difference per account and asks: book the missing bookings first or adopt the difference as a balancing booking (spec 66, amendment 2026-11-01).
+
+- A reminder may be postponed with "Später" at most three times per position and due date; the plan shows the count from 1 on ("n× verschoben") in the position's caption and the position response carries `postponeCount`; from the third time on, while it is not ticked, the plan and the month overview mark the position as overdue and the reminder offers no "Später" (spec 118, R6). Ticking resets nothing but ends the reminders.
+- The reminder job selects positions of the plan months of the last three months up to the next seven days with a manual payment method (transfer, withdrawal, other), not ticked and not income, by their due date (the last day of a shorter month): due today, due in exactly the person's warning days (advance), and past due (overdue; up to three months back) (spec 118).
 
 ## Interfaces
 

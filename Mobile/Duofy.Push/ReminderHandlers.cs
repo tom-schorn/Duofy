@@ -23,12 +23,25 @@ public sealed class ReminderSignalHandler(IReminderApi reminders, IReminderNotif
         if (result.Succeeded)
         {
             var reminder = result.Value!;
+            if (reminder.Kind == ReminderKinds.Household || reminder.PositionId is null)
+            {
+                // Die Zusammenfassung des Haushalts: ohne Knöpfe; ist nach den Freigaben nichts mehr zu sehen, bleibt es still.
+                var events = reminder.Events ?? [];
+                if (events.Count > 0)
+                {
+                    await notifier.ShowAsync(new ReminderNotification(
+                        reminder.Id, ReminderTexts.HouseholdTitle(events), ReminderTexts.HouseholdBody(events), ReminderPaths.Household,
+                        WithActions: false), cancellationToken);
+                }
+                return;
+            }
             await notifier.ShowAsync(new ReminderNotification(
                 reminder.Id,
-                ReminderTexts.Title(reminder.Label),
-                ReminderTexts.Body,
-                ReminderPaths.Month(reminder.Year, reminder.Month, reminder.PositionId, reminder.OwnerId),
-                WithActions: true), cancellationToken);
+                ReminderTexts.Title(reminder),
+                ReminderTexts.BodyOf(reminder),
+                ReminderPaths.Month(reminder.Year, reminder.Month, reminder.PositionId.Value, reminder.OwnerId),
+                WithActions: true,
+                WithLater: reminder.LaterAllowed), cancellationToken);
             return;
         }
 
@@ -95,7 +108,11 @@ public sealed class ReminderActionHandler(
             return await RefuseAsync(reminderId, fetched.ErrorCode, ReminderPaths.CurrentMonth, cancellationToken);
         }
         var reminder = fetched.Value!;
-        var path = ReminderPaths.Month(reminder.Year, reminder.Month, reminder.PositionId, reminder.OwnerId);
+        if (reminder.PositionId is not { } positionId)
+        {
+            return await RefuseAsync(reminderId, ClientErrorCodes.NotFound, ReminderPaths.Household, cancellationToken);
+        }
+        var path = ReminderPaths.Month(reminder.Year, reminder.Month, positionId, reminder.OwnerId);
         if (reminder.AmountPlanned is not { } amount)
         {
             // Ohne Recht auf den Plan kennt der Server den Betrag nicht preis; dann gibt es auch kein Abhaken von hier.
@@ -103,7 +120,7 @@ public sealed class ReminderActionHandler(
         }
 
         var tick = await ticker.TickAsync(
-            reminder.Year, reminder.Month, reminder.PositionId, reminder.OwnerId, amount, cancellationToken);
+            reminder.Year, reminder.Month, positionId, reminder.OwnerId, amount, cancellationToken);
         if (!tick.Succeeded)
         {
             return await RefuseAsync(reminderId, tick.ErrorCode, path, cancellationToken);

@@ -331,11 +331,19 @@ auf dem Server.
 
 ### 5.1 Erinnerungen auf dem Handy und am PC
 
-Plagevo kann am Tag der Fälligkeit an Posten erinnern, die man von Hand bezahlt (Überweisung, Abhebung, Sonstige). Dafür
+Plagevo kann an Posten erinnern, die man von Hand bezahlt (Überweisung, Abhebung, Sonstige): am Morgen am Tag der
+Fälligkeit, einige Tage vorher (Vorwarnung, 1 bis 7 Tage, voreingestellt 2), jeden Morgen, solange ein Posten überfällig und
+nicht abgehakt ist, und am Abend noch einmal für die Posten von heute, die noch offen sind. Dazu kommt abends eine
+Zusammenfassung dessen, was im Haushalt geschah. Jede Person stellt das selbst auf der Seite "Benachrichtigungen" ein: vier
+Schalter (Heute fällig, Überfällig, Vorwarnung, Haushalt), die Uhrzeit am Morgen (voreingestellt 09:00) und am Abend (19:00,
+abschaltbar). "Später" geht höchstens dreimal je Posten und Fälligkeitstag; danach bleibt nur "Bezahlt" und der Plan zeigt
+den Posten als überfällig. Der Server prüft das jede Minute und rechnet in Berliner Zeit. Dafür
 schickt der Server ein stilles Signal an Android über Firebase Cloud Messaging (FCM) und an Windows über die Windows Push
-Notification Services (WNS). Im Signal stehen nur eine zufällige Kennung und die Art, nie ein Name oder ein Betrag; den Text
-holt die App danach mit Anmeldung vom Server. Die Erinnerungen gibt es nur auf der gehosteten Version und sind aus, bis du
-sie einschaltest. Die Zugangsdaten stehen nur auf dem Server, nie im Repository.
+Notification Services (WNS). Im Signal stehen nur eine zufällige Kennung und die Art (fällig, Haushalt, zurückziehen), nie ein Name oder
+ein Betrag; den Text mit Name und Betrag ("Miete 850 € ist heute fällig") baut die App danach mit Anmeldung aus dem, was der
+Server liefert, und er steht auf dem Gerät, auch auf dem Sperrbildschirm, solange Android es nicht verbirgt (Einstellung
+"Vertrauliche Inhalte"). Die Erinnerungen gibt es nur auf der gehosteten Version und sind aus, bis du sie einschaltest; wer sie
+einschaltet, hat für jede Person zunächst alle vier Schalter an. Die Zugangsdaten stehen nur auf dem Server, nie im Repository.
 
 Die Einstellungen (in der `.env`, Schreibweise von .NET; hier ohne Werte):
 
@@ -365,6 +373,13 @@ erreicht, hängt am Store-Build mit Hintergrundaufgabe und ist vor der Veröffen
 
 Ein Druck auf "Bezahlt" oder "Später" in der Benachrichtigung bei ganz geschlossener App geht verloren: Die App holt die
 Anmeldung erst beim Start. Das ist vorerst so hingenommen.
+
+**Datenbank (Spec 118).** Die Migration `NotificationSettings` ersetzt die Einstellung "Erinnerungen an/aus" durch die vier
+Schalter, zwei Uhrzeiten und die Vorwarnung und legt Tabellen für das Zählen von "Später" (`postpone_counts`) und für das
+Protokoll der Haushaltsereignisse (`household_events`) an. Sie übernimmt die alten Einstellungen: wer die Erinnerungen an
+hatte, behält seine Uhrzeit als Uhrzeit am Morgen und hat alle Schalter an, wer sie aus hatte, hat alle aus. Sie wird nur vom
+Betreiber eingespielt (`dotnet ef database update` oder der Migrationsdienst), nie von der Entwicklung gegen die echte
+Datenbank; Zurücknehmen geht und löscht die neuen Erinnerungsarten und die Zusammenfassungen.
 
 **Prüfen.** Nach dem Einschalten: `docker compose up -d api`, dann `docker compose logs api | grep Reminders`. Prüfe auch die
 Dienstkonto-Datei: `ls -ln deploy/push/firebase.json` muss den Besitzer 1654 und die Rechte `-rw-------` zeigen, sonst

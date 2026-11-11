@@ -21,11 +21,127 @@ public class ReminderPushTests
         await Samples.Signals(api, notifier).HandleAsync(new PushSignal(reminder.Id, PushSignal.Due));
 
         var shown = Assert.Single(notifier.Shown);
-        Assert.Equal("GEZ ist heute fällig", shown.Title);
+        Assert.Equal("GEZ 55,08 € ist heute fällig", shown.Title);
         Assert.True(shown.WithActions);
         Assert.Equal(reminder.Id, shown.ReminderId);
         Assert.Equal($"/plan/2026/11?haken={reminder.PositionId}&besitzer={reminder.OwnerId}", shown.Path);
         Assert.Equal(("Bezahlt", "Später"), (ReminderTexts.PaidAction, ReminderTexts.LaterAction));
+    }
+
+    // Spec 118, A9 (R9): Der sichtbare Text nennt Name und Betrag im Format der App; ganze Beträge ohne Cent.
+    [Fact]
+    public async Task The_visible_text_names_the_position_and_the_amount()
+    {
+        var api = new FakeReminderApi();
+        var rent = Samples.Reminder(label: "Miete", amount: 850m);
+        api.Reminders[rent.Id] = rent;
+        var notifier = new FakeNotifier();
+
+        await Samples.Signals(api, notifier).HandleAsync(new PushSignal(rent.Id, PushSignal.Due));
+
+        Assert.Equal("Miete 850 € ist heute fällig", Assert.Single(notifier.Shown).Title);
+    }
+
+    // Ohne Recht auf den Plan kennt der Server den Betrag nicht preis; der Text nennt dann nur den Namen.
+    [Fact]
+    public async Task Without_the_amount_the_text_names_only_the_position()
+    {
+        var api = new FakeReminderApi();
+        var rent = Samples.Reminder(label: "Miete") with { AmountPlanned = null };
+        api.Reminders[rent.Id] = rent;
+        var notifier = new FakeNotifier();
+
+        await Samples.Signals(api, notifier).HandleAsync(new PushSignal(rent.Id, PushSignal.Due));
+
+        Assert.Equal("Miete ist heute fällig", Assert.Single(notifier.Shown).Title);
+    }
+
+    [Theory]
+    [InlineData(ReminderKinds.Advance, 2, "Miete 850 € ist in 2 Tagen fällig")]
+    [InlineData(ReminderKinds.Advance, 1, "Miete 850 € ist morgen fällig")]
+    [InlineData(ReminderKinds.Overdue, -1, "Miete 850 € ist seit gestern überfällig")]
+    [InlineData(ReminderKinds.Overdue, -4, "Miete 850 € ist seit 4 Tagen überfällig")]
+    [InlineData(ReminderKinds.Due, 0, "Miete 850 € ist heute fällig")]
+    public async Task The_text_says_when_the_position_is_due(string kind, int days, string expected)
+    {
+        var api = new FakeReminderApi();
+        var rent = Samples.Reminder(label: "Miete", amount: 850m) with { Kind = kind, DaysUntilDue = days };
+        api.Reminders[rent.Id] = rent;
+        var notifier = new FakeNotifier();
+
+        await Samples.Signals(api, notifier).HandleAsync(new PushSignal(rent.Id, PushSignal.Due));
+
+        Assert.Equal(expected, Assert.Single(notifier.Shown).Title);
+    }
+
+    // Spec 118, R6: Das Verschieben wird gezählt und gezeigt; nach dem dritten Mal gibt es kein "Später" mehr.
+    [Fact]
+    public async Task After_the_third_postpone_the_notification_offers_no_later_and_names_the_count()
+    {
+        var api = new FakeReminderApi();
+        var open = Samples.Reminder(label: "Miete", amount: 850m) with { PostponeCount = 2 };
+        var last = Samples.Reminder(label: "Strom", amount: 60m) with { PostponeCount = 3, LaterAllowed = false, Kind = ReminderKinds.Overdue, DaysUntilDue = -3 };
+        api.Reminders[open.Id] = open;
+        api.Reminders[last.Id] = last;
+        var notifier = new FakeNotifier();
+        var handler = Samples.Signals(api, notifier);
+
+        await handler.HandleAsync(new PushSignal(open.Id, PushSignal.Due));
+        await handler.HandleAsync(new PushSignal(last.Id, PushSignal.Due));
+
+        Assert.True(notifier.Shown[0].WithLater);
+        Assert.StartsWith("2× verschoben.", notifier.Shown[0].Body);
+        Assert.True(notifier.Shown[1].WithActions);
+        Assert.False(notifier.Shown[1].WithLater);
+        Assert.StartsWith("3× verschoben.", notifier.Shown[1].Body);
+        Assert.DoesNotContain("Später", notifier.Shown[1].Body);
+    }
+
+    // Spec 118, R8: Die Zusammenfassung des Haushalts ist eine Benachrichtigung ohne Knöpfe mit einer kurzen Liste.
+    [Fact]
+    public async Task A_household_signal_shows_one_summary_with_a_short_list_and_no_buttons()
+    {
+        var api = new FakeReminderApi();
+        var summary = Samples.Household(null,
+            new HouseholdEventLine("booked", "Jasmin", "REWE", 23.4m),
+            new HouseholdEventLine("booked", "Jasmin", "Tankstelle", 50m),
+            new HouseholdEventLine("ticked", "Jasmin", "Miete", 850m));
+        api.Reminders[summary.Id] = summary;
+        var notifier = new FakeNotifier();
+
+        await Samples.Signals(api, notifier).HandleAsync(new PushSignal(summary.Id, PushSignal.Household));
+
+        var shown = Assert.Single(notifier.Shown);
+        Assert.Equal("Haushalt heute: 3 Ereignisse", shown.Title);
+        Assert.Equal("Jasmin hat REWE 23,40 € gebucht\nJasmin hat Tankstelle 50 € gebucht\nJasmin hat Miete 850 € abgehakt", shown.Body);
+        Assert.False(shown.WithActions);
+        Assert.Equal("/haushalt", shown.Path);
+        Assert.True(ReminderPaths.IsAllowed(shown.Path));
+    }
+
+    [Fact]
+    public async Task A_household_summary_with_nothing_left_to_show_stays_silent()
+    {
+        var api = new FakeReminderApi();
+        var summary = Samples.Household();
+        api.Reminders[summary.Id] = summary;
+        var notifier = new FakeNotifier();
+
+        await Samples.Signals(api, notifier).HandleAsync(new PushSignal(summary.Id, PushSignal.Household));
+
+        Assert.Empty(notifier.Shown);
+    }
+
+    [Fact]
+    public void The_household_signal_is_a_known_signal_type_and_a_long_list_is_cut()
+    {
+        Assert.True(PushSignal.TryParse(new Dictionary<string, string> { ["reminderId"] = Guid.NewGuid().ToString(), ["type"] = "household" }, out _));
+        var many = Enumerable.Range(1, 7).Select(i => new HouseholdEventLine("joined", $"P{i}", null, null)).ToList();
+
+        var body = ReminderTexts.HouseholdBody(many);
+
+        Assert.Equal(6, body.Split('\n').Length);
+        Assert.EndsWith("und 2 weitere", body);
     }
 
     // R4: Scheitert das Holen (offline), erscheint der Text ohne Namen und ohne Knöpfe.

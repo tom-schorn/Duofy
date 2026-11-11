@@ -21,6 +21,19 @@ public class MonthViewTests
     private static PlanOverviewResponse Overview(params BookingResponse[] bookings) =>
         new(3000m, 1200m, 1800m, [new PlanPotResponse(PotKeys.Needs, 1000m, 1200m)], bookings);
 
+    // Spec 118, R6: Dreimal verschoben heißt überfällig, auch wenn der Fälligkeitstag noch nicht vorbei ist.
+    [Fact]
+    public void A_position_postponed_three_times_counts_as_overdue_before_its_day_has_passed()
+    {
+        var third = FakePlanApi.Position("Miete", 890m, day: 21) with { PostponeCount = 3 };
+        var twice = FakePlanApi.Position("Strom", 60m, day: 21) with { PostponeCount = 2 };
+
+        var due = MonthView.ForPerson(PlanWith(null, third, twice), Today, _ => null).Due;
+
+        Assert.True(due.Single(d => d.Label == "Miete").Overdue);
+        Assert.False(due.Single(d => d.Label == "Strom").Overdue);
+    }
+
     // A10 (R10)
     [Fact]
     public void The_overview_lists_the_five_newest_bookings_with_date_and_amount()

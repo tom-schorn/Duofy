@@ -61,7 +61,7 @@ public static class MonthView
 
     private static readonly string[] PotKeysInOrder = [PotKeys.Needs, PotKeys.Wants, PotKeys.Savings];
 
-    private sealed record DueSource(string Label, int DueDay, string Pot, bool PassThrough, decimal Planned, decimal Booked, DateTimeOffset? DoneAt, string? Owner);
+    private sealed record DueSource(string Label, int DueDay, string Pot, bool PassThrough, decimal Planned, decimal Booked, DateTimeOffset? DoneAt, string? Owner, int PostponeCount = 0);
 
     /// <summary>Was ein Posten zum Ist der Quote beiträgt: sein Topf, ob er durchläuft, und was auf ihm gebucht ist.</summary>
     public sealed record QuotaSource(string Pot, bool PassThrough, decimal Booked);
@@ -132,7 +132,7 @@ public static class MonthView
             .ToList();
         var bookings = BookingRows(overview?.Bookings ?? [], accountName, purpose);
         var due = DueRows(
-            plan.Positions.Select(p => new DueSource(p.Label, p.DueDay, p.Pot, p.PassThrough, p.AmountPlanned, p.Booked, p.DoneAt, null)),
+            plan.Positions.Select(p => new DueSource(p.Label, p.DueDay, p.Pot, p.PassThrough, p.AmountPlanned, p.Booked, p.DoneAt, null, p.PostponeCount)),
             plan.Year, plan.Month, today);
         return new MonthOverviewModel(overview?.Income ?? 0m, overview?.Fixed ?? 0m, overview?.Free ?? 0m, pots, bookings.Take(RecentCount).ToList(), due, CarryOverRows(overview?.CarryOvers),
             categoryName is null ? [] : Categories(plan, categoryName), MonthCurve.ForPerson(plan, today));
@@ -148,7 +148,7 @@ public static class MonthView
             .ToList();
         var bookings = HouseholdBookingRows(plan);
         var due = DueRows(
-            plan.Positions.Select(p => new DueSource(p.Label, p.DueDay, p.Pot, p.PassThrough, p.AmountPlanned, p.Booked, p.DoneAt, p.OwnerFirstName)),
+            plan.Positions.Select(p => new DueSource(p.Label, p.DueDay, p.Pot, p.PassThrough, p.AmountPlanned, p.Booked, p.DoneAt, p.OwnerFirstName, p.PostponeCount)),
             plan.Year, plan.Month, today);
         return new MonthOverviewModel(plan.Income, plan.Fixed, plan.Free, pots, bookings.Take(RecentCount).ToList(), due, CarryOverRows(plan.CarryOvers),
             [], MonthCurve.ForHousehold(plan, today));
@@ -229,19 +229,20 @@ public static class MonthView
     }
 
     // Anstehend: verplant, aber nicht abgehakt oder bezahlt, ohne Einnahmen und durchlaufende Posten (Spec 23, Begriffe).
-    // Überfällig heißt: der Fälligkeitstag liegt vor heute; anstehend: heute bis in UpcomingDays Tagen.
+    // Überfällig heißt: der Fälligkeitstag liegt vor heute oder der Posten wurde dreimal verschoben; anstehend: heute bis in UpcomingDays Tagen.
     private static IReadOnlyList<MonthDueRow> DueRows(IEnumerable<DueSource> positions, int year, int month, DateOnly today)
     {
         var rows = new List<MonthDueRow>();
         foreach (var p in positions)
         {
             var open = Math.Max(p.Planned - p.Booked, 0m);
-            if (p.Pot == PotKeys.Income || p.PassThrough || p.DoneAt is not null || open == 0m)
+            if (!PositionOpen.Is(p.Pot == PotKeys.Income, p.PassThrough, p.DoneAt is not null, p.Planned, p.Booked))
             {
                 continue;
             }
             var due = new DateOnly(year, month, Math.Min(p.DueDay, DateTime.DaysInMonth(year, month)));
-            var overdue = due < today;
+            // Überfällig: der Tag ist vorbei oder die Erinnerung wurde dreimal verschoben (Spec 118, R6).
+            var overdue = due < today || p.PostponeCount >= ReminderLimits.MaxPostpones;
             if (overdue || due <= today.AddDays(UpcomingDays))
             {
                 rows.Add(new MonthDueRow(p.Label, due, open, overdue, p.Owner));

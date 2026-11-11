@@ -25,8 +25,11 @@ namespace Duofy.Services.Push
             {
                 builder.AddButton(new AppNotificationButton(ReminderTexts.PaidAction)
                     .AddArgument(ActionKey, PaidValue).AddArgument(ReminderKey, notification.ReminderId.ToString()));
-                builder.AddButton(new AppNotificationButton(ReminderTexts.LaterAction)
-                    .AddArgument(ActionKey, LaterValue).AddArgument(ReminderKey, notification.ReminderId.ToString()));
+                if (notification.WithLater)
+                {
+                    builder.AddButton(new AppNotificationButton(ReminderTexts.LaterAction)
+                        .AddArgument(ActionKey, LaterValue).AddArgument(ReminderKey, notification.ReminderId.ToString()));
+                }
             }
             Show(notification.ReminderId, builder);
             return Task.CompletedTask;

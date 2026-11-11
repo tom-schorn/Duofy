@@ -7,6 +7,7 @@ namespace Duofy.Schemas;
 /// <param name="DoneAt">Wann der Posten abgehakt wurde; null, solange er offen ist.</param>
 /// <param name="OwnerId">Wem der Plan gehört, in dem der Posten steht.</param>
 /// <param name="OwnerFirstName">Der Vorname dieser Person.</param>
+/// <param name="PostponeCount">Wie oft die Erinnerung an den Posten zu seinem Fälligkeitstag mit "Später" verschoben wurde (Spec 118, R6).</param>
 public sealed record HouseholdPlanPositionResponse(
     Guid Id,
     string Label,
@@ -19,7 +20,8 @@ public sealed record HouseholdPlanPositionResponse(
     decimal Booked,
     DateTimeOffset? DoneAt,
     Guid OwnerId,
-    string OwnerFirstName);
+    string OwnerFirstName,
+    int PostponeCount = 0);
 
 /// <summary>Geplant und gebucht in einem Topf, ohne durchlaufende Posten.</summary>
 /// <param name="Pot">"needs", "wants" oder "savings".</param>

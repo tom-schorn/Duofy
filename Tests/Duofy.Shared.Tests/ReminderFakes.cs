@@ -12,7 +12,7 @@ public sealed class FakeReminderApi : IReminderApi
     /// <summary>Ob der gespielte Server Erinnerungen hat; sonst antwortet jeder Weg mit 404.</summary>
     public bool Available { get; set; }
 
-    public ReminderSettingsResponse Settings { get; set; } = new(true, "09:00");
+    public ReminderSettingsResponse Settings { get; set; } = new(true, true, true, true, "09:00", true, "19:00", 2);
 
     /// <summary>Wenn gesetzt, scheitert das Ändern der Einstellung mit diesem Fehlercode.</summary>
     public string? UpdateFailure { get; set; }
@@ -64,7 +64,10 @@ public sealed class FakeReminderApi : IReminderApi
         {
             return ApiResult<ReminderSettingsResponse>.Failure(UpdateFailure);
         }
-        Settings = new ReminderSettingsResponse(request.Enabled ?? Settings.Enabled, request.Time ?? Settings.Time);
+        Settings = new ReminderSettingsResponse(
+            request.DueToday ?? Settings.DueToday, request.Overdue ?? Settings.Overdue, request.AdvanceWarning ?? Settings.AdvanceWarning,
+            request.Household ?? Settings.Household, request.MorningTime ?? Settings.MorningTime, request.EveningEnabled ?? Settings.EveningEnabled,
+            request.EveningTime ?? Settings.EveningTime, request.WarningDays ?? Settings.WarningDays);
         return ApiResult<ReminderSettingsResponse>.Success(Settings);
     }
 

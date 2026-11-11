@@ -3,9 +3,10 @@ namespace Duofy.Push;
 /// <summary>
 /// Was die Benachrichtigung zeigt und wohin ein Tipp führt. <see cref="Path"/> ist die Adresse in der App
 /// (der Monat des Postens); <see cref="WithActions"/> ist false, wenn der Text nicht geholt werden konnte: Dann gibt es
-/// weder Namen noch Knöpfe, nur den Weg in die App.
+/// weder Namen noch Knöpfe, nur den Weg in die App. <see cref="WithLater"/> ist false nach dem dritten Verschieben (Spec 118, R6):
+/// Dann bleibt nur "Bezahlt".
 /// </summary>
-public sealed record ReminderNotification(Guid ReminderId, string Title, string Body, string Path, bool WithActions);
+public sealed record ReminderNotification(Guid ReminderId, string Title, string Body, string Path, bool WithActions, bool WithLater = true);
 
 /// <summary>
 /// Die Benachrichtigungen des Systems (Spec 84): Auf Android der NotificationManager, auf Windows die App-Benachrichtigung.
@@ -37,8 +38,11 @@ public static class ReminderPaths
     /// <summary>Ohne Text weiß die App den Monat nicht und öffnet den laufenden.</summary>
     public const string CurrentMonth = "/plan";
 
+    /// <summary>Die Zusammenfassung des Haushalts öffnet die Haushaltsseite (Spec 118).</summary>
+    public const string Household = "/haushalt";
+
     private static readonly System.Text.RegularExpressions.Regex Allowed = new(
-        @"^/plan(/\d{4}/([1-9]|1[0-2])(\?haken=[0-9a-fA-F-]{36}&besitzer=[0-9a-fA-F-]{36})?)?$",
+        @"^(/plan(/\d{4}/([1-9]|1[0-2])(\?haken=[0-9a-fA-F-]{36}&besitzer=[0-9a-fA-F-]{36})?)?|/haushalt)$",
         System.Text.RegularExpressions.RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
 
     /// <summary>

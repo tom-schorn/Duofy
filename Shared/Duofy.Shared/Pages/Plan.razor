@@ -727,6 +727,14 @@ else
         }
         parts.Add(L["Plan_DueDay", position.DueDay]);
         parts.Add(L[$"PaymentMethod_{position.PaymentMethod}"]);
+        if (position.PostponeCount > 0)
+        {
+            parts.Add(L["Plan_Postponed", position.PostponeCount]);
+        }
+        if (PlanView.IsPostponedOverdue(position))
+        {
+            parts.Add(L["Plan_Overdue"]);
+        }
         parts.Add(L[position.CommitmentId is null ? "Plan_OneOff" : "Plan_FromContract"]);
         if (position.PassThrough)
         {

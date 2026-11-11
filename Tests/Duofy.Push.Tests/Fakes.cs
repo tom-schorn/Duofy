@@ -35,10 +35,10 @@ internal sealed class FakeReminderApi : IReminderApi
     }
 
     public Task<ApiResult<ReminderSettingsResponse>> GetSettingsAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult(ApiResult<ReminderSettingsResponse>.Success(new ReminderSettingsResponse(true, "09:00")));
+        Task.FromResult(ApiResult<ReminderSettingsResponse>.Success(new ReminderSettingsResponse(true, true, true, true, "09:00", true, "19:00", 2)));
 
     public Task<ApiResult<ReminderSettingsResponse>> UpdateSettingsAsync(UpdateReminderSettingsRequest request, CancellationToken cancellationToken = default) =>
-        Task.FromResult(ApiResult<ReminderSettingsResponse>.Success(new ReminderSettingsResponse(true, "09:00")));
+        Task.FromResult(ApiResult<ReminderSettingsResponse>.Success(new ReminderSettingsResponse(true, true, true, true, "09:00", true, "19:00", 2)));
 
     public Task<ApiResult<ReminderResponse>> GetAsync(Guid reminderId, CancellationToken cancellationToken = default)
     {
@@ -121,6 +121,9 @@ internal static class Samples
 {
     public static ReminderResponse Reminder(Guid? id = null, string label = "GEZ", decimal amount = 55.08m) =>
         new(id ?? Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), label, amount, 2026, 11, 4, "sent");
+
+    public static ReminderResponse Household(Guid? id = null, params HouseholdEventLine[] events) =>
+        new(id ?? Guid.NewGuid(), null, Guid.NewGuid(), "", null, 2026, 11, 11, "sent", ReminderKinds.Household, 0, 0, false, events);
 
     public static ReminderSignalHandler Signals(FakeReminderApi api, FakeNotifier notifier) =>
         new(api, notifier, NullLogger<ReminderSignalHandler>.Instance);

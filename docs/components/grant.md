@@ -28,6 +28,7 @@ What one person allows one other member of their household to do with their data
 - Leaving, removal or account deletion deletes every grant from and to the person.
 - Levels are compared by rank only.
 - One's own data always passes the check.
+- Reminders (spec 84, 118): the `reminders` grant makes the grantee a recipient of the position notifications (due today, advance warning, overdue) of the granter's manual-payment positions; the amount in the text is served only with `view` on the plan. The household evening summary does not need it: it lists only events the recipient may see under the existing grants (a tick of a position needs `plan` at view, a booking needs `book` at view, one's own data always, invitations and joining need only the household, a grant change only the person it concerns) and never the recipient's own actions (spec 118, R8).
 - Without `view` foreign records answer 404; with `view` a missing step answers 403 with the step's code.
 
 ## Interfaces
