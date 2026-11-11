@@ -23,6 +23,9 @@ internal sealed class ReminderRunner(DuofyDbContext db, ReminderSwitch reminders
     /// <summary>So viele Monate zurück sucht "überfällig" (der laufende und die beiden davor); ältere offene Posten melden sich nicht mehr.</summary>
     private const int OverdueMonths = 3;
 
+    /// <summary>Nach der Abendzeit holt der Job die Zusammenfassung noch so lange nach, falls der Server stand (Spec 118, R8); danach wartet sie auf morgen.</summary>
+    private static readonly TimeSpan SummaryCatchUp = TimeSpan.FromHours(1);
+
     private static readonly TimeZoneInfo Zone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Berlin");
 
     private readonly ILogger logger = loggers.CreateLogger(LogCategory);
@@ -47,7 +50,7 @@ internal sealed class ReminderRunner(DuofyDbContext db, ReminderSwitch reminders
         var sent = await WithdrawAsync(cancellationToken);
         sent += await SendPostponedAsync(today, time, cancellationToken);
         sent += await SendPositionRemindersAsync(today, time, cancellationToken);
-        sent += await SendHouseholdSummariesAsync(now, today, time, cancellationToken);
+        sent += await SendHouseholdSummariesAsync(today, time, cancellationToken);
         await HouseholdSummary.PruneAsync(db, now, cancellationToken);
         return sent;
     }
@@ -225,17 +228,19 @@ internal sealed class ReminderRunner(DuofyDbContext db, ReminderSwitch reminders
     }
 
     /// <summary>
-    /// Am Abend einer Person (wenn an und der Schalter "Haushalt" an ist) eine Zusammenfassung dessen, was seit der letzten im
-    /// Haushalt geschah und die Person sehen darf; ohne Ereignisse kommt keine. Die erste deckt den heutigen Tag ab.
+    /// Zur Abendzeit einer Person (wenn an und der Schalter "Haushalt" an ist; nach einem Ausfall noch eine Stunde lang) eine
+    /// Zusammenfassung dessen, was seit der letzten bis zu dieser Abendzeit im Haushalt geschah und die Person sehen darf; ohne
+    /// Ereignisse kommt keine. Was nach der Abendzeit geschieht, steht in der Zusammenfassung des nächsten Abends.
     /// </summary>
-    private async Task<int> SendHouseholdSummariesAsync(DateTimeOffset now, DateOnly today, TimeOnly time, CancellationToken cancellationToken)
+    private async Task<int> SendHouseholdSummariesAsync(DateOnly today, TimeOnly time, CancellationToken cancellationToken)
     {
         var people = await db.ReminderDevices.AsNoTracking().Select(d => d.UserId).Distinct().ToListAsync(cancellationToken);
         var sent = 0;
         foreach (var personId in people)
         {
             var settings = await SettingsOfAsync(personId, cancellationToken);
-            if (!settings.Household || !settings.EveningEnabled || settings.EveningTime > time)
+            if (!settings.Household || !settings.EveningEnabled || settings.EveningTime > time
+                || time > settings.EveningTime.Add(SummaryCatchUp))
             {
                 continue;
             }
@@ -243,14 +248,16 @@ internal sealed class ReminderRunner(DuofyDbContext db, ReminderSwitch reminders
             {
                 continue;
             }
+            // Die Zusammenfassung deckt bis zur Abendzeit ab, nicht bis jetzt: Was später geschieht, kommt in die nächste.
+            var until = EveningMoment(today, settings.EveningTime);
             var lastEnd = await db.Reminders
                 .Where(r => r.RecipientId == personId && r.Kind == ReminderKind.Household)
                 .OrderByDescending(r => r.CoversUntil)
                 .Select(r => r.CoversUntil)
                 .FirstOrDefaultAsync(cancellationToken);
-            var startOfToday = new DateTimeOffset(today.ToDateTime(TimeOnly.MinValue), Zone.GetUtcOffset(today.ToDateTime(TimeOnly.MinValue))).ToUniversalTime();
-            var from = lastEnd ?? startOfToday;
-            if ((await HouseholdSummary.VisibleAsync(db, personId, from, now, cancellationToken)).Count == 0)
+            // Die erste deckt den Tag seit dem Abend davor ab, damit nichts zwischen zwei Abenden verloren geht.
+            var from = lastEnd ?? EveningMoment(today.AddDays(-1), settings.EveningTime);
+            if ((await HouseholdSummary.VisibleAsync(db, personId, from, until, cancellationToken)).Count == 0)
             {
                 continue;
             }
@@ -263,13 +270,20 @@ internal sealed class ReminderRunner(DuofyDbContext db, ReminderSwitch reminders
                 Kind = ReminderKind.Household,
                 State = ReminderState.Sent,
                 CoversFrom = from,
-                CoversUntil = now,
+                CoversUntil = until,
             };
             db.Reminders.Add(reminder);
             await db.SaveChangesAsync(cancellationToken);
             sent += await push.SendAsync(await DevicesOfAsync(personId, cancellationToken), new PushPayload(reminder.Id, PushPayload.Household), cancellationToken);
         }
         return sent;
+    }
+
+    /// <summary>Der Zeitpunkt, zu dem der Abend dieses Tages in Berlin beginnt.</summary>
+    private static DateTimeOffset EveningMoment(DateOnly day, TimeOnly time)
+    {
+        var local = day.ToDateTime(time);
+        return new DateTimeOffset(local, Zone.GetUtcOffset(local)).ToUniversalTime();
     }
 
     private async Task<ReminderSettings> SettingsOfAsync(Guid userId, CancellationToken cancellationToken)

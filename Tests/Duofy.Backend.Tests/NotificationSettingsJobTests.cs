@@ -420,4 +420,53 @@ public class NotificationSettingsJobTests(ApiFixture fixture)
         await server.RunAtAsync(Evening.AddDays(1));
         Assert.Single(server.Push.To(jasminToken));
     }
+
+    // A8 (Entscheidung 2): Die Zusammenfassung kommt nur zur Abendzeit (mit kurzem Nachholfenster); was danach geschieht, steht in der nächsten.
+    [Fact]
+    public async Task An_event_after_the_evening_time_goes_into_the_next_evenings_summary_not_into_a_late_one()
+    {
+        await using var server = ReminderServer.Start(fixture);
+        var tom = await server.FounderAsync("Tom");
+        var jasmin = await server.PersonAsync("Jasmin");
+        await server.Client.JoinAsync(tom, jasmin);
+        var token = await server.DeviceAsync(tom);
+        await server.Client.GrantAsync(jasmin, tom, new UpdateGrantsRequest(Plan: AccessLevelKeys.View, Book: AccessLevelKeys.View));
+        var household = await server.HouseholdOfAsync(tom);
+        await server.ClearEventsAsync();
+        var lateEvent = Evening.AddHours(4).AddMinutes(30); // 23:30
+        await server.EventAsync(household, HouseholdEventKind.Booked, jasmin, owner: jasmin, label: "Spätkauf", amount: 5m, at: lateEvent);
+
+        await server.RunAtAsync(lateEvent.AddMinutes(1)); // 23:31: nicht mehr die Zeit der Zusammenfassung
+        Assert.Empty(server.Push.To(token));
+
+        await server.RunAtAsync(Evening.AddDays(1));
+        var signal = Assert.Single(server.Push.To(token));
+        var text = await FetchAsync(server, tom, signal.Payload.ReminderId);
+        Assert.Equal(["Spätkauf"], text.Events!.Select(e => e.Label));
+    }
+
+    // A8 (Entscheidung 2): Nach einem Ausfall holt der Job die Zusammenfassung noch kurz nach, deckt aber nur bis zur Abendzeit ab.
+    [Fact]
+    public async Task After_downtime_the_summary_is_caught_up_shortly_and_covers_only_until_the_evening_time()
+    {
+        await using var server = ReminderServer.Start(fixture);
+        var tom = await server.FounderAsync("Tom");
+        var jasmin = await server.PersonAsync("Jasmin");
+        await server.Client.JoinAsync(tom, jasmin);
+        var token = await server.DeviceAsync(tom);
+        await server.Client.GrantAsync(jasmin, tom, new UpdateGrantsRequest(Plan: AccessLevelKeys.View, Book: AccessLevelKeys.View));
+        var household = await server.HouseholdOfAsync(tom);
+        await server.ClearEventsAsync();
+        await server.EventAsync(household, HouseholdEventKind.Booked, jasmin, owner: jasmin, label: "Vorher", amount: 5m, at: Evening.AddMinutes(-30));
+        await server.EventAsync(household, HouseholdEventKind.Booked, jasmin, owner: jasmin, label: "Nachher", amount: 6m, at: Evening.AddMinutes(10));
+
+        await server.RunAtAsync(Evening.AddMinutes(20)); // der Server stand um 19:00
+
+        var signal = Assert.Single(server.Push.To(token));
+        Assert.Equal(["Vorher"], (await FetchAsync(server, tom, signal.Payload.ReminderId)).Events!.Select(e => e.Label));
+
+        await server.RunAtAsync(Evening.AddDays(1));
+        var next = Assert.Single(server.Push.To(token).Skip(1));
+        Assert.Equal(["Nachher"], (await FetchAsync(server, tom, next.Payload.ReminderId)).Events!.Select(e => e.Label));
+    }
 }
