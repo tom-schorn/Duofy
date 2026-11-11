@@ -1,6 +1,7 @@
 // Gemessene Prüfung (Spec 123, Review 4): Auf der Übertragskarte stehen Vorname und Betrag in derselben Zeile, unterhalb von
 // Datum und Titel – bei jeder Namenslänge (auch "Jo", "Li", "Ida") und mit größerer Schrift, bei 360 und 412 px.
-// Zusätzlich: Die Überweisungskarte mit dem Strich in der Postenspalte bricht sauber um und ragt nirgends heraus.
+// Zusätzlich: Die Überweisungskarte zeigt den leeren Strich der Postenspalte nicht (Entscheidung 11.11.2026), bricht sauber um und ragt
+// nirgends heraus; eine ungeplante Buchung behält ihr "Ungeplant"; die Tabellenansicht (breit) behält den Strich.
 //
 // Statische Seite: lädt das echte duofy.css und das Markup aus MonthBookings.razor (Zeilen, Zellen, Klassen), ohne laufende
 // App und ohne Anmeldung. Das ist keine Messung in der laufenden App; die Layout-Regeln hängen nur an diesen Klassen.
@@ -47,10 +48,20 @@ const transferRow = `
     <td class="bookings-amount num">200,00 €</td>
   </tr>`;
 
+const unplannedRow = `
+  <tr class="bookings-row" data-testid="unplanned">
+    <td class="bookings-date">06.11.2026</td>
+    <td class="bookings-name"><span class="bookings-title">Kiosk</span><span class="pill booking-kind" data-kind="Expense"><span class="dot dot--needs" aria-hidden="true"></span>Ausgabe</span></td>
+    <td class="bookings-position"><span class="muted">Ungeplant</span></td>
+    <td class="bookings-account">Tom</td>
+    <td class="bookings-pot"><span class="bookings-pot-item"><span class="dot dot--needs" aria-hidden="true"></span>Bedarf</span></td>
+    <td class="bookings-amount num amount-expense">−4,20 €</td>
+  </tr>`;
+
 const html = `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <link rel="stylesheet" href="${pathToFileURL(cssPath)}"></head><body>
 <div class="bookings-scroll"><table class="bookings-table"><thead><tr><th>Datum</th><th>Name</th><th>Posten</th><th>Person</th><th>Topf</th><th class="bookings-amount">Betrag</th></tr></thead>
-<tbody>${names.map(carryRow).join('')}${bookingRow}${transferRow}</tbody></table></div></body></html>`;
+<tbody>${names.map(carryRow).join('')}${bookingRow}${transferRow}${unplannedRow}</tbody></table></div></body></html>`;
 
 const scratch = fs.mkdtempSync(path.join(process.env.CLAUDE_JOB_DIR ?? process.env.TMPDIR ?? '.', 'carry-card-'));
 const file = path.join(scratch, 'card.html');
@@ -91,7 +102,11 @@ for (const width of [360, 412]) {
         if (r.posVisible) fail(`${tag}: der Strich der Postenspalte ist sichtbar`);
       }
       if (r.overflow || !r.wrapFree) fail(`${tag}: eine Zelle ragt aus der Karte`);
-      if (r.id === 'transfer') console.log(`     ${tag}: Posten-Strich eigene Zeile=${r.posOnOwnLine}, Kartenhöhe ${r.rowHeight}px`);
+      if (r.id === 'transfer') {
+        if (r.posVisible) fail(`${tag}: der leere Strich der Überweisung ist in der Kartenansicht sichtbar`);
+        console.log(`     ${tag}: Posten-Strich sichtbar=${r.posVisible}, Kartenhöhe ${r.rowHeight}px`);
+      }
+      if (r.id === 'unplanned' && !r.posVisible) fail(`${tag}: "Ungeplant" fehlt in der Kartenansicht`);
     }
     // Die Übertragskarte darf höchstens so hoch sein wie eine Buchungskarte plus eine Zeile Abstand (kein doppelter Zeilenabstand).
     const b = rows.find(r => r.id === 'booking'), c = rows.filter(r => r.id.startsWith('carry'));
@@ -100,7 +115,16 @@ for (const width of [360, 412]) {
     await page.close();
   }
 }
+// Tabellenansicht (Bereich ab 720 px): Der Strich der Überweisung bleibt.
+{
+  const page = await browser.newPage({ viewport: { width: 1000, height: 900 }, locale: 'de-DE' });
+  await page.goto(pathToFileURL(file).href);
+  const rows = await page.evaluate(measure);
+  const t = rows.find(r => r.id === 'transfer');
+  if (!t.posVisible) fail('1000px Tabellenansicht transfer: der Strich der Postenspalte fehlt');
+  await page.close();
+}
 await browser.close();
 fs.rmSync(scratch, { recursive: true, force: true });
-console.log(failures === 0 ? 'OK: Übertragskarten brechen bei 360 und 412 px für jede Namenslänge um.' : `FAIL: ${failures} Abweichung(en).`);
+console.log(failures === 0 ? 'OK: Übertragskarten brechen bei 360 und 412 px für jede Namenslänge um, die Überweisungskarte zeigt keinen leeren Strich.' : `FAIL: ${failures} Abweichung(en).`);
 process.exit(failures === 0 ? 0 : 1);

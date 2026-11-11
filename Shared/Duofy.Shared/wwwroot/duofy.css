@@ -763,6 +763,9 @@ a.duofy-button--primary { color: var(--primary-foreground); }
     .bookings-title { margin-bottom: 2px; }
     /* Ein Übertrag hat weder Posten noch Topf: Die Striche dort entfallen, er sieht aus wie eine Buchungskarte (Spec 123, Review 3). */
     .bookings-table .bookings-row--carry .bookings-position, .bookings-table .bookings-row--carry .bookings-pot { display: none; }
+    /* Eine Überweisung hat keinen Posten: Der reine Strich entfällt in der Kartenansicht, damit er bei größerer Schrift nicht neben dem Titel
+       schwimmt (Spec 123, Entscheidung 11.11.2026). "Ungeplant" und echte Posten bleiben; die Tabellenansicht behält den Strich. */
+    .bookings-table .bookings-row:has(.booking-kind[data-kind="Transfer"]) .bookings-position:has(> .muted:only-child) { display: none; }
     /* Der Umbruch ist erzwungen und hängt an keiner Breite: Ein leeres Element mit voller Breite (::after, Order 1) trennt Datum und Titel
        von Person und Betrag (Order 2). So stehen Person und Betrag bei jedem Vornamen ("Jo" bis "Maximiliane") und bei größerer Schrift
        gemeinsam in der zweiten Zeile (Spec 123, Review 4). Der negative Rand oben nimmt den zusätzlichen Zeilenabstand der leeren Zeile zurück. */

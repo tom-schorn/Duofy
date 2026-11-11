@@ -160,4 +160,14 @@ public class PlanBookingsTableTests : PageTestContext
         Assert.Matches(@"@container \(max-width: 719px\)[^@]*\.bookings-row--carry \.bookings-account, \.bookings-table \.bookings-row--carry \.bookings-amount\s*\{\s*order:\s*2; margin-top:\s*-2px", Css);
         Assert.DoesNotMatch(@"\.bookings-row--carry \.bookings-name\s*\{[^}]*calc\(", Css);
     }
+
+    // A1 (R1, Lead-Entscheidung 11.11.2026): In der Kartenansicht entfällt bei einer Überweisung der leere Strich der Postenspalte, damit er
+    // nicht bei größerer Schrift neben dem Titel schwimmt. Nur der reine Strich verschwindet (kein "Ungeplant", keine Posten); die
+    // Tabellenansicht behält ihn. Die gemessene Prüfung dazu: Tests/responsive-widths/carry-card.mjs.
+    [Fact]
+    public void A1_a_transfer_card_hides_the_empty_position_dash_but_the_table_view_keeps_it()
+    {
+        Assert.Matches(@"@container \(max-width: 719px\)[^@]*\.bookings-row:has\(\.booking-kind\[data-kind=""Transfer""\]\) \.bookings-position:has\(> \.muted:only-child\)\s*\{\s*display:\s*none", Css);
+        Assert.DoesNotContain("data-kind=\"Transfer\"", Css.Split("@container (max-width: 719px)")[0]);
+    }
 }
