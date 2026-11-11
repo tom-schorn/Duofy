@@ -124,10 +124,22 @@ public class PlanBookingsTableTests : PageTestContext
         Assert.Matches(@"\.month-bookings\s*\{[^}]*min-width:\s*0", Css);
     }
 
-    // A1 (R1): Im Bereich 600 bis 839 px ist das Zellenpolster enger, damit die Tabelle auf dem Tablet (800 px) ohne Wischen passt.
+    // A1 (R1, Review F2): Wie die Tabelle sich zeigt, folgt der Breite ihres Bereichs und nicht der des Fensters; bei 840 px lässt die
+    // volle Seitenleiste weniger Platz als bei 800 px. Der Bereich ist der Container, enger Platz macht das Polster enger und
+    // sehr enger Platz aus jeder Zeile eine Karte, der Betrag bleibt so ohne Wischen sichtbar.
     [Fact]
-    public void A1_the_tablet_range_uses_narrower_cell_padding()
+    public void A1_the_table_layout_follows_the_width_of_its_own_area_and_not_the_viewport()
     {
-        Assert.Matches(@"@media \(min-width: 600px\) and \(max-width: 839px\)\s*\{\s*\.bookings-table th, \.bookings-table td\s*\{\s*padding-left: 12px", Css);
+        Assert.Matches(@"\.bookings-scroll\s*\{[^}]*container-type:\s*inline-size", Css);
+        Assert.Matches(@"@container \(min-width: 640px\) and \(max-width: 779px\)\s*\{\s*\.bookings-table th, \.bookings-table td\s*\{\s*padding-left: 12px", Css);
+        Assert.Matches(@"@container \(max-width: 639px\)\s*\{\s*\.bookings-table thead", Css);
+        Assert.DoesNotMatch(@"@media[^{]*\{\s*\.bookings-table", Css);
+    }
+
+    // A1 (R1, Review F2): Wo die Tabelle trotzdem überläuft, zeigt ein Schatten am rechten Rand, dass dort noch etwas verborgen ist.
+    [Fact]
+    public void A1_an_overflowing_table_shows_a_shadow_at_the_right_edge()
+    {
+        Assert.Matches(@"\.bookings-scroll\s*\{[^}]*local right center[^}]*scroll right center", Css);
     }
 }
