@@ -31,7 +31,7 @@ public class GrantTests
     [Fact]
     public void There_are_exactly_the_five_areas_plan_book_accounts_commitments_and_savings()
     {
-        Assert.Equal([Area.Plan, Area.Book, Area.Accounts, Area.Commitments, Area.Savings, Area.Reminders], Enum.GetValues<Area>());
+        Assert.Equal([Area.Plan, Area.Book, Area.Accounts, Area.Commitments, Area.Savings], Enum.GetValues<Area>());
     }
 
     [Fact]

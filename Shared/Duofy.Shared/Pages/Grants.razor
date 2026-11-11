@@ -6,7 +6,6 @@
 @using Duofy.Schemas
 @implements IDisposable
 @inject IHouseholdApi HouseholdApi
-@inject IReminderApi ReminderApi
 @inject AppChrome Chrome
 @inject IStringLocalizer<SharedResources> L
 
@@ -71,19 +70,6 @@
                 </NativeSelect>
             }
 
-            @* Spec 84: Der Bereich Erinnerungen gibt keinen Zugriff auf Daten, deshalb steht er abgesetzt unter den fünf
-               anderen und kennt nur Nichts und Ansehen. Ohne Erinnerungen auf dem Server (selbst betrieben, 404) fehlt er. *@
-            @if (remindersAvailable)
-            {
-                <NativeSelect @key="@($"{member.UserId}-{GrantAreas.Reminders}-{Revision(member.UserId)}")" Label="@L[$"Grants_Area_{GrantAreas.Reminders}"]" Value="@levels.Reminders"
-                              ValueChanged="value => SetAsync(current, Request(GrantAreas.Reminders, value))"
-                              @attributes="Busy(locked)" data-testid="@($"grants-{member.UserId}-{GrantAreas.Reminders}")">
-                    <option value="@AccessLevelKeys.None">@L[$"Grants_Level_{AccessLevelKeys.None}"]</option>
-                    <option value="@AccessLevelKeys.View">@L[$"Grants_Level_{AccessLevelKeys.View}"]</option>
-                </NativeSelect>
-                <p class="small muted">@L["Grants_RemindersHelp", member.FirstName]</p>
-            }
-
             @* Nur Hinweise, nichts hebt sich selbst an. Höflich angesagt, damit ein Screenreader einen Hinweis hört,
                der nach einer Wahl erscheint. *@
             <div aria-live="polite">
@@ -102,9 +88,6 @@
     private NoticeMessage? message;
     private readonly HashSet<Guid> saving = [];
 
-    // Ob der Server Erinnerungen hat (Spec 84); sonst gibt es den Bereich nicht.
-    private bool remindersAvailable;
-
     // Je Karte ein Zähler, der nach jeder nicht gespeicherten Wahl steigt; er steckt im Schlüssel der Auswahlfelder.
     private readonly Dictionary<Guid, int> revisions = [];
 
@@ -120,7 +103,7 @@
 
     private static IReadOnlyDictionary<string, object> Busy(bool locked) => locked ? Locked : Free;
 
-    private static UpdateGrantsRequest Request(GrantLevels levels) => new(levels.Plan, levels.Book, levels.Accounts, levels.Commitments, levels.Savings, levels.Reminders);
+    private static UpdateGrantsRequest Request(GrantLevels levels) => new(levels.Plan, levels.Book, levels.Accounts, levels.Commitments, levels.Savings);
 
     private static UpdateGrantsRequest Request(string area, string level) => area switch
     {
@@ -128,7 +111,6 @@
         GrantAreas.Book => new(Book: level),
         GrantAreas.Accounts => new(Accounts: level),
         GrantAreas.Commitments => new(Commitments: level),
-        GrantAreas.Reminders => new(Reminders: level),
         _ => new(Savings: level),
     };
 
@@ -145,8 +127,6 @@
             // Ohne Haushalt (NotFound) gibt es niemanden, dem man etwas freigibt; das sagt der leere Zustand.
             message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
         }
-        // Die Erinnerungen gibt es nur auf dem gehosteten Server: Dort antwortet die Einstellung, sonst 404.
-        remindersAvailable = (await ReminderApi.GetSettingsAsync()).Succeeded;
         loaded = true;
     }
 

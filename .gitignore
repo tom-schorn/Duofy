@@ -480,7 +480,3 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
-
-# Firebase (Erinnerungen, Spec 84): gehoert dem Betreiber, nie einchecken
-google-services.json
-*firebase-adminsdk*.json
