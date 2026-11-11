@@ -17,7 +17,7 @@
 @inject ActiveMember Member
 @inject TimeProvider Time
 @inject NavigationManager Navigation
-@inject IJSRuntime Js
+@inject IPrintService Printer
 @inject IStringLocalizer<SharedResources> L
 
 @* Der Monatsplan (Spec 66, Spec 82) wie im alten Duofy: oben zurück und Blättern, Titel und Knöpfe, drei schlichte Kennzahlen,
@@ -43,17 +43,9 @@ else
 {
 <MonthNav BackHref="/plan" BackText="@L["Plan_BackToMonths"]" />
 
-@* Am Handy bleibt "Buchung anlegen" als Hauptknopf; Posten anlegen und Drucken stehen dort im Menü (Spec 82, R12). *@
-<PageHead Title="@MonthTitle" Lead="@L["Plan_Lead"]" CompactLead="true" Menu="@(SeesPlan ? PhoneMenu : null)">
-    <Actions>
-        @if (SeesPlan)
-        {
-            <DuofyButton Kind="ButtonKind.Secondary" Icon="printer" Text="@L["Plan_Print"]" OnClick="@(_ => PrintAsync())" TestId="plan-print" Class="wide-only" />
-            <DuofyButton Text="@L["Month_ActionBooking"]" OnClick="@(_ => NewBookingAsync())" Class="@GrantLock.Class(CanBook)" @attributes="GrantLock.Attributes(CanBook)" TestId="month-action-booking" />
-            <DuofyButton Icon="plus" Text="@L["Plan_AddPosition"]" OnClick="@(_ => AddAsync())" Class="@($"wide-only {GrantLock.Class(CanAdd)}")" @attributes="GrantLock.Attributes(CanAdd)" TestId="plan-add" />
-        }
-    </Actions>
-</PageHead>
+@* Der Kopf mit Drucken, Buchung und Posten anlegen ist derselbe wie im Haushaltsplan (Spec 125, R1). *@
+<PlanHead Title="@MonthTitle" Lead="@L["Plan_Lead"]" CompactLead="true" Show="SeesPlan" CanAdd="CanAdd" CanBook="CanBook"
+          OnPrint="PrintAsync" OnBooking="NewBookingAsync" OnAdd="AddAsync" />
 
 @if (!SeesPlan)
 {
@@ -213,10 +205,7 @@ else
 </div>
 @if (plan is not null)
 {
-    <MonthPrint Title="@MonthTitle" Subject="@PrintSubject" Today="Today" Year="year" Month="month"
-                Income="IncomeTotal" Free="FreeTotal" Unpaid="UnpaidTotal" CarryOver="@PrintCarryOver"
-                BookedIncome="plan.BookedIncome" PlannedExpenses="plan.Overview?.Fixed ?? plan.PlannedExpenses" BookedExpenses="plan.BookedExpenses"
-                Pots="PrintPots" Unplanned="PlanView.UnplannedPerPot(plan)" />
+    <PersonMonthPrint Plan="plan" Title="@MonthTitle" Subject="@PrintSubject" Year="year" Month="month" />
 }
 }
 }
@@ -266,15 +255,6 @@ else
     // Das Druckbild (Spec 82, R20): wessen Plan, der Übertrag als Text und je Topf seine Posten.
     private string PrintSubject => Member.Owner is null ? L["Nav_MyPlan"].Value : L["Print_PlanOf", Member.Name ?? ""].Value;
 
-    private string PrintCarryOver => MonthView.CarryOverRows(plan?.Overview?.CarryOvers).FirstOrDefault(c => c.Incoming) is { } incoming
-        ? MoneyText.Format(incoming.Amount)
-        : plan?.CarryOver is { Exists: true, Amount: { } amount } ? MoneyText.Format(amount) : "—";
-
-    private IReadOnlyList<PrintPot> PrintPots => plan is null ? [] : PlanView.Groups(plan)
-        .Select(g => new PrintPot(g.Pot, PlanView.PotPlanned(plan, g.Pot), g.Pot == PotKeys.Income ? null : LimitOf(g.Pot),
-            g.Positions.Select(p => new PrintRow(p.Label, p.DueDay, p.AmountPlanned, p.Booked, p.DoneAt is not null)).ToList()))
-        .ToList();
-
     // Die Posten, deren Buchungen gerade aufgeklappt sind.
     private readonly HashSet<Guid> expanded = [];
 
@@ -286,12 +266,6 @@ else
         }
     }
 
-    // Das Menü "Weitere Aktionen" am Handy: was am PC als eigener Knopf neben "Buchung anlegen" steht.
-    private RenderFragment PhoneMenu => __builder =>
-    {
-        <BbDropdownMenuItem OnClick="@(() => AddAsync())" Disabled="!CanAdd" data-testid="plan-add-menu">@L["Plan_AddPosition"]</BbDropdownMenuItem>
-        <BbDropdownMenuItem OnClick="@(() => PrintAsync())" data-testid="plan-print-menu">@L["Plan_Print"]</BbDropdownMenuItem>
-    };
     private DateOnly Today => DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
 
     private void SelectTab(MonthTab selected)
@@ -340,8 +314,8 @@ else
     }
 
 
-    // Der Browser druckt die Seite; das Stylesheet nimmt Leisten und Knöpfe weg.
-    private async Task PrintAsync() => await Js.InvokeVoidAsync("print");
+    // Gedruckt wird das Druckbild; das Stylesheet nimmt Leisten und Knöpfe weg.
+    private Task PrintAsync() => Printer.PrintAsync();
 
     // Was die Freigabe des gewählten Mitglieds erlaubt (Spec 68); bei "Ich" alles. Abhaken und der Übertrag
     // legen Buchungen auf Konten an, Haken zurück und Übertrag entfernen löschen sie.

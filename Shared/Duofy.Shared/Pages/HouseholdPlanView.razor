@@ -5,21 +5,35 @@
 @using Duofy.Shared.Pages.Month
 @implements IDisposable
 @inject IHouseholdApi HouseholdApi
+@inject IPlanApi PlanApi
+@inject ICategoryApi CategoryApi
+@inject IAccountChoices AccountChoices
+@inject BookingDialogLauncher Launcher
+@inject FormDialogs Forms
+@inject IPrintService Printer
 @inject ActiveMember Member
 @inject TimeProvider Time
 @inject IStringLocalizer<SharedResources> L
 
-@* Der Haushaltsplan eines Monats (Spec 69, Spec 82), nur zum Lesen, im selben Aufbau wie der Monat einer Person: Kennzahlen,
-   Reiter, Sankey und die Posten aller Mitglieder nach Topf mit dem Vornamen dessen, der sie trägt, dazu die Summen und die Konten
-   der Mitglieder, die sie freigegeben haben. Es gibt keinen Knopf zum Anlegen, Abhaken oder Ändern: Das geht im Plan der
-   jeweiligen Person, mit deren Freigaben (Spec 68). Die Seite rechnet nichts; die API setzt den Plan bei jedem Öffnen aus den
-   Monaten der Mitglieder zusammen. *@
+@* Der Haushaltsplan eines Monats (Spec 69, Spec 82) im selben Aufbau wie der Monat einer Person: Kennzahlen, Reiter, Sankey und die
+   Posten aller Mitglieder nach Topf mit dem Vornamen dessen, der sie trägt, dazu die Summen und die Konten der Mitglieder, die sie
+   freigegeben haben. Er ist die Zentrale (Spec 125): Der Kopf mit Drucken, Buchung und Posten anlegen ist derselbe wie im eigenen
+   Plan; jeder Knopf fragt zuerst nach der Person, und Abhaken und Ändern gehen für jede Zeile unter den Freigaben ihrer Person
+   (Spec 68). Die Seite rechnet nichts; die API setzt den Plan bei jedem Öffnen aus den Monaten der Mitglieder zusammen. *@
 
-<PageHead Title="@(Heading ?? MonthTitle)" Lead="@L["HouseholdPlan_ReadOnly"]" />
+<PlanHead Title="@(Heading ?? MonthTitle)" Lead="@L["HouseholdPlan_Lead"]" OnPrint="PrintAsync" OnBooking="NewBookingAsync" OnAdd="AddAsync" />
 
 <h2 class="section-title notice" data-testid="household-name">@(plan?.HouseholdName ?? Member.Household?.Name)</h2>
 
 <Notice Message="message" />
+
+@if (plan is not null && LockedNames.Count > 0)
+{
+    @foreach (var name in LockedNames)
+    {
+        <p class="small muted mb-2" data-testid="grant-reason">@L["Grant_NotGranted", name]</p>
+    }
+}
 
 @if (plan is not null)
 {
@@ -99,10 +113,17 @@
                             var done = position.DoneAt is not null;
                             <li class="@(done ? "plan-row row-done" : "plan-row")" data-testid="@($"household-position-{position.Id}")">
                                 <div class="list-row">
-                                    <span class="list-row-body">
+                                    @{ var current = position; var tickOk = CanTick(position); var editOk = CanEdit(position); }
+                                    <span class="list-row-lift">
+                                        <TickBox Checked="done" Label="@L[done ? "Plan_Untick" : "Plan_Tick", position.Label]" OnToggle="@(() => ToggleAsync(current))"
+                                                 Class="@GrantLock.Class(tickOk)" @attributes="GrantLock.Attributes(tickOk)"
+                                                 data-testid="@($"household-tick-{position.Id}")" />
+                                    </span>
+                                    <button type="button" class="list-row-body list-row-open @GrantLock.Class(editOk)" @onclick="() => EditAsync(current)" @attributes="GrantLock.Attributes(editOk)"
+                                            aria-label="@L["Plan_Edit", position.Label]" data-testid="@($"household-edit-{position.Id}")">
                                         <span class="list-row-title">@position.Label</span>
                                         <span class="list-row-detail" data-testid="@($"household-owner-{position.Id}")">@Caption(position)</span>
-                                    </span>
+                                    </button>
                                     @{ var lines = BookingPurpose.LinesOf(plan.Bookings ?? [], position.Id); }
                                     @if (lines.Count > 0)
                                     {
@@ -138,7 +159,12 @@
     }
 }
 </div>
-@if (plan is not null)
+@if (printPlan is not null && printOwner is { } who)
+{
+    @* Der Plan einer einzelnen Person, nur solange gedruckt wird: Zwei Druckbilder zugleich druckten beide. *@
+    <PersonMonthPrint Plan="printPlan" Title="@(Heading ?? MonthTitle)" Subject="@L["Print_PlanOf", who.FirstName].Value" Year="Year" Month="Month" />
+}
+else if (plan is not null)
 {
     <MonthPrint Title="@(Heading ?? MonthTitle)" Subject="@plan.HouseholdName" Today="Today" Year="Year" Month="Month" ShowOwner="true"
                 Income="plan.Income" Free="plan.Free" Unpaid="plan.Unpaid" PlannedExpenses="plan.Fixed"
@@ -170,6 +196,242 @@
 
 
     private static readonly CultureInfo German = new("de-DE");
+
+    // Das Druckbild einer einzelnen Person (Spec 125, R4): nur zwischen der Wahl und dem Drucken gesetzt.
+    private PlanResponse? printPlan;
+    private MemberResponse? printOwner;
+    private bool printPending;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!printPending)
+        {
+            return;
+        }
+        printPending = false;
+        await Printer.PrintAsync();
+        printPlan = null;
+        printOwner = null;
+        StateHasChanged();
+    }
+
+    // --- Was die Freigaben jeder Zeile erlauben (Spec 125, R3): die Stufe der Person, der die Zeile gehört. ---
+    private bool CanTick(HouseholdPlanPositionResponse position) => position.DoneAt is null
+        ? Member.AllowsFor(position.OwnerId, GrantAreas.Book, AccessLevelKeys.Edit) && Member.AllowsFor(position.OwnerId, GrantAreas.Accounts, AccessLevelKeys.View)
+        : Member.AllowsFor(position.OwnerId, GrantAreas.Book, AccessLevelKeys.Delete);
+
+    private bool CanEdit(HouseholdPlanPositionResponse position) => Member.AllowsFor(position.OwnerId, GrantAreas.Plan, AccessLevelKeys.Edit);
+
+    // Wessen Freigabe auf dieser Seite etwas sperrt: ihr Name steht einmal oben, wie im Plan einer Person.
+    private IReadOnlyList<string> LockedNames => (plan?.Positions ?? [])
+        .Where(p => !CanTick(p) || !CanEdit(p))
+        .Select(p => p.OwnerFirstName)
+        .Distinct()
+        .ToList();
+
+    private Guid? OwnerArgument(Guid ownerId) => Member.Household?.Members.FirstOrDefault(m => m.UserId == ownerId)?.IsMe == false ? ownerId : null;
+
+    // Der Schritt "Für wen?" vor jedem Knopf; null, wenn die Person abbricht.
+    private async Task<Guid?> PickAsync(string title, string question, IReadOnlyList<MemberResponse> people, bool offerHousehold = false)
+    {
+        var parameters = new FormParameters<PersonPickerDialog>()
+            .Add(x => x.Question, question)
+            .Add(x => x.People, people)
+            .Add(x => x.OfferHousehold, offerHousehold);
+        var outcome = await Forms.OpenAsync<PersonPickerDialog, Guid>(title, parameters);
+        return outcome.Saved ? outcome.Value : null;
+    }
+
+    private async Task PrintAsync()
+    {
+        if (Member.Household is null)
+        {
+            return;
+        }
+        // Wessen Plan man drucken darf, ist, wessen Plan man sehen darf; der ganze Haushalt steht immer zur Wahl.
+        var chosen = await PickAsync(L["Plan_Print"], L["Picker_PrintQuestion"], Member.PeopleWith(GrantAreas.Plan, AccessLevelKeys.View), offerHousehold: true);
+        if (chosen is null)
+        {
+            return;
+        }
+        if (chosen == Guid.Empty)
+        {
+            printPlan = null;
+            printOwner = null;
+        }
+        else
+        {
+            var owner = Member.Household.Members.First(m => m.UserId == chosen);
+            var result = await PlanApi.GetAsync(Year, Month, OwnerArgument(owner.UserId));
+            if (!result.Succeeded)
+            {
+                message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
+                return;
+            }
+            (printPlan, printOwner) = (result.Value, owner);
+        }
+        printPending = true;
+        StateHasChanged();
+    }
+
+    private async Task AddAsync()
+    {
+        var chosen = await PickAsync(L["Plan_AddPosition"], L["Picker_AddPositionQuestion"], Member.PeopleWith(GrantAreas.Plan, AccessLevelKeys.Create));
+        if (chosen is null)
+        {
+            return;
+        }
+        using (Member.ActAs(chosen))
+        {
+            var (categories, accounts) = await ChoicesAsync();
+            if (categories is not null)
+            {
+                await ShowPositionDialogAsync(null, categories, accounts, L["PlanPositionDialog_TitleNew"]);
+            }
+        }
+    }
+
+    private async Task NewBookingAsync()
+    {
+        // Eine Buchung braucht Anlegen bei den Buchungen und Ansehen bei den Konten der Person (wie im eigenen Plan).
+        var people = Member.PeopleWith(GrantAreas.Book, AccessLevelKeys.Create)
+            .Where(m => m.IsMe || AccessLevelKeys.Includes(m.GrantsToMe.Accounts, AccessLevelKeys.View))
+            .ToList();
+        var chosen = await PickAsync(L["Month_ActionBooking"], L["Picker_BookingQuestion"], people);
+        if (chosen is null)
+        {
+            return;
+        }
+        using (Member.ActAs(chosen))
+        {
+            message = await Launcher.OpenAsync(null, null, null, new DateOnly(Year, Month, 1), null) ?? message;
+        }
+        await LoadAsync();
+    }
+
+    /// <summary>Kategorien und Konten der Person, für die gerade gehandelt wird; null bei einem Fehler, der in der Meldung steht.</summary>
+    private async Task<(List<CategoryResponse>? Categories, IReadOnlyList<AccountChoice> Accounts)> ChoicesAsync()
+    {
+        var categories = await CategoryApi.ListAsync(Member.Owner);
+        var accounts = await AccountChoices.ListAsync(Member.Owner);
+        if (!categories.Succeeded || !accounts.Succeeded)
+        {
+            message = new NoticeMessage(ErrorTexts.For(L, categories.ErrorCode ?? accounts.ErrorCode), NoticeSeverity.Error);
+            return (null, []);
+        }
+        return (categories.Value!.ToList(), accounts.Value!);
+    }
+
+    private async Task ShowPositionDialogAsync(PlanPositionResponse? existing, List<CategoryResponse> categories, IReadOnlyList<AccountChoice> accounts, string title)
+    {
+        var parameters = new FormParameters<PlanPositionDialog>()
+            .Add(x => x.Title, title)
+            .Add(x => x.Year, Year)
+            .Add(x => x.Month, Month)
+            .Add(x => x.Existing, existing)
+            .Add(x => x.Categories, categories)
+            .Add(x => x.Accounts, accounts)
+            .Add(x => x.OfferDelete, existing is not null && PlanView.CanDelete(existing))
+            .Add(x => x.CanDelete, Member.Allows(GrantAreas.Plan, AccessLevelKeys.Delete));
+        var outcome = await Forms.OpenStepAsync<PlanPositionDialog, bool>(title, parameters);
+        if (outcome.Saved && outcome.Value)
+        {
+            message = new NoticeMessage(L["Plan_PositionSaved"], NoticeSeverity.Success);
+            await LoadAsync();
+        }
+        else if (outcome.Saved && existing is not null && Member.Allows(GrantAreas.Plan, AccessLevelKeys.Delete))
+        {
+            var result = await PlanApi.DeletePositionAsync(Year, Month, existing.Id, Member.Owner);
+            message = result.Succeeded
+                ? new NoticeMessage(L["Plan_PositionDeleted"], NoticeSeverity.Success)
+                : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
+            await LoadAsync();
+        }
+    }
+
+    private async Task EditAsync(HouseholdPlanPositionResponse position)
+    {
+        if (!CanEdit(position))
+        {
+            RefuseMissing(position, GrantAreas.Plan, AccessLevelKeys.Edit);
+            return;
+        }
+        using (Member.ActAs(position.OwnerId))
+        {
+            var full = await FullPositionAsync(position);
+            var (categories, accounts) = await ChoicesAsync();
+            if (full is not null && categories is not null)
+            {
+                await ShowPositionDialogAsync(full, categories, accounts, L["PlanPositionDialog_TitleEdit"]);
+            }
+        }
+    }
+
+    // Der Posten mit allen Feldern aus dem Monat seiner Person; die Zeile des Haushalts kennt nur einen Teil davon.
+    private async Task<PlanPositionResponse?> FullPositionAsync(HouseholdPlanPositionResponse position)
+    {
+        var result = await PlanApi.GetAsync(Year, Month, Member.Owner);
+        if (!result.Succeeded)
+        {
+            message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
+            return null;
+        }
+        return result.Value!.Positions.FirstOrDefault(p => p.Id == position.Id);
+    }
+
+    /// <summary>
+    /// Abhaken und Zurücknehmen für die Person der Zeile, unter ihren Freigaben (Spec 125, R3). Wie im eigenen Plan: Ein Posten ohne
+    /// Buchungen fragt nach Datum und Betrag, einer mit Buchungen wird nur als erledigt markiert.
+    /// </summary>
+    private async Task ToggleAsync(HouseholdPlanPositionResponse position)
+    {
+        if (!CanTick(position))
+        {
+            RefuseMissing(position, GrantAreas.Book, position.DoneAt is null ? AccessLevelKeys.Edit : AccessLevelKeys.Delete);
+            return;
+        }
+        var owner = OwnerArgument(position.OwnerId);
+        if (position.DoneAt is not null)
+        {
+            await AfterAsync(await PlanApi.UntickAsync(Year, Month, position.Id, owner), "Plan_Unticked");
+            return;
+        }
+        if (position.Booked != 0m)
+        {
+            await AfterAsync(await PlanApi.TickAsync(Year, Month, position.Id, new TickPositionRequest(Amount: 0m), owner), "Plan_Ticked");
+            return;
+        }
+        using (Member.ActAs(position.OwnerId))
+        {
+            // Der Dialog braucht nur Bezeichnung, Betrag und Kennung des Postens; Ansehen des Plans ist dafür nicht nötig.
+            var forDialog = new PlanPositionResponse(position.Id, null, position.Label, position.AmountPlanned, position.DueDay, position.Type,
+                position.CategoryId, position.Pot, null, null, position.PassThrough, PaymentMethods.Other, position.Booked, position.DoneAt, false, null);
+            string title = L["PlanTickDialog_Title"];
+            var parameters = new FormParameters<PlanTickDialog>()
+                .Add(x => x.Year, Year)
+                .Add(x => x.Month, Month)
+                .Add(x => x.Position, forDialog);
+            var outcome = await Forms.OpenAsync<PlanTickDialog, bool>(title, parameters);
+            if (outcome.Saved)
+            {
+                message = new NoticeMessage(L["Plan_Ticked"], NoticeSeverity.Success);
+                await LoadAsync();
+            }
+        }
+    }
+
+    private async Task AfterAsync<T>(ApiResult<T> result, string successKey)
+    {
+        message = result.Succeeded
+            ? new NoticeMessage(L[successKey], NoticeSeverity.Success)
+            : new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
+        await LoadAsync();
+    }
+
+    // Eine Freigabe fehlt: Die Meldung nennt, wessen und welche (Spec 125, A3).
+    private void RefuseMissing(HouseholdPlanPositionResponse position, string area, string level) =>
+        message = new NoticeMessage(
+            L["HouseholdPlan_Missing", position.OwnerFirstName, $"{L[$"Grants_Area_{area}"]}: {L[$"Grants_Level_{level}"]}"], NoticeSeverity.Warning);
 
     // Das Druckbild des Haushalts (Spec 82, R20): je Topf die Posten aller Mitglieder mit der Person.
     private IReadOnlyList<PrintPot> PrintPots => plan is null ? [] : Groups(plan)

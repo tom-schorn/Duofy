@@ -1,0 +1,36 @@
+@using Duofy.Schemas
+@using Duofy.Shared.Dialogs
+@inherits FormDialogBase
+@inject IStringLocalizer<SharedResources> L
+
+@* Der Schritt "Für wen?" im Haushaltsplan (Spec 125, R2, R4): eine Liste großer Knöpfe, einer je Person (am Tablet und Handy gut zu
+   treffen), beim Drucken zusätzlich "Ganzer Haushalt". Der Dialog entscheidet nichts über Rechte; wer hier steht, hat die Seite
+   schon nach den Freigaben ausgewählt. Das Ergebnis ist die Kennung der Person, bei "Ganzer Haushalt" Guid.Empty. *@
+<div class="dialog-body" data-testid="person-picker">
+    <p>@Question</p>
+    <div class="person-choices">
+        @if (OfferHousehold)
+        {
+            <DuofyButton Kind="ButtonKind.Secondary" Text="@L["Picker_Household"]" OnClick="@(_ => CloseAsync(Guid.Empty))" TestId="person-choice-household" Class="duofy-button--full" />
+        }
+        @foreach (var person in People)
+        {
+            var id = person.UserId;
+            <DuofyButton Kind="ButtonKind.Secondary" Text="@Label(person)" OnClick="@(_ => CloseAsync(id))" TestId="@($"person-choice-{id}")" Class="duofy-button--full" />
+        }
+    </div>
+    <div class="dialog-actions">
+        <DuofyButton Kind="ButtonKind.Ghost" Text="@L["PlanDialog_Cancel"]" OnClick="@(_ => CancelAsync())" TestId="person-cancel" />
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Question { get; set; } = "";
+
+    [Parameter, EditorRequired] public IReadOnlyList<MemberResponse> People { get; set; } = [];
+
+    /// <summary>Bietet zuerst "Ganzer Haushalt" an (Drucken).</summary>
+    [Parameter] public bool OfferHousehold { get; set; }
+
+    private string Label(MemberResponse person) => person.IsMe ? L["Picker_Me", person.FirstName].Value : person.FirstName;
+}

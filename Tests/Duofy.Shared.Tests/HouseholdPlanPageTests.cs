@@ -140,11 +140,15 @@ public class HouseholdPlanPageTests : PageTestContext
         Assert.Contains("Oktober 2026", cut.Find("[data-testid='page-title']").TextContent);
         Assert.Equal((household.Id, 2026, 10), Assert.Single(HouseholdApiFake.PlanCalls));
         Assert.Empty(PlanApiFake.GetCalls);
-        foreach (var gone in new[] { "plan-add", "plan-carry-over-open", "plan-changes" })
+        // Spec 125 ersetzt "nur zum Lesen": Die Knöpfe des eigenen Plans stehen da; Übertrag und Vertragsabgleich bleiben im Plan der Person.
+        foreach (var gone in new[] { "plan-carry-over-open", "plan-changes" })
         {
             Assert.Empty(cut.FindAll($"[data-testid='{gone}']"));
         }
-        Assert.Empty(cut.FindAll("[role='checkbox']"));
+        Assert.NotEmpty(cut.FindAll("[data-testid='plan-add']"));
+        // Angemeldet ist Ben: Seine Zeile geht, die von Anna ist ohne Freigabe ausgegraut.
+        Assert.Null(cut.Find($"[data-testid='household-tick-{power.Id}']").GetAttribute("aria-disabled"));
+        Assert.Equal("true", cut.Find($"[data-testid='household-tick-{rent.Id}']").GetAttribute("aria-disabled"));
         Assert.Empty(cut.FindAll("button[data-testid^='plan-edit'],button[data-testid^='plan-delete']"));
     }
 
