@@ -150,24 +150,82 @@ public class PlanBookingsTableTests : PageTestContext
         Assert.Matches(@"@container \(max-width: 719px\)[^@]*\.bookings-row--carry \.bookings-position, \.bookings-table \.bookings-row--carry \.bookings-pot\s*\{\s*display:\s*none", Css);
     }
 
-    // A1 (R1, Review 4): Auf der Übertragskarte erzwingt ein leeres Element mit voller Breite den Umbruch, unabhängig von der Länge des
-    // Vornamens ("Jo", "Li", "Ida"); Person und Betrag stehen dahinter (Order 2) gemeinsam in der zweiten Zeile.
-    // Die gemessene Prüfung dazu: Tests/responsive-widths/carry-card.mjs.
+    // A1 (R1, Review 4 und 5): Jede Karte (Buchung, Überweisung, Übertrag) erzwingt den Umbruch mit einem leeren Element voller Breite
+    // (::after, Order 1); Datum und Titel stehen davor, Person, Posten, Topf und Betrag dahinter (Order 2). Unabhängig von der Länge von
+    // Titel, Posten und Vorname. Eine leere Personenzelle entfällt. Die gemessene Prüfung dazu: Tests/responsive-widths/cards.mjs.
     [Fact]
-    public void A1_a_carry_over_card_forces_the_break_so_owner_and_amount_share_line_two_for_every_name_length()
+    public void A1_every_card_forces_the_break_so_date_and_title_stand_in_line_one_and_the_rest_in_line_two()
     {
-        Assert.Matches(@"@container \(max-width: 719px\)[^@]*\.bookings-row--carry::after\s*\{[^}]*content:\s*""""[^}]*order:\s*1[^}]*flex:\s*0 0 100%", Css);
-        Assert.Matches(@"@container \(max-width: 719px\)[^@]*\.bookings-row--carry \.bookings-account, \.bookings-table \.bookings-row--carry \.bookings-amount\s*\{\s*order:\s*2; margin-top:\s*-2px", Css);
-        Assert.DoesNotMatch(@"\.bookings-row--carry \.bookings-name\s*\{[^}]*calc\(", Css);
+        Assert.Matches(@"@container \(max-width: 719px\)[^@]*\.bookings-table tr\.bookings-row::after\s*\{[^}]*content:\s*""""[^}]*order:\s*1[^}]*flex:\s*0 0 100%", Css);
+        Assert.Matches(@"@container \(max-width: 719px\)[^@]*\.bookings-row \.bookings-account, [^{]*\.bookings-row \.bookings-position, [^{]*\.bookings-row \.bookings-pot, [^{]*\.bookings-row \.bookings-amount\s*\{\s*order:\s*2", Css);
+        Assert.DoesNotMatch(@"\.bookings-row--carry::after", Css);
+        Assert.DoesNotMatch(@"\.bookings-name\s*\{[^}]*calc\(", Css);
+        Assert.Matches(@"@container \(max-width: 719px\)[^@]*\.bookings-table \.bookings-account:empty\s*\{\s*display:\s*none", Css);
+    }
+
+    // A1 (R1, Review 5): Die Kartenregel für die Überweisung hängt an dem Wert, den die App wirklich schreibt (BookingKindBadge: data-kind
+    // ist die Art, klein geschrieben). Der Wert kommt hier aus dem gerenderten Markup und nicht aus einer Abschrift; Attributwerte
+    // unterscheiden Groß- und Kleinschreibung, "Transfer" träfe nie.
+    [Fact]
+    public void A1_the_card_rules_select_the_data_kind_values_the_component_really_renders()
+    {
+        var cut = RenderMixedTable(household: false);
+        var kinds = cut.FindAll("tbody tr").ToDictionary(tr => tr.QuerySelector(".bookings-title")!.TextContent.Trim(), tr => tr.QuerySelector(".booking-kind")!.GetAttribute("data-kind"));
+
+        Assert.Equal(BookingKinds.Transfer, kinds["Umbuchung aufs Sparkonto"]);
+        Assert.Equal(MonthBookingText.CarryOver, kinds["Übertrag aus Oktober"]);
+        var cards = Css.Split("@container (max-width: 719px)")[1];
+        Assert.Contains($".booking-kind[data-kind=\"{kinds["Umbuchung aufs Sparkonto"]}\"]", cards);
+        Assert.DoesNotContain("data-kind=\"Transfer\"", Css);
     }
 
     // A1 (R1, Lead-Entscheidung 11.11.2026): In der Kartenansicht entfällt bei einer Überweisung der leere Strich der Postenspalte, damit er
     // nicht bei größerer Schrift neben dem Titel schwimmt. Nur der reine Strich verschwindet (kein "Ungeplant", keine Posten); die
-    // Tabellenansicht behält ihn. Die gemessene Prüfung dazu: Tests/responsive-widths/carry-card.mjs.
+    // Tabellenansicht behält ihn. Die gemessene Prüfung dazu: Tests/responsive-widths/cards.mjs.
     [Fact]
     public void A1_a_transfer_card_hides_the_empty_position_dash_but_the_table_view_keeps_it()
     {
-        Assert.Matches(@"@container \(max-width: 719px\)[^@]*\.bookings-row:has\(\.booking-kind\[data-kind=""Transfer""\]\) \.bookings-position:has\(> \.muted:only-child\)\s*\{\s*display:\s*none", Css);
-        Assert.DoesNotContain("data-kind=\"Transfer\"", Css.Split("@container (max-width: 719px)")[0]);
+        Assert.Matches(@"@container \(max-width: 719px\)[^@]*\.bookings-row:has\(\.booking-kind\[data-kind=""transfer""\]\) \.bookings-position:has\(> \.muted:only-child\)\s*\{\s*display:\s*none", Css);
+        Assert.DoesNotContain("data-kind=", Css.Split("@container (max-width: 719px)")[0]);
+
+        // Das echte Markup: Die Überweisung trägt den reinen Strich in .muted als einziges Kind, "Ungeplant" ist ein eigener Text.
+        var cut = RenderMixedTable(household: false);
+        Assert.Equal("—", Row(cut, "Umbuchung aufs Sparkonto").QuerySelector(".bookings-position > .muted:only-child")!.TextContent.Trim());
+        Assert.NotEqual("—", Row(cut, "Kiosk").QuerySelector(".bookings-position > .muted:only-child")!.TextContent.Trim());
     }
+
+    // A1 (R1, Review 5): Das Markup für die gemessene Browser-Prüfung kommt aus den echten Komponenten (MonthBookings mit
+    // BookingKindBadge), nicht aus einer Abschrift. Ist DUOFY_CARD_MARKUP_DIR gesetzt, schreibt der Test es dorthin
+    // (personal.html, household.html); Tests/responsive-widths/cards.mjs liest es und misst es mit dem echten duofy.css.
+    [Fact]
+    public void A1_the_real_table_markup_is_exported_for_the_browser_check()
+    {
+        var dir = Environment.GetEnvironmentVariable("DUOFY_CARD_MARKUP_DIR");
+        foreach (var household in new[] { false, true })
+        {
+            var cut = RenderMixedTable(household);
+            var table = cut.Find("table.bookings-table");
+            Assert.Equal(4, table.QuerySelectorAll("tbody tr").Length);
+            if (dir is not null)
+            {
+                Directory.CreateDirectory(dir);
+                File.WriteAllText(Path.Combine(dir, household ? "household.html" : "personal.html"), table.OuterHtml);
+            }
+        }
+    }
+
+    private static AngleSharp.Dom.IElement Row(IRenderedComponent<MonthBookings> cut, string title) =>
+        cut.FindAll("tbody tr").Single(tr => tr.QuerySelector(".bookings-title")!.TextContent.Trim() == title);
+
+    // Eine Buchung mit kurzem Posten, eine Überweisung, eine ungeplante Buchung und ein eingehender Übertrag, so wie die App sie rendert.
+    // Im persönlichen Plan hat der Übertrag keine Person (leere Zelle), im Haushalt den Vornamen.
+    private IRenderedComponent<MonthBookings> RenderMixedTable(bool household) => Render<MonthBookings>(p => p
+        .Add(x => x.Household, household)
+        .Add(x => x.Rows,
+        [
+            new(Guid.NewGuid(), new DateOnly(2026, 11, 5), 87.40m, household ? "Tom" : "Girokonto", false, BookingKinds.Expense, null, "Wocheneinkauf", ["Gas"], [PotKeys.Needs]),
+            new(Guid.NewGuid(), new DateOnly(2026, 11, 4), 200m, household ? "Ida" : "Girokonto", false, BookingKinds.Transfer, null, "Umbuchung aufs Sparkonto", null, null),
+            new(Guid.NewGuid(), new DateOnly(2026, 11, 3), 4.20m, household ? "Jo" : "Girokonto", false, BookingKinds.Expense, null, "Kiosk", [], [PotKeys.Needs]),
+        ])
+        .Add(x => x.CarryOvers, [new MonthCarryOverRow(true, new DateOnly(2026, 10, 1), 1234.56m, household ? "Maximiliane" : null)]));
 }

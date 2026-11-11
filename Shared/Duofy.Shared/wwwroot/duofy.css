@@ -754,7 +754,7 @@ a.duofy-button--primary { color: var(--primary-foreground); }
     .bookings-table tr.bookings-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
     .bookings-table tbody tr:last-child { border-bottom: 0; }
     .bookings-table td { display: block; padding: 0; border: 0; }
-    .bookings-table .bookings-name { flex: 1 1 calc(100% - 128px); min-width: 0; }
+    .bookings-table .bookings-name { flex: 1 1 0; min-width: 0; }
     .bookings-table .bookings-amount { flex: 0 0 auto; }
     .bookings-table .bookings-date, .bookings-table .bookings-position, .bookings-table .bookings-account, .bookings-table .bookings-pot {
         flex: 0 1 auto; font-size: 12px; color: var(--muted-foreground);
@@ -765,12 +765,15 @@ a.duofy-button--primary { color: var(--primary-foreground); }
     .bookings-table .bookings-row--carry .bookings-position, .bookings-table .bookings-row--carry .bookings-pot { display: none; }
     /* Eine Überweisung hat keinen Posten: Der reine Strich entfällt in der Kartenansicht, damit er bei größerer Schrift nicht neben dem Titel
        schwimmt (Spec 123, Entscheidung 11.11.2026). "Ungeplant" und echte Posten bleiben; die Tabellenansicht behält den Strich. */
-    .bookings-table .bookings-row:has(.booking-kind[data-kind="Transfer"]) .bookings-position:has(> .muted:only-child) { display: none; }
-    /* Der Umbruch ist erzwungen und hängt an keiner Breite: Ein leeres Element mit voller Breite (::after, Order 1) trennt Datum und Titel
-       von Person und Betrag (Order 2). So stehen Person und Betrag bei jedem Vornamen ("Jo" bis "Maximiliane") und bei größerer Schrift
-       gemeinsam in der zweiten Zeile (Spec 123, Review 4). Der negative Rand oben nimmt den zusätzlichen Zeilenabstand der leeren Zeile zurück. */
-    .bookings-table tr.bookings-row--carry::after { content: ""; order: 1; flex: 0 0 100%; height: 0; }
-    .bookings-table .bookings-row--carry .bookings-account, .bookings-table .bookings-row--carry .bookings-amount { order: 2; margin-top: -2px; }
+    .bookings-table .bookings-row:has(.booking-kind[data-kind="transfer"]) .bookings-position:has(> .muted:only-child) { display: none; }
+    /* Der Umbruch ist erzwungen und hängt an keiner Breite, für jede Karte (Buchung, Überweisung, Übertrag): Ein leeres Element mit voller
+       Breite (::after, Order 1) trennt Datum und Titel (Order 0) von Person, Posten, Topf und Betrag (Order 2). So stehen sie bei jedem
+       Titel, Posten und Vornamen ("Jo" bis "Maximiliane") und bei größerer Schrift gemeinsam in der zweiten Zeile (Spec 123, Review 4 und 5).
+       Der negative Rand oben nimmt den zusätzlichen Zeilenabstand der leeren Zeile zurück. Eine leere Personenzelle (persönlicher Plan,
+       Übertrag ohne Person) entfällt, damit sie den Betrag nicht um den Zeilenabstand einrückt. */
+    .bookings-table tr.bookings-row::after { content: ""; order: 1; flex: 0 0 100%; height: 0; }
+    .bookings-table .bookings-row .bookings-account, .bookings-table .bookings-row .bookings-position, .bookings-table .bookings-row .bookings-pot, .bookings-table .bookings-row .bookings-amount { order: 2; margin-top: -2px; }
+    .bookings-table .bookings-account:empty { display: none; }
 }
 
 /* Erfolgsmeldungen als kurze Meldung unten, über allem und ohne etwas zu verschieben (Spec 82). */
