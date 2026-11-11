@@ -769,11 +769,11 @@ a.duofy-button--primary { color: var(--primary-foreground); }
     /* Der Umbruch ist erzwungen und hängt an keiner Breite, für jede Karte (Buchung, Überweisung, Übertrag): Ein leeres Element mit voller
        Breite (::after, Order 1) trennt Datum und Titel (Order 0) von Person, Posten, Topf und Betrag (Order 2). So stehen sie bei jedem
        Titel, Posten und Vornamen ("Jo" bis "Maximiliane") und bei größerer Schrift gemeinsam in der zweiten Zeile (Spec 123, Review 4 und 5).
-       Der negative Rand oben nimmt den zusätzlichen Zeilenabstand der leeren Zeile zurück. Eine leere Personenzelle (persönlicher Plan,
-       Übertrag ohne Person) entfällt, damit sie den Betrag nicht um den Zeilenabstand einrückt. */
+       Der negative Rand oben nimmt den zusätzlichen Zeilenabstand der leeren Zeile zurück. Eine leere Personen- oder Topfzelle (persönlicher Plan,
+       Übertrag ohne Person, ungeplante Buchung und Überweisung im Haushaltsplan) entfällt, damit sie den Betrag nicht um den Zeilenabstand einrückt. */
     .bookings-table tr.bookings-row::after { content: ""; order: 1; flex: 0 0 100%; height: 0; }
     .bookings-table .bookings-row .bookings-account, .bookings-table .bookings-row .bookings-position, .bookings-table .bookings-row .bookings-pot, .bookings-table .bookings-row .bookings-amount { order: 2; margin-top: -2px; }
-    .bookings-table .bookings-account:empty { display: none; }
+    .bookings-table .bookings-account:empty, .bookings-table .bookings-pot:empty { display: none; }
 }
 
 /* Erfolgsmeldungen als kurze Meldung unten, über allem und ohne etwas zu verschieben (Spec 82). */

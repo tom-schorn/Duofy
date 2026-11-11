@@ -152,7 +152,7 @@ public class PlanBookingsTableTests : PageTestContext
 
     // A1 (R1, Review 4 und 5): Jede Karte (Buchung, Überweisung, Übertrag) erzwingt den Umbruch mit einem leeren Element voller Breite
     // (::after, Order 1); Datum und Titel stehen davor, Person, Posten, Topf und Betrag dahinter (Order 2). Unabhängig von der Länge von
-    // Titel, Posten und Vorname. Eine leere Personenzelle entfällt. Die gemessene Prüfung dazu: Tests/responsive-widths/cards.mjs.
+    // Titel, Posten und Vorname. Eine leere Personen- oder Topfzelle entfällt. Die gemessene Prüfung dazu: Tests/responsive-widths/cards.mjs.
     [Fact]
     public void A1_every_card_forces_the_break_so_date_and_title_stand_in_line_one_and_the_rest_in_line_two()
     {
@@ -160,7 +160,7 @@ public class PlanBookingsTableTests : PageTestContext
         Assert.Matches(@"@container \(max-width: 719px\)[^@]*\.bookings-row \.bookings-account, [^{]*\.bookings-row \.bookings-position, [^{]*\.bookings-row \.bookings-pot, [^{]*\.bookings-row \.bookings-amount\s*\{\s*order:\s*2", Css);
         Assert.DoesNotMatch(@"\.bookings-row--carry::after", Css);
         Assert.DoesNotMatch(@"\.bookings-name\s*\{[^}]*calc\(", Css);
-        Assert.Matches(@"@container \(max-width: 719px\)[^@]*\.bookings-table \.bookings-account:empty\s*\{\s*display:\s*none", Css);
+        Assert.Matches(@"@container \(max-width: 719px\)[^@]*\.bookings-table \.bookings-account:empty, \.bookings-table \.bookings-pot:empty\s*\{\s*display:\s*none", Css);
     }
 
     // A1 (R1, Review 5): Die Kartenregel für die Überweisung hängt an dem Wert, den die App wirklich schreibt (BookingKindBadge: data-kind
@@ -218,14 +218,15 @@ public class PlanBookingsTableTests : PageTestContext
         cut.FindAll("tbody tr").Single(tr => tr.QuerySelector(".bookings-title")!.TextContent.Trim() == title);
 
     // Eine Buchung mit kurzem Posten, eine Überweisung, eine ungeplante Buchung und ein eingehender Übertrag, so wie die App sie rendert.
-    // Im persönlichen Plan hat der Übertrag keine Person (leere Zelle), im Haushalt den Vornamen.
+    // Im persönlichen Plan hat der Übertrag keine Person (leere Zelle), im Haushalt den Vornamen. Eine ungeplante Buchung hat wie in der App
+    // weder Posten noch Topf (MonthView.HouseholdBookingRows nimmt Töpfe nur aus Posten), im Haushalt mit langem Vornamen.
     private IRenderedComponent<MonthBookings> RenderMixedTable(bool household) => Render<MonthBookings>(p => p
         .Add(x => x.Household, household)
         .Add(x => x.Rows,
         [
             new(Guid.NewGuid(), new DateOnly(2026, 11, 5), 87.40m, household ? "Tom" : "Girokonto", false, BookingKinds.Expense, null, "Wocheneinkauf", ["Gas"], [PotKeys.Needs]),
             new(Guid.NewGuid(), new DateOnly(2026, 11, 4), 200m, household ? "Ida" : "Girokonto", false, BookingKinds.Transfer, null, "Umbuchung aufs Sparkonto", null, null),
-            new(Guid.NewGuid(), new DateOnly(2026, 11, 3), 4.20m, household ? "Jo" : "Girokonto", false, BookingKinds.Expense, null, "Kiosk", [], [PotKeys.Needs]),
+            new(Guid.NewGuid(), new DateOnly(2026, 11, 3), 4.20m, household ? "Maximiliane" : "Girokonto", false, BookingKinds.Expense, null, "Kiosk", [], []),
         ])
         .Add(x => x.CarryOvers, [new MonthCarryOverRow(true, new DateOnly(2026, 10, 1), 1234.56m, household ? "Maximiliane" : null)]));
 }
