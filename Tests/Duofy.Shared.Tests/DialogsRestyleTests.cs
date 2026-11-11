@@ -100,9 +100,9 @@ public class DialogsRestyleTests : PageTestContext
         Assert.NotEmpty(dialogs.FindAll("[data-testid='position-label']"));
     }
 
-    // Alle Buchungsarten bleiben möglich, auch die Umbuchung mit Von Topf und Zu Topf (Schritt 3).
+    // Alle Buchungsarten bleiben möglich, auch die Umbuchung mit Von Topf und Zu Topf (Schritt 2).
     [Fact]
-    public async Task All_booking_kinds_stay_and_a_transfer_keeps_its_pots_in_step_three()
+    public async Task All_booking_kinds_stay_and_a_transfer_keeps_its_pots_in_step_two()
     {
         OpenBooking();
 
@@ -110,10 +110,10 @@ public class DialogsRestyleTests : PageTestContext
 
         dialogs.Find("[data-testid='booking-kind-transfer']").Click();
 
-        var step3 = dialogs.Find("[data-testid='step-dialog-step-3']");
-        Assert.NotNull(step3.QuerySelector("[data-testid='booking-transfer-source-pot']"));
-        Assert.NotNull(step3.QuerySelector("[data-testid='booking-transfer-target-pot']"));
-        Assert.NotNull(dialogs.Find("[data-testid='step-dialog-step-2']").QuerySelector("[data-testid='booking-counter-account']"));
+        var step2 = dialogs.Find("[data-testid='step-dialog-step-2']");
+        Assert.NotNull(step2.QuerySelector("[data-testid='booking-transfer-source-pot']"));
+        Assert.NotNull(step2.QuerySelector("[data-testid='booking-transfer-target-pot']"));
+        Assert.NotNull(step2.QuerySelector("[data-testid='booking-counter-account']"));
     }
 
     // A4 (Spec 22): Ein fehlendes Konto steht als Fehler am Feld, und Weiter bleibt im ersten Schritt.
@@ -127,7 +127,7 @@ public class DialogsRestyleTests : PageTestContext
 
         Assert.Equal("Bitte wähle ein Konto.", dialogs.Find("#booking-account-input-error").TextContent.Trim());
         Assert.Equal("alert", dialogs.Find("#booking-account-input-error").GetAttribute("role"));
-        Assert.Equal("Schritt 2 von 4: Konto", dialogs.Find("[data-testid='step-dialog-progress']").TextContent.Trim());
+        Assert.Equal("Schritt 2 von 4: Konto und Kategorie", dialogs.Find("[data-testid='step-dialog-progress']").TextContent.Trim());
     }
 
     // A4 (Spec 22): Escape schließt, solange nichts eingegeben ist ...

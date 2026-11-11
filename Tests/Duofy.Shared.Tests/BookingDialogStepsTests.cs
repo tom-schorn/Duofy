@@ -31,6 +31,17 @@ public partial class BookingDialogStepsTests : PageTestContext
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-line-position-0']")));
     }
 
+    // Schritt 2: Kategorie wählen (der Topf folgt ihr); ohne sie geht Weiter nicht, die API verlangt sie.
+    private void ChooseCategory(Guid category) => BookingDialogSteps.Choose(dialogs, "booking-line-category-0", category.ToString());
+
+    // Von Schritt 1 über Schritt 2 (mit Kategorie) in den Schritt Posten.
+    private void ToPositionStep()
+    {
+        Next();
+        ChooseCategory(FakeCategoryApi.Groceries.Id);
+        Next();
+    }
+
     private string Progress() => dialogs.Find("[data-testid='step-dialog-progress']").TextContent.Trim();
 
     private void Next() => dialogs.Find("[data-testid='booking-next']").Click();
@@ -51,9 +62,10 @@ public partial class BookingDialogStepsTests : PageTestContext
         Assert.Equal("Weiter", dialogs.Find(".step-dialog-foot [data-testid='booking-next']").TextContent.Trim());
         Assert.Empty(dialogs.FindAll("[data-testid='booking-save']"));
         Next();
-        Assert.Equal("Schritt 2 von 4: Konto", Progress());
+        Assert.Equal("Schritt 2 von 4: Konto und Kategorie", Progress());
+        ChooseCategory(FakeCategoryApi.Groceries.Id);
         Next();
-        Assert.Equal("Schritt 3 von 4: Kategorie und Posten", Progress());
+        Assert.Equal("Schritt 3 von 4: Posten", Progress());
         Next();
         Assert.Equal("Schritt 4 von 4: Prüfen und speichern", Progress());
         Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-save']"));
@@ -72,7 +84,8 @@ public partial class BookingDialogStepsTests : PageTestContext
         BookingDialogSteps.Choose(dialogs, "booking-account", spar.Id.ToString());
         Next();
         BookingDialogSteps.Choose(dialogs, "booking-line-category-0", restaurant);
-        Assert.Equal("Schritt 3 von 4: Kategorie und Posten", Progress());
+        Next();
+        Assert.Equal("Schritt 3 von 4: Posten", Progress());
 
         Back();
         Back();
@@ -82,7 +95,7 @@ public partial class BookingDialogStepsTests : PageTestContext
         Assert.Equal("true", dialogs.Find("[data-testid='booking-kind-expense']").GetAttribute("aria-pressed"));
         Assert.Equal(spar.Id.ToString(), BookingDialogSteps.Chosen(dialogs, "booking-account"));
         Assert.Equal(restaurant, BookingDialogSteps.Chosen(dialogs, "booking-line-category-0"));
-        Assert.Equal(PotKeys.Wants, dialogs.Find("[data-testid='booking-line-pot-0']").GetAttribute("value"));
+        Assert.Equal(PotKeys.Wants, BookingDialogSteps.Chosen(dialogs, "booking-line-pot-0"));
     }
 
     // A2
@@ -145,7 +158,7 @@ public partial class BookingDialogStepsTests : PageTestContext
     {
         OpenDialog();
 
-        foreach (var id in new[] { "booking-account", "booking-line-category-0", "booking-line-position-0" })
+        foreach (var id in new[] { "booking-account", "booking-line-category-0", "booking-line-pot-0", "booking-line-position-0" })
         {
             var input = dialogs.Find($"[data-testid='{id}-input']");
             Assert.Equal("combobox", input.GetAttribute("role"));
@@ -165,7 +178,7 @@ public partial class BookingDialogStepsTests : PageTestContext
 
         input.Focus();
         Assert.Equal("true", dialogs.Find("[data-testid='booking-line-category-0-input']").GetAttribute("aria-expanded"));
-        Assert.Equal(["Keine Kategorie", "Lebensmittel", "Körperpflege", "Essen gehen"], BookingDialogSteps.OptionLabels(dialogs, "booking-line-category-0"));
+        Assert.Equal(["Lebensmittel", "Körperpflege", "Essen gehen"], BookingDialogSteps.OptionLabels(dialogs, "booking-line-category-0"));
 
         dialogs.Find("[data-testid='booking-line-category-0-input']").Input("essen");
 
@@ -202,7 +215,7 @@ public partial class BookingDialogStepsTests : PageTestContext
 
         Assert.Equal(["Grundbedarf", "Wünsche"], headings);
         var items = dialogs.Find("[data-testid='booking-line-category-0'] ul").Children.Select(c => c.TextContent.Trim()).ToList();
-        Assert.Equal(["Keine Kategorie", "Grundbedarf", "Lebensmittel", "Körperpflege", "Wünsche", "Essen gehen"], items);
+        Assert.Equal(["Grundbedarf", "Lebensmittel", "Körperpflege", "Wünsche", "Essen gehen"], items);
     }
 
     [Fact]
@@ -227,13 +240,12 @@ public partial class BookingDialogStepsTests : PageTestContext
         OpenDialog();
         Assert.Equal("Schritt 1 von 4: Was und wann", Progress());
         Field(dialogs, "booking-amount").Change("90");
-        Next();
-        Next();
+        ToPositionStep();
 
         dialogs.Find("[data-testid='booking-split']").Click();
         Assert.Equal("true", dialogs.Find("[data-testid='booking-split']").GetAttribute("aria-pressed"));
         dialogs.Find("[data-testid='booking-line-add']").Click();
-        Assert.Equal("Schritt 3 von 5: Kategorie und Posten", Progress());
+        Assert.Equal("Schritt 3 von 5: Posten", Progress());
         Field(dialogs, "booking-line-amount-1").Change("20");
         Field(dialogs, "booking-line-amount-2").Change("10");
         Next();
@@ -244,7 +256,10 @@ public partial class BookingDialogStepsTests : PageTestContext
         Assert.Equal(3, split.QuerySelectorAll(".booking-line").Length);
         Assert.Equal("60,00", Field(dialogs, "booking-line-amount-0").GetAttribute("value"));
         Assert.NotNull(split.QuerySelector("[data-testid='booking-line-category-2']"));
+        Assert.NotNull(split.QuerySelector("[data-testid='booking-line-pot-2']"));
         Assert.NotNull(split.QuerySelector("[data-testid='booking-line-position-2']"));
+        BookingDialogSteps.Choose(dialogs, "booking-line-category-1", FakeCategoryApi.Restaurant.Id.ToString());
+        BookingDialogSteps.Choose(dialogs, "booking-line-category-2", FakeCategoryApi.Groceries.Id.ToString());
         Next();
         Assert.Equal("Schritt 5 von 5: Prüfen und speichern", Progress());
     }
@@ -255,8 +270,7 @@ public partial class BookingDialogStepsTests : PageTestContext
         OpenDialog();
         Assert.Equal(4, dialogs.FindAll("[data-testid='step-dialog-step-1'], [data-testid='step-dialog-step-2'], [data-testid='step-dialog-step-3'], [data-testid='step-dialog-step-5']").Count);
 
-        Next();
-        Next();
+        ToPositionStep();
         dialogs.Find("[data-testid='booking-split']").Click();
         dialogs.Find("[data-testid='booking-line-add']").Click();
         Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-line-amount-2']"));
@@ -273,9 +287,7 @@ public partial class BookingDialogStepsTests : PageTestContext
     {
         OpenDialog();
         Field(dialogs, "booking-amount").Change("90");
-        Next();
-        Next();
-        BookingDialogSteps.Choose(dialogs, "booking-line-category-0", FakeCategoryApi.Groceries.Id.ToString());
+        ToPositionStep();
         dialogs.Find("[data-testid='booking-split']").Click();
         Field(dialogs, "booking-line-amount-1").Change("30");
         BookingDialogSteps.Choose(dialogs, "booking-line-category-1", FakeCategoryApi.Restaurant.Id.ToString());
@@ -308,24 +320,53 @@ public partial class BookingDialogStepsTests : PageTestContext
         Assert.Empty(dialogs.FindAll("[data-testid='confirm-dialog'], [role='alertdialog']"));
     }
 
-    // S2: die Kategorie lässt sich wieder löschen
+    // S2 (F2): Es gibt keine Wahl "Keine Kategorie", denn die API verlangt eine Kategorie; wählen lässt sie sich neu.
     [Fact]
-    public void The_category_can_be_cleared_again_with_no_category()
+    public void There_is_no_no_category_entry_but_the_category_can_be_changed()
     {
         OpenDialog();
         Field(dialogs, "booking-amount").Change("42");
         Next();
-        Next();
-        BookingDialogSteps.Choose(dialogs, "booking-line-category-0", FakeCategoryApi.Restaurant.Id.ToString());
+        ChooseCategory(FakeCategoryApi.Restaurant.Id);
         Assert.Equal(FakeCategoryApi.Restaurant.Id.ToString(), BookingDialogSteps.Chosen(dialogs, "booking-line-category-0"));
+        Assert.Equal(PotKeys.Wants, BookingDialogSteps.Chosen(dialogs, "booking-line-pot-0"));
 
-        BookingDialogSteps.Choose(dialogs, "booking-line-category-0", "");
+        ChooseCategory(FakeCategoryApi.Groceries.Id);
 
-        Assert.Equal("", BookingDialogSteps.Chosen(dialogs, "booking-line-category-0"));
+        Assert.DoesNotContain("", dialogs.FindAll("[data-testid='booking-line-category-0'] [role='option']").Select(o => o.GetAttribute("data-value")));
+        Assert.DoesNotContain("Keine Kategorie", BookingDialogSteps.OptionLabels(dialogs, "booking-line-category-0"));
+        Assert.Equal(PotKeys.Needs, BookingDialogSteps.Chosen(dialogs, "booking-line-pot-0"));
         BookingDialogSteps.ToLast(dialogs);
         dialogs.Find("[data-testid='booking-save']").Click();
         dialogs.WaitForAssertion(() => Assert.Single(BookingApiFake.Created));
-        Assert.Null(BookingApiFake.Created[0].Lines[0].CategoryId);
+        var line = Assert.Single(BookingApiFake.Created[0].Lines!);
+        Assert.Equal(FakeCategoryApi.Groceries.Id, line.CategoryId);
+    }
+
+    // Weiter in Schritt 2 verlangt Kategorie und Topf, mit einem Hinweis am Feld
+    [Fact]
+    public void Next_in_step_two_asks_for_the_category_and_the_pot()
+    {
+        OpenDialog();
+        Next();
+
+        Next();
+
+        Assert.Equal("Schritt 2 von 4: Konto und Kategorie", Progress());
+        Assert.Contains("Kategorie", dialogs.Find("#booking-line-category-0-input-error").TextContent);
+        Assert.Contains("Topf", dialogs.Find("#booking-line-pot-0-input-error").TextContent);
+        Assert.Empty(BookingApiFake.Created);
+    }
+
+    // F6: Der Topf ist eine Auswahl mit Suchfeld, kein natives Feld mit "(bitte wählen)"
+    [Fact]
+    public void The_pot_is_a_combo_box_not_a_native_select()
+    {
+        OpenDialog();
+
+        Assert.Empty(dialogs.FindAll("select[data-testid='booking-line-pot-0']"));
+        Assert.Equal(["Grundbedarf", "Wünsche", "Sparen"], BookingDialogSteps.OptionLabels(dialogs, "booking-line-pot-0"));
+        Assert.DoesNotContain("(bitte wählen)", dialogs.Markup);
     }
 
     // N2: die Pfeiltasten laufen über die gezeichnete Reihenfolge, auch wenn die Optionen nicht nach Gruppen geordnet kommen
@@ -356,8 +397,7 @@ public partial class BookingDialogStepsTests : PageTestContext
     {
         OpenDialog();
         Field(dialogs, "booking-amount").Change("90");
-        Next();
-        Next();
+        ToPositionStep();
         dialogs.Find("[data-testid='booking-split']").Click();
         Next();
 
@@ -379,20 +419,25 @@ public partial class BookingDialogStepsTests : PageTestContext
     }
 
     // A6: der frühe Speichern-Knopf
+    private bool EarlySaveShown => dialogs.FindAll("[data-testid='booking-save-early']").Count > 0;
+
     [Fact]
-    public void Early_save_is_not_shown_in_step_one_nor_before_amount_and_account_are_set()
+    public void Early_save_is_not_shown_in_step_one_nor_before_category_and_pot_are_set()
     {
         OpenDialog();
         Field(dialogs, "booking-amount").Change("42");
-        Assert.Empty(dialogs.FindAll("[data-testid='booking-save-early']"));
+        Assert.False(EarlySaveShown);
 
         Next();
-        Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-save-early']"));
+        Assert.False(EarlySaveShown);
+        ChooseCategory(FakeCategoryApi.Groceries.Id);
+        Assert.True(EarlySaveShown);
         Assert.Equal("Speichern", dialogs.Find("[data-testid='booking-save-early']").TextContent.Trim());
 
         Next();
+        Assert.True(EarlySaveShown);
         Next();
-        Assert.Empty(dialogs.FindAll("[data-testid='booking-save-early']"));
+        Assert.False(EarlySaveShown);
         Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-save']"));
     }
 
@@ -401,13 +446,14 @@ public partial class BookingDialogStepsTests : PageTestContext
     {
         OpenDialog();
         Next();
+        ChooseCategory(FakeCategoryApi.Groceries.Id);
 
-        Assert.Empty(dialogs.FindAll("[data-testid='booking-save-early']"));
+        Assert.False(EarlySaveShown);
 
         Back();
         Field(dialogs, "booking-amount").Change("42");
         Next();
-        Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-save-early']"));
+        Assert.True(EarlySaveShown);
     }
 
     [Fact]
@@ -418,27 +464,68 @@ public partial class BookingDialogStepsTests : PageTestContext
         OpenDialog();
         Field(dialogs, "booking-amount").Change("42");
         Next();
-        Assert.Empty(dialogs.FindAll("[data-testid='booking-save-early']"));
+        ChooseCategory(FakeCategoryApi.Groceries.Id);
+        Assert.False(EarlySaveShown);
 
         BookingDialogSteps.Choose(dialogs, "booking-account", Accounts.Accounts[0].Id.ToString());
 
-        Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-save-early']"));
+        Assert.True(EarlySaveShown);
     }
 
     [Fact]
-    public void Early_save_saves_like_the_last_step()
+    public void Early_save_needs_the_category_a_pot_alone_does_not_do()
+    {
+        OpenDialog();
+        Field(dialogs, "booking-amount").Change("42");
+        Next();
+
+        BookingDialogSteps.Choose(dialogs, "booking-line-pot-0", PotKeys.Needs);
+
+        Assert.False(EarlySaveShown);
+    }
+
+    [Fact]
+    public void Early_save_really_saves_a_new_expense_with_pot_and_category()
     {
         OpenDialog();
         Field(dialogs, "booking-amount").Change("42");
         Next();
         BookingDialogSteps.Choose(dialogs, "booking-account", spar.Id.ToString());
+        ChooseCategory(FakeCategoryApi.Restaurant.Id);
 
         dialogs.Find("[data-testid='booking-save-early']").Click();
 
         dialogs.WaitForAssertion(() => Assert.Single(BookingApiFake.Created));
-        Assert.Equal(spar.Id, BookingApiFake.Created[0].AccountId);
-        Assert.Equal(42m, BookingApiFake.Created[0].Lines.Sum(l => l.Amount));
+        Assert.Empty(BookingApiFake.Refused);
+        var created = BookingApiFake.Created[0];
+        Assert.Equal(spar.Id, created.AccountId);
+        Assert.Equal([new SaveBookingLine(42m, PotKeys.Wants, FakeCategoryApi.Restaurant.Id)], created.Lines);
         dialogs.WaitForAssertion(() => Assert.Empty(dialogs.FindAll("[data-testid='step-dialog']")));
+    }
+
+    [Fact]
+    public void Early_save_for_a_transfer_appears_with_target_account_and_both_pots()
+    {
+        OpenDialog();
+        dialogs.Find("[data-testid='booking-kind-transfer']").Click();
+        Field(dialogs, "booking-amount").Change("50");
+        Next();
+        Assert.False(EarlySaveShown);
+
+        BookingDialogSteps.Choose(dialogs, "booking-counter-account", spar.Id.ToString());
+        BookingDialogSteps.Choose(dialogs, "booking-transfer-source-pot", PotKeys.Savings);
+        Assert.False(EarlySaveShown);
+        BookingDialogSteps.Choose(dialogs, "booking-transfer-target-pot", PotKeys.Wants);
+        Assert.True(EarlySaveShown);
+
+        dialogs.Find("[data-testid='booking-save-early']").Click();
+
+        dialogs.WaitForAssertion(() => Assert.Single(BookingApiFake.Created));
+        var created = BookingApiFake.Created[0];
+        Assert.Equal(BookingKinds.Transfer, created.Kind);
+        Assert.Equal(spar.Id, created.CounterAccountId);
+        Assert.Equal(PotKeys.Wants, created.TargetPot);
+        Assert.Equal(PotKeys.Savings, Assert.Single(created.Lines!).Pot);
     }
 
     [Fact]
@@ -448,10 +535,29 @@ public partial class BookingDialogStepsTests : PageTestContext
         OpenDialog();
         Field(dialogs, "booking-amount").Change("42");
         Next();
+        ChooseCategory(FakeCategoryApi.Groceries.Id);
 
         dialogs.Find("[data-testid='booking-save-early']").Click();
 
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-error']")));
         Assert.Equal("step-dialog-step-5", CurrentStep(dialogs));
+    }
+
+    // F3: Die Fake-API weist Zeilen ohne Topf oder Kategorie ab wie die echte
+    [Fact]
+    public async Task The_fake_api_refuses_lines_without_pot_or_category_like_the_real_one()
+    {
+        SaveBookingRequest Request(string? pot, Guid? category) => new(BookingKinds.Expense, giro.Id, null, new DateOnly(2026, 10, 21), 10m, null,
+            [new SaveBookingLine(10m, pot, category)]);
+
+        var noPot = await BookingApiFake.CreateAsync(Request(null, FakeCategoryApi.Groceries.Id));
+        var noCategory = await BookingApiFake.CreateAsync(Request(PotKeys.Needs, null));
+        var fine = await BookingApiFake.CreateAsync(Request(PotKeys.Needs, FakeCategoryApi.Groceries.Id));
+
+        Assert.Equal(ErrorCodes.PotRequired, noPot.ErrorCode);
+        Assert.Equal(ErrorCodes.CategoryRequired, noCategory.ErrorCode);
+        Assert.True(fine.Succeeded);
+        Assert.Single(BookingApiFake.Created);
+        Assert.Equal([ErrorCodes.PotRequired, ErrorCodes.CategoryRequired], BookingApiFake.Refused);
     }
 }

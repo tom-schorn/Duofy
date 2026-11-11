@@ -138,8 +138,41 @@ public sealed class FakeBookingApi : IBookingApi
         return Task.FromResult(ApiResult<BookingMonthResponse>.Success(new BookingMonthResponse(shown, income, expenses)));
     }
 
+    /// <summary>Die Fehlercodes, mit denen die API Anfragen abgewiesen hat, in der Reihenfolge (weder in Created noch in Updated).</summary>
+    public List<string> Refused { get; } = [];
+
+    /// <summary>
+    /// Was die echte API zu Topf und Kategorie verlangt (BookingValidator): Jede Zeile einer Ausgabe oder Einnahme braucht Topf und
+    /// Kategorie, eine Umbuchung beide Töpfe und keine Kategorie. So zeigen die Tests nur Buchungen, die die API auch annähme.
+    /// </summary>
+    private static string? CheckPotsAndCategories(SaveBookingRequest request)
+    {
+        var lines = request.Lines ?? [];
+        if (request.Kind == BookingKinds.Transfer)
+        {
+            return lines.Count == 0 || lines[0].Pot is null || request.TargetPot is null ? ErrorCodes.TransferPotsRequired : null;
+        }
+        foreach (var line in lines)
+        {
+            if (line.Pot is null)
+            {
+                return ErrorCodes.PotRequired;
+            }
+            if (line.CategoryId is null)
+            {
+                return ErrorCodes.CategoryRequired;
+            }
+        }
+        return null;
+    }
+
     public Task<ApiResult<BookingResponse>> CreateAsync(SaveBookingRequest request, CancellationToken cancellationToken = default)
     {
+        if (CheckPotsAndCategories(request) is { } refusal)
+        {
+            Refused.Add(refusal);
+            return Task.FromResult(ApiResult<BookingResponse>.Failure(refusal));
+        }
         Created.Add(request);
         if (CreateError is not null)
         {
@@ -152,6 +185,11 @@ public sealed class FakeBookingApi : IBookingApi
 
     public Task<ApiResult<BookingResponse>> UpdateAsync(Guid id, SaveBookingRequest request, CancellationToken cancellationToken = default)
     {
+        if (CheckPotsAndCategories(request) is { } refusal)
+        {
+            Refused.Add(refusal);
+            return Task.FromResult(ApiResult<BookingResponse>.Failure(refusal));
+        }
         Updated.Add((id, request));
         var saved = ToResponse(id, request);
         Bookings.RemoveAll(b => b.Id == id);

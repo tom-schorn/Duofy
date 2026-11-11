@@ -361,6 +361,7 @@ public class AccountBookingsPageTests : PageTestContext
         var cut = OpenMonthAndNewBooking();
         dialogs.WaitForAssertion(() => Assert.Contains("Neue Buchung", dialogs.Markup));
         Input(dialogs, "booking-amount").Change("42");
+        SelectIn(dialogs, "booking-line-category-0", FakeCategoryApi.Groceries.Id.ToString());
 
         BookingDialogSteps.ToLast(dialogs);
         dialogs.Find("[data-testid='booking-save']").Click();
@@ -401,14 +402,14 @@ public class AccountBookingsPageTests : PageTestContext
         dialogs.WaitForAssertion(() => Assert.NotNull(dialogs.Find("[data-testid='booking-counter-account']")));
         Assert.Empty(dialogs.FindAll("[data-testid='booking-line-category-0']"));
         // Spec 72, R9: Quelle und Ziel sind Pflichtfelder ohne Vorauswahl.
-        var source = dialogs.Find("[data-testid='booking-transfer-source-pot']");
-        var target = dialogs.Find("[data-testid='booking-transfer-target-pot']");
-        Assert.Equal(("", ""), (source.GetAttribute("value"), target.GetAttribute("value")));
+        var source = dialogs.Find("[data-testid='booking-transfer-source-pot-input']");
+        var target = dialogs.Find("[data-testid='booking-transfer-target-pot-input']");
+        Assert.Equal(("", ""), (BookingDialogSteps.Chosen(dialogs, "booking-transfer-source-pot"), BookingDialogSteps.Chosen(dialogs, "booking-transfer-target-pot")));
         Assert.Equal("true", source.GetAttribute("aria-required"));
         Assert.Equal("true", target.GetAttribute("aria-required"));
         Assert.Contains("Von Topf (Pflicht)", dialogs.Markup);
         Assert.Contains("Zu Topf (Pflicht)", dialogs.Markup);
-        Assert.Contains("(bitte wählen)", source.TextContent);
+        Assert.Equal("Topf wählen oder suchen", source.GetAttribute("placeholder"));
 
         SelectIn(dialogs, "booking-counter-account", cash.Id.ToString());
         SelectIn(dialogs, "booking-transfer-source-pot", PotKeys.Savings);

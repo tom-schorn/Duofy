@@ -14,11 +14,12 @@
 
 @* Der Dialog zum Anlegen und Ändern einer Buchung, in Schritten (Spec 22, Spec 124) auf dem Schritt-Dialog (Spec 11):
    1 Was und wann (Art, Betrag, Datum, Planmonat),
-   2 Konto (bei einer Umbuchung auch das Zielkonto),
-   3 Kategorie und Posten (bei einer Umbuchung Von Topf, Zu Topf und Posten), dazu der Schalter "Betrag aufteilen",
+   2 Konto und Kategorie (Konto, Topf und Kategorie; bei einer Umbuchung Von-Konto, Zielkonto, Von Topf und Zu Topf),
+   3 Posten (freiwillig), dazu der Schalter "Betrag aufteilen",
    4 Aufteilen (nur wenn aufgeteilt wird: die weiteren Zeilen; Zeile 1 bekommt den Rest),
    5 Prüfen und speichern (Zusammenfassung, Notiz, Fehler der API).
-   Konto, Kategorie und Posten sind Auswahlfelder mit Suchfeld (ComboBox), keine Listen mit einem Knopf "Bitte wählen".
+   Sind Betrag, Konto, Topf und Kategorie gewählt (bei einer Umbuchung Zielkonto und beide Töpfe), speichert ab Schritt 2 der frühe Knopf "Speichern" (Spec 124, R6).
+   Konto, Topf, Kategorie und Posten sind Auswahlfelder mit Suchfeld (ComboBox), keine Listen mit einem Knopf "Bitte wählen".
    Alle Buchungsarten und alle Regeln sind unverändert; auf dem Handy füllt der Dialog den Bildschirm, und nur der Inhalt rollt.
 
    Wer den Dialog öffnet (der Monat zum Anlegen, die Bewegungen am Konto zum Ändern), reicht ihm die Konten und Kategorien als Parameter und bekommt am Ende mit,
@@ -28,7 +29,7 @@
    (die erste Zeile nimmt den Rest, der Topf folgt der Kategorie). Der Dialog zeigt sie nur an. Weiter verlangt ein Konto
    (derselbe Satz wie zuvor beim Speichern); alles andere prüft wie bisher die API, ihre Fehler stehen oben im letzten Schritt. *@
 
-<StepDialog @ref="stepDialog" Title="@Title" OnFinish="SaveAsync" EarlyFinish="@(draft.Amount is > 0 && draft.AccountId is not null)" EarlyFinishTestId="booking-save-early" FinishText="@L["BookingDialog_Save"]" Busy="busy" FinishTestId="booking-save" NextTestId="booking-next" HasInput="@(() => touched)">
+<StepDialog @ref="stepDialog" Title="@Title" OnFinish="SaveAsync" EarlyFinish="@CanSaveEarly" EarlyFinishTestId="booking-save-early" FinishText="@L["BookingDialog_Save"]" Busy="busy" FinishTestId="booking-save" NextTestId="booking-next" HasInput="@(() => touched)">
     <DialogStep Title="@L["BookingDialog_StepWhat"]">
         @* Ausgabe, Einnahme oder Umbuchung. Die gewählte Art ist gefüllt und trägt ein Häkchen (Spec 124, R2); aria-pressed sagt es auch Vorlesegeräten. *@
         <div class="booking-kinds" role="group" aria-label="@L["BookingDialog_KindLabel"]">
@@ -72,39 +73,37 @@
 
         @if (draft.Kind == BookingKinds.Transfer)
         {
-            @* Bei einer Umbuchung gibt es keine Kategorie und nur eine Zeile (den Quelltopf), dazu ein zweites Konto. *@
-            <StepField Label="@L["Field_ToAccount"]" InputId="booking-counter-account-input" TestId="booking-counter-account-field">
+            @* Bei einer Umbuchung gibt es keine Kategorie und nur eine Zeile (den Quelltopf), dazu ein zweites Konto. Quelle und Ziel
+               verschieben den Betrag zwischen den Töpfen (Spec 72, R9; Spec 112): Pflicht, ohne Vorauswahl, aus den drei Töpfen. *@
+            <StepField Label="@L["Field_ToAccount"]" InputId="booking-counter-account-input" TestId="booking-counter-account-field"
+                       Validate="@(() => draft.CounterAccountId is null ? L["Error_counter_account_required"].Value : null)">
                 <ComboBox Value="@Key(draft.CounterAccountId)" ValueChanged="OnCounterAccountChosen" Options="AccountOptions(draft.CounterAccountId)"
                           Label="@L["Field_ToAccount"]" Placeholder="@L["BookingDialog_ChooseAccount"]" InputId="booking-counter-account-input"
-                          TestId="booking-counter-account" />
+                          DescribedBy="booking-counter-account-input-error" aria-required="true" TestId="booking-counter-account" />
             </StepField>
+            <StepField Label="@L["Field_TransferSourcePotRequired"]" InputId="booking-transfer-source-pot-input" TestId="booking-transfer-source-pot-field"
+                       Validate="@(() => string.IsNullOrEmpty(draft.TransferSourcePot) ? L["Error_transfer_pots_required"].Value : null)">
+                <ComboBox Value="@draft.TransferSourcePot" ValueChanged="OnTransferSourcePotChanged" Options="PotOptions()"
+                          Label="@L["Field_TransferSourcePotRequired"]" Placeholder="@L["BookingDialog_ChoosePot"]" InputId="booking-transfer-source-pot-input"
+                          DescribedBy="booking-transfer-source-pot-input-error" aria-required="true" TestId="booking-transfer-source-pot" />
+            </StepField>
+            <StepField Label="@L["Field_TransferTargetPotRequired"]" InputId="booking-transfer-target-pot-input" TestId="booking-transfer-target-pot-field"
+                       Validate="@(() => string.IsNullOrEmpty(draft.TransferTargetPot) ? L["Error_transfer_pots_required"].Value : null)">
+                <ComboBox Value="@draft.TransferTargetPot" ValueChanged="OnTransferTargetPotChanged" Options="PotOptions()"
+                          Label="@L["Field_TransferTargetPotRequired"]" Placeholder="@L["BookingDialog_ChoosePot"]" InputId="booking-transfer-target-pot-input"
+                          DescribedBy="booking-transfer-target-pot-input-error" aria-required="true" TestId="booking-transfer-target-pot" />
+            </StepField>
+        }
+        else
+        {
+            @* Die erste Zeile: Kategorie und Topf. Der Posten folgt freiwillig im nächsten Schritt, der Betrag der Zeile steht im Schritt Aufteilen. *@
+            @CategoryPotFields(0)
         }
     </DialogStep>
 
-    <DialogStep Title="@L["BookingDialog_StepCategory"]">
+    <DialogStep Title="@L["BookingDialog_StepPosition"]">
         @if (draft.Kind == BookingKinds.Transfer)
         {
-            @* Quelle und Ziel verschieben den Betrag zwischen den Töpfen (Spec 72, R9; Spec 112): Pflicht, ohne Vorauswahl, aus den drei Töpfen. *@
-            <StepField Label="@L["Field_TransferSourcePotRequired"]" InputId="booking-transfer-source-pot-input" TestId="booking-transfer-source-pot-field">
-                <NativeSelect Value="@draft.TransferSourcePot" ValueChanged="OnTransferSourcePotChanged" id="booking-transfer-source-pot-input"
-                              aria-required="true" data-testid="booking-transfer-source-pot">
-                    <option value="">@L["BookingDialog_ChoosePot"]</option>
-                    @foreach (var pot in OfferedPots())
-                    {
-                        <option value="@pot">@L[$"Pot_{pot}"]</option>
-                    }
-                </NativeSelect>
-            </StepField>
-            <StepField Label="@L["Field_TransferTargetPotRequired"]" InputId="booking-transfer-target-pot-input" TestId="booking-transfer-target-pot-field">
-                <NativeSelect Value="@draft.TransferTargetPot" ValueChanged="OnTransferTargetPotChanged" id="booking-transfer-target-pot-input"
-                              aria-required="true" data-testid="booking-transfer-target-pot">
-                    <option value="">@L["BookingDialog_ChoosePot"]</option>
-                    @foreach (var pot in OfferedPots())
-                    {
-                        <option value="@pot">@L[$"Pot_{pot}"]</option>
-                    }
-                </NativeSelect>
-            </StepField>
             <StepField Label="@L["Field_Position"]" InputId="booking-transfer-position-input" TestId="booking-transfer-position-field">
                 <ComboBox Value="@Key(draft.TransferPositionId)" ValueChanged="OnTransferPositionChanged" Options="PositionOptions()" EmptyText="@L["BookingDialog_NoPosition"]"
                           Label="@L["Field_Position"]" InputId="booking-transfer-position-input" TestId="booking-transfer-position" />
@@ -112,8 +111,7 @@
         }
         else
         {
-            @* Die erste Zeile: Kategorie, Topf und Posten. Sein Betrag steht im Schritt Aufteilen (er ist der ganze Betrag, solange nicht aufgeteilt wird). *@
-            @LineFields(0)
+            @PositionField(0)
 
             @if (draft.CanAddLine || splitting)
             {
@@ -148,7 +146,8 @@
                 }
                 else
                 {
-                    @LineFields(index)
+                    @CategoryPotFields(index)
+                    @PositionField(index)
                     <div class="booking-line-actions">
                         <DuofyButton Kind="ButtonKind.Ghost" Text="@L["BookingDialog_RemoveLine"]" Small="true" OnClick="@(_ => RemoveLine(index))" TestId="@($"booking-line-remove-{index}")" />
                     </div>
@@ -366,11 +365,23 @@
         draft.CounterAccountId = ParseId(value);
     }
 
-    private void OnTransferSourcePotChanged(string pot) => draft.TransferSourcePot = pot;
+    private void OnTransferSourcePotChanged(string pot)
+    {
+        touched = true;
+        draft.TransferSourcePot = pot;
+    }
 
-    private void OnTransferTargetPotChanged(string pot) => draft.TransferTargetPot = pot;
+    private void OnTransferTargetPotChanged(string pot)
+    {
+        touched = true;
+        draft.TransferTargetPot = pot;
+    }
 
-    private void OnPotChanged(int index, string pot) => draft.Lines[index].Pot = pot;
+    private void OnPotChanged(int index, string pot)
+    {
+        touched = true;
+        draft.Lines[index].Pot = pot;
+    }
 
     private async Task OnDateChanged(string value)
     {
@@ -404,6 +415,17 @@
         .OrderBy(c => PotOrder(c.SuggestedPot))
         .Select(c => new ComboOption(c.Id.ToString(), c.Name, PotName(c.SuggestedPot)))
         .ToList();
+
+    // Die Töpfe, die diese Art anbietet, mit ihrem Namen.
+    private IReadOnlyList<ComboOption> PotOptions() => OfferedPots().Select(p => new ComboOption(p, L[$"Pot_{p}"].Value)).ToList();
+
+    // Ob der frühe Knopf "Speichern" erscheint (Spec 124, R6): Betrag und Konto sind da, dazu Topf und Kategorie jeder Zeile,
+    // bei einer Umbuchung das Zielkonto und beide Töpfe. Alles weitere (Posten, Aufteilen) ist freiwillig.
+    private bool CanSaveEarly => draft.Amount is > 0 && draft.AccountId is not null
+        && (draft.Kind == BookingKinds.Transfer
+            ? draft.CounterAccountId is not null && draft.CounterAccountId != draft.AccountId
+                && !string.IsNullOrEmpty(draft.TransferSourcePot) && !string.IsNullOrEmpty(draft.TransferTargetPot)
+            : draft.Lines.All(l => l.Amount is > 0 && l.CategoryId is not null && !string.IsNullOrEmpty(l.Pot)));
 
     private static int PotOrder(string pot) => Math.Max(PotKeys.All.ToList().IndexOf(pot), 0);
 
@@ -442,7 +464,10 @@
         {
             parts.Add(Money(amount));
         }
-        parts.Add(Categories.FirstOrDefault(c => c.Id == line.CategoryId)?.Name ?? L["BookingDialog_NoCategory"].Value);
+        if (Categories.FirstOrDefault(c => c.Id == line.CategoryId) is { } category)
+        {
+            parts.Add(category.Name);
+        }
         if (!string.IsNullOrEmpty(line.Pot))
         {
             parts.Add(PotName(line.Pot));
@@ -454,35 +479,24 @@
         return string.Join(" · ", parts);
     }
 
-    // Kategorie, Topf und Posten einer Zeile, dazu die Eingabe einer eigenen Kategorie, wenn sie für diese Zeile gerade offen ist.
-    private RenderFragment LineFields(int index) => @<text>
+    // Kategorie und Topf einer Zeile (beide Pflicht), dazu die Eingabe einer eigenen Kategorie, wenn sie für diese Zeile gerade offen ist.
+    // Eine Kategorie ist immer nötig, die API verlangt sie; es gibt keine Wahl "Keine Kategorie".
+    private RenderFragment CategoryPotFields(int index) => @<text>
         @{
             var line = draft.Lines[index];
         }
-        <StepField Label="@L["Field_Category"]" InputId="@($"booking-line-category-{index}-input")">
-            <ComboBox Value="@Key(line.CategoryId)" ValueChanged="v => OnCategoryChanged(index, v)" Options="CategoryOptions()" EmptyText="@L["BookingDialog_NoCategory"]" Label="@L["Field_Category"]"
+        <StepField Label="@L["Field_Category"]" InputId="@($"booking-line-category-{index}-input")"
+                   Validate="@(() => line.CategoryId is null ? L["Error_category_required"].Value : null)">
+            <ComboBox Value="@Key(line.CategoryId)" ValueChanged="v => OnCategoryChanged(index, v)" Options="CategoryOptions()" Label="@L["Field_Category"]"
                       Placeholder="@L["BookingDialog_ChooseCategory"]" InputId="@($"booking-line-category-{index}-input")"
-                      TestId="@($"booking-line-category-{index}")" />
+                      DescribedBy="@($"booking-line-category-{index}-input-error")" aria-required="true" TestId="@($"booking-line-category-{index}")" />
         </StepField>
 
-        <StepField Label="@L["Field_PotRequired"]" InputId="@($"booking-line-pot-{index}-input")">
-            <NativeSelect Value="@line.Pot" ValueChanged="v => OnPotChanged(index, v)"
-                          id="@($"booking-line-pot-{index}-input")" aria-required="true" data-testid="@($"booking-line-pot-{index}")">
-                @if (draft.Kind != BookingKinds.Income)
-                {
-                    <option value="">@L["BookingDialog_ChoosePot"]</option>
-                }
-                @foreach (var pot in OfferedPots())
-                {
-                    <option value="@pot">@L[$"Pot_{pot}"]</option>
-                }
-            </NativeSelect>
-        </StepField>
-
-        @* Der Posten des Planmonats, den diese Zeile füllt; auch ein abgehakter, er ist dann so benannt (Spec 51, R7). *@
-        <StepField Label="@L["Field_Position"]" InputId="@($"booking-line-position-{index}-input")">
-            <ComboBox Value="@Key(line.PositionId)" ValueChanged="v => OnPositionChanged(index, v)" Options="PositionOptions()" EmptyText="@L["BookingDialog_NoPosition"]"
-                      Label="@L["Field_Position"]" InputId="@($"booking-line-position-{index}-input")" TestId="@($"booking-line-position-{index}")" />
+        <StepField Label="@L["Field_PotRequired"]" InputId="@($"booking-line-pot-{index}-input")"
+                   Validate="@(() => string.IsNullOrEmpty(line.Pot) ? L["Error_pot_required"].Value : null)">
+            <ComboBox Value="@line.Pot" ValueChanged="v => OnPotChanged(index, v)" Options="PotOptions()" Label="@L["Field_PotRequired"]"
+                      Placeholder="@L["BookingDialog_ChoosePot"]" InputId="@($"booking-line-pot-{index}-input")"
+                      DescribedBy="@($"booking-line-pot-{index}-input-error")" aria-required="true" TestId="@($"booking-line-pot-{index}")" />
         </StepField>
 
         @* Eigene Kategorien legt nur ihre Person an (Spec 68); für ein anderes Mitglied gibt es den Knopf nicht. *@
@@ -528,6 +542,17 @@
                 </div>
             </div>
         }
+    </text>;
+
+    // Der Posten des Planmonats, den diese Zeile füllt (freiwillig); auch ein abgehakter, er ist dann so benannt (Spec 51, R7).
+    private RenderFragment PositionField(int index) => @<text>
+        @{
+            var line = draft.Lines[index];
+        }
+        <StepField Label="@L["Field_Position"]" InputId="@($"booking-line-position-{index}-input")">
+            <ComboBox Value="@Key(line.PositionId)" ValueChanged="v => OnPositionChanged(index, v)" Options="PositionOptions()" EmptyText="@L["BookingDialog_NoPosition"]"
+                      Label="@L["Field_Position"]" InputId="@($"booking-line-position-{index}-input")" TestId="@($"booking-line-position-{index}")" />
+        </StepField>
     </text>;
 
     private IEnumerable<string> OfferedPots() => draft.Kind == BookingKinds.Income
