@@ -295,7 +295,6 @@ internal static class HouseholdEndpoints
         UserManager<AppUser> users,
         HouseholdStore households,
         DuofyDbContext db,
-        TimeProvider time,
         ILoggerFactory loggers,
         CancellationToken cancellationToken)
     {
@@ -314,16 +313,14 @@ internal static class HouseholdEndpoints
         var levels = new Dictionary<Area, AccessLevel>();
         foreach (var (area, key) in new[]
         {
-            (Area.Plan, request.Plan), (Area.Book, request.Book), (Area.Accounts, request.Accounts), (Area.Commitments, request.Commitments), (Area.Savings, request.Savings), (Area.Reminders, request.Reminders),
+            (Area.Plan, request.Plan), (Area.Book, request.Book), (Area.Accounts, request.Accounts), (Area.Commitments, request.Commitments), (Area.Savings, request.Savings),
         })
         {
             if (key is null)
             {
                 continue;
             }
-            if (!GrantKeys.TryParse(key, out var level)
-                // Erinnerungen kennen nur Nichts und Ansehen (Spec 84).
-                || (area == Area.Reminders && level > AccessLevel.View))
+            if (!GrantKeys.TryParse(key, out var level))
             {
                 return ApiErrors.BadRequest(ErrorCodes.GrantLevelInvalid);
             }
@@ -343,8 +340,6 @@ internal static class HouseholdEndpoints
         }
 
         await households.SetGrantsAsync(userId, granteeId, levels, cancellationToken);
-        // Für die Abendzusammenfassung des Haushalts (Spec 118, R8): Die Person, deren Freigaben sich ändern, erfährt es.
-        HouseholdSummary.Record(db, id, HouseholdEventKind.GrantChanged, userId, time.GetUtcNow(), subjectId: granteeId);
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
@@ -446,8 +441,6 @@ internal static class HouseholdEndpoints
 
         var invitation = HouseholdInvitation.Create(id, userId, now);
         db.HouseholdInvitations.Add(invitation);
-        // Für die Abendzusammenfassung des Haushalts (Spec 118, R8).
-        HouseholdSummary.Record(db, id, HouseholdEventKind.Invited, userId, now);
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 

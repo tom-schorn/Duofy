@@ -158,10 +158,6 @@ internal static class BookingEndpoints
         }
 
         var booking = Add(db, ownerId, request, check, time.GetUtcNow());
-        // Für die Abendzusammenfassung des Haushalts (Spec 118, R8).
-        await HouseholdSummary.RecordForAsync(
-            db, ownerId, HouseholdEventKind.Booked, callerId, time.GetUtcNow(), cancellationToken,
-            ownerId: ownerId, label: string.IsNullOrWhiteSpace(booking.Name) ? booking.Note : booking.Name, amount: booking.Amount);
         await db.SaveChangesAsync(cancellationToken);
 
         loggers.CreateLogger(LogCategory).LogInformation(

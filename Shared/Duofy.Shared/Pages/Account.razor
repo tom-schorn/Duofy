@@ -8,7 +8,6 @@
 @inject AppChrome Chrome
 @inject IUserApi UserApi
 @inject IInstanceApi InstanceApi
-@inject IReminderApi ReminderApi
 @inject NavigationManager Navigation
 @inject IStringLocalizer<SharedResources> L
 
@@ -48,16 +47,6 @@
         </div>
         <DuofyButton Text="@L["Account_NamesSave"]" OnClick="@(_ => SaveNamesAsync())" TestId="account-names-save" Class="mt-2" />
     </div>
-
-    @* Benachrichtigungen (Spec 84, 118): eine eigene Seite; der Verweis erscheint nur, wenn der Server Erinnerungen hat. *@
-    @if (hasNotifications)
-    {
-        <div class="card" data-testid="account-notifications">
-            <h2 class="section-title mb-1">@L["Notify_Title"]</h2>
-            <p class="mb-2">@L["Notify_Lead"]</p>
-            <DuofyButton Href="/benachrichtigungen" Kind="ButtonKind.Ghost" Icon="bell" Text="@L["Notify_Open"]" TestId="account-notifications-open" />
-        </div>
-    }
 
     <div class="card" data-testid="account-email">
         <h2 class="section-title mb-1">@L["Account_EmailHeading"]</h2>
@@ -175,9 +164,6 @@
 
     private static readonly string[] QuotaPots = [PotKeys.Needs, PotKeys.Wants, PotKeys.Savings];
 
-    // Ob der Server Benachrichtigungen kennt (gehostet und eingeschaltet); sonst fehlt der Verweis.
-    private bool hasNotifications;
-
     // Bis die API antwortet, stehen die Startwerte 50/30/20 in den Feldern.
     private readonly Dictionary<string, int> quotas = new() { [PotKeys.Needs] = 50, [PotKeys.Wants] = 30, [PotKeys.Savings] = 20 };
 
@@ -186,7 +172,6 @@
     protected override async Task OnInitializedAsync()
     {
         Chrome.Set(this, L["Account_Title"]);
-        hasNotifications = (await ReminderApi.GetSettingsAsync()).Succeeded;
         var me = await UserApi.GetMeAsync();
         if (me.Succeeded)
         {

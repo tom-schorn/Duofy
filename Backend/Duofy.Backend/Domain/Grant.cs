@@ -55,13 +55,6 @@ public enum Area
 
     /// <summary>Sparen: Sparziele, Schulden und Kredite (Spec 29).</summary>
     Savings,
-
-    /// <summary>
-    /// Erinnerungen an fällige Posten (Spec 84). Anders als die anderen Bereiche gibt es nur Nichts und Ansehen, und
-    /// Ansehen heißt allein "wird an meine fälligen Posten erinnert": Es gibt keinen Zugriff auf die Daten und zählt
-    /// deshalb weder für die sichtbaren Besitzer noch für <see cref="Duofy.Api.IAccess.RequireAnyViewAsync"/>.
-    /// </summary>
-    Reminders,
 }
 
 /// <summary>

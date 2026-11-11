@@ -21,8 +21,6 @@ Who plans together, for those who want to. A household owns nothing: accounts, c
 - Member: `household_id`, `user_id` (unique), `role` (`founder`, `member`), `joined_at`.
 - Invitation: `id`, `household_id`, `created_by_id`, `token` (32 random bytes, URL-safe, unique), `status` (`pending`, `accepted`, `revoked`), `expires_at`, `used_by_id`, `used_at`.
 
-- Event (spec 118): `id`, `household_id`, `kind` (`ticked`, `booked`, `invited`, `joined`, `grantchanged`), `actor_id`, `owner_id`, `subject_id`, `label`, `amount`, `occurred_at`; the log the evening summary reads; entries older than 14 days are deleted by the reminder job.
-
 ## Rules
 
 - A person is in no household until they found one, and in at most one.
@@ -34,7 +32,6 @@ Who plans together, for those who want to. A household owns nothing: accounts, c
 - On the hosted version the founder may name an address when inviting; the link is mailed only to a confirmed account with that address, and the answer is the same either way (spec 53).
 - Deleting the founder's account makes the earliest joined member founder; an empty household is deleted.
 - Every change of memberships locks the household row first.
-- Household events (spec 118, R8): a tick of a position, a booking, an invitation, a joining and a change of grants are logged where they happen (same transaction as the act). A member with the switch "Haushalt" on and the evening on gets one notification "Haushalt heute: …" at their evening time, listing the events since their last summary that they may see (see [Grant](grant.md)); none without events; the first one covers the current day.
 
 ## Interfaces
 

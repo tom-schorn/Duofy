@@ -4,8 +4,8 @@ using System.Xml.Linq;
 namespace Duofy.Web.Tests;
 
 /// <summary>
-/// Die Ordnerstruktur des Repositorys (Spec 77): dreizehn Projekte in den Ordnern Backend, Shared, Web,
-/// Mobile und Tests (seit Spec 84 mit dem Kern der Erinnerungen der App und seinen Tests), und der alte Name der Datenformate kommt nirgends mehr vor.
+/// Die Ordnerstruktur des Repositorys (Spec 77): elf Projekte in den Ordnern Backend, Shared, Web,
+/// Mobile und Tests, und der alte Name der Datenformate kommt nirgends mehr vor.
 /// </summary>
 public class ProjectStructureTests
 {
@@ -17,18 +17,16 @@ public class ProjectStructureTests
         "Shared/Duofy.Shared/Duofy.Shared.csproj",
         "Web/Duofy.Web/Duofy.Web.csproj",
         "Mobile/Duofy/Duofy.csproj",
-        "Mobile/Duofy.Push/Duofy.Push.csproj",
         "Tests/Duofy.ApiClient.Tests/Duofy.ApiClient.Tests.csproj",
         "Tests/Duofy.App.Tests/Duofy.App.Tests.csproj",
         "Tests/Duofy.Backend.Tests/Duofy.Backend.Tests.csproj",
-        "Tests/Duofy.Push.Tests/Duofy.Push.Tests.csproj",
         "Tests/Duofy.Shared.Tests/Duofy.Shared.Tests.csproj",
         "Tests/Duofy.Web.Tests/Duofy.Web.Tests.csproj",
     ];
 
     // A1 (R1, R3)
     [Fact]
-    public void The_solution_lists_exactly_the_thirteen_projects_in_their_five_folders()
+    public void The_solution_lists_exactly_the_eleven_projects_in_their_five_folders()
     {
         var solution = XDocument.Load(Path.Combine(SolutionRoot(), "Duofy.slnx")).Root!;
 

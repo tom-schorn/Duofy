@@ -58,12 +58,11 @@ internal sealed class HouseholdPlanStore(
         }
 
         var figures = HouseholdPlanFigures.Compute(months);
-        var postponed = await PostponedAsync(months.SelectMany(m => m.Plan.Positions.Select(p => (p, m.Plan.Year, m.Plan.Month))).ToList(), cancellationToken);
         var positions = months
             .SelectMany(m =>
             {
                 var booked = PlanFigures.BookedPerPosition(m.Bookings);
-                return m.Plan.Positions.Select(p => ToResponse(p, m.Plan.OwnerId, names[m.Plan.OwnerId], booked.GetValueOrDefault(p.Id), postponed.GetValueOrDefault(p.Id)));
+                return m.Plan.Positions.Select(p => ToResponse(p, m.Plan.OwnerId, names[m.Plan.OwnerId], booked.GetValueOrDefault(p.Id)));
             })
             .OrderBy(p => PotOrder(p.Pot))
             .ThenBy(p => p.DueDay)
@@ -256,17 +255,6 @@ internal sealed class HouseholdPlanStore(
         return (shown, missing);
     }
 
-    /// <summary>Die Verschiebungen je Posten, gezählt zu dem Fälligkeitstag, den der Posten jetzt hat (wie im Plan einer Person).</summary>
-    private async Task<Dictionary<Guid, int>> PostponedAsync(List<(PlanPosition Position, int Year, int Month)> positions, CancellationToken cancellationToken)
-    {
-        var ids = positions.Select(p => p.Position.Id).ToList();
-        var counts = await db.PostponeCounts.AsNoTracking().Where(c => ids.Contains(c.PositionId)).ToListAsync(cancellationToken);
-        return positions
-            .Select(p => (p.Position.Id, Count: counts.FirstOrDefault(c => c.PositionId == p.Position.Id && c.DueDate == ReminderRules.DueDate(p.Year, p.Month, p.Position.DueDay))?.Count ?? 0))
-            .Where(x => x.Count > 0)
-            .ToDictionary(x => x.Id, x => x.Count);
-    }
-
     private static int PotOrder(string pot) => pot switch
     {
         PotKeys.Income => 0,
@@ -275,7 +263,7 @@ internal sealed class HouseholdPlanStore(
         _ => 3,
     };
 
-    private static HouseholdPlanPositionResponse ToResponse(PlanPosition position, Guid ownerId, string ownerFirstName, decimal booked, int postponed) => new(
+    private static HouseholdPlanPositionResponse ToResponse(PlanPosition position, Guid ownerId, string ownerFirstName, decimal booked) => new(
         position.Id,
         position.Label,
         position.AmountPlanned,
@@ -287,6 +275,5 @@ internal sealed class HouseholdPlanStore(
         booked,
         position.DoneAt,
         ownerId,
-        ownerFirstName,
-        postponed);
+        ownerFirstName);
 }

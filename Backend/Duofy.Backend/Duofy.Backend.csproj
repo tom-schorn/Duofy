@@ -17,9 +17,6 @@
 
   <ItemGroup>
     <PackageReference Include="EFCore.NamingConventions" Version="10.0.1" />
-    <!-- Erinnerungen (Spec 84): Firebase Cloud Messaging für Android, Apache-2.0. Die Zugangsdaten (Dienstkonto-Datei) liegen
-         nie im Repository. -->
-    <PackageReference Include="FirebaseAdmin" Version="[3.7.0]" />
     <!-- Mailversand über SMTP, nur auf dem gehosteten Server (Spec 53); MimeKit kommt mit. -->
     <PackageReference Include="MailKit" Version="[4.18.1]" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.12" />

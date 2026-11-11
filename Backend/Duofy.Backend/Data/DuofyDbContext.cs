@@ -121,21 +121,6 @@ public class DuofyDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Gui
     /// </summary>
     public DbSet<PasswordResetLink> PasswordResetLinks => Set<PasswordResetLink>();
 
-    /// <summary>Die Geräte, die Erinnerungen bekommen (Spec 84); jede Person sieht nur ihre eigenen.</summary>
-    public DbSet<ReminderDevice> ReminderDevices => Set<ReminderDevice>();
-
-    /// <summary>Die Einstellung "Erinnerungen" je Person (Spec 84); ohne Zeile gelten die Vorgaben.</summary>
-    public DbSet<ReminderSettings> ReminderSettings => Set<ReminderSettings>();
-
-    /// <summary>Die Erinnerungen an Posten (Spec 84), je Posten und Person eine.</summary>
-    public DbSet<Reminder> Reminders => Set<Reminder>();
-
-    /// <summary>Wie oft ein Posten zu einem Fälligkeitstag mit "Später" verschoben wurde (Spec 118).</summary>
-    public DbSet<PostponeCount> PostponeCounts => Set<PostponeCount>();
-
-    /// <summary>Was im Haushalt geschah, für die Abendzusammenfassung (Spec 118).</summary>
-    public DbSet<HouseholdEvent> HouseholdEvents => Set<HouseholdEvent>();
-
     /// <summary>Der Name der Schatten-Spalte, die den Plan eines Postens nennt.</summary>
     public const string PositionPlan = "PlanId";
 
@@ -185,7 +170,6 @@ public class DuofyDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Gui
         ConfigureGrants(modelBuilder);
         ConfigureRegistrationInvitations(modelBuilder);
         ConfigurePasswordResetLinks(modelBuilder);
-        ConfigureReminders(modelBuilder);
         ConfigureOwnerFilters(modelBuilder);
     }
 
@@ -212,76 +196,6 @@ public class DuofyDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Gui
             OwnerFilterOff || Bookings.Any(b => b.Id == EF.Property<Guid>(l, "BookingId") && VisibleOwnerIds.Contains(b.OwnerId)));
         modelBuilder.Entity<PlanPosition>().HasQueryFilter(p =>
             OwnerFilterOff || Plans.Any(plan => plan.Id == EF.Property<Guid>(p, PositionPlan) && VisibleOwnerIds.Contains(plan.OwnerId)));
-    }
-
-    /// <summary>
-    /// Die Tabellen "reminder_devices", "reminder_settings" und "reminders" (Spec 84). Alles verschwindet mit der
-    /// Person; eine Erinnerung auch mit ihrem Posten. Je Posten und Person gibt es höchstens eine Erinnerung.
-    /// </summary>
-    private static void ConfigureReminders(ModelBuilder modelBuilder)
-    {
-        var device = modelBuilder.Entity<ReminderDevice>();
-        device.ToTable("reminder_devices");
-        device.HasKey(d => new { d.UserId, d.InstallationId });
-        device.Property(d => d.InstallationId).HasMaxLength(100);
-        device.Property(d => d.PushToken).HasMaxLength(4096);
-        device.Property(d => d.Platform)
-            .HasMaxLength(20)
-            .HasConversion(platform => platform.ToString().ToLowerInvariant(), key => Enum.Parse<DevicePlatform>(key, ignoreCase: true));
-        device.HasOne<AppUser>()
-            .WithMany()
-            .HasForeignKey(d => d.UserId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        var settings = modelBuilder.Entity<ReminderSettings>();
-        settings.ToTable("reminder_settings");
-        settings.HasKey(s => s.UserId);
-        settings.HasOne<AppUser>()
-            .WithOne()
-            .HasForeignKey<ReminderSettings>(s => s.UserId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        var reminder = modelBuilder.Entity<Reminder>();
-        reminder.ToTable("reminders");
-        reminder.Property(r => r.Id).ValueGeneratedNever();
-        reminder.Property(r => r.State)
-            .HasMaxLength(20)
-            .HasConversion(state => state.ToString().ToLowerInvariant(), key => Enum.Parse<ReminderState>(key, ignoreCase: true));
-        reminder.Property(r => r.Kind)
-            .HasMaxLength(20)
-            .HasConversion(kind => kind.ToString().ToLowerInvariant(), key => Enum.Parse<ReminderKind>(key, ignoreCase: true));
-        reminder.HasIndex(r => new { r.PositionId, r.RecipientId, r.Day, r.Kind }).IsUnique();
-        reminder.HasIndex(r => new { r.RecipientId, r.Day, r.Kind });
-        reminder.HasOne<AppUser>()
-            .WithMany()
-            .HasForeignKey(r => r.RecipientId)
-            .OnDelete(DeleteBehavior.Cascade);
-        reminder.HasOne<PlanPosition>()
-            .WithMany()
-            .HasForeignKey(r => r.PositionId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        var postpones = modelBuilder.Entity<PostponeCount>();
-        postpones.ToTable("postpone_counts");
-        postpones.HasKey(c => new { c.PositionId, c.DueDate });
-        postpones.HasOne<PlanPosition>()
-            .WithMany()
-            .HasForeignKey(c => c.PositionId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        var events = modelBuilder.Entity<HouseholdEvent>();
-        events.ToTable("household_events");
-        events.Property(e => e.Id).ValueGeneratedNever();
-        events.Property(e => e.Label).HasMaxLength(200);
-        events.Property(e => e.Amount).HasPrecision(18, 2);
-        events.Property(e => e.Kind)
-            .HasMaxLength(20)
-            .HasConversion(kind => kind.ToString().ToLowerInvariant(), key => Enum.Parse<HouseholdEventKind>(key, ignoreCase: true));
-        events.HasIndex(e => new { e.HouseholdId, e.OccurredAt });
-        events.HasOne<Household>()
-            .WithMany()
-            .HasForeignKey(e => e.HouseholdId)
-            .OnDelete(DeleteBehavior.Cascade);
     }
 
     /// <summary>
@@ -341,7 +255,7 @@ public class DuofyDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Gui
         grant.ToTable("grants", table =>
         {
             table.HasCheckConstraint("ck_grants_not_self", "granter_id <> grantee_id");
-            table.HasCheckConstraint("ck_grants_area", "area IN ('plan', 'book', 'accounts', 'commitments', 'savings', 'reminders')");
+            table.HasCheckConstraint("ck_grants_area", "area IN ('plan', 'book', 'accounts', 'commitments', 'savings')");
             table.HasCheckConstraint("ck_grants_level", "level IN ('view', 'create', 'edit', 'delete')");
         });
         grant.HasKey(g => new { g.GranterId, g.GranteeId, g.Area });

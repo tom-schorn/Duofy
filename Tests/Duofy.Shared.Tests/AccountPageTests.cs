@@ -179,28 +179,4 @@ public class AccountPageBuildTests : PageTestContext
         Assert.Contains("duofy-button", cut.Find("[data-testid='account-sign-out']").ClassList);
         Assert.Contains("duofy-button", cut.Find("[data-testid='account-sign-out-everywhere']").ClassList);
     }
-
-    // Spec 118, R1: Auch am PC und Tablet, wo es die Seite Mehr nicht gibt, führt die Kontoseite zur Seite "Benachrichtigungen".
-    [Fact]
-    public void The_account_page_links_to_the_notifications_page()
-    {
-        ReminderApiFake.Available = true;
-
-        var cut = Render<Account>();
-
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='account-notifications']")));
-        Assert.Equal("/benachrichtigungen", cut.Find("[data-testid='account-notifications-open']").GetAttribute("href"));
-        Assert.Empty(cut.FindAll("[data-testid='notifications']"));
-    }
-
-    [Fact]
-    public void The_account_page_hides_the_notifications_link_without_reminders_on_the_server()
-    {
-        ReminderApiFake.Available = false;
-
-        var cut = Render<Account>();
-
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='account-names']")));
-        Assert.Empty(cut.FindAll("[data-testid='account-notifications']"));
-    }
 }

@@ -53,31 +53,4 @@ public class MehrPageTests : PageTestContext
         cut.WaitForAssertion(() => Assert.Equal("/anmelden", CurrentPath));
         Assert.Null(Tokens.Tokens);
     }
-
-    // Spec 118, R1: Ohne Erinnerungen auf dem Server (404) gibt es den Eintrag nicht; mit ihnen führt er zur eigenen Seite.
-    [Fact]
-    public void Without_reminders_on_the_server_the_notifications_entry_is_hidden()
-    {
-        ReminderApiFake.Available = false;
-        var cut = Render<Mehr>();
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='more-sign-out']")));
-
-        Assert.Empty(cut.FindAll("[data-testid='more-notifications']"));
-    }
-
-    // Spec 118, A1: "Mehr" nennt einen Eintrag "Benachrichtigungen" statt des alten Blocks.
-    [Fact]
-    public void More_lists_an_entry_notifications_instead_of_the_old_block()
-    {
-        ReminderApiFake.Available = true;
-        var cut = Render<Mehr>();
-
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='more-notifications']")));
-
-        var entry = cut.Find("[data-testid='more-notifications']");
-        Assert.Equal("/benachrichtigungen", entry.GetAttribute("href"));
-        Assert.Contains("Benachrichtigungen", entry.TextContent);
-        Assert.Empty(cut.FindAll("[data-testid='notifications']"));
-        Assert.Empty(cut.FindAll("[data-testid='more-reminders']"));
-    }
 }
