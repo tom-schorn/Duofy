@@ -7,8 +7,8 @@ namespace Duofy.Shared.Services;
 
 /// <summary>
 /// Wessen Zahlen die Oberfläche gerade zeigt (Spec 68, R8): "Ich", ein Mitglied des Haushalts, das der
-/// angemeldeten Person in irgendeinem Bereich mindestens Ansehen freigegeben hat, oder der ganze Haushalt
-/// (Spec 69, R9), solange er mehr als ein Mitglied hat. Die Haushaltssicht gibt es nur für den Plan.
+/// angemeldeten Person in irgendeinem Bereich mindestens Ansehen freigegeben hat. Der Haushalt steht nicht in der
+/// Personenauswahl (Spec 126, R1); die Haushaltssicht des Plans erreicht man über die Navigation und gibt es nur für den Plan.
 ///
 /// Der Dienst lebt so lange wie die Sitzung (in der App die ganze Laufzeit, im Web eine Sitzung des Browsers),
 /// deshalb bleibt die Wahl beim Wechsel zwischen den Seiten. Jede Seite fragt hier nach dem Besitzer, den sie

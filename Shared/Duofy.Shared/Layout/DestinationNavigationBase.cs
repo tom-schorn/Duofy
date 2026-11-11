@@ -37,5 +37,5 @@ public abstract class DestinationNavigationBase : ComponentBase, IDisposable
         InvokeAsync(StateHasChanged);
     }
 
-    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
+    public virtual void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
 }

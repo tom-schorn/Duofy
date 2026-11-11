@@ -44,6 +44,15 @@ public static class AppDestinations
         (AppDestination.Savings, "/sparen", "Nav_Savings", "piggy-bank"),
     ];
 
+    /// <summary>Einträge, deren Text von der Person abhängt: Schlüssel für die eigene Ansicht, Schlüssel mit Vornamen für die einer anderen (Spec 126).</summary>
+    private static readonly Dictionary<string, string> OfPerson = new() { ["Nav_MyPlan"] = "Nav_PlanOf" };
+
+    /// <param name="labelKey">Der Textschlüssel des Eintrags.</param>
+    /// <param name="firstName">Der Vorname der gewählten Person; null in der eigenen Ansicht.</param>
+    /// <returns>Der Schlüssel, der gilt: "Meine ..." wird in der Ansicht einer anderen Person zu "... von Vorname"; der Text bekommt den Vornamen als {0}.</returns>
+    public static string LabelKeyFor(string labelKey, string? firstName) =>
+        firstName is not null && OfPerson.TryGetValue(labelKey, out var of) ? of : labelKey;
+
     /// <param name="path">Der Pfad ohne Rechnername, zum Beispiel "/konten" oder "konten".</param>
     /// <returns>Das Ziel, das leuchten soll; null bei Adressen ohne Ziel (zum Beispiel unbekannte Seiten).</returns>
     public static AppDestination? For(string path)

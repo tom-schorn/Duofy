@@ -350,6 +350,9 @@ ul, ol { list-style: none; }
 @media (max-width: 1279px) {
     .duofy-button { height: auto; min-height: 44px; min-width: 44px; }
     .back-link { min-height: 44px; }
+    /* Trefferfläche von 44 px für die Ansichtsmarke und die Einträge ihres Menüs (Spec 126, S2). */
+    .shell-view { min-height: 44px; min-width: 44px; padding-inline: 12px; font-size: 14px; }
+    .member-menu-item { min-height: 44px; }
     .tick-box { position: relative; flex-shrink: 0; }
     .tick-box::after { content: ""; position: absolute; inset: -13px; }
     .side-link { min-height: 44px; }
@@ -711,8 +714,22 @@ a.duofy-button--primary { color: var(--primary-foreground); }
 .plan-row:last-child { border-bottom: 0; }
 .plan-row .list-row { border-bottom: 0; }
 .list-row-amount .list-row-detail { display: block; font-weight: 400; }
-/* Der Reiter Buchungen als Tabelle in voller Breite (Spec 82, R15); am Handy wird jede Zeile eine kleine Karte. */
-.month-bookings { padding: 0; overflow: hidden; }
+/* Der Reiter Buchungen als Tabelle in voller Breite (Spec 82, R15). Wie die Tabelle sich zeigt, richtet sich nach der Breite
+   ihres eigenen Bereichs (.bookings-scroll, ein Container) und nicht nach der des Fensters: bei 840 px ist die Seitenleiste
+   voll ausgeklappt und lässt weniger Platz als bei 800 px (Spec 123, R1). Reicht der Platz nicht für sechs Spalten, wird jede
+   Zeile eine kleine Karte, bei etwas mehr Platz ist nur das Polster enger. Passt die Tabelle trotzdem nicht (lange Kontonamen),
+   scrollt sie in ihrem eigenen Bereich waagerecht, statt abgeschnitten zu werden; ein Schatten am rechten Rand weist darauf hin,
+   solange rechts noch etwas verborgen ist. Die Seite selbst scrollt nie seitwärts. */
+.month-bookings { padding: 0; min-width: 0; }
+.bookings-scroll {
+    max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; border-radius: inherit;
+    container-type: inline-size;
+    /* Der Schatten (scroll) am rechten Rand wird von einer Deckfläche in Kartenfarbe (local) verdeckt, sobald man am Ende angekommen ist. */
+    background:
+        linear-gradient(to left, var(--card), var(--card)) local right center / 16px 100% no-repeat,
+        linear-gradient(to left, color-mix(in srgb, var(--foreground) 18%, transparent), transparent) scroll right center / 16px 100% no-repeat;
+}
+.bookings-scroll:focus-visible { outline: 2px solid var(--ring, currentColor); outline-offset: -2px; }
 .month-bookings > .month-hint { padding: 16px; }
 .bookings-table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .bookings-table th {
@@ -728,19 +745,38 @@ a.duofy-button--primary { color: var(--primary-foreground); }
 .bookings-pot-item { display: inline-flex; align-items: center; gap: 6px; margin-right: 10px; white-space: nowrap; }
 .bookings-table .bookings-amount { text-align: right; white-space: nowrap; font-weight: 500; }
 .amount-expense { color: var(--destructive); }
-@media (max-width: 599px) {
+/* Enger Platz (Tablet hochkant, 800 px, Lenovo TB330FU): engeres Polster, damit die sechs Spalten ohne Wischen passen. */
+@container (min-width: 720px) and (max-width: 779px) {
+    .bookings-table th, .bookings-table td { padding-left: 12px; padding-right: 12px; }
+}
+/* Enger Platz unter 720 px (Handy, Tablet mit ausgeklappter Seitenleiste; Spec 123, Entscheidung 11.11.2026: lange Kontonamen
+   sollen den Betrag nie unter den Schatten schieben): jede Zeile eine Karte, der Betrag steht immer sichtbar daneben. */
+@container (max-width: 719px) {
     .bookings-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
     .bookings-table tbody { display: block; }
     .bookings-table tr.bookings-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
     .bookings-table tbody tr:last-child { border-bottom: 0; }
     .bookings-table td { display: block; padding: 0; border: 0; }
-    .bookings-table .bookings-name { flex: 1 1 calc(100% - 128px); min-width: 0; }
+    .bookings-table .bookings-name { flex: 1 1 0; min-width: 0; }
     .bookings-table .bookings-amount { flex: 0 0 auto; }
     .bookings-table .bookings-date, .bookings-table .bookings-position, .bookings-table .bookings-account, .bookings-table .bookings-pot {
         flex: 0 1 auto; font-size: 12px; color: var(--muted-foreground);
     }
     .bookings-table .bookings-position::before, .bookings-table .bookings-account:not(:empty)::before, .bookings-table .bookings-pot:not(:empty)::before { content: "· "; }
     .bookings-title { margin-bottom: 2px; }
+    /* Ein Übertrag hat weder Posten noch Topf: Die Striche dort entfallen, er sieht aus wie eine Buchungskarte (Spec 123, Review 3). */
+    .bookings-table .bookings-row--carry .bookings-position, .bookings-table .bookings-row--carry .bookings-pot { display: none; }
+    /* Eine Überweisung hat keinen Posten: Der reine Strich entfällt in der Kartenansicht, damit er bei größerer Schrift nicht neben dem Titel
+       schwimmt (Spec 123, Entscheidung 11.11.2026). "Ungeplant" und echte Posten bleiben; die Tabellenansicht behält den Strich. */
+    .bookings-table .bookings-row:has(.booking-kind[data-kind="transfer"]) .bookings-position:has(> .muted:only-child) { display: none; }
+    /* Der Umbruch ist erzwungen und hängt an keiner Breite, für jede Karte (Buchung, Überweisung, Übertrag): Ein leeres Element mit voller
+       Breite (::after, Order 1) trennt Datum und Titel (Order 0) von Person, Posten, Topf und Betrag (Order 2). So stehen sie bei jedem
+       Titel, Posten und Vornamen ("Jo" bis "Maximiliane") und bei größerer Schrift gemeinsam in der zweiten Zeile (Spec 123, Review 4 und 5).
+       Der negative Rand oben nimmt den zusätzlichen Zeilenabstand der leeren Zeile zurück. Eine leere Personen- oder Topfzelle (persönlicher Plan,
+       Übertrag ohne Person, ungeplante Buchung und Überweisung im Haushaltsplan) entfällt, damit sie den Betrag nicht um den Zeilenabstand einrückt. */
+    .bookings-table tr.bookings-row::after { content: ""; order: 1; flex: 0 0 100%; height: 0; }
+    .bookings-table .bookings-row .bookings-account, .bookings-table .bookings-row .bookings-position, .bookings-table .bookings-row .bookings-pot, .bookings-table .bookings-row .bookings-amount { order: 2; margin-top: -2px; }
+    .bookings-table .bookings-account:empty, .bookings-table .bookings-pot:empty { display: none; }
 }
 
 /* Erfolgsmeldungen als kurze Meldung unten, über allem und ohne etwas zu verschieben (Spec 82). */

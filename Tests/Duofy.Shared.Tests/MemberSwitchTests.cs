@@ -75,7 +75,7 @@ public class MemberSwitchTests : PageTestContext
         cut.WaitForAssertion(() => Assert.Equal(1, HouseholdApiFake.MineCalls));
 
         Assert.DoesNotContain("Ansicht", ProfileText(cut));
-        menu.WaitForAssertion(() => Assert.Equal(["member-choice-me", "member-choice-household"], Choices()));
+        menu.WaitForAssertion(() => Assert.Equal(["member-choice-me"], Choices()));
     }
 
     // A1 (R1): Mit Haushalt, aber ohne Freigabe, bietet das Menü keine Person an.
@@ -88,55 +88,20 @@ public class MemberSwitchTests : PageTestContext
 
         cut.WaitForAssertion(() => Assert.Equal(1, HouseholdApiFake.MineCalls));
         Assert.Empty(Member.Sharing);
-        menu.WaitForAssertion(() => Assert.Equal(["member-choice-me", "member-choice-household"], Choices()));
+        menu.WaitForAssertion(() => Assert.Equal(["member-choice-me"], Choices()));
     }
 
-    // A2 (R2): Ohne Haushalt ist "Haushalt" als nicht verfügbar gekennzeichnet, nennt den Grund und führt zur Haushalt-Seite.
+    // Spec 126, A1 (R1): Mit Haushalt und Freigabe bietet das Menü Ich und die Person an, aber keinen Eintrag "Haushalt".
     [Fact]
-    public void Without_a_household_the_household_entry_is_unavailable_explains_why_and_links_to_the_household_page()
+    public void A1_the_menu_lists_me_and_the_person_and_no_household_entry()
     {
-        HouseholdApiFake.Household = null;
+        Household(PlanView);
 
-        var cut = OpenMenu();
-        cut.WaitForAssertion(() => Assert.Equal(1, HouseholdApiFake.MineCalls));
+        OpenMenu();
 
-        menu.WaitForAssertion(() => Assert.NotEmpty(menu.FindAll("[data-testid='member-choice-household']")));
-        var entry = menu.Find("[data-testid='member-choice-household']");
-        Assert.Equal("true", entry.GetAttribute("aria-disabled"));
-        Assert.Equal("/haushalt", (entry.TagName == "A" ? entry : entry.QuerySelector("a"))!.GetAttribute("href"));
-        Assert.Equal("member-household-reason", entry.GetAttribute("aria-describedby"));
-        Assert.Contains("mindestens zwei", menu.Find("#member-household-reason").TextContent);
-    }
-
-    // A2 (R2): Auch ein Haushalt von einem Mitglied ist nicht verfügbar.
-    [Fact]
-    public void In_a_household_of_one_the_household_entry_is_unavailable()
-    {
-        HouseholdApiFake.Household = HouseholdApiFake.Household! with { Members = [FakeHouseholdApi.Ben(isMe: true)] };
-
-        var cut = OpenMenu();
-        cut.WaitForAssertion(() => Assert.Equal(1, HouseholdApiFake.MineCalls));
-
-        menu.WaitForAssertion(() => Assert.Equal("true", menu.Find("[data-testid='member-choice-household']").GetAttribute("aria-disabled")));
-    }
-
-    // A3 (R2): Bei zwei Mitgliedern wählt ein Tipp auf "Haushalt" die Haushaltssicht, und der Knopf sagt es.
-    [Fact]
-    public void With_two_members_the_household_entry_chooses_the_household_view()
-    {
-        Household(GrantLevels.None);
-        var cut = OpenMenu();
-        menu.WaitForAssertion(() => Assert.NotEqual("true", menu.Find("[data-testid='member-choice-household']").GetAttribute("aria-disabled")));
-
-        menu.Find("[data-testid='member-choice-household']").Click();
-
-        Assert.True(Member.IsHousehold);
-        Assert.Null(Member.Owner);
-        cut.WaitForAssertion(() => Assert.Equal("Ansicht: Haushalt", ProfileText(cut)));
-        cut.WaitForAssertion(() => Assert.False(MenuIsOpen(cut)));
-
-        Toggle(cut);
-        menu.WaitForAssertion(() => Assert.Equal("true", menu.Find("[data-testid='member-choice-household']").GetAttribute("aria-current")));
+        menu.WaitForAssertion(() => Assert.Equal(["member-choice-me", $"member-choice-{FakeHouseholdApi.AnnaId}"], Choices()));
+        Assert.Empty(menu.FindAll("[data-testid='member-choice-household'], #member-household-reason"));
+        Assert.DoesNotContain("Haushalt", menu.Markup.Replace("Haushalt von Anna", ""));
     }
 
     // A4 (R3): Anna steht mit Vornamen im Menü; Wählen macht sie zum Besitzer, Ich nimmt es zurück.
@@ -147,7 +112,7 @@ public class MemberSwitchTests : PageTestContext
 
         var cut = OpenMenu();
         var annaChoice = $"member-choice-{FakeHouseholdApi.AnnaId}";
-        menu.WaitForAssertion(() => Assert.Equal(["member-choice-me", annaChoice, "member-choice-household"], Choices()));
+        menu.WaitForAssertion(() => Assert.Equal(["member-choice-me", annaChoice], Choices()));
         Assert.Equal("Anna", ItemText(annaChoice));
         Assert.StartsWith("Benutzermenü", cut.Find("[data-testid='user-menu-open']").GetAttribute("aria-label"));
 
@@ -190,7 +155,7 @@ public class MemberSwitchTests : PageTestContext
     {
         OpenMenu();
 
-        menu.WaitForAssertion(() => Assert.Equal(["member-choice-me", "member-choice-household"], Choices()));
+        menu.WaitForAssertion(() => Assert.Equal(["member-choice-me"], Choices()));
         Assert.Empty(menu.FindAll("[data-testid='member-account'], [data-testid='member-sign-out']"));
     }
 

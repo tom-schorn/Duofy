@@ -436,8 +436,6 @@ public class HouseholdPageTests : PageTestContext
         cut.WaitForAssertion(() => Assert.Null(Member.Household));
         Assert.False(Member.CanShowHousehold);
         Assert.False(Member.IsHousehold);
-        switcher.Find("[data-testid='user-menu-open']").Click();
-        dialogs.WaitForAssertion(() => Assert.Equal("true", dialogs.Find("[data-testid='member-choice-household']").GetAttribute("aria-disabled")));
         Assert.DoesNotContain("Ansicht", switcher.Find("[data-testid='member-profile']").TextContent);
     }
 

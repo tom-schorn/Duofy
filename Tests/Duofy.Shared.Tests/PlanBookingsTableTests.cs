@@ -1,0 +1,232 @@
+using Bunit;
+using Duofy.Schemas;
+using Duofy.Shared.Pages;
+using Duofy.Shared.Pages.Month;
+using Duofy.Shared.Services;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Duofy.Shared.Tests;
+
+/// <summary>
+/// Spec 123: Die Buchungstabelle des persönlichen Plans und des Haushaltsplans ist eine Komponente (MonthBookings), sie
+/// scrollt waagerecht in ihrem eigenen Bereich, wo sie nicht passt, und die Buchungen stehen strikt neueste zuerst,
+/// der eingehende Übertrag als am 1. des Planmonats gebucht am Ende, der ausgehende mit seinem Datum oben.
+/// </summary>
+public class PlanBookingsTableTests : PageTestContext
+{
+    private static string Css => File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "wwwroot", "duofy.css")).Replace("\r\n", "\n");
+
+    private static MonthBookingRow Row(int day, string name) =>
+        new(Guid.NewGuid(), new DateOnly(2026, 10, day), 10m, "Girokonto", false, BookingKinds.Expense, null, name, [], [PotKeys.Needs]);
+
+    private static IReadOnlyList<string> Order(IRenderedComponent<MonthBookings> cut) =>
+        cut.FindAll("tbody tr").Select(tr => tr.QuerySelector(".bookings-title")!.TextContent.Trim()).ToList();
+
+    // A2 (R2): 10., 5. und der Übertrag aus dem Vormonat; die Zeilen kommen absichtlich in falscher Reihenfolge an.
+    [Fact]
+    public void A2_the_list_runs_newest_first_and_the_carry_over_stands_at_the_end()
+    {
+        var cut = Render<MonthBookings>(p => p
+            .Add(x => x.Rows, [Row(5, "Fünfter"), Row(10, "Zehnter")])
+            .Add(x => x.CarryOvers, [new MonthCarryOverRow(true, new DateOnly(2026, 9, 1), 230m, null)]));
+
+        Assert.Equal(["Zehnter", "Fünfter", "Übertrag aus September"], Order(cut));
+    }
+
+    // A2 (R2): auch eine Buchung am 1. steht vor dem eingehenden Übertrag, der als am 1. des Planmonats gebucht gilt.
+    [Fact]
+    public void A2_a_booking_on_the_first_stands_above_the_incoming_carry_over_which_carries_the_first_of_the_plan_month()
+    {
+        var cut = Render<MonthBookings>(p => p
+            .Add(x => x.Rows, [Row(1, "Erster"), Row(3, "Dritter")])
+            .Add(x => x.CarryOvers, [new MonthCarryOverRow(true, new DateOnly(2026, 9, 1), 230m, null)]));
+
+        Assert.Equal(["Dritter", "Erster", "Übertrag aus September"], Order(cut));
+        Assert.Equal("01.10.2026", cut.Find("tr[data-testid='month-carry-over-in'] .bookings-date").TextContent.Trim());
+    }
+
+    // A2 (R2, Ergänzung 2026-11-11): der ausgehende Übertrag behält sein Buchungsdatum, den letzten Tag des Planmonats, und steht oben.
+    [Fact]
+    public void A2_the_outgoing_carry_over_keeps_the_end_of_the_month_and_stands_on_top()
+    {
+        var cut = Render<MonthBookings>(p => p
+            .Add(x => x.Rows, [Row(1, "Erster"), Row(30, "Dreißigster")])
+            .Add(x => x.CarryOvers,
+            [
+                new MonthCarryOverRow(true, new DateOnly(2026, 9, 1), 230m, null),
+                new MonthCarryOverRow(false, new DateOnly(2026, 11, 1), 40m, null),
+            ]));
+
+        Assert.Equal(["Übertrag nach November", "Dreißigster", "Erster", "Übertrag aus September"], Order(cut));
+        Assert.Equal("31.10.2026", cut.Find("tr[data-testid='month-carry-over-out'] .bookings-date").TextContent.Trim());
+    }
+
+    // A2 (R2), Haushaltsplan: dieselbe Reihenfolge, auch wenn die Buchungen ungeordnet ankommen.
+    [Fact]
+    public void A2_the_household_plan_lists_in_the_same_order()
+    {
+        RenderDialogHost();
+        var household = new HouseholdResponse(Guid.NewGuid(), "Haushalt von Anna", 50, 30, 20, [FakeHouseholdApi.Anna(isMe: false), FakeHouseholdApi.Ben(isMe: true)]);
+        HouseholdApiFake.Household = household;
+        var empty = FakeHouseholdApi.EmptyPlan(household.Id, household.Name, 2026, 10);
+        HouseholdApiFake.HouseholdPlans[(2026, 10)] = empty with
+        {
+            Bookings = [HouseholdBooking(5, "Fünfter"), HouseholdBooking(10, "Zehnter")],
+            CarryOvers = [new PlanCarryOverLineResponse(CarryOverDirections.In, 2026, 9, 100m, "Ben")],
+        };
+
+        var cut = Render<HouseholdPlanView>(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 10));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-tab-bookings']")));
+        cut.Find("[data-testid='month-tab-bookings']").Click();
+
+        var titles = cut.FindAll("[data-testid='month-bookings'] tbody tr").Select(tr => tr.QuerySelector(".bookings-title")!.TextContent.Trim()).ToList();
+        Assert.Equal(["Zehnter", "Fünfter", "Übertrag aus September"], titles);
+    }
+
+    private static HouseholdBookingResponse HouseholdBooking(int day, string purpose) =>
+        new(Guid.NewGuid(), new DateOnly(2026, 10, day), 10m, 2026, 10, Guid.NewGuid(), "Ben", BookingKinds.Expense, purpose, []);
+
+    // A3 (R3): beide Pläne zeichnen ihre Buchungen mit derselben Komponente.
+    [Fact]
+    public void A3_the_personal_and_the_household_plan_use_the_same_bookings_component()
+    {
+        var plan = File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "Pages", "Plan.razor"));
+        var household = File.ReadAllText(RepositoryFiles.Path("Shared", "Duofy.Shared", "Pages", "HouseholdPlanView.razor"));
+
+        Assert.Contains("<MonthBookings ", plan);
+        Assert.Contains("<MonthBookings ", household);
+        Assert.DoesNotContain("<table", plan);
+        Assert.DoesNotContain("<table", household);
+    }
+
+    // A1 (R1): Die Tabelle sitzt in einem eigenen Bereich, der waagerecht scrollt; der Bereich ist per Tastatur erreichbar und benannt.
+    [Fact]
+    public void A1_the_table_sits_in_its_own_region_that_scrolls_sideways()
+    {
+        var rows = Enumerable.Range(1, 10).Select(d => Row(d, $"Buchung {d}")).ToList();
+
+        var cut = Render<MonthBookings>(p => p.Add(x => x.Rows, rows));
+
+        var scroll = cut.Find(".bookings-scroll");
+        Assert.NotNull(scroll.QuerySelector("table.bookings-table"));
+        Assert.Equal("region", scroll.GetAttribute("role"));
+        Assert.Equal("0", scroll.GetAttribute("tabindex"));
+        Assert.False(string.IsNullOrWhiteSpace(scroll.GetAttribute("aria-label")));
+        Assert.Matches(@"\.bookings-scroll\s*\{[^}]*overflow-x:\s*auto", Css);
+        Assert.Matches(@"\.bookings-scroll\s*\{[^}]*max-width:\s*100%", Css);
+    }
+
+    // A1 (R1): Der Karten-Rahmen schneidet nicht mehr ab, sonst gäbe es nichts zu wischen.
+    [Fact]
+    public void A1_the_card_frame_no_longer_clips_the_table()
+    {
+        Assert.DoesNotMatch(@"\.month-bookings\s*\{[^}]*overflow:\s*hidden", Css);
+        Assert.Matches(@"\.month-bookings\s*\{[^}]*min-width:\s*0", Css);
+    }
+
+    // A1 (R1, Review F2): Wie die Tabelle sich zeigt, folgt der Breite ihres Bereichs und nicht der des Fensters; bei 840 px lässt die
+    // volle Seitenleiste weniger Platz als bei 800 px. Der Bereich ist der Container, enger Platz macht das Polster enger und
+    // sehr enger Platz aus jeder Zeile eine Karte, der Betrag bleibt so ohne Wischen sichtbar.
+    [Fact]
+    public void A1_the_table_layout_follows_the_width_of_its_own_area_and_not_the_viewport()
+    {
+        Assert.Matches(@"\.bookings-scroll\s*\{[^}]*container-type:\s*inline-size", Css);
+        Assert.Matches(@"@container \(min-width: 720px\) and \(max-width: 779px\)\s*\{\s*\.bookings-table th, \.bookings-table td\s*\{\s*padding-left: 12px", Css);
+        Assert.Matches(@"@container \(max-width: 719px\)\s*\{\s*\.bookings-table thead", Css);
+        Assert.DoesNotMatch(@"@media[^{]*\{\s*\.bookings-table", Css);
+    }
+
+    // A1 (R1, Review F2): Wo die Tabelle trotzdem überläuft, zeigt ein Schatten am rechten Rand, dass dort noch etwas verborgen ist.
+    [Fact]
+    public void A1_an_overflowing_table_shows_a_shadow_at_the_right_edge()
+    {
+        Assert.Matches(@"\.bookings-scroll\s*\{[^}]*local right center[^}]*scroll right center", Css);
+    }
+
+    // A1 (R1, Review 3): In der Kartenansicht zeigt ein Übertrag keine Striche für Posten und Topf, damit er wie eine Buchungskarte aussieht.
+    [Fact]
+    public void A1_a_carry_over_card_hides_the_dashes_of_position_and_pot()
+    {
+        Assert.Matches(@"@container \(max-width: 719px\)[^@]*\.bookings-row--carry \.bookings-position, \.bookings-table \.bookings-row--carry \.bookings-pot\s*\{\s*display:\s*none", Css);
+    }
+
+    // A1 (R1, Review 4 und 5): Jede Karte (Buchung, Überweisung, Übertrag) erzwingt den Umbruch mit einem leeren Element voller Breite
+    // (::after, Order 1); Datum und Titel stehen davor, Person, Posten, Topf und Betrag dahinter (Order 2). Unabhängig von der Länge von
+    // Titel, Posten und Vorname. Eine leere Personen- oder Topfzelle entfällt. Die gemessene Prüfung dazu: Tests/responsive-widths/cards.mjs.
+    [Fact]
+    public void A1_every_card_forces_the_break_so_date_and_title_stand_in_line_one_and_the_rest_in_line_two()
+    {
+        Assert.Matches(@"@container \(max-width: 719px\)[^@]*\.bookings-table tr\.bookings-row::after\s*\{[^}]*content:\s*""""[^}]*order:\s*1[^}]*flex:\s*0 0 100%", Css);
+        Assert.Matches(@"@container \(max-width: 719px\)[^@]*\.bookings-row \.bookings-account, [^{]*\.bookings-row \.bookings-position, [^{]*\.bookings-row \.bookings-pot, [^{]*\.bookings-row \.bookings-amount\s*\{\s*order:\s*2", Css);
+        Assert.DoesNotMatch(@"\.bookings-row--carry::after", Css);
+        Assert.DoesNotMatch(@"\.bookings-name\s*\{[^}]*calc\(", Css);
+        Assert.Matches(@"@container \(max-width: 719px\)[^@]*\.bookings-table \.bookings-account:empty, \.bookings-table \.bookings-pot:empty\s*\{\s*display:\s*none", Css);
+    }
+
+    // A1 (R1, Review 5): Die Kartenregel für die Überweisung hängt an dem Wert, den die App wirklich schreibt (BookingKindBadge: data-kind
+    // ist die Art, klein geschrieben). Der Wert kommt hier aus dem gerenderten Markup und nicht aus einer Abschrift; Attributwerte
+    // unterscheiden Groß- und Kleinschreibung, "Transfer" träfe nie.
+    [Fact]
+    public void A1_the_card_rules_select_the_data_kind_values_the_component_really_renders()
+    {
+        var cut = RenderMixedTable(household: false);
+        var kinds = cut.FindAll("tbody tr").ToDictionary(tr => tr.QuerySelector(".bookings-title")!.TextContent.Trim(), tr => tr.QuerySelector(".booking-kind")!.GetAttribute("data-kind"));
+
+        Assert.Equal(BookingKinds.Transfer, kinds["Umbuchung aufs Sparkonto"]);
+        Assert.Equal(MonthBookingText.CarryOver, kinds["Übertrag aus Oktober"]);
+        var cards = Css.Split("@container (max-width: 719px)")[1];
+        Assert.Contains($".booking-kind[data-kind=\"{kinds["Umbuchung aufs Sparkonto"]}\"]", cards);
+        Assert.DoesNotContain("data-kind=\"Transfer\"", Css);
+    }
+
+    // A1 (R1, Lead-Entscheidung 11.11.2026): In der Kartenansicht entfällt bei einer Überweisung der leere Strich der Postenspalte, damit er
+    // nicht bei größerer Schrift neben dem Titel schwimmt. Nur der reine Strich verschwindet (kein "Ungeplant", keine Posten); die
+    // Tabellenansicht behält ihn. Die gemessene Prüfung dazu: Tests/responsive-widths/cards.mjs.
+    [Fact]
+    public void A1_a_transfer_card_hides_the_empty_position_dash_but_the_table_view_keeps_it()
+    {
+        Assert.Matches(@"@container \(max-width: 719px\)[^@]*\.bookings-row:has\(\.booking-kind\[data-kind=""transfer""\]\) \.bookings-position:has\(> \.muted:only-child\)\s*\{\s*display:\s*none", Css);
+        Assert.DoesNotContain("data-kind=", Css.Split("@container (max-width: 719px)")[0]);
+
+        // Das echte Markup: Die Überweisung trägt den reinen Strich in .muted als einziges Kind, "Ungeplant" ist ein eigener Text.
+        var cut = RenderMixedTable(household: false);
+        Assert.Equal("—", Row(cut, "Umbuchung aufs Sparkonto").QuerySelector(".bookings-position > .muted:only-child")!.TextContent.Trim());
+        Assert.NotEqual("—", Row(cut, "Kiosk").QuerySelector(".bookings-position > .muted:only-child")!.TextContent.Trim());
+    }
+
+    // A1 (R1, Review 5): Das Markup für die gemessene Browser-Prüfung kommt aus den echten Komponenten (MonthBookings mit
+    // BookingKindBadge), nicht aus einer Abschrift. Ist DUOFY_CARD_MARKUP_DIR gesetzt, schreibt der Test es dorthin
+    // (personal.html, household.html); Tests/responsive-widths/cards.mjs liest es und misst es mit dem echten duofy.css.
+    [Fact]
+    public void A1_the_real_table_markup_is_exported_for_the_browser_check()
+    {
+        var dir = Environment.GetEnvironmentVariable("DUOFY_CARD_MARKUP_DIR");
+        foreach (var household in new[] { false, true })
+        {
+            var cut = RenderMixedTable(household);
+            var table = cut.Find("table.bookings-table");
+            Assert.Equal(4, table.QuerySelectorAll("tbody tr").Length);
+            if (dir is not null)
+            {
+                Directory.CreateDirectory(dir);
+                File.WriteAllText(Path.Combine(dir, household ? "household.html" : "personal.html"), table.OuterHtml);
+            }
+        }
+    }
+
+    private static AngleSharp.Dom.IElement Row(IRenderedComponent<MonthBookings> cut, string title) =>
+        cut.FindAll("tbody tr").Single(tr => tr.QuerySelector(".bookings-title")!.TextContent.Trim() == title);
+
+    // Eine Buchung mit kurzem Posten, eine Überweisung, eine ungeplante Buchung und ein eingehender Übertrag, so wie die App sie rendert.
+    // Im persönlichen Plan hat der Übertrag keine Person (leere Zelle), im Haushalt den Vornamen. Eine ungeplante Buchung hat wie in der App
+    // weder Posten noch Topf (MonthView.HouseholdBookingRows nimmt Töpfe nur aus Posten), im Haushalt mit langem Vornamen.
+    private IRenderedComponent<MonthBookings> RenderMixedTable(bool household) => Render<MonthBookings>(p => p
+        .Add(x => x.Household, household)
+        .Add(x => x.Rows,
+        [
+            new(Guid.NewGuid(), new DateOnly(2026, 11, 5), 87.40m, household ? "Tom" : "Girokonto", false, BookingKinds.Expense, null, "Wocheneinkauf", ["Gas"], [PotKeys.Needs]),
+            new(Guid.NewGuid(), new DateOnly(2026, 11, 4), 200m, household ? "Ida" : "Girokonto", false, BookingKinds.Transfer, null, "Umbuchung aufs Sparkonto", null, null),
+            new(Guid.NewGuid(), new DateOnly(2026, 11, 3), 4.20m, household ? "Maximiliane" : "Girokonto", false, BookingKinds.Expense, null, "Kiosk", [], []),
+        ])
+        .Add(x => x.CarryOvers, [new MonthCarryOverRow(true, new DateOnly(2026, 10, 1), 1234.56m, household ? "Maximiliane" : null)]));
+}

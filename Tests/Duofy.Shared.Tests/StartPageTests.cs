@@ -17,7 +17,7 @@ namespace Duofy.Shared.Tests;
 public class StartPageTests : PageTestContext
 {
     private const string NotSignedInText = "Du bist nicht angemeldet";
-    private const string NotShared = "Diese Person teilt diesen Bereich nicht mit dir.";
+    private const string NotShared = "Ben teilt Planung nicht mit dir.";
 
     private readonly IRenderedComponent<Microsoft.AspNetCore.Components.IComponent> dialogs;
 
@@ -424,9 +424,9 @@ public class StartPageTests : PageTestContext
         Assert.Contains("700,00 €", Text(cut, "start-household"));
     }
 
-    // Review M2: In der Sicht auf ein anderes Mitglied gibt es keinen Haushaltsblock, und er wird nicht einmal geholt.
+    // Spec 126, A3 (R3): In der Sicht auf ein anderes Mitglied steht derselbe Haushaltsblock wie bei einem selbst.
     [Fact]
-    public async Task M2_the_household_block_is_missing_and_not_loaded_in_the_view_of_another_member()
+    public async Task A3_the_household_block_shows_in_the_view_of_another_member_too()
     {
         SeedPlan();
         var household = new HouseholdResponse(Guid.NewGuid(), "Haushalt von Anna", 50, 30, 20,
@@ -439,9 +439,49 @@ public class StartPageTests : PageTestContext
 
         var cut = OpenStart();
 
-        Assert.Empty(cut.FindAll("[data-testid='start-household']"));
-        Assert.Empty(HouseholdApiFake.PlanCalls);
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='start-household']")));
+        Assert.Contains("700,00 €", Text(cut, "start-household"));
     }
+
+    // Spec 126, A3 (R3): Die Begrüßung nennt die gewählte Person, und alle Blöcke stehen da wie bei einem selbst.
+    [Fact]
+    public async Task A3_the_chosen_person_is_greeted_and_gets_the_same_blocks_as_oneself()
+    {
+        SeedPlan(free: 340m, positions: []);
+        AccountApiFake.Accounts.Add(Account("Girokonto", 1200m));
+        var household = await SeedHouseholdPlanAsync(GuidelineMember(FakeHouseholdApi.AnnaId, "Anna", 50m, 30m, 20m), GuidelineMember(FakeHouseholdApi.BenId, "Ben", 75m, 15m, 10m));
+        var own = OpenStart();
+        cut_ShouldHaveAllBlocks(own);
+        var ownBlocks = Blocks(own);
+        Assert.Contains("Hallo, Anna!", own.Markup);
+
+        HouseholdApiFake.Household = household with
+        {
+            Members = [FakeHouseholdApi.Anna(), FakeHouseholdApi.Ben(isMe: false) with { GrantsToMe = new GrantLevels("delete", "delete", "delete", "delete", "delete") }],
+        };
+        await Member.RefreshAsync();
+        SeedPlan(free: 120m, positions: []);
+        Assert.Contains("340,00 €", Text(own, "start-hero"));
+        Member.Choose(FakeHouseholdApi.BenId);
+
+        own.WaitForAssertion(() => Assert.Contains("Hallo, Ben!", own.Markup));
+        own.WaitForAssertion(() => Assert.Equal(ownBlocks, Blocks(own)));
+        // Die Blöcke zeigen Bens Zahlen, nicht mehr die eigenen: Der Besitzer ging mit, und das Verplanbar ist neu.
+        own.WaitForAssertion(() => Assert.Contains("120,00 €", Text(own, "start-hero")));
+        Assert.DoesNotContain("340,00 €", Text(own, "start-hero"));
+        Assert.Equal(FakeHouseholdApi.BenId, PlanApiFake.Owners.Last());
+        Assert.Contains("Jahr von Ben", Text(own, "start-year-section"));
+        Assert.DoesNotContain("Dein Jahr", own.Markup);
+        Assert.DoesNotContain("Hallo, Anna!", own.Markup);
+    }
+
+    private static readonly string[] BlockIds = ["start-due", "start-pots", "start-guideline", "start-household", "start-year-section"];
+
+    private static void cut_ShouldHaveAllBlocks(IRenderedComponent<Start> cut) =>
+        cut.WaitForAssertion(() => Assert.All(BlockIds, id => Assert.NotEmpty(cut.FindAll($"[data-testid='{id}']"))));
+
+    private static List<string> Blocks(IRenderedComponent<Start> cut) =>
+        BlockIds.Where(id => cut.FindAll($"[data-testid='{id}']").Count > 0).ToList();
 
     // Review M3: Die Jahreslinie steht auch ohne Plan im laufenden Monat, wenn frühere Monate einen haben.
     [Fact]
@@ -537,7 +577,18 @@ public class StartPageTests : PageTestContext
         }
     }
 
-    // A9 (R8)
+    // Spec 126, R3: Ohne die Freigabe der Konten fehlt die Kontenzeile nicht stumm, sondern ein kurzer Hinweis sagt es.
+    [Fact]
+    public async Task Without_a_grant_for_the_accounts_a_hint_says_so()
+    {
+        SeedPlan();
+        await ChooseBenAsync(GrantLevels.None with { Plan = AccessLevelKeys.View });
+
+        var cut = OpenStart();
+
+        Assert.Equal("Ben teilt Konten nicht mit dir.", Text(cut, "start-accounts-not-shared").Trim());
+    }
+
     [Fact]
     public async Task Another_member_who_shares_the_plan_but_not_the_bookings_shows_their_figures_without_payments()
     {
@@ -548,7 +599,7 @@ public class StartPageTests : PageTestContext
 
         Assert.Equal(FakeHouseholdApi.BenId, PlanApiFake.Owners.Last());
         Assert.Contains("120,00 €", Text(cut, "start-hero"));
-        Assert.Contains(NotShared, Text(cut, "start-due"));
+        Assert.Contains("Ben teilt Buchungen nicht mit dir.", Text(cut, "start-due"));
         Assert.Empty(cut.FindAll("[data-testid^='start-due-item-']"));
     }
 

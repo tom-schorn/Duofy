@@ -4,4 +4,9 @@
 @* Der Satz, wenn eine Seite für die gewählte Sicht nichts zeigt: Eine Person teilt den Bereich nicht
    (Spec 68), und für den Haushalt gibt es nur im Plan eine gemeinsame Sicht (Spec 69, R9). *@
 
-<p class="muted" data-testid="not-shared">@L[Member.IsHousehold ? "Household_NoJointView" : "Grant_NotShared"]</p>
+<p class="muted" data-testid="not-shared">@(Member.IsHousehold ? L["Household_NoJointView"].Value : NotSharedText.For(L, Member, Area))</p>
+
+@code {
+    /// <summary>Der Bereich, der fehlt (Schlüssel wie <c>Grants_Area_*</c>); ohne ihn steht der allgemeine Satz.</summary>
+    [Parameter] public string? Area { get; set; }
+}

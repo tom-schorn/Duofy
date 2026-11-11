@@ -21,9 +21,9 @@
    MonthCards. Frühere Jahre lädt ein Knopf nach. Mit dem Umschalter zeigt die Seite die Monate eines anderen Mitglieds (Spec 68)
    oder des Haushalts (Spec 69); der Haushalt hat noch keine Übersicht in einer Anfrage und lädt seine Karten einzeln. *@
 
-<PageTitle>@L["PlanOverview_Title"]</PageTitle>
+<PageTitle>@PageTitleText</PageTitle>
 
-<PageHead Title="@L["PlanOverview_Title"]" Lead="@L["PlanOverview_Lead"]" />
+<PageHead Title="@PageTitleText" Lead="@(Member.Name is { } who ? L["PlanOverview_LeadOf", who].Value : L["PlanOverview_Lead"].Value)" />
 
 @if (Member.IsHousehold)
 {
@@ -34,7 +34,7 @@
 
 @if (!SeesPlan)
 {
-    <p class="muted" data-testid="not-shared">@L["Grant_NotShared"]</p>
+    <p class="muted" data-testid="not-shared">@NotSharedText.For(L, Member, GrantAreas.Plan)</p>
 }
 else if (rows is not null)
 {
@@ -52,6 +52,8 @@ else if (rows is not null)
 }
 
 @code {
+
+    private string PageTitleText => Member.Name is { } who ? L["PlanOverview_TitleOf", who].Value : L["PlanOverview_Title"].Value;
 
     private static readonly CultureInfo German = new("de-DE");
 

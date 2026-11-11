@@ -1,6 +1,7 @@
 @using BlazorBlueprint.Icons.Lucide.Components
 @using Duofy.Schemas
 @inject IStringLocalizer<SharedResources> L
+@inject ActiveMember Member
 
 @* Die Karte der geänderten Verträge (R2; Issue #94, R9): eine schmale Zeile "2 Verträge geändert · Ansehen" oben im Monat. Ein Tipp
    klappt darunter die Liste mit vorher und nachher und die Knöpfe zum Übernehmen auf. Zugeklappt ist die Liste verborgen, bleibt
@@ -14,7 +15,7 @@
             <LucideIcon Name="@(open ? "chevron-up" : "chevron-down")" Size="14" aria-hidden="true" />
         </button>
         <div class="stack plan-changes-panel" id="plan-changes-panel" hidden="@(!open)" data-testid="plan-changes-panel">
-            <h3 class="sub-title">@L["Plan_ChangesHeading"]</h3>
+            <h3 class="sub-title">@(Member.Name is { } who ? L["Plan_ChangesHeadingOf", who].Value : L["Plan_ChangesHeading"].Value)</h3>
             @foreach (var change in Changes)
             {
                 var current = change;

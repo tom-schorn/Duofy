@@ -5,8 +5,12 @@
 @* Der Reiter Buchungen (Spec 24; Spec 82, R15): die Buchungen, die diesem Planmonat zugeordnet sind, neueste zuerst, als
    Tabelle in voller Breite mit Datum, Name, Posten, Konto (im Haushalt der Vorname), Topf und Betrag. Ausgaben stehen rot mit
    Minus, Einnahmen ohne Vorzeichen, eine Umbuchung ohne Richtung. Die Art steht als Wort an der Zeile (Spec 51, R9). Liegt das
-   Datum in einem anderen Monat als dem Planmonat, steht das unter dem Datum. Ein Übertrag ist keine Buchung und steht als
-   eigene Zeile darüber (Spec 66, R9). Am Handy wird jede Zeile eine kleine Karte (Stylesheet). *@
+   Datum in einem anderen Monat als dem Planmonat, steht das unter dem Datum. Ein Übertrag ist keine Buchung, sondern eine eigene Zeile; "Übertrag aus" gilt als am
+   1. des Planmonats gebucht und steht am Ende der neuesten-zuerst-Liste, "Übertrag nach" behält den letzten Tag des Monats und steht
+   oben (Spec 66, R9; Spec 123, R2).
+   Die Reihenfolge entsteht hier und nicht beim Aufrufer, damit der persönliche Plan und der Haushaltsplan nicht auseinanderlaufen.
+   Am Handy wird jede Zeile eine kleine Karte (Stylesheet); dazwischen scrollt die Tabelle waagerecht in ihrem eigenen Bereich,
+   wo sie nicht passt (Spec 123, R1), statt abgeschnitten zu werden. *@
 <div class="month-bookings card" data-testid="month-bookings">
     @* "Noch keine Buchungen" wäre falsch, wenn Buchungen nur nicht freigegeben sind (Spec 46, A8). *@
     @if (Rows.Count == 0 && CarryOvers.Count == 0)
@@ -18,6 +22,7 @@
     }
     else
     {
+        <div class="bookings-scroll" role="region" tabindex="0" aria-label="@L["Month_BookingsCaption"]" data-testid="month-bookings-scroll">
         <table class="bookings-table">
             <caption class="visually-hidden">@L["Month_BookingsCaption"]</caption>
             <thead>
@@ -31,56 +36,60 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach (var row in CarryOvers)
+                @foreach (var line in Lines)
                 {
-                    <tr class="bookings-row bookings-row--carry" data-testid="@(row.Incoming ? "month-carry-over-in" : "month-carry-over-out")">
-                        <td class="bookings-date">@row.Month.ToString("MMMM yyyy", German)</td>
-                        <td class="bookings-name">
-                            <span class="bookings-title">@L[row.Incoming ? "Month_CarryOverIn" : "Month_CarryOverOut", row.Month.ToString("MMMM", German)]</span>
-                            <BookingKindBadge Kind="@MonthBookingText.CarryOver" />
-                        </td>
-                        <td class="bookings-position muted">—</td>
-                        <td class="bookings-account">@row.Owner</td>
-                        <td class="bookings-pot muted">—</td>
-                        <td class="bookings-amount num @(row.Amount < 0m ? "over" : null)">@MoneyText.Format(row.Amount)</td>
-                    </tr>
-                }
-                @foreach (var row in Rows)
-                {
-                    <tr class="bookings-row" data-testid="@($"month-booking-{row.Id}")">
-                        <td class="bookings-date">
-                            @row.Date.ToString("d", German)
-                            @if (row.OtherMonth)
-                            {
-                                <span class="month-hint" data-testid="@($"month-booking-other-{row.Id}")">@L["Month_OtherMonth", row.Date.ToString("MMMM", German)]</span>
-                            }
-                        </td>
-                        <td class="bookings-name">
-                            <span class="bookings-title">@(row.Name ?? row.Purpose ?? L[$"BookingKind_{row.Kind}"].Value)</span>
-                            <BookingKindBadge Kind="@row.Kind" />
-                        </td>
-                        <td class="bookings-position">
-                            @if (row.Positions is { Count: > 0 } positions)
-                            {
-                                @string.Join(", ", positions)
-                            }
-                            else
-                            {
-                                <span class="muted">@(row.Kind == BookingKinds.Transfer ? "—" : L["Plan_Unplanned"])</span>
-                            }
-                        </td>
-                        <td class="bookings-account">@row.Detail</td>
-                        <td class="bookings-pot">
-                            @foreach (var pot in row.Pots ?? [])
-                            {
-                                <span class="bookings-pot-item"><span class="@($"dot dot--{pot}")" aria-hidden="true"></span>@L[$"Pot_{pot}"]</span>
-                            }
-                        </td>
-                        <td class="@AmountClass(row.Kind)">@Amount(row)</td>
-                    </tr>
+                    @if (line.Booking is { } row)
+                    {
+                        <tr class="bookings-row" data-testid="@($"month-booking-{row.Id}")">
+                            <td class="bookings-date">
+                                @row.Date.ToString("d", German)
+                                @if (row.OtherMonth)
+                                {
+                                    <span class="month-hint" data-testid="@($"month-booking-other-{row.Id}")">@L["Month_OtherMonth", row.Date.ToString("MMMM", German)]</span>
+                                }
+                            </td>
+                            <td class="bookings-name">
+                                <span class="bookings-title">@(row.Name ?? row.Purpose ?? L[$"BookingKind_{row.Kind}"].Value)</span>
+                                <BookingKindBadge Kind="@row.Kind" />
+                            </td>
+                            <td class="bookings-position">
+                                @if (row.Positions is { Count: > 0 } positions)
+                                {
+                                    @string.Join(", ", positions)
+                                }
+                                else
+                                {
+                                    <span class="muted">@(row.Kind == BookingKinds.Transfer ? "—" : L["Plan_Unplanned"])</span>
+                                }
+                            </td>
+                            <td class="bookings-account">@row.Detail</td>
+                            <td class="bookings-pot">
+                                @foreach (var pot in row.Pots ?? [])
+                                {
+                                    <span class="bookings-pot-item"><span class="@($"dot dot--{pot}")" aria-hidden="true"></span>@L[$"Pot_{pot}"]</span>
+                                }
+                            </td>
+                            <td class="@AmountClass(row.Kind)">@Amount(row)</td>
+                        </tr>
+                    }
+                    else if (line.Carry is { } carry)
+                    {
+                        <tr class="bookings-row bookings-row--carry" data-testid="@(carry.Incoming ? "month-carry-over-in" : "month-carry-over-out")">
+                            <td class="bookings-date">@CarryDate(carry).ToString("d", German)</td>
+                            <td class="bookings-name">
+                                <span class="bookings-title">@L[carry.Incoming ? "Month_CarryOverIn" : "Month_CarryOverOut", carry.Month.ToString("MMMM", German)]</span>
+                                <BookingKindBadge Kind="@MonthBookingText.CarryOver" />
+                            </td>
+                            <td class="bookings-position muted">—</td>
+                            <td class="bookings-account">@carry.Owner</td>
+                            <td class="bookings-pot muted">—</td>
+                            <td class="bookings-amount num @(carry.Amount < 0m ? "over" : null)">@MoneyText.Format(carry.Amount)</td>
+                        </tr>
+                    }
                 }
             </tbody>
         </table>
+        </div>
     }
     @if (Missing.Count > 0)
     {
@@ -101,6 +110,19 @@
 
     /// <summary>Im Haushaltsplan nennt die vierte Spalte die Person statt des Kontos.</summary>
     [Parameter] public bool Household { get; set; }
+
+    // Eine Zeile der Tabelle: eine Buchung oder ein Übertrag, dazu das Datum, nach dem sortiert wird.
+    private sealed record Line(DateOnly Date, int Tie, MonthBookingRow? Booking, MonthCarryOverRow? Carry);
+
+    // Neueste zuerst nach Datum; OrderBy ist stabil, gleiche Tage behalten die Reihenfolge der API. Bei gleichem Tag steht der
+    // ausgehende Übertrag (Ende des Tages) vor den Buchungen und der eingehende (Beginn des Tages) danach (Spec 123, R2).
+    private IEnumerable<Line> Lines => Rows.Select(r => new Line(r.Date, 1, r, null))
+        .Concat(CarryOvers.Select(c => new Line(CarryDate(c), c.Incoming ? 2 : 0, null, c)))
+        .OrderByDescending(l => l.Date).ThenBy(l => l.Tie);
+
+    // Der eingehende Übertrag gilt als am 1. des Planmonats gebucht ("aus Oktober" steht im November am 1.11.). Der ausgehende
+    // behält sein Buchungsdatum, den letzten Tag des Planmonats; Month ist dort der Folgemonat (Spec 123, R2, Ergänzung 2026-11-11).
+    private static DateOnly CarryDate(MonthCarryOverRow row) => row.Incoming ? row.Month.AddMonths(1) : row.Month.AddDays(-1);
 
     // Ausgaben rot mit Minus, Einnahmen ohne Vorzeichen (Tom, 03.11.2026), Umbuchungen ohne Richtung.
     private static string Amount(MonthBookingRow row) =>
