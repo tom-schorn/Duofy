@@ -51,21 +51,74 @@ public sealed class ActiveMember : IDisposable
     /// <summary>True, wenn der Haushalt mehr als ein Mitglied hat und sich als Sicht wählen lässt (Spec 69, R9).</summary>
     public bool CanShowHousehold => Household is { Members.Count: > 1 };
 
+    // Wer gerade handelt (Spec 125): Im Haushaltsplan arbeitet die Person für ein Mitglied, ohne dass die Sicht wechselt.
+    // Null heißt: kein Bereich offen; sonst die Person, für die ein Dialog läuft (bei "Ich" ein leeres Mitglied).
+    private (MemberResponse? Member, bool Open) acting;
+
     /// <summary>Der Besitzer, den die Seiten der API mitgeben; null für die eigenen Daten.</summary>
-    public Guid? Owner => Chosen?.UserId;
+    public Guid? Owner => (acting.Open ? acting.Member : Chosen)?.UserId;
 
     /// <summary>Der Vorname des gewählten Mitglieds für die Gründe an ausgegrauten Knöpfen; null bei "Ich".</summary>
-    public string? Name => Chosen?.FirstName;
+    public string? Name => (acting.Open ? acting.Member : Chosen)?.FirstName;
 
     /// <summary>
     /// Die Stufe in einem Bereich (<see cref="GrantAreas"/>): bei "Ich" Löschen, sonst die Freigabe des Mitglieds.
     /// Der Haushalt hat keine Stufen, er ist nur zum Lesen und nur im Plan.
     /// </summary>
-    public string LevelIn(string area) =>
-        IsHousehold ? AccessLevelKeys.None : Chosen is null ? AccessLevelKeys.Delete : Chosen.GrantsToMe.For(area);
+    public string LevelIn(string area)
+    {
+        if (acting.Open)
+        {
+            return acting.Member is null ? AccessLevelKeys.Delete : acting.Member.GrantsToMe.For(area);
+        }
+        return IsHousehold ? AccessLevelKeys.None : Chosen is null ? AccessLevelKeys.Delete : Chosen.GrantsToMe.For(area);
+    }
 
     /// <summary>True, wenn die Stufe im Bereich mindestens <paramref name="level"/> ist.</summary>
     public bool Allows(string area, string level) => AccessLevelKeys.Includes(LevelIn(area), level);
+
+    /// <summary>
+    /// Die Personen, für die die angemeldete Person in einem Bereich mindestens diese Stufe hat (Spec 125, R2): sie selbst zuerst,
+    /// dann die Mitglieder des Haushalts, deren Freigabe sie erreicht. Ohne Haushalt ist niemand angeboten.
+    /// </summary>
+    public IReadOnlyList<MemberResponse> PeopleWith(string area, string level) => Household is null
+        ? []
+        : Household.Members.Where(m => m.IsMe).Concat(Household.Members.Where(m => !m.IsMe && AccessLevelKeys.Includes(m.GrantsToMe.For(area), level))).ToList();
+
+    /// <summary>
+    /// Ob die angemeldete Person im Bereich für diese Person mindestens diese Stufe hat, unabhängig von der gewählten Sicht
+    /// (Spec 125, R3): Im Haushaltsplan steht jede Zeile für ihre eigene Person. Für sich selbst gilt alles, für Fremde nichts.
+    /// </summary>
+    public bool AllowsFor(Guid ownerId, string area, string level) => Household?.Members.FirstOrDefault(m => m.UserId == ownerId) switch
+    {
+        null => false,
+        { IsMe: true } => true,
+        var other => AccessLevelKeys.Includes(other.GrantsToMe.For(area), level),
+    };
+
+    /// <summary>
+    /// Lässt Dialoge und Aufrufe bis zum Ende des Bereichs für diese Person laufen (Spec 125): <see cref="Owner"/>, <see cref="Name"/> und
+    /// <see cref="Allows"/> gelten dann für sie, ohne die gewählte Sicht zu ändern und ohne <see cref="Changed"/>. Eine unbekannte Person
+    /// oder die eigene heißt "Ich".
+    /// </summary>
+    public IDisposable ActAs(Guid? userId)
+    {
+        var previous = acting;
+        var member = userId is { } id ? Household?.Members.FirstOrDefault(m => m.UserId == id && !m.IsMe) : null;
+        acting = (member, true);
+        return new ActingScope(() => acting = previous);
+    }
+
+    private sealed class ActingScope(Action end) : IDisposable
+    {
+        private Action? end = end;
+
+        public void Dispose()
+        {
+            end?.Invoke();
+            end = null;
+        }
+    }
 
     /// <summary>Lädt die Mitglieder einmal; spätere Aufrufe warten nur auf das erste Laden.</summary>
     public Task LoadAsync() => loading ??= RefreshAsync();
