@@ -102,9 +102,15 @@ internal static class HouseholdSummary
     }
 
     /// <summary>Löscht alte Ereignisse (Aufräumen im Job, nicht beim Vermerken, damit eine Tat nie daran scheitert).</summary>
-    public static Task PruneAsync(DuofyDbContext db, DateTimeOffset now, CancellationToken cancellationToken)
+    public static async Task PruneAsync(DuofyDbContext db, DateTimeOffset now, CancellationToken cancellationToken)
     {
+        // Einzeln gelöscht statt mit einem Massenbefehl: Massenlöschungen stehen auf der freigegebenen Liste (OwnerBulkListTests).
         var limit = now - Retention;
-        return db.HouseholdEvents.Where(e => e.OccurredAt < limit).ExecuteDeleteAsync(cancellationToken);
+        var old = await db.HouseholdEvents.Where(e => e.OccurredAt < limit).ToListAsync(cancellationToken);
+        if (old.Count > 0)
+        {
+            db.HouseholdEvents.RemoveRange(old);
+            await db.SaveChangesAsync(cancellationToken);
+        }
     }
 }
