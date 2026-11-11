@@ -291,6 +291,26 @@ public class NotificationSettingsJobTests(ApiFixture fixture)
         Assert.Equal(0, plan.Positions.Single(p => p.Id != position).PostponeCount);
     }
 
+    // Hinweis 10: Eine verschobene Erinnerung kommt nicht zurück, wenn ihr Schalter inzwischen aus ist; sie endet dann.
+    [Fact]
+    public async Task A_postponed_reminder_does_not_come_back_when_its_switch_is_off_meanwhile()
+    {
+        await using var server = ReminderServer.Start(fixture);
+        var anna = await server.FounderAsync("Anna");
+        var token = await server.DeviceAsync(anna);
+        var position = await server.PositionAsync(anna, "Auto", dueDay: 12);
+        await server.RunAtAsync(NineOClock);
+        var reminder = Assert.Single(await server.RemindersOfAsync(position));
+        Assert.Equal(ReminderKind.Advance, reminder.Kind);
+        (await server.Client.SendAsync(anna, HttpMethod.Post, ReminderPath(reminder.Id) + "/later")).EnsureSuccessStatusCode();
+        await server.SettingsAsync(anna, new TimeOnly(9, 0), change: s => s.AdvanceWarning = false);
+
+        await server.RunAtAsync(NineOClock.AddDays(1));
+
+        Assert.Single(server.Push.To(token));
+        Assert.Equal(ReminderState.Done, Assert.Single(await server.RemindersOfAsync(position)).State);
+    }
+
     // A6 (Fund 6d): Auch der Haushaltsplan nennt, wie oft ein Posten verschoben wurde.
     [Fact]
     public async Task The_household_plan_returns_how_often_a_position_was_postponed()

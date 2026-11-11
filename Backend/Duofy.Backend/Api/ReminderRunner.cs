@@ -195,7 +195,7 @@ internal sealed class ReminderRunner(DuofyDbContext db, ReminderSwitch reminders
         return await push.SendAsync(devices, new PushPayload(reminder.Id, PushPayload.Due), cancellationToken);
     }
 
-    /// <summary>Die Erinnerungen, die mit "Später" auf heute oder früher verschoben wurden und deren Morgen da ist.</summary>
+    /// <summary>Die Erinnerungen, die mit "Später" auf heute oder früher verschoben wurden und deren Morgen da ist (und deren Schalter noch an ist).</summary>
     private async Task<int> SendPostponedAsync(DateOnly today, TimeOnly time, CancellationToken cancellationToken)
     {
         var later = await db.Reminders
@@ -208,13 +208,23 @@ internal sealed class ReminderRunner(DuofyDbContext db, ReminderSwitch reminders
             {
                 continue;
             }
-            var ownerId = await db.Plans
+            var home = await db.Plans
                 .Where(plan => plan.Positions.Any(p => p.Id == reminder.PositionId))
-                .Select(plan => plan.OwnerId)
+                .Select(plan => new { plan.OwnerId, plan.Year, plan.Month, DueDay = plan.Positions.First(p => p.Id == reminder.PositionId).DueDay })
                 .SingleAsync(cancellationToken);
+            var ownerId = home.OwnerId;
             if (!(await ReminderRecipients.OfOwnerAsync(db, ownerId, cancellationToken)).Contains(reminder.RecipientId))
             {
                 // Die Freigabe ist weg oder die Person nicht mehr im Haushalt: Die Erinnerung endet hier.
+                reminder.State = ReminderState.Done;
+                await db.SaveChangesAsync(cancellationToken);
+                continue;
+            }
+            // Der Schalter der Art, in der sie jetzt käme (wie beim Abruf: nach dem Fälligkeitstag); ist er inzwischen aus, endet sie.
+            var due = ReminderRules.DueDate(home.Year, home.Month, home.DueDay);
+            var settings = await SettingsOfAsync(reminder.RecipientId, cancellationToken);
+            if (!(due == today ? settings.DueToday : due > today ? settings.AdvanceWarning : settings.Overdue))
+            {
                 reminder.State = ReminderState.Done;
                 await db.SaveChangesAsync(cancellationToken);
                 continue;
