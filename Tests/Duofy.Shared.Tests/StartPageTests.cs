@@ -17,7 +17,7 @@ namespace Duofy.Shared.Tests;
 public class StartPageTests : PageTestContext
 {
     private const string NotSignedInText = "Du bist nicht angemeldet";
-    private const string NotShared = "Diese Person teilt diesen Bereich nicht mit dir.";
+    private const string NotShared = "Ben teilt Planung nicht mit dir.";
 
     private readonly IRenderedComponent<Microsoft.AspNetCore.Components.IComponent> dialogs;
 
@@ -586,7 +586,7 @@ public class StartPageTests : PageTestContext
 
         var cut = OpenStart();
 
-        Assert.Equal("Diese Person teilt Konten nicht mit dir.", Text(cut, "start-accounts-not-shared").Trim());
+        Assert.Equal("Ben teilt Konten nicht mit dir.", Text(cut, "start-accounts-not-shared").Trim());
     }
 
     [Fact]
@@ -599,7 +599,7 @@ public class StartPageTests : PageTestContext
 
         Assert.Equal(FakeHouseholdApi.BenId, PlanApiFake.Owners.Last());
         Assert.Contains("120,00 €", Text(cut, "start-hero"));
-        Assert.Contains("Diese Person teilt Buchungen nicht mit dir.", Text(cut, "start-due"));
+        Assert.Contains("Ben teilt Buchungen nicht mit dir.", Text(cut, "start-due"));
         Assert.Empty(cut.FindAll("[data-testid^='start-due-item-']"));
     }
 

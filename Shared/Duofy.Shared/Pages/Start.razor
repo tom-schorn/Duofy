@@ -49,7 +49,7 @@ else if (firstName is not null)
     @if (!SeesPlan)
     {
         <h1 class="start-greeting">@L["Start_Greeting", firstName]</h1>
-        <p class="month-hint" data-testid="start-not-shared">@L["Grant_NotShared"]</p>
+        <p class="month-hint" data-testid="start-not-shared">@NotSharedText.For(L, Member, "plan")</p>
     }
     else if (!loaded || failed)
     {
@@ -74,7 +74,7 @@ else if (firstName is not null)
         @if (!Member.IsHousehold && !Member.Allows(GrantAreas.Accounts, AccessLevelKeys.View))
         {
             @* Ohne die Freigabe der Konten fehlt die Kontenzeile; ein kurzer Hinweis sagt es, statt sie still wegzulassen (Spec 126). *@
-            <p class="month-hint" data-testid="start-accounts-not-shared">@L["Grant_NotSharedArea", L["Area_Accounts"].Value]</p>
+            <p class="month-hint" data-testid="start-accounts-not-shared">@NotSharedText.For(L, Member, "accounts")</p>
         }
 
         @if (!Member.IsHousehold)
@@ -88,7 +88,7 @@ else if (firstName is not null)
             <StartSection Title="@L["Month_DueHeading"].Value" TestId="start-due" Href="@MonthHref" LinkText="@L["Start_OpenPlan"].Value">
                 @if (!SeesBookings)
                 {
-                    <p class="month-hint" data-testid="start-due-not-shared">@L["Grant_NotSharedArea", L["Area_Bookings"].Value]</p>
+                    <p class="month-hint" data-testid="start-due-not-shared">@NotSharedText.For(L, Member, "book")</p>
                 }
                 else if (model.Due.Count == 0)
                 {

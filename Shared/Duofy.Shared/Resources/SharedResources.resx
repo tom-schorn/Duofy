@@ -746,9 +746,6 @@
   <data name="Grant_NotGranted"><value>Dafür hat dir {0} keine Freigabe gegeben.</value></data>
   <data name="Grant_NotShared"><value>Diese Person teilt diesen Bereich nicht mit dir.</value></data>
   <data name="Grant_NotSharedNamed"><value>{0} teilt {1} nicht mit dir.</value></data>
-  <data name="Grant_NotSharedArea"><value>Diese Person teilt {0} nicht mit dir.</value></data>
-  <data name="Area_Accounts"><value>Konten</value></data>
-  <data name="Area_Bookings"><value>Buchungen</value></data>
   <data name="Grants_Title"><value>Freigaben</value></data>
   <data name="Grants_Lead"><value>Hier legst du für jede Person in deinem Haushalt fest, was sie mit deinen Daten tun darf. Jede Wahl gilt sofort.</value></data>
   <data name="Grants_Empty"><value>Sobald noch jemand in deinem Haushalt ist, legst du hier fest, was diese Person mit deinen Daten tun darf.</value></data>
