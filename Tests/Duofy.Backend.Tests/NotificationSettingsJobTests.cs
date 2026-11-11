@@ -291,6 +291,26 @@ public class NotificationSettingsJobTests(ApiFixture fixture)
         Assert.Equal(0, plan.Positions.Single(p => p.Id != position).PostponeCount);
     }
 
+    // A6 (Fund 6d): Auch der Haushaltsplan nennt, wie oft ein Posten verschoben wurde.
+    [Fact]
+    public async Task The_household_plan_returns_how_often_a_position_was_postponed()
+    {
+        await using var server = ReminderServer.Start(fixture);
+        var anna = await server.FounderAsync("Anna");
+        await server.DeviceAsync(anna);
+        var position = await server.PositionAsync(anna, "Miete", dueDay: 10);
+        var other = await server.PositionAsync(anna, "Strom", dueDay: 10);
+        await server.RunAtAsync(NineOClock);
+        var reminder = Assert.Single(await server.RemindersOfAsync(position));
+        (await server.Client.SendAsync(anna, HttpMethod.Post, ReminderPath(reminder.Id) + "/later")).EnsureSuccessStatusCode();
+        var household = await server.HouseholdOfAsync(anna);
+
+        var plan = await (await server.Client.SendAsync(anna, HttpMethod.Get, $"/api/v1/households/{household}/plans/2026/11")).Content.ReadFromJsonAsync<HouseholdPlanResponse>();
+
+        Assert.Equal(1, plan!.Positions.Single(p => p.Id == position).PostponeCount);
+        Assert.Equal(0, plan.Positions.Single(p => p.Id == other).PostponeCount);
+    }
+
     // A6, A7: Der Text sagt, ob der Posten heute fällig, bald fällig oder überfällig ist.
     [Fact]
     public async Task The_fetch_says_whether_the_position_is_due_soon_due_or_overdue()

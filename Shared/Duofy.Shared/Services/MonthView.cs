@@ -148,7 +148,7 @@ public static class MonthView
             .ToList();
         var bookings = HouseholdBookingRows(plan);
         var due = DueRows(
-            plan.Positions.Select(p => new DueSource(p.Label, p.DueDay, p.Pot, p.PassThrough, p.AmountPlanned, p.Booked, p.DoneAt, p.OwnerFirstName)),
+            plan.Positions.Select(p => new DueSource(p.Label, p.DueDay, p.Pot, p.PassThrough, p.AmountPlanned, p.Booked, p.DoneAt, p.OwnerFirstName, p.PostponeCount)),
             plan.Year, plan.Month, today);
         return new MonthOverviewModel(plan.Income, plan.Fixed, plan.Free, pots, bookings.Take(RecentCount).ToList(), due, CarryOverRows(plan.CarryOvers),
             [], MonthCurve.ForHousehold(plan, today));

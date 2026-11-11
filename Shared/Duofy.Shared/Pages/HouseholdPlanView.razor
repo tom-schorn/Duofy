@@ -311,10 +311,18 @@
         .OrderBy(x => x.OwnerFirstName, StringComparer.CurrentCultureIgnoreCase)
         .ToList();
 
-    // Unter der Bezeichnung: der Tag; der Topf steht schon darüber.
+    // Unter der Bezeichnung: der Tag und, wenn verschoben, wie oft (Spec 118, R6); der Topf steht schon darüber.
     private string Caption(HouseholdPlanPositionResponse position)
     {
         var parts = new List<string> { L["Plan_DueDay", position.DueDay] };
+        if (position.PostponeCount > 0)
+        {
+            parts.Add(L["Plan_Postponed", position.PostponeCount]);
+        }
+        if (PlanView.IsPostponedOverdue(position.DoneAt, position.PostponeCount))
+        {
+            parts.Add(L["Plan_Overdue"]);
+        }
         if (position.PassThrough)
         {
             parts.Add(L["Plan_PassThrough"]);
