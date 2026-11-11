@@ -164,9 +164,17 @@
         }
     }
 
+    /// <summary>Geht wie Weiter zum nächsten Schritt; für einen Schritt, dessen Wahl schon die Antwort ist.</summary>
+    internal Task AdvanceAsync() => NextAsync();
+
     private async Task NextAsync()
     {
         if (steps.Count == 0 || !steps[current].Check())
+        {
+            return;
+        }
+
+        if (!await steps[current].LeaveAsync())
         {
             return;
         }

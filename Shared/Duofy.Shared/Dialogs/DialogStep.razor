@@ -21,6 +21,15 @@
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
 
+    /// <summary>
+    /// Läuft, wenn Weiter diesen Schritt verlassen will, nach der Prüfung der Felder; false hält den Dialog hier. Für einen Schritt, dessen
+    /// Wahl erst Daten für die folgenden Schritte lädt (die Person im Haushaltsplan, Spec 125, R7).
+    /// </summary>
+    [Parameter]
+    public Func<Task<bool>>? Leave { get; set; }
+
+    internal async Task<bool> LeaveAsync() => Leave is null || await Leave();
+
     private readonly List<StepField> fields = [];
 
     /// <summary>Ob die Felder ihre Fehler zeigen; erst nach dem ersten Weiter in diesem Schritt.</summary>

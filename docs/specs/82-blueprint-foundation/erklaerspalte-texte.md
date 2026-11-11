@@ -94,7 +94,7 @@ Wer austritt oder entfernt wird, ist danach in keinem Haushalt; Daten wandern ni
 Er ist keine eigene Liste, sondern die Zusammenstellung der Monatspläne aller Mitglieder, gruppiert nach Person. Jeder Posten existiert genau einmal, im Plan seiner Person. (HouseholdPlanStore, Spec 69)
 
 **Die Zentrale**
-Hier arbeitest du für alle: Posten und Buchungen anlegen, ändern und abhaken, auch für andere Mitglieder, soweit sie es dir erlaubt haben. Vor dem Anlegen fragt die App, für wen. Drucken gibt den Plan einer Person oder des ganzen Haushalts aus; in der App entsteht daraus ein PDF zum Teilen. (Help_householdplan_2, HouseholdPlan_ReadOnly)
+Hier arbeitest du für alle: Posten und Buchungen anlegen, ändern und abhaken, auch für andere Mitglieder, soweit sie es dir erlaubt haben. Vor dem Anlegen fragt die App, für wen. Drucken gibt den Plan einer Person oder des ganzen Haushalts aus; in der App entsteht daraus ein PDF zum Teilen. (Help_householdplan_2)
 
 **Wer mitzählt**
 In einem Monat zählt jedes Mitglied, das bis zum letzten Tag des Monats dazugekommen ist. Konten anderer siehst du nur, wenn sie sie dir freigegeben haben; wer fehlt, steht dabei. (HouseholdPlanStore R1, R8)

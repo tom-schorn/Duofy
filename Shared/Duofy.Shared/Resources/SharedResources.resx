@@ -565,12 +565,16 @@
   <data name="Household_NoJointView"><value>Für den Haushalt gibt es hier keine gemeinsame Sicht.</value></data>
   <data name="HouseholdPlan_Lead"><value>Hier arbeitest du für jede Person im Haushalt, so weit ihre Freigaben es erlauben.</value></data>
   <data name="HouseholdPlan_Missing"><value>{0} hat dir das nicht freigegeben. Es fehlt: {1}.</value></data>
+  <data name="Picker_StepTitle"><value>Für wen?</value></data>
+  <data name="PlanPositionDialog_TitleNewFor"><value>Neuer Posten für {0}</value></data>
+  <data name="BookingDialog_TitleNewFor"><value>Neue Buchung für {0}</value></data>
+  <data name="Plan_PrintFailed"><value>Das Drucken hat nicht geklappt. Bitte versuch es noch einmal.</value></data>
+  <data name="Print_ShareTitle"><value>Plan</value></data>
   <data name="Picker_Household"><value>Ganzer Haushalt</value></data>
   <data name="Picker_Me"><value>{0} (ich)</value></data>
   <data name="Picker_PrintQuestion"><value>Wessen Plan soll gedruckt werden?</value></data>
   <data name="Picker_AddPositionQuestion"><value>Für wen legst du den Posten an?</value></data>
   <data name="Picker_BookingQuestion"><value>Für wen legst du die Buchung an?</value></data>
-  <data name="HouseholdPlan_ReadOnly"><value>Der Haushaltsplan ist die Zentrale: Hier legst du Posten und Buchungen an, änderst und hakst sie ab, auch für andere Mitglieder, soweit sie es dir erlaubt haben.</value></data>
   <data name="Guideline_Heading"><value>Richtwerte je Person</value></data>
   <data name="Guideline_Intro"><value>Der Richtwert ist ein Anhaltspunkt für die Verteilung der Einnahmen auf Grundbedarf, Wünsche und Sparen, keine Vorgabe. Jeder Anteil ist der Teil der gebuchten Einnahmen der Person.</value></data>
   <data name="Guideline_SummaryFits"><value>Der gemeinsame Plan geht auf: Grundbedarf, Wünsche und Sparen liegen nah am Richtwert.</value></data>

@@ -10,7 +10,7 @@ namespace Duofy.Shared.Tests;
 
 /// <summary>
 /// Spec 69, R9 und A10: Der Umschalter bietet "Haushalt", solange der Haushalt mehr als ein Mitglied hat, und die
-/// Planseite zeigt dann den Haushaltsplan nur zum Lesen. Angemeldet ist hier Ben im Haushalt von Anna; "heute" ist
+/// Planseite zeigt dann den Haushaltsplan; seit Spec 125 ist er auch die Zentrale zum Arbeiten. Angemeldet ist hier Ben im Haushalt von Anna; "heute" ist
 /// der 21. Oktober 2026.
 /// </summary>
 public class HouseholdPlanPageTests : PageTestContext

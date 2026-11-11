@@ -42,7 +42,15 @@
     // Das Menü "Weitere Aktionen" am Handy: was am PC als eigener Knopf neben "Buchung anlegen" steht.
     private RenderFragment PhoneMenu => __builder =>
     {
-        <BbDropdownMenuItem OnClick="@(() => OnAdd.InvokeAsync())" Disabled="!CanAdd" data-testid="plan-add-menu">@L["Plan_AddPosition"]</BbDropdownMenuItem>
-        <BbDropdownMenuItem OnClick="@(() => OnPrint.InvokeAsync())" data-testid="plan-print-menu">@L["Plan_Print"]</BbDropdownMenuItem>
+        <BbDropdownMenuItem OnClick="@(() => Start(OnAdd))" Disabled="!CanAdd" data-testid="plan-add-menu">@L["Plan_AddPosition"]</BbDropdownMenuItem>
+        <BbDropdownMenuItem OnClick="@(() => Start(OnPrint))" data-testid="plan-print-menu">@L["Plan_Print"]</BbDropdownMenuItem>
     };
+
+    // Ein Eintrag des Menüs wartet nicht, bis die Aktion fertig ist: Sie öffnet gleich einen Dialog (im Haushaltsplan die Wahl der Person),
+    // und das Menü soll dann schon zu sein und nicht dahinter offen stehen bleiben. Fehler der Aktion meldet der Empfänger selbst.
+    private static Task Start(EventCallback action)
+    {
+        _ = action.InvokeAsync();
+        return Task.CompletedTask;
+    }
 }

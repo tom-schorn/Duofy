@@ -10,6 +10,7 @@ public class MonthResourcesTests
     [Theory]
     [InlineData("Month_DueOpen")]
     [InlineData("Month_ReadOnly")]
+    [InlineData("HouseholdPlan_ReadOnly")]
     public void A_text_no_page_uses_is_gone(string key)
     {
         var services = new ServiceCollection();

@@ -32,6 +32,8 @@ Who plans together, for those who want to. A household owns nothing: accounts, c
 - On the hosted version the founder may name an address when inviting; the link is mailed only to a confirmed account with that address, and the answer is the same either way (spec 53).
 - Deleting the founder's account makes the earliest joined member founder; an empty household is deleted.
 - Every change of memberships locks the household row first.
+- The household plan of a month is the central workplace (spec 125): it has the toolbar of the personal plan (print, add booking, add position). Adding a position or a booking asks for the person as step 1 of the same step dialog (skipped when only one person is possible; the title names the person); a person is offered only when their grant reaches the needed level. Ticking, unticking, editing and deleting a row act as that member under their grants (spec 68), with the same confirmation as in the personal plan; a refusal names the grant that is really missing. The rules sit in one place, `PositionActions`, used by the personal and the household plan.
+- Printing in the household plan asks for one person or the whole household. In the Android app printing creates a PDF of the month view and opens the system share dialog; on the web and in Windows the system print dialog opens (spec 125, R6).
 
 ## Interfaces
 

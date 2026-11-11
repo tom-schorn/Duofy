@@ -13,7 +13,7 @@
    Geprüft wird beim Speichern von der API; ihre Fehler stehen oben im Dialog. Löschen steht hier wie im alten Duofy: Eine Zeile
    hat keine eigenen Menüs. Der Dialog meldet den Wunsch nur (Ergebnis false), die Seite fragt nach und löscht. *@
 
-<StepDialog Title="@Title" OnFinish="SaveAsync" FinishText="@L["PlanPositionDialog_Save"]" Busy="busy" FinishTestId="position-save">
+<StepDialog Title="@shownTitle" OnFinish="SaveAsync" FinishText="@L["PlanPositionDialog_Save"]" Busy="busy" FinishTestId="position-save">
     <FootStart>
         @if (OfferDelete)
         {
@@ -22,6 +22,12 @@
         }
     </FootStart>
     <ChildContent>
+    @if (People.Count > 1)
+    {
+        <DialogStep Title="@L["Picker_StepTitle"]" Leave="@(() => personChoice!.LeaveAsync())">
+            <PersonChoice @ref="personChoice" People="People" Question="@L["Picker_AddPositionQuestion"]" OnChosen="ChoosePersonAsync" />
+        </DialogStep>
+    }
     <DialogStep Title="@L["PlanPositionDialog_StepAll"]">
         @if (error is not null)
         {
@@ -99,6 +105,17 @@
     /// <summary>Ob die Freigabe das Löschen erlaubt (Spec 68); sonst ist der Knopf ausgegraut.</summary>
     [Parameter] public bool CanDelete { get; set; } = true;
 
+    /// <summary>
+    /// Mehrere Personen zur Wahl (Haushaltsplan, Spec 125, R7): Der erste Schritt fragt, für wen der Posten ist, und der Titel nennt sie.
+    /// Mit höchstens einer Person gibt es den Schritt nicht.
+    /// </summary>
+    [Parameter] public IReadOnlyList<MemberResponse> People { get; set; } = [];
+
+    /// <summary>Holt Kategorien, Konten und das Recht zu löschen der gewählten Person; nötig mit mehreren Personen.</summary>
+    [Parameter] public Func<MemberResponse, Task<PersonChoices>>? ChoicesFor { get; set; }
+
+    private PersonChoice? personChoice;
+    private string shownTitle = "";
     private string label = "";
     private decimal? amount;
     private int? dueDay;
@@ -111,9 +128,26 @@
     // Die Person, für die der Dialog geöffnet wurde; sie bleibt, auch wenn der Umschalter inzwischen woanders steht (Spec 68, A15).
     private Guid? owner;
 
+    private async Task<string?> ChoosePersonAsync(MemberResponse person)
+    {
+        var choices = await ChoicesFor!(person);
+        if (choices.Error is not null)
+        {
+            return choices.Error;
+        }
+        (Categories, Accounts, CanDelete) = (choices.Categories, choices.Accounts, choices.CanDelete);
+        owner = person.IsMe ? null : person.UserId;
+        categoryId = null;
+        accountId = null;
+        shownTitle = L["PlanPositionDialog_TitleNewFor", person.FirstName];
+        StateHasChanged();
+        return null;
+    }
+
     protected override void OnInitialized()
     {
         owner = Member.Owner;
+        shownTitle = Title ?? "";
         if (Existing is { } position)
         {
             (label, amount, dueDay, pot, categoryId, accountId) =

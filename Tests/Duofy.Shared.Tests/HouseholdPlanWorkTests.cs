@@ -16,9 +16,16 @@ public sealed class FakePrintService : IPrintService
     /// <summary>Läuft im Moment des Druckens: Dort steht das Druckbild noch auf der Seite.</summary>
     public Action? AtPrint { get; set; }
 
+    /// <summary>Gesetzt, scheitert das Drucken damit.</summary>
+    public Exception? Failure { get; set; }
+
     public Task PrintAsync()
     {
         Calls++;
+        if (Failure is not null)
+        {
+            throw Failure;
+        }
         AtPrint?.Invoke();
         return Task.CompletedTask;
     }
@@ -35,7 +42,7 @@ public class HouseholdPlanWorkTests : PageTestContext
 
     private readonly IRenderedComponent<IComponent> dialogs;
     private readonly FakePrintService printing = new();
-    private readonly HouseholdResponse household;
+    private HouseholdResponse household;
     private readonly HouseholdPlanPositionResponse strom;
     private readonly HouseholdPlanPositionResponse miete;
 
@@ -164,6 +171,7 @@ public class HouseholdPlanWorkTests : PageTestContext
         dialogs.Find($"[data-testid='person-choice-{JasminId}']").Click();
 
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='position-label']")));
+        Assert.Contains("Neuer Posten für Jasmin", dialogs.Find(".step-dialog-title").TextContent);
         Field(dialogs, "position-label").Change("Geschenk");
         Field(dialogs, "position-amount").Change("50,00");
         Field(dialogs, "position-day").Change("20");
@@ -176,34 +184,100 @@ public class HouseholdPlanWorkTests : PageTestContext
         Assert.True(Member.IsHousehold);
     }
 
+    // --- Hilfen ---
+
+    private void Grant(GrantLevels levels)
+    {
+        household = household with { Members = [household.Members[0], household.Members[1] with { GrantsToMe = levels }] };
+        HouseholdApiFake.Household = household;
+    }
+
+    private static GrantLevels Levels(string plan = AccessLevelKeys.None, string book = AccessLevelKeys.None, string accounts = AccessLevelKeys.None) =>
+        GrantLevels.None with { Plan = plan, Book = book, Accounts = accounts };
+
+    // Ein Posten von Jasmin ohne Buchungen, offen oder abgehakt, im Haushaltsplan und in ihrem eigenen Monat.
+    private HouseholdPlanPositionResponse AddJasminPosition(string label = "Wasser", bool done = false)
+    {
+        var position = FakeHouseholdApi.OwnedPosition(label, 30m, JasminId, "Jasmin", done: done);
+        var plan = HouseholdApiFake.HouseholdPlans[(2026, 10)];
+        HouseholdApiFake.HouseholdPlans[(2026, 10)] = plan with { Positions = [.. plan.Positions, position] };
+        var own = PlanApiFake.Plans[(2026, 10)];
+        PlanApiFake.Plans[(2026, 10)] = own with { Positions = [.. own.Positions, FakePlanApi.Position(label, 30m) with { Id = position.Id, DoneAt = position.DoneAt }] };
+        return position;
+    }
+
+    private string Notice(IRenderedComponent<Plan> cut) => cut.Find("[data-testid='notice']").TextContent;
+
+    // --- Person als erster Schritt (R7, A7) ---
+
     [Fact]
-    public async Task Adding_a_booking_offers_only_those_who_granted_creating_bookings()
+    public async Task Adding_a_booking_skips_the_person_step_when_only_oneself_is_possible()
     {
         var cut = await OpenHouseholdAsync();
 
         cut.Find("[data-testid='month-action-booking']").Click();
 
-        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid^='person-choice-']")));
-        Assert.Equal([FakeHouseholdApi.AnnaId.ToString()], Choices());
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-amount']")));
+        Assert.Empty(dialogs.FindAll("[data-testid^='person-choice-']"));
+        Assert.Contains("Neue Buchung", dialogs.Find(".step-dialog-title").TextContent);
     }
 
-    // A3
+    [Fact]
+    public async Task Adding_a_booking_asks_for_the_person_in_step_one_and_names_her_in_the_title()
+    {
+        Grant(Levels(plan: AccessLevelKeys.Edit, book: AccessLevelKeys.Create, accounts: AccessLevelKeys.View));
+        var cut = await OpenHouseholdAsync();
+
+        cut.Find("[data-testid='month-action-booking']").Click();
+
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid^='person-choice-']")));
+        Assert.Equal([FakeHouseholdApi.AnnaId.ToString(), JasminId.ToString()], Choices());
+        Assert.Contains("Für wen?", dialogs.Find("[data-testid='step-dialog-progress']").TextContent);
+        dialogs.Find($"[data-testid='person-choice-{JasminId}']").Click();
+
+        dialogs.WaitForAssertion(() => Assert.Contains("Neue Buchung für Jasmin", dialogs.Find(".step-dialog-title").TextContent));
+        Assert.Contains(JasminId, Accounts.Owners.OfType<Guid>());
+        Assert.Null(Member.Owner);
+    }
+
+    [Fact]
+    public async Task Adding_a_position_works_with_Anlegen_but_without_Ansehen_on_the_accounts()
+    {
+        Grant(Levels(plan: AccessLevelKeys.Create));
+        var cut = await OpenHouseholdAsync();
+
+        cut.Find("[data-testid='plan-add']").Click();
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid^='person-choice-']")));
+        dialogs.Find($"[data-testid='person-choice-{JasminId}']").Click();
+
+        dialogs.WaitForAssertion(() => Assert.Contains("Neuer Posten für Jasmin", dialogs.Find(".step-dialog-title").TextContent));
+        Assert.DoesNotContain(JasminId, Accounts.Owners.OfType<Guid>());
+        Assert.Empty(dialogs.FindAll("[data-testid='person-error']"));
+    }
+
+    [Fact]
+    public async Task Adding_a_position_skips_the_person_step_when_only_oneself_is_possible()
+    {
+        Grant(GrantLevels.None);
+        var cut = await OpenHouseholdAsync();
+
+        cut.Find("[data-testid='plan-add']").Click();
+
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='position-label']")));
+        Assert.Empty(dialogs.FindAll("[data-testid^='person-choice-']"));
+    }
+
+    // --- Abhaken, Ändern, Löschen für ein anderes Mitglied (R3, A3) ---
+
     [Fact]
     public async Task Ticking_a_position_of_another_member_runs_as_that_member_under_their_grant()
     {
-        HouseholdApiFake.Household = household with
-        {
-            Members = [household.Members[0], household.Members[1] with { GrantsToMe = household.Members[1].GrantsToMe with { Book = AccessLevelKeys.Delete } }],
-        };
-        var open = HouseholdApiFake.HouseholdPlans[(2026, 10)];
-        var power = strom with { DoneAt = null };
-        HouseholdApiFake.HouseholdPlans[(2026, 10)] = open with { Positions = [miete, power] };
-        PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10) with { Positions = [FakePlanApi.Position("Strom", 80m, booked: 80m) with { Id = power.Id }] };
+        Grant(Levels(plan: AccessLevelKeys.Edit, book: AccessLevelKeys.Edit, accounts: AccessLevelKeys.View));
         var cut = await OpenHouseholdAsync();
 
-        cut.Find($"[data-testid='household-tick-{power.Id}']").Click();
+        cut.Find($"[data-testid='household-tick-{strom.Id}']").Click();
 
-        cut.WaitForAssertion(() => Assert.Equal(power.Id, Assert.Single(PlanApiFake.Ticks).Id));
+        cut.WaitForAssertion(() => Assert.Equal(strom.Id, Assert.Single(PlanApiFake.Ticks).Id));
         Assert.Equal(JasminId, Assert.Single(PlanApiFake.WriteOwners));
     }
 
@@ -212,12 +286,190 @@ public class HouseholdPlanWorkTests : PageTestContext
     {
         var cut = await OpenHouseholdAsync();
 
-        var tick = cut.Find($"[data-testid='household-tick-{strom.Id}']");
-        tick.Click();
+        cut.Find($"[data-testid='household-tick-{strom.Id}']").Click();
 
-        Assert.Equal("true", tick.GetAttribute("aria-disabled"));
+        Assert.Equal("true", cut.Find($"[data-testid='household-tick-{strom.Id}']").GetAttribute("aria-disabled"));
+        cut.WaitForAssertion(() => Assert.Contains("Jasmin hat dir das nicht freigegeben. Es fehlt: Buchungen: Ändern", Notice(cut)));
         Assert.Empty(PlanApiFake.Ticks);
         Assert.Empty(PlanApiFake.Unticks);
-        Assert.NotEmpty(cut.FindAll("[data-testid='grant-reason']"));
+    }
+
+    [Fact]
+    public async Task Ticking_without_Buchungen_Aendern_is_refused_and_names_that_step()
+    {
+        var cut = await OpenHouseholdAsync();
+
+        cut.Find($"[data-testid='household-tick-{strom.Id}']").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Jasmin hat dir das nicht freigegeben", Notice(cut)));
+        Assert.Contains("Buchungen: Ändern", Notice(cut));
+        Assert.DoesNotContain("Konten", Notice(cut));
+        Assert.Empty(PlanApiFake.Ticks);
+        Assert.Empty(PlanApiFake.WriteOwners);
+    }
+
+    [Fact]
+    public async Task Ticking_without_Konten_Ansehen_names_the_accounts()
+    {
+        Grant(Levels(plan: AccessLevelKeys.Edit, book: AccessLevelKeys.Edit));
+        var open = AddJasminPosition();
+        var cut = await OpenHouseholdAsync();
+
+        cut.Find($"[data-testid='household-tick-{open.Id}']").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Konten: Ansehen", Notice(cut)));
+        Assert.DoesNotContain("Buchungen", Notice(cut));
+        Assert.Empty(PlanApiFake.Ticks);
+    }
+
+    [Fact]
+    public async Task Ticking_a_position_without_bookings_asks_for_date_and_amount_and_books_for_that_member()
+    {
+        Grant(Levels(plan: AccessLevelKeys.Edit, book: AccessLevelKeys.Edit, accounts: AccessLevelKeys.View));
+        var open = AddJasminPosition();
+        var cut = await OpenHouseholdAsync();
+
+        cut.Find($"[data-testid='household-tick-{open.Id}']").Click();
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='tick-save']")));
+        Assert.Empty(PlanApiFake.Ticks);
+        dialogs.Find("[data-testid='tick-save']").Click();
+
+        cut.WaitForAssertion(() => Assert.Equal(open.Id, Assert.Single(PlanApiFake.Ticks).Id));
+        Assert.Equal(JasminId, Assert.Single(PlanApiFake.WriteOwners));
+        Assert.Null(Member.Owner);
+    }
+
+    [Fact]
+    public async Task Unticking_needs_Loeschen_on_the_bookings_and_runs_as_that_member()
+    {
+        var done = AddJasminPosition("Internet", done: true);
+        var cut = await OpenHouseholdAsync();
+        cut.Find($"[data-testid='household-tick-{done.Id}']").Click();
+        cut.WaitForAssertion(() => Assert.Contains("Buchungen: Löschen", Notice(cut)));
+        Assert.Empty(PlanApiFake.Unticks);
+
+        Grant(Levels(plan: AccessLevelKeys.Edit, book: AccessLevelKeys.Delete));
+        await Member.RefreshAsync();
+        cut.Find($"[data-testid='household-tick-{done.Id}']").Click();
+
+        cut.WaitForAssertion(() => Assert.Equal(done.Id, Assert.Single(PlanApiFake.Unticks)));
+        Assert.Equal(JasminId, Assert.Single(PlanApiFake.WriteOwners));
+    }
+
+    [Fact]
+    public async Task Editing_a_position_of_another_member_saves_it_for_that_member()
+    {
+        var water = AddJasminPosition();
+        var cut = await OpenHouseholdAsync();
+
+        cut.Find($"[data-testid='household-edit-{water.Id}']").Click();
+        dialogs.WaitForAssertion(() => Assert.Equal("Wasser", Field(dialogs, "position-label").GetAttribute("value")));
+        Field(dialogs, "position-label").Change("Wasser und Abwasser");
+        dialogs.Find("[data-testid='position-save']").Click();
+
+        cut.WaitForAssertion(() => Assert.Equal(water.Id, Assert.Single(PlanApiFake.UpdatedPositions).Id));
+        Assert.Equal(JasminId, Assert.Single(PlanApiFake.WriteOwners));
+        Assert.Null(Member.Owner);
+    }
+
+    [Fact]
+    public async Task Editing_without_Aendern_on_the_plan_is_refused_and_names_that_step()
+    {
+        Grant(Levels(plan: AccessLevelKeys.View));
+        var cut = await OpenHouseholdAsync();
+
+        cut.Find($"[data-testid='household-edit-{strom.Id}']").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Planung: Ändern", Notice(cut)));
+        Assert.Empty(dialogs.FindAll("[data-testid='position-label']"));
+    }
+
+    [Fact]
+    public async Task Deleting_a_position_of_another_member_asks_first_and_deletes_only_after_confirming()
+    {
+        Grant(Levels(plan: AccessLevelKeys.Delete));
+        var water = AddJasminPosition();
+        var cut = await OpenHouseholdAsync();
+        cut.Find($"[data-testid='household-edit-{water.Id}']").Click();
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='plan-delete']")));
+
+        dialogs.Find("[data-testid='plan-delete']").Click();
+        dialogs.WaitForAssertion(() => Assert.Contains("Posten löschen?", dialogs.Markup));
+        Assert.Empty(PlanApiFake.DeletedPositions);
+        dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Abbrechen").Click();
+        dialogs.WaitForAssertion(() => Assert.DoesNotContain("Posten löschen?", dialogs.Markup));
+        Assert.Empty(PlanApiFake.DeletedPositions);
+
+        cut.Find($"[data-testid='household-edit-{water.Id}']").Click();
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='plan-delete']")));
+        dialogs.Find("[data-testid='plan-delete']").Click();
+        dialogs.WaitForAssertion(() => Assert.Contains("Posten löschen?", dialogs.Markup));
+        dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Löschen").Click();
+
+        cut.WaitForAssertion(() => Assert.Equal(water.Id, Assert.Single(PlanApiFake.DeletedPositions)));
+        Assert.Equal(JasminId, Assert.Single(PlanApiFake.WriteOwners));
+    }
+
+    // --- Die Rolle von Jasmin gilt nur, solange der Dialog zu ihr gehört (Spec 125, Review) ---
+
+    [Fact]
+    public async Task Leaving_the_page_closes_the_dialog_and_ends_acting_for_the_other_member()
+    {
+        var water = AddJasminPosition();
+        var cut = await OpenHouseholdAsync();
+        cut.Find($"[data-testid='household-edit-{water.Id}']").Click();
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='position-label']")));
+        Assert.Equal(JasminId, Member.Owner);
+
+        Navigation.NavigateTo("/konten");
+
+        dialogs.WaitForAssertion(() => Assert.Empty(dialogs.FindAll("[data-testid='position-label']")));
+        cut.WaitForAssertion(() => Assert.Null(Member.Owner));
+        Assert.Null(Member.Name);
+        Assert.True(Member.IsHousehold);
+    }
+
+    // --- Drucken ---
+
+    [Fact]
+    public void A_failing_print_shows_a_notice_and_does_not_throw()
+    {
+        printing.Failure = new InvalidOperationException("kein Drucker");
+        var cut = OpenPersonal();
+
+        cut.Find("[data-testid='plan-print']").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Das Drucken hat nicht geklappt", Notice(cut)));
+    }
+
+    [Fact]
+    public async Task Print_for_oneself_says_Meine_Planung()
+    {
+        var cut = await OpenHouseholdAsync();
+        var subject = "";
+        printing.AtPrint = () => subject = cut.Find("[data-testid='month-print'] .print-subject").TextContent;
+
+        cut.Find("[data-testid='plan-print']").Click();
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid^='person-choice-']")));
+        dialogs.Find($"[data-testid='person-choice-{FakeHouseholdApi.AnnaId}']").Click();
+
+        cut.WaitForAssertion(() => Assert.Equal(1, printing.Calls));
+        Assert.Contains("Meine Planung", subject);
+        Assert.DoesNotContain("Planung von", subject);
+    }
+
+    // Am Handy steht Posten anlegen im Menü; es muss zu sein, wenn die Wahl der Person aufgeht, und nicht dahinter offen bleiben.
+    [Fact]
+    public async Task The_phone_menu_closes_when_the_person_choice_opens()
+    {
+        var cut = await OpenHouseholdAsync();
+        cut.Find("[data-testid='page-more']").Click();
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='plan-add-menu']")));
+        Assert.Equal("true", cut.Find("[data-testid='page-more']").GetAttribute("aria-expanded"));
+
+        dialogs.Find("[data-testid='plan-add-menu']").Click();
+
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid^='person-choice-']")));
+        cut.WaitForAssertion(() => Assert.Equal("false", cut.Find("[data-testid='page-more']").GetAttribute("aria-expanded")));
     }
 }

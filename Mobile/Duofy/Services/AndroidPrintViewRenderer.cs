@@ -45,6 +45,8 @@ public sealed class AndroidPrintViewRenderer : IPrintViewRenderer
         return path;
     }
 
+    public void Discard(string path) => System.IO.File.Delete(path);
+
     private static Android.Webkit.WebView? FindWebView()
     {
         var root = Platform.CurrentActivity?.Window?.DecorView as ViewGroup;

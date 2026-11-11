@@ -63,7 +63,7 @@ public sealed class ActiveMember : IDisposable
 
     /// <summary>
     /// Die Stufe in einem Bereich (<see cref="GrantAreas"/>): bei "Ich" Löschen, sonst die Freigabe des Mitglieds.
-    /// Der Haushalt hat keine Stufen, er ist nur zum Lesen und nur im Plan.
+    /// Die Haushaltssicht hat selbst keine Stufen; im Haushaltsplan gilt für jede Zeile die Stufe ihrer Person (<see cref="AllowsFor"/>).
     /// </summary>
     public string LevelIn(string area)
     {
