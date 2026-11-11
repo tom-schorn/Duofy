@@ -342,7 +342,9 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
             plan.Id,
             plan.Year,
             plan.Month,
-            plan.Positions.Select(p => sight.Book ? ToResponse(p, booked.GetValueOrDefault(p.Id)) : Hide(ToResponse(p, 0m))).ToList(),
+            plan.Positions.Select(p => sight.Book
+                ? ToResponse(p, booked.GetValueOrDefault(p.Id))
+                : Hide(ToResponse(p, 0m))).ToList(),
             plan.Positions.Where(p => p.Pot == Pot.Income).Sum(p => p.AmountPlanned),
             plan.Positions.Where(p => p.Pot != Pot.Income).Sum(p => p.AmountPlanned),
             sums.Income,

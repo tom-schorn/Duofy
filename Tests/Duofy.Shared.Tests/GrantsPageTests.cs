@@ -49,7 +49,7 @@ public class GrantsPageTests : PageTestContext
         cut.Find($"[data-testid='grants-{Ben}-preset-read']").Click();
 
         cut.WaitForAssertion(() => Assert.All(GrantAreas.All, area => Assert.Equal(AccessLevelKeys.View, Level(cut, area))));
-        Assert.Equal((Ben, new UpdateGrantsRequest(AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.None)),
+        Assert.Equal((Ben, new UpdateGrantsRequest(AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View)),
             Assert.Single(HouseholdApiFake.GrantsSet));
         Assert.Equal("true", cut.Find($"[data-testid='grants-{Ben}-preset-read']").GetAttribute("aria-pressed"));
         Assert.Empty(cut.FindAll($"[data-testid='grants-{Ben}-own-choice']"));
@@ -161,16 +161,16 @@ public class GrantsPageTests : PageTestContext
 
     // R6: Die Vorlagen Kind und Partner.
     [Theory]
-    [InlineData("kid", AccessLevelKeys.View, AccessLevelKeys.None, AccessLevelKeys.None)]
-    [InlineData("partner", AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.View)]
-    public void The_presets_set_their_levels(string preset, string plan, string others, string reminders)
+    [InlineData("kid", AccessLevelKeys.View, AccessLevelKeys.None)]
+    [InlineData("partner", AccessLevelKeys.Delete, AccessLevelKeys.Delete)]
+    public void The_presets_set_their_levels(string preset, string plan, string others)
     {
         Household(GrantLevels.None with { Commitments = AccessLevelKeys.Edit });
         var cut = OpenPage();
 
         cut.Find($"[data-testid='grants-{Ben}-preset-{preset}']").Click();
 
-        Assert.Equal(new UpdateGrantsRequest(plan, others, others, others, others, reminders), Assert.Single(HouseholdApiFake.GrantsSet).Request);
+        Assert.Equal(new UpdateGrantsRequest(plan, others, others, others, others), Assert.Single(HouseholdApiFake.GrantsSet).Request);
     }
 
     [Fact]
@@ -216,49 +216,5 @@ public class GrantsPageTests : PageTestContext
 
         Assert.Contains("pill", cut.Find($"[data-testid='grants-{Ben}-own-choice']").ClassList);
         Assert.Equal("alert", cut.Find($"[data-testid='grants-{Ben}-hint']").GetAttribute("role"));
-    }
-
-    // Spec 84, A9: Ohne Erinnerungen auf dem Server (selbst betrieben oder aus) gibt es den Bereich nicht.
-    [Fact]
-    public void Without_reminders_on_the_server_the_area_is_hidden()
-    {
-        Household(GrantLevels.None);
-        ReminderApiFake.Available = false;
-
-        var cut = OpenPage();
-
-        Assert.Empty(cut.FindAll($"[data-testid='grants-{Ben}-reminders']"));
-    }
-
-    // Spec 84, R6: Mit Erinnerungen gibt es ein weiteres Feld mit nur Nichts und Ansehen; es ändert nur seinen Bereich.
-    [Fact]
-    public void With_reminders_the_area_offers_only_nothing_and_view_and_sends_only_itself()
-    {
-        Household(GrantLevels.None);
-        ReminderApiFake.Available = true;
-        var cut = OpenPage();
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll($"[data-testid='grants-{Ben}-reminders']")));
-
-        var select = cut.Find($"[data-testid='grants-{Ben}-reminders']");
-        Assert.Equal([AccessLevelKeys.None, AccessLevelKeys.View], select.QuerySelectorAll("option").Select(o => o.GetAttribute("value")));
-        select.Change(AccessLevelKeys.View);
-
-        cut.WaitForAssertion(() => Assert.Equal(new UpdateGrantsRequest(Reminders: AccessLevelKeys.View), Assert.Single(HouseholdApiFake.GrantsSet).Request));
-        cut.WaitForAssertion(() => Assert.Equal(AccessLevelKeys.View, cut.Find($"[data-testid='grants-{Ben}-reminders']").GetAttribute("value")));
-    }
-
-    // Spec 84: Ein bestehender Partner ohne den neuen Bereich bleibt "Partner"; ein Partner mit ihm ebenso.
-    [Theory]
-    [InlineData(AccessLevelKeys.None)]
-    [InlineData(AccessLevelKeys.View)]
-    public void An_existing_partner_with_or_without_the_reminder_area_is_still_a_partner(string reminders)
-    {
-        var partner = GrantPresets.Levels(GrantPresets.Partner) with { Reminders = reminders };
-        Household(partner);
-
-        var cut = OpenPage();
-
-        Assert.Equal("true", cut.Find($"[data-testid='grants-{Ben}-preset-partner']").GetAttribute("aria-pressed"));
-        Assert.Empty(cut.FindAll($"[data-testid='grants-{Ben}-own-choice']"));
     }
 }

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Issue 117, 118 R10: colorAccent färbt die Knöpfe der Systemfenster (Zeitwähler: Festlegen, Abbrechen, Löschen). Das dunkle
+     Marineblau von values/colors.xml steht dort auf dunkelgrauem Grund kaum lesbar; im dunklen Modus des Geräts gilt ein helles Blau
+     (Kontrast mindestens 4,5:1 auf den dunklen Fensterflächen von Android). -->
+<resources>
+    <color name="colorPrimary">#14213D</color>
+    <color name="colorPrimaryDark">#0F1729</color>
+    <color name="colorAccent">#A9C4EE</color>
+</resources>

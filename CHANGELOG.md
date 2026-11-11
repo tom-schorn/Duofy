@@ -27,6 +27,10 @@ uses [Semantic Versioning](https://semver.org/).
 - From 1280 px the side bar shows the full menu directly instead of "Mehr" (accounts, contracts, household, user account, admin for admins, licences, legal texts, sign-out); phone and tablet keep the bottom bar unchanged (spec 10, amendment 2026-11-01)
 - From 1280 px plan, month overview, bookings, accounts, contracts and household use up to 1600 px: blocks in columns and lists as tables with columns; below 1280 px nothing changes
 
+### Removed
+
+- **Breaking:** Push reminders and notifications (specs 84 and 118) are removed from Duofy: the reminder and device endpoints, the reminder job, the push clients, the `Duofy.Push` projects, the Android and Windows push parts, the page "Benachrichtigungen", the grant area "reminders", the household event log and the postpone counter, the Firebase package and the `Duofy__Reminders__*` settings. They live on in Plagevo. The migration `RemovePushReminders` drops their tables and the grant rows of the area "reminders"; a database that never used reminders only loses empty tables (issue #129).
+
 ### Fixed
 
 - Amounts no longer depend on the language of the machine: in a container 12,34 became 1234,00 in the account and contract dialogs. The web host now sets de-DE itself.

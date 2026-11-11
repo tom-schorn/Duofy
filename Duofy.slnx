@@ -12,13 +12,11 @@
   </Folder>
   <Folder Name="/Mobile/">
     <Project Path="Mobile/Duofy/Duofy.csproj" />
-    <Project Path="Mobile/Duofy.Push/Duofy.Push.csproj" />
   </Folder>
   <Folder Name="/Tests/">
     <Project Path="Tests/Duofy.ApiClient.Tests/Duofy.ApiClient.Tests.csproj" />
     <Project Path="Tests/Duofy.App.Tests/Duofy.App.Tests.csproj" />
     <Project Path="Tests/Duofy.Backend.Tests/Duofy.Backend.Tests.csproj" />
-    <Project Path="Tests/Duofy.Push.Tests/Duofy.Push.Tests.csproj" />
     <Project Path="Tests/Duofy.Shared.Tests/Duofy.Shared.Tests.csproj" />
     <Project Path="Tests/Duofy.Web.Tests/Duofy.Web.Tests.csproj" />
   </Folder>
