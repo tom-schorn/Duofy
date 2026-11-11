@@ -50,6 +50,7 @@ const measure = `(() => [...document.querySelectorAll('tr.bookings-row')].map(tr
     line2Together: line2.every(e => Math.abs(box(e).top - a.top) < 4),
     amountLeft: Math.round(a.left - row.left), line2Count: line2.length,
     overflow: cells.some(c => c.right > row.right + 0.5 || c.left < row.left - 0.5), wrapFree: tr.scrollWidth <= tr.clientWidth + 1,
+    emptyShown: ['bookings-account', 'bookings-pot'].map(q).filter(e => shown(e) && e.textContent.trim() === '').length,
     posVisible: shown(pos), rowHeight: Math.round(row.height), isTable: getComputedStyle(tr).display === 'table-row',
   };
 }))()`;
@@ -73,6 +74,7 @@ for (const plan of ['personal', 'household']) {
         if (!r.line2BelowLine1) fail(`${tag}: Person/Posten/Topf/Betrag stehen nicht unter Datum und Titel`);
         if (r.line2Fits && !r.line2Together) fail(`${tag}: Person/Posten/Topf stehen nicht in der Zeile des Betrags`);
         if (r.overflow || !r.wrapFree) fail(`${tag}: eine Zelle ragt aus der Karte`);
+        if (r.emptyShown) fail(`${tag}: eine leere Personen- oder Topfzelle ist in der Kartenansicht sichtbar und kostet einen Abstand`);
         if (r.kind === 'transfer' && r.posVisible) fail(`${tag}: der leere Strich der Überweisung ist in der Kartenansicht sichtbar`);
         if (r.id === 'Kiosk' && !r.posVisible) fail(`${tag}: "Ungeplant" fehlt`);
         if (r.line2Count === 0 && r.amountLeft > 15) fail(`${tag}: der Betrag ohne Person ist um ${r.amountLeft - 14}px eingerückt`);
