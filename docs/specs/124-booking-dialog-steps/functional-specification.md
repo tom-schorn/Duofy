@@ -42,6 +42,8 @@ External input: no
 - [ ] A4 (R4): Given 'Aufteilen' with three lines, when the split step renders at 360 and 800 px, then the dialog content stays within the viewport height (scrolls inside) and the lines are edited in their own step.
 - [ ] A5 (R5): Given the app in light theme while the device is in dark mode, when a date or time picker opens on Android, then its theme is the light one (test of the platform theme setting).
 
+- [ ] A6 (R6): Given the booking dialog in step 2 with amount and account set, when "Speichern" in the foot is pressed, then the booking is saved like from the last step; before amount and account are set the button is not shown.
+
 ## Tracing
 
 | Requirement | Criterion | Test |
@@ -50,6 +52,7 @@ External input: no
 | R2 | A2 | Tests/Duofy.Shared.Tests/BookingDialogStepsTests.cs |
 | R3 | A3 | Tests/Duofy.Shared.Tests/BookingDialogStepsTests.cs |
 | R4 | A4 | Tests/Duofy.Shared.Tests/BookingDialogStepsTests.cs |
+| R6 | A6 | pending |
 | R5 | A5 | Tests/Duofy.App.Tests/AndroidNightModeTests.cs |
 
 ## Non-goals
@@ -59,7 +62,7 @@ External input: no
 
 ## Risks
 
-Longer flow for quick bookings: the summary step allows saving early once required fields are set.
+Longer flow for quick bookings: contained by the early save of R6.
 
 ## Open questions
 
@@ -68,5 +71,7 @@ None.
 ## Approval
 
 Approved by the human on 2026-11-11
+
+Amended on 2026-11-11, decided by the human after the review: early save from step 2 on (R6/A6).
 
 In the lead session: the human gave the points on 11.11.2026 and ordered "spezifizieren und zur Arbeit schicken".
