@@ -194,8 +194,8 @@ public class GrantedPagesTests : PageTestContext
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-next']")));
         Assert.Empty(dialogs.FindAll("[data-testid='booking-new-category']"));
         Field(dialogs, "booking-amount").Change("42");
-        dialogs.Find("[data-testid='booking-line-category-0']").Change(FakeCategoryApi.Groceries.Id.ToString());
-        dialogs.Find("[data-testid='booking-next']").Click();
+        BookingDialogSteps.Choose(dialogs, "booking-line-category-0", FakeCategoryApi.Groceries.Id.ToString());
+        BookingDialogSteps.ToLast(dialogs);
         dialogs.Find("[data-testid='booking-save']").Click();
 
         dialogs.WaitForAssertion(() => Assert.Equal(Anna, Assert.Single(BookingApiFake.Created).OwnerId));
@@ -310,8 +310,8 @@ public class GrantedPagesTests : PageTestContext
 
         await cut.InvokeAsync(() => Member.Choose(null));
         Field(dialogs, "booking-amount").Change("42");
-        dialogs.Find("[data-testid='booking-line-category-0']").Change(FakeCategoryApi.Groceries.Id.ToString());
-        dialogs.Find("[data-testid='booking-next']").Click();
+        BookingDialogSteps.Choose(dialogs, "booking-line-category-0", FakeCategoryApi.Groceries.Id.ToString());
+        BookingDialogSteps.ToLast(dialogs);
         dialogs.Find("[data-testid='booking-save']").Click();
 
         dialogs.WaitForAssertion(() => Assert.Equal(Anna, Assert.Single(BookingApiFake.Created).OwnerId));

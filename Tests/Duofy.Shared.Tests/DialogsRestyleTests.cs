@@ -69,12 +69,13 @@ public class DialogsRestyleTests : PageTestContext
 
     // A1 (Spec 22): Jeder der vier Dialoge steht auf dem Dialog-Gerüst.
     [Fact]
-    public async Task The_booking_dialog_has_two_steps_on_the_scaffold()
+    public async Task The_booking_dialog_has_four_steps_on_the_scaffold_and_a_fifth_for_the_split()
     {
         OpenBooking();
 
-        Assert.Equal(2, dialogs.FindAll("[data-testid^='step-dialog-step-']").Count);
-        Assert.Equal("Schritt 1 von 2: Was und wann", dialogs.Find("[data-testid='step-dialog-progress']").TextContent.Trim());
+        // Spec 124: Was und wann, Konto, Kategorie und Posten, (Aufteilen, nur bei Bedarf), Prüfen und speichern.
+        Assert.Equal(5, dialogs.FindAll("[data-testid^='step-dialog-step-']").Count);
+        Assert.Equal("Schritt 1 von 4: Was und wann", dialogs.Find("[data-testid='step-dialog-progress']").TextContent.Trim());
         Assert.Equal("Weiter", dialogs.Find("[data-testid='booking-next']").TextContent.Trim());
     }
 
@@ -99,9 +100,9 @@ public class DialogsRestyleTests : PageTestContext
         Assert.NotEmpty(dialogs.FindAll("[data-testid='position-label']"));
     }
 
-    // Alle Buchungsarten bleiben möglich, auch die Umbuchung mit Von Topf und Zu Topf (Schritt 2).
+    // Alle Buchungsarten bleiben möglich, auch die Umbuchung mit Von Topf und Zu Topf (Schritt 3).
     [Fact]
-    public async Task All_booking_kinds_stay_and_a_transfer_keeps_its_pots_in_step_two()
+    public async Task All_booking_kinds_stay_and_a_transfer_keeps_its_pots_in_step_three()
     {
         OpenBooking();
 
@@ -109,23 +110,24 @@ public class DialogsRestyleTests : PageTestContext
 
         dialogs.Find("[data-testid='booking-kind-transfer']").Click();
 
-        var step2 = dialogs.Find("[data-testid='step-dialog-step-2']");
-        Assert.NotNull(step2.QuerySelector("[data-testid='booking-transfer-source-pot']"));
-        Assert.NotNull(step2.QuerySelector("[data-testid='booking-transfer-target-pot']"));
-        Assert.NotNull(dialogs.Find("[data-testid='step-dialog-step-1']").QuerySelector("[data-testid='booking-counter-account']"));
+        var step3 = dialogs.Find("[data-testid='step-dialog-step-3']");
+        Assert.NotNull(step3.QuerySelector("[data-testid='booking-transfer-source-pot']"));
+        Assert.NotNull(step3.QuerySelector("[data-testid='booking-transfer-target-pot']"));
+        Assert.NotNull(dialogs.Find("[data-testid='step-dialog-step-2']").QuerySelector("[data-testid='booking-counter-account']"));
     }
 
     // A4 (Spec 22): Ein fehlendes Konto steht als Fehler am Feld, und Weiter bleibt im ersten Schritt.
     [Fact]
-    public async Task A_missing_account_is_an_error_at_the_field_and_next_stays_on_step_one()
+    public async Task A_missing_account_is_an_error_at_the_field_and_next_stays_on_the_account_step()
     {
         OpenBooking([new AccountChoice(Guid.NewGuid(), "Girokonto", IsDefault: false, Active: true)]);
 
         dialogs.Find("[data-testid='booking-next']").Click();
+        dialogs.Find("[data-testid='booking-next']").Click();
 
         Assert.Equal("Bitte wähle ein Konto.", dialogs.Find("#booking-account-input-error").TextContent.Trim());
         Assert.Equal("alert", dialogs.Find("#booking-account-input-error").GetAttribute("role"));
-        Assert.Equal("Schritt 1 von 2: Was und wann", dialogs.Find("[data-testid='step-dialog-progress']").TextContent.Trim());
+        Assert.Equal("Schritt 2 von 4: Konto", dialogs.Find("[data-testid='step-dialog-progress']").TextContent.Trim());
     }
 
     // A4 (Spec 22): Escape schließt, solange nichts eingegeben ist ...

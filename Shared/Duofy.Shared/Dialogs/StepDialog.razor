@@ -123,7 +123,9 @@
     [Parameter]
     public Func<bool>? HasInput { get; set; }
 
-    private readonly List<DialogStep> steps = [];
+    // Alle angemeldeten Schritte in ihrer Reihenfolge; gezählt und angesteuert werden nur die, die nicht übersprungen sind.
+    private readonly List<DialogStep> all = [];
+    private List<DialogStep> steps => all.Where(step => !step.Skipped).ToList();
     private int current;
     private bool typed;
 
@@ -135,18 +137,26 @@
 
     internal bool IsCurrent(DialogStep step) => steps.IndexOf(step) == current;
 
-    internal int StepNumber(DialogStep step) => steps.IndexOf(step) + 1;
+    // Die Nummer im Test-Kennzeichen zählt alle Schritte, auch übersprungene; so behält jeder Schritt seine Nummer.
+    internal int StepNumber(DialogStep step) => all.IndexOf(step) + 1;
 
     internal void Add(DialogStep step)
     {
-        steps.Add(step);
+        all.Add(step);
+        StateHasChanged();
+    }
+
+    // Ein Schritt wird übersprungen oder kommt wieder dazu; Fortschritt und Weiter richten sich danach.
+    internal void StepsChanged()
+    {
+        current = Math.Clamp(current, 0, Math.Max(steps.Count - 1, 0));
         StateHasChanged();
     }
 
     internal void Remove(DialogStep step)
     {
         // Kein Neuzeichnen: Meist geht hier der ganze Dialog zu.
-        steps.Remove(step);
+        all.Remove(step);
         current = Math.Clamp(current, 0, Math.Max(steps.Count - 1, 0));
     }
 

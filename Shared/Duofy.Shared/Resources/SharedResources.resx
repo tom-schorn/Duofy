@@ -1133,4 +1133,17 @@
   <data name="HouseholdPlan_OverviewLead"><value>Die Monate aller Mitglieder zusammen, nur zum Lesen. Klick einen Monat an.</value></data>
   <data name="HouseholdPlan_AllMonths"><value>Alle Monate des Haushalts</value></data>
   <data name="Month_BackLabel"><value>Zurück zur Übersicht</value></data>
+  <data name="BookingDialog_StepAccounts"><value>Konto</value></data>
+  <data name="BookingDialog_StepCategory"><value>Kategorie und Posten</value></data>
+  <data name="BookingDialog_StepSplit"><value>Aufteilen</value></data>
+  <data name="BookingDialog_StepCheck"><value>Prüfen und speichern</value></data>
+  <data name="BookingDialog_SplitOn"><value>Betrag aufteilen</value></data>
+  <data name="BookingDialog_SplitHint"><value>Im nächsten Schritt verteilst du den Betrag auf mehrere Zeilen.</value></data>
+  <data name="BookingDialog_SplitRest"><value>Zeile 1 bekommt den Rest</value></data>
+  <data name="BookingDialog_AddLine"><value>Zeile hinzufügen</value></data>
+  <data name="BookingDialog_PositionDue"><value>Fällig am {0}.</value></data>
+  <data name="BookingDialog_PositionNoDue"><value>Ohne festen Tag</value></data>
+  <data name="BookingDialog_Summary"><value>Zusammenfassung</value></data>
+  <data name="BookingDialog_NoCategory"><value>Keine Kategorie</value></data>
+  <data name="Combo_NoMatch"><value>Kein Treffer</value></data>
 </root>

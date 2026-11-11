@@ -341,8 +341,7 @@ public class AccountBookingsPageTests : PageTestContext
         Input(dialogs, "booking-amount").Change("42");
         SelectIn(dialogs, "booking-line-category-0", FakeCategoryApi.Groceries.Id.ToString());
 
-        dialogs.Find("[data-testid='booking-next']").Click();
-
+        BookingDialogSteps.ToLast(dialogs);
         dialogs.Find("[data-testid='booking-save']").Click();
 
         cut.WaitForAssertion(() => Assert.Single(BookingApiFake.Created));
@@ -363,8 +362,7 @@ public class AccountBookingsPageTests : PageTestContext
         dialogs.WaitForAssertion(() => Assert.Contains("Neue Buchung", dialogs.Markup));
         Input(dialogs, "booking-amount").Change("42");
 
-        dialogs.Find("[data-testid='booking-next']").Click();
-
+        BookingDialogSteps.ToLast(dialogs);
         dialogs.Find("[data-testid='booking-save']").Click();
 
         dialogs.WaitForAssertion(() => Assert.Contains("Die Zeilen ergeben zusammen nicht den Betrag der Buchung.", dialogs.Markup));
@@ -384,7 +382,7 @@ public class AccountBookingsPageTests : PageTestContext
         dialogs.WaitForAssertion(() => Assert.Contains("Buchung ändern", dialogs.Markup));
         Assert.Equal("11,00", Input(dialogs, "booking-amount").GetAttribute("value"));
         Input(dialogs, "booking-amount").Change("12");
-        dialogs.Find("[data-testid='booking-next']").Click();
+        BookingDialogSteps.ToLast(dialogs);
         dialogs.Find("[data-testid='booking-save']").Click();
 
         cut.WaitForAssertion(() => Assert.Single(BookingApiFake.Updated));
@@ -416,7 +414,7 @@ public class AccountBookingsPageTests : PageTestContext
         SelectIn(dialogs, "booking-transfer-source-pot", PotKeys.Savings);
         SelectIn(dialogs, "booking-transfer-target-pot", PotKeys.Wants);
         Input(dialogs, "booking-amount").Change("100");
-        dialogs.Find("[data-testid='booking-next']").Click();
+        BookingDialogSteps.ToLast(dialogs);
         dialogs.Find("[data-testid='booking-save']").Click();
 
         cut.WaitForAssertion(() => Assert.Single(BookingApiFake.Created));
@@ -484,7 +482,11 @@ public class AccountBookingsPageTests : PageTestContext
     private static void SelectIn(IRenderedComponent<IComponent> cut, string testId, string value)
     {
         var element = cut.Find($"[data-testid='{testId}']");
-        if (element.TagName == "FIELDSET")
+        if (element.ClassList.Contains("combo"))
+        {
+            BookingDialogSteps.Choose(cut, testId, value);
+        }
+        else if (element.TagName == "FIELDSET")
         {
             element.QuerySelector($"input[type='radio'][value='{value}']")!.Change(true);
         }
@@ -498,6 +500,10 @@ public class AccountBookingsPageTests : PageTestContext
     private static string? SelectedValue(IRenderedComponent<IComponent> cut, string testId)
     {
         var element = cut.Find($"[data-testid='{testId}']");
+        if (element.ClassList.Contains("combo"))
+        {
+            return element.GetAttribute("data-value") ?? "";
+        }
         return element.TagName == "FIELDSET"
             ? element.QuerySelectorAll("input[type='radio']").Single(i => i.HasAttribute("checked")).GetAttribute("value")
             : element.GetAttribute("value");

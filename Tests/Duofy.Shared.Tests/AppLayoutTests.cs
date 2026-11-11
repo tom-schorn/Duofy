@@ -235,7 +235,7 @@ public class AppLayoutTests : PageTestContext
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='booking-next']")));
 
         // Lehnt die API ab, steht der Fehler im Dialog wie im Browser.
-        cut.Find("[data-testid='booking-next']").Click();
+        BookingDialogSteps.ToLast(cut);
         cut.Find("[data-testid='booking-save']").Click();
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='booking-error']")));
 

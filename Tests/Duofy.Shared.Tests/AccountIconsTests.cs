@@ -277,11 +277,11 @@ public class AccountIconsTests : PageTestContext
         OpenMonthAndNewBooking();
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-account']")));
 
-        Assert.Equal(giro.Id.ToString(), Chosen(dialogs, "booking-account"));
-        Assert.Equal(AccountIcons.Piggy, IconOf(dialogs.Find($"[data-testid='booking-account'] input[value='{spar.Id}']").ParentElement!));
+        Assert.Equal(giro.Id.ToString(), BookingDialogSteps.Chosen(dialogs, "booking-account"));
+        Assert.Equal(AccountIcons.Piggy, IconOf(dialogs.Find($"[data-testid='booking-account-option-{spar.Id}']")));
 
-        dialogs.Find($"[data-testid='booking-account'] input[value='{spar.Id}']").Change(true);
-        Assert.Equal(spar.Id.ToString(), Chosen(dialogs, "booking-account"));
+        BookingDialogSteps.Choose(dialogs, "booking-account", spar.Id.ToString());
+        Assert.Equal(spar.Id.ToString(), BookingDialogSteps.Chosen(dialogs, "booking-account"));
         await Task.CompletedTask;
     }
 
@@ -296,7 +296,7 @@ public class AccountIconsTests : PageTestContext
         dialogs.Find("[data-testid='booking-kind-transfer']").Click();
 
         dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-counter-account']")));
-        Assert.Equal(AccountIcons.Piggy, IconOf(dialogs.Find($"[data-testid='booking-counter-account'] input[value='{spar.Id}']").ParentElement!));
+        Assert.Equal(AccountIcons.Piggy, IconOf(dialogs.Find($"[data-testid='booking-counter-account-option-{spar.Id}']")));
     }
 
     [Fact]

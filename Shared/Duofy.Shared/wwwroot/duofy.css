@@ -823,7 +823,35 @@ a.duofy-button--primary { color: var(--primary-foreground); }
 .booking-line { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-top: 1px solid var(--border); }
 .booking-line-title { font-weight: 500; }
 .booking-line-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.booking-kinds { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Die Art der Buchung (Spec 124, R2): drei gleich breite Knöpfe; der gewählte ist gefüllt (Hauptfarbe auf hellem bzw. dunklem Grund,
+   weit über 3:1 zu den anderen) und trägt ein Häkchen, damit die Wahl nicht allein an der Farbe hängt. */
+.booking-kinds { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.booking-kinds > * { min-width: 0; }
+.booking-kinds button { width: 100%; background: var(--secondary); color: var(--secondary-foreground); border: 1px solid var(--input); }
+.booking-kinds button[aria-pressed="true"] { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); font-weight: 600; }
+.booking-kinds button[aria-pressed="true"]::before { content: "\2713"; margin-right: 6px; }
+.booking-split-switch { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding-top: 4px; }
+.booking-split-switch button[aria-pressed="true"] { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); }
+.booking-split-switch button[aria-pressed="true"]::before { content: "\2713"; margin-right: 6px; }
+.booking-summary { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); }
+.booking-summary > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 12px; }
+.booking-summary dt { font-size: 14px; color: var(--muted-foreground); }
+.booking-summary dd { margin: 0; font-weight: 500; text-align: right; overflow-wrap: anywhere; }
+
+/* Die Auswahl mit Suchfeld (ComboBox, Spec 124, R3): Feld wie die anderen Felder, die Liste steht im Fluss darunter. */
+.combo { position: relative; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.combo-input { width: 100%; min-height: 40px; padding: 6px 32px 6px 10px; border: 1px solid var(--input); border-radius: var(--radius); background: transparent; color: var(--foreground); font: inherit; }
+.combo-input:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+.combo-chevron { position: absolute; right: 12px; top: 15px; width: 8px; height: 8px; border-right: 2px solid var(--muted-foreground); border-bottom: 2px solid var(--muted-foreground); transform: rotate(45deg); pointer-events: none; }
+.combo-list { list-style: none; margin: 0; padding: 4px; max-height: min(40dvh, 260px); overflow-y: auto; border: 1px solid var(--input); border-radius: var(--radius); background: var(--popover); color: var(--popover-foreground); }
+.combo-list[hidden] { display: none; }
+.combo-group { padding: 8px 8px 2px; font-size: 12px; font-weight: 600; color: var(--muted-foreground); }
+.combo-option { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 6px 8px; border-radius: calc(var(--radius) - 2px); cursor: pointer; }
+.combo-option:hover, .combo-option.is-active { background: var(--accent); }
+.combo-option.is-selected { font-weight: 600; box-shadow: inset 3px 0 0 var(--primary); }
+.combo-option-label { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.combo-option-detail { flex: 0 1 auto; font-size: 12px; color: var(--muted-foreground); text-align: right; }
+.combo-empty { padding: 8px; color: var(--muted-foreground); }
 .bookings-top { display: flex; flex-direction: column; }
 .plan-back { display: inline-block; margin-bottom: 8px; color: var(--muted-foreground); }
 .more-entry { width: 100%; justify-content: flex-start; }
