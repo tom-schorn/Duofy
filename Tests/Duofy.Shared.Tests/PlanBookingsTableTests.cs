@@ -131,8 +131,8 @@ public class PlanBookingsTableTests : PageTestContext
     public void A1_the_table_layout_follows_the_width_of_its_own_area_and_not_the_viewport()
     {
         Assert.Matches(@"\.bookings-scroll\s*\{[^}]*container-type:\s*inline-size", Css);
-        Assert.Matches(@"@container \(min-width: 640px\) and \(max-width: 779px\)\s*\{\s*\.bookings-table th, \.bookings-table td\s*\{\s*padding-left: 12px", Css);
-        Assert.Matches(@"@container \(max-width: 639px\)\s*\{\s*\.bookings-table thead", Css);
+        Assert.Matches(@"@container \(min-width: 720px\) and \(max-width: 779px\)\s*\{\s*\.bookings-table th, \.bookings-table td\s*\{\s*padding-left: 12px", Css);
+        Assert.Matches(@"@container \(max-width: 719px\)\s*\{\s*\.bookings-table thead", Css);
         Assert.DoesNotMatch(@"@media[^{]*\{\s*\.bookings-table", Css);
     }
 
@@ -141,5 +141,12 @@ public class PlanBookingsTableTests : PageTestContext
     public void A1_an_overflowing_table_shows_a_shadow_at_the_right_edge()
     {
         Assert.Matches(@"\.bookings-scroll\s*\{[^}]*local right center[^}]*scroll right center", Css);
+    }
+
+    // A1 (R1, Review 3): In der Kartenansicht zeigt ein Übertrag keine Striche für Posten und Topf, damit er wie eine Buchungskarte aussieht.
+    [Fact]
+    public void A1_a_carry_over_card_hides_the_dashes_of_position_and_pot()
+    {
+        Assert.Matches(@"@container \(max-width: 719px\)[^@]*\.bookings-row--carry \.bookings-position, \.bookings-table \.bookings-row--carry \.bookings-pot\s*\{\s*display:\s*none", Css);
     }
 }

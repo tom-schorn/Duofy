@@ -743,11 +743,12 @@ a.duofy-button--primary { color: var(--primary-foreground); }
 .bookings-table .bookings-amount { text-align: right; white-space: nowrap; font-weight: 500; }
 .amount-expense { color: var(--destructive); }
 /* Enger Platz (Tablet hochkant, 800 px, Lenovo TB330FU): engeres Polster, damit die sechs Spalten ohne Wischen passen. */
-@container (min-width: 640px) and (max-width: 779px) {
+@container (min-width: 720px) and (max-width: 779px) {
     .bookings-table th, .bookings-table td { padding-left: 12px; padding-right: 12px; }
 }
-/* Sehr enger Platz (Handy, Tablet mit ausgeklappter Seitenleiste): jede Zeile eine Karte, der Betrag steht immer sichtbar daneben. */
-@container (max-width: 639px) {
+/* Enger Platz unter 720 px (Handy, Tablet mit ausgeklappter Seitenleiste; Spec 123, Entscheidung 11.11.2026: lange Kontonamen
+   sollen den Betrag nie unter den Schatten schieben): jede Zeile eine Karte, der Betrag steht immer sichtbar daneben. */
+@container (max-width: 719px) {
     .bookings-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
     .bookings-table tbody { display: block; }
     .bookings-table tr.bookings-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
@@ -760,6 +761,8 @@ a.duofy-button--primary { color: var(--primary-foreground); }
     }
     .bookings-table .bookings-position::before, .bookings-table .bookings-account:not(:empty)::before, .bookings-table .bookings-pot:not(:empty)::before { content: "· "; }
     .bookings-title { margin-bottom: 2px; }
+    /* Ein Übertrag hat weder Posten noch Topf: Die Striche dort entfallen, er sieht aus wie eine Buchungskarte (Spec 123, Review 3). */
+    .bookings-table .bookings-row--carry .bookings-position, .bookings-table .bookings-row--carry .bookings-pot { display: none; }
 }
 
 /* Erfolgsmeldungen als kurze Meldung unten, über allem und ohne etwas zu verschieben (Spec 82). */
