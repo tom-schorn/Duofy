@@ -3,7 +3,9 @@
 //  - der Dialog (oder sein Inhalt) höher oder breiter als das Fenster ist,
 //  - ein Knopf im Fuß oder die Knöpfe der Art (Ausgabe, Einnahme, Umbuchung) nicht ganz im Fenster stehen,
 //  - der Inhalt eines Knopfs (Text oder Häkchen) breiter als der Knopf ist, links wie rechts (das fängt "Umbuchung" mit Häkchen),
-//  - die drei Zeilen im Schritt Aufteilen nicht in einem rollenden Inhalt stehen, der im Fenster bleibt.
+//  - die drei Zeilen im Schritt Aufteilen nicht in einem rollenden Inhalt stehen, der im Fenster bleibt,
+//  - eine neue Schnellausgabe (Betrag 0,01 €) mit Konto, Topf und Kategorie aus Schritt 2 nicht mit dem frühen "Speichern" gespeichert wird
+//    (nur bei 360 px; legt je Lauf eine Buchung an, CHECK_NO_SAVE=1 lässt das aus).
 // Sie nutzt das echte Markup der laufenden App, kein nachgebautes. Keine neue Abhängigkeit: Playwright kommt von der Maschine.
 //
 // Voraussetzung: Backend, Web und Datenbank laufen; das Konto hat mindestens ein aktives Standardkonto (der Dialog kommt sonst
@@ -21,6 +23,7 @@ const { chromium } = require('playwright-core');
 
 const base = process.env.CHECK_BASE_URL ?? 'http://127.0.0.1:5491';
 const demoClipped = process.env.CHECK_DEMO_CLIPPED === '1';
+const noSave = process.env.CHECK_NO_SAVE === '1';
 // Breite und eine übliche Höhe dazu: Handy hochkant und Tablet hochkant.
 const viewports = [{ width: 360, height: 640 }, { width: 800, height: 700 }];
 const schemes = ['light', 'dark'];
@@ -98,6 +101,13 @@ const injectOverflow = () => {
   b.textContent = 'Umbuchung';
   box.append(b);
   document.body.append(box);
+};
+
+// Wählt in Schritt 2 die erste Kategorie der Liste; der Topf folgt ihr (der Dialog hat keine Wahl "Keine Kategorie").
+const chooseCategory = async (page) => {
+  await page.locator('[data-testid="booking-line-category-0-input"]').click();
+  await page.locator('[data-testid="booking-line-category-0"] [role="option"]').first().click();
+  await page.waitForTimeout(200);
 };
 
 const browser = await chromium.launch(process.env.CHECK_BROWSER ? { executablePath: process.env.CHECK_BROWSER } : {});
@@ -182,20 +192,27 @@ for (const scheme of schemes) {
     }
     await page.locator('[data-testid="booking-kind-expense"]').click();
 
-    // Schritt 2 mit dem frühen Speichern (Betrag und Konto sind da): Zurück, Speichern und Weiter stehen nebeneinander im Fuß.
+    // Schritt 2 "Konto und Kategorie": Konto, Topf und Kategorie stehen zusammen; erst mit ihnen erscheint der frühe Speichern-Knopf.
     await page.locator('[data-testid="booking-amount"]').fill('90');
     await page.keyboard.press('Tab');
     await page.locator('[data-testid="booking-next"]').click();
     await page.waitForTimeout(300);
+    const earlyBefore = await page.locator('[data-testid="booking-save-early"]').count();
+    if (earlyBefore !== 0) note(`${label} früher Speichern-Knopf`, [`${earlyBefore} statt 0 vor der Wahl von Kategorie und Topf`]);
+    await chooseCategory(page);
     const early = await page.locator('[data-testid="booking-save-early"]').count();
     await check('Schritt 2 mit frühem Speichern', 'Schritt 2');
-    if (early !== 1) note(`${label} früher Speichern-Knopf`, [`${early} statt 1 in Schritt 2`]);
+    if (early !== 1) note(`${label} früher Speichern-Knopf`, [`${early} statt 1 in Schritt 2 mit Konto, Topf und Kategorie`]);
+    // Die offene Liste der Kategorien liegt im Fluss des rollenden Inhalts; der Dialog bleibt trotzdem im Fenster.
+    await page.locator('[data-testid="booking-line-category-0-input"]').click();
+    await page.waitForTimeout(200);
+    await check('Schritt 2, Kategorie-Liste offen', 'Schritt 2');
+    await page.keyboard.press('Escape');
 
-    // Schritt 3: aufteilen, drei Zeilen; Schritt 4 zeigt sie.
+    // Schritt 3 "Posten": aufteilen; Schritt 4 zeigt drei Zeilen.
     await page.locator('[data-testid="booking-next"]').click();
     await page.waitForTimeout(300);
     await page.locator('[data-testid="booking-split"]').click();
-    await page.locator('[data-testid="booking-line-add"]').count(); // (nur im Schritt Aufteilen)
     await check('Schritt 3, aufgeteilt', 'Schritt 3');
     await page.locator('[data-testid="booking-next"]').click();
     await page.waitForTimeout(300);
@@ -207,6 +224,34 @@ for (const scheme of schemes) {
     if (!m.scrolls && viewport.height <= 700 && viewport.width < 600) {
       // Auf dem Handy müssen drei Zeilen den Inhalt zum Rollen bringen; sonst wäre die Messung nicht aussagekräftig.
       note(`${label} Rollen`, ['drei Zeilen rollen nicht im Inhalt (zu wenig Inhalt für die Messung?)']);
+    }
+
+    // Eine neue Schnellausgabe, im Schritt 2 mit dem frühen Speichern wirklich gespeichert (Spec 124, A6), nur bei 360 px.
+    // Sie legt je Lauf eine Buchung über 0,01 € an; wer das nicht will, setzt CHECK_NO_SAVE=1.
+    if (viewport.width === 360 && !noSave) {
+      await page.goto(base + '/buchungen');
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(800);
+      await page.locator('[data-testid="month-action-booking"]').click();
+      await page.locator('[data-testid="step-dialog"]').waitFor({ timeout: 10000 });
+      await page.waitForTimeout(500);
+      await page.locator('[data-testid="booking-amount"]').fill('0,01');
+      await page.keyboard.press('Tab');
+      await page.locator('[data-testid="booking-next"]').click();
+      await page.waitForTimeout(300);
+      await chooseCategory(page);
+      const problems = [];
+      if (await page.locator('[data-testid="booking-save-early"]').count() !== 1) problems.push('kein früher Speichern-Knopf in Schritt 2');
+      else {
+        await page.locator('[data-testid="booking-save-early"]').click();
+        try {
+          await page.locator('[data-testid="step-dialog"]').waitFor({ state: 'detached', timeout: 10000 });
+        } catch {
+          const text = await page.locator('[data-testid="booking-error"]').first().textContent().catch(() => null);
+          problems.push(`Dialog blieb offen nach dem frühen Speichern${text ? ` (Fehler: ${text.trim()})` : ''}`);
+        }
+      }
+      note(`${label} neue Schnellausgabe mit frühem Speichern`, problems);
     }
 
     await context.close();
