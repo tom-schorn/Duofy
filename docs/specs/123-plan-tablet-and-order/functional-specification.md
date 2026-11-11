@@ -41,7 +41,7 @@ External input: no
 
 | Requirement | Criterion | Test |
 | --- | --- | --- |
-| R1 | A1 | `Tests/Duofy.Shared.Tests/PlanBookingsTableTests.cs`: `A1_the_table_sits_in_its_own_region_that_scrolls_sideways`, `A1_the_card_frame_no_longer_clips_the_table`, `A1_the_table_layout_follows_the_width_of_its_own_area_and_not_the_viewport`, `A1_an_overflowing_table_shows_a_shadow_at_the_right_edge`; browser screenshots /root/Builds/shots-123-review2/ |
+| R1 | A1 | `Tests/Duofy.Shared.Tests/PlanBookingsTableTests.cs`: `A1_the_table_sits_in_its_own_region_that_scrolls_sideways`, `A1_the_card_frame_no_longer_clips_the_table`, `A1_the_table_layout_follows_the_width_of_its_own_area_and_not_the_viewport`, `A1_an_overflowing_table_shows_a_shadow_at_the_right_edge`, `A1_a_carry_over_card_hides_the_dashes_of_position_and_pot`, `A1_a_carry_over_card_lets_the_name_fill_the_first_line_so_owner_and_amount_wrap_together`; browser screenshots /root/Builds/shots-123-review2/, /root/Builds/shots-123-review3/ |
 | R2 | A2 | `Tests/Duofy.Shared.Tests/PlanBookingsTableTests.cs`: `A2_the_list_runs_newest_first_and_the_carry_over_stands_at_the_end`, `A2_a_booking_on_the_first_stands_above_the_incoming_carry_over_which_carries_the_first_of_the_plan_month`, `A2_the_outgoing_carry_over_keeps_the_end_of_the_month_and_stands_on_top`, `A2_the_household_plan_lists_in_the_same_order` |
 | R3 | A3 | `Tests/Duofy.Shared.Tests/PlanBookingsTableTests.cs`: `A3_the_personal_and_the_household_plan_use_the_same_bookings_component` |
 

@@ -149,4 +149,12 @@ public class PlanBookingsTableTests : PageTestContext
     {
         Assert.Matches(@"@container \(max-width: 719px\)[^@]*\.bookings-row--carry \.bookings-position, \.bookings-table \.bookings-row--carry \.bookings-pot\s*\{\s*display:\s*none", Css);
     }
+
+    // A1 (R1, Review 3): Auf der Übertragskarte füllt der Name die erste Zeile bis fast zum Rand, damit der Vorname nicht dort stehen bleibt
+    // und der Betrag allein in der zweiten Zeile steht; Vorname und Betrag brechen zusammen um wie auf einer Buchungskarte.
+    [Fact]
+    public void A1_a_carry_over_card_lets_the_name_fill_the_first_line_so_owner_and_amount_wrap_together()
+    {
+        Assert.Matches(@"@container \(max-width: 719px\)[^@]*\.bookings-row--carry \.bookings-name\s*\{\s*flex:\s*1 0 calc\(100% - 96px\)", Css);
+    }
 }

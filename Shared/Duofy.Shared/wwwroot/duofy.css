@@ -763,6 +763,8 @@ a.duofy-button--primary { color: var(--primary-foreground); }
     .bookings-title { margin-bottom: 2px; }
     /* Ein Übertrag hat weder Posten noch Topf: Die Striche dort entfallen, er sieht aus wie eine Buchungskarte (Spec 123, Review 3). */
     .bookings-table .bookings-row--carry .bookings-position, .bookings-table .bookings-row--carry .bookings-pot { display: none; }
+    /* Der Name füllt die erste Zeile, so brechen Vorname und Betrag zusammen um wie auf der Buchungskarte (Spec 123, Review 3). */
+    .bookings-table .bookings-row--carry .bookings-name { flex: 1 0 calc(100% - 96px); }
 }
 
 /* Erfolgsmeldungen als kurze Meldung unten, über allem und ohne etwas zu verschieben (Spec 82). */
