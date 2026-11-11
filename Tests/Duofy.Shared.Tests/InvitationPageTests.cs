@@ -114,9 +114,7 @@ public class InvitationPageTests : PageTestContext
         var menu = RenderDialogHost();
         var switcher = Render<UserMenu>();
         switcher.WaitForAssertion(() => Assert.Equal(1, HouseholdApiFake.MineCalls));
-        switcher.Find("[data-testid='user-menu-open']").Click();
-        menu.WaitForAssertion(() => Assert.Equal("true", menu.Find("[data-testid='member-choice-household']").GetAttribute("aria-disabled")));
-        switcher.Find("[data-testid='user-menu-open']").Click();
+        Assert.False(member.CanShowHousehold);
         var cut = Open();
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='invitation-join']")));
 
@@ -125,7 +123,8 @@ public class InvitationPageTests : PageTestContext
         cut.WaitForAssertion(() => Assert.Equal("/haushalt", CurrentPath));
         Assert.True(member.CanShowHousehold);
         switcher.Find("[data-testid='user-menu-open']").Click();
-        menu.WaitForAssertion(() => Assert.NotEqual("true", menu.Find("[data-testid='member-choice-household']").GetAttribute("aria-disabled")));
+        menu.WaitForAssertion(() => Assert.NotEmpty(menu.FindAll("[data-testid='member-choice-me']")));
+        Assert.Empty(menu.FindAll("[data-testid='member-choice-household']"));
     }
 
     // A8 (Seite): Trat Ben zur selben Zeit anderswo bei, lehnt die API trotzdem ab; die Seite sagt, warum.

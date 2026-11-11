@@ -71,6 +71,12 @@ else if (firstName is not null)
                    ViewOf="@(ViewName is null ? null : L["Start_ViewOf", ViewName].Value)"
                    Href="@MonthHref" LinkText="@L["Start_OpenMonth", MonthName].Value" />
 
+        @if (!Member.IsHousehold && !Member.Allows(GrantAreas.Accounts, AccessLevelKeys.View))
+        {
+            @* Ohne die Freigabe der Konten fehlt die Kontenzeile; ein kurzer Hinweis sagt es, statt sie still wegzulassen (Spec 126). *@
+            <p class="month-hint" data-testid="start-accounts-not-shared">@L["Grant_NotShared"]</p>
+        }
+
         @if (!Member.IsHousehold)
         {
             <div class="page-actions" data-testid="start-actions">
@@ -103,12 +109,8 @@ else if (firstName is not null)
         {
             @* Ruhiger Hinweis (Issue #34): Der Richtwert ist ein Anhaltspunkt, kein Alarm; es gibt keine Warnfarbe. *@
             <StartSection Title="@L["Start_GuidelineTitle"].Value" TestId="start-guideline"
-                          Href="@(Member.IsHousehold ? MonthHref : null)" LinkText="@L["Start_GuidelineLink"].Value">
+                          Href="@(Member.IsHousehold ? MonthHref : $"/haushaltsplan/{today.Year}/{today.Month}")" LinkText="@L["Start_GuidelineLink"].Value">
                 <p>@L["Start_GuidelineText", string.Join(", ", deviating)]</p>
-                @if (!Member.IsHousehold)
-                {
-                    <p class="month-hint">@L["Start_GuidelineOwnView"]</p>
-                }
             </StartSection>
         }
     }
@@ -147,7 +149,10 @@ else if (firstName is not null)
 
     private static readonly CultureInfo German = new("de-DE");
 
-    private string? firstName;
+    private string? ownFirstName;
+
+    // Wen die Begrüßung nennt: die gewählte Person, sonst man selbst (Spec 126, R3).
+    private string? firstName => Member.Name ?? ownFirstName;
     private string? error;
     private NoticeMessage? message;
     private bool loaded;
@@ -229,7 +234,7 @@ else if (firstName is not null)
         var me = await UserApi.GetMeAsync();
         if (me.Succeeded)
         {
-            firstName = me.Value!.FirstName;
+            ownFirstName = me.Value!.FirstName;
         }
         else if (me.ErrorCode != ClientErrorCodes.NotSignedIn)
         {
@@ -309,11 +314,8 @@ else if (firstName is not null)
             return;
         }
 
-        // Der Haushaltsblock hängt nicht am eigenen Plan des Monats, und er gehört nur in die eigene Sicht.
-        if (Member.Owner is null)
-        {
-            await LoadHouseholdBlockAsync();
-        }
+        // Der Haushaltsblock hängt nicht am Plan des Monats, und er steht in jeder Sicht gleich da (Spec 126, R3).
+        await LoadHouseholdBlockAsync();
         if (!hasMonth)
         {
             return;

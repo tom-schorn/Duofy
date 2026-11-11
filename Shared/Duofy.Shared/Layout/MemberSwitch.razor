@@ -4,12 +4,12 @@
 @inject ActiveMember Member
 @inject IStringLocalizer<SharedResources> L
 
-@* Die Auswahl "wessen Zahlen" (Spec 44, Spec 68 R8, Spec 82 R11): Ich, jedes Mitglied, das mir in irgendeinem Bereich
-   mindestens Ansehen freigegeben hat, dann "Haushalt" (Spec 69, R9). Sie sitzt im Profil-Menü unten in der Seitenleiste
-   (InMenu, als Einträge des Menüs von UserMenu) und am Handy im Profil auf der Seite Mehr (als Gruppe von Knöpfen).
+@* Die Auswahl "wessen Zahlen" (Spec 44, Spec 68 R8, Spec 82 R11, Spec 126): Ich und jedes Mitglied, das mir in irgendeinem
+   Bereich mindestens Ansehen freigegeben hat. Sie sitzt im Profil-Menü unten in der Seitenleiste (InMenu, als Einträge des
+   Menüs von UserMenu), im Menü der oberen Leiste und am Handy im Profil auf der Seite Mehr (als Gruppe von Knöpfen).
 
-   "Haushalt" gibt es nur ab zwei Mitgliedern; sonst steht er als nicht verfügbar da, nennt den Grund und führt zur
-   Haushalt-Seite. Die Auswahl ändert keine Rechte: Wer nichts freigegeben hat, steht gar nicht in der Liste. *@
+   "Haushalt" steht nicht in der Auswahl (Spec 126, R1): Den Haushalt erreicht man über die Navigation. Die Auswahl ändert
+   keine Rechte: Wer nichts freigegeben hat, steht gar nicht in der Liste. *@
 
 @if (InMenu)
 {
@@ -25,22 +25,6 @@
             @person.FirstName
         </BbDropdownMenuItem>
     }
-    @if (Member.CanShowHousehold)
-    {
-        <BbDropdownMenuItem OnClick="Member.ChooseHousehold" Class="@CurrentClass(Member.IsHousehold)"
-                            aria-current="@Current(Member.IsHousehold)" data-testid="member-choice-household">
-            @L["MemberSwitch_Household"]
-        </BbDropdownMenuItem>
-    }
-    else
-    {
-        @* Nicht verfügbar, aber erreichbar: ausgegraut, mit dem Grund und dem Weg zur Haushalt-Seite. *@
-        <BbDropdownMenuItem Href="/haushalt" Class="grant-locked" aria-disabled="true" aria-describedby="member-household-reason"
-                            data-testid="member-choice-household">
-            @L["MemberSwitch_Household"]
-        </BbDropdownMenuItem>
-        <div class="member-menu-reason" id="member-household-reason">@L["MemberSwitch_HouseholdReason"]</div>
-    }
 }
 else
 {
@@ -53,16 +37,7 @@ else
             <DuofyButton @key="id" Kind="@Kind(IsPerson(id))" Small="true" Text="@person.FirstName" OnClick="@(_ => Member.Choose(id))"
                          aria-pressed="@Pressed(IsPerson(id))" TestId="@($"member-choice-{id}")" />
         }
-        @if (Member.CanShowHousehold)
-        {
-            <DuofyButton Kind="@Kind(Member.IsHousehold)" Small="true" Text="@L["MemberSwitch_Household"]" OnClick="@(_ => Member.ChooseHousehold())"
-                         aria-pressed="@Pressed(Member.IsHousehold)" TestId="member-choice-household" />
-        }
     </div>
-    @if (!Member.CanShowHousehold)
-    {
-        <p class="small muted mt-2" data-testid="member-household-reason">@L["MemberSwitch_HouseholdReason"]</p>
-    }
 }
 
 @code {

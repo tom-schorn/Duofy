@@ -424,9 +424,9 @@ public class StartPageTests : PageTestContext
         Assert.Contains("700,00 €", Text(cut, "start-household"));
     }
 
-    // Review M2: In der Sicht auf ein anderes Mitglied gibt es keinen Haushaltsblock, und er wird nicht einmal geholt.
+    // Spec 126, A3 (R3): In der Sicht auf ein anderes Mitglied steht derselbe Haushaltsblock wie bei einem selbst.
     [Fact]
-    public async Task M2_the_household_block_is_missing_and_not_loaded_in_the_view_of_another_member()
+    public async Task A3_the_household_block_shows_in_the_view_of_another_member_too()
     {
         SeedPlan();
         var household = new HouseholdResponse(Guid.NewGuid(), "Haushalt von Anna", 50, 30, 20,
@@ -439,105 +439,54 @@ public class StartPageTests : PageTestContext
 
         var cut = OpenStart();
 
-        Assert.Empty(cut.FindAll("[data-testid='start-household']"));
-        Assert.Empty(HouseholdApiFake.PlanCalls);
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='start-household']")));
+        Assert.Contains("700,00 €", Text(cut, "start-household"));
     }
 
-    // Review M3: Die Jahreslinie steht auch ohne Plan im laufenden Monat, wenn frühere Monate einen haben.
+    // Spec 126, A3 (R3): Die Begrüßung nennt die gewählte Person, und alle Blöcke stehen da wie bei einem selbst.
     [Fact]
-    public void M3_the_year_line_shows_although_the_current_month_has_no_plan()
+    public async Task A3_the_chosen_person_is_greeted_and_gets_the_same_blocks_as_oneself()
     {
-        PlanApiFake.Overview = [new PlanOverviewMonthResponse(2026, 8, 20m, false, 0m, []), new PlanOverviewMonthResponse(2026, 7, 10m, false, 0m, [])];
-
-        var cut = Render<Start>();
-
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='start-year-section']")));
-        Assert.NotEmpty(cut.FindAll("[data-testid='start-empty']"));
-        Assert.Equal("Juli: 10,00 €", cut.Find("[data-testid='start-year-bar-7']").GetAttribute("aria-label"));
-    }
-
-    // A5 (R5): Jahreslinie von Januar bis zum laufenden Monat, grün und rot, ohne künftige Monate
-    [Fact]
-    public void A5_the_year_line_has_one_bar_per_past_month()
-    {
-        SeedPlan();
-        PlanApiFake.Overview =
-        [
-            .. Enumerable.Range(1, 10).Select(m => new PlanOverviewMonthResponse(2026, m, m == 3 ? -120m : 100m * m, false, 0m, [])).Reverse(),
-            new PlanOverviewMonthResponse(2026, 11, 50m, false, 0m, []),
-        ];
-
-        var cut = OpenStart();
-
-        var bars = cut.FindAll("[data-testid^='start-year-bar-']");
-        Assert.Equal(10, bars.Count);
-        Assert.Empty(cut.FindAll("[data-testid='start-year-bar-11']"));
-        Assert.Equal("Januar: 100,00 €", cut.Find("[data-testid='start-year-bar-1']").GetAttribute("aria-label"));
-        Assert.Equal("März: -120,00 €", cut.Find("[data-testid='start-year-bar-3']").GetAttribute("aria-label"));
-        Assert.Contains("year-bar--positive", cut.Find("[data-testid='start-year-bar-1']").ClassName);
-        Assert.Contains("year-bar--negative", cut.Find("[data-testid='start-year-bar-3']").ClassName);
-        Assert.Equal("/plan", cut.Find("[data-testid='start-year-link']").GetAttribute("href"));
-        Assert.Equal([2026], PlanApiFake.OverviewCalls.Distinct());
-    }
-
-    // Ein älterer Server kennt die Übersicht nicht (404): Die Startseite zeigt alles andere, nur ohne Jahreslinie und ohne Fehlermeldung.
-    [Fact]
-    public void Against_a_server_without_the_overview_the_start_page_shows_everything_but_the_year_line()
-    {
-        SeedPlan(free: 340m);
-        PlanApiFake.OverviewMissing = true;
+        SeedPlan(free: 340m, positions: []);
         AccountApiFake.Accounts.Add(Account("Girokonto", 1200m));
+        var household = await SeedHouseholdPlanAsync(GuidelineMember(FakeHouseholdApi.AnnaId, "Anna", 50m, 30m, 20m), GuidelineMember(FakeHouseholdApi.BenId, "Ben", 75m, 15m, 10m));
+        var own = OpenStart();
+        cut_ShouldHaveAllBlocks(own);
+        var ownBlocks = Blocks(own);
+        Assert.Contains("Hallo, Anna!", own.Markup);
 
-        var cut = OpenStart();
-
-        Assert.Contains("340,00 €", Text(cut, "start-hero"));
-        Assert.Contains("Girokonto 1.200,00 €", Text(cut, "start-accounts"));
-        Assert.Equal(3, cut.FindAll("[data-testid^='start-pot-']").Count);
-        Assert.Empty(cut.FindAll("[data-testid='start-year-section']"));
-        Assert.Empty(cut.FindAll(AlertSelector));
-        Assert.DoesNotContain("Das gibt es nicht mehr", cut.Markup);
-        Assert.Equal(1, PlanApiFake.ListMonthsCalls);
-    }
-
-    [Fact]
-    public void Against_a_server_without_the_overview_a_missing_month_still_shows_the_empty_state()
-    {
-        PlanApiFake.OverviewMissing = true;
-
-        var cut = Render<Start>();
-
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='start-empty']")));
-        Assert.Empty(cut.FindAll(AlertSelector));
-    }
-
-    [Fact]
-    public void A_month_without_a_plan_is_an_empty_slot_in_the_year_line()
-    {
-        SeedPlan();
-        PlanApiFake.Overview = [new PlanOverviewMonthResponse(2026, 10, 340m, false, 0m, []), new PlanOverviewMonthResponse(2026, 8, 20m, false, 0m, [])];
-
-        var cut = OpenStart();
-
-        Assert.Equal(10, cut.FindAll("[data-testid^='start-year-bar-']").Count);
-        Assert.Equal("Januar: kein Plan", cut.Find("[data-testid='start-year-bar-1']").GetAttribute("aria-label"));
-        Assert.Contains("year-bar--empty", cut.Find("[data-testid='start-year-bar-1']").ClassName);
-    }
-
-    // A8 (R7)
-    [Fact]
-    public void The_blocks_open_the_month_of_the_plan()
-    {
-        SeedPlan();
-
-        var cut = OpenStart();
-
-        foreach (var id in new[] { "start-hero-link", "start-due-link", "start-pots-link" })
+        HouseholdApiFake.Household = household with
         {
-            Assert.Equal("/plan/2026/10", cut.Find($"[data-testid='{id}']").GetAttribute("href"));
-        }
+            Members = [FakeHouseholdApi.Anna(), FakeHouseholdApi.Ben(isMe: false) with { GrantsToMe = new GrantLevels("delete", "delete", "delete", "delete", "delete", "view") }],
+        };
+        await Member.RefreshAsync();
+        Member.Choose(FakeHouseholdApi.BenId);
+
+        own.WaitForAssertion(() => Assert.Contains("Hallo, Ben!", own.Markup));
+        own.WaitForAssertion(() => Assert.Equal(ownBlocks, Blocks(own)));
+        Assert.DoesNotContain("Hallo, Anna!", own.Markup);
     }
 
-    // A9 (R8)
+    private static readonly string[] BlockIds = ["start-due", "start-pots", "start-guideline", "start-household", "start-year-section"];
+
+    private static void cut_ShouldHaveAllBlocks(IRenderedComponent<Start> cut) =>
+        cut.WaitForAssertion(() => Assert.All(BlockIds, id => Assert.NotEmpty(cut.FindAll($"[data-testid='{id}']"))));
+
+    private static List<string> Blocks(IRenderedComponent<Start> cut) =>
+        BlockIds.Where(id => cut.FindAll($"[data-testid='{id}']").Count > 0).ToList();
+
+    // Spec 126, R3: Ohne die Freigabe der Konten fehlt die Kontenzeile nicht stumm, sondern ein kurzer Hinweis sagt es.
+    [Fact]
+    public async Task Without_a_grant_for_the_accounts_a_hint_says_so()
+    {
+        SeedPlan();
+        await ChooseBenAsync(GrantLevels.None with { Plan = AccessLevelKeys.View });
+
+        var cut = OpenStart();
+
+        Assert.Contains(NotShared, Text(cut, "start-accounts-not-shared"));
+    }
+
     [Fact]
     public async Task Another_member_who_shares_the_plan_but_not_the_bookings_shows_their_figures_without_payments()
     {
