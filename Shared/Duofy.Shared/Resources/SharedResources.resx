@@ -939,6 +939,7 @@
   <data name="Table_Email"><value>E-Mail</value></data>
   <data name="Table_Role"><value>Rolle</value></data>
   <data name="Nav_MyPlan"><value>Meine Planung</value></data>
+  <data name="Nav_PlanOf"><value>Planung von {0}</value></data>
   <data name="Nav_OurHousehold"><value>Unser Haushalt</value></data>
   <data name="UserMenu_Label"><value>Benutzermenü</value></data>
   <data name="PlanOverview_Title"><value>Meine Planung</value></data>
