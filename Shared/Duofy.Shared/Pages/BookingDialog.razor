@@ -29,7 +29,13 @@
    (die erste Zeile nimmt den Rest, der Topf folgt der Kategorie). Der Dialog zeigt sie nur an. Weiter verlangt ein Konto
    (derselbe Satz wie zuvor beim Speichern); alles andere prüft wie bisher die API, ihre Fehler stehen oben im letzten Schritt. *@
 
-<StepDialog @ref="stepDialog" Title="@Title" OnFinish="SaveAsync" EarlyFinish="@CanSaveEarly" EarlyFinishTestId="booking-save-early" FinishText="@L["BookingDialog_Save"]" Busy="busy" FinishTestId="booking-save" NextTestId="booking-next" HasInput="@(() => touched)">
+<StepDialog @ref="stepDialog" Title="@shownTitle" OnFinish="SaveAsync" EarlyFinish="@CanSaveEarly" EarlyFinishTestId="booking-save-early" FinishText="@L["BookingDialog_Save"]" Busy="busy" FinishTestId="booking-save" NextTestId="booking-next" HasInput="@(() => touched)">
+    @if (People.Count > 1)
+    {
+        <DialogStep Title="@L["Picker_StepTitle"]" Leave="@(() => personChoice!.LeaveAsync())">
+            <PersonChoice @ref="personChoice" People="People" Question="@L["Picker_BookingQuestion"]" OnChosen="ChoosePersonAsync" />
+        </DialogStep>
+    }
     <DialogStep Title="@L["BookingDialog_StepWhat"]">
         @* Ausgabe, Einnahme oder Umbuchung. Die gewählte Art ist gefüllt und trägt ein Häkchen (Spec 124, R2); aria-pressed sagt es auch Vorlesegeräten. *@
         <div class="booking-kinds" role="group" aria-label="@L["BookingDialog_KindLabel"]">
@@ -229,6 +235,36 @@
     [Parameter]
     public Guid? PositionId { get; set; }
 
+    /// <summary>
+    /// Mehrere Personen zur Wahl (Haushaltsplan, Spec 125, R7): Der erste Schritt fragt, für wen die Buchung ist, und der Titel nennt sie.
+    /// Mit höchstens einer Person gibt es den Schritt nicht.
+    /// </summary>
+    [Parameter]
+    public IReadOnlyList<MemberResponse> People { get; set; } = [];
+
+    /// <summary>Holt Konten und Kategorien der gewählten Person; nötig mit mehreren Personen.</summary>
+    [Parameter]
+    public Func<MemberResponse, Task<PersonChoices>>? ChoicesFor { get; set; }
+
+    private PersonChoice? personChoice;
+    private string shownTitle = "";
+
+    private async Task<string?> ChoosePersonAsync(MemberResponse person)
+    {
+        var choices = await ChoicesFor!(person);
+        if (choices.Error is not null)
+        {
+            return choices.Error;
+        }
+        (Categories, Accounts) = (choices.Categories, choices.Accounts);
+        owner = person.IsMe ? null : person.UserId;
+        draft = BookingDraft.ForNew(Today, Accounts.FirstOrDefault(a => a.IsDefault && a.Active)?.Id, PlanMonth);
+        shownTitle = L["BookingDialog_TitleNewFor", person.FirstName];
+        await LoadPlanAsync();
+        StateHasChanged();
+        return null;
+    }
+
     private StepDialog? stepDialog;
 
     private BookingDraft draft = default!;
@@ -258,6 +294,7 @@
     protected override void OnInitialized()
     {
         owner = Member.Owner;
+        shownTitle = Title ?? "";
         // Beim Anlegen: Ausgabe, heute, Standardkonto (R9). Beim Ändern: die gespeicherten Werte.
         draft = Existing is null
             ? BookingDraft.ForNew(Today, Accounts.FirstOrDefault(a => a.IsDefault && a.Active)?.Id, PlanMonth)
@@ -268,6 +305,11 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if (People.Count > 1)
+        {
+            // Der Plan kommt, sobald die Person gewählt ist.
+            return;
+        }
         await LoadPlanAsync();
         if (Existing is null && plan?.Positions.FirstOrDefault(p => p.Id == PositionId) is { } position)
         {

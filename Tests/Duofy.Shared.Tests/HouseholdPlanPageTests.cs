@@ -10,7 +10,7 @@ namespace Duofy.Shared.Tests;
 
 /// <summary>
 /// Spec 69, R9 und A10: Der Umschalter bietet "Haushalt", solange der Haushalt mehr als ein Mitglied hat, und die
-/// Planseite zeigt dann den Haushaltsplan nur zum Lesen. Angemeldet ist hier Ben im Haushalt von Anna; "heute" ist
+/// Planseite zeigt dann den Haushaltsplan; seit Spec 125 ist er auch die Zentrale zum Arbeiten. Angemeldet ist hier Ben im Haushalt von Anna; "heute" ist
 /// der 21. Oktober 2026.
 /// </summary>
 public class HouseholdPlanPageTests : PageTestContext
@@ -126,11 +126,15 @@ public class HouseholdPlanPageTests : PageTestContext
         Assert.Contains("Oktober 2026", cut.Find("[data-testid='page-title']").TextContent);
         Assert.Equal((household.Id, 2026, 10), Assert.Single(HouseholdApiFake.PlanCalls));
         Assert.Empty(PlanApiFake.GetCalls);
-        foreach (var gone in new[] { "plan-add", "plan-carry-over-open", "plan-changes" })
+        // Spec 125 ersetzt "nur zum Lesen": Die Knöpfe des eigenen Plans stehen da; Übertrag und Vertragsabgleich bleiben im Plan der Person.
+        foreach (var gone in new[] { "plan-carry-over-open", "plan-changes" })
         {
             Assert.Empty(cut.FindAll($"[data-testid='{gone}']"));
         }
-        Assert.Empty(cut.FindAll("[role='checkbox']"));
+        Assert.NotEmpty(cut.FindAll("[data-testid='plan-add']"));
+        // Angemeldet ist Ben: Seine Zeile geht, die von Anna ist ohne Freigabe ausgegraut.
+        Assert.Null(cut.Find($"[data-testid='household-tick-{power.Id}']").GetAttribute("aria-disabled"));
+        Assert.Equal("true", cut.Find($"[data-testid='household-tick-{rent.Id}']").GetAttribute("aria-disabled"));
         Assert.Empty(cut.FindAll("button[data-testid^='plan-edit'],button[data-testid^='plan-delete']"));
     }
     // Spec 82, R16: Den Monatsumschalter gibt es nicht mehr; zurück geht es zur Übersicht der Monate.

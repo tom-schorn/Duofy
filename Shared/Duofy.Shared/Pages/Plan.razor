@@ -11,13 +11,12 @@
 @inject ICategoryApi CategoryApi
 @inject IAccountChoices AccountChoices
 @inject IAccountApi AccountApi
-@inject BookingDialogLauncher Launcher
+@inject PositionActions Actions
 @inject FormDialogs Forms
 @inject AppChrome Chrome
 @inject ActiveMember Member
 @inject TimeProvider Time
 @inject NavigationManager Navigation
-@inject IJSRuntime Js
 @inject IStringLocalizer<SharedResources> L
 
 @* Der Monatsplan (Spec 66, Spec 82) wie im alten Duofy: oben zurück und Blättern, Titel und Knöpfe, drei schlichte Kennzahlen,
@@ -33,7 +32,7 @@
 
 <PageTitle>@MonthTitle</PageTitle>
 
-@* Mit "Haushalt" im Umschalter zeigt die Seite den Haushaltsplan (Spec 69), nur zum Lesen. *@
+@* Mit "Haushalt" im Umschalter zeigt die Seite den Haushaltsplan (Spec 69); dort arbeitet man auch, für jede Person unter ihren Freigaben (Spec 125). *@
 @if (Member.IsHousehold)
 {
     <MonthNav BackHref="/plan" BackText="@L["Plan_BackToMonths"]" />
@@ -43,17 +42,9 @@ else
 {
 <MonthNav BackHref="/plan" BackText="@L["Plan_BackToMonths"]" />
 
-@* Am Handy bleibt "Buchung anlegen" als Hauptknopf; Posten anlegen und Drucken stehen dort im Menü (Spec 82, R12). *@
-<PageHead Title="@MonthTitle" Lead="@(Member.Name is { } who ? L["Plan_LeadOf", who].Value : L["Plan_Lead"].Value)" CompactLead="true" Menu="@(SeesPlan ? PhoneMenu : null)">
-    <Actions>
-        @if (SeesPlan)
-        {
-            <DuofyButton Kind="ButtonKind.Secondary" Icon="printer" Text="@L["Plan_Print"]" OnClick="@(_ => PrintAsync())" TestId="plan-print" Class="wide-only" />
-            <DuofyButton Text="@L["Month_ActionBooking"]" OnClick="@(_ => NewBookingAsync())" Class="@GrantLock.Class(CanBook)" @attributes="GrantLock.Attributes(CanBook)" TestId="month-action-booking" />
-            <DuofyButton Icon="plus" Text="@L["Plan_AddPosition"]" OnClick="@(_ => AddAsync())" Class="@($"wide-only {GrantLock.Class(CanAdd)}")" @attributes="GrantLock.Attributes(CanAdd)" TestId="plan-add" />
-        }
-    </Actions>
-</PageHead>
+@* Der Kopf mit Drucken, Buchung und Posten anlegen ist derselbe wie im Haushaltsplan (Spec 125, R1). *@
+<PlanHead Title="@MonthTitle" Lead="@(Member.Name is { } who ? L["Plan_LeadOf", who].Value : L["Plan_Lead"].Value)" CompactLead="true" Show="SeesPlan" CanAdd="CanAdd" CanBook="CanBook"
+          OnPrint="PrintAsync" OnBooking="NewBookingAsync" OnAdd="AddAsync" />
 
 @if (!SeesPlan)
 {
@@ -213,10 +204,7 @@ else
 </div>
 @if (plan is not null)
 {
-    <MonthPrint Title="@MonthTitle" Subject="@PrintSubject" Today="Today" Year="year" Month="month"
-                Income="IncomeTotal" Free="FreeTotal" Unpaid="UnpaidTotal" CarryOver="@PrintCarryOver"
-                BookedIncome="plan.BookedIncome" PlannedExpenses="plan.Overview?.Fixed ?? plan.PlannedExpenses" BookedExpenses="plan.BookedExpenses"
-                Pots="PrintPots" Unplanned="PlanView.UnplannedPerPot(plan)" />
+    <PersonMonthPrint Plan="plan" Title="@MonthTitle" Subject="@PrintSubject" Year="year" Month="month" />
 }
 }
 }
@@ -259,15 +247,6 @@ else
     // Das Druckbild (Spec 82, R20): wessen Plan, der Übertrag als Text und je Topf seine Posten.
     private string PrintSubject => Member.Owner is null ? L["Nav_MyPlan"].Value : L["Print_PlanOf", Member.Name ?? ""].Value;
 
-    private string PrintCarryOver => MonthView.CarryOverRows(plan?.Overview?.CarryOvers).FirstOrDefault(c => c.Incoming) is { } incoming
-        ? MoneyText.Format(incoming.Amount)
-        : plan?.CarryOver is { Exists: true, Amount: { } amount } ? MoneyText.Format(amount) : "—";
-
-    private IReadOnlyList<PrintPot> PrintPots => plan is null ? [] : PlanView.Groups(plan)
-        .Select(g => new PrintPot(g.Pot, PlanView.PotPlanned(plan, g.Pot), g.Pot == PotKeys.Income ? null : LimitOf(g.Pot),
-            g.Positions.Select(p => new PrintRow(p.Label, p.DueDay, p.AmountPlanned, p.Booked, p.DoneAt is not null)).ToList()))
-        .ToList();
-
     // Die Posten, deren Buchungen gerade aufgeklappt sind.
     private readonly HashSet<Guid> expanded = [];
 
@@ -279,12 +258,6 @@ else
         }
     }
 
-    // Das Menü "Weitere Aktionen" am Handy: was am PC als eigener Knopf neben "Buchung anlegen" steht.
-    private RenderFragment PhoneMenu => __builder =>
-    {
-        <BbDropdownMenuItem OnClick="@(() => AddAsync())" Disabled="!CanAdd" data-testid="plan-add-menu">@L["Plan_AddPosition"]</BbDropdownMenuItem>
-        <BbDropdownMenuItem OnClick="@(() => PrintAsync())" data-testid="plan-print-menu">@L["Plan_Print"]</BbDropdownMenuItem>
-    };
     private DateOnly Today => DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
 
     private void SelectTab(MonthTab selected)
@@ -333,9 +306,6 @@ else
     }
 
 
-    // Der Browser druckt die Seite; das Stylesheet nimmt Leisten und Knöpfe weg.
-    private async Task PrintAsync() => await Js.InvokeVoidAsync("print");
-
     // Was die Freigabe des gewählten Mitglieds erlaubt (Spec 68); bei "Ich" alles. Abhaken und der Übertrag
     // legen Buchungen auf Konten an, Haken zurück und Übertrag entfernen löschen sie.
     private bool SeesPlan => Member.Allows(GrantAreas.Plan, AccessLevelKeys.View);
@@ -359,7 +329,7 @@ else
     private bool CanRemoveCarryOver => CanDelete && CanUntick;
     private bool AnyLocked => !(CanAdd && CanEdit && CanDelete && CanTick && CanUntick && CanApply);
 
-    private bool CanToggle(PlanPositionResponse position) => position.DoneAt is null ? CanTick : CanUntick;
+    private bool CanToggle(PlanPositionResponse position) => Actions.CanToggle(Member.Owner, position.DoneAt is not null);
 
     /// <summary>
     /// Der Monat der Adresse; ohne Jahr und Monat (Aufruf ohne Adresse) der laufende. Ein Monat, den es nicht gibt
@@ -519,106 +489,42 @@ else
         await LoadAsync();
     }
 
+    // Posten und Buchungen laufen über dieselbe Logik wie im Haushaltsplan (Spec 125); die Seite zeigt nur, was zurückkommt.
+    private PersonChoices Known => new(categories, accounts, CanDelete);
+
+    private async Task ApplyResultAsync(PositionActionResult result)
+    {
+        if (disposed)
+        {
+            return;
+        }
+        message = result.Message ?? message;
+        if (result.Reload)
+        {
+            await LoadAsync();
+        }
+    }
+
     // Die schnelle Aktion "Neue Buchung" (Spec 24, R12); mit Posten die Buchung zu diesem Posten (Spec 51, R7).
     private Task NewBookingAsync() => BookAsync(null);
 
-    private async Task BookAsync(Guid? positionId)
+    private async Task BookAsync(Guid? positionId) =>
+        await ApplyResultAsync(await Actions.NewBookingAsync(year, month, Member.Owner, Member.Name, null, Known, positionId));
+
+    private async Task AddAsync() => await ApplyResultAsync(await Actions.AddAsync(year, month, Member.Owner, null, Known));
+
+    private async Task EditAsync(PlanPositionResponse position) =>
+        await ApplyResultAsync(await Actions.EditAsync(year, month, Member.Owner, Member.Name, position.Id, position, Known));
+
+    private async Task ToggleAsync(PlanPositionResponse position) =>
+        await ApplyResultAsync(await Actions.ToggleAsync(year, month, Member.Owner, Member.Name, position));
+
+    // Gedruckt wird das Druckbild; das Stylesheet nimmt Leisten und Knöpfe weg. Scheitert das, sagt die Seite es.
+    private async Task PrintAsync()
     {
-        if (!CanBook)
+        if (await Actions.PrintAsync() is { } failure)
         {
-            return;
-        }
-        message = await Launcher.OpenAsync(null, accounts, categories, new DateOnly(year, month, 1), positionId) ?? message;
-        await LoadAsync();
-    }
-
-    private async Task AddAsync()
-    {
-        if (CanAdd)
-        {
-            await ShowPositionDialogAsync(null, L["PlanPositionDialog_TitleNew"]);
-        }
-    }
-
-    private async Task EditAsync(PlanPositionResponse position)
-    {
-        if (CanEdit)
-        {
-            await ShowPositionDialogAsync(position, L["PlanPositionDialog_TitleEdit"]);
-        }
-    }
-
-    private async Task ShowPositionDialogAsync(PlanPositionResponse? existing, string title)
-    {
-        var parameters = new FormParameters<PlanPositionDialog>()
-            .Add(x => x.Title, title)
-            .Add(x => x.Year, year)
-            .Add(x => x.Month, month)
-            .Add(x => x.Existing, existing)
-            .Add(x => x.Categories, categories)
-            .Add(x => x.Accounts, accounts)
-            .Add(x => x.OfferDelete, existing is not null && PlanView.CanDelete(existing))
-            .Add(x => x.CanDelete, CanDelete);
-        var outcome = await Forms.OpenStepAsync<PlanPositionDialog, bool>(title, parameters);
-        if (outcome.Saved && outcome.Value)
-        {
-            message = new NoticeMessage(L["Plan_PositionSaved"], NoticeSeverity.Success);
-            await LoadAsync();
-        }
-        else if (outcome.Saved && existing is not null)
-        {
-            await DeleteAsync(existing);
-        }
-    }
-
-    /// <summary>
-    /// Abhaken oder den Haken zurücknehmen (R5, Spec 82). Ein offener Posten ohne Buchungen fragt nach Datum und Betrag und
-    /// bucht erst nach der Bestätigung. Hat ein Posten schon Buchungen, entsteht keine weitere: Der Haken heißt dann
-    /// "Monat erledigt"; die API hakt mit dem Betrag 0 ab, ohne zu buchen.
-    /// </summary>
-    private async Task ToggleAsync(PlanPositionResponse position)
-    {
-        if (!CanToggle(position))
-        {
-            return;
-        }
-        if (position.DoneAt is not null)
-        {
-            var untick = await PlanApi.UntickAsync(year, month, position.Id, Member.Owner);
-            await AfterAsync(untick.Succeeded ? ApiResult.Success() : ApiResult.Failure(untick.ErrorCode!), "Plan_Unticked");
-            return;
-        }
-
-        if (position.Booked != 0m)
-        {
-            var tick = await PlanApi.TickAsync(year, month, position.Id, new TickPositionRequest(Amount: 0m), Member.Owner);
-            await AfterAsync(tick.Succeeded ? ApiResult.Success() : ApiResult.Failure(tick.ErrorCode!), "Plan_Ticked");
-            return;
-        }
-
-        await OpenTickDialogAsync(position);
-    }
-
-    private async Task OpenTickDialogAsync(PlanPositionResponse position)
-    {
-        string title = L["PlanTickDialog_Title"];
-        var parameters = new FormParameters<PlanTickDialog>()
-            .Add(x => x.Year, year)
-            .Add(x => x.Month, month)
-            .Add(x => x.Position, position);
-        var outcome = await Forms.OpenAsync<PlanTickDialog, bool>(title, parameters);
-        if (outcome.Saved)
-        {
-            message = new NoticeMessage(L["Plan_Ticked"], NoticeSeverity.Success);
-            await LoadAsync();
-        }
-    }
-
-    private async Task DeleteAsync(PlanPositionResponse position)
-    {
-        if (CanDelete && await Forms.ConfirmAsync(L["Plan_DeleteText", position.Label], L["Plan_DeleteTitle"], L["Plan_DeleteConfirm"], L["Plan_ConfirmCancel"]))
-        {
-            await AfterAsync(await PlanApi.DeletePositionAsync(year, month, position.Id, Member.Owner), "Plan_PositionDeleted");
+            message = failure;
         }
     }
 

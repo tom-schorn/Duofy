@@ -83,9 +83,9 @@
             @if (EarlyFinishShown)
             {
                 @* Spec 124, R6: ab Schritt 2 speichert dieser Knopf sofort, wie der Knopf im letzten Schritt. *@
-                <DuofyButton Kind="ButtonKind.Secondary" Disabled="Busy" OnClick="EarlyFinishAsync" TestId="@EarlyFinishTestId">@(FinishText ?? L["StepDialog_Finish"])</DuofyButton>
+                <DuofyButton Kind="ButtonKind.Secondary" Disabled="Busy || leaving" OnClick="EarlyFinishAsync" TestId="@EarlyFinishTestId">@(FinishText ?? L["StepDialog_Finish"])</DuofyButton>
             }
-            <DuofyButton Kind="ButtonKind.Primary" Disabled="Busy" OnClick="NextAsync" TestId="@(IsLast ? FinishTestId : NextTestId)">@(IsLast ? FinishText ?? L["StepDialog_Finish"] : L["StepDialog_Next"])</DuofyButton>
+            <DuofyButton Kind="ButtonKind.Primary" Disabled="Busy || leaving" OnClick="NextAsync" TestId="@(IsLast ? FinishTestId : NextTestId)">@(IsLast ? FinishText ?? L["StepDialog_Finish"] : L["StepDialog_Next"])</DuofyButton>
         </div>
     </text>;
 
@@ -145,6 +145,7 @@
     private List<DialogStep> steps => all.Where(step => !step.Skipped).ToList();
     private int current;
     private bool typed;
+    private bool leaving;
 
     private bool IsLast => current >= steps.Count - 1;
 
@@ -160,7 +161,7 @@
     // Wie Weiter im letzten Schritt: erst die Felder des aktuellen Schritts prüfen, dann OnFinish.
     private async Task EarlyFinishAsync()
     {
-        if (steps.Count == 0 || !steps[current].Check())
+        if (leaving || steps.Count == 0 || !steps[current].Check())
         {
             return;
         }
@@ -210,19 +211,42 @@
         }
     }
 
+    /// <summary>Geht wie Weiter zum nächsten Schritt; für einen Schritt, dessen Wahl schon die Antwort ist.</summary>
+    internal Task AdvanceAsync() => NextAsync();
+
+    /// <summary>Wahr, solange ein Schritt verlassen wird (er lädt noch); dann tut ein weiterer Tipp oder Weiter nichts.</summary>
+    internal bool Leaving => leaving;
+
     private async Task NextAsync()
     {
-        if (steps.Count == 0 || !steps[current].Check())
+        if (leaving || steps.Count == 0 || !steps[current].Check())
         {
             return;
         }
 
-        if (IsLast)
+        // Verlassen kann dauern (die Person lädt); währenddessen zählt kein zweiter Tipp. Der Rahmen zeichnet sich danach selbst neu,
+        // denn ein Tipp im Schritt selbst (PersonChoice) zeichnet sonst nur den Schritt neu und nicht Titel, Fortschritt und Knöpfe.
+        leaving = true;
+        StateHasChanged();
+        try
         {
-            await OnFinish.InvokeAsync();
-            return;
+            if (!await steps[current].LeaveAsync())
+            {
+                return;
+            }
+
+            if (IsLast)
+            {
+                await OnFinish.InvokeAsync();
+                return;
+            }
+            current++;
         }
-        current++;
+        finally
+        {
+            leaving = false;
+            StateHasChanged();
+        }
     }
 
     // Ohne Eingaben schließt Abbrechen sofort, mit Eingaben fragt es erst nach (Spec 11, R5).

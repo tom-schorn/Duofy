@@ -1,0 +1,35 @@
+@using Duofy.Schemas
+@inject TimeProvider Time
+
+@* Das Druckbild des Monats einer Person (Spec 82, R20; Spec 125, R4): aus dem Monat, den die API für diese Person liefert.
+   Der eigene Plan und, im Haushaltsplan, der Plan eines Mitglieds drucken beide hierüber; so sieht der Ausdruck gleich aus. *@
+<MonthPrint Title="@Title" Subject="@Subject" Today="Today" Year="Year" Month="Month"
+            Income="Income" Free="Plan.Overview?.Free ?? 0m" Unpaid="MonthView.Unpaid(Plan.Positions)" CarryOver="@CarryOver"
+            BookedIncome="Plan.BookedIncome" PlannedExpenses="Plan.Overview?.Fixed ?? Plan.PlannedExpenses" BookedExpenses="Plan.BookedExpenses"
+            Pots="Pots" Unplanned="PlanView.UnplannedPerPot(Plan)" />
+
+@code {
+    [Parameter, EditorRequired] public PlanResponse Plan { get; set; } = default!;
+
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    [Parameter, EditorRequired] public string Subject { get; set; } = "";
+
+    [Parameter] public int Year { get; set; }
+
+    [Parameter] public int Month { get; set; }
+
+    private DateOnly Today => DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
+
+    private decimal Income => Plan.Overview?.Income ?? Plan.PlannedIncome;
+
+    private string CarryOver => MonthView.CarryOverRows(Plan.Overview?.CarryOvers).FirstOrDefault(c => c.Incoming) is { } incoming
+        ? MoneyText.Format(incoming.Amount)
+        : Plan.CarryOver is { Exists: true, Amount: { } amount } ? MoneyText.Format(amount) : "—";
+
+    private IReadOnlyList<PrintPot> Pots => PlanView.Groups(Plan)
+        .Select(g => new PrintPot(g.Pot, PlanView.PotPlanned(Plan, g.Pot),
+            g.Pot == PotKeys.Income ? null : Math.Round(Income * (Plan.Quotas.FirstOrDefault(q => q.Pot == g.Pot)?.Target ?? 0) / 100m, 2),
+            g.Positions.Select(p => new PrintRow(p.Label, p.DueDay, p.AmountPlanned, p.Booked, p.DoneAt is not null)).ToList()))
+        .ToList();
+}

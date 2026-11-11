@@ -28,8 +28,17 @@ public sealed class BookingDialogLauncher(
         IReadOnlyList<AccountChoice>? accounts = null,
         List<CategoryResponse>? categories = null,
         DateOnly? planMonth = null,
-        Guid? positionId = null)
+        Guid? positionId = null,
+        IReadOnlyList<MemberResponse>? people = null,
+        Func<MemberResponse, Task<PersonChoices>>? choicesFor = null)
     {
+        // Mit mehreren Personen zur Wahl holt der erste Schritt des Dialogs Konten und Kategorien der gewählten (Spec 125, R7).
+        var choosing = people is { Count: > 1 } && choicesFor is not null;
+        if (choosing)
+        {
+            accounts = [];
+            categories = [];
+        }
         if (accounts is null)
         {
             // Die Konten der Person, deren Zahlen gerade offen sind (Spec 68).
@@ -42,7 +51,7 @@ public sealed class BookingDialogLauncher(
         }
 
         // Ohne offenes Konto gibt es nichts Neues zu buchen.
-        if (existing is null && !accounts.Any(a => a.Active))
+        if (existing is null && !choosing && !accounts.Any(a => a.Active))
         {
             return new NoticeMessage(l["Bookings_NoAccounts"], NoticeSeverity.Info);
         }
@@ -68,7 +77,9 @@ public sealed class BookingDialogLauncher(
             .Add(x => x.Categories, categories)
             .Add(x => x.Today, today)
             .Add(x => x.PlanMonth, planMonth)
-            .Add(x => x.PositionId, positionId);
+            .Add(x => x.PositionId, positionId)
+            .Add(x => x.People, choosing ? people! : [])
+            .Add(x => x.ChoicesFor, choosing ? choicesFor : null);
 
         // Im Browser ein Fenster, in der App der ganze Bildschirm; der Dialog zeichnet Titel und Abbrechen selbst.
         var outcome = await forms.OpenStepAsync<BookingDialog, bool>(title, parameters);

@@ -46,6 +46,15 @@ namespace Duofy
 
             // Teilen öffnet in der App den Teilen-Dialog von Android, zum Beispiel für eine Einladung.
             builder.Services.AddSingleton<IShareService, MauiShareService>();
+            builder.Services.AddSingleton<IPdfShare>(sp => (MauiShareService)sp.GetRequiredService<IShareService>());
+
+#if ANDROID
+            // Drucken erzeugt in der App ein PDF des gewählten Monats und öffnet den Teilen-Dialog (Spec 125, R6).
+            // Prepare muss vor der ersten WebView laufen, damit sie die ganze Seite zeichnen kann.
+            AndroidPrintViewRenderer.Prepare();
+            builder.Services.AddSingleton<IPrintViewRenderer, AndroidPrintViewRenderer>();
+            builder.Services.AddScoped<IPrintService, PdfPrintService>();
+#endif
 
             // Die Verbindung zur API; die Adresse (hostedAddress) steht oben.
             builder.Services.AddDuofyApiClient(hostedAddress);

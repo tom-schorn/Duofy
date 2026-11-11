@@ -1,0 +1,70 @@
+@using Microsoft.Extensions.Logging
+@using BlazorBlueprint.Components
+@using Duofy.Shared.Services
+@inject IStringLocalizer<SharedResources> L
+@inject ILogger<PlanHead> Log
+
+@* Der Kopf des Plans, im eigenen Plan und im Haushaltsplan derselbe (Spec 125, R1): Titel, Satz darunter und rechts die drei
+   Knöpfe Drucken, Buchung anlegen und Posten anlegen, am Handy mit Buchung als Hauptknopf und den beiden anderen im Menü
+   (Spec 82, R12). Die Knöpfe stehen immer an derselben Stelle; was die Freigaben nicht erlauben, ist ausgegraut. Im Haushaltsplan
+   fragt jeder Knopf zuerst nach der Person, im eigenen Plan öffnet er gleich. *@
+<PageHead Title="@Title" Lead="@Lead" CompactLead="@CompactLead" Menu="@(Show ? PhoneMenu : null)">
+    <Actions>
+        @if (Show)
+        {
+            <DuofyButton Kind="ButtonKind.Secondary" Icon="printer" Text="@L["Plan_Print"]" OnClick="@(_ => OnPrint.InvokeAsync())" TestId="plan-print" Class="wide-only" />
+            <DuofyButton Text="@L["Month_ActionBooking"]" OnClick="@(_ => OnBooking.InvokeAsync())" Class="@GrantLock.Class(CanBook)" @attributes="GrantLock.Attributes(CanBook)" TestId="month-action-booking" />
+            <DuofyButton Icon="plus" Text="@L["Plan_AddPosition"]" OnClick="@(_ => OnAdd.InvokeAsync())" Class="@($"wide-only {GrantLock.Class(CanAdd)}")" @attributes="GrantLock.Attributes(CanAdd)" TestId="plan-add" />
+        }
+    </Actions>
+</PageHead>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    [Parameter] public string? Lead { get; set; }
+
+    [Parameter] public bool CompactLead { get; set; }
+
+    /// <summary>False blendet alle Knöpfe aus, zum Beispiel wenn die Person den Plan nicht sehen darf.</summary>
+    [Parameter] public bool Show { get; set; } = true;
+
+    /// <summary>False graut "Posten anlegen" aus (Freigabe).</summary>
+    [Parameter] public bool CanAdd { get; set; } = true;
+
+    /// <summary>False graut "Buchung anlegen" aus (Freigabe).</summary>
+    [Parameter] public bool CanBook { get; set; } = true;
+
+    [Parameter] public EventCallback OnPrint { get; set; }
+
+    [Parameter] public EventCallback OnBooking { get; set; }
+
+    [Parameter] public EventCallback OnAdd { get; set; }
+
+    // Das Menü "Weitere Aktionen" am Handy: was am PC als eigener Knopf neben "Buchung anlegen" steht.
+    private RenderFragment PhoneMenu => __builder =>
+    {
+        <BbDropdownMenuItem OnClick="@(() => Start(OnAdd))" Disabled="!CanAdd" data-testid="plan-add-menu">@L["Plan_AddPosition"]</BbDropdownMenuItem>
+        <BbDropdownMenuItem OnClick="@(() => Start(OnPrint))" data-testid="plan-print-menu">@L["Plan_Print"]</BbDropdownMenuItem>
+    };
+
+    // Ein Eintrag des Menüs wartet nicht, bis die Aktion fertig ist: Sie öffnet gleich einen Dialog (im Haushaltsplan die Wahl der Person),
+    // und das Menü soll dann schon zu sein und nicht dahinter offen stehen bleiben. Fehler der Aktion meldet der Empfänger selbst.
+    private Task Start(EventCallback action)
+    {
+        _ = RunAsync(action);
+        return Task.CompletedTask;
+    }
+
+    private async Task RunAsync(EventCallback action)
+    {
+        try
+        {
+            await action.InvokeAsync();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Log.LogError(exception, "Eine Aktion im Menü der Planung ist gescheitert.");
+        }
+    }
+}

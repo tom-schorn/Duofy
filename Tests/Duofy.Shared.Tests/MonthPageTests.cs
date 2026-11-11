@@ -541,8 +541,9 @@ public class MonthPageTests : PageTestContext
         Assert.NotEmpty(cut.FindAll("[data-testid='month-curve']"));
         Assert.Contains("Miete", Text(cut, "month-due-item-overdue"));
         Assert.Contains("Strom", Text(cut, "month-due-item-upcoming"));
-        Assert.Empty(cut.FindAll("[data-testid^='month-action-']"));
-        Assert.Empty(cut.FindAll("[data-testid='plan-add']"));
+        // Spec 125: Die Zentrale hat dieselben Knöpfe wie der eigene Plan.
+        Assert.NotEmpty(cut.FindAll("[data-testid='month-action-booking']"));
+        Assert.NotEmpty(cut.FindAll("[data-testid='plan-add']"));
 
         OpenBookingsTab(cut);
 

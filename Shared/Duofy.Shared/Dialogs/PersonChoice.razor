@@ -1,0 +1,64 @@
+@using Duofy.Schemas
+@inject IStringLocalizer<SharedResources> L
+
+@* Der Inhalt des ersten Schritts eines Dialogs im Haushaltsplan: für wen (Spec 125, R7). Der Dialog setzt ihn in einen eigenen DialogStep
+   und ruft beim Verlassen LeaveAsync (Leave des Schritts); als eigene Komponente mit DialogStep darin käme der Schritt nach den anderen dran. Eine Liste großer Knöpfe, einer je Person; ein Tipp wählt
+   und geht gleich weiter, Weiter nimmt die vorgewählte Person (die erste, also man selbst). Der Schritt entscheidet nichts über
+   Rechte: Wer hier steht, ist schon nach den Freigaben ausgewählt. Die gewählte Person lädt, was die folgenden Schritte brauchen
+   (OnChosen); scheitert das, steht der Grund hier und der Dialog bleibt im ersten Schritt. *@
+<div data-testid="person-step">
+    <p>@Question</p>
+    @if (error is not null)
+    {
+        <ErrorAlert Text="@error" data-testid="person-error" />
+    }
+    <div class="person-choices" role="group" aria-label="@Question" data-testid="person-picker">
+        @foreach (var person in People)
+        {
+            var chosen = person;
+            <DuofyButton Kind="@(person.UserId == selected?.UserId ? ButtonKind.Primary : ButtonKind.Secondary)" Text="@Label(person)" OnClick="@(_ => ChooseAsync(chosen))" TestId="@($"person-choice-{person.UserId}")"
+                         Class="duofy-button--full" Disabled="@(Dialog?.Leaving == true)" aria-pressed="@(person.UserId == selected?.UserId ? "true" : "false")" />
+        }
+    </div>
+</div>
+
+@code {
+    [CascadingParameter] private StepDialog? Dialog { get; set; }
+
+    [Parameter, EditorRequired] public IReadOnlyList<MemberResponse> People { get; set; } = [];
+
+    [Parameter, EditorRequired] public string Question { get; set; } = "";
+
+    /// <summary>Läuft, wenn eine Person gewählt ist; gibt null zurück oder den Fehlertext, der im Schritt steht.</summary>
+    [Parameter, EditorRequired] public Func<MemberResponse, Task<string?>> OnChosen { get; set; } = _ => Task.FromResult<string?>(null);
+
+    private MemberResponse? selected;
+    private Guid? loadedFor;
+    private string? error;
+
+    protected override void OnInitialized() => selected = People.FirstOrDefault();
+
+    private string Label(MemberResponse person) => person.IsMe ? L["Picker_Me", person.FirstName].Value : person.FirstName;
+
+    private Task ChooseAsync(MemberResponse person)
+    {
+        selected = person;
+        return Dialog?.AdvanceAsync() ?? Task.CompletedTask;
+    }
+
+    /// <summary>Beim Verlassen des Schritts: lädt, was die Person braucht; false hält den Dialog im ersten Schritt.</summary>
+    public async Task<bool> LeaveAsync()
+    {
+        if (selected is null)
+        {
+            return false;
+        }
+        if (loadedFor == selected.UserId)
+        {
+            return true;
+        }
+        error = await OnChosen(selected);
+        loadedFor = error is null ? selected.UserId : null;
+        return error is null;
+    }
+}

@@ -55,10 +55,17 @@ public sealed class FakeCategoryApi : ICategoryApi
     /// <summary>Der Besitzer jeder Abfrage, null für die eigenen Kategorien.</summary>
     public List<Guid?> Owners { get; } = [];
 
-    public Task<ApiResult<IReadOnlyList<CategoryResponse>>> ListAsync(Guid? owner = null, CancellationToken cancellationToken = default)
+    /// <summary>Gesetzt, wartet jede Abfrage darauf (für Tests, die den Dialog während des Ladens bedienen).</summary>
+    public Task? ListGate { get; set; }
+
+    public async Task<ApiResult<IReadOnlyList<CategoryResponse>>> ListAsync(Guid? owner = null, CancellationToken cancellationToken = default)
     {
         Owners.Add(owner);
-        return Task.FromResult(ApiResult<IReadOnlyList<CategoryResponse>>.Success(All.ToList()));
+        if (ListGate is { } gate)
+        {
+            await gate;
+        }
+        return ApiResult<IReadOnlyList<CategoryResponse>>.Success(All.ToList());
     }
 
     public Task<ApiResult<CategoryResponse>> CreateAsync(SaveCategoryRequest request, CancellationToken cancellationToken = default)

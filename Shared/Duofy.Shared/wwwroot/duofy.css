@@ -972,3 +972,6 @@ a.duofy-button--primary { color: var(--primary-foreground); }
 .legal-overlay:focus { outline: none; }
 .legal-overlay-title { margin: 0; font-size: 1.125rem; font-weight: 600; }
 .legal-overlay-body { overflow-y: auto; min-height: 0; }
+
+/* Der Schritt "Für wen?" im Haushaltsplan (Spec 125): große Knöpfe untereinander, am Tablet und Handy gut zu treffen. */
+.person-choices { display: flex; flex-direction: column; gap: 8px; }

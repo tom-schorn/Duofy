@@ -37,6 +37,7 @@ public sealed class FormDialogs(DialogService dialogs, IJSRuntime js, ILogger<Fo
         var closed = dialogs.OpenAsync<TDialog>((parameters ?? new FormParameters<TDialog>()).ToDictionary(), options);
         _ = CallFocusAsync("focusFirstField");
         var result = await closed;
+        open.Clear();
         await CallFocusAsync("restoreTrigger");
         return !result.Cancelled && result.GetData<object>() is TResult value
             ? new DialogOutcome<TResult>(true, value)
@@ -56,6 +57,34 @@ public sealed class FormDialogs(DialogService dialogs, IJSRuntime js, ILogger<Fo
         var result = await closed;
         await CallFocusAsync("restoreTrigger");
         return result.Confirmed;
+    }
+
+    // Die Griffe der offenen Dialoge, damit sich alle schließen lassen, wenn die Person die Seite verlässt.
+    private readonly List<IDialogReference> open = [];
+
+    internal void Track(IDialogReference dialog)
+    {
+        if (!open.Contains(dialog))
+        {
+            open.Add(dialog);
+        }
+    }
+
+    /// <summary>Schließt alle offenen Dialoge ohne Ergebnis, zum Beispiel wenn die Person die Seite verlässt.</summary>
+    public async Task CancelAllAsync()
+    {
+        foreach (var dialog in open.ToList())
+        {
+            try
+            {
+                await dialog.CancelAsync();
+            }
+            catch (InvalidOperationException exception)
+            {
+                log.LogWarning(exception, "Ein offener Dialog ließ sich nicht schließen.");
+            }
+        }
+        open.Clear();
     }
 
     // Der Fokus ist eine Hilfe; scheitert der Aufruf, geht der Dialog trotzdem auf. Der Grund steht im Protokoll.

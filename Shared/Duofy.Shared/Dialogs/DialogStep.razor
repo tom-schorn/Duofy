@@ -22,6 +22,15 @@
     public RenderFragment? ChildContent { get; set; }
 
     /// <summary>
+    /// Läuft, wenn Weiter diesen Schritt verlassen will, nach der Prüfung der Felder; false hält den Dialog hier. Für einen Schritt, dessen
+    /// Wahl erst Daten für die folgenden Schritte lädt (die Person im Haushaltsplan, Spec 125, R7).
+    /// </summary>
+    [Parameter]
+    public Func<Task<bool>>? Leave { get; set; }
+
+    internal async Task<bool> LeaveAsync() => Leave is null || await Leave();
+
+    /// <summary>
     /// Ein übersprungener Schritt steht weder im Fortschritt ("Schritt x von y") noch kommt Weiter zu ihm; seine Felder bleiben
     /// gezeichnet und gefüllt. So kann ein Schritt nur dann erscheinen, wenn ihn die Eingaben davor verlangen (Spec 124).
     /// </summary>

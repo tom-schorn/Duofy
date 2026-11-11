@@ -33,7 +33,9 @@ public static class DuofyUiExtensions
         services.TryAddSingleton(AppBrand.Duofy);
         services.AddScoped<AppChrome>();
         services.AddScoped<FormDialogs>();
+        services.TryAddScoped<IPrintService, WindowPrintService>();
         services.AddScoped<BookingDialogLauncher>();
+        services.AddScoped<PositionActions>();
 
         // Wessen Zahlen die Seiten zeigen (Spec 68): eine Wahl je Sitzung, beim Abmelden wieder "Ich".
         services.AddScoped<ActiveMember>();
