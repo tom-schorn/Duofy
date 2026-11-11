@@ -16,7 +16,7 @@
 <div class="combo" data-testid="@TestId" data-value="@Value">
     <input type="text" role="combobox" class="combo-input" id="@FieldId" autocomplete="off" spellcheck="false" aria-autocomplete="list"
            aria-expanded="@(open ? "true" : "false")" aria-controls="@ListId" aria-activedescendant="@ActiveId"
-           aria-describedby="@DescribedBy" placeholder="@Placeholder" value="@FieldText" @attributes="AdditionalAttributes"
+           aria-describedby="@DescribedBy" placeholder="@(Placeholder ?? EmptyText)" value="@FieldText" @attributes="AdditionalAttributes"
            data-testid="@(TestId is null ? null : $"{TestId}-input")"
            @onfocus="OpenAsync" @onclick="OpenAsync" @onblur="CloseAsync" @oninput="OnInput" @onkeydown="OnKeyDown" />
     <span class="combo-chevron" aria-hidden="true"></span>
@@ -61,6 +61,8 @@
     // Solange der Text im Feld vom Namen der Wahl abweicht, weil die Person tippt, gilt er als Filter.
     private string? filter;
     private int active = -1;
+    // Nach dem Aufklappen schiebt die Seite die Liste ins Bild (auf dem Handy liegt sie sonst unter dem Rand des rollenden Dialogs).
+    private string? revealId;
 
     private string FieldId => InputId ?? generatedId;
     private string ListId => $"{FieldId}-list";
@@ -92,6 +94,15 @@
 
     [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (revealId is { } id)
+        {
+            revealId = null;
+            await RevealAsync(id);
+        }
+    }
+
     private ComboOption? Selected => Options.FirstOrDefault(o => o.Value == Value && o.Value != "");
 
     // Im Feld steht, was die Person tippt, sonst der Name der Wahl (bei der leeren Wahl nichts, dann zeigt das Feld den Platzhalter).
@@ -122,6 +133,7 @@
         {
             open = true;
             active = Visible.ToList().FindIndex(o => o.Value == Value && o.Value != "");
+            revealId = ListId;
         }
         return Task.CompletedTask;
     }
@@ -149,12 +161,12 @@
             case "ArrowDown":
                 await OpenAsync();
                 active = count == 0 ? -1 : (active + 1) % count;
-                await RevealAsync();
+                revealId = ActiveId;
                 break;
             case "ArrowUp":
                 await OpenAsync();
                 active = count == 0 ? -1 : (active <= 0 ? count - 1 : active - 1);
-                await RevealAsync();
+                revealId = ActiveId;
                 break;
             case "Enter" when open && active >= 0 && active < count:
                 await ChooseAsync(Visible[active].Value);
@@ -175,16 +187,12 @@
     }
 
     // Die Pfeiltasten schieben die Liste so, dass die angesteuerte Option zu sehen ist.
-    private async Task RevealAsync()
+    private async Task RevealAsync(string id)
     {
-        if (ActiveId is null)
-        {
-            return;
-        }
         try
         {
             module ??= await Js.InvokeAsync<IJSObjectReference>("import", "./_content/Duofy.Shared/combo-box.js");
-            await module.InvokeVoidAsync("reveal", ActiveId);
+            await module.InvokeVoidAsync("reveal", id);
         }
         catch (JSException)
         {

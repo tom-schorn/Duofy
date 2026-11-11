@@ -12,7 +12,7 @@
 @inject ActiveMember Member
 @inject IStringLocalizer<SharedResources> L
 
-@* Der Dialog zum Anlegen und Ändern einer Buchung, in Schritten (Issue #21, #124; Spec 22, 124) auf dem Schritt-Dialog (Spec 11):
+@* Der Dialog zum Anlegen und Ändern einer Buchung, in Schritten (Spec 22, Spec 124) auf dem Schritt-Dialog (Spec 11):
    1 Was und wann (Art, Betrag, Datum, Planmonat),
    2 Konto (bei einer Umbuchung auch das Zielkonto),
    3 Kategorie und Posten (bei einer Umbuchung Von Topf, Zu Topf und Posten), dazu der Schalter "Betrag aufteilen",
@@ -176,7 +176,7 @@
             {
                 @foreach (var line in draft.Lines)
                 {
-                    <div><dt>@(draft.Lines.Count > 1 ? L["BookingDialog_Line", draft.Lines.IndexOf(line) + 1] : L["Field_Category"])</dt><dd>@LineText(line)</dd></div>
+                    <div><dt>@LineLabel(line)</dt><dd>@LineText(line)</dd></div>
                 }
             }
         </dl>
@@ -417,6 +417,10 @@
         .Where(a => a.Active || a.Id == chosen)
         .Select(a => new ComboOption(a.Id.ToString(), a.Name, null, null, string.IsNullOrEmpty(a.Icon) ? null : a.Icon))
         .ToList();
+
+    // Bei einer Zeile heißt der Eintrag der Zusammenfassung "Kategorie", bei mehreren "Zeile n".
+    private string LineLabel(LineDraft line) =>
+        draft.Lines.Count > 1 ? L["BookingDialog_Line", draft.Lines.IndexOf(line) + 1].Value : L["Field_Category"].Value;
 
     private static string Money(decimal amount) => amount.ToString("N2", German) + " €";
 

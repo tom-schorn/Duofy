@@ -46,11 +46,11 @@ External input: no
 
 | Requirement | Criterion | Test |
 | --- | --- | --- |
-| R1 | A1 | pending |
-| R2 | A2 | pending |
-| R3 | A3 | pending |
-| R4 | A4 | pending |
-| R5 | A5 | pending |
+| R1 | A1 | Tests/Duofy.Shared.Tests/BookingDialogStepsTests.cs |
+| R2 | A2 | Tests/Duofy.Shared.Tests/BookingDialogStepsTests.cs |
+| R3 | A3 | Tests/Duofy.Shared.Tests/BookingDialogStepsTests.cs |
+| R4 | A4 | Tests/Duofy.Shared.Tests/BookingDialogStepsTests.cs |
+| R5 | A5 | Tests/Duofy.App.Tests/AndroidNightModeTests.cs |
 
 ## Non-goals
 
