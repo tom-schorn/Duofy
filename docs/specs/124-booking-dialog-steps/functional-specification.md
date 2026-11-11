@@ -42,7 +42,7 @@ External input: no
 - [ ] A4 (R4): Given 'Aufteilen' with three lines, when the split step renders at 360 and 800 px, then the dialog content stays within the viewport height (scrolls inside) and the lines are edited in their own step.
 - [ ] A5 (R5): Given the app in light theme while the device is in dark mode, when a date or time picker opens on Android, then its theme is the light one (test of the platform theme setting).
 
-- [ ] A6 (R6): Given the booking dialog in step 2 with amount and account set, when "Speichern" in the foot is pressed, then the booking is saved like from the last step; before amount and account are set the button is not shown.
+- [ ] A6 (R6): Given a new expense with amount, account, pot and category set in step 2, when "Speichern" in the foot is pressed, then the booking is saved like from the last step; before those fields are set the button is not shown; for a transfer it appears once target account and both pots are set.
 
 ## Tracing
 
@@ -72,6 +72,6 @@ None.
 
 Approved by the human on 2026-11-11
 
-Amended on 2026-11-11, decided by the human after the review: early save from step 2 on (R6/A6).
+Amended on 2026-11-11, decided by the human after the review: early save from step 2 on (R6/A6); then (card on the early save) step 2 holds account, pot and category so the early save works for new bookings.
 
 In the lead session: the human gave the points on 11.11.2026 and ordered "spezifizieren und zur Arbeit schicken".

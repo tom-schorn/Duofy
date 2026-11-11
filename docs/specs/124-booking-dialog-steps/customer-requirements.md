@@ -17,7 +17,7 @@ Everybody who books, mostly on the phone or tablet.
 ## Requirements
 
 R1 (must): The booking dialog uses the step dialog of spec 11 (step x of y, back and next at a fixed place, input kept when going back) — because the human decided dialogs work in steps (repeatedly).
-R6 (must): From step 2 on, as soon as amount and account are set, the foot shows an extra "Speichern" button that saves the booking at once; the remaining steps are optional — because a quick expense should not need four "Weiter" (human, 11.11.2026).
+R6 (must): Step 2 holds account, pot and category together; as soon as amount, account, pot and category are set (for a transfer: target account and both pots), the foot shows an extra "Speichern" button that saves the booking at once; position, split and check are optional steps after it — because a quick expense should not need four "Weiter" (human, 11.11.2026).
 R2 (must): The kind Ausgabe/Einnahme/Umbuchung shows the selected kind clearly (filled, contrast at least 3:1 against the others) in light and dark theme — because nothing visible was selected (11.11.2026).
 R3 (must): Account, category and position are chosen with combo boxes (searchable list in the field, no separate 'Bitte wählen' button); categories grouped by pot, positions grouped by due day with name and planned amount — because the current choices are confusing (11.11.2026).
 R4 (must): 'Aufteilen' opens its own step for the split lines instead of growing the dialog; each line is added in that step; the dialog height stays within the screen — because the dialog grew without end (11.11.2026).
