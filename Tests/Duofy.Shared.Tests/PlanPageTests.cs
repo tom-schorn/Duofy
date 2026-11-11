@@ -42,25 +42,6 @@ public class PlanPageTests : PageTestContext
         Assert.NotNull(typeof(Plan).GetCustomAttribute<AuthorizeAttribute>());
     }
 
-    // Spec 118, R6: Der Plan zeigt, wie oft die Erinnerung verschoben wurde, und markiert den Posten nach dem dritten Mal als überfällig.
-    [Fact]
-    public void A_postponed_position_shows_its_count_and_after_the_third_time_is_marked_overdue()
-    {
-        var once = FakePlanApi.Position("Strom", 60m, day: 28) with { PostponeCount = 1 };
-        var third = FakePlanApi.Position("Miete", 890m, day: 28) with { PostponeCount = 3 };
-        var never = FakePlanApi.Position("Wasser", 20m, day: 28);
-        var doneAfterThree = FakePlanApi.Position("Gas", 40m, day: 28, done: true) with { PostponeCount = 3 };
-
-        var cut = OpenPage(once, third, never, doneAfterThree);
-
-        Assert.Contains("1× verschoben", Text(cut, $"plan-edit-{once.Id}"));
-        Assert.DoesNotContain("überfällig", Text(cut, $"plan-edit-{once.Id}"));
-        Assert.Contains("3× verschoben", Text(cut, $"plan-edit-{third.Id}"));
-        Assert.Contains("überfällig", Text(cut, $"plan-edit-{third.Id}"));
-        Assert.DoesNotContain("verschoben", Text(cut, $"plan-edit-{never.Id}"));
-        Assert.DoesNotContain("überfällig", Text(cut, $"plan-edit-{doneAfterThree.Id}"));
-    }
-
     // A17
     [Fact]
     public void It_opens_the_current_month_with_positions_grouped_by_pot_planned_and_booked()

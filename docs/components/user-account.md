@@ -20,7 +20,6 @@ The person who uses Duofy: how they register, sign in, stay signed in, manage an
 ## Data
 
 - `id` (Guid), `email` (unique without case), password hash (Identity), `first_name` and `last_name` (1–100 characters), `terms_accepted_at`, `email_confirmed` (required for sign-in on the hosted version; accounts from before spec 53 are confirmed), security stamp, lockout counters.
-- Notification settings (spec 118, hosted only): `user_id`, `due_today`, `overdue`, `advance_warning`, `household` (all default true), `morning_time` (default 09:00), `evening_enabled` (default true), `evening_time` (default 19:00), `warning_days` (1 to 7, default 2), times in Europe/Berlin to the minute. Spec 84's on/off and time became `overdue` and `morning_time`; the migration set all switches to the old on/off value.
 - Password reset link (self-hosted): `id`, `user_id`, `token_hash` (SHA-256), `created_by_id`, `expires_at`, `used_at`.
 
 ## Rules
@@ -35,7 +34,6 @@ The person who uses Duofy: how they register, sign in, stay signed in, manage an
 - Changing the email needs the current password; a new password or email signs the person out everywhere.
 - Answers to mail requests never reveal whether an address has an account.
 - Only the API reads or writes accounts; web and app ask the API.
-- Notifications (spec 118): the page "Benachrichtigungen" (`/benachrichtigungen`, reached from "Mehr" and the account page, only where the server has reminders) holds the four switches, the morning and evening time, the evening switch and the warning days; every choice is saved at once and confirmed with "Gespeichert", there is no save button. A time is accepted as "HH:mm" or "HH:mm:ss" (seconds dropped); an empty or impossible time is refused and the stored one stays ("Löschen" in the device's time dialog shows a hint, not an error). The visible notification text names the position and the amount; the push payload holds only an id and the type.
 
 ## Interfaces
 

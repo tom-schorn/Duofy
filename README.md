@@ -18,15 +18,13 @@ alle drei sprechen mit derselben API. Die alte Version mit Python-Backend und Re
   immer `decimal`.
 - **Haushalt:** Ein Haushalt mit mehreren Personen, Einladung über einen Link, eigene Freigaben (jede Person bestimmt,
   was sie teilt), ein gemeinsamer Haushaltsplan und Richtwerte.
-- **Erinnerungen:** Push-Erinnerungen an fällige Posten auf Android und Windows, mit "später erinnern". Sie gibt es nur in
-  der gehosteten Version und sind standardmäßig aus.
 - **Konto und Server:** Registrierung (offen, nur mit Einladung oder geschlossen), Anmeldung mit automatischer
   Token-Erneuerung, Passwort ändern und zurücksetzen, E-Mail-Bestätigung in der gehosteten Version, Konto löschen, eine
   Verwaltungsseite für die Administration (Einladungen, Rücksetz-Links).
 - **Rechtliches:** Impressum, Datenschutz und Nutzungsbedingungen als Textdateien des Servers, ohne Anmeldung unter
   `/api/v1/legal` abrufbar und in jeder Seite verlinkt, dazu die Lizenzen der mitgelieferten Bausteine.
 - **API:** Die Duofy-API unter `/api/v1` (Konto, Konten, Buchungen, Kategorien, Pläne, Verträge, Schulden, Sparziele,
-  Haushalte, Erinnerungen, Rechtstexte, Verwaltung); `/api/v1/health` prüft auch die Datenbank.
+  Haushalte, Rechtstexte, Verwaltung); `/api/v1/health` prüft auch die Datenbank.
 
 ## Aufbau
 
@@ -38,7 +36,6 @@ alle drei sprechen mit derselben API. Die alte Version mit Python-Backend und Re
 | `Shared/Duofy.Shared` | Seiten und Komponenten, die Web und App gemeinsam nutzen |
 | `Web/Duofy.Web` | Web-Variante (Blazor mit Blazor Blueprint), ohne Datenbank; holt alles von der API |
 | `Mobile/Duofy` | App für Android und Windows (.NET MAUI) |
-| `Mobile/Duofy.Push` | Empfang der Erinnerungen in der App |
 | `Tests/` | xUnit-Tests je Projekt (`Duofy.Backend.Tests` gegen eine echte PostgreSQL in Docker mit Testcontainers) und Browserprüfungen (`*/check.mjs`) |
 | `deploy/` | Compose-Dateien, Sicherung und Prüfskript für den Betrieb auf einem Server |
 | `docs/` | Betrieb, Store-Einreichung, App-Installation, Spezifikationen und Pläne |

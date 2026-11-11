@@ -147,30 +147,6 @@ public class HouseholdPlanPageTests : PageTestContext
         Assert.Empty(cut.FindAll("[role='checkbox']"));
         Assert.Empty(cut.FindAll("button[data-testid^='plan-edit'],button[data-testid^='plan-delete']"));
     }
-
-    // Spec 118, R6: Auch im Haushaltsplan steht "n× verschoben"; nach dem dritten Mal ist der offene Posten überfällig.
-    [Fact]
-    public async Task The_household_plan_shows_how_often_a_position_was_postponed_and_marks_the_third_time_overdue()
-    {
-        var once = FakeHouseholdApi.OwnedPosition("Miete", 890m, FakeHouseholdApi.AnnaId, "Anna") with { PostponeCount = 1 };
-        var thrice = FakeHouseholdApi.OwnedPosition("Strom", 80m, FakeHouseholdApi.BenId, "Ben") with { PostponeCount = 3 };
-        var never = FakeHouseholdApi.OwnedPosition("Kino", 20m, FakeHouseholdApi.AnnaId, "Anna");
-        HouseholdApiFake.HouseholdPlans[(2026, 10)] = FakeHouseholdApi.EmptyPlan(household.Id, household.Name, 2026, 10) with { Positions = [once, thrice, never] };
-        await Member.LoadAsync();
-        Member.ChooseHousehold();
-
-        var cut = Render<Plan>();
-        OpenPlanTab(cut);
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll($"[data-testid='household-position-{once.Id}']")));
-
-        Assert.Contains("1× verschoben", cut.Find($"[data-testid='household-owner-{once.Id}']").TextContent);
-        Assert.DoesNotContain("überfällig", cut.Find($"[data-testid='household-owner-{once.Id}']").TextContent);
-        var late = cut.Find($"[data-testid='household-owner-{thrice.Id}']").TextContent;
-        Assert.Contains("3× verschoben", late);
-        Assert.Contains("überfällig", late, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("verschoben", cut.Find($"[data-testid='household-owner-{never.Id}']").TextContent);
-    }
-
     // Spec 82, R16: Den Monatsumschalter gibt es nicht mehr; zurück geht es zur Übersicht der Monate.
     [Fact]
     public async Task The_household_month_leads_back_to_the_months()

@@ -1,8 +1,6 @@
 using Android.App;
 using Android.Content;
 using Android.Content.PM;
-using Duofy.Services.Push;
-using Microsoft.Extensions.DependencyInjection;
 using Android.Content.Res;
 using AColor = Android.Graphics.Color;
 using Android.OS;
@@ -33,8 +31,6 @@ namespace Duofy
             base.OnCreate(savedInstanceState);
             KeepContentInsideSystemBars();
             WatchThemeChoice();
-            AskForNotificationPermission();
-            OpenFromNotification(Intent);
         }
 
         protected override void OnDestroy()
@@ -42,32 +38,6 @@ namespace Duofy
             // Die Standard-SharedPreferences, in denen Preferences.Default schreibt; hier wieder abmelden.
             GetSharedPreferences(PreferencesFileName, FileCreationMode.Private)?.UnregisterOnSharedPreferenceChangeListener(this);
             base.OnDestroy();
-        }
-
-        // Ein Tipp auf die Benachrichtigung, während die App schon läuft (SingleTop): neue Absicht statt Neustart.
-        protected override void OnNewIntent(Intent? intent)
-        {
-            base.OnNewIntent(intent);
-            OpenFromNotification(intent);
-        }
-
-        // Erinnerungen (Spec 84): Ab Android 13 zeigt das System Benachrichtigungen nur, wenn der Benutzer es erlaubt hat.
-        private void AskForNotificationPermission()
-        {
-            if (OperatingSystem.IsAndroidVersionAtLeast(33)
-                && CheckSelfPermission(Android.Manifest.Permission.PostNotifications) != Permission.Granted)
-            {
-                RequestPermissions([Android.Manifest.Permission.PostNotifications], 1);
-            }
-        }
-
-        // Die Adresse, die die Benachrichtigung mitgibt, geht an die Hauptseite; nur Wege innerhalb der App zählen.
-        private static void OpenFromNotification(Intent? intent)
-        {
-            if (intent?.GetStringExtra(AndroidReminderNotifier.PathExtra) is { } path && NavigationRequests.IsAppPath(path))
-            {
-                PushServices.Root?.GetService<NavigationRequests>()?.Request(path);
-            }
         }
 
         public override void OnConfigurationChanged(Configuration newConfig)

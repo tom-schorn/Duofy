@@ -40,8 +40,6 @@ public static class PlanFields
 /// <param name="DoneAt">Wann der Posten abgehakt wurde; null, solange er offen ist.</param>
 /// <param name="ChangedByHand">True, wenn der Posten im Monat von Hand geändert wurde.</param>
 /// <param name="TickBookingId">Die Buchung, die beim Abhaken entstanden ist.</param>
-/// <param name="PostponeCount">Wie oft die Erinnerung an den Posten zu seinem Fälligkeitstag mit "Später" verschoben wurde (Spec 118);
-/// ab <see cref="ReminderLimits.MaxPostpones"/> gilt er im Plan als überfällig.</param>
 public sealed record PlanPositionResponse(
     Guid Id,
     Guid? CommitmentId,
@@ -58,8 +56,7 @@ public sealed record PlanPositionResponse(
     decimal Booked,
     DateTimeOffset? DoneAt,
     bool ChangedByHand,
-    Guid? TickBookingId,
-    int PostponeCount = 0);
+    Guid? TickBookingId);
 
 /// <summary>Ein Feld eines Unterschieds mit dem Wert im Posten (vorher) und im Vertrag (nachher).</summary>
 /// <param name="Field">Siehe <see cref="PlanFields"/>.</param>

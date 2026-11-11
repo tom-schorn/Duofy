@@ -329,64 +329,12 @@ Port 465 verschlüsselt von Anfang an (SSL/TLS), jeder andere Port (meist 587) m
 der Name, den Mailprogramme neben der Adresse zeigen; ohne ihn steht dort "Plagevo". Das Passwort steht nur in der `.env`
 auf dem Server.
 
-### 5.1 Erinnerungen auf dem Handy und am PC
+### 5.1 Erinnerungen (nicht in Duofy)
 
-Plagevo kann an Posten erinnern, die man von Hand bezahlt (Überweisung, Abhebung, Sonstige): am Morgen am Tag der
-Fälligkeit, einige Tage vorher (Vorwarnung, 1 bis 7 Tage, voreingestellt 2), jeden Morgen, solange ein Posten überfällig und
-nicht abgehakt ist, und am Abend noch einmal für die Posten von heute, die noch offen sind. Dazu kommt abends eine
-Zusammenfassung dessen, was im Haushalt geschah. Jede Person stellt das selbst auf der Seite "Benachrichtigungen" ein: vier
-Schalter (Heute fällig, Überfällig, Vorwarnung, Haushalt), die Uhrzeit am Morgen (voreingestellt 09:00) und am Abend (19:00,
-abschaltbar). "Später" geht höchstens dreimal je Posten und Fälligkeitstag; danach bleibt nur "Bezahlt" und der Plan zeigt
-den Posten als überfällig. Der Server prüft das jede Minute und rechnet in Berliner Zeit. Dafür
-schickt der Server ein stilles Signal an Android über Firebase Cloud Messaging (FCM) und an Windows über die Windows Push
-Notification Services (WNS). Im Signal stehen nur eine zufällige Kennung und die Art (fällig, Haushalt, zurückziehen), nie ein Name oder
-ein Betrag; den Text mit Name und Betrag ("Miete 850 € ist heute fällig") baut die App danach mit Anmeldung aus dem, was der
-Server liefert, und er steht auf dem Gerät, auch auf dem Sperrbildschirm, solange Android es nicht verbirgt (Einstellung
-"Vertrauliche Inhalte"). Die Erinnerungen gibt es nur auf der gehosteten Version und sind aus, bis du sie einschaltest; wer sie
-einschaltet, hat für jede Person zunächst alle vier Schalter an. Die Zugangsdaten stehen nur auf dem Server, nie im Repository.
-
-Die Einstellungen (in der `.env`, Schreibweise von .NET; hier ohne Werte):
-
-| Einstellung | Bedeutung |
-| --- | --- |
-| `Duofy__Reminders__Enabled` | `true` schaltet die Erinnerungen ein; sonst antworten ihre Wege mit 404, der Job sendet nichts, und die Einstellungen zeigen sie nicht |
-| `Duofy__Reminders__Fcm__ServiceAccountFile` | Pfad der Dienstkonto-Datei von Firebase im Container, zum Beispiel `/push/firebase.json` |
-| `Duofy__Reminders__Wns__ClientId` | die Paket-SID der Store-App (`ms-app://s-1-15-2-...`) aus dem Partner Center |
-| `Duofy__Reminders__Wns__ClientSecret` | das Anwendungsgeheimnis dazu aus dem Partner Center |
-
-**Firebase (Android).** Lege im Firebase-Konsolenprojekt eine Android-App mit dem Paketnamen `de.tomschorn.duofy` an. Zwei
-Dateien entstehen, beide sind geheim und bleiben außerhalb des Repositorys:
-
-1. Das Dienstkonto für den Server (Projekteinstellungen, Dienstkonten, neuen privaten Schlüssel erzeugen): Lege die Datei in
-   `deploy/push/firebase.json` auf den Server, mache den Benutzer des Containers (`APP_UID`, 1654) zum Besitzer und setze
-   die Rechte auf 600 (`sudo chown 1654 deploy/push/firebase.json && sudo chmod 600 deploy/push/firebase.json`), und setze
-   `Duofy__Reminders__Fcm__ServiceAccountFile=/push/firebase.json`. Gehört die Datei root mit 600, kann der Server sie nicht
-   lesen, und es kommt kein Signal.
-   Der Ordner `deploy/push` ist von Git ausgeschlossen und wird nur lesbar als `/push` eingehängt.
-2. Die `google-services.json` für die App: Lege sie vor dem Bauen in `Mobile/Duofy/`. Nur wenn die Datei dort liegt, baut das
-   Projekt Firebase ein; ohne sie läuft die App, nur ohne Erinnerungen. Sie wird nie eingecheckt (`.gitignore`).
-
-**WNS (Windows).** Die App braucht die Identität aus dem Microsoft Store (siehe `docs/store/README.md`): Paket-SID und
-Geheimnis stehen im Partner Center unter der App, Produktidentität und "Windows Push Notification Services". Die unverpackte
-Testversion am PC hat keine Identität und bekommt keine Erinnerungen. Ob ein Signal die ganz geschlossene Windows-App
-erreicht, hängt am Store-Build mit Hintergrundaufgabe und ist vor der Veröffentlichung auf Staging zu prüfen.
-
-Ein Druck auf "Bezahlt" oder "Später" in der Benachrichtigung bei ganz geschlossener App geht verloren: Die App holt die
-Anmeldung erst beim Start. Das ist vorerst so hingenommen.
-
-**Datenbank (Spec 118).** Die Migration `NotificationSettings` ersetzt die Einstellung "Erinnerungen an/aus" durch die vier
-Schalter, zwei Uhrzeiten und die Vorwarnung und legt Tabellen für das Zählen von "Später" (`postpone_counts`) und für das
-Protokoll der Haushaltsereignisse (`household_events`) an. Sie übernimmt die alten Einstellungen: wer die Erinnerungen an
-hatte, behält seine Uhrzeit als Uhrzeit am Morgen und hat alle Schalter an, wer sie aus hatte, hat alle aus. Sie wird nur vom
-Betreiber eingespielt (`dotnet ef database update` oder der Migrationsdienst), nie von der Entwicklung gegen die echte
-Datenbank; Zurücknehmen geht und löscht die neuen Erinnerungsarten und die Zusammenfassungen.
-
-**Prüfen.** Nach dem Einschalten: `docker compose up -d api`, dann `docker compose logs api | grep Reminders`. Prüfe auch die
-Dienstkonto-Datei: `ls -ln deploy/push/firebase.json` muss den Besitzer 1654 und die Rechte `-rw-------` zeigen, sonst
-kann der Server sie nicht lesen. Fehlt ein
-Zugang, steht dort `nicht verschickt: FCM ist nicht eingerichtet` (oder WNS) mit der Kennung der Erinnerung, aber nie mit einem
-Token. Der Datenschutztext (Teil von Issue 88) nennt Firebase Cloud Messaging und die Windows Push Notification Services als
-Auftragsverarbeiter, was sie bekommen (das Push-Token des Geräts und die zufällige Kennung) und die Vereinbarungen.
+Duofy schickt keine Push-Erinnerungen. Sie gibt es nur in Plagevo, der gehosteten Version mit der Plagevo-App (Issue #129);
+dort stehen auch ihre Einrichtung und die Zugangsdaten. Wer Duofy selbst betreibt, braucht dafür nichts einzustellen. Die
+Migration `RemovePushReminders` entfernt die Tabellen der früheren Erinnerungen und die Freigaben des Bereichs Erinnerungen;
+wer sie nie benutzt hat, verliert nur leere Tabellen. Sie wird wie jede Migration vom Betreiber eingespielt.
 
 ## 6. Rechtstexte
 
