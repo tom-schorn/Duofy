@@ -234,23 +234,29 @@ internal static class ReminderEndpoints
             return ApiErrors.NotFound(ReminderErrorCodes.ReminderNotFound);
         }
         var dueDate = ReminderRules.DueDate(plan.Year, plan.Month, position.DueDay);
+        var today = Berlin.Today(time);
         var count = await db.PostponeCounts.FirstOrDefaultAsync(c => c.PositionId == position.Id && c.DueDate == dueDate, cancellationToken);
-        if (count is { Count: >= ReminderLimits.MaxPostpones })
+        // Eine Vorwarnung zählt nicht: Nur "heute fällig" und "überfällig" verbrauchen die drei Male (Spec 118, R6).
+        var counts = dueDate <= today;
+        if (counts && count is { Count: >= ReminderLimits.MaxPostpones })
         {
             return ApiErrors.BadRequest(ReminderErrorCodes.ReminderLaterLimitReached);
         }
-        if (count is null)
+        if (counts)
         {
-            count = new PostponeCount { PositionId = position.Id, DueDate = dueDate };
-            db.PostponeCounts.Add(count);
+            if (count is null)
+            {
+                count = new PostponeCount { PositionId = position.Id, DueDate = dueDate };
+                db.PostponeCounts.Add(count);
+            }
+            count.Count++;
         }
-        count.Count++;
         reminder.State = ReminderState.Later;
-        reminder.Day = Berlin.Today(time).AddDays(1);
+        reminder.Day = today.AddDays(1);
         await db.SaveChangesAsync(cancellationToken);
 
         loggers.CreateLogger(LogCategory).LogInformation(
-            "Erinnerung {ReminderId} von {UserId} auf {Day} verschoben ({Count}. Mal von {Max}).", id, userId, reminder.Day, count.Count, ReminderLimits.MaxPostpones);
+            "Erinnerung {ReminderId} von {UserId} auf {Day} verschoben ({Count} von {Max} Malen verbraucht).", id, userId, reminder.Day, count?.Count ?? 0, ReminderLimits.MaxPostpones);
         return Results.NoContent();
     }
 

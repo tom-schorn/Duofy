@@ -245,6 +245,33 @@ public class NotificationSettingsJobTests(ApiFixture fixture)
         Assert.Equal(3, (await FetchAsync(server, anna, reminder.Id)).PostponeCount);
     }
 
+    // A6 (Fund 2): "Später" bei der Vorwarnung zählt nicht mit, und die Vorwarnung, die am Fälligkeitstag zurückkehrt, ersetzt "heute fällig".
+    [Fact]
+    public async Task Postponing_an_advance_warning_costs_no_postpone_and_gives_no_second_due_notification()
+    {
+        await using var server = ReminderServer.Start(fixture);
+        var anna = await server.FounderAsync("Anna");
+        var token = await server.DeviceAsync(anna);
+        var position = await server.PositionAsync(anna, "Miete", dueDay: 15);
+        var thirteenth = NineOClock.AddDays(3);
+
+        await server.RunAtAsync(thirteenth);
+        var reminder = Assert.Single(await server.RemindersOfAsync(position));
+        Assert.Equal(ReminderKind.Advance, reminder.Kind);
+        (await server.Client.SendAsync(anna, HttpMethod.Post, ReminderPath(reminder.Id) + "/later")).EnsureSuccessStatusCode();
+
+        await server.RunAtAsync(thirteenth.AddDays(1));
+        (await server.Client.SendAsync(anna, HttpMethod.Post, ReminderPath(reminder.Id) + "/later")).EnsureSuccessStatusCode();
+
+        await server.RunAtAsync(thirteenth.AddDays(2));
+
+        Assert.Equal(3, server.Push.To(token).Count);
+        Assert.Single(await server.RemindersOfAsync(position));
+        var fetched = await FetchAsync(server, anna, reminder.Id);
+        Assert.Equal((0, true), (fetched.PostponeCount, fetched.LaterAllowed));
+        Assert.Empty(await server.Factory.WithDbAsync(db => db.PostponeCounts.Where(c => c.PositionId == position).ToListAsync()));
+    }
+
     // A6: Der Plan nennt, wie oft ein Posten verschoben wurde.
     [Fact]
     public async Task The_plan_returns_how_often_a_position_was_postponed()

@@ -164,13 +164,16 @@ internal sealed class ReminderRunner(DuofyDbContext db, ReminderSwitch reminders
 
     /// <summary>
     /// Legt die Erinnerung an und verschickt sie, wenn es sie heute in dieser Art noch nicht gibt und der Posten nicht gerade
-    /// mit "Später" auf morgen verschoben ist (dann kommt er morgen von allein wieder).
+    /// mit "Später" auf morgen verschoben ist (dann kommt er morgen von allein wieder). Jede Erinnerung des Postens, die heute
+    /// noch läuft, zählt als vorhanden (eine auf den Fälligkeitstag verschobene Vorwarnung ersetzt "heute fällig"); nur der
+    /// Abend kommt zusätzlich zu der vom Morgen.
     /// </summary>
     private async Task<int> SendNewAsync(
         Guid positionId, Guid recipientId, DateOnly today, ReminderKind kind, List<ReminderDevice> devices, CancellationToken cancellationToken)
     {
         var already = await db.Reminders.AnyAsync(r => r.PositionId == positionId && r.RecipientId == recipientId
-            && (r.State == ReminderState.Later || (r.Day == today && (r.Kind == kind || (kind == ReminderKind.Overdue && r.State != ReminderState.Done)))), cancellationToken);
+            && (r.State == ReminderState.Later
+                || (r.Day == today && (r.Kind == kind || (kind != ReminderKind.Evening && r.State != ReminderState.Done)))), cancellationToken);
         if (already)
         {
             return 0;
