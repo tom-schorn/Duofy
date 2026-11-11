@@ -1,6 +1,7 @@
 @using BlazorBlueprint.Icons.Lucide.Components
 @inherits DestinationNavigationBase
 @inject IStringLocalizer<SharedResources> L
+@inject ActiveMember Member
 
 @* Die Seitenleiste am PC und am Tablet (Spec 10, Spec 82): Start, Meine Planung, der Haushalt unter seinem Namen, Verträge,
    Konten und Sparen. Der Link der offenen Seite trägt aria-current, auch bei Unterseiten; der Haushalt leuchtet auf allen
@@ -11,7 +12,7 @@
     @foreach (var item in Destinations)
     {
         var open = item.Destination == AppDestination.Household ? Current == AppDestination.Household : IsOpen(item.Href);
-        string label = L[item.LabelKey];
+        string label = L[AppDestinations.LabelKeyFor(item.LabelKey, Member.Name), Member.Name ?? ""];
         <a href="@item.Href" class="side-link" aria-current="@(open ? "page" : null)"
            data-testid="@($"side-{item.Destination}".ToLowerInvariant())">
             <LucideIcon Name="@item.Icon" Size="16" aria-hidden="true" />
@@ -34,4 +35,18 @@
 
 @code {
     public SideNavigation() => Destinations = AppDestinations.Side;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Member.Changed += OnMemberChanged;
+        await Member.LoadAsync();
+    }
+
+    private void OnMemberChanged() => InvokeAsync(StateHasChanged);
+
+    public override void Dispose()
+    {
+        Member.Changed -= OnMemberChanged;
+        base.Dispose();
+    }
 }

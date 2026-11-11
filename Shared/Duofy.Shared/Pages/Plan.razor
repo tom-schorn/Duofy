@@ -44,12 +44,12 @@ else
 <MonthNav BackHref="/plan" BackText="@L["Plan_BackToMonths"]" />
 
 @* Der Kopf mit Drucken, Buchung und Posten anlegen ist derselbe wie im Haushaltsplan (Spec 125, R1). *@
-<PlanHead Title="@MonthTitle" Lead="@L["Plan_Lead"]" CompactLead="true" Show="SeesPlan" CanAdd="CanAdd" CanBook="CanBook"
+<PlanHead Title="@MonthTitle" Lead="@(Member.Name is { } who ? L["Plan_LeadOf", who].Value : L["Plan_Lead"].Value)" CompactLead="true" Show="SeesPlan" CanAdd="CanAdd" CanBook="CanBook"
           OnPrint="PrintAsync" OnBooking="NewBookingAsync" OnAdd="AddAsync" />
 
 @if (!SeesPlan)
 {
-    <p class="muted" data-testid="not-shared">@L["Grant_NotShared"]</p>
+    <p class="muted" data-testid="not-shared">@NotSharedText.For(L, Member, GrantAreas.Plan)</p>
 }
 else
 {
@@ -64,7 +64,7 @@ else
     <div class="metrics" data-testid="month-metrics">
         <div data-testid="month-block-income"><Metric Title="@L["Month_Income"]" Amount="IncomeTotal" /></div>
         <div data-testid="month-block-free"><Metric Title="@L["Month_Allocatable"]" Amount="FreeTotal" Over="FreeTotal < 0m" AmountText="@(FreeTotal == 0m ? L["Month_AllPlanned"].Value : null)" Note="@FreeNote" /></div>
-        <div data-testid="month-block-unpaid"><Metric Title="@L["Month_Unpaid"]" Amount="UnpaidTotal" AmountText="@UnpaidText" Note="@(SeesBookings ? L["Month_UnpaidNote"].Value : L["Grant_NotShared"].Value)" /></div>
+        <div data-testid="month-block-unpaid"><Metric Title="@L["Month_Unpaid"]" Amount="UnpaidTotal" AmountText="@UnpaidText" Note="@(SeesBookings ? L["Month_UnpaidNote"].Value : NotSharedText.For(L, Member, GrantAreas.Book))" /></div>
         <div data-testid="plan-carry-over" data-print="hide">
             @{ var carryOvers = MonthView.CarryOverRows(plan.Overview?.CarryOvers); }
             <div class="metric metric--carry" role="group" aria-labelledby="carry-over-title">
@@ -118,7 +118,7 @@ else
         }
         else
         {
-            <p class="muted" data-testid="bookings-not-shared">@L["Grant_NotShared"]</p>
+            <p class="muted" data-testid="bookings-not-shared">@NotSharedText.For(L, Member, GrantAreas.Book)</p>
         }
     }
     else if (tab == MonthTab.Review)

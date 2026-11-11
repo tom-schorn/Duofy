@@ -43,47 +43,33 @@ public class HouseholdPlanPageTests : PageTestContext
         return cut;
     }
 
-    // R9
+    // Spec 126, R1: Der Haushalt steht nicht im Menü, auch bei zwei Mitgliedern nicht; den Haushaltsplan erreicht man über die Navigation.
     [Fact]
-    public void In_a_household_of_two_the_menu_offers_the_household_even_without_any_grant()
+    public void In_a_household_of_two_the_menu_does_not_offer_the_household()
     {
         var cut = Open(Render<UserMenu>());
 
-        menuHost!.WaitForAssertion(() => Assert.NotEqual("true", menuHost.Find("[data-testid='member-choice-household']").GetAttribute("aria-disabled")));
-        Assert.Equal("Ich,Haushalt", Names());
-    }
-
-    // A10, Spec 44 A2: Bei einem Haushalt von einem ist "Haushalt" sichtbar, aber nicht verfügbar.
-    [Fact]
-    public void In_a_household_of_one_the_household_entry_is_unavailable()
-    {
-        HouseholdApiFake.Household = household with { Members = [FakeHouseholdApi.Ben(isMe: true)] };
-
-        var cut = Open(Render<UserMenu>());
-
-        cut.WaitForAssertion(() => Assert.Equal(1, HouseholdApiFake.MineCalls));
-        menuHost!.WaitForAssertion(() => Assert.Equal("true", menuHost.Find("[data-testid='member-choice-household']").GetAttribute("aria-disabled")));
+        menuHost!.WaitForAssertion(() => Assert.Equal("Ich", Names()));
+        Assert.Empty(menuHost.FindAll("[data-testid='member-choice-household']"));
     }
 
     [Fact]
-    public void Granted_members_and_the_household_are_both_offered_and_choosing_the_household_clears_the_owner()
+    public void Granted_members_are_offered_without_the_household_and_the_household_view_clears_the_owner()
     {
         HouseholdApiFake.Household = household with
         {
             Members = [FakeHouseholdApi.Anna(isMe: false) with { GrantsToMe = GrantLevels.None with { Plan = AccessLevelKeys.View } }, FakeHouseholdApi.Ben(isMe: true)],
         };
         var cut = Open(Render<UserMenu>());
-        menuHost!.WaitForAssertion(() => Assert.Equal("Ich,Anna,Haushalt", Names()));
+        menuHost!.WaitForAssertion(() => Assert.Equal("Ich,Anna", Names()));
         menuHost.Find($"[data-testid='member-choice-{FakeHouseholdApi.AnnaId}']").Click();
 
-        Open(cut);
-        menuHost.WaitForAssertion(() => Assert.NotEmpty(menuHost.FindAll("[data-testid='member-choice-household']")));
-        menuHost.Find("[data-testid='member-choice-household']").Click();
+        Member.ChooseHousehold();
 
         Assert.True(Member.IsHousehold);
         Assert.Null(Member.Owner);
         Assert.False(Member.Allows(GrantAreas.Plan, AccessLevelKeys.View));
-        Assert.Equal("Ansicht: Haushalt", cut.Find("[data-testid='member-profile']").TextContent.Trim());
+        cut.WaitForAssertion(() => Assert.Equal("Ansicht: Haushalt", cut.Find("[data-testid='member-profile']").TextContent.Trim()));
     }
 
     [Fact]

@@ -34,7 +34,7 @@
 
 @if (!Sees)
 {
-    <NotShared />
+    <NotShared Area="@GrantAreas.Savings" />
 }
 else
 {
@@ -45,7 +45,7 @@ else
             <h2 class="section-title mb-1">@L["Savings_Section_goals"]</h2>
             @if (loaded && goals.Count == 0)
             {
-                <p class="muted" data-testid="savings-empty-goals">@L["Savings_Empty_goals"]</p>
+                <p class="muted" data-testid="savings-empty-goals">@(Member.Name is { } who ? L["Savings_Empty_goalsOf", who].Value : L["Savings_Empty_goals"].Value)</p>
             }
             <div class="stack">
                 @foreach (var goal in goals)
@@ -95,7 +95,7 @@ else
                 </div>
                 @if (loaded && DebtsOf(kind).Count == 0)
                 {
-                    <p class="muted" data-testid="@($"savings-empty-{section}")">@L[$"Savings_Empty_{section}"]</p>
+                    <p class="muted" data-testid="@($"savings-empty-{section}")">@(section == "debts" && Member.Name is { } who ? L["Savings_Empty_debtsOf", who].Value : L[$"Savings_Empty_{section}"].Value)</p>
                 }
                 <div class="stack">
                     @foreach (var debt in DebtsOf(kind))

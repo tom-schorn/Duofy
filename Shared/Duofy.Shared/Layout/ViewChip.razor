@@ -1,18 +1,25 @@
+@using BlazorBlueprint.Primitives
+@using BlazorBlueprint.Components
 @implements IDisposable
 @inject ActiveMember Member
 @inject IStringLocalizer<SharedResources> L
 
-@* Wessen Zahlen gerade offen sind, wenn es nicht die eigenen sind, von jeder Seite aus in der oberen Leiste zu sehen
-   (Spec 82, R11). Gewählt wird im Profil-Menü. *@
-@if (ViewLabel is { } view)
+@* Wessen Zahlen gerade offen sind, von jeder Seite aus in der oberen Leiste zu sehen (Spec 82, R11) und dort auch zu wechseln
+   (Spec 126, R2): Am Handy gibt es keine Seitenleiste mit dem Profil-Menü, die Auswahl stünde sonst nur auf der Seite Mehr und
+   ein Wechsel dort zeigte nichts. Die Marke zeigt "Ansicht: Anna", bei "Ich" nur "Ich"; sie erscheint, sobald jemand etwas
+   teilt oder eine Person gewählt ist. Dieselbe Auswahl (MemberSwitch) steht darin als Menü. *@
+@if (Member.Sharing.Count > 0 || Member.Name is not null)
 {
-    <span class="pill shell-view" data-testid="shell-view">@view</span>
+    <BbDropdownMenu>
+        <BbDropdownMenuTrigger AsChild="false" Class="pill shell-view" aria-label="@(ViewLabel ?? $"{L["MemberSwitch_Label"].Value}: {L["MemberSwitch_Me"].Value}")" data-testid="shell-view">@(ViewLabel ?? L["MemberSwitch_Me"].Value)</BbDropdownMenuTrigger>
+        <BbDropdownMenuContent Side="PopoverSide.Bottom" Align="PopoverAlign.End">
+            <MemberSwitch InMenu="true" />
+        </BbDropdownMenuContent>
+    </BbDropdownMenu>
 }
 
 @code {
-    private string? ViewLabel => Member.IsHousehold
-        ? L["UserMenu_ViewOf", L["MemberSwitch_Household"]].Value
-        : Member.Name is { } name ? L["UserMenu_ViewOf", name].Value : null;
+    private string? ViewLabel => Member.Name is { } name ? L["UserMenu_ViewOf", name].Value : null;
 
     protected override void OnInitialized() => Member.Changed += OnMemberChanged;
 
