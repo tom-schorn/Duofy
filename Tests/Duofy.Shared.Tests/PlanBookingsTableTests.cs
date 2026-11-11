@@ -10,7 +10,7 @@ namespace Duofy.Shared.Tests;
 /// <summary>
 /// Spec 123: Die Buchungstabelle des persönlichen Plans und des Haushaltsplans ist eine Komponente (MonthBookings), sie
 /// scrollt waagerecht in ihrem eigenen Bereich, wo sie nicht passt, und die Buchungen stehen strikt neueste zuerst,
-/// der Übertrag als am 1. des Planmonats gebucht am Ende.
+/// der eingehende Übertrag als am 1. des Planmonats gebucht am Ende, der ausgehende mit seinem Datum oben.
 /// </summary>
 public class PlanBookingsTableTests : PageTestContext
 {
@@ -33,20 +33,32 @@ public class PlanBookingsTableTests : PageTestContext
         Assert.Equal(["Zehnter", "Fünfter", "Übertrag aus September"], Order(cut));
     }
 
-    // A2 (R2): auch eine Buchung am 1. steht vor dem Übertrag, der als am 1. gebucht gilt; das Datum des Übertrags ist der 1. des Planmonats.
+    // A2 (R2): auch eine Buchung am 1. steht vor dem eingehenden Übertrag, der als am 1. des Planmonats gebucht gilt.
     [Fact]
-    public void A2_a_booking_on_the_first_stands_above_the_carry_over_which_carries_the_first_of_the_plan_month()
+    public void A2_a_booking_on_the_first_stands_above_the_incoming_carry_over_which_carries_the_first_of_the_plan_month()
     {
         var cut = Render<MonthBookings>(p => p
             .Add(x => x.Rows, [Row(1, "Erster"), Row(3, "Dritter")])
+            .Add(x => x.CarryOvers, [new MonthCarryOverRow(true, new DateOnly(2026, 9, 1), 230m, null)]));
+
+        Assert.Equal(["Dritter", "Erster", "Übertrag aus September"], Order(cut));
+        Assert.Equal("01.10.2026", cut.Find("tr[data-testid='month-carry-over-in'] .bookings-date").TextContent.Trim());
+    }
+
+    // A2 (R2, Ergänzung 2026-11-11): der ausgehende Übertrag behält sein Buchungsdatum, den letzten Tag des Planmonats, und steht oben.
+    [Fact]
+    public void A2_the_outgoing_carry_over_keeps_the_end_of_the_month_and_stands_on_top()
+    {
+        var cut = Render<MonthBookings>(p => p
+            .Add(x => x.Rows, [Row(1, "Erster"), Row(30, "Dreißigster")])
             .Add(x => x.CarryOvers,
             [
                 new MonthCarryOverRow(true, new DateOnly(2026, 9, 1), 230m, null),
                 new MonthCarryOverRow(false, new DateOnly(2026, 11, 1), 40m, null),
             ]));
 
-        Assert.Equal(["Dritter", "Erster", "Übertrag aus September", "Übertrag nach November"], Order(cut));
-        Assert.All(cut.FindAll("tr[data-testid^='month-carry-over']"), tr => Assert.Equal("01.10.2026", tr.QuerySelector(".bookings-date")!.TextContent.Trim()));
+        Assert.Equal(["Übertrag nach November", "Dreißigster", "Erster", "Übertrag aus September"], Order(cut));
+        Assert.Equal("31.10.2026", cut.Find("tr[data-testid='month-carry-over-out'] .bookings-date").TextContent.Trim());
     }
 
     // A2 (R2), Haushaltsplan: dieselbe Reihenfolge, auch wenn die Buchungen ungeordnet ankommen.
