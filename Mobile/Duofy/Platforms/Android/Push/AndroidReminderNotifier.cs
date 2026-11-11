@@ -24,7 +24,10 @@ namespace Duofy.Services.Push
             if (notification.WithActions)
             {
                 builder.AddAction(0, ReminderTexts.PaidAction, ActionIntent(ReminderActionReceiver.PaidAction, notification.ReminderId));
-                builder.AddAction(0, ReminderTexts.LaterAction, ActionIntent(ReminderActionReceiver.LaterAction, notification.ReminderId));
+                if (notification.WithLater)
+                {
+                    builder.AddAction(0, ReminderTexts.LaterAction, ActionIntent(ReminderActionReceiver.LaterAction, notification.ReminderId));
+                }
             }
             Notify(notification.ReminderId, builder);
             return Task.CompletedTask;
