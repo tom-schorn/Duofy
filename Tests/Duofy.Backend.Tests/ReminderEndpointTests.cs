@@ -3,6 +3,8 @@ using System.Net.Http.Json;
 using Duofy.Domain;
 using Duofy.Schemas;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using static Duofy.Api.Tests.HouseholdDriver;
 
 namespace Duofy.Api.Tests;
@@ -343,5 +345,59 @@ public class ReminderEndpointTests(ApiFixture fixture)
 
         await server.RunAtAsync(ReminderServer.Morning.AddMinutes(90));
         Assert.Empty(server.Push.To(token));
+    }
+
+    // Hinweis 9: Eine abgelehnte Uhrzeit steht gekürzt im Log (Warnung), sonst nichts über die Person oder die Anfrage.
+    [Fact]
+    public async Task A_refused_time_is_logged_shortened_as_a_warning_and_nothing_else()
+    {
+        var logs = new WarningLogs();
+        await using var server = ReminderServer.Start(fixture, configureServices: services => services.AddSingleton<ILoggerProvider>(logs));
+        var anna = await server.PersonAsync("Anna");
+        var long25 = new string('9', 60) + "\nforged line";
+
+        var put = await server.Client.SendAsync(anna, HttpMethod.Put, SettingsPath, new UpdateReminderSettingsRequest(EveningTime: long25));
+
+        Assert.Equal(HttpStatusCode.BadRequest, put.StatusCode);
+        var warning = Assert.Single(logs.Warnings("Duofy.Api.Reminders"));
+        Assert.Contains(new string('9', 20), warning);
+        Assert.DoesNotContain(new string('9', 21), warning);
+        Assert.DoesNotContain("forged", warning);
+        Assert.DoesNotContain('\n', warning);
+        Assert.DoesNotContain(anna.Id.ToString(), warning);
+    }
+
+    private sealed class WarningLogs : ILoggerProvider
+    {
+        private readonly List<(string Category, LogLevel Level, string Message)> entries = [];
+
+        public IReadOnlyList<string> Warnings(string category)
+        {
+            lock (entries)
+            {
+                return entries.Where(e => e.Category == category && e.Level == LogLevel.Warning).Select(e => e.Message).ToList();
+            }
+        }
+
+        public ILogger CreateLogger(string categoryName) => new Capture(this, categoryName);
+
+        public void Dispose()
+        {
+        }
+
+        private sealed class Capture(WarningLogs owner, string category) : ILogger
+        {
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+            public bool IsEnabled(LogLevel logLevel) => true;
+
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+            {
+                lock (owner.entries)
+                {
+                    owner.entries.Add((category, logLevel, formatter(state, exception)));
+                }
+            }
+        }
     }
 }

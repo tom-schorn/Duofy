@@ -132,6 +132,7 @@ internal static class ReminderEndpoints
         {
             if (!TryParseTime(request.MorningTime, out var parsed))
             {
+                LogRefusedTime(loggers, request.MorningTime);
                 return ApiErrors.BadRequest(ReminderErrorCodes.ReminderTimeInvalid);
             }
             morning = parsed;
@@ -140,6 +141,7 @@ internal static class ReminderEndpoints
         {
             if (!TryParseTime(request.EveningTime, out var parsed))
             {
+                LogRefusedTime(loggers, request.EveningTime);
                 return ApiErrors.BadRequest(ReminderErrorCodes.ReminderTimeInvalid);
             }
             evening = parsed;
@@ -284,6 +286,16 @@ internal static class ReminderEndpoints
 
     // Der Zeitwähler von Android und Windows liefert "HH:mm", manchmal "HH:mm:ss" oder ohne führende Null; die Sekunden zählen nicht.
     private static readonly string[] TimeFormats = ["HH:mm", "H:mm", "HH:mm:ss", "H:mm:ss", "HH:mm:ss.FFFFFFF", "H:mm:ss.FFFFFFF"];
+
+    /// <summary>Wie viele Zeichen eines abgelehnten Werts ins Log kommen (Eingabe von außen: kurz halten, keine Zeilenumbrüche).</summary>
+    private const int LoggedTimeLength = 20;
+
+    /// <summary>Vermerkt den abgelehnten Wert gekürzt als Warnung, sonst nichts über die Anfrage.</summary>
+    private static void LogRefusedTime(ILoggerFactory loggers, string? raw)
+    {
+        var shortened = new string((raw ?? "").Take(LoggedTimeLength).Select(c => char.IsControl(c) ? '?' : c).ToArray());
+        loggers.CreateLogger(LogCategory).LogWarning("Uhrzeit für die Benachrichtigungen abgelehnt: \"{Value}\"", shortened);
+    }
 
     internal static bool TryParseTime(string? text, out TimeOnly time)
     {
