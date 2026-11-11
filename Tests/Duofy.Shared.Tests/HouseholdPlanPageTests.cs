@@ -147,7 +147,6 @@ public class HouseholdPlanPageTests : PageTestContext
         Assert.Empty(cut.FindAll("[role='checkbox']"));
         Assert.Empty(cut.FindAll("button[data-testid^='plan-edit'],button[data-testid^='plan-delete']"));
     }
-
     // Spec 82, R16: Den Monatsumschalter gibt es nicht mehr; zurück geht es zur Übersicht der Monate.
     [Fact]
     public async Task The_household_month_leads_back_to_the_months()

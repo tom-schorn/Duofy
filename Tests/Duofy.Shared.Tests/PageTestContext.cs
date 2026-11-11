@@ -29,7 +29,6 @@ public abstract class PageTestContext : UiTestContext
     protected FakeLegalApi LegalApiFake { get; } = new();
     protected FakeInstanceApi InstanceApiFake { get; } = new();
     protected FakeAdminApi AdminApiFake { get; } = new();
-    protected FakeReminderApi ReminderApiFake { get; } = new();
 
     /// <summary>Öffnet den Monat und dort "Neue Buchung": Neue Buchungen entstehen nur im Monat (Spec 51, R3).</summary>
     protected IRenderedComponent<Duofy.Shared.Pages.Plan> OpenMonthAndNewBooking(int year = 2026, int month = 10)
@@ -60,7 +59,6 @@ public abstract class PageTestContext : UiTestContext
         Services.AddSingleton<ILegalApi>(LegalApiFake);
         Services.AddSingleton<IInstanceApi>(InstanceApiFake);
         Services.AddSingleton<IAdminApi>(AdminApiFake);
-        Services.AddSingleton<IReminderApi>(ReminderApiFake);
         // Läuft ein Test als App, zeigt das Layout die Serverzeile und braucht dafür einen Speicher.
         Services.AddSingleton<IServerStore>(new ServerStore(new Uri("https://api.duofy.invalid/"), new InMemoryServerPreference()));
         // Heute ist der 21. Oktober 2026.
