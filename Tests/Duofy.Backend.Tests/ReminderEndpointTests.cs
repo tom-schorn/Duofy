@@ -120,6 +120,43 @@ public class ReminderEndpointTests(ApiFixture fixture)
         Assert.Equal(ReminderErrorCodes.ReminderTimeInvalid, await invalid.ReadCodeAsync());
     }
 
+    // #117 / #118 A2: Der Android-Dialog liefert die Zeit nicht immer als "HH:mm"; auch "HH:mm:ss" gilt, die Sekunden fallen weg.
+    [Theory]
+    [InlineData("04:40", "04:40")]
+    [InlineData("04:40:00", "04:40")]
+    [InlineData("04:40:59", "04:40")]
+    [InlineData("4:40", "04:40")]
+    public async Task A_time_with_or_without_seconds_is_stored_without_seconds(string sent, string stored)
+    {
+        await using var server = ReminderServer.Start(fixture);
+        var anna = await server.PersonAsync("Anna");
+
+        var put = await server.Client.SendAsync(anna, HttpMethod.Put, SettingsPath, new UpdateReminderSettingsRequest(Time: sent));
+
+        Assert.Equal(HttpStatusCode.OK, put.StatusCode);
+        var settings = await server.Client.SendAsync(anna, HttpMethod.Get, SettingsPath);
+        Assert.Equal(stored, (await settings.Content.ReadFromJsonAsync<ReminderSettingsResponse>())!.Time);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("25:00")]
+    [InlineData("12:60")]
+    [InlineData("abc")]
+    public async Task An_empty_or_impossible_time_is_refused_and_the_stored_time_stays(string sent)
+    {
+        await using var server = ReminderServer.Start(fixture);
+        var anna = await server.PersonAsync("Anna");
+        await server.Client.SendAsync(anna, HttpMethod.Put, SettingsPath, new UpdateReminderSettingsRequest(Time: "07:30"));
+
+        var put = await server.Client.SendAsync(anna, HttpMethod.Put, SettingsPath, new UpdateReminderSettingsRequest(Time: sent));
+
+        Assert.Equal(HttpStatusCode.BadRequest, put.StatusCode);
+        Assert.Equal(ReminderErrorCodes.ReminderTimeInvalid, await put.ReadCodeAsync());
+        var settings = await server.Client.SendAsync(anna, HttpMethod.Get, SettingsPath);
+        Assert.Equal("07:30", (await settings.Content.ReadFromJsonAsync<ReminderSettingsResponse>())!.Time);
+    }
+
     // A4
     [Fact]
     public async Task The_text_of_a_reminder_is_served_only_to_its_recipient()

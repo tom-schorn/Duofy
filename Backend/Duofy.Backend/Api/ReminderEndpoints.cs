@@ -129,7 +129,7 @@ internal static class ReminderEndpoints
         TimeOnly? time = null;
         if (request.Time is not null)
         {
-            if (!TimeOnly.TryParseExact(request.Time, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
+            if (!TryParseTime(request.Time, out var parsed))
             {
                 return ApiErrors.BadRequest(ReminderErrorCodes.ReminderTimeInvalid);
             }
@@ -221,6 +221,20 @@ internal static class ReminderEndpoints
             return null;
         }
         return (reminder, plan, plan.Positions[0]);
+    }
+
+    // Der Zeitwähler von Android und Windows liefert "HH:mm", manchmal "HH:mm:ss" oder ohne führende Null; die Sekunden zählen nicht.
+    private static readonly string[] TimeFormats = ["HH:mm", "H:mm", "HH:mm:ss", "H:mm:ss", "HH:mm:ss.FFFFFFF", "H:mm:ss.FFFFFFF"];
+
+    internal static bool TryParseTime(string? text, out TimeOnly time)
+    {
+        if (TimeOnly.TryParseExact(text?.Trim(), TimeFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
+        {
+            time = new TimeOnly(parsed.Hour, parsed.Minute);
+            return true;
+        }
+        time = default;
+        return false;
     }
 
     private static ReminderSettingsResponse ToResponse(ReminderSettings settings) =>
