@@ -210,12 +210,23 @@ internal sealed class ReminderRunner(DuofyDbContext db, ReminderSwitch reminders
             }
             var home = await db.Plans
                 .Where(plan => plan.Positions.Any(p => p.Id == reminder.PositionId))
-                .Select(plan => new { plan.OwnerId, plan.Year, plan.Month, DueDay = plan.Positions.First(p => p.Id == reminder.PositionId).DueDay })
+                .Select(plan => new { plan.OwnerId, plan.Year, plan.Month, DueDay = plan.Positions.First(p => p.Id == reminder.PositionId).DueDay, plan.Positions.First(p => p.Id == reminder.PositionId).PassThrough, Done = plan.Positions.First(p => p.Id == reminder.PositionId).DoneAt != null, Planned = plan.Positions.First(p => p.Id == reminder.PositionId).AmountPlanned })
                 .SingleAsync(cancellationToken);
             var ownerId = home.OwnerId;
             if (!(await ReminderRecipients.OfOwnerAsync(db, ownerId, cancellationToken)).Contains(reminder.RecipientId))
             {
                 // Die Freigabe ist weg oder die Person nicht mehr im Haushalt: Die Erinnerung endet hier.
+                reminder.State = ReminderState.Done;
+                await db.SaveChangesAsync(cancellationToken);
+                continue;
+            }
+            var booked = await db.Bookings
+                .SelectMany(b => b.Lines)
+                .Where(l => l.PositionId == reminder.PositionId)
+                .SumAsync(l => (decimal?)l.Amount, cancellationToken) ?? 0m;
+            if (!PositionOpen.Is(income: false, home.PassThrough, home.Done, home.Planned, booked))
+            {
+                // Der Posten ist inzwischen abgehakt oder voll gebucht: Die Erinnerung endet hier.
                 reminder.State = ReminderState.Done;
                 await db.SaveChangesAsync(cancellationToken);
                 continue;
@@ -250,7 +261,7 @@ internal sealed class ReminderRunner(DuofyDbContext db, ReminderSwitch reminders
         {
             var settings = await SettingsOfAsync(personId, cancellationToken);
             if (!settings.Household || !settings.EveningEnabled || settings.EveningTime > time
-                || time > settings.EveningTime.Add(SummaryCatchUp))
+                || time - settings.EveningTime > SummaryCatchUp)
             {
                 continue;
             }
