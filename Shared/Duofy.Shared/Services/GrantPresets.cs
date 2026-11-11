@@ -22,22 +22,15 @@ public static class GrantPresets
     /// <summary>Die Stufen einer Vorlage.</summary>
     public static GrantLevels Levels(string preset) => preset switch
     {
-        // Der Partner wird auch an seine Erinnerungen erinnert (Spec 84); Mitlesen, Kind und Nichts nicht.
-        Partner => new(AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.View),
+        Partner => new(AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.Delete),
         Read => new(AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View),
         Kid => GrantLevels.None with { Plan = AccessLevelKeys.View },
         Nothing => GrantLevels.None,
         _ => throw new ArgumentOutOfRangeException(nameof(preset), preset, "Unbekannte Vorlage."),
     };
 
-    /// <summary>
-    /// Die Vorlage, die genau diesen Stufen entspricht; null für eine eigene Auswahl. Der Bereich Erinnerungen zählt
-    /// beim Partner nicht mit: Ein Partner, den es vor Spec 84 gab, hat ihn nicht und bleibt "Partner", und ein Partner,
-    /// dem jemand die Erinnerungen abgestellt hat, ebenso (sie sind kein Zugriff auf Daten). Bei den anderen Vorlagen
-    /// gilt der Bereich genau, denn "Mitlesen mit Erinnerungen" ist eine eigene Auswahl.
-    /// </summary>
-    public static string? PresetOf(GrantLevels levels) => Order.FirstOrDefault(preset =>
-        Levels(preset) == levels || (preset == Partner && Levels(preset) with { Reminders = levels.Reminders } == levels));
+    /// <summary>Die Vorlage, die genau diesen Stufen entspricht; null für eine eigene Auswahl.</summary>
+    public static string? PresetOf(GrantLevels levels) => Order.FirstOrDefault(preset => Levels(preset) == levels);
 
     /// <summary>Die Schlüssel der Hinweise, wenn ein Recht ohne ein anderes wenig nützt.</summary>
     public static IReadOnlyList<string> Hints(GrantLevels levels)

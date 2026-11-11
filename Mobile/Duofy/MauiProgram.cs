@@ -1,8 +1,6 @@
 using System.Reflection;
 using Duofy.ApiClient;
-using Duofy.Push;
 using Duofy.Services;
-using Duofy.Services.Push;
 using Duofy.Shared.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -73,12 +71,8 @@ namespace Duofy
                 new ServerSelectorOptions { AllowHttp = allowHttp });
 
             // Die Tokens liegen im SecureStorage des Telefons. Dadurch bleibt die App nach
-            // dem Schließen angemeldet. Die Ablage meldet das Gerät für Erinnerungen an (nach dem Anmelden) und ab
-            // (vor dem Abmelden), siehe AddReminders.
-            builder.Services.AddSingleton<SecureStorageTokenStore>();
-            builder.Services.AddSingleton<ITokenStore>(services => new DeviceRegisteringTokenStore(
-                services.GetRequiredService<SecureStorageTokenStore>(), services, services.GetRequiredService<ILogger<DeviceRegisteringTokenStore>>()));
-            AddReminders(builder.Services);
+            // dem Schließen angemeldet.
+            builder.Services.AddSingleton<ITokenStore, SecureStorageTokenStore>();
 
             // Die Seiten fragen über diesen Dienst, wer angemeldet ist.
             builder.Services.AddCascadingAuthenticationState();
@@ -89,24 +83,6 @@ namespace Duofy
 #endif
 
             return builder.Build();
-        }
-
-        // Erinnerungen (Spec 84): der plattformneutrale Kern aus Duofy.Push und die Teile, die nur Android oder Windows kennen.
-        private static void AddReminders(IServiceCollection services)
-        {
-            services.AddSingleton<NavigationRequests>();
-            services.AddSingleton<IInstallationIdStore, PreferencesInstallationIdStore>();
-            services.AddScoped<IPositionTicker, PlanPositionTicker>();
-            services.AddScoped<ReminderSignalHandler>();
-            services.AddScoped<ReminderActionHandler>();
-            services.AddScoped<DeviceRegistrar>();
-#if ANDROID
-            services.AddSingleton<IReminderNotifier, AndroidReminderNotifier>();
-            services.AddSingleton<IPushTokenSource, AndroidPushTokenSource>();
-#elif WINDOWS
-            services.AddSingleton<IReminderNotifier, WindowsReminderNotifier>();
-            services.AddSingleton<IPushTokenSource, WindowsPushTokenSource>();
-#endif
         }
 
         // Liest die eingebetteten Einstellungsdateien. Spätere Dateien überschreiben frühere:

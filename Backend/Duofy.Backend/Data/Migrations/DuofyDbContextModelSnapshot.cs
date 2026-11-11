@@ -941,7 +941,7 @@ namespace Duofy.Data.Migrations
 
                     b.ToTable("grants", null, t =>
                         {
-                            t.HasCheckConstraint("ck_grants_area", "area IN ('plan', 'book', 'accounts', 'commitments', 'savings', 'reminders')");
+                            t.HasCheckConstraint("ck_grants_area", "area IN ('plan', 'book', 'accounts', 'commitments', 'savings')");
 
                             t.HasCheckConstraint("ck_grants_level", "level IN ('view', 'create', 'edit', 'delete')");
 
@@ -1338,96 +1338,6 @@ namespace Duofy.Data.Migrations
                         .HasDatabaseName("ix_registration_invitations_used_by_id");
 
                     b.ToTable("registration_invitations", (string)null);
-                });
-
-            modelBuilder.Entity("Duofy.Domain.Reminder", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateOnly>("Day")
-                        .HasColumnType("date")
-                        .HasColumnName("day");
-
-                    b.Property<Guid>("PositionId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("position_id");
-
-                    b.Property<Guid>("RecipientId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("recipient_id");
-
-                    b.Property<string>("State")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("state");
-
-                    b.HasKey("Id")
-                        .HasName("pk_reminders");
-
-                    b.HasIndex("RecipientId")
-                        .HasDatabaseName("ix_reminders_recipient_id");
-
-                    b.HasIndex("PositionId", "RecipientId")
-                        .IsUnique()
-                        .HasDatabaseName("ix_reminders_position_id_recipient_id");
-
-                    b.ToTable("reminders", (string)null);
-                });
-
-            modelBuilder.Entity("Duofy.Domain.ReminderDevice", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.Property<string>("InstallationId")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("installation_id");
-
-                    b.Property<DateTimeOffset>("LastSeenAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_seen_at");
-
-                    b.Property<string>("Platform")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("platform");
-
-                    b.Property<string>("PushToken")
-                        .IsRequired()
-                        .HasMaxLength(4096)
-                        .HasColumnType("character varying(4096)")
-                        .HasColumnName("push_token");
-
-                    b.HasKey("UserId", "InstallationId")
-                        .HasName("pk_reminder_devices");
-
-                    b.ToTable("reminder_devices", (string)null);
-                });
-
-            modelBuilder.Entity("Duofy.Domain.ReminderSettings", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.Property<bool>("Enabled")
-                        .HasColumnType("boolean")
-                        .HasColumnName("enabled");
-
-                    b.Property<TimeOnly>("Time")
-                        .HasColumnType("time without time zone")
-                        .HasColumnName("time");
-
-                    b.HasKey("UserId")
-                        .HasName("pk_reminder_settings");
-
-                    b.ToTable("reminder_settings", (string)null);
                 });
 
             modelBuilder.Entity("Duofy.Domain.SavingsGoal", b =>
@@ -1932,43 +1842,6 @@ namespace Duofy.Data.Migrations
                         .HasForeignKey("UsedById")
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_registration_invitations_users_used_by_id");
-                });
-
-            modelBuilder.Entity("Duofy.Domain.Reminder", b =>
-                {
-                    b.HasOne("Duofy.Domain.PlanPosition", null)
-                        .WithMany()
-                        .HasForeignKey("PositionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_reminders_plan_positions_position_id");
-
-                    b.HasOne("Duofy.Data.AppUser", null)
-                        .WithMany()
-                        .HasForeignKey("RecipientId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_reminders_users_recipient_id");
-                });
-
-            modelBuilder.Entity("Duofy.Domain.ReminderDevice", b =>
-                {
-                    b.HasOne("Duofy.Data.AppUser", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_reminder_devices_users_user_id");
-                });
-
-            modelBuilder.Entity("Duofy.Domain.ReminderSettings", b =>
-                {
-                    b.HasOne("Duofy.Data.AppUser", null)
-                        .WithOne()
-                        .HasForeignKey("Duofy.Domain.ReminderSettings", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_reminder_settings_users_user_id");
                 });
 
             modelBuilder.Entity("Duofy.Domain.SavingsGoal", b =>

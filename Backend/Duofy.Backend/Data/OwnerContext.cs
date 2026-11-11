@@ -71,10 +71,8 @@ public sealed class OwnerContext(ILogger<OwnerContext> logger) : IOwnerContext
         // Jede Zeile heißt mindestens Ansehen; "keine Zeile" ist "Nichts".
         CurrentUserId = userId;
         grants = granted.ToDictionary(g => (g.GranterId, g.Area), g => g.Level);
-        // Die Erinnerungen (Spec 84) geben keinen Zugriff auf Daten und öffnen darum keine Besitzer.
-        var dataGrants = granted.Where(g => g.Area != Area.Reminders).ToList();
-        VisibleOwners = dataGrants.Select(g => g.GranterId).Append(userId).ToHashSet();
-        WritableOwners = dataGrants.Where(g => g.Level.Includes(AccessLevel.Create)).Select(g => g.GranterId).Append(userId).ToHashSet();
+        VisibleOwners = granted.Select(g => g.GranterId).Append(userId).ToHashSet();
+        WritableOwners = granted.Where(g => g.Level.Includes(AccessLevel.Create)).Select(g => g.GranterId).Append(userId).ToHashSet();
     }
 
     /// <summary>

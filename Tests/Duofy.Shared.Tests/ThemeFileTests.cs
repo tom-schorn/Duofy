@@ -21,6 +21,17 @@ public partial class ThemeFileTests
         return VariablePattern().Matches(body).ToDictionary(m => m.Groups[1].Value, m => m.Groups[2].Value.Trim());
     }
 
+    // A3 (Spec 118), Issue 117: Das Theme sagt den Steuerelementen des Systems, ob sie hell oder dunkel sind.
+    [Fact]
+    public void The_theme_declares_a_dark_colour_scheme_for_the_dark_theme_and_its_native_controls()
+    {
+        var css = Theme();
+
+        Assert.Matches(@"\.dark\s*\{\s*color-scheme:\s*dark;", css);
+        Assert.Matches(@":root\s*\{\s*color-scheme:\s*light;", css);
+        Assert.Matches(@"\.dark input,[^{]*\.dark select[^{]*\{\s*color-scheme:\s*dark;", css);
+    }
+
     [Theory]
     [InlineData(":root", "--background", "#fbf9f4")]
     [InlineData(":root", "--foreground", "#0f141c")]

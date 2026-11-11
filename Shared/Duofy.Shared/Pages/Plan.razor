@@ -225,15 +225,8 @@ else
 
     [SupplyParameterFromQuery(Name = BookQuery)] public int? Book { get; set; }
 
-    /// <summary>Der Posten, dessen Haken-Dialog die Seite öffnet; so kommt der Tipp auf eine Erinnerung hierher (Spec 84, R5).</summary>
-    [SupplyParameterFromQuery(Name = "haken")] public Guid? TickPosition { get; set; }
-
-    /// <summary>Wem der Posten gehört; ein Mitglied, das nichts teilt, wird still übergangen.</summary>
-    [SupplyParameterFromQuery(Name = "besitzer")] public Guid? TickOwner { get; set; }
-
     // Der Dialog geht erst nach dem Zeichnen auf, und nur einmal: Danach ist der Parameter aus der Adresse.
     private bool bookingPending;
-    private PlanPositionResponse? tickPending;
 
     private int year;
     private int month;
@@ -372,7 +365,6 @@ else
         Chrome.SetHelpTopic(this, HelpTopicOf(tab));
         // Erst nach dem ersten Laden zuhören: Das Laden selbst meldet sich auch als Änderung.
         await Member.LoadAsync();
-        var fromReminder = requested is not null && TickPosition is not null && SelectReminderOwner();
         Member.Changed += OnMemberChanged;
         if (requested is null)
         {
@@ -383,46 +375,10 @@ else
         await LoadAllAsync();
         opened = true;
         bookingPending = Book == 1 && !Member.IsHousehold;
-        if (fromReminder)
-        {
-            // Ein unbekannter oder schon abgehakter Posten zeigt nur den Monat; ohne Buchungen, damit kein Tipp still bucht.
-            tickPending = plan?.Positions.FirstOrDefault(p => p.Id == TickPosition && p.DoneAt is null && p.Booked == 0m && CanToggle(p));
-        }
-    }
-
-    /// <summary>
-    /// Wählt den Besitzer der Erinnerung vor dem ersten Laden. Gehört der Posten der angemeldeten Person selbst, gilt "Ich";
-    /// ein Besitzer, der nichts teilt (oder unbekannt ist), ändert nichts, und dann öffnet auch kein Dialog.
-    /// </summary>
-    private bool SelectReminderOwner()
-    {
-        if (TickOwner is not { } owner)
-        {
-            return true;
-        }
-        if (Member.Household?.Members.Any(m => m.IsMe && m.UserId == owner) == true)
-        {
-            Member.Choose(null);
-            return true;
-        }
-        if (Member.Sharing.All(m => m.UserId != owner))
-        {
-            return false;
-        }
-        Member.Choose(owner);
-        return true;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (tickPending is { } position)
-        {
-            tickPending = null;
-            Navigation.NavigateTo($"/plan/{year}/{month}", replace: true);
-            await OpenTickDialogAsync(position);
-            StateHasChanged();
-            return;
-        }
         if (!bookingPending)
         {
             return;

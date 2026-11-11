@@ -313,16 +313,14 @@ internal static class HouseholdEndpoints
         var levels = new Dictionary<Area, AccessLevel>();
         foreach (var (area, key) in new[]
         {
-            (Area.Plan, request.Plan), (Area.Book, request.Book), (Area.Accounts, request.Accounts), (Area.Commitments, request.Commitments), (Area.Savings, request.Savings), (Area.Reminders, request.Reminders),
+            (Area.Plan, request.Plan), (Area.Book, request.Book), (Area.Accounts, request.Accounts), (Area.Commitments, request.Commitments), (Area.Savings, request.Savings),
         })
         {
             if (key is null)
             {
                 continue;
             }
-            if (!GrantKeys.TryParse(key, out var level)
-                // Erinnerungen kennen nur Nichts und Ansehen (Spec 84).
-                || (area == Area.Reminders && level > AccessLevel.View))
+            if (!GrantKeys.TryParse(key, out var level))
             {
                 return ApiErrors.BadRequest(ErrorCodes.GrantLevelInvalid);
             }

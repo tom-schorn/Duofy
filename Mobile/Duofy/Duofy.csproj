@@ -129,24 +129,7 @@
     <EmbeddedResource Include="appsettings.local.json" Condition="'$(Configuration)' == 'Debug' And Exists('appsettings.local.json')" />
   </ItemGroup>
 
-  <!-- Erinnerungen (Spec 84): Auf Android kommen die stillen Signale über Firebase Cloud Messaging. Die Bindung ist
-       MIT, das Firebase-SDK Apache-2.0; die Google-Play-Dienste dahinter stehen unter den Nutzungsbedingungen von Google.
-       Die Firebase-Datei google-services.json gehört dem Betreiber und liegt nie im Repository (.gitignore): Nur wenn sie im
-       Projektordner liegt, wird sie eingebaut; ohne sie läuft die App, nur ohne Erinnerungen. -->
-  <ItemGroup Condition="$(TargetFramework.Contains('-android'))">
-    <PackageReference Include="Xamarin.Firebase.Messaging" Version="125.1.3" />
-    <!-- Firebase zieht neuere AndroidX-Pakete nach; deren Ktx-Schwestern müssen auf demselben Stand sein, sonst steht
-         dieselbe Klasse zweimal im Build ("defined multiple times", D8). Alle MIT, nur Bindungen derselben Bibliotheken. -->
-    <PackageReference Include="Xamarin.AndroidX.Fragment.Ktx" Version="1.9.0" />
-    <PackageReference Include="Xamarin.AndroidX.Collection.Ktx" Version="1.6.0.1" />
-    <PackageReference Include="Xamarin.AndroidX.Lifecycle.LiveData" Version="2.11.0.1" />
-    <PackageReference Include="Xamarin.AndroidX.Lifecycle.LiveData.Core.Ktx" Version="2.11.0.1" />
-    <PackageReference Include="Xamarin.AndroidX.Lifecycle.Process" Version="2.11.0.1" />
-    <GoogleServicesJson Include="google-services.json" Condition="Exists('google-services.json')" />
-  </ItemGroup>
-
   <ItemGroup>
-    <ProjectReference Include="..\Duofy.Push\Duofy.Push.csproj" />
     <ProjectReference Include="..\..\Shared\Duofy.ApiClient\Duofy.ApiClient.csproj" />
     <ProjectReference Include="..\..\Shared\Duofy.Shared\Duofy.Shared.csproj" />
   </ItemGroup>

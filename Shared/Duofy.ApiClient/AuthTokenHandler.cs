@@ -24,11 +24,6 @@ internal sealed class AuthTokenHandler : DelegatingHandler
     /// <summary>Die Adresse des Servers, an den die Anfrage geht; der Refresh geht an denselben.</summary>
     public static readonly HttpRequestOptionsKey<Uri> Server = new("Duofy.Server");
 
-    // Gilt, solange der Handler die Anmeldung löscht, weil das Refresh-Token abgelehnt wurde. Ein Aufräumen, das dabei selbst
-    // eine Anfrage schickt (das Gerät abmelden), bekäme wieder 401 und würde wieder einen Refresh anstoßen: ein Kreis.
-    // Ein AsyncLocal, weil die Anfrage dabei über einen anderen Handler und Scope laufen kann.
-    private static readonly AsyncLocal<bool> clearingExpiredSession = new();
-
     private readonly TokenSession session;
     private readonly ILogger<AuthTokenHandler> logger;
 
@@ -66,12 +61,6 @@ internal sealed class AuthTokenHandler : DelegatingHandler
         var response = await base.SendAsync(request, cancellationToken);
         if (response.StatusCode != HttpStatusCode.Unauthorized)
         {
-            return response;
-        }
-
-        if (clearingExpiredSession.Value)
-        {
-            // Die Anmeldung ist schon als abgelaufen erkannt; kein zweiter Refresh.
             return response;
         }
 
@@ -126,15 +115,7 @@ internal sealed class AuthTokenHandler : DelegatingHandler
             if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.BadRequest)
             {
                 logger.LogInformation("Refresh-Token abgelehnt ({StatusCode}); die Anmeldung wird gelöscht.", (int)response.StatusCode);
-                clearingExpiredSession.Value = true;
-                try
-                {
-                    await session.ClearAsync(cancellationToken);
-                }
-                finally
-                {
-                    clearingExpiredSession.Value = false;
-                }
+                await session.ClearAsync(cancellationToken);
                 return null;
             }
 

@@ -151,7 +151,6 @@ public class HouseholdPlanPageTests : PageTestContext
         Assert.Equal("true", cut.Find($"[data-testid='household-tick-{rent.Id}']").GetAttribute("aria-disabled"));
         Assert.Empty(cut.FindAll("button[data-testid^='plan-edit'],button[data-testid^='plan-delete']"));
     }
-
     // Spec 82, R16: Den Monatsumschalter gibt es nicht mehr; zurück geht es zur Übersicht der Monate.
     [Fact]
     public async Task The_household_month_leads_back_to_the_months()
