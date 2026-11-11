@@ -15,7 +15,7 @@ namespace Duofy.Shared.Tests;
 public class GrantedPagesTests : PageTestContext
 {
     private const string Reason = "Dafür hat dir Anna keine Freigabe gegeben.";
-    private const string NotShared = "Diese Person teilt diesen Bereich nicht mit dir.";
+    private const string NotShared = "Anna teilt Buchungen nicht mit dir.";
 
     private static readonly Guid Anna = FakeHouseholdApi.AnnaId;
 
@@ -142,10 +142,9 @@ public class GrantedPagesTests : PageTestContext
         var bookings = Render<AccountBookings>(c => c.Add(x => x.AccountId, Guid.NewGuid()));
         var accounts = Render<Accounts>();
 
-        foreach (var text in new[] { commitments.Markup, bookings.Markup, accounts.Markup })
-        {
-            Assert.Contains(NotShared, text);
-        }
+        Assert.Contains("Anna teilt Verträge nicht mit dir.", commitments.Markup);
+        Assert.Contains("Anna teilt Buchungen nicht mit dir.", bookings.Markup);
+        Assert.Contains("Anna teilt Konten nicht mit dir.", accounts.Markup);
         Assert.Empty(CommitmentApiFake.ListCalls);
         Assert.Empty(BookingApiFake.ListCalls);
         Assert.Equal(0, AccountApiFake.ListCalls);

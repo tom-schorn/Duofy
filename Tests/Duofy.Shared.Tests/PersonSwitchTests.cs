@@ -2,6 +2,7 @@ using Bunit;
 using Duofy.Schemas;
 using Duofy.Shared.Layout;
 using Duofy.Shared.Pages;
+using Duofy.Shared.Pages.Month;
 using Duofy.Shared.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
@@ -141,6 +142,54 @@ public class PersonSwitchTests : PageTestContext
         accounts.WaitForAssertion(() => Assert.Contains("Wo das Geld von Anna liegt", accounts.Markup));
         Assert.Contains("Anna hat noch kein Konto.", accounts.Markup);
         Assert.DoesNotContain("dein", accounts.Markup);
+    }
+
+    // Spec 126, S1: Auch Verträge, Sparen, der Plan und die geänderten Verträge sprechen von der gewählten Person.
+    [Fact]
+    public async Task Contracts_savings_and_plan_speak_about_the_chosen_person()
+    {
+        PlanApiFake.Plans[(2026, 10)] = FakePlanApi.Empty(2026, 10);
+        await Member.LoadAsync();
+        Member.Choose(Anna);
+
+        var commitments = Render<Commitments>();
+        commitments.WaitForAssertion(() => Assert.Contains("Anna hat noch keinen Vertrag.", commitments.Markup));
+
+        var savings = Render<Savings>();
+        savings.WaitForAssertion(() => Assert.Contains("Anna hat noch kein Sparziel.", savings.Markup));
+        Assert.Contains("Anna hat keine Forderung eingetragen.", savings.Find("[data-testid='savings-empty-debts']").TextContent);
+        Assert.DoesNotContain("Keine Forderung eingetragen", savings.Markup);
+
+        var plan = Render<Plan>(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 10));
+        plan.WaitForAssertion(() => Assert.Contains("Der Plan von Anna.", plan.Markup));
+
+        var change = new PlanChangeResponse(PlanChangeKinds.Changed, Guid.NewGuid(), Guid.NewGuid(), "Miete", [], false);
+        var card = Render<PlanChangesCard>(p => p
+            .Add(x => x.Changes, [change])
+            .Add(x => x.OnApply, EventCallback.Factory.Create<PlanChangeResponse?>(this, _ => { }))
+            .Add(x => x.FieldText, (_, value) => value ?? ""));
+        Assert.Contains("Die Verträge von Anna haben sich geändert", card.Markup);
+    }
+
+    // Spec 126, S2: Wo Anna einen Bereich nicht teilt, nennt der Hinweis Person und Bereich.
+    [Fact]
+    public async Task The_not_shared_hints_name_the_person_and_the_area()
+    {
+        HouseholdApiFake.Household = HouseholdApiFake.Household! with
+        {
+            Members = [FakeHouseholdApi.Anna(isMe: false) with { GrantsToMe = GrantLevels.None with { Accounts = AccessLevelKeys.View } }, FakeHouseholdApi.Ben(isMe: true)],
+        };
+        await Member.LoadAsync();
+        Member.Choose(Anna);
+
+        var plan = Render<Plan>(p => p.Add(x => x.Year, 2026).Add(x => x.Month, 10));
+        plan.WaitForAssertion(() => Assert.Contains("Anna teilt Planung nicht mit dir.", plan.Find("[data-testid='not-shared']").TextContent));
+
+        var overview = Render<PlanOverview>();
+        Assert.Contains("Anna teilt Planung nicht mit dir.", overview.Find("[data-testid='not-shared']").TextContent);
+
+        var savings = Render<Savings>();
+        Assert.Contains("Anna teilt Sparen und Schulden nicht mit dir.", savings.Find("[data-testid='not-shared']").TextContent);
     }
 
     // Ohne Freigabe gibt es nichts zu wählen: die Marke fehlt.

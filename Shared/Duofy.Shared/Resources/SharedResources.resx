@@ -425,6 +425,7 @@
   <data name="Savings_Empty_goals"><value>Noch kein Sparziel. Wenn du etwas Bestimmtes zurücklegen möchtest, legst du hier ein Ziel an.</value></data>
   <data name="Savings_Empty_goalsOf"><value>{0} hat noch kein Sparziel.</value></data>
   <data name="Savings_Empty_debts"><value>Keine Forderung eingetragen. Das ist in Ordnung, hier steht nur, was du eintragen möchtest.</value></data>
+  <data name="Savings_Empty_debtsOf"><value>{0} hat keine Forderung eingetragen.</value></data>
   <data name="Savings_Empty_loans"><value>Kein Kredit eingetragen.</value></data>
   <data name="Savings_AddGoal"><value>Neues Sparziel</value></data>
   <data name="Savings_EditGoal"><value>Sparziel {0} ändern</value></data>
@@ -744,6 +745,7 @@
   <data name="MemberSwitch_HouseholdReason"><value>Nicht verfügbar: Dafür braucht es einen Haushalt mit mindestens zwei Mitgliedern. Gründe einen oder tritt einem bei.</value></data>
   <data name="Grant_NotGranted"><value>Dafür hat dir {0} keine Freigabe gegeben.</value></data>
   <data name="Grant_NotShared"><value>Diese Person teilt diesen Bereich nicht mit dir.</value></data>
+  <data name="Grant_NotSharedNamed"><value>{0} teilt {1} nicht mit dir.</value></data>
   <data name="Grant_NotSharedArea"><value>Diese Person teilt {0} nicht mit dir.</value></data>
   <data name="Area_Accounts"><value>Konten</value></data>
   <data name="Area_Bookings"><value>Buchungen</value></data>

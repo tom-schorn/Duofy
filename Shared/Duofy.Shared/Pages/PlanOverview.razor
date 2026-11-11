@@ -34,7 +34,7 @@
 
 @if (!SeesPlan)
 {
-    <p class="muted" data-testid="not-shared">@L["Grant_NotShared"]</p>
+    <p class="muted" data-testid="not-shared">@NotSharedText.For(L, Member, "plan")</p>
 }
 else if (rows is not null)
 {

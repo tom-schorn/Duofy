@@ -57,7 +57,7 @@ else
 
 @if (!SeesPlan)
 {
-    <p class="muted" data-testid="not-shared">@L["Grant_NotShared"]</p>
+    <p class="muted" data-testid="not-shared">@NotSharedText.For(L, Member, "plan")</p>
 }
 else
 {
@@ -72,7 +72,7 @@ else
     <div class="metrics" data-testid="month-metrics">
         <div data-testid="month-block-income"><Metric Title="@L["Month_Income"]" Amount="IncomeTotal" /></div>
         <div data-testid="month-block-free"><Metric Title="@L["Month_Allocatable"]" Amount="FreeTotal" Over="FreeTotal < 0m" AmountText="@(FreeTotal == 0m ? L["Month_AllPlanned"].Value : null)" Note="@FreeNote" /></div>
-        <div data-testid="month-block-unpaid"><Metric Title="@L["Month_Unpaid"]" Amount="UnpaidTotal" AmountText="@UnpaidText" Note="@(SeesBookings ? L["Month_UnpaidNote"].Value : L["Grant_NotShared"].Value)" /></div>
+        <div data-testid="month-block-unpaid"><Metric Title="@L["Month_Unpaid"]" Amount="UnpaidTotal" AmountText="@UnpaidText" Note="@(SeesBookings ? L["Month_UnpaidNote"].Value : NotSharedText.For(L, Member, "book"))" /></div>
         <div data-testid="plan-carry-over" data-print="hide">
             @{ var carryOvers = MonthView.CarryOverRows(plan.Overview?.CarryOvers); }
             <div class="metric metric--carry" role="group" aria-labelledby="carry-over-title">
@@ -126,7 +126,7 @@ else
         }
         else
         {
-            <p class="muted" data-testid="bookings-not-shared">@L["Grant_NotShared"]</p>
+            <p class="muted" data-testid="bookings-not-shared">@NotSharedText.For(L, Member, "book")</p>
         }
     }
     else if (tab == MonthTab.Review)

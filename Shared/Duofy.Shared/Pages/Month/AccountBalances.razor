@@ -1,4 +1,5 @@
 @inject IStringLocalizer<SharedResources> L
+@inject ActiveMember Member
 
 @* Die Kontostände in der Auswertung (Tom, 03.11.2026: "die kontostände ansich können auch zu auswertung"). Bei einer Person
    getrennt in "verfügbar" (Konten mit dem Schalter "zählt als verfügbar") und "zurückgelegt", je mit Zwischensumme; im
@@ -8,7 +9,7 @@
     <h2 class="month-section-title" id="month-accounts-heading">@L["Month_AccountsHeading"]</h2>
     @if (NotShared)
     {
-        <p class="month-hint" data-testid="month-accounts-not-shared">@L["Grant_NotShared"]</p>
+        <p class="month-hint" data-testid="month-accounts-not-shared">@NotSharedText.For(L, Member, "accounts")</p>
     }
     else if (Rows.Count == 0)
     {
