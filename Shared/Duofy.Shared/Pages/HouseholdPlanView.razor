@@ -21,7 +21,7 @@
    Plan; jeder Knopf fragt zuerst nach der Person, und Abhaken und Ändern gehen für jede Zeile unter den Freigaben ihrer Person
    (Spec 68). Die Seite rechnet nichts; die API setzt den Plan bei jedem Öffnen aus den Monaten der Mitglieder zusammen. *@
 
-<PlanHead Title="@(Heading ?? MonthTitle)" Lead="@L["HouseholdPlan_Lead"]" OnPrint="PrintAsync" OnBooking="NewBookingAsync" OnAdd="AddAsync" />
+<PlanHead Title="@(Heading ?? MonthTitle)" Lead="@L["HouseholdPlan_Lead"]" CompactLead="true" OnPrint="PrintAsync" OnBooking="NewBookingAsync" OnAdd="AddAsync" />
 
 <h2 class="section-title notice" data-testid="household-name">@(plan?.HouseholdName ?? Member.Household?.Name)</h2>
 
