@@ -19,6 +19,11 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <!-- Der Druckdienst der App (ohne MAUI-Teile) wird hier mit Fakes geprüft; die App selbst lässt sich nicht starten. -->
+  <ItemGroup>
+    <Compile Include="..\..\Mobile\Duofy\Services\PdfPrintService.cs" Link="App\PdfPrintService.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\Shared\Duofy.Shared\Duofy.Shared.csproj" />
   </ItemGroup>

@@ -564,7 +564,7 @@
   <data name="Picker_PrintQuestion"><value>Wessen Plan soll gedruckt werden?</value></data>
   <data name="Picker_AddPositionQuestion"><value>Für wen legst du den Posten an?</value></data>
   <data name="Picker_BookingQuestion"><value>Für wen legst du die Buchung an?</value></data>
-  <data name="HouseholdPlan_ReadOnly"><value>Der Haushaltsplan ist nur zum Lesen. Geändert wird im Plan der jeweiligen Person.</value></data>
+  <data name="HouseholdPlan_ReadOnly"><value>Der Haushaltsplan ist die Zentrale: Hier legst du Posten und Buchungen an, änderst und hakst sie ab, auch für andere Mitglieder, soweit sie es dir erlaubt haben.</value></data>
   <data name="Guideline_Heading"><value>Richtwerte je Person</value></data>
   <data name="Guideline_Intro"><value>Der Richtwert ist ein Anhaltspunkt für die Verteilung der Einnahmen auf Grundbedarf, Wünsche und Sparen, keine Vorgabe. Jeder Anteil ist der Teil der gebuchten Einnahmen der Person.</value></data>
   <data name="Guideline_SummaryFits"><value>Der gemeinsame Plan geht auf: Grundbedarf, Wünsche und Sparen liegen nah am Richtwert.</value></data>
@@ -1069,8 +1069,8 @@
   <data name="Help_household_4_Body"><value>Wer austritt oder entfernt wird, ist danach in keinem Haushalt; Daten wandern nicht. Wer gegründet hat, kann erst austreten, wenn alle anderen gegangen sind; dann löst sich der Haushalt auf.</value></data>
   <data name="Help_householdplan_1_Title"><value>Was der Haushaltsplan ist</value></data>
   <data name="Help_householdplan_1_Body"><value>Er ist keine eigene Liste, sondern die Zusammenstellung der Monatspläne aller Mitglieder, gruppiert nach Person. Jeder Posten existiert genau einmal, im Plan seiner Person.</value></data>
-  <data name="Help_householdplan_2_Title"><value>Nur zum Lesen</value></data>
-  <data name="Help_householdplan_2_Body"><value>Geändert und abgehakt wird im Plan der jeweiligen Person. Hier siehst du, wie der Monat für alle zusammen aussieht.</value></data>
+  <data name="Help_householdplan_2_Title"><value>Die Zentrale</value></data>
+  <data name="Help_householdplan_2_Body"><value>Hier arbeitest du für alle: Posten und Buchungen anlegen, ändern und abhaken, auch für andere Mitglieder, soweit sie es dir erlaubt haben. Vor dem Anlegen fragt die App, für wen. Drucken gibt den Plan einer Person oder des ganzen Haushalts aus; in der App entsteht daraus ein PDF zum Teilen.</value></data>
   <data name="Help_householdplan_3_Title"><value>Wer mitzählt</value></data>
   <data name="Help_householdplan_3_Body"><value>In einem Monat zählt jedes Mitglied, das bis zum letzten Tag des Monats dazugekommen ist. Konten anderer siehst du nur, wenn sie sie dir freigegeben haben; wer fehlt, steht dabei.</value></data>
   <data name="Help_householdplan_4_Title"><value>Gemeinsame Richtwerte</value></data>
