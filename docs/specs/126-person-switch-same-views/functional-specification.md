@@ -44,10 +44,10 @@ External input: no
 
 | Requirement | Criterion | Test |
 | --- | --- | --- |
-| R1 | A1 | MemberSwitchTests.A1_the_menu_lists_me_and_the_person_and_no_household_entry |
-| R2 | A2 | PersonSwitchTests.A2_* (accounts, contracts, plan pages, top bar) |
-| R3 | A3 | StartPageTests.A3_* and Without_a_grant_for_the_accounts_a_hint_says_so |
-| R4 | A4 | PersonSwitchTests.A4_the_review_shows_the_totals_of_the_chosen_person |
+| R1 | A1 | Tests/Duofy.Shared.Tests/MemberSwitchTests.cs |
+| R2 | A2 | Tests/Duofy.Shared.Tests/PersonSwitchTests.cs |
+| R3 | A3 | Tests/Duofy.Shared.Tests/StartPageTests.cs |
+| R4 | A4 | Tests/Duofy.Shared.Tests/PersonSwitchTests.cs |
 
 ## Non-goals
 
