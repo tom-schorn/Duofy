@@ -112,6 +112,8 @@ internal static class InvitationEndpoints
             JoinedAt = now,
         });
         invitation.Accept(userId, now);
+        // Für die Abendzusammenfassung des Haushalts (Spec 118, R8).
+        HouseholdSummary.Record(db, invitation.HouseholdId, HouseholdEventKind.Joined, userId, now, subjectId: userId);
         try
         {
             await db.SaveChangesAsync(cancellationToken);

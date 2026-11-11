@@ -48,17 +48,17 @@ public class ReminderClientTests
     public async Task Settings_are_read_and_changed_and_a_404_means_there_are_no_reminders()
     {
         var (api, provider, scope) = Start(request => request.Method == HttpMethod.Get
-            ? FakeApi.Json(HttpStatusCode.OK, new ReminderSettingsResponse(true, "09:00"))
-            : FakeApi.Json(HttpStatusCode.OK, new ReminderSettingsResponse(false, "07:30")));
+            ? FakeApi.Json(HttpStatusCode.OK, new ReminderSettingsResponse(true, true, true, true, "09:00", true, "19:00", 2))
+            : FakeApi.Json(HttpStatusCode.OK, new ReminderSettingsResponse(false, true, true, false, "07:30", false, "20:15", 5)));
         using var _p = provider;
         using var _s = scope;
         var reminders = scope.ServiceProvider.GetRequiredService<IReminderApi>();
 
         var read = await reminders.GetSettingsAsync();
-        var changed = await reminders.UpdateSettingsAsync(new UpdateReminderSettingsRequest(false, "07:30"));
+        var changed = await reminders.UpdateSettingsAsync(new UpdateReminderSettingsRequest(DueToday: false, Household: false, MorningTime: "07:30", EveningEnabled: false, EveningTime: "20:15", WarningDays: 5));
 
-        Assert.Equal(new ReminderSettingsResponse(true, "09:00"), read.Value);
-        Assert.Equal(new ReminderSettingsResponse(false, "07:30"), changed.Value);
+        Assert.Equal(new ReminderSettingsResponse(true, true, true, true, "09:00", true, "19:00", 2), read.Value);
+        Assert.Equal(new ReminderSettingsResponse(false, true, true, false, "07:30", false, "20:15", 5), changed.Value);
         Assert.Equal([(HttpMethod.Get, "/api/v1/me/reminder-settings"), (HttpMethod.Put, "/api/v1/me/reminder-settings")],
             api.Requests.Select(r => (r.Method, r.Path)));
 

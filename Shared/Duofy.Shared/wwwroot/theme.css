@@ -16,6 +16,7 @@
 
 @layer base {
 :root {
+    color-scheme: light;
     --font-heading: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
     --font-sans: 'Geist Variable', sans-serif;
     --background: #fbf9f4;
@@ -103,6 +104,11 @@
     --brand-panel-foreground: #eceff3;
 }
 }
+
+/* Issue 117, Spec 118 R10: Die Steuerelemente des Systems (Zeitwähler, Auswahl, Datum) folgen dem Theme, nicht nur dem Gerät: Im
+   dunklen Theme zeichnet der Browser sie dunkel, damit ihre Knöpfe und Texte lesbar sind. Das Zeitfenster der App-Hülle
+   (Android) färbt zusätzlich Mobile/Duofy/Platforms/Android/Resources/values-night/colors.xml. */
+.dark input, .dark select, .dark textarea, .dark dialog { color-scheme: dark; }
 
 /* Der Grund steht schon vor dem ersten Zeichnen. */
 html { background-color: var(--background); color: var(--foreground); }

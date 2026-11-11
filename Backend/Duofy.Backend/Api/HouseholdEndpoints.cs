@@ -295,6 +295,7 @@ internal static class HouseholdEndpoints
         UserManager<AppUser> users,
         HouseholdStore households,
         DuofyDbContext db,
+        TimeProvider time,
         ILoggerFactory loggers,
         CancellationToken cancellationToken)
     {
@@ -342,6 +343,8 @@ internal static class HouseholdEndpoints
         }
 
         await households.SetGrantsAsync(userId, granteeId, levels, cancellationToken);
+        // Für die Abendzusammenfassung des Haushalts (Spec 118, R8): Die Person, deren Freigaben sich ändern, erfährt es.
+        HouseholdSummary.Record(db, id, HouseholdEventKind.GrantChanged, userId, time.GetUtcNow(), subjectId: granteeId);
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
@@ -443,6 +446,8 @@ internal static class HouseholdEndpoints
 
         var invitation = HouseholdInvitation.Create(id, userId, now);
         db.HouseholdInvitations.Add(invitation);
+        // Für die Abendzusammenfassung des Haushalts (Spec 118, R8).
+        HouseholdSummary.Record(db, id, HouseholdEventKind.Invited, userId, now);
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
