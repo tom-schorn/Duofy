@@ -50,4 +50,57 @@ public class ReminderMigrationTests(ApiFixture fixture)
         var areas = await db.Database.SqlQueryRaw<string>("SELECT area AS \"Value\" FROM grants").ToListAsync();
         Assert.Equal(["plan"], areas);
     }
+
+    // A10 (Spec 118, R11)
+    [Fact]
+    public async Task The_notification_migration_carries_old_settings_over_and_rolls_back()
+    {
+        var name = "migration_" + Guid.NewGuid().ToString("N");
+        await using (var admin = new NpgsqlConnection(fixture.ConnectionString))
+        {
+            await admin.OpenAsync();
+            await using var create = new NpgsqlCommand($"CREATE DATABASE {name}", admin);
+            await create.ExecuteNonQueryAsync();
+        }
+        var connection = new NpgsqlConnectionStringBuilder(fixture.ConnectionString) { Database = name }.ConnectionString;
+        await using var db = new DuofyDbContext(new DbContextOptionsBuilder<DuofyDbContext>()
+            .UseNpgsql(connection).UseSnakeCaseNamingConvention().Options, new OwnerContext(NullLogger<OwnerContext>.Instance));
+        using var everything = db.Owners.Bypass("Tests: Migration an einer eigenen Datenbank");
+        var migrator = db.GetService<IMigrator>();
+        await migrator.MigrateAsync("AddReminders");
+
+        var on = Guid.NewGuid();
+        var off = Guid.NewGuid();
+        foreach (var (id, mail) in new[] { (on, "an@example.org"), (off, "aus@example.org") })
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                "INSERT INTO users (id, user_name, normalized_user_name, email, normalized_email, email_confirmed, password_hash, " +
+                "security_stamp, concurrency_stamp, phone_number_confirmed, two_factor_enabled, lockout_enabled, access_failed_count, " +
+                "first_name, last_name, terms_accepted_at, quota_needs, quota_wants, quota_savings, is_instance_admin) " +
+                "VALUES ({0}, {1}, {2}, {1}, {2}, true, 'x', {3}, {3}, false, false, true, 0, 'A', 'B', now(), 50, 30, 20, false)",
+                id, mail, mail.ToUpperInvariant(), Guid.NewGuid().ToString("N"));
+        }
+        await db.Database.ExecuteSqlRawAsync("INSERT INTO reminder_settings (user_id, enabled, time) VALUES ({0}, true, TIME '07:30'), ({1}, false, TIME '08:00')", on, off);
+
+        await migrator.MigrateAsync("NotificationSettings");
+
+        var rows = await db.Database.SqlQueryRaw<MigratedSettings>(
+            "SELECT user_id, due_today, overdue, advance_warning, household, morning_time, evening_enabled, evening_time, warning_days FROM reminder_settings").ToListAsync();
+        var first = Assert.Single(rows, r => r.UserId == on);
+        Assert.Equal((true, true, true, true, new TimeOnly(7, 30), true, new TimeOnly(19, 0), 2),
+            (first.DueToday, first.Overdue, first.AdvanceWarning, first.Household, first.MorningTime, first.EveningEnabled, first.EveningTime, first.WarningDays));
+        var second = Assert.Single(rows, r => r.UserId == off);
+        Assert.Equal((false, false, false, false), (second.DueToday, second.Overdue, second.AdvanceWarning, second.Household));
+
+        await migrator.MigrateAsync("AddReminders");
+
+        var back = await db.Database.SqlQueryRaw<BackSettings>("SELECT user_id, enabled, time FROM reminder_settings").ToListAsync();
+        Assert.Equal((true, new TimeOnly(7, 30)), (back.Single(r => r.UserId == on).Enabled, back.Single(r => r.UserId == on).Time));
+        Assert.False(back.Single(r => r.UserId == off).Enabled);
+    }
+
+    private sealed record MigratedSettings(
+        Guid UserId, bool DueToday, bool Overdue, bool AdvanceWarning, bool Household, TimeOnly MorningTime, bool EveningEnabled, TimeOnly EveningTime, int WarningDays);
+
+    private sealed record BackSettings(Guid UserId, bool Enabled, TimeOnly Time);
 }

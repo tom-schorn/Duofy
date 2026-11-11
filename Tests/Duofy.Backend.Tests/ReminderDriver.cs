@@ -173,6 +173,21 @@ internal sealed class ReminderServer : IAsyncDisposable
             return 0;
         });
 
+    /// <summary>Die Kennung des Haushalts, in dem die Person Mitglied ist.</summary>
+    public Task<Guid> HouseholdOfAsync(Person person) =>
+        Factory.WithDbAsync(db => db.HouseholdMembers.Where(m => m.UserId == person.Id).Select(m => m.HouseholdId).SingleAsync());
+
+    /// <summary>Vermerkt ein Haushaltsereignis zu diesem Zeitpunkt, an der API vorbei.</summary>
+    public Task EventAsync(
+        Guid household, HouseholdEventKind kind, Person actor, DateTimeOffset at, Person? owner = null, Person? subject = null,
+        string? label = null, decimal? amount = null) =>
+        Factory.WithDbAsync(async db =>
+        {
+            HouseholdSummary.Record(db, household, kind, actor.Id, at.ToUniversalTime(), owner?.Id, subject?.Id, label, amount);
+            await db.SaveChangesAsync();
+            return 0;
+        });
+
     /// <summary>Hakt den Posten von Hand ab, an der API vorbei.</summary>
     public Task TickAsync(Guid positionId) =>
         Factory.WithDbAsync(async db =>
