@@ -63,17 +63,17 @@ External input: yes
 
 | Requirement | Criterion | Test |
 | --- | --- | --- |
-| R1 | A1 | pending |
-| R2 | A1 | pending |
-| R3 | A2, A3 | pending |
-| R4 | A4 | pending |
-| R5 | A5 | pending |
-| R6 | A6 | pending |
-| R7 | A7 | pending |
-| R8 | A8 | pending |
-| R9 | A9 | pending |
-| R10 | A3 | pending |
-| R11 | A10 | pending |
+| R1 | A1 | ReminderEndpointTests (A_new_person_has_all_four_switches_on_...), MehrPageTests (More_lists_an_entry_notifications_instead_of_the_old_block, Without_reminders_on_the_server_the_notifications_entry_is_hidden), AccountPageTests (The_account_page_links_to_the_notifications_page), NotificationsPageTests (A_new_person_sees_all_four_switches_on_...) |
+| R2 | A1 | ReminderEndpointTests (A_new_person_has_all_four_switches_on_...), NotificationsPageTests |
+| R3 | A2, A3 | ReminderEndpointTests (A_time_with_or_without_seconds_is_stored_without_seconds, An_empty_or_impossible_time_is_refused_and_the_stored_time_stays), NotificationsPageTests (A_chosen_time_is_sent_as_hours_and_minutes_and_confirmed, A_time_with_seconds_is_sent_without_them, Clearing_the_time_keeps_the_stored_one_and_shows_a_hint_not_an_error), ThemeFileTests (The_theme_declares_a_dark_colour_scheme_...) |
+| R4 | A4 | NotificationSettingsJobTests (A_position_due_today_notifies_at_the_morning_and_again_in_the_evening, A_position_ticked_before_the_evening_gets_no_evening_notification, With_the_evening_switched_off_nothing_comes_in_the_evening, The_evening_time_is_the_persons_own) |
+| R5 | A5 | NotificationSettingsJobTests (The_advance_warning_comes_in_the_morning_the_chosen_number_of_days_before, With_the_advance_switch_off_or_other_warning_days_the_warning_changes) |
+| R6 | A6 | NotificationSettingsJobTests (After_three_postpones_the_fetch_offers_no_later_and_a_fourth_is_refused, The_plan_returns_how_often_a_position_was_postponed), PlanPageTests (A_postponed_position_shows_its_count_and_after_the_third_time_is_marked_overdue), MonthViewTests, ReminderPushTests (After_the_third_postpone_the_notification_offers_no_later_and_names_the_count) |
+| R7 | A7 | NotificationSettingsJobTests (An_unticked_position_past_its_day_is_overdue_every_morning_until_it_is_ticked, With_the_overdue_switch_off_nothing_overdue_comes) |
+| R8 | A8 | NotificationSettingsJobTests (The_evening_summary_names_the_events_the_recipient_may_see_in_one_notification, Without_events_or_with_the_household_switch_off_or_for_the_actor_there_is_no_summary, A_grant_change_reaches_only_the_person_it_concerns_...), HouseholdEventLogTests, ReminderPushTests (A_household_signal_shows_one_summary_...) |
+| R9 | A9 | NotificationSettingsJobTests (The_fetch_names_the_position_and_the_amount_while_the_signal_holds_only_id_and_type), ReminderPushTests (The_visible_text_names_the_position_and_the_amount), ReminderJobTests (The_signal_holds_only_the_reminder_id_and_the_type) |
+| R10 | A3 | ThemeFileTests (The_theme_declares_a_dark_colour_scheme_...), AndroidDialogColorsTests (device check on the Pixel 7: open) |
+| R11 | A10 | ReminderMigrationTests (The_notification_migration_carries_old_settings_over_and_rolls_back) |
 
 ## Threats
 
