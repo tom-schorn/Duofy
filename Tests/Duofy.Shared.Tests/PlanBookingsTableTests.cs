@@ -150,11 +150,14 @@ public class PlanBookingsTableTests : PageTestContext
         Assert.Matches(@"@container \(max-width: 719px\)[^@]*\.bookings-row--carry \.bookings-position, \.bookings-table \.bookings-row--carry \.bookings-pot\s*\{\s*display:\s*none", Css);
     }
 
-    // A1 (R1, Review 3): Auf der Übertragskarte füllt der Name die erste Zeile bis fast zum Rand, damit der Vorname nicht dort stehen bleibt
-    // und der Betrag allein in der zweiten Zeile steht; Vorname und Betrag brechen zusammen um wie auf einer Buchungskarte.
+    // A1 (R1, Review 4): Auf der Übertragskarte erzwingt ein leeres Element mit voller Breite den Umbruch, unabhängig von der Länge des
+    // Vornamens ("Jo", "Li", "Ida"); Person und Betrag stehen dahinter (Order 2) gemeinsam in der zweiten Zeile.
+    // Die gemessene Prüfung dazu: Tests/responsive-widths/carry-card.mjs.
     [Fact]
-    public void A1_a_carry_over_card_lets_the_name_fill_the_first_line_so_owner_and_amount_wrap_together()
+    public void A1_a_carry_over_card_forces_the_break_so_owner_and_amount_share_line_two_for_every_name_length()
     {
-        Assert.Matches(@"@container \(max-width: 719px\)[^@]*\.bookings-row--carry \.bookings-name\s*\{\s*flex:\s*1 0 calc\(100% - 96px\)", Css);
+        Assert.Matches(@"@container \(max-width: 719px\)[^@]*\.bookings-row--carry::after\s*\{[^}]*content:\s*""""[^}]*order:\s*1[^}]*flex:\s*0 0 100%", Css);
+        Assert.Matches(@"@container \(max-width: 719px\)[^@]*\.bookings-row--carry \.bookings-account, \.bookings-table \.bookings-row--carry \.bookings-amount\s*\{\s*order:\s*2; margin-top:\s*-2px", Css);
+        Assert.DoesNotMatch(@"\.bookings-row--carry \.bookings-name\s*\{[^}]*calc\(", Css);
     }
 }

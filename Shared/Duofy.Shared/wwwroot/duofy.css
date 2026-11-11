@@ -763,8 +763,11 @@ a.duofy-button--primary { color: var(--primary-foreground); }
     .bookings-title { margin-bottom: 2px; }
     /* Ein Übertrag hat weder Posten noch Topf: Die Striche dort entfallen, er sieht aus wie eine Buchungskarte (Spec 123, Review 3). */
     .bookings-table .bookings-row--carry .bookings-position, .bookings-table .bookings-row--carry .bookings-pot { display: none; }
-    /* Der Name füllt die erste Zeile, so brechen Vorname und Betrag zusammen um wie auf der Buchungskarte (Spec 123, Review 3). */
-    .bookings-table .bookings-row--carry .bookings-name { flex: 1 0 calc(100% - 96px); }
+    /* Der Umbruch ist erzwungen und hängt an keiner Breite: Ein leeres Element mit voller Breite (::after, Order 1) trennt Datum und Titel
+       von Person und Betrag (Order 2). So stehen Person und Betrag bei jedem Vornamen ("Jo" bis "Maximiliane") und bei größerer Schrift
+       gemeinsam in der zweiten Zeile (Spec 123, Review 4). Der negative Rand oben nimmt den zusätzlichen Zeilenabstand der leeren Zeile zurück. */
+    .bookings-table tr.bookings-row--carry::after { content: ""; order: 1; flex: 0 0 100%; height: 0; }
+    .bookings-table .bookings-row--carry .bookings-account, .bookings-table .bookings-row--carry .bookings-amount { order: 2; margin-top: -2px; }
 }
 
 /* Erfolgsmeldungen als kurze Meldung unten, über allem und ohne etwas zu verschieben (Spec 82). */
