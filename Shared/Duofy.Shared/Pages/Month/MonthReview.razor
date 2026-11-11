@@ -1,6 +1,8 @@
+@using Duofy.Schemas
 @using System.Globalization
 @using Duofy.Shared.Charts
 @inject IStringLocalizer<SharedResources> L
+@inject ActiveMember Member
 
 @* Der Reiter Auswertung (Spec 82, R14; Tom: "Hier würde ich Diagramme erwarten"; ohne Flussdiagramm seit 03.11.2026): je ein rundes
    Diagramm geplant gegen gebucht für die drei Töpfe und für die Kategorien (am PC und Tablet nebeneinander), die Tageskurve
@@ -14,7 +16,7 @@
 <div class="month-review" data-testid="month-review">
     @if (!SeesBookings)
     {
-        <p class="month-hint" data-testid="month-review-not-shared">@L["Grant_NotShared"]</p>
+        <p class="month-hint" data-testid="month-review-not-shared">@NotSharedText.For(L, Member, GrantAreas.Book)</p>
     }
     else
     {

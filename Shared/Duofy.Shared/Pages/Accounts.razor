@@ -25,7 +25,7 @@
 <PageTitle>@L["Accounts_Title"]</PageTitle>
 
 @* Auf schmalen Breiten steht der Titel zusätzlich in der oberen Leiste (AppChrome). *@
-<PageHead Title="@L["Accounts_Title"]" Lead="@L["Accounts_Lead"]"><Actions>
+<PageHead Title="@L["Accounts_Title"]" Lead="@(Member.Name is { } who ? L["Accounts_LeadOf", who].Value : L["Accounts_Lead"].Value)"><Actions>
         @if (Sees)
         {
             <DuofyButton Icon="plus" Text="@L["Accounts_Add"]" OnClick="@(_ => AddAsync())" TestId="accounts-add" Class="@GrantLock.Class(CanAdd)" @attributes="GrantLock.Attributes(CanAdd)" />
@@ -37,7 +37,7 @@
 
 @if (!Sees)
 {
-    <NotShared />
+    <NotShared Area="@GrantAreas.Accounts" />
 }
 else
 {
@@ -45,7 +45,7 @@ else
 
 @if (loaded && open.Count == 0)
 {
-    <p class="muted mb-2">@L["Accounts_Empty"]</p>
+    <p class="muted mb-2">@(Member.Name is { } ofName ? L["Accounts_EmptyOf", ofName].Value : L["Accounts_Empty"].Value)</p>
 }
 
 @* Ab 1280 px eine Tabelle mit Spalten (siehe .data-table in app.css), darunter Karten wie bisher. *@

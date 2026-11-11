@@ -18,6 +18,9 @@ public abstract class UiTestContext : BunitContext, IAsyncLifetime
 
         // Jedes Layout zeigt die Rechtstexte (Spec 109); ohne eigenen Fake bietet der gespielte Server keine an.
         Services.AddSingleton<Duofy.ApiClient.ILegalApi>(new FakeLegalApi());
+
+        // Die Seitenleiste fragt ActiveMember nach den Personen; ohne eigenen Fake ist es ein Haushalt ohne Freigaben.
+        Services.AddSingleton<Duofy.ApiClient.IHouseholdApi>(new FakeHouseholdApi());
     }
 
     // Blueprint meldet Dienste an, die sich nur asynchron aufräumen lassen.

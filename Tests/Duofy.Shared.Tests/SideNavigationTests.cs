@@ -114,6 +114,29 @@ public class SideNavigationTests : PageTestContext
         Assert.DoesNotContain(Entries(cut, "side-nav"), e => e.Text == "Mitglieder" || e.Href == "/haushalt");
     }
 
+    // Spec 126, S1: In der Ansicht einer anderen Person nennt die Seitenleiste deren Vornamen statt "Meine".
+    [Fact]
+    public async Task The_plan_entry_names_the_chosen_person_and_is_mine_again_after_switching_back()
+    {
+        HouseholdApiFake.Household = HouseholdApiFake.Household! with
+        {
+            Members = [FakeHouseholdApi.Anna(isMe: false) with { GrantsToMe = GrantLevels.None with { Plan = AccessLevelKeys.View } }, FakeHouseholdApi.Ben(isMe: true)],
+        };
+        var member = Services.GetRequiredService<ActiveMember>();
+        await member.LoadAsync();
+        var cut = Render<SideNavigation>();
+        Assert.Contains(("Meine Planung", "/plan"), Entries(cut, "side-nav"));
+
+        await cut.InvokeAsync(() => member.Choose(FakeHouseholdApi.AnnaId));
+
+        cut.WaitForAssertion(() => Assert.Contains(("Planung von Anna", "/plan"), Entries(cut, "side-nav")));
+        Assert.DoesNotContain(Entries(cut, "side-nav"), e => e.Text.StartsWith("Mein"));
+
+        await cut.InvokeAsync(() => member.Choose(null));
+
+        cut.WaitForAssertion(() => Assert.Contains(("Meine Planung", "/plan"), Entries(cut, "side-nav")));
+    }
+
     // A13 (R11): Der Haushalt steht in der Seitenleiste unter seinem Namen.
     [Fact]
     public void A13_the_household_entry_carries_the_name_of_the_household()

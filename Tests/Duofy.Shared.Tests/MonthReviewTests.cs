@@ -220,7 +220,7 @@ public class MonthReviewTests : PageTestContext
         cut.Find("[data-testid='month-tab-review']").Click();
 
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid='month-review-not-shared']")));
-        Assert.Contains("teilt diesen Bereich nicht", Text(cut, "month-review-not-shared"));
+        Assert.Contains("Anna teilt Buchungen nicht mit dir.", Text(cut, "month-review-not-shared"));
         Assert.Empty(cut.FindAll("[data-testid='month-review'] figure.chart"));
     }
 
