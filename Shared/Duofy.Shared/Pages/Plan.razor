@@ -147,6 +147,26 @@ else
                 {
                     var current = position;
                     var done = position.DoneAt is not null;
+                    @if (position.IsMoved)
+                    {
+                        @* Verschoben (Spec 136): gedämpft, zählt nirgends; nur das Zurücknehmen bleibt. *@
+                        <li class="plan-row row-moved" data-testid="@($"plan-position-{position.Id}")">
+                            <div class="list-row">
+                                <span class="list-row-body">
+                                    <span class="list-row-title">@position.Label</span>
+                                    <span class="list-row-detail" data-testid="@($"plan-moved-{position.Id}")">@L["Plan_MovedTo", MonthName(position.MovedToMonth!)]</span>
+                                </span>
+                                <span class="list-row-amount">@Money(position.AmountPlanned)</span>
+                                <span class="list-row-lift">
+                                    <DuofyButton Kind="ButtonKind.Ghost" Icon="undo-2" Small="true" Text="@L["Plan_PostponeUndoText"]" OnClick="@(_ => UndoPostponeAsync(current))"
+                                                 Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
+                                                 AriaLabel="@L["Plan_PostponeUndo", position.Label]" TestId="@($"plan-postpone-undo-{position.Id}")" />
+                                </span>
+                            </div>
+                        </li>
+                    }
+                    else
+                    {
                     <li class="@(done ? "plan-row row-done" : "plan-row")" data-testid="@($"plan-position-{position.Id}")">
                         <div class="list-row">
                             <span class="list-row-lift">
@@ -175,6 +195,14 @@ else
                                     <span class="list-row-detail">@L["Plan_BookedOf", Money(position.Booked)]</span>
                                 }
                             </span>
+                            @if (PositionActions.CanPostpone(position))
+                            {
+                                <span class="list-row-lift">
+                                    <DuofyButton Kind="ButtonKind.Ghost" Icon="calendar-arrow-down" IconOnly="true" Small="true" OnClick="@(_ => PostponeAsync(current))"
+                                                 Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)"
+                                                 AriaLabel="@PostponeLabel(position)" TestId="@($"plan-postpone-{position.Id}")" />
+                                </span>
+                            }
                             @if (SeesBookings && linked.Count == 0)
                             {
                                 <span class="list-row-lift">
@@ -191,6 +219,7 @@ else
                                               Rows="linked" CanAdd="CanBook" OnAdd="@(() => BookAsync(current.Id))" />
                         }
                     </li>
+                    }
                 }
                 @if (SeesBookings && group.Pot != PotKeys.Income)
                 {
@@ -516,6 +545,17 @@ else
     private async Task EditAsync(PlanPositionResponse position) =>
         await ApplyResultAsync(await Actions.EditAsync(year, month, Member.Owner, Member.Name, position.Id, position, Known));
 
+    private string PostponeLabel(PlanPositionResponse position) =>
+        L["Plan_Postpone", position.Label, PlanView.MonthName(PlanView.Shift(year, month, 1).Year, PlanView.Shift(year, month, 1).Month)];
+
+    private static string MonthName(PlanMonthRef month) => PlanView.MonthName(month.Year, month.Month);
+
+    private async Task PostponeAsync(PlanPositionResponse position) =>
+        await ApplyResultAsync(await Actions.PostponeAsync(year, month, Member.Owner, Member.Name, position.Id, position.Label));
+
+    private async Task UndoPostponeAsync(PlanPositionResponse position) =>
+        await ApplyResultAsync(await Actions.UndoPostponeAsync(year, month, Member.Owner, Member.Name, position.Id));
+
     private async Task ToggleAsync(PlanPositionResponse position) =>
         await ApplyResultAsync(await Actions.ToggleAsync(year, month, Member.Owner, Member.Name, position));
 
@@ -590,6 +630,10 @@ else
         parts.Add(L["Plan_DueDay", position.DueDay]);
         parts.Add(L[$"PaymentMethod_{position.PaymentMethod}"]);
         parts.Add(L[position.CommitmentId is null ? "Plan_OneOff" : "Plan_FromContract"]);
+        if (position.MovedFromMonth is { } from)
+        {
+            parts.Add(L["Plan_MovedFrom", MonthName(from)]);
+        }
         if (position.PassThrough)
         {
             parts.Add(L["Plan_PassThrough"]);

@@ -54,6 +54,16 @@ internal sealed class PlanApi(ApiConnection api) : IPlanApi
         api.SendAsync<PlanPositionResponse>(
             HttpMethod.Delete, OwnerQuery.With($"{Position(year, month, id)}/tick", owner), body: null, anonymous: false, cancellationToken);
 
+    public Task<ApiResult<PostponePositionResponse>> PostponeAsync(
+        int year, int month, Guid id, Guid? owner = null, CancellationToken cancellationToken = default) =>
+        api.SendAsync<PostponePositionResponse>(
+            HttpMethod.Post, OwnerQuery.With($"{Position(year, month, id)}/postpone", owner), body: null, anonymous: false, cancellationToken);
+
+    public Task<ApiResult<PlanPositionResponse>> UndoPostponeAsync(
+        int year, int month, Guid id, Guid? owner = null, CancellationToken cancellationToken = default) =>
+        api.SendAsync<PlanPositionResponse>(
+            HttpMethod.Post, OwnerQuery.With($"{Position(year, month, id)}/postpone/undo", owner), body: null, anonymous: false, cancellationToken);
+
     public Task<ApiResult<PlanResponse>> ApplyChangesAsync(
         int year, int month, ApplyPlanChangesRequest request, Guid? owner = null, CancellationToken cancellationToken = default) =>
         api.SendAsync<PlanResponse>(
