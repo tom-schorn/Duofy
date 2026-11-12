@@ -10,7 +10,7 @@ namespace Duofy.Shared.Services;
 /// </summary>
 public static class StartFreeNote
 {
-    /// <returns>Der Zusatz oder null, wenn es nichts zu sagen gibt.</returns>
+    /// <returns>Der Zusatz, immer mit dem Hinweis, dass geplante Einnahmen in Verplanbar im Monat stecken (Spec 139, R2).</returns>
     public static string? For(MonthOverviewModel model, IReadOnlyList<string> bookingsMissing, IStringLocalizer<SharedResources> localizer)
     {
         var incoming = model.CarryOvers.Where(c => c.Incoming).ToList();
@@ -23,6 +23,7 @@ public static class StartFreeNote
         {
             parts.Add(localizer["Month_FreeCarryOverMissing", string.Join(", ", bookingsMissing)].Value);
         }
-        return parts.Count > 0 ? string.Join(" ", parts) : null;
+        parts.Add($"{localizer["Month_FreeHint"].Value[..1].ToUpperInvariant()}{localizer["Month_FreeHint"].Value[1..]}.");
+        return string.Join(" ", parts);
     }
 }
