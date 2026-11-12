@@ -46,6 +46,10 @@ public static class GrantPresets
         {
             hints.Add("Grants_HintBookNeedsPlan");
         }
+        if (AccessLevelKeys.Includes(levels.Book, AccessLevelKeys.Create) && levels.Categories == AccessLevelKeys.None)
+        {
+            hints.Add("Grants_HintCategoriesNone");
+        }
         return hints;
     }
 }

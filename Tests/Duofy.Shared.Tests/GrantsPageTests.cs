@@ -89,11 +89,23 @@ public class GrantsPageTests : PageTestContext
         Assert.All(cut.FindAll($"[data-testid^='grants-{Ben}-preset-']"), b => Assert.Equal("false", b.GetAttribute("aria-pressed")));
     }
 
+    // Spec 140: Kategorien auf Nichts blendet sie auch beim Buchen aus; der Hinweis sagt es.
+    [Fact]
+    public void Booking_with_categories_set_to_nothing_shows_the_hint()
+    {
+        Household(GrantLevels.None with { Plan = AccessLevelKeys.View, Accounts = AccessLevelKeys.View, Book = AccessLevelKeys.Create, Categories = AccessLevelKeys.None });
+
+        var cut = OpenPage();
+
+        var hints = cut.FindAll($"[data-testid='grants-{Ben}-hint']").Select(h => h.TextContent.Trim()).ToList();
+        Assert.Equal(["Nichts blendet auch die Kategorien beim Buchen aus."], hints);
+    }
+
     // A12
     [Fact]
     public void Booking_without_seeing_the_accounts_shows_a_hint_and_raises_nothing()
     {
-        Household(GrantLevels.None with { Plan = AccessLevelKeys.View, Book = AccessLevelKeys.Create });
+        Household(GrantLevels.None with { Plan = AccessLevelKeys.View, Book = AccessLevelKeys.Create, Categories = AccessLevelKeys.Delete });
 
         var cut = OpenPage();
 

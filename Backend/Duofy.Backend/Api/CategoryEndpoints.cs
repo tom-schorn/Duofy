@@ -9,8 +9,8 @@ namespace Duofy.Api;
 /// Die Kategorien (/api/v1/categories): die eingebauten lesen, eigene anlegen,
 /// ändern und löschen. Mit <c>?owner=</c> arbeitet ein Mitglied mit den Kategorien einer Person (Spec 68, 140):
 /// Auflisten mit Kategorien Ansehen, Anlegen, Ändern und Löschen mit der gleichnamigen Stufe, jeweils geprüft von
-/// <see cref="IAccess"/>. Solange die Person den Bereich nie gesetzt hat, lässt irgendein Ansehen auflisten und
-/// Schreiben fehlt (die bisherige Regel). Eine Person außerhalb des Haushalts, fremde und eingebaute Kategorien
+/// <see cref="IAccess"/>. Hat die Person den Bereich nie gesetzt (keine Zeile), bekommen die Mitglieder des Haushalts
+/// Löschen, also alles; setzt sie ihn, gilt ihre Stufe (auch "Nichts"). Eine Person außerhalb des Haushalts, fremde und eingebaute Kategorien
 /// gelten als "nicht gefunden" (404), so erfährt niemand, ob es die Kennung gibt; fehlt nur der Schritt, kommt 403
 /// mit dem Code des Schritts, den die Oberfläche als "Es fehlt: Kategorien: Ändern" nennt.
 /// </summary>
