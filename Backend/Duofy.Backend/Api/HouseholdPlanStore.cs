@@ -138,7 +138,36 @@ internal sealed class HouseholdPlanStore(
             PlanFigures.Free(positionsOf, figures.Booked, visibleMonths.Sum(m => PlanFigures.CarriedIn(m.Plan, m.Bookings) ?? 0m), figures.Unplanned, transfers),
             bookingsOf,
             bookingsMissing,
-            carryOvers);
+            carryOvers,
+            plans.IsCurrentMonth(year, month) ? await AvailableNowAsync(months, names, cancellationToken) : null);
+    }
+
+    /// <summary>
+    /// Jetzt verfügbar des Haushalts (Spec 139): die Summe der gezählten Mitglieder, deren Konten und Buchungen der Betrachter
+    /// sehen darf (die eigenen immer); wie bei den Kontoständen stehen die übrigen mit Vornamen in <c>Missing</c>.
+    /// </summary>
+    private async Task<AvailableNowResponse> AvailableNowAsync(
+        IReadOnlyCollection<MemberMonth> months, IReadOnlyDictionary<Guid, string> names, CancellationToken cancellationToken)
+    {
+        var today = plans.Today;
+        decimal balances = 0m, open = 0m;
+        var missing = new List<string>();
+        foreach (var month in months)
+        {
+            var ownerId = month.Plan.OwnerId;
+            var seesAccounts = (await access.LevelAsync(ownerId, Area.Accounts, cancellationToken)).Includes(AccessLevel.View);
+            var seesBookings = (await access.LevelAsync(ownerId, Area.Book, cancellationToken)).Includes(AccessLevel.View);
+            if (!seesAccounts || !seesBookings)
+            {
+                missing.Add(names[ownerId]);
+                continue;
+            }
+            var figure = await plans.AvailableNowAsync(month.Plan, month.Bookings, today, cancellationToken);
+            balances += figure.Balances;
+            open += figure.OpenExpenses;
+        }
+        missing.Sort(StringComparer.CurrentCultureIgnoreCase);
+        return new AvailableNowResponse(balances, open, balances - open, missing);
     }
 
     /// <summary>
