@@ -71,11 +71,12 @@ public static class PlanChanges
 
         foreach (var position in plan.Positions)
         {
-            if (position.CommitmentId is not { } commitmentId)
+            // Eine Kopie aus einem Verschieben gehört zu keinem Vertragsposten des Monats und kommt im Abgleich nie vor (Spec 136, R6).
+            if (position.CommitmentId is not { } commitmentId || position.MovedFromPositionId is not null)
             {
                 continue;
             }
-            var isProtected = position.IsDone || position.ChangedByHand;
+            var isProtected = position.IsDone || position.ChangedByHand || position.IsMoved;
 
             if (!byId.TryGetValue(commitmentId, out var commitment) || !commitment.IsDueIn(plan.Year, plan.Month))
             {
@@ -96,7 +97,7 @@ public static class PlanChanges
             return changes;
         }
 
-        var planned = plan.Positions.Select(p => p.CommitmentId).OfType<Guid>().ToHashSet();
+        var planned = plan.Positions.Where(p => p.MovedFromPositionId is null).Select(p => p.CommitmentId).OfType<Guid>().ToHashSet();
         changes.AddRange(byId.Values
             .Where(c => !planned.Contains(c.Id) && c.IsDueIn(plan.Year, plan.Month))
             .OrderBy(c => c.EffectiveDueDay(plan.Year, plan.Month))

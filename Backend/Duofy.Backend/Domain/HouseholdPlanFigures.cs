@@ -52,7 +52,7 @@ public static class HouseholdPlanFigures
         // Was noch hinausgeht: Einnahmen, Abgehaktes und durchlaufende Posten nie; sonst der geplante Betrag
         // minus das Gebuchte, nie unter 0 (wer ein Budget überzieht, hat nichts mehr offen).
         var unpaid = positions
-            .Where(p => p.Pot != Pot.Income && !p.IsDone && !p.PassThrough)
+            .Where(p => p.Pot != Pot.Income && !p.IsDone && !p.PassThrough && !p.IsMoved)
             .Sum(p => Math.Max(p.AmountPlanned - booked.GetValueOrDefault(p.Id), 0m));
 
         var unplanned = Enum.GetValues<Pot>().ToDictionary(

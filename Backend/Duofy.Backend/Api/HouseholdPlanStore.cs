@@ -62,7 +62,7 @@ internal sealed class HouseholdPlanStore(
             .SelectMany(m =>
             {
                 var booked = PlanFigures.BookedPerPosition(m.Bookings);
-                return m.Plan.Positions.Select(p => ToResponse(p, m.Plan.OwnerId, names[m.Plan.OwnerId], booked.GetValueOrDefault(p.Id)));
+                return m.Plan.Positions.Select(p => ToResponse(p, m.Plan.OwnerId, names[m.Plan.OwnerId], booked.GetValueOrDefault(p.Id), m.Plan.Year, m.Plan.Month));
             })
             .OrderBy(p => PotOrder(p.Pot))
             .ThenBy(p => p.DueDay)
@@ -263,7 +263,7 @@ internal sealed class HouseholdPlanStore(
         _ => 3,
     };
 
-    private static HouseholdPlanPositionResponse ToResponse(PlanPosition position, Guid ownerId, string ownerFirstName, decimal booked) => new(
+    private static HouseholdPlanPositionResponse ToResponse(PlanPosition position, Guid ownerId, string ownerFirstName, decimal booked, int year, int month) => new(
         position.Id,
         position.Label,
         position.AmountPlanned,
@@ -275,5 +275,7 @@ internal sealed class HouseholdPlanStore(
         booked,
         position.DoneAt,
         ownerId,
-        ownerFirstName);
+        ownerFirstName,
+        position.IsMoved ? PlanStore.Shifted(year, month, 1) : null,
+        position.MovedFromPositionId is not null ? PlanStore.Shifted(year, month, -1) : null);
 }

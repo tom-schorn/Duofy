@@ -40,6 +40,8 @@ public static class PlanFields
 /// <param name="DoneAt">Wann der Posten abgehakt wurde; null, solange er offen ist.</param>
 /// <param name="ChangedByHand">True, wenn der Posten im Monat von Hand geändert wurde.</param>
 /// <param name="TickBookingId">Die Buchung, die beim Abhaken entstanden ist.</param>
+/// <param name="MovedToMonth">Der Monat, in den der Posten verschoben wurde (Spec 136); er zählt dann in seinem Monat nirgends. Sonst null.</param>
+/// <param name="MovedFromMonth">Der Monat, aus dem dieser Posten als Kopie verschoben wurde (Spec 136); sonst null.</param>
 public sealed record PlanPositionResponse(
     Guid Id,
     Guid? CommitmentId,
@@ -56,7 +58,20 @@ public sealed record PlanPositionResponse(
     decimal Booked,
     DateTimeOffset? DoneAt,
     bool ChangedByHand,
-    Guid? TickBookingId);
+    Guid? TickBookingId,
+    PlanMonthRef? MovedToMonth = null,
+    PlanMonthRef? MovedFromMonth = null)
+{
+    /// <summary>True, wenn der Posten in einen anderen Monat verschoben ist und in seinem Monat nicht zählt.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsMoved => MovedToMonth is not null;
+}
+
+/// <summary>Ein Monat, zum Beispiel für "in Dezember verschoben".</summary>
+public sealed record PlanMonthRef(int Year, int Month);
+
+/// <summary>Das Ergebnis von "Posten verschieben" (Spec 136): der alte Posten, jetzt als verschoben markiert, und die neue Kopie.</summary>
+public sealed record PostponePositionResponse(PlanPositionResponse From, PlanPositionResponse To);
 
 /// <summary>Ein Feld eines Unterschieds mit dem Wert im Posten (vorher) und im Vertrag (nachher).</summary>
 /// <param name="Field">Siehe <see cref="PlanFields"/>.</param>

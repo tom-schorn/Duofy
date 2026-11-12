@@ -114,6 +114,11 @@ public static class ErrorCodes
     public const string PositionPotInvalid = "position_pot_invalid";
     public const string PositionCategoryInvalid = "position_category_invalid";
     public const string PositionHasBookings = "position_has_bookings";
+    public const string PositionPaid = "position_paid";
+    public const string PositionAlreadyMoved = "position_already_moved";
+    public const string PositionMoved = "position_moved";
+    public const string PositionNotMoved = "position_not_moved";
+    public const string PositionCopyPaid = "position_copy_paid";
     public const string PositionTargetInvalid = "position_target_invalid";
     public const string PositionIncomeWithTarget = "position_income_with_target";
     public const string LinePositionInvalid = "line_position_invalid";

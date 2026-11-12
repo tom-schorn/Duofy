@@ -119,7 +119,7 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
                 PlanFigures.Free(m.Plan.Positions, m.Booked, m.CarriedIn ?? 0m, m.Unplanned, m.Transfers),
                 m.CarriedIn is not null,
                 m.Plan.Positions
-                    .Where(p => p.Pot != Pot.Income && !p.PassThrough && p.DoneAt is null)
+                    .Where(p => p.Pot != Pot.Income && !p.PassThrough && !p.IsMoved && p.DoneAt is null)
                     .Sum(p => Math.Max(p.AmountPlanned - m.Booked.GetValueOrDefault(p.Id), 0m)),
                 PlanFigures.PotTotals(m.Plan.Positions, m.Booked, m.Unplanned, m.PotShift)
                     .Select(entry => new PlanPotResponse(PotKey.ToKey(entry.Key), entry.Value.Planned, entry.Value.Booked))
@@ -265,14 +265,14 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
     }
 
     /// <summary>Ein Posten in der Antwort, mit seinem gebuchten Betrag, wenn die Buchungen zu sehen sind.</summary>
-    public async Task<PlanPositionResponse> PositionResponseAsync(Guid ownerId, PlanPosition position, PlanSight sight, CancellationToken cancellationToken)
+    public async Task<PlanPositionResponse> PositionResponseAsync(Guid ownerId, PlanPosition position, int year, int month, PlanSight sight, CancellationToken cancellationToken)
     {
         if (!sight.Book)
         {
-            return Hide(ToResponse(position, 0m));
+            return Hide(ToResponse(position, 0m, year, month));
         }
         var booked = await BookedAsync(ownerId, [position.Id], cancellationToken);
-        return ToResponse(position, booked.GetValueOrDefault(position.Id));
+        return ToResponse(position, booked.GetValueOrDefault(position.Id), year, month);
     }
 
     /// <summary>Ein Posten ohne Verweis auf die Buchung vom Abhaken, für wen die Buchungen nicht sieht.</summary>
@@ -343,10 +343,10 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
             plan.Year,
             plan.Month,
             plan.Positions.Select(p => sight.Book
-                ? ToResponse(p, booked.GetValueOrDefault(p.Id))
-                : Hide(ToResponse(p, 0m))).ToList(),
-            plan.Positions.Where(p => p.Pot == Pot.Income).Sum(p => p.AmountPlanned),
-            plan.Positions.Where(p => p.Pot != Pot.Income).Sum(p => p.AmountPlanned),
+                ? ToResponse(p, booked.GetValueOrDefault(p.Id), plan.Year, plan.Month)
+                : Hide(ToResponse(p, 0m, plan.Year, plan.Month))).ToList(),
+            plan.Positions.Where(p => !p.IsMoved && p.Pot == Pot.Income).Sum(p => p.AmountPlanned),
+            plan.Positions.Where(p => !p.IsMoved && p.Pot != Pot.Income).Sum(p => p.AmountPlanned),
             sums.Income,
             sums.Expenses,
             quotaPots.Select(pot => new PlanQuotaResponse(PotKey.ToKey(pot), plan.Quotas.For(pot)!.Value, actual[pot])).ToList(),
@@ -406,7 +406,11 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
             .Where(b => b.OwnerId == ownerId && b.PlanYear == year && b.PlanMonth == month)
             .ToListAsync(cancellationToken);
 
-    public static PlanPositionResponse ToResponse(PlanPosition position, decimal booked) => new(
+    /// <summary>
+    /// Ein Posten als Antwort; <paramref name="year"/> und <paramref name="month"/> sind der Monat seines Plans, aus ihm folgt
+    /// der Zielmonat eines verschobenen Postens und der Ursprungsmonat einer Kopie (immer ein Monat davor oder danach).
+    /// </summary>
+    public static PlanPositionResponse ToResponse(PlanPosition position, decimal booked, int year, int month) => new(
         position.Id,
         position.CommitmentId,
         position.Label,
@@ -422,7 +426,16 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
         booked,
         position.DoneAt,
         position.ChangedByHand,
-        position.TickBookingId);
+        position.TickBookingId,
+        position.IsMoved ? Shifted(year, month, 1) : null,
+        position.MovedFromPositionId is not null ? Shifted(year, month, -1) : null);
+
+    /// <summary>Der Monat <paramref name="by"/> Monate nach dem gegebenen.</summary>
+    public static PlanMonthRef Shifted(int year, int month, int by)
+    {
+        var moved = new DateOnly(year, month, 1).AddMonths(by);
+        return new PlanMonthRef(moved.Year, moved.Month);
+    }
 
     private static PlanChangeResponse ToResponse(PlanChange change, Plan plan, IReadOnlyList<Commitment> commitments)
     {
