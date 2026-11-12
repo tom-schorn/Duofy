@@ -71,6 +71,9 @@ else if (firstName is not null)
                    ViewOf="@(ViewName is null ? null : L["Start_ViewOf", ViewName].Value)"
                    Href="@MonthHref" LinkText="@L["Start_OpenMonth", MonthName].Value" />
 
+        @* Jetzt verfügbar (Spec 139) direkt unter Verplanbar im Monat, nur im laufenden Monat. *@
+        <div class="start-available-now"><AvailableNowMetric Value="model.AvailableNow" /></div>
+
         @if (!Member.IsHousehold && !Member.Allows(GrantAreas.Accounts, AccessLevelKeys.View))
         {
             @* Ohne die Freigabe der Konten fehlt die Kontenzeile; ein kurzer Hinweis sagt es, statt sie still wegzulassen (Spec 126). *@

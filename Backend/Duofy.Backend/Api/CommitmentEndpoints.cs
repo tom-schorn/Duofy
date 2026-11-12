@@ -31,7 +31,8 @@ internal static class CommitmentEndpoints
     private static IResult NotFound() =>
         Results.Json(new ErrorResponse(ErrorCodes.CommitmentNotFound), statusCode: StatusCodes.Status404NotFound);
 
-    private static CommitmentResponse ToResponse(Commitment commitment, DateOnly today, bool seesSavings = true) => new(
+    private static CommitmentResponse ToResponse(
+        Commitment commitment, DateOnly today, bool seesSavings = true, IReadOnlyDictionary<Guid, CommitmentDebtResponse>? planDebts = null) => new(
         commitment.Id,
         CommitmentTypeKey.ToKey(commitment.Type),
         commitment.Name,
@@ -50,7 +51,40 @@ internal static class CommitmentEndpoints
         commitment.NextPaymentOnOrAfter(today),
         Runs(commitment, today),
         seesSavings ? commitment.SavingsGoalId : null,
-        seesSavings ? commitment.DebtId : null);
+        seesSavings ? commitment.DebtId : null,
+        commitment.LastAmount,
+        seesSavings && planDebts is not null && planDebts.TryGetValue(commitment.Id, out var debt) ? debt : null);
+
+    /// <summary>
+    /// Die Verträge der Person, die der Ratenplan einer Schuld sind oder waren, mit dieser Schuld: der aktuelle Plan der Schuld und
+    /// die früheren Pläne, die ein geänderter Plan abgelöst hat.
+    /// </summary>
+    private static async Task<Dictionary<Guid, CommitmentDebtResponse>> PlanDebtsAsync(DuofyDbContext db, Guid ownerId, CancellationToken cancellationToken)
+    {
+        var debts = await db.Debts.AsNoTracking()
+            .Where(d => d.OwnerId == ownerId)
+            .Select(d => new { d.Id, d.Name, d.PlanCommitmentId })
+            .ToListAsync(cancellationToken);
+        var result = debts
+            .Where(d => d.PlanCommitmentId != null)
+            .ToDictionary(d => d.PlanCommitmentId!.Value, d => new CommitmentDebtResponse(d.Id, d.Name));
+        var byId = debts.ToDictionary(d => d.Id);
+        var earlier = await db.Commitments.AsNoTracking()
+            .Where(c => c.OwnerId == ownerId && c.IsDebtPlan && c.DebtId != null)
+            .Select(c => new { c.Id, DebtId = c.DebtId!.Value })
+            .ToListAsync(cancellationToken);
+        foreach (var contract in earlier.Where(c => !result.ContainsKey(c.Id) && byId.ContainsKey(c.DebtId)))
+        {
+            result[contract.Id] = new CommitmentDebtResponse(contract.DebtId, byId[contract.DebtId].Name);
+        }
+        return result;
+    }
+
+    /// <summary>Ein Ratenplan einer Schuld, auch ein früherer, wird nur an der Schuld geändert oder beendet (Issue 137, R7).</summary>
+    private static async Task<IResult?> PlanRefusalAsync(Commitment commitment, DuofyDbContext db, CancellationToken cancellationToken) =>
+        commitment is { IsDebtPlan: true, DebtId: not null } || await db.Debts.AnyAsync(d => d.PlanCommitmentId == commitment.Id, cancellationToken)
+            ? ApiErrors.BadRequest(ErrorCodes.CommitmentIsDebtPlan)
+            : null;
 
     /// <summary>
     /// Ob der Vertrag heute läuft (R8). Ein Vertrag, der vor seiner ersten Zahlung beendet wurde (letzte Zahlung
@@ -92,9 +126,10 @@ internal static class CommitmentEndpoints
 
         // Sparziele und Schulden unter den Verträgen zeigt nur, wer auch den Bereich Sparen ansehen darf.
         var seesSavings = await SeesSavingsAsync(access, ownerId, cancellationToken);
+        var planDebts = await PlanDebtsAsync(db, ownerId, cancellationToken);
         var sorted = commitments
             .Where(c => seesSavings || !IsSavingsType(c.Type))
-            .Select(c => ToResponse(c, today, seesSavings))
+            .Select(c => ToResponse(c, today, seesSavings, planDebts))
             .OrderBy(c => c.NextDueDate is null)
             .ThenBy(c => c.NextDueDate)
             .ThenBy(c => c.Name, StringComparer.CurrentCultureIgnoreCase)
@@ -165,7 +200,7 @@ internal static class CommitmentEndpoints
 
         loggers.CreateLogger(LogCategory).LogInformation(
             "Vertrag {CommitmentId} für {OwnerId} von {UserId} angelegt.", commitment.Id, ownerId, callerId);
-        return Results.Created($"/api/v1/commitments/{commitment.Id}", ToResponse(commitment, Berlin.Today(time), await SeesSavingsAsync(access, ownerId, cancellationToken)));
+        return Results.Created($"/api/v1/commitments/{commitment.Id}", ToResponse(commitment, Berlin.Today(time), await SeesSavingsAsync(access, ownerId, cancellationToken), await PlanDebtsAsync(db, ownerId, cancellationToken)));
     }
 
     /// <summary>
@@ -198,6 +233,10 @@ internal static class CommitmentEndpoints
             return refused;
         }
         var ownerId = commitment.OwnerId;
+        if (await PlanRefusalAsync(commitment, db, cancellationToken) is { } isPlan)
+        {
+            return isPlan;
+        }
 
         // Ein geschickter Wert gilt immer; sonst leert der Clear-Schalter das Feld, und ohne beides bleibt es.
         var clearTarget = request.ClearTarget == true;
@@ -254,7 +293,7 @@ internal static class CommitmentEndpoints
 
         Apply(commitment, check.Value!, goalId, debtId, time.GetUtcNow());
         await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(ToResponse(commitment, Berlin.Today(time), await SeesSavingsAsync(access, ownerId, cancellationToken)));
+        return Results.Ok(ToResponse(commitment, Berlin.Today(time), await SeesSavingsAsync(access, ownerId, cancellationToken), await PlanDebtsAsync(db, ownerId, cancellationToken)));
     }
 
     /// <summary>
@@ -290,6 +329,10 @@ internal static class CommitmentEndpoints
         {
             return notSavings;
         }
+        if (await PlanRefusalAsync(commitment, db, cancellationToken) is { } isPlan)
+        {
+            return isPlan;
+        }
 
         var today = Berlin.Today(time);
         commitment.LastDueDate = commitment.LastPaymentOnOrBefore(today) ?? commitment.FirstDueDate.AddDays(-1);
@@ -299,7 +342,7 @@ internal static class CommitmentEndpoints
         loggers.CreateLogger(LogCategory).LogInformation(
             "Vertrag {CommitmentId} von {OwnerId} durch {UserId} beendet, letzte Zahlung {LastDueDate}.",
             commitment.Id, commitment.OwnerId, callerId, commitment.LastDueDate);
-        return Results.Ok(ToResponse(commitment, today, await SeesSavingsAsync(access, commitment.OwnerId, cancellationToken)));
+        return Results.Ok(ToResponse(commitment, today, await SeesSavingsAsync(access, commitment.OwnerId, cancellationToken), await PlanDebtsAsync(db, commitment.OwnerId, cancellationToken)));
     }
 
     /// <summary>Ob die angemeldete Person den Bereich Sparen dieses Besitzers ansehen darf; sonst bleibt auch die Kennung eines Ziels verborgen.</summary>
@@ -350,7 +393,7 @@ internal static class CommitmentEndpoints
     }
 
     /// <summary>
-    /// Prüft die Schuld eines Vertrags (Issue 31): Sie gehört der Person, die Art ist Ausgabe, der Vertrag hat kein Zielkonto (die
+    /// Prüft die Schuld eines Vertrags (Issue 31, 137): Sie gehört der Person, die Art ist Ausgabe oder Schuld (Topf Sparen), der Vertrag hat kein Zielkonto (die
     /// Rate geht an den Gläubiger) und zugleich kein Sparziel. Eine Schuld zu setzen braucht im Bereich Sparen Anlegen, sie zu
     /// ändern oder zu lösen Ändern; wer das nicht darf, bekommt dieselbe Antwort wie bei einer unbekannten Schuld.
     /// </summary>
@@ -373,13 +416,13 @@ internal static class CommitmentEndpoints
         {
             return null;
         }
-        return value.Type == CommitmentType.Contract && value.CounterAccountId is null && goalId is null
+        return value.Type is CommitmentType.Contract or CommitmentType.Debt && value.CounterAccountId is null && goalId is null
             ? null
             : ApiErrors.BadRequest(ErrorCodes.CommitmentDebtInvalid);
     }
 
     /// <summary>Das heutige Standardkonto der Person, falls es eines gibt.</summary>
-    private static Task<Guid?> DefaultAccountAsync(DuofyDbContext db, Guid ownerId, CancellationToken cancellationToken) =>
+    internal static Task<Guid?> DefaultAccountAsync(DuofyDbContext db, Guid ownerId, CancellationToken cancellationToken) =>
         db.Accounts
             .AsNoTracking()
             .Where(a => a.OwnerId == ownerId && a.IsDefault)

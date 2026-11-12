@@ -1,13 +1,14 @@
 @* Eine Kennzahl als schlichte Karte, wie Metric im alten Duofy: Titel in kleinen Großbuchstaben, darunter der Betrag in
    ausgerichteter Spalte und ein Zusatz. Linien statt Schatten, kein Farbblock. Für Vorlese-Programme ist sie eine Gruppe mit
    Titel und Betrag als Name. *@
-<div class="metric" role="group" aria-label="@Label">
+<div class="metric" role="group" aria-label="@(Extra is null ? Label : null)">
     <p class="metric-title">@Title</p>
     <p class="@(Over ? "metric-amount over" : "metric-amount")">@Shown</p>
     @if (Note is not null)
     {
         <p class="metric-note">@Note</p>
     }
+    @Extra
 </div>
 
 @code {
@@ -19,6 +20,9 @@
 
     /// <summary>Ein Zusatz unter dem Betrag.</summary>
     [Parameter] public string? Note { get; set; }
+
+    /// <summary>Eine zweite Zeile im selben Block, zum Beispiel "Jetzt verfügbar" unter Verplanbar (Spec 139); dann liest ein Vorlese-Programm den Inhalt statt des Gruppennamens.</summary>
+    [Parameter] public RenderFragment? Extra { get; set; }
 
     /// <summary>Unter null: in der reservierten Farbe.</summary>
     [Parameter] public bool Over { get; set; }

@@ -355,11 +355,60 @@ public class SavingsPageTests : PageTestContext
         Input(dialogs, "debt-name").Change("Autokredit");
         Input(dialogs, "debt-creditor").Change("Sparkasse");
         Input(dialogs, "debt-amount").Change("5000");
-        dialogs.Find("[data-testid='debt-save']").Click();
+        DialogButton("Weiter").Click();
+        dialogs.WaitForAssertion(() => Assert.Contains("Ratenplan anlegen", dialogs.Markup));
+        DialogButton("Speichern").Click();
 
         cut.WaitForAssertion(() => Assert.Single(DebtApiFake.Created));
         Assert.Equal(new CreateDebtRequest(DebtKinds.Loan, "Autokredit", "Sparkasse", 5000m), DebtApiFake.Created[0]);
         cut.WaitForAssertion(() => Assert.Contains("Autokredit", cut.Markup));
+    }
+
+    private AngleSharp.Dom.IElement DialogButton(string text) => dialogs.FindAll("button").Single(b => b.TextContent.Trim() == text);
+
+    // Issue 137, A1/A9: Der Schritt "Ratenplan" zeigt die Vorschau und schickt den Plan mit.
+    [Fact]
+    public void The_plan_step_shows_the_preview_and_sends_the_plan_with_the_debt()
+    {
+        var cut = OpenPage();
+
+        cut.Find($"[data-testid='debt-add-{DebtKinds.Claim}']").Click();
+        dialogs.WaitForAssertion(() => Assert.Contains("Forderung eintragen", dialogs.Markup));
+        Input(dialogs, "debt-name").Change("Ausgleich Zusammenveranlagung");
+        Input(dialogs, "debt-creditor").Change("Insolvenzverwalter");
+        Input(dialogs, "debt-amount").Change("386,94");
+        Input(dialogs, "debt-reference").Change("AZ 12/34");
+        DialogButton("Weiter").Click();
+        dialogs.WaitForAssertion(() => Assert.Contains("Ratenplan anlegen", dialogs.Markup));
+        dialogs.Find("[data-testid='debt-plan-enabled']").Click();
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='debt-plan-rate']")));
+        Input(dialogs, "debt-plan-rate").Change("50");
+        Input(dialogs, "debt-plan-first").Change("2026-12-01");
+
+        dialogs.WaitForAssertion(() => Assert.Contains("8 Raten, die letzte über 36,94", dialogs.Find("[data-testid='debt-plan-preview']").TextContent));
+        DialogButton("Speichern").Click();
+
+        cut.WaitForAssertion(() => Assert.Single(DebtApiFake.Created));
+        var sent = DebtApiFake.Created[0];
+        Assert.Equal("AZ 12/34", sent.Reference);
+        Assert.Equal((50m, 1, new DateOnly(2026, 12, 1)), (sent.Plan!.Rate, sent.Plan.IntervalMonths, sent.Plan.FirstDueDate));
+    }
+
+    [Fact]
+    public void A_debt_with_a_plan_shows_paid_next_installment_expected_end_and_reference()
+    {
+        var debt = new DebtResponse(Guid.NewGuid(), DebtKinds.Claim, "Ausgleich", "Verwalter", 786.94m, null, null, 450m, 336.94m, false,
+            Reference: "AZ 12/34", NextInstallment: new DebtInstallmentResponse(new DateOnly(2027, 1, 1), 50m), ExpectedEnd: new DateOnly(2027, 7, 1),
+            Plan: new DebtPlanResponse(Guid.NewGuid(), true, 50m, 1, new DateOnly(2026, 12, 1), 36.94m, null, PaymentMethods.DirectDebit, Guid.NewGuid()));
+        DebtApiFake.Debts.Add(debt);
+
+        var cut = OpenPage();
+
+        cut.WaitForAssertion(() => Assert.Contains("Nächste Rate: 50,00 € am 01.01.2027", cut.Find($"[data-testid='debt-next-{debt.Id}']").TextContent));
+        Assert.Contains("01.07.2027", cut.Find($"[data-testid='debt-end-{debt.Id}']").TextContent);
+        Assert.Contains("450,00", cut.Find($"[data-testid='debt-paid-{debt.Id}']").TextContent);
+        Assert.Contains("AZ 12/34", cut.Find($"[data-testid='debt-reference-{debt.Id}']").TextContent);
+        Assert.Equal("Ratenplan", cut.Find($"[data-testid='debt-plan-{debt.Id}']").TextContent.Trim());
     }
 
     [Fact]

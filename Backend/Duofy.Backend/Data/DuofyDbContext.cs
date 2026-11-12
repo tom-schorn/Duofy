@@ -467,6 +467,7 @@ public class DuofyDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Gui
 
         commitment.Property(c => c.Amount).HasPrecision(12, 2);
         commitment.Property(c => c.TargetAmount).HasPrecision(12, 2);
+        commitment.Property(c => c.LastAmount).HasPrecision(12, 2);
 
         // Die Spalte ist breiter als die 100 Zeichen, die die API erlaubt; so bleiben ältere,
         // längere Bezeichnungen aus der Lernzeit erhalten.
@@ -527,7 +528,10 @@ public class DuofyDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Gui
             .HasConversion(kind => kind.ToString().ToLowerInvariant(), key => Enum.Parse<DebtKind>(key, ignoreCase: true));
         debt.Property(d => d.Name).HasMaxLength(100);
         debt.Property(d => d.Creditor).HasMaxLength(100);
-        debt.Property(d => d.Note).HasMaxLength(200);
+        debt.Property(d => d.Note).HasMaxLength(1000);
+        debt.Property(d => d.Reference).HasMaxLength(50);
+        debt.Property(d => d.AdjustedOpen).HasPrecision(12, 2);
+        debt.HasOne<Commitment>().WithMany().HasForeignKey(d => d.PlanCommitmentId).OnDelete(DeleteBehavior.SetNull);
         debt.Property(d => d.OriginalAmount).HasPrecision(12, 2);
         debt.HasIndex(d => d.OwnerId);
         debt.HasOne<AppUser>().WithMany().HasForeignKey(d => d.OwnerId).OnDelete(DeleteBehavior.Cascade);

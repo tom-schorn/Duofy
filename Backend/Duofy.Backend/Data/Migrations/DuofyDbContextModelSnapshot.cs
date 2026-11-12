@@ -768,6 +768,19 @@ namespace Duofy.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("interval_months");
 
+                    b.Property<bool>("IsDebtPlan")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_debt_plan");
+
+                    b.Property<decimal?>("LastAmount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("last_amount");
+
+                    b.Property<bool>("LastAmountByHand")
+                        .HasColumnType("boolean")
+                        .HasColumnName("last_amount_by_hand");
+
                     b.Property<DateOnly?>("LastDueDate")
                         .HasColumnType("date")
                         .HasColumnName("last_due_date");
@@ -854,6 +867,15 @@ namespace Duofy.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<decimal?>("AdjustedOpen")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("adjusted_open");
+
+                    b.Property<DateOnly?>("AdjustedOpenOn")
+                        .HasColumnType("date")
+                        .HasColumnName("adjusted_open_on");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -881,8 +903,8 @@ namespace Duofy.Data.Migrations
                         .HasColumnName("name");
 
                     b.Property<string>("Note")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
                         .HasColumnName("note");
 
                     b.Property<decimal>("OriginalAmount")
@@ -894,6 +916,15 @@ namespace Duofy.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("owner_id");
 
+                    b.Property<Guid?>("PlanCommitmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("plan_commitment_id");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("reference");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -903,6 +934,9 @@ namespace Duofy.Data.Migrations
 
                     b.HasIndex("OwnerId")
                         .HasDatabaseName("ix_debts_owner_id");
+
+                    b.HasIndex("PlanCommitmentId")
+                        .HasDatabaseName("ix_debts_plan_commitment_id");
 
                     b.ToTable("debts", null, t =>
                         {
@@ -1703,6 +1737,12 @@ namespace Duofy.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_debts_users_owner_id");
+
+                    b.HasOne("Duofy.Domain.Commitment", null)
+                        .WithMany()
+                        .HasForeignKey("PlanCommitmentId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_debts_commitments_plan_commitment_id");
                 });
 
             modelBuilder.Entity("Duofy.Domain.Grant", b =>

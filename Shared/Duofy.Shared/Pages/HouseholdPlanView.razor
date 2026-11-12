@@ -36,7 +36,7 @@
 {
     <div class="metrics" data-testid="month-metrics">
         <div data-testid="month-block-income"><Metric Title="@L["Month_Income"]" Amount="plan.Income" /></div>
-        <div data-testid="month-block-free"><Metric Title="@L["Month_Allocatable"]" Amount="plan.Free" Over="plan.Free < 0m" AmountText="@(plan.Free == 0m ? L["Month_AllPlanned"].Value : null)" Note="@FreeNote" /></div>
+        <div data-testid="month-block-free"><Metric Title="@L["Month_Allocatable"]" Amount="plan.Free" Over="plan.Free < 0m" AmountText="@(plan.Free == 0m ? L["Month_AllPlanned"].Value : null)" Note="@FreeNote"><Extra><AvailableNowMetric Value="plan.AvailableNow" /></Extra></Metric></div>
         <div data-testid="month-block-unpaid"><Metric Title="@L["Month_Unpaid"]" Amount="plan.Unpaid" AmountText="@(plan.Unpaid == 0m ? L["Month_AllPaid"].Value : null)" Note="@L["Month_UnpaidNote"]" /></div>
         @* Die Überträge als vierte Kennzahl, nur von denen, die ihre Buchungen freigegeben haben (Spec 66, R9; Spec 82, R15). *@
         <div data-testid="household-carry-overs">
@@ -218,7 +218,12 @@ else if (plan is not null)
             {
                 parts.Add(L["Month_FreeCarryOverMissing", string.Join(", ", missing)].Value);
             }
-            return parts.Count > 0 ? string.Join(" ", parts) : L["Month_FreeNote"].Value;
+            if (parts.Count == 0)
+            {
+                return $"{L["Month_FreeNote"].Value}, {L["Month_FreeHint"].Value}";
+            }
+            parts.Add($"— {L["Month_FreeHint"].Value}");
+            return string.Join(" ", parts);
         }
     }
 

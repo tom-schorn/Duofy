@@ -367,8 +367,52 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
                     .ThenByDescending(b => b.CreatedAt)
                     .Select(BookingEndpoints.ToResponse)
                     .ToList(),
-                CarryOverLines(plan, nextCarryOver.ElementAtOrDefault(0), nextCarryOver.ElementAtOrDefault(1), bookings)));
+                CarryOverLines(plan, nextCarryOver.ElementAtOrDefault(0), nextCarryOver.ElementAtOrDefault(1), bookings),
+                // Jetzt verfügbar (Spec 139): nur der laufende Monat, und wie Kontostände und Buchungen nur mit Sicht auf beide.
+                IsCurrentMonth(plan) && sight.Accounts && sight.Book
+                    ? ToResponse(await AvailableNowAsync(plan, bookings, Today, cancellationToken))
+                    : null));
     }
+
+    public DateOnly Today => DateOnly.FromDateTime(time.GetLocalNow().DateTime);
+
+    /// <summary>True, wenn der Plan der des laufenden Monats ist (Spec 139).</summary>
+    public bool IsCurrentMonth(Plan plan) => IsCurrentMonth(plan.Year, plan.Month);
+
+    /// <summary>True, wenn Jahr und Monat der laufende Monat sind (Spec 139).</summary>
+    public bool IsCurrentMonth(int year, int month) => year == Today.Year && month == Today.Month;
+
+    /// <summary>
+    /// "Jetzt verfügbar" eines Plans (Spec 139): die Kontostände von heute der verfügbaren Konten (dieselben wie bei Verplanbar,
+    /// <see cref="AvailableAccountIdsAsync"/>) minus die offenen Ausgaben des Monats, siehe <see cref="PlanFigures.AvailableNow"/>.
+    /// Wer aufruft, prüft vorher die Sicht auf Konten und Buchungen.
+    /// </summary>
+    /// <param name="bookings">Die Buchungen mit diesem Planmonat.</param>
+    public async Task<AvailableNowFigure> AvailableNowAsync(Plan plan, IReadOnlyCollection<Booking> bookings, DateOnly today, CancellationToken cancellationToken)
+    {
+        var available = await AvailableAccountIdsAsync([plan.OwnerId], cancellationToken);
+        var accounts = await db.Accounts
+            .AsNoTracking()
+            .Where(a => a.OwnerId == plan.OwnerId && a.Active && a.CountsAsAvailable && a.OpeningDate <= today)
+            .ToListAsync(cancellationToken);
+        var allBookings = await BookingEndpoints.WithLines(db)
+            .AsNoTracking()
+            .Where(b => b.OwnerId == plan.OwnerId && b.PaymentDate <= today)
+            .ToListAsync(cancellationToken);
+        foreach (var account in accounts)
+        {
+            account.Bookings = allBookings.Where(b => b.AccountId == account.Id || b.CounterAccountId == account.Id).ToList();
+        }
+        var defaultAccountId = await db.Accounts
+            .AsNoTracking()
+            .Where(a => a.OwnerId == plan.OwnerId && a.IsDefault)
+            .Select(a => a.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+        return PlanFigures.AvailableNow(
+            plan.Positions, PlanFigures.BookedPerPosition(bookings), available, defaultAccountId, accounts.Sum(a => a.Balance(today)));
+    }
+
+    public static AvailableNowResponse ToResponse(AvailableNowFigure figure) => new(figure.Balances, figure.OpenExpenses, figure.Value);
 
     /// <summary>
     /// Die Überträge eines Monats als eigene Zeilen (Spec 66, R9): "Übertrag aus ..." mit dem eigenen Übertrag und

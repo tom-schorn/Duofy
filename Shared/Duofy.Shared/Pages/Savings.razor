@@ -117,6 +117,31 @@ else
                                 {
                                     <p class="small muted" data-testid="@($"debt-settled-{debt.Id}")">@L["Savings_DebtSettled"]</p>
                                 }
+                                @* Bezahlt, offen von Hand, nächste Rate und Ende kommen von der API (Issue 137). *@
+                                @if (debt.Paid > 0m)
+                                {
+                                    <p class="small muted" data-testid="@($"debt-paid-{debt.Id}")">@L["Savings_DebtPaid", Money(debt.Paid)]</p>
+                                }
+                                @if (debt.AdjustedOpen is not null && debt.AdjustedOpenOn is { } adjustedOn)
+                                {
+                                    <p class="small muted" data-testid="@($"debt-adjusted-{debt.Id}")">@L["Savings_DebtOpenAdjusted", Money(debt.AdjustedOpen.Value), adjustedOn.ToString("dd.MM.yyyy", German)]</p>
+                                }
+                                @if (debt.Plan is { } plan)
+                                {
+                                    <p class="small muted" data-testid="@($"debt-plan-{debt.Id}")">@L[plan.IsOwnPlan ? "Savings_DebtPlanKind" : "Savings_DebtLinkedKind"]</p>
+                                }
+                                @if (debt.NextInstallment is { } next)
+                                {
+                                    <p class="small muted" data-testid="@($"debt-next-{debt.Id}")">@L["Savings_DebtNext", Money(next.Amount), next.Date.ToString("dd.MM.yyyy", German)]</p>
+                                }
+                                @if (debt.ExpectedEnd is { } end && !debt.Settled)
+                                {
+                                    <p class="small muted" data-testid="@($"debt-end-{debt.Id}")">@L["Savings_DebtExpectedEnd", end.ToString("dd.MM.yyyy", German)]</p>
+                                }
+                                @if (debt.Reference is { } reference)
+                                {
+                                    <p class="small muted" data-testid="@($"debt-reference-{debt.Id}")">@L["Savings_DebtReference", reference]</p>
+                                }
                                 @if (debt.DueDate is { } due)
                                 {
                                     <p class="small muted">@L["Savings_DebtDue", due.ToString("dd.MM.yyyy", German)]</p>
@@ -317,7 +342,8 @@ else
             .Add(x => x.Title, title)
             .Add(x => x.Existing, existing)
             .Add(x => x.Kind, kind);
-        var outcome = await Forms.OpenAsync<DebtDialog, bool>(title, parameters);
+        // Der Dialog hat Schritte (Issue 137); er geht wie jeder Schritt-Dialog auf.
+        var outcome = await Forms.OpenStepAsync<DebtDialog, bool>(title, parameters);
         if (outcome.Saved)
         {
             message = new NoticeMessage(L["Savings_DebtSaved"], NoticeSeverity.Success);

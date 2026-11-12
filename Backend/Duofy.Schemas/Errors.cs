@@ -3,10 +3,11 @@ namespace Duofy.Schemas;
 /// <summary>
 /// Der Inhalt einer Fehlerantwort der API, zum Beispiel <c>{ "code": "email_taken" }</c>.
 ///
-/// Die API schickt nur einen Code und keinen Text. Die Oberfläche übersetzt den
-/// Code in einen deutschen Satz aus ihrer Ressourcendatei.
+/// Die API schickt vor allem einen Code. Die Oberfläche übersetzt den Code in einen deutschen Satz aus ihrer
+/// Ressourcendatei. Bei Fehlern, die ein Assistent oder ein Skript erklärt bekommen soll (Issue 137), steht in
+/// <c>Message</c> zusätzlich ein deutscher Satz.
 /// </summary>
-public sealed record ErrorResponse(string Code);
+public sealed record ErrorResponse(string Code, string? Message = null);
 
 /// <summary>
 /// Alle Fehlercodes, die die API schicken kann. Die Oberfläche braucht für jeden
@@ -104,6 +105,17 @@ public static class ErrorCodes
     public const string DebtBookingInvalid = "debt_booking_invalid";
     public const string DebtHasBookings = "debt_has_bookings";
     public const string CommitmentDebtInvalid = "commitment_debt_invalid";
+
+    // Ratenplan einer Schuld (Issue 137)
+    public const string DebtReferenceTooLong = "debt_reference_too_long";
+    public const string DebtAdjustedOpenInvalid = "debt_adjusted_open_invalid";
+    public const string DebtPlanInvalid = "debt_plan_invalid";
+    public const string DebtPlanNothingOpen = "debt_plan_nothing_open";
+    public const string DebtPlanTooManyInstallments = "debt_plan_too_many_installments";
+    public const string DebtPlanLastDoesNotFit = "debt_plan_last_does_not_fit";
+    public const string DebtPlanFromMonthRequired = "debt_plan_from_month_required";
+    public const string DebtPlanStartInvalid = "debt_plan_start_invalid";
+    public const string CommitmentIsDebtPlan = "commitment_is_debt_plan";
 
     // Monatsplan
     public const string PlanNotFound = "plan_not_found";
