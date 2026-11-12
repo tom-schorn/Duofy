@@ -108,9 +108,31 @@
                         @foreach (var position in member.Positions)
                         {
                             var done = position.DoneAt is not null;
+                            var current = position;
+                            var tickOk = CanTick(position);
+                            var editOk = CanEdit(position);
+                            @if (position.IsMoved)
+                            {
+                                <li class="plan-row row-moved" data-testid="@($"household-position-{position.Id}")">
+                                    <div class="list-row">
+                                        <span class="list-row-lift tick-placeholder" aria-hidden="true"></span>
+                                        <span class="list-row-body">
+                                            <span class="list-row-title">@position.Label</span>
+                                            <span class="list-row-detail">@L["Plan_MovedTo", MonthName(position.MovedToMonth!)]</span>
+                                        </span>
+                                        <span class="list-row-amount">@Money(position.AmountPlanned)</span>
+                                        <span class="list-row-lift">
+                                            <DuofyButton Kind="ButtonKind.Ghost" Icon="undo-2" Small="true" Text="@L["Plan_PostponeUndoText"]" OnClick="@(_ => UndoPostponeAsync(current))"
+                                                         Class="@GrantLock.Class(editOk)" @attributes="GrantLock.Attributes(editOk)"
+                                                         AriaLabel="@L["Plan_PostponeUndo", position.Label]" TestId="@($"household-postpone-undo-{position.Id}")" />
+                                        </span>
+                                    </div>
+                                </li>
+                            }
+                            else
+                            {
                             <li class="@(done ? "plan-row row-done" : "plan-row")" data-testid="@($"household-position-{position.Id}")">
                                 <div class="list-row">
-                                    @{ var current = position; var tickOk = CanTick(position); var editOk = CanEdit(position); }
                                     <span class="list-row-lift">
                                         <TickBox Checked="done" Label="@L[done ? "Plan_Untick" : "Plan_Tick", position.Label]" OnToggle="@(() => ToggleAsync(current))"
                                                  Class="@GrantLock.Class(tickOk)" @attributes="GrantLock.Attributes(tickOk)"
@@ -138,6 +160,14 @@
                                             <span class="list-row-detail">@L["Plan_BookedOf", Money(position.Booked)]</span>
                                         }
                                     </span>
+                                    @if (PositionActions.CanPostpone(position))
+                                    {
+                                        <span class="list-row-lift">
+                                            <DuofyButton Kind="ButtonKind.Ghost" Icon="calendar-arrow-down" IconOnly="true" Small="true" OnClick="@(_ => PostponeAsync(current))"
+                                                         Class="@GrantLock.Class(editOk)" @attributes="GrantLock.Attributes(editOk)"
+                                                         AriaLabel="@PostponeLabel(position)" TestId="@($"household-postpone-{position.Id}")" />
+                                        </span>
+                                    }
                                 </div>
                                 @if (lines.Count > 0)
                                 {
@@ -145,6 +175,7 @@
                                                       PanelId="@($"position-bookings-panel-{position.Id}")" Open="expanded.Contains(position.Id)" />
                                 }
                             </li>
+                            }
                         }
                         </ul>
                     </li>
@@ -307,6 +338,20 @@ else if (plan is not null)
     private Task EditAsync(HouseholdPlanPositionResponse position) =>
         RunAsync(() => Actions.EditAsync(Year, Month, OwnerOf(position), position.OwnerFirstName, position.Id));
 
+    private Task PostponeAsync(HouseholdPlanPositionResponse position) =>
+        RunAsync(() => Actions.PostponeAsync(Year, Month, OwnerOf(position), position.OwnerFirstName, position.Id, position.Label));
+
+    private Task UndoPostponeAsync(HouseholdPlanPositionResponse position) =>
+        RunAsync(() => Actions.UndoPostponeAsync(Year, Month, OwnerOf(position), position.OwnerFirstName, position.Id));
+
+    private string PostponeLabel(HouseholdPlanPositionResponse position)
+    {
+        var (nextYear, nextMonth) = PlanView.Shift(Year, Month, 1);
+        return L["Plan_Postpone", position.Label, PlanView.MonthName(nextYear, nextMonth)];
+    }
+
+    private static string MonthName(PlanMonthRef month) => PlanView.MonthName(month.Year, month.Month);
+
     private Task ToggleAsync(HouseholdPlanPositionResponse position) =>
         RunAsync(() => Actions.ToggleAsync(Year, Month, OwnerOf(position), position.OwnerFirstName, PositionActions.ForTick(position)));
 
@@ -315,7 +360,7 @@ else if (plan is not null)
     // Das Druckbild des Haushalts (Spec 82, R20): je Topf die Posten aller Mitglieder mit der Person.
     private IReadOnlyList<PrintPot> PrintPots => plan is null ? [] : Groups(plan)
         .Select(g => new PrintPot(g.Pot, PotPlanned(g.Pot), g.Pot == PotKeys.Income ? null : LimitOf(g.Pot),
-            g.Positions.Select(p => new PrintRow(p.Label, p.DueDay, p.AmountPlanned, p.Booked, p.DoneAt is not null, p.OwnerFirstName)).ToList()))
+            g.Positions.Where(p => !p.IsMoved).Select(p => new PrintRow(p.Label, p.DueDay, p.AmountPlanned, p.Booked, p.DoneAt is not null, p.OwnerFirstName)).ToList()))
         .ToList();
 
     private static IReadOnlyList<(string Pot, IReadOnlyList<HouseholdPlanPositionResponse> Positions)> Groups(HouseholdPlanResponse plan) =>
@@ -429,7 +474,7 @@ else if (plan is not null)
     /// <summary>Die Posten eines Mitglieds in einem Topf.</summary>
     private sealed record MemberGroup(Guid OwnerId, string Name, IReadOnlyList<HouseholdPlanPositionResponse> Positions)
     {
-        public decimal Total => Positions.Sum(p => p.AmountPlanned);
+        public decimal Total => Positions.Where(p => !p.IsMoved).Sum(p => p.AmountPlanned);
 
         // Der Kreis wie im Profil-Menü; der Haushalt kennt nur den Vornamen, also ein Buchstabe.
         public string Initials => string.Concat(Name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(p => char.ToUpperInvariant(p[0])));
@@ -463,6 +508,10 @@ else if (plan is not null)
     private string Caption(HouseholdPlanPositionResponse position)
     {
         var parts = new List<string> { L["Plan_DueDay", position.DueDay] };
+        if (position.MovedFromMonth is { } from)
+        {
+            parts.Add(L["Plan_MovedFrom", MonthName(from)]);
+        }
         if (position.PassThrough)
         {
             parts.Add(L["Plan_PassThrough"]);

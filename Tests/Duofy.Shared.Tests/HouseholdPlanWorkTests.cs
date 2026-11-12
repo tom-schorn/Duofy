@@ -463,6 +463,52 @@ public class HouseholdPlanWorkTests : PageTestContext
         Assert.Empty(dialogs.FindAll("[data-testid='position-label']"));
     }
 
+    // Spec 136, R7: Verschieben steht im Haushaltsplan wie in der eigenen Planung, für die Person der Zeile.
+    [Fact]
+    public async Task Postponing_a_position_of_another_member_asks_once_and_runs_for_that_member()
+    {
+        Grant(Levels(plan: AccessLevelKeys.Edit));
+        var water = AddJasminPosition();
+        var cut = await OpenHouseholdAsync();
+
+        cut.Find($"[data-testid='household-postpone-{water.Id}']").Click();
+        dialogs.WaitForAssertion(() => Assert.Contains("November", dialogs.Markup));
+        Assert.Empty(PlanApiFake.Postponed);
+        dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Verschieben").Click();
+
+        cut.WaitForAssertion(() => Assert.Equal(water.Id, Assert.Single(PlanApiFake.Postponed)));
+        Assert.Equal(JasminId, Assert.Single(PlanApiFake.WriteOwners));
+    }
+
+    [Fact]
+    public async Task Postponing_without_Aendern_on_the_plan_is_refused_and_names_that_step()
+    {
+        Grant(Levels(plan: AccessLevelKeys.View));
+        var water = AddJasminPosition();
+        var cut = await OpenHouseholdAsync();
+
+        cut.Find($"[data-testid='household-postpone-{water.Id}']").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Planung: Ändern", Notice(cut)));
+        Assert.Empty(PlanApiFake.Postponed);
+    }
+
+    [Fact]
+    public async Task A_moved_row_and_its_copy_say_where_they_went_and_came_from_and_the_member_total_leaves_the_moved_one_out()
+    {
+        var moved = FakeHouseholdApi.OwnedPosition("GitHub", 4m, JasminId, "Jasmin", PotKeys.Wants) with { MovedToMonth = new PlanMonthRef(2026, 11) };
+        var copy = FakeHouseholdApi.OwnedPosition("Gym", 20m, JasminId, "Jasmin", PotKeys.Wants) with { MovedFromMonth = new PlanMonthRef(2026, 9) };
+        var plan = HouseholdApiFake.HouseholdPlans[(2026, 10)];
+        HouseholdApiFake.HouseholdPlans[(2026, 10)] = plan with { Positions = [.. plan.Positions, moved, copy] };
+        var cut = await OpenHouseholdAsync();
+
+        var movedRow = cut.Find($"[data-testid='household-position-{moved.Id}']");
+        Assert.Contains("row-moved", movedRow.ClassName);
+        Assert.Contains("in den November verschoben", movedRow.TextContent);
+        Assert.Contains("aus September", cut.Find($"[data-testid='household-position-{copy.Id}']").TextContent);
+        Assert.Contains("20,00", cut.Find($"[data-testid='household-member-group-{PotKeys.Wants}-{JasminId}'] .pot-member-sum").TextContent);
+    }
+
     [Fact]
     public async Task Deleting_a_position_of_another_member_asks_first_and_deletes_only_after_confirming()
     {

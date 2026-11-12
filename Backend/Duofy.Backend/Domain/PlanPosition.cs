@@ -77,6 +77,46 @@ public class PlanPosition
     /// <summary>Die Buchung, die beim Abhaken entstanden ist; das Zurücknehmen des Hakens löscht sie wieder.</summary>
     public Guid? TickBookingId { get; set; }
 
+    /// <summary>
+    /// Die Kopie dieses Postens im nächsten Monat, wenn er verschoben wurde (Spec 136). Ein verschobener Posten zählt in
+    /// seinem Monat nirgends mehr.
+    /// </summary>
+    public Guid? MovedToPositionId { get; set; }
+
+    /// <summary>Der Posten im Vormonat, aus dem diese Kopie durch Verschieben entstanden ist; null bei allen anderen Posten.</summary>
+    public Guid? MovedFromPositionId { get; set; }
+
+    /// <summary>True, wenn der Posten in den nächsten Monat verschoben ist und in diesem Monat nirgends zählt.</summary>
+    public bool IsMoved => MovedToPositionId is not null;
+
+    /// <summary>
+    /// Verschiebt den Posten: legt die Kopie für den Zielmonat an (Betrag, Vertrag, Topf, Kategorie, Konto und Zahlungsart
+    /// gleich, Zahltag auf die Länge des Monats gekürzt) und verknüpft beide. Die Kopie gilt als von Hand geändert, damit
+    /// der Vertrag sie nicht überschreibt.
+    /// </summary>
+    public PlanPosition PostponedCopy(int targetYear, int targetMonth)
+    {
+        var copy = new PlanPosition
+        {
+            Id = Guid.NewGuid(),
+            CommitmentId = CommitmentId,
+            Label = Label,
+            AmountPlanned = AmountPlanned,
+            DueDay = Math.Min(DueDay, DateTime.DaysInMonth(targetYear, targetMonth)),
+            Type = Type,
+            CategoryId = CategoryId,
+            Pot = Pot,
+            AccountId = AccountId,
+            CounterAccountId = CounterAccountId,
+            PassThrough = PassThrough,
+            PaymentMethod = PaymentMethod,
+            ChangedByHand = true,
+            MovedFromPositionId = Id,
+        };
+        MovedToPositionId = copy.Id;
+        return copy;
+    }
+
     /// <summary>True, wenn der Posten abgehakt ist.</summary>
     public bool IsDone => DoneAt is not null;
 

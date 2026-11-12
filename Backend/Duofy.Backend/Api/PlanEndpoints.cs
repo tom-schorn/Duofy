@@ -34,6 +34,8 @@ internal static class PlanEndpoints
         plan.MapPost("/positions", CreatePositionAsync);
         plan.MapPatch("/positions/{id:guid}", UpdatePositionAsync);
         plan.MapDelete("/positions/{id:guid}", DeletePositionAsync);
+        plan.MapPost("/positions/{id:guid}/postpone", PostponeAsync);
+        plan.MapPost("/positions/{id:guid}/postpone/undo", UndoPostponeAsync);
         plan.MapPost("/positions/{id:guid}/tick", TickAsync);
         plan.MapDelete("/positions/{id:guid}/tick", UntickAsync);
         plan.MapPost("/changes/apply", ApplyChangesAsync);
@@ -167,7 +169,7 @@ internal static class PlanEndpoints
 
         loggers.CreateLogger(LogCategory).LogInformation(
             "Einmaliger Posten {PositionId} im Plan {Year}-{Month} von {UserId} angelegt.", position.Id, year, month, ownerId);
-        return Results.Created($"/api/v1/plans/{year}/{month}/positions/{position.Id}", PlanStore.ToResponse(position, 0m));
+        return Results.Created($"/api/v1/plans/{year}/{month}/positions/{position.Id}", PlanStore.ToResponse(position, 0m, year, month));
     }
 
     /// <summary>
@@ -238,7 +240,148 @@ internal static class PlanEndpoints
         }
         Apply(position, value);
         await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(await plans.PositionResponseAsync(ownerId, position, await PlanSight.OfAsync(access, ownerId, cancellationToken), cancellationToken));
+        return Results.Ok(await plans.PositionResponseAsync(ownerId, position, year, month, await PlanSight.OfAsync(access, ownerId, cancellationToken), cancellationToken));
+    }
+
+    /// <summary>
+    /// Verschiebt einen offenen, unbezahlten Posten in den nächsten Monat (Spec 136, R1 bis R3, R5): Der Monat des Postens
+    /// behält ihn als verschoben, der nächste bekommt eine Kopie. Es braucht Planung Bearbeiten wie beim Ändern eines Postens.
+    /// </summary>
+    private static async Task<IResult> PostponeAsync(
+        int year,
+        int month,
+        Guid id,
+        Guid? owner,
+        IAccess access,
+        PlanStore plans,
+        DuofyDbContext db,
+        ILoggerFactory loggers,
+        CancellationToken cancellationToken)
+    {
+        var (ownerId, denied) = await OwnerAsync(access, owner, Area.Plan, AccessLevel.Edit, ErrorCodes.PositionNotFound, cancellationToken);
+        if (denied is not null)
+        {
+            return denied;
+        }
+        if (!IsValidMonth(year, month))
+        {
+            return NotFound(ErrorCodes.PositionNotFound);
+        }
+        var target = PlanStore.Shifted(year, month, 1);
+        if (!IsValidMonth(target.Year, target.Month))
+        {
+            return ApiErrors.BadRequest(ErrorCodes.MonthInvalid);
+        }
+
+        // Vorab prüfen, damit ein abgelehnter Aufruf den nächsten Monat nicht anlegt; unter der Sperre wird noch einmal geprüft.
+        if (await FindPositionAsync(plans, ownerId, year, month, id, cancellationToken) is not { } probe)
+        {
+            return NotFound(ErrorCodes.PositionNotFound);
+        }
+        if (await PostponeRefusalAsync(plans, probe.Position, cancellationToken) is { } early)
+        {
+            return early;
+        }
+        await plans.GetOrCreateAsync(ownerId, target.Year, target.Month, cancellationToken);
+
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await plans.LockAsync(ownerId, year, month, cancellationToken);
+        if (await FindPositionAsync(plans, ownerId, year, month, id, cancellationToken) is not { } found)
+        {
+            return NotFound(ErrorCodes.PositionNotFound);
+        }
+        var position = found.Position;
+        if (await PostponeRefusalAsync(plans, position, cancellationToken) is { } refusal)
+        {
+            return refusal;
+        }
+
+        var next = await plans.GetOrCreateAsync(ownerId, target.Year, target.Month, cancellationToken);
+        var copy = position.PostponedCopy(target.Year, target.Month);
+        next.Positions.Add(copy);
+        next.SortPositions();
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        loggers.CreateLogger(LogCategory).LogInformation(
+            "Posten {PositionId} im Plan {Year}-{Month} von {UserId} in {TargetYear}-{TargetMonth} verschoben (Kopie {CopyId}).",
+            id, year, month, ownerId, target.Year, target.Month, copy.Id);
+        var sight = await PlanSight.OfAsync(access, ownerId, cancellationToken);
+        return Results.Ok(new PostponePositionResponse(
+            await plans.PositionResponseAsync(ownerId, position, year, month, sight, cancellationToken),
+            await plans.PositionResponseAsync(ownerId, copy, target.Year, target.Month, sight, cancellationToken)));
+    }
+
+    /// <summary>Warum ein Posten nicht verschoben werden darf (R3), oder null.</summary>
+    private static async Task<IResult?> PostponeRefusalAsync(PlanStore plans, PlanPosition position, CancellationToken cancellationToken)
+    {
+        if (position.IsMoved)
+        {
+            return Conflict(ErrorCodes.PositionAlreadyMoved);
+        }
+        if (position.IsDone || await plans.HasBookingsAsync(position.Id, cancellationToken))
+        {
+            return Conflict(ErrorCodes.PositionPaid);
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Nimmt das Verschieben zurück (Spec 136, R4): löscht die Kopie im nächsten Monat, wenn sie unbezahlt ist, und der
+    /// alte Posten zählt wieder. Aufgerufen wird es am alten Posten.
+    /// </summary>
+    private static async Task<IResult> UndoPostponeAsync(
+        int year,
+        int month,
+        Guid id,
+        Guid? owner,
+        IAccess access,
+        PlanStore plans,
+        DuofyDbContext db,
+        ILoggerFactory loggers,
+        CancellationToken cancellationToken)
+    {
+        var (ownerId, denied) = await OwnerAsync(access, owner, Area.Plan, AccessLevel.Edit, ErrorCodes.PositionNotFound, cancellationToken);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await plans.LockAsync(ownerId, year, month, cancellationToken);
+        if (await FindPositionAsync(plans, ownerId, year, month, id, cancellationToken) is not { } found)
+        {
+            return NotFound(ErrorCodes.PositionNotFound);
+        }
+        var position = found.Position;
+        if (position.MovedToPositionId is not { } copyId)
+        {
+            return Conflict(ErrorCodes.PositionNotMoved);
+        }
+
+        var target = PlanStore.Shifted(year, month, 1);
+        var copy = await db.PlanPositions.FirstOrDefaultAsync(p => p.Id == copyId, cancellationToken);
+        if (copy is not null)
+        {
+            if (copy.IsMoved)
+            {
+                // Die Kopie wurde selbst weitergeschoben; erst deren Verschieben zurücknehmen.
+                return Conflict(ErrorCodes.PositionCopyMoved);
+            }
+            if (copy.IsDone || await plans.HasBookingsAsync(copy.Id, cancellationToken))
+            {
+                return Conflict(ErrorCodes.PositionCopyPaid);
+            }
+            db.PlanPositions.Remove(copy);
+        }
+        position.MovedToPositionId = null;
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        loggers.CreateLogger(LogCategory).LogInformation(
+            "Verschieben von Posten {PositionId} im Plan {Year}-{Month} von {UserId} zurückgenommen (Kopie in {TargetYear}-{TargetMonth} gelöscht).",
+            id, year, month, ownerId, target.Year, target.Month);
+        return Results.Ok(await plans.PositionResponseAsync(ownerId, position, year, month, await PlanSight.OfAsync(access, ownerId, cancellationToken), cancellationToken));
     }
 
     /// <summary>Löscht einen Posten ohne Buchungen (R10). Der Vertrag läuft weiter.</summary>
@@ -263,6 +406,11 @@ internal static class PlanEndpoints
             return NotFound(ErrorCodes.PositionNotFound);
         }
         var (plan, position) = found;
+        // Löschen ließe die Kopie ohne Herkunft zurück; erst das Verschieben zurücknehmen.
+        if (position.IsMoved)
+        {
+            return Conflict(ErrorCodes.PositionMoved);
+        }
         if (await plans.HasBookingsAsync(position.Id, cancellationToken))
         {
             return Conflict(ErrorCodes.PositionHasBookings);
@@ -321,7 +469,13 @@ internal static class PlanEndpoints
         var position = found.Position;
         if (position.IsDone)
         {
-            return Results.Ok(await plans.PositionResponseAsync(ownerId, position, await PlanSight.OfAsync(access, ownerId, cancellationToken), cancellationToken));
+            return Results.Ok(await plans.PositionResponseAsync(ownerId, position, year, month, await PlanSight.OfAsync(access, ownerId, cancellationToken), cancellationToken));
+        }
+
+        // Ein verschobener Posten zählt hier nicht mehr; bezahlt wird seine Kopie im nächsten Monat (Spec 136).
+        if (position.IsMoved)
+        {
+            return Conflict(ErrorCodes.PositionMoved);
         }
 
         request ??= new TickPositionRequest();
@@ -373,7 +527,7 @@ internal static class PlanEndpoints
         await transaction.CommitAsync(cancellationToken);
         loggers.CreateLogger(LogCategory).LogInformation(
             "Posten {PositionId} von {UserId} abgehakt, Buchung {BookingId}.", position.Id, ownerId, position.TickBookingId);
-        return Results.Ok(await plans.PositionResponseAsync(ownerId, position, await PlanSight.OfAsync(access, ownerId, cancellationToken), cancellationToken));
+        return Results.Ok(await plans.PositionResponseAsync(ownerId, position, year, month, await PlanSight.OfAsync(access, ownerId, cancellationToken), cancellationToken));
     }
 
     /// <summary>Nimmt den Haken zurück; eine Buchung, die beim Abhaken entstanden ist, wird gelöscht (R5).</summary>
@@ -420,7 +574,7 @@ internal static class PlanEndpoints
         position.TickBookingId = null;
         position.DoneAt = null;
         await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(await plans.PositionResponseAsync(ownerId, position, await PlanSight.OfAsync(access, ownerId, cancellationToken), cancellationToken));
+        return Results.Ok(await plans.PositionResponseAsync(ownerId, position, year, month, await PlanSight.OfAsync(access, ownerId, cancellationToken), cancellationToken));
     }
 
     /// <summary>
@@ -465,6 +619,13 @@ internal static class PlanEndpoints
             .Where(change => !hidden.Contains(change.CommitmentId)
                 && !(change.Kind == PlanChangeKind.NoLongerDue && goalLinked.Contains(change.CommitmentId))).ToList();
         var items = request?.Items;
+        // Ein verschobenes Original steht nie im Abgleich und ändert sich nicht über die Verträge; wer es ausdrücklich wählt,
+        // bekommt die Antwort, erst das Verschieben zurückzunehmen.
+        var movedIds = plan.Positions.Where(p => p.IsMoved).Select(p => p.Id).ToHashSet();
+        if (items is not null && items.Any(i => i.PositionId is { } pickedId && movedIds.Contains(pickedId)))
+        {
+            return Conflict(ErrorCodes.PositionMoved);
+        }
         var chosen = items is null
             ? changes.Where(c => !c.Protected).ToList()
             : changes.Where(c => items.Any(i => c.PositionId is { } positionId

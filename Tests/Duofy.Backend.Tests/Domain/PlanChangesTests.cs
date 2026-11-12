@@ -73,6 +73,19 @@ public class PlanChangesTests
     }
 
     [Fact]
+    public void A_moved_original_is_never_listed_not_even_when_its_contract_changed_or_ended()
+    {
+        var rent = Monthly("Miete", 890.00m);
+        var power = Monthly("Strom", 75.00m);
+        var plan = Plan.CreateFrom([rent, power], 2026, 11);
+        plan.Positions.Single(p => p.Label == "Miete").MovedToPositionId = Guid.NewGuid();
+        plan.Positions.Single(p => p.Label == "Strom").MovedToPositionId = Guid.NewGuid();
+        rent.Amount = 950.00m;
+
+        Assert.Empty(PlanChanges.Compare(plan, [rent]));
+    }
+
+    [Fact]
     public void A_new_due_contract_is_listed_and_applying_it_adds_a_position()
     {
         var rent = Monthly("Miete", 890.00m);
