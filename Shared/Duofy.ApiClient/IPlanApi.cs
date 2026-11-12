@@ -45,6 +45,12 @@ public interface IPlanApi
     /// <summary>Nimmt den Haken zurück und löscht eine Buchung, die beim Abhaken entstanden ist.</summary>
     Task<ApiResult<PlanPositionResponse>> UntickAsync(int year, int month, Guid id, Guid? owner = null, CancellationToken cancellationToken = default);
 
+    /// <summary>Verschiebt einen offenen Posten in den nächsten Monat (Spec 136); Antwort ist der alte Posten und die neue Kopie.</summary>
+    Task<ApiResult<PostponePositionResponse>> PostponeAsync(int year, int month, Guid id, Guid? owner = null, CancellationToken cancellationToken = default);
+
+    /// <summary>Nimmt das Verschieben zurück (Spec 136): Die Kopie im nächsten Monat entfällt, der Posten am Monat zählt wieder.</summary>
+    Task<ApiResult<PlanPositionResponse>> UndoPostponeAsync(int year, int month, Guid id, Guid? owner = null, CancellationToken cancellationToken = default);
+
     /// <summary>Übernimmt Unterschiede zu den Verträgen: ohne Liste alle ungeschützten, sonst die genannten.</summary>
     Task<ApiResult<PlanResponse>> ApplyChangesAsync(
         int year, int month, ApplyPlanChangesRequest request, Guid? owner = null, CancellationToken cancellationToken = default);

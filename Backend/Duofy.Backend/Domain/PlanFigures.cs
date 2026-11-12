@@ -77,7 +77,7 @@ public static class PlanFigures
             foreach (var pot in spentPerPot.Keys.ToList())
             {
                 spentPerPot[pot] += plan.Positions
-                    .Where(p => p.Pot == pot && !p.PassThrough)
+                    .Where(p => p.Pot == pot && !p.PassThrough && !p.IsMoved)
                     .Sum(p => booked.GetValueOrDefault(p.Id));
             }
 
@@ -93,11 +93,11 @@ public static class PlanFigures
 
     /// <summary>Die geplanten Einnahmen eines oder mehrerer Monate (Spec 24); durchlaufende Posten zählen nicht.</summary>
     public static decimal Income(IEnumerable<PlanPosition> positions) =>
-        positions.Where(p => !p.PassThrough && p.Pot == Pot.Income).Sum(p => p.AmountPlanned);
+        positions.Where(p => !p.PassThrough && !p.IsMoved && p.Pot == Pot.Income).Sum(p => p.AmountPlanned);
 
     /// <summary>Das Feste eines oder mehrerer Monate (Spec 24): die geplanten Ausgaben in allen Töpfen, ohne durchlaufende Posten.</summary>
     public static decimal Fixed(IEnumerable<PlanPosition> positions) =>
-        positions.Where(p => !p.PassThrough && p.Pot != Pot.Income).Sum(p => p.AmountPlanned);
+        positions.Where(p => !p.PassThrough && !p.IsMoved && p.Pot != Pot.Income).Sum(p => p.AmountPlanned);
 
     /// <summary>
     /// Der Frei-Betrag eines oder mehrerer Monate (Spec 23; Spec 66, R9; Spec 93): die Einnahme-Posten minus die
@@ -128,7 +128,7 @@ public static class PlanFigures
         IEnumerable<PlanPosition> positions, IReadOnlyDictionary<Guid, decimal> booked, decimal carriedIn, IReadOnlyDictionary<Pot, decimal> unplanned,
         decimal transfers)
     {
-        var counting = positions.Where(p => !p.PassThrough).ToList();
+        var counting = positions.Where(p => !p.PassThrough && !p.IsMoved).ToList();
         decimal Counted(PlanPosition p) => Math.Max(p.AmountPlanned, booked.GetValueOrDefault(p.Id));
         var income = counting.Where(p => p.Pot == Pot.Income).Sum(Counted);
         var expenses = counting.Where(p => p.Pot != Pot.Income).Sum(Counted);
@@ -188,7 +188,7 @@ public static class PlanFigures
         IEnumerable<PlanPosition> positions, IReadOnlyDictionary<Guid, decimal> booked, IReadOnlyDictionary<Pot, decimal> unplanned,
         IReadOnlyDictionary<Pot, decimal> potShift)
     {
-        var counting = positions.Where(p => !p.PassThrough).ToList();
+        var counting = positions.Where(p => !p.PassThrough && !p.IsMoved).ToList();
         return new[] { Pot.Needs, Pot.Wants, Pot.Savings }.ToDictionary(
             pot => pot,
             pot => new PotTotal(

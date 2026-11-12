@@ -17,6 +17,8 @@ public sealed class FakePlanApi : IPlanApi
     public List<Guid> DeletedPositions { get; } = [];
     public List<(Guid Id, TickPositionRequest Request)> Ticks { get; } = [];
     public List<Guid> Unticks { get; } = [];
+    public List<Guid> Postponed { get; } = [];
+    public List<Guid> PostponeUndone { get; } = [];
     public List<ApplyPlanChangesRequest> AppliedChanges { get; } = [];
     public List<CreateCarryOverRequest> CarryOvers { get; } = [];
     public List<(int Year, int Month)> DeletedCarryOvers { get; } = [];
@@ -170,6 +172,36 @@ public sealed class FakePlanApi : IPlanApi
         WriteOwners.Add(owner);
         Unticks.Add(id);
         return Task.FromResult(Change(year, month, id, p => p with { DoneAt = null }));
+    }
+
+    public Task<ApiResult<PostponePositionResponse>> PostponeAsync(int year, int month, Guid id, Guid? owner = null, CancellationToken cancellationToken = default)
+    {
+        Owners.Add(owner);
+        WriteOwners.Add(owner);
+        Postponed.Add(id);
+        if (Error is not null)
+        {
+            return Task.FromResult(ApiResult<PostponePositionResponse>.Failure(Error));
+        }
+        var next = new DateOnly(year, month, 1).AddMonths(1);
+        var plan = PlanFor(year, month);
+        var old = plan.Positions.Single(p => p.Id == id) with { MovedToMonth = new PlanMonthRef(next.Year, next.Month) };
+        var copy = old with { Id = Guid.NewGuid(), MovedToMonth = null, MovedFromMonth = new PlanMonthRef(year, month), ChangedByHand = true };
+        Plans[(year, month)] = plan with { Positions = plan.Positions.Select(p => p.Id == id ? old : p).ToList() };
+        var target = PlanFor(next.Year, next.Month);
+        Plans[(next.Year, next.Month)] = target with { Positions = [.. target.Positions, copy] };
+        return Task.FromResult(ApiResult<PostponePositionResponse>.Success(new PostponePositionResponse(old, copy)));
+    }
+
+    public Task<ApiResult<PlanPositionResponse>> UndoPostponeAsync(int year, int month, Guid id, Guid? owner = null, CancellationToken cancellationToken = default)
+    {
+        Owners.Add(owner);
+        WriteOwners.Add(owner);
+        PostponeUndone.Add(id);
+        var next = new DateOnly(year, month, 1).AddMonths(1);
+        var target = PlanFor(next.Year, next.Month);
+        Plans[(next.Year, next.Month)] = target with { Positions = target.Positions.Where(p => p.MovedFromMonth is null).ToList() };
+        return Task.FromResult(Change(year, month, id, p => p with { MovedToMonth = null }));
     }
 
     public Task<ApiResult<PlanResponse>> ApplyChangesAsync(int year, int month, ApplyPlanChangesRequest request, Guid? owner = null, CancellationToken cancellationToken = default)

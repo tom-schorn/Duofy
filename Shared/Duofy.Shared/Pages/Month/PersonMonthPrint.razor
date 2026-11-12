@@ -30,6 +30,6 @@
     private IReadOnlyList<PrintPot> Pots => PlanView.Groups(Plan)
         .Select(g => new PrintPot(g.Pot, PlanView.PotPlanned(Plan, g.Pot),
             g.Pot == PotKeys.Income ? null : Math.Round(Income * (Plan.Quotas.FirstOrDefault(q => q.Pot == g.Pot)?.Target ?? 0) / 100m, 2),
-            g.Positions.Select(p => new PrintRow(p.Label, p.DueDay, p.AmountPlanned, p.Booked, p.DoneAt is not null)).ToList()))
+            g.Positions.Where(p => !p.IsMoved).Select(p => new PrintRow(p.Label, p.DueDay, p.AmountPlanned, p.Booked, p.DoneAt is not null)).ToList()))
         .ToList();
 }

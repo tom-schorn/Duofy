@@ -402,6 +402,19 @@ public class DuofyDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Gui
         position.HasIndex(p => p.AccountId);
         position.HasIndex(p => p.CounterAccountId);
         position.HasIndex(p => p.TickBookingId);
+        position.HasIndex(p => p.MovedToPositionId);
+        position.HasIndex(p => p.MovedFromPositionId);
+        position.Ignore(p => p.IsMoved);
+
+        // Verschieben (Spec 136): Kopie und Original verweisen aufeinander; fällt eine Seite weg, bleibt die andere ohne Verweis.
+        position.HasOne<PlanPosition>()
+            .WithMany()
+            .HasForeignKey(p => p.MovedToPositionId)
+            .OnDelete(DeleteBehavior.SetNull);
+        position.HasOne<PlanPosition>()
+            .WithMany()
+            .HasForeignKey(p => p.MovedFromPositionId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         position.HasOne<Commitment>()
             .WithMany()

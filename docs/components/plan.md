@@ -21,7 +21,7 @@ What a person expects to pay and receive in one month, and how far it has happen
 ## Data
 
 - Plan: `owner_id`, `year`, `month`, `quota_needs`, `quota_wants`, `quota_savings`, `carry_over_income_booking_id` and `carry_over_expense_booking_id` (the two bookings of its carry-over pair, both empty without one).
-- Position: `plan_id`, `commitment_id` (optional), `label`, `amount_planned`, `due_day`, `category_id`, `pot`, `account_id`, `counter_account_id`, `pass_through`, `payment_method`, `done_at`, `changed_by_hand`, `tick_booking_id`.
+- Position: `plan_id`, `commitment_id` (optional), `label`, `amount_planned`, `due_day`, `category_id`, `pot`, `account_id`, `counter_account_id`, `pass_through`, `payment_method`, `done_at`, `changed_by_hand`, `tick_booking_id`, `moved_to_position_id` (the copy in the next month, set on the old position) and `moved_from_position_id` (set on the copy); both are foreign keys to a position with on delete set null.
 
 ## Rules
 
@@ -38,11 +38,14 @@ What a person expects to pay and receive in one month, and how far it has happen
 - Stored pairs with the income on the first of the month stay as they are and are recognised through the two booking ids of the plan (spec 66, amendment 2026-11-01).
 - If an entered real balance differs from the computed one, the carry-over dialog shows the difference per account and asks: book the missing bookings first or adopt the difference as a balancing booking (spec 66, amendment 2026-11-01).
 - Printing: the month view has a print layout (`MonthPrint`, `PersonMonthPrint`); on the web `window.print`, in the Android app a PDF handed to the share dialog, in Windows the system print dialog. A failing print shows a notice and is logged (spec 125, R4, R6).
+- Moving and undoing a move are part of the same shared logic (`PositionActions`): an icon entry "In <Monat> verschieben" per open row, one confirmation naming the target month; the old row is greyed with "Zurücknehmen", the copy shows "aus <Monat>" (spec 136).
 - Posting, ticking, editing and deleting positions use one shared logic (`PositionActions`) in the personal and in the household plan: ticking needs Plan view, Bookings edit and Accounts view of the owner, unticking Plan view and Bookings delete, like the API; deleting always asks first (spec 125).
+
+- Moving: an open position without bookings moves to the next month (`POST …/positions/{id}/postpone`, with `?owner=` and the grant Plan edit as for editing a position): the next month's plan is created if needed and gets a copy with the same contract link, amount, pot, category, account and payment method, the due day clamped to the month's length and `changed_by_hand` true. The old position stays as "in <Monat> verschoben" and counts nowhere: not in plan figures, free amount, quotas, pots, start page, household sums, the month overview, curve and due lists; the copy counts like any position of its month. Ticked positions, positions with bookings and already moved ones are refused (409). `…/postpone/undo` deletes the copy while it is unpaid, not ticked and not moved on itself. A copy can be moved on; it names only its direct origin month ("aus <Monat>"). Contract sync and the change notice never match, change, remove or list a copy. A moved position cannot be ticked (spec 136).
 
 ## Interfaces
 
-`/api/v1/plans/{year}/{month}` with positions, tick, changes and carry-over; `/api/v1/users/me/quotas`; see `docs/specs/66-monthly-plan`.
+`/api/v1/plans/{year}/{month}` with positions, tick, changes and carry-over; `/api/v1/users/me/quotas`; see `docs/specs/66-monthly-plan`; `POST …/positions/{id}/postpone` and `…/postpone/undo`, `docs/specs/136-postpone-position`.
 
 ## Open questions
 
