@@ -69,7 +69,7 @@
                 <MoneyInput id="debt-plan-rate-input" @bind-Value="plan.Rate" Min="0" data-testid="debt-plan-rate" />
             </StepField>
             <StepField Label="@L["Field_PlanInterval"]" InputId="debt-plan-interval-input" Required IsFilled="() => plan.IntervalMonths is not null"
-                       Validate="@(() => plan.IntervalMonths is >= 1 and <= CommitmentRules.MaxIntervalMonths ? null : ErrorTexts.For(L, ErrorCodes.CommitmentIntervalInvalid))"
+                       Validate="@(() => IntervalError())"
                        TestId="debt-plan-interval-field">
                 <NumberInput id="debt-plan-interval-input" min="1" max="@(CommitmentRules.MaxIntervalMonths)" @bind-Value="plan.IntervalMonths" data-testid="debt-plan-interval" />
             </StepField>
@@ -121,6 +121,11 @@
 </StepDialog>
 
 @code {
+    private string? IntervalError() =>
+        plan.IntervalMonths is >= 1 and <= CommitmentRules.MaxIntervalMonths
+            ? null
+            : ErrorTexts.For(L, ErrorCodes.CommitmentIntervalInvalid);
+
 
     private static readonly CultureInfo German = new("de-DE");
 
