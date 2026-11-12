@@ -1,3 +1,5 @@
+using Duofy.Schemas;
+
 namespace Duofy.Domain.Tests;
 
 /// <summary>Die Raten-Rechnung einer Schuld (Issue 137): in Cent, mit kleinerer letzter Rate.</summary>

@@ -1,6 +1,4 @@
-using Duofy.Schemas;
-
-namespace Duofy.Domain;
+namespace Duofy.Schemas;
 
 /// <summary>Warum ein Ratenplan nicht berechnet werden kann.</summary>
 public enum InstallmentPlanError
@@ -28,7 +26,7 @@ public enum InstallmentPlanError
 public readonly record struct InstallmentPlanResult(InstallmentPlanError Error, int Count, decimal LastAmount, DateOnly LastDueDate);
 
 /// <summary>
-/// Die Rechnung hinter dem Ratenplan einer Schuld (Issue 137). Alles wird in Cent gerechnet, damit die letzte Rate auf den
+/// Die Rechnung hinter dem Ratenplan einer Schuld (Issue 137); API und Oberfläche rechnen mit demselben Code. Alles wird in Cent gerechnet, damit die letzte Rate auf den
 /// Cent stimmt: Anzahl n = aufgerundet (offen / Rate), letzte Rate = offen minus (n - 1) mal Rate. Ist die letzte Rate von Hand
 /// gesetzt, gilt sie, und die Anzahl folgt daraus. Es gibt höchstens <see cref="MaxInstallments"/> Raten.
 /// </summary>

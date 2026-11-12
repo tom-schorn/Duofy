@@ -503,6 +503,25 @@ public class CommitmentsPageTests : PageTestContext
         Assert.Empty(CommitmentApiFake.Created);
     }
 
+    // Issue 137, A8: Der Ratenplan-Vertrag sagt, zu welcher Schuld er gehört, und ändern führt zur Schuld.
+    [Fact]
+    public void A_plan_contract_says_which_debt_it_belongs_to_and_its_edit_opens_the_debt()
+    {
+        var debt = new DebtResponse(Guid.NewGuid(), DebtKinds.Claim, "Ausgleich Zusammenveranlagung", "Verwalter", 786.94m, null, null, 0m, 786.94m, false);
+        DebtApiFake.Debts.Add(debt);
+        var plan = new CommitmentResponse(Guid.NewGuid(), CommitmentTypes.Debt, "Ausgleich Zusammenveranlagung", 50m, 1,
+            new DateOnly(2026, 12, 1), new DateOnly(2027, 7, 1), Guid.NewGuid(), PotKeys.Savings, null, null, false,
+            PaymentMethods.DirectDebit, null, null, new DateOnly(2026, 12, 1), true, null, debt.Id, 36.94m,
+            new CommitmentDebtResponse(debt.Id, debt.Name));
+        var cut = OpenPage(plan);
+
+        Assert.Contains("gehört zu Ausgleich Zusammenveranlagung", cut.Find($"[data-testid='commitment-debt-{plan.Id}']").TextContent);
+        cut.Find($"[data-testid='commitment-edit-{plan.Id}']").Click();
+
+        dialogs.WaitForAssertion(() => Assert.Contains("Eintrag ändern", dialogs.Markup));
+        Assert.Equal("Ausgleich Zusammenveranlagung", Input(dialogs, "debt-name").GetAttribute("value"));
+    }
+
     // Issue 31: Im Schritt "Wer und Wohin" kann eine Rate einer Schuld zugeordnet werden.
     [Fact]
     public void Step_three_offers_open_debts_and_a_chosen_debt_is_sent_without_a_target_account()

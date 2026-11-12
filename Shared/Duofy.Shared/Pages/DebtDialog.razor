@@ -1,55 +1,124 @@
 @using BlazorBlueprint.Components
 @using Duofy.Shared.Dialogs
+@using Duofy.Shared.Services
 @inherits FormDialogBase
 @using System.Globalization
 @using Duofy.ApiClient
 @using Duofy.Schemas
 @inject IDebtApi DebtApi
+@inject ICategoryApi CategoryApi
+@inject IAccountChoices AccountChoices
+@inject TimeProvider Time
 @inject ActiveMember Member
 @inject IStringLocalizer<SharedResources> L
 
-@* Der Dialog zum Anlegen und Ändern einer Forderung oder eines Kredits (Issue 31): Name, Gläubiger und Betrag sind
-   Pflicht, Fälligkeit und Notiz freiwillig. Die Art (Forderung oder Kredit) steht beim Anlegen fest und ändert sich
-   später nicht. Geprüft wird beim Speichern von der API; ihre Fehler stehen oben im Dialog, ruhig und ohne Warnfarbe
-   im Text. *@
+@* Der Dialog zum Anlegen und Ändern einer Forderung oder eines Kredits, in zwei Schritten auf dem Schritt-Dialog (Spec 11,
+   Issue 137): 1 Schuld (Name, Gläubiger, Betrag, Fälligkeit, Aktenzeichen, Notiz), 2 Ratenplan (freiwillig: Rate, Rhythmus, erste
+   Rate, Konto, Zahlungsart, Kategorie, letzte Rate). Die Art (Forderung oder Kredit) steht beim Anlegen fest. Die Eingaben des
+   Plans stehen in `plan`, einem DebtPlanDraft, mit der Vorschau von Anzahl und letzter Rate. Geprüft wird beim Speichern von
+   der API; ihre Fehler stehen oben im letzten Schritt. *@
 
-<div>
+<StepDialog Title="@Title" OnFinish="SaveAsync" FinishText="@L["DebtDialog_Save"]" Busy="busy">
+    <DialogStep Title="@L["DebtDialog_StepDebt"]">
+        <StepField Label="@L["Field_DebtName"]" InputId="debt-name-input" Required IsFilled="() => !string.IsNullOrWhiteSpace(name)" TestId="debt-name-field">
+            <TextInput id="debt-name-input" maxlength="@(DebtRules.NameMaxLength)" @bind-Value="name" aria-describedby="debt-name-input-error" data-testid="debt-name" />
+        </StepField>
+        <StepField Label="@L["Field_DebtCreditor"]" InputId="debt-creditor-input" Required IsFilled="() => !string.IsNullOrWhiteSpace(creditor)" TestId="debt-creditor-field">
+            <TextInput id="debt-creditor-input" maxlength="@(DebtRules.CreditorMaxLength)" @bind-Value="creditor" aria-describedby="debt-creditor-input-error" data-testid="debt-creditor" />
+        </StepField>
+        <StepField Label="@L["Field_DebtAmount"]" InputId="debt-amount-input" Required IsFilled="() => amount is not null" TestId="debt-amount-field">
+            <MoneyInput id="debt-amount-input" @bind-Value="amount" Min="0" data-testid="debt-amount" />
+        </StepField>
+        <StepField Label="@L["Field_DebtDueDate"]" InputId="debt-due-date-input" TestId="debt-due-date-field">
+            <TextInput id="debt-due-date-input" Type="date" Value="@DateText(date)" ValueChanged="OnDateChanged" data-testid="debt-due-date" />
+        </StepField>
+        <StepField Label="@L["Field_DebtReference"]" InputId="debt-reference-input" TestId="debt-reference-field">
+            <TextInput id="debt-reference-input" maxlength="@(DebtRules.ReferenceMaxLength)" @bind-Value="reference" data-testid="debt-reference" />
+        </StepField>
+        @if (Existing is not null)
+        {
+            <StepField Label="@L["Field_DebtAdjustedOpen"]" InputId="debt-adjusted-open-input" TestId="debt-adjusted-open-field">
+                <MoneyInput id="debt-adjusted-open-input" @bind-Value="adjustedOpen" Min="0" data-testid="debt-adjusted-open" />
+                <p class="small muted">@L["Field_DebtAdjustedOpenHint"]</p>
+            </StepField>
+        }
+        <StepField Label="@L["Field_DebtNote"]" InputId="debt-note-input" TestId="debt-note-field">
+            <TextInput id="debt-note-input" maxlength="@(DebtRules.NoteMaxLength)" @bind-Value="note" data-testid="debt-note" />
+        </StepField>
+    </DialogStep>
 
-        <div class="stack">
-            @if (error is not null)
-            {
-                <ErrorAlert Text="@error" data-testid="debt-error" />
-            }
+    <DialogStep Title="@L["DebtDialog_StepPlan"]">
+        @if (error is not null)
+        {
+            <ErrorAlert Text="@error" data-testid="debt-error" />
+        }
 
-            <div class="field">
-                <FieldLabel For="debt-name-input" Text="@L["Field_DebtName"]" />
-                <TextInput id="debt-name-input" maxlength="@(DebtRules.NameMaxLength)" @bind-Value="name" data-testid="debt-name" />
-            </div>
-            <div class="field">
-                <FieldLabel For="debt-creditor-input" Text="@L["Field_DebtCreditor"]" />
-                <TextInput id="debt-creditor-input" maxlength="@(DebtRules.CreditorMaxLength)" @bind-Value="creditor" data-testid="debt-creditor" />
-            </div>
-            <div class="field">
-                <FieldLabel id="debt-amount-label" Text="@L["Field_DebtAmount"]" />
-                <MoneyInput aria-labelledby="debt-amount-label" @bind-Value="amount" data-testid="debt-amount" />
-            </div>
-            <div class="field">
-                <FieldLabel For="debt-due-date-input" Text="@L["Field_DebtDueDate"]" />
-                <TextInput id="debt-due-date-input" Type="date" Value="@dateText" ValueChanged="OnDateChanged" data-testid="debt-due-date" />
-            </div>
-            <div class="field">
-                <FieldLabel For="debt-note-input" Text="@L["Field_DebtNote"]" />
-                <TextInput id="debt-note-input" maxlength="@(DebtRules.NoteMaxLength)" @bind-Value="note" data-testid="debt-note" />
-            </div>
-
-
-                <div class="row-end">
-                    <DuofyButton Kind="ButtonKind.Ghost" Text="@L["SavingsGoalDialog_Cancel"]" OnClick="@(_ => Cancel())" />
-                    <DuofyButton Text="@L["DebtDialog_Save"]" OnClick="@(_ => SaveAsync())" TestId="debt-save" Disabled="busy" />
-                </div>
-            
+        <div class="row">
+            <BbSwitch Id="debt-plan-enabled" Checked="plan.Enabled" CheckedChanged="OnPlanEnabledChanged" data-testid="debt-plan-enabled" />
+            <FieldLabel For="debt-plan-enabled" Text="@L["DebtDialog_PlanEnabled"]" />
         </div>
-</div>
+        <p class="small muted">@L["DebtDialog_PlanHint"]</p>
+        @if (Existing?.Plan is { IsOwnPlan: false })
+        {
+            <p class="small muted" data-testid="debt-plan-linked">@L["DebtDialog_PlanLinked"]</p>
+        }
+
+        @if (plan.Enabled && !plan.Remove)
+        {
+            <StepField Label="@L["Field_PlanRate"]" InputId="debt-plan-rate-input" Required IsFilled="() => plan.Rate is not null" TestId="debt-plan-rate-field">
+                <MoneyInput id="debt-plan-rate-input" @bind-Value="plan.Rate" Min="0" data-testid="debt-plan-rate" />
+            </StepField>
+            <StepField Label="@L["Field_PlanInterval"]" InputId="debt-plan-interval-input" Required IsFilled="() => plan.IntervalMonths is not null"
+                       Validate="@(() => plan.IntervalMonths is >= 1 and <= CommitmentRules.MaxIntervalMonths ? null : ErrorTexts.For(L, ErrorCodes.CommitmentIntervalInvalid))"
+                       TestId="debt-plan-interval-field">
+                <NumberInput id="debt-plan-interval-input" min="1" max="@(CommitmentRules.MaxIntervalMonths)" @bind-Value="plan.IntervalMonths" data-testid="debt-plan-interval" />
+            </StepField>
+            <StepField Label="@L["Field_PlanFirstDue"]" InputId="debt-plan-first-input" Required IsFilled="() => plan.FirstDueDate is not null" TestId="debt-plan-first-field">
+                <TextInput id="debt-plan-first-input" Type="date" Value="@DateText(plan.FirstDueDate)" ValueChanged="OnFirstDueChanged" data-testid="debt-plan-first" />
+            </StepField>
+            @if (plan.HasOwnPlan)
+            {
+                <StepField Label="@L["Field_PlanFromMonth"]" InputId="debt-plan-from-input" Required IsFilled="() => plan.FromMonth is not null" TestId="debt-plan-from-field">
+                    <TextInput id="debt-plan-from-input" Type="date" Value="@DateText(plan.FromMonth)" ValueChanged="OnFromMonthChanged" data-testid="debt-plan-from" />
+                    <p class="small muted">@L["Field_PlanFromMonthHint"]</p>
+                </StepField>
+            }
+            <StepField Label="@L["Field_PlanAccount"]" InputId="debt-plan-account-input" TestId="debt-plan-account-field">
+                <CommitmentAccountSelect Value="plan.AccountId" ValueChanged="OnAccountChanged" Accounts="accounts"
+                                         EmptyText="@L["CommitmentDialog_DefaultAccount"]" InputId="debt-plan-account-input"
+                                         Label="@L["Field_PlanAccount"]" TestId="debt-plan-account" />
+            </StepField>
+            <StepField Label="@L["Field_PaymentMethod"]" InputId="debt-plan-method-input" TestId="debt-plan-method-field">
+                <CommitmentPaymentMethodSelect @bind-Value="plan.PaymentMethod" InputId="debt-plan-method-input" TestId="debt-plan-method" />
+            </StepField>
+            <StepField Label="@L["Field_PlanCategory"]" InputId="debt-plan-category-input" TestId="debt-plan-category-field">
+                <NativeSelect Value="@(plan.CategoryId?.ToString() ?? "")" ValueChanged="OnCategoryChanged" id="debt-plan-category-input" data-testid="debt-plan-category">
+                    <option value="">@L["Field_PlanCategoryDefault"]</option>
+                    @foreach (var category in categories.Where(c => c.Group != CategoryGroupKeys.Income))
+                    {
+                        <option value="@category.Id">@category.Name</option>
+                    }
+                </NativeSelect>
+            </StepField>
+            <StepField Label="@L["Field_PlanLastAmount"]" InputId="debt-plan-last-input" TestId="debt-plan-last-field">
+                <MoneyInput id="debt-plan-last-input" @bind-Value="plan.LastAmount" Min="0" data-testid="debt-plan-last" />
+                <p class="small muted">@L["Field_PlanLastAmountHint"]</p>
+            </StepField>
+
+            <p aria-live="polite" data-testid="debt-plan-preview">@PreviewText()</p>
+            <p class="small muted">@L["DebtDialog_PlanPreviewHint"]</p>
+        }
+
+        @if (plan.HasOwnPlan)
+        {
+            <div class="row">
+                <BbSwitch Id="debt-plan-remove" Checked="plan.Remove" CheckedChanged="OnRemoveChanged" data-testid="debt-plan-remove" />
+                <FieldLabel For="debt-plan-remove" Text="@L["DebtDialog_PlanRemove"]" />
+            </div>
+            <p class="small muted">@L["DebtDialog_PlanRemoveHint"]</p>
+        }
+    </DialogStep>
+</StepDialog>
 
 @code {
 
@@ -71,17 +140,24 @@
     private string creditor = "";
     private decimal? amount;
     private DateOnly? date;
-    private string dateText = "";
+    private string reference = "";
+    private decimal? adjustedOpen;
     private string note = "";
     private string? error;
     private bool busy;
+    private DebtPlanDraft plan = default!;
+    private IReadOnlyList<AccountChoice> accounts = [];
+    private IReadOnlyList<CategoryResponse> categories = [];
 
     // Die Person, für die der Dialog geöffnet wurde; sie bleibt, auch wenn der Umschalter inzwischen woanders steht.
     private Guid? owner;
 
-    protected override void OnInitialized()
+    private DateOnly Today => DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
+
+    protected override async Task OnInitializedAsync()
     {
         owner = Member.Owner;
+        plan = Existing is null ? DebtPlanDraft.ForNew(Today) : DebtPlanDraft.From(Existing, Today);
         if (Existing is { } existing)
         {
             name = existing.Name;
@@ -89,17 +165,91 @@
             amount = existing.OriginalAmount;
             date = existing.DueDate;
             note = existing.Note ?? "";
-            dateText = date?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "";
+            reference = existing.Reference ?? "";
+            adjustedOpen = existing.AdjustedOpen;
+        }
+
+        // Konten und Kategorien nur für die Wahl im Plan; ohne sie bleibt das Standardkonto und die Kategorie Schulden.
+        var choices = await AccountChoices.ListAsync(owner);
+        accounts = choices.Succeeded ? choices.Value!.Where(a => a.Active || a.Id == plan.AccountId).ToList() : [];
+        var found = await CategoryApi.ListAsync(owner);
+        categories = found.Succeeded ? found.Value! : [];
+    }
+
+    private static string DateText(DateOnly? value) => value?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "";
+
+    private static DateOnly? ParseDate(string? value) =>
+        DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed) ? parsed : null;
+
+    private void OnDateChanged(string value) => date = ParseDate(value);
+
+    // Ein halb getipptes Datum lässt den alten Wert stehen.
+    private void OnFirstDueChanged(string value)
+    {
+        if (ParseDate(value) is { } parsed)
+        {
+            plan.FirstDueDate = parsed;
         }
     }
 
-    private void OnDateChanged(string value)
+    private void OnFromMonthChanged(string value)
     {
-        dateText = value;
-        date = DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed) ? parsed : null;
+        if (ParseDate(value) is { } parsed)
+        {
+            plan.FromMonth = parsed;
+        }
     }
 
-    private Task Cancel() => CancelAsync();
+    private void OnPlanEnabledChanged(bool on)
+    {
+        plan.Enabled = on;
+        if (!on && plan.HasOwnPlan)
+        {
+            plan.Remove = true;
+        }
+        if (on)
+        {
+            plan.Remove = false;
+        }
+    }
+
+    private void OnRemoveChanged(bool on)
+    {
+        plan.Remove = on;
+        if (on)
+        {
+            plan.Enabled = false;
+        }
+    }
+
+    private void OnAccountChanged(Guid? id) => plan.AccountId = id;
+
+    private void OnCategoryChanged(string value) => plan.CategoryId = Guid.TryParse(value, out var id) ? id : null;
+
+    // Der offene Betrag am ersten Tag des Plans: beim Anlegen der Betrag, beim Ändern das, was offen ist.
+    private decimal OpenForPreview => Existing is null ? amount ?? 0m : adjustedOpen ?? Existing.Open;
+
+    private string PreviewText()
+    {
+        if (plan.Rate is null || plan.FirstDueDate is null)
+        {
+            return L["DebtDialog_PlanPreviewMissing"];
+        }
+        var preview = plan.Preview(OpenForPreview);
+        if (preview.Error != InstallmentPlanError.None)
+        {
+            return ErrorTexts.For(L, preview.Error switch
+            {
+                InstallmentPlanError.NothingOpen => ErrorCodes.DebtPlanNothingOpen,
+                InstallmentPlanError.TooManyInstallments => ErrorCodes.DebtPlanTooManyInstallments,
+                _ => ErrorCodes.DebtPlanInvalid,
+            });
+        }
+        var last = preview.LastDueDate.ToString("dd.MM.yyyy", German);
+        return preview.Count == 1
+            ? L["DebtDialog_PlanPreviewSingle", MoneyText.Format(preview.LastAmount), last]
+            : L["DebtDialog_PlanPreview", preview.Count, MoneyText.Format(preview.LastAmount), last];
+    }
 
     private async Task SaveAsync()
     {
@@ -108,11 +258,19 @@
         try
         {
             var result = Existing is null
-                ? await DebtApi.CreateAsync(new CreateDebtRequest(Kind, name, creditor, amount ?? 0m, date, NullIfEmpty(note), owner))
+                ? await DebtApi.CreateAsync(new CreateDebtRequest(
+                    Kind, name, creditor, amount ?? 0m, date, NullIfEmpty(note), owner,
+                    Reference: NullIfEmpty(reference), Plan: plan.ToRequest()))
                 : await DebtApi.UpdateAsync(Existing.Id, new UpdateDebtRequest(
                     name, creditor, amount ?? 0m, date, NullIfEmpty(note),
                     ClearDueDate: date is null && Existing.DueDate is not null ? true : null,
-                    ClearNote: NullIfEmpty(note) is null && Existing.Note is not null ? true : null));
+                    ClearNote: NullIfEmpty(note) is null && Existing.Note is not null ? true : null,
+                    Reference: NullIfEmpty(reference),
+                    ClearReference: NullIfEmpty(reference) is null && Existing.Reference is not null ? true : null,
+                    Plan: plan.ToRequest(),
+                    ClearPlan: plan.ClearsPlan ? true : null,
+                    AdjustedOpen: adjustedOpen,
+                    ClearAdjustedOpen: adjustedOpen is null && Existing.AdjustedOpen is not null ? true : null));
 
             if (result.Succeeded)
             {
