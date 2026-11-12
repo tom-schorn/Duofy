@@ -200,6 +200,38 @@ public class GrantedPagesTests : PageTestContext
         dialogs.WaitForAssertion(() => Assert.Equal(Anna, Assert.Single(BookingApiFake.Created).OwnerId));
     }
 
+    // Spec 140, R2: Im Buchungsdialog für Anna legt Ben eine Kategorie nur mit Kategorien Anlegen an, und sie gehört Anna.
+    [Fact]
+    public async Task With_categories_create_the_booking_dialog_creates_a_category_for_anna()
+    {
+        await ChooseAnnaAsync(GrantLevels.None with { Book = AccessLevelKeys.Create, Accounts = AccessLevelKeys.View, Plan = AccessLevelKeys.View, Categories = AccessLevelKeys.Create });
+
+        OpenMonthAndNewBooking();
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-new-category']")));
+        dialogs.Find("[data-testid='booking-new-category']").Click();
+        dialogs.WaitForAssertion(() => Assert.NotNull(dialogs.Find("[data-testid='booking-new-category-name']")));
+        dialogs.Find("[data-testid='booking-new-category-name']").Change("Haushaltsausgleich");
+        dialogs.Find("[data-testid='booking-new-category-save']").Click();
+
+        dialogs.WaitForAssertion(() => Assert.Single(Categories.Created));
+        Assert.Equal("Haushaltsausgleich", Categories.Created[0].Name);
+        Assert.Equal(Anna, Assert.Single(Categories.CreatedOwners));
+    }
+
+    // Spec 140, R2: Mit nur Kategorien Ansehen gibt es den Knopf im Dialog nicht; angelegt wird nichts.
+    [Fact]
+    public async Task With_categories_view_only_the_booking_dialog_has_no_new_category_button()
+    {
+        await ChooseAnnaAsync(GrantLevels.None with { Book = AccessLevelKeys.Create, Accounts = AccessLevelKeys.View, Plan = AccessLevelKeys.View, Categories = AccessLevelKeys.View });
+
+        OpenMonthAndNewBooking();
+        dialogs.WaitForAssertion(() => Assert.NotEmpty(dialogs.FindAll("[data-testid='booking-next']")));
+
+        Assert.Empty(dialogs.FindAll("[data-testid='booking-new-category']"));
+        Assert.Empty(Categories.Created);
+        Assert.Empty(Categories.CreatedOwners);
+    }
+
     // R8: Mit Konten Ansehen sieht Ben Annas Konten, kann aber nichts anlegen, ändern oder auflösen.
     [Fact]
     public async Task With_accounts_view_annas_accounts_show_with_every_change_greyed_out()

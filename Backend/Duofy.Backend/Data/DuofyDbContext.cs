@@ -31,6 +31,8 @@ public class DuofyDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Gui
 
     private Guid[] VisibleOwnerIds => [.. Owners.VisibleOwners];
 
+    private Guid[] CategoryOwnerIds => [.. Owners.CategoryOwners];
+
     /// <summary>Die Prüfung beim Speichern gilt für jede Verbindung, auch für die, die ein Test selbst baut.</summary>
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
         optionsBuilder.AddInterceptors(OwnerSaveCheck.Instance);
@@ -190,7 +192,7 @@ public class DuofyDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Gui
         modelBuilder.Entity<Debt>().HasQueryFilter(d => OwnerFilterOff || VisibleOwnerIds.Contains(d.OwnerId));
         modelBuilder.Entity<Plan>().HasQueryFilter(p => OwnerFilterOff || VisibleOwnerIds.Contains(p.OwnerId));
         modelBuilder.Entity<Category>().HasQueryFilter(c =>
-            OwnerFilterOff || (c.OwnerId == null ? SignedIn : VisibleOwnerIds.Contains(c.OwnerId.Value)));
+            OwnerFilterOff || (c.OwnerId == null ? SignedIn : (VisibleOwnerIds.Contains(c.OwnerId.Value) || CategoryOwnerIds.Contains(c.OwnerId.Value))));
 
         modelBuilder.Entity<BookingLine>().HasQueryFilter(l =>
             OwnerFilterOff || Bookings.Any(b => b.Id == EF.Property<Guid>(l, "BookingId") && VisibleOwnerIds.Contains(b.OwnerId)));
@@ -247,7 +249,7 @@ public class DuofyDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Gui
 
     /// <summary>
     /// Die Tabelle "grants": Schlüssel (granter, grantee, area), nie an sich selbst, nur die Stufen ab
-    /// "view" (keine Zeile heißt "none"). Die Zeilen verschwinden mit jeder der beiden Personen.
+    /// "view" (keine Zeile heißt "none"; nur für Kategorien steht auch ein ausdrückliches "none" in einer Zeile, Spec 140). Die Zeilen verschwinden mit jeder der beiden Personen.
     /// </summary>
     private static void ConfigureGrants(ModelBuilder modelBuilder)
     {
@@ -255,8 +257,8 @@ public class DuofyDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Gui
         grant.ToTable("grants", table =>
         {
             table.HasCheckConstraint("ck_grants_not_self", "granter_id <> grantee_id");
-            table.HasCheckConstraint("ck_grants_area", "area IN ('plan', 'book', 'accounts', 'commitments', 'savings')");
-            table.HasCheckConstraint("ck_grants_level", "level IN ('view', 'create', 'edit', 'delete')");
+            table.HasCheckConstraint("ck_grants_area", "area IN ('plan', 'book', 'accounts', 'commitments', 'savings', 'categories')");
+            table.HasCheckConstraint("ck_grants_level", "level IN ('view', 'create', 'edit', 'delete') OR (level = 'none' AND area = 'categories')");
         });
         grant.HasKey(g => new { g.GranterId, g.GranteeId, g.Area });
         grant.HasIndex(g => g.GranteeId);

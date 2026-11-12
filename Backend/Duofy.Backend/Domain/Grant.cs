@@ -7,7 +7,8 @@ namespace Duofy.Domain;
 /// Gesetzt wird sie nur von der Person, der die Daten gehören (<see cref="GranterId"/>). Es gibt keine
 /// Spalte für den Haushalt: Eine Freigabe zählt nur, solange beide im selben Haushalt sind, und Austreten
 /// oder Entfernen löscht alle Freigaben von und an die Person. Keine Zeile heißt <see cref="AccessLevel.None"/>;
-/// Nichts setzen löscht die Zeile.
+/// Nichts setzen löscht die Zeile. Ausnahme Kategorien (Spec 140): Keine Zeile heißt dort "Löschen" für jedes
+/// Mitglied des Haushalts, und ein ausdrückliches Nichts bleibt als Zeile stehen.
 /// </summary>
 public class Grant
 {
@@ -20,16 +21,17 @@ public class Grant
     /// <summary>Der Bereich, für den die Freigabe gilt.</summary>
     public Area Area { get; set; }
 
-    /// <summary>Die Stufe; gespeichert wird nie <see cref="AccessLevel.None"/>, dann gibt es keine Zeile.</summary>
+    /// <summary>Die Stufe; gespeichert wird <see cref="AccessLevel.None"/> nur für <see cref="Area.Categories"/> (ausdrücklich gesetzt), sonst gibt es dann keine Zeile.</summary>
     public AccessLevel Level { get; set; }
 
     /// <summary>
     /// Die Stufen aller Bereiche aus den Zeilen zwischen zwei Personen; ein Bereich ohne Zeile ist
-    /// <see cref="AccessLevel.None"/>.
+    /// <see cref="AccessLevel.None"/>; nur Kategorien ohne Zeile stehen auf <see cref="AccessLevel.Delete"/>, denn
+    /// jedes Mitglied des Haushalts darf die Kategorien der anderen, bis der Besitzer es einschränkt (Spec 140).
     /// </summary>
     public static Dictionary<Area, AccessLevel> LevelsOf(IEnumerable<Grant> rows)
     {
-        var levels = Enum.GetValues<Area>().ToDictionary(area => area, _ => AccessLevel.None);
+        var levels = Enum.GetValues<Area>().ToDictionary(area => area, area => area == Area.Categories ? AccessLevel.Delete : AccessLevel.None);
         foreach (var row in rows)
         {
             levels[row.Area] = row.Level;
@@ -55,6 +57,9 @@ public enum Area
 
     /// <summary>Sparen: Sparziele, Schulden und Kredite (Spec 29).</summary>
     Savings,
+
+    /// <summary>Kategorien anlegen, ändern und löschen (Spec 140); Ansehen ersetzt dort bisher irgendeine Ansicht.</summary>
+    Categories,
 }
 
 /// <summary>

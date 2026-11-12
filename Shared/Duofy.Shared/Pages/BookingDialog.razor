@@ -541,8 +541,8 @@
                       DescribedBy="@($"booking-line-pot-{index}-input-error")" aria-required="true" TestId="@($"booking-line-pot-{index}")" />
         </StepField>
 
-        @* Eigene Kategorien legt nur ihre Person an (Spec 68); für ein anderes Mitglied gibt es den Knopf nicht. *@
-        @if (owner is null && newCategoryLine != index)
+        @* Eine Kategorie für ein anderes Mitglied legt nur an, wer Kategorien Anlegen hat (Spec 140); sonst gibt es den Knopf nicht. *@
+        @if (CanAddCategory && newCategoryLine != index)
         {
             <div class="booking-line-actions">
                 <DuofyButton Kind="ButtonKind.Ghost" Text="@L["BookingDialog_NewCategory"]" Small="true" OnClick="@(_ => OpenNewCategory(index))" TestId="booking-new-category" />
@@ -601,6 +601,8 @@
         ? [PotKeys.Income]
         : PotKeys.All.Where(p => p != PotKeys.Income);
 
+    private bool CanAddCategory => owner is not { } who || Member.AllowsFor(who, GrantAreas.Categories, AccessLevelKeys.Create);
+
     private void OpenNewCategory(int index)
     {
         newCategoryLine = index;
@@ -614,10 +616,13 @@
 
     private async Task SaveNewCategoryAsync()
     {
-        var result = await CategoryApi.CreateAsync(new SaveCategoryRequest(newCategoryName, newCategoryGroup, newCategoryPot));
+        var result = await CategoryApi.CreateAsync(new SaveCategoryRequest(newCategoryName, newCategoryGroup, newCategoryPot), owner);
         if (!result.Succeeded)
         {
-            newCategoryError = ErrorTexts.For(L, result.ErrorCode);
+            // Fehlt die Freigabe, nennt die Meldung Bereich und Stufe: "Es fehlt: Kategorien: Anlegen".
+            newCategoryError = result.ErrorCode == ErrorCodes.NoCreateGranted
+                ? L["Grants_MissingStep", L["Grants_Area_categories"], L["Grants_Level_create"]]
+                : ErrorTexts.For(L, result.ErrorCode);
             return;
         }
 

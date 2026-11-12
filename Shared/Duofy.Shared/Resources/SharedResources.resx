@@ -787,6 +787,8 @@
   <data name="Grants_Area_accounts"><value>Konten</value></data>
   <data name="Grants_Area_commitments"><value>Verträge</value></data>
   <data name="Grants_Area_savings"><value>Sparen und Schulden</value></data>
+  <data name="Grants_MissingStep"><value>Es fehlt: {0}: {1}</value></data>
+  <data name="Grants_Area_categories"><value>Kategorien</value></data>
   <data name="Grants_Level_none"><value>Nichts</value></data>
   <data name="Grants_Level_view"><value>Ansehen</value></data>
   <data name="Grants_Level_create"><value>Anlegen</value></data>
@@ -794,6 +796,7 @@
   <data name="Grants_Level_delete"><value>Löschen</value></data>
   <data name="Grants_HintBookNeedsAccounts"><value>Buchen bei dir geht nur, wenn {0} auch deine Konten ansehen darf.</value></data>
   <data name="Grants_HintBookNeedsPlan"><value>{0} sieht deine Buchungen, aber ohne Planung: Ansehen nicht deinen Plan.</value></data>
+  <data name="Grants_HintCategoriesNone"><value>Nichts blendet auch die Kategorien beim Buchen aus.</value></data>
   <data name="Grants_Saved"><value>Freigaben für {0} gespeichert.</value></data>
   <data name="Household_Grants"><value>Freigaben</value></data>
   <data name="Error_setup_code_invalid"><value>Der Einrichtungscode stimmt nicht oder gilt nicht mehr.</value></data>

@@ -164,4 +164,28 @@ public class BookingAndCategoryClientTests
             [(HttpMethod.Post, "/api/v1/categories"), (HttpMethod.Put, $"/api/v1/categories/{id}"), (HttpMethod.Delete, $"/api/v1/categories/{id}")],
             api.Requests.Select(r => (r.Method, r.Path)));
     }
+
+    // Spec 140: Mit einem Besitzer hängt der Client ?owner= an Anlegen, Ändern und Löschen.
+    [Fact]
+    public async Task Category_writes_for_a_member_carry_the_owner_in_the_address()
+    {
+        var id = Guid.NewGuid();
+        var owner = Guid.NewGuid();
+        var category = new CategoryResponse(id, null, "Haushaltsausgleich", "household", PotKeys.Needs, false);
+        var (api, provider, scope) = Start(r => r.Method == HttpMethod.Delete
+            ? new HttpResponseMessage(HttpStatusCode.NoContent)
+            : FakeApi.Json(r.Method == HttpMethod.Post ? HttpStatusCode.Created : HttpStatusCode.OK, category));
+        using var _p = provider;
+        using var _s = scope;
+        var categories = scope.ServiceProvider.GetRequiredService<ICategoryApi>();
+        var body = new SaveCategoryRequest("Haushaltsausgleich", "household", PotKeys.Needs);
+
+        await categories.CreateAsync(body, owner);
+        await categories.UpdateAsync(id, body, owner);
+        await categories.DeleteAsync(id, owner);
+
+        Assert.Equal(
+            [(HttpMethod.Post, "/api/v1/categories", $"?owner={owner}"), (HttpMethod.Put, $"/api/v1/categories/{id}", $"?owner={owner}"), (HttpMethod.Delete, $"/api/v1/categories/{id}", $"?owner={owner}")],
+            api.Requests.Select(r => (r.Method, r.Path, r.Query)));
+    }
 }

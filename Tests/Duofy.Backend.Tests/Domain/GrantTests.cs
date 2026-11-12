@@ -29,9 +29,9 @@ public class GrantTests
     }
 
     [Fact]
-    public void There_are_exactly_the_five_areas_plan_book_accounts_commitments_and_savings()
+    public void There_are_exactly_the_six_areas_plan_book_accounts_commitments_savings_and_categories()
     {
-        Assert.Equal([Area.Plan, Area.Book, Area.Accounts, Area.Commitments, Area.Savings], Enum.GetValues<Area>());
+        Assert.Equal([Area.Plan, Area.Book, Area.Accounts, Area.Commitments, Area.Savings, Area.Categories], Enum.GetValues<Area>());
     }
 
     [Fact]
@@ -48,5 +48,15 @@ public class GrantTests
         Assert.Equal(AccessLevel.None, levels[Area.Accounts]);
         Assert.Equal(AccessLevel.None, levels[Area.Commitments]);
         Assert.Equal(AccessLevel.None, levels[Area.Savings]);
+        // Kategorien ohne Zeile: Löschen für jedes Mitglied (Spec 140).
+        Assert.Equal(AccessLevel.Delete, levels[Area.Categories]);
+    }
+
+    [Fact]
+    public void An_explicit_none_row_for_categories_reads_as_none()
+    {
+        Grant[] rows = [new() { GranterId = Guid.NewGuid(), GranteeId = Guid.NewGuid(), Area = Area.Categories, Level = AccessLevel.None }];
+
+        Assert.Equal(AccessLevel.None, Grant.LevelsOf(rows)[Area.Categories]);
     }
 }

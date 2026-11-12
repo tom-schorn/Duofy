@@ -108,6 +108,12 @@ internal sealed class DbAccess(DuofyDbContext db, OwnerContext owners, IHttpCont
         {
             await owners.LoadAsync(db, callerId, cancellationToken);
         }
+        // Kategorien (Spec 140): Solange der Besitzer den Bereich nie gesetzt hat, darf jedes Mitglied seines Haushalts
+        // alles (Löschen). Hat er ihn gesetzt, auch auf Nichts, entscheidet er allein.
+        if (area == Area.Categories && !owners.HasRow(ownerId, Area.Categories))
+        {
+            return owners.IsHouseholdPeer(ownerId) ? AccessLevel.Delete : AccessLevel.None;
+        }
         return owners.LevelFrom(ownerId, area);
     }
 
@@ -159,5 +165,5 @@ internal static class GrantKeys
     }
 
     public static GrantLevels ToResponse(IReadOnlyDictionary<Area, AccessLevel> levels) => new(
-        ToKey(levels[Area.Plan]), ToKey(levels[Area.Book]), ToKey(levels[Area.Accounts]), ToKey(levels[Area.Commitments]), ToKey(levels[Area.Savings]));
+        ToKey(levels[Area.Plan]), ToKey(levels[Area.Book]), ToKey(levels[Area.Accounts]), ToKey(levels[Area.Commitments]), ToKey(levels[Area.Savings]), ToKey(levels[Area.Categories]));
 }

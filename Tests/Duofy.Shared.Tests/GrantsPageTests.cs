@@ -35,9 +35,36 @@ public class GrantsPageTests : PageTestContext
         Assert.NotNull(typeof(Grants).GetCustomAttribute<AuthorizeAttribute>());
     }
 
+    // Spec 140, A1/A4: Die Zeile "Kategorien" bietet die fünf Stufen an und schickt nur diesen Bereich.
+    [Fact]
+    public void The_categories_row_offers_the_five_levels_and_sends_only_that_area()
+    {
+        Household(GrantLevels.None);
+        var cut = OpenPage();
+
+        var row = cut.FindComponents<NativeSelect>().Single(s => s.Instance.Label == AreaLabels[GrantAreas.Categories]);
+        Assert.Equal(AccessLevelKeys.All, cut.Find($"[data-testid='grants-{Ben}-{GrantAreas.Categories}']").QuerySelectorAll("option").Select(o => o.GetAttribute("value")));
+        Assert.Equal(GrantAreas.Categories, GrantAreas.All[^1]);
+
+        cut.Find($"[data-testid='grants-{Ben}-{GrantAreas.Categories}']").Change(AccessLevelKeys.Create);
+
+        cut.WaitForAssertion(() => Assert.Equal(new UpdateGrantsRequest(Categories: AccessLevelKeys.Create), Assert.Single(HouseholdApiFake.GrantsSet).Request));
+        Assert.NotNull(row);
+    }
+
+    [Fact]
+    public void The_categories_area_is_in_no_preset_so_existing_grants_keep_their_preset()
+    {
+        Assert.All(GrantPresets.Order, preset => Assert.Equal(AccessLevelKeys.None, GrantPresets.Levels(preset).Categories));
+        // Die Voreinstellung Löschen für Kategorien macht aus einer Vorlage keine eigene Auswahl.
+        Assert.Equal(GrantPresets.Partner, GrantPresets.PresetOf(GrantPresets.Levels(GrantPresets.Partner) with { Categories = AccessLevelKeys.Delete }));
+        Assert.Equal(GrantPresets.Read, GrantPresets.PresetOf(GrantPresets.Levels(GrantPresets.Read) with { Categories = AccessLevelKeys.Delete }));
+        Assert.False((GrantLevels.None with { Categories = AccessLevelKeys.Delete }).SharesAnything);
+    }
+
     // A11
     [Fact]
-    public void Choosing_mitlesen_sends_all_five_levels_and_changing_one_area_sends_only_that_one()
+    public void Choosing_mitlesen_sends_the_five_preset_levels_without_categories_and_changing_one_area_sends_only_that_one()
     {
         Household(GrantLevels.None);
         var cut = OpenPage();
@@ -48,7 +75,7 @@ public class GrantsPageTests : PageTestContext
 
         cut.Find($"[data-testid='grants-{Ben}-preset-read']").Click();
 
-        cut.WaitForAssertion(() => Assert.All(GrantAreas.All, area => Assert.Equal(AccessLevelKeys.View, Level(cut, area))));
+        cut.WaitForAssertion(() => Assert.All(GrantAreas.All.Where(a => a != GrantAreas.Categories), area => Assert.Equal(AccessLevelKeys.View, Level(cut, area))));
         Assert.Equal((Ben, new UpdateGrantsRequest(AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View)),
             Assert.Single(HouseholdApiFake.GrantsSet));
         Assert.Equal("true", cut.Find($"[data-testid='grants-{Ben}-preset-read']").GetAttribute("aria-pressed"));
@@ -62,11 +89,23 @@ public class GrantsPageTests : PageTestContext
         Assert.All(cut.FindAll($"[data-testid^='grants-{Ben}-preset-']"), b => Assert.Equal("false", b.GetAttribute("aria-pressed")));
     }
 
+    // Spec 140: Kategorien auf Nichts blendet sie auch beim Buchen aus; der Hinweis sagt es.
+    [Fact]
+    public void Booking_with_categories_set_to_nothing_shows_the_hint()
+    {
+        Household(GrantLevels.None with { Plan = AccessLevelKeys.View, Accounts = AccessLevelKeys.View, Book = AccessLevelKeys.Create, Categories = AccessLevelKeys.None });
+
+        var cut = OpenPage();
+
+        var hints = cut.FindAll($"[data-testid='grants-{Ben}-hint']").Select(h => h.TextContent.Trim()).ToList();
+        Assert.Equal(["Nichts blendet auch die Kategorien beim Buchen aus."], hints);
+    }
+
     // A12
     [Fact]
     public void Booking_without_seeing_the_accounts_shows_a_hint_and_raises_nothing()
     {
-        Household(GrantLevels.None with { Plan = AccessLevelKeys.View, Book = AccessLevelKeys.Create });
+        Household(GrantLevels.None with { Plan = AccessLevelKeys.View, Book = AccessLevelKeys.Create, Categories = AccessLevelKeys.Delete });
 
         var cut = OpenPage();
 
@@ -123,6 +162,7 @@ public class GrantsPageTests : PageTestContext
         [GrantAreas.Accounts] = "Konten",
         [GrantAreas.Commitments] = "Verträge",
         [GrantAreas.Savings] = "Sparen und Schulden",
+        [GrantAreas.Categories] = "Kategorien",
     };
 
     // A20: Scheitert das Speichern, legt die Seite das Feld neu an, damit es wieder die gespeicherte Stufe zeigt.

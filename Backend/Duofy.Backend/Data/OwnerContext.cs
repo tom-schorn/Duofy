@@ -24,6 +24,13 @@ public interface IOwnerContext
     /// <summary>Die angemeldete Person und jedes Mitglied, das ihr in irgendeinem Bereich mindestens Anlegen freigegeben hat.</summary>
     IReadOnlyCollection<Guid> WritableOwners { get; }
 
+    /// <summary>
+    /// Wessen Kategorien die Anfrage lesen und schreiben darf, soweit das Netz es beurteilen kann: die angemeldete Person
+    /// und jedes Mitglied ihres Haushalts, denn ohne Zeile gilt für Kategorien Löschen (Spec 140). Ob die Stufe reicht,
+    /// entscheidet die zentrale Prüfung.
+    /// </summary>
+    IReadOnlyCollection<Guid> CategoryOwners { get; }
+
     /// <summary>True, solange ein Bereich aus <see cref="Bypass"/> offen ist: Filter und Prüfung beim Speichern sind dann aus.</summary>
     bool IsBypassed { get; }
 
@@ -51,6 +58,11 @@ public sealed class OwnerContext(ILogger<OwnerContext> logger) : IOwnerContext
 
     public IReadOnlyCollection<Guid> WritableOwners { get; private set; } = [];
 
+    public IReadOnlyCollection<Guid> CategoryOwners { get; private set; } = [];
+
+    // Die Mitglieder des Haushalts der angemeldeten Person, sie selbst eingeschlossen.
+    private HashSet<Guid> peers = [];
+
     public bool IsBypassed => bypasses > 0;
 
     /// <summary>
@@ -68,10 +80,17 @@ public sealed class OwnerContext(ILogger<OwnerContext> logger) : IOwnerContext
             .Select(g => new { g.GranterId, g.Area, g.Level })
             .ToListAsync(cancellationToken);
 
-        // Jede Zeile heißt mindestens Ansehen; "keine Zeile" ist "Nichts".
+        peers = (await db.HouseholdMembers
+            .AsNoTracking()
+            .Where(m => db.HouseholdMembers.Any(me => me.UserId == userId && me.HouseholdId == m.HouseholdId))
+            .Select(m => m.UserId)
+            .ToListAsync(cancellationToken)).ToHashSet();
+        CategoryOwners = peers.Append(userId).ToHashSet();
+
+        // Jede Zeile heißt mindestens Ansehen, außer einem ausdrücklichen "Nichts" bei Kategorien (Spec 140); "keine Zeile" ist "Nichts".
         CurrentUserId = userId;
         grants = granted.ToDictionary(g => (g.GranterId, g.Area), g => g.Level);
-        VisibleOwners = granted.Select(g => g.GranterId).Append(userId).ToHashSet();
+        VisibleOwners = granted.Where(g => g.Level.Includes(AccessLevel.View)).Select(g => g.GranterId).Append(userId).ToHashSet();
         WritableOwners = granted.Where(g => g.Level.Includes(AccessLevel.Create)).Select(g => g.GranterId).Append(userId).ToHashSet();
     }
 
@@ -80,6 +99,12 @@ public sealed class OwnerContext(ILogger<OwnerContext> logger) : IOwnerContext
     /// letzten <see cref="LoadAsync"/>; ohne Zeile oder außerhalb des Haushalts <see cref="AccessLevel.None"/>.
     /// </summary>
     public AccessLevel LevelFrom(Guid granterId, Area area) => grants.GetValueOrDefault((granterId, area), AccessLevel.None);
+
+    /// <summary>True, wenn <paramref name="granterId"/> der angemeldeten Person für diesen Bereich eine Stufe gesetzt hat (eine Zeile gibt es nur ab Ansehen, bei Kategorien auch ein ausdrückliches Nichts).</summary>
+    public bool HasRow(Guid granterId, Area area) => grants.ContainsKey((granterId, area));
+
+    /// <summary>True, wenn <paramref name="personId"/> im Haushalt der angemeldeten Person ist, aus dem letzten <see cref="LoadAsync"/>.</summary>
+    public bool IsHouseholdPeer(Guid personId) => peers.Contains(personId);
 
     public IDisposable Bypass(string reason)
     {

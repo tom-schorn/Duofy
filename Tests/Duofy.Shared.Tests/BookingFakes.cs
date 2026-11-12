@@ -68,9 +68,13 @@ public sealed class FakeCategoryApi : ICategoryApi
         return ApiResult<IReadOnlyList<CategoryResponse>>.Success(All.ToList());
     }
 
-    public Task<ApiResult<CategoryResponse>> CreateAsync(SaveCategoryRequest request, CancellationToken cancellationToken = default)
+    /// <summary>Der Besitzer jedes Anlegens, null für die eigenen Kategorien.</summary>
+    public List<Guid?> CreatedOwners { get; } = [];
+
+    public Task<ApiResult<CategoryResponse>> CreateAsync(SaveCategoryRequest request, Guid? owner = null, CancellationToken cancellationToken = default)
     {
         Created.Add(request);
+        CreatedOwners.Add(owner);
         if (CreateResult is { } result)
         {
             return Task.FromResult(result);
@@ -80,10 +84,10 @@ public sealed class FakeCategoryApi : ICategoryApi
         return Task.FromResult(ApiResult<CategoryResponse>.Success(category));
     }
 
-    public Task<ApiResult<CategoryResponse>> UpdateAsync(Guid id, SaveCategoryRequest request, CancellationToken cancellationToken = default) =>
+    public Task<ApiResult<CategoryResponse>> UpdateAsync(Guid id, SaveCategoryRequest request, Guid? owner = null, CancellationToken cancellationToken = default) =>
         Task.FromResult(ApiResult<CategoryResponse>.Failure(ClientErrorCodes.Unexpected));
 
-    public Task<ApiResult> DeleteAsync(Guid id, CancellationToken cancellationToken = default) =>
+    public Task<ApiResult> DeleteAsync(Guid id, Guid? owner = null, CancellationToken cancellationToken = default) =>
         Task.FromResult(ApiResult.Failure(ClientErrorCodes.Unexpected));
 }
 

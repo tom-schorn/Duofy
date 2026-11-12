@@ -19,10 +19,10 @@ public class AccessWalkTests
         ["/api/v1/accounts", "/api/v1/bookings", "/api/v1/commitments", "/api/v1/plans", "/api/v1/categories"];
 
     /// <summary>
-    /// Endpunkte, an denen sich kein fremder Besitzer nennen lässt: Eine Kategorie legt man immer für sich selbst an.
-    /// Der Test prüft für sie, dass das Ergebnis der angemeldeten Person gehört und nicht der fremden.
+    /// Kategorien (Spec 140): Im selben Haushalt darf jedes Mitglied ohne Zeile für den Bereich alles; dort schreibt der
+    /// Lauf sie nicht an (die Stufen prüft GrantedCategoryTests). Außerhalb des Haushalts gilt der Lauf wie für alles.
     /// </summary>
-    private static readonly string[] OwnOnly = ["POST /api/v1/categories"];
+    private static bool DefaultOpen(string endpoint, bool sameHousehold) => sameHousehold && endpoint.Contains("/categories");
 
     private readonly ApiFixture fixture;
     private readonly HttpClient client;
@@ -75,9 +75,9 @@ public class AccessWalkTests
             ["PATCH /api/v1/commitments/{id:guid}"] = (HttpMethod.Patch, $"/api/v1/commitments/{f.Commitment}", new UpdateCommitmentRequest(Name: "Fremd")),
             ["POST /api/v1/commitments/{id:guid}/end"] = (HttpMethod.Post, $"/api/v1/commitments/{f.Commitment}/end", null),
             ["GET /api/v1/categories"] = (HttpMethod.Get, $"/api/v1/categories?{owner}", null),
-            ["POST /api/v1/categories"] = (HttpMethod.Post, "/api/v1/categories", new { name = $"Fremd {Guid.NewGuid():N}", group = CategoryGroupKeys.All[0], pot = PotKeys.Needs, ownerId = f.OwnerId }),
-            ["PUT /api/v1/categories/{id:guid}"] = (HttpMethod.Put, $"/api/v1/categories/{f.Category}", new SaveCategoryRequest("Fremd", CategoryGroupKeys.All[0], PotKeys.Needs)),
-            ["DELETE /api/v1/categories/{id:guid}"] = (HttpMethod.Delete, $"/api/v1/categories/{f.Category}", null),
+            ["POST /api/v1/categories"] = (HttpMethod.Post, $"/api/v1/categories?{owner}", new SaveCategoryRequest($"Fremd {Guid.NewGuid():N}", CategoryGroupKeys.All[0], PotKeys.Needs)),
+            ["PUT /api/v1/categories/{id:guid}"] = (HttpMethod.Put, $"/api/v1/categories/{f.Category}?{owner}", new SaveCategoryRequest("Fremd", CategoryGroupKeys.All[0], PotKeys.Needs)),
+            ["DELETE /api/v1/categories/{id:guid}"] = (HttpMethod.Delete, $"/api/v1/categories/{f.Category}?{owner}", null),
             ["GET /api/v1/plans"] = (HttpMethod.Get, $"/api/v1/plans?{owner}", null),
             ["GET /api/v1/plans/overview"] = (HttpMethod.Get, $"/api/v1/plans/overview?year=2026&{owner}", null),
             ["GET /api/v1/plans/{year:int}/{month:int}"] =(HttpMethod.Get, $"{plan}?{owner}", null),
@@ -152,8 +152,12 @@ public class AccessWalkTests
         var successes = new List<string>();
         foreach (var (endpoint, (method, path, body)) in requests)
         {
+            if (DefaultOpen(endpoint, sameHousehold))
+            {
+                continue;
+            }
             var answer = await client.SendAsync(ben, method, path, body);
-            if (answer.IsSuccessStatusCode && !OwnOnly.Contains(endpoint))
+            if (answer.IsSuccessStatusCode)
             {
                 successes.Add($"{endpoint} -> {(int)answer.StatusCode}");
             }
@@ -161,6 +165,6 @@ public class AccessWalkTests
 
         Assert.Empty(successes);
         Assert.Equal(before, await SnapshotAsync(foreign.OwnerId));
-        Assert.True(await fixture.Factory.WithDbAsync(db => db.Categories.AnyAsync(c => c.OwnerId == ben.Id && c.Name!.StartsWith("Fremd"))));
+        Assert.False(await fixture.Factory.WithDbAsync(db => db.Categories.AnyAsync(c => c.Name!.StartsWith("Fremd"))));
     }
 }
