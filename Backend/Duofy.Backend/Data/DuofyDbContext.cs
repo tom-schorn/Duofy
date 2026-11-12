@@ -255,7 +255,7 @@ public class DuofyDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Gui
         grant.ToTable("grants", table =>
         {
             table.HasCheckConstraint("ck_grants_not_self", "granter_id <> grantee_id");
-            table.HasCheckConstraint("ck_grants_area", "area IN ('plan', 'book', 'accounts', 'commitments', 'savings')");
+            table.HasCheckConstraint("ck_grants_area", "area IN ('plan', 'book', 'accounts', 'commitments', 'savings', 'categories')");
             table.HasCheckConstraint("ck_grants_level", "level IN ('view', 'create', 'edit', 'delete')");
         });
         grant.HasKey(g => new { g.GranterId, g.GranteeId, g.Area });

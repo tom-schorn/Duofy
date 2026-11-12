@@ -8,9 +8,10 @@ public static class GrantAreas
     public const string Accounts = "accounts";
     public const string Commitments = "commitments";
     public const string Savings = "savings";
+    public const string Categories = "categories";
 
-    /// <summary>Alle fünf in der Reihenfolge, in der die Oberfläche sie zeigt.</summary>
-    public static readonly IReadOnlyList<string> All = [Plan, Book, Accounts, Commitments, Savings];
+    /// <summary>Alle sechs in der Reihenfolge, in der die Oberfläche sie zeigt.</summary>
+    public static readonly IReadOnlyList<string> All = [Plan, Book, Accounts, Commitments, Savings, Categories];
 }
 
 /// <summary>Die Stufen der Freigaben, von Nichts bis Löschen; jede schließt die davor ein.</summary>
@@ -32,11 +33,11 @@ public static class AccessLevelKeys
     public static bool Includes(string? granted, string needed) => Rank(granted) >= Rank(needed);
 }
 
-/// <summary>Die Stufen einer Person für die fünf Bereiche; jeder Wert ist einer aus <see cref="AccessLevelKeys"/>.</summary>
-public sealed record GrantLevels(string Plan, string Book, string Accounts, string Commitments, string Savings = AccessLevelKeys.None)
+/// <summary>Die Stufen einer Person für die sechs Bereiche; jeder Wert ist einer aus <see cref="AccessLevelKeys"/>.</summary>
+public sealed record GrantLevels(string Plan, string Book, string Accounts, string Commitments, string Savings = AccessLevelKeys.None, string Categories = AccessLevelKeys.None)
 {
     /// <summary>Nichts in allen Bereichen, so wie eine Person ohne Freigabe dasteht.</summary>
-    public static GrantLevels None { get; } = new(AccessLevelKeys.None, AccessLevelKeys.None, AccessLevelKeys.None, AccessLevelKeys.None, AccessLevelKeys.None);
+    public static GrantLevels None { get; } = new(AccessLevelKeys.None, AccessLevelKeys.None, AccessLevelKeys.None, AccessLevelKeys.None, AccessLevelKeys.None, AccessLevelKeys.None);
 
     /// <summary>Die Stufe eines Bereichs nach seinem Schlüssel aus <see cref="GrantAreas"/>.</summary>
     public string For(string area) => area switch
@@ -46,6 +47,7 @@ public sealed record GrantLevels(string Plan, string Book, string Accounts, stri
         GrantAreas.Accounts => Accounts,
         GrantAreas.Commitments => Commitments,
         GrantAreas.Savings => Savings,
+        GrantAreas.Categories => Categories,
         _ => throw new ArgumentOutOfRangeException(nameof(area), area, "Unbekannter Bereich."),
     };
 
@@ -57,6 +59,7 @@ public sealed record GrantLevels(string Plan, string Book, string Accounts, stri
         GrantAreas.Accounts => this with { Accounts = level },
         GrantAreas.Commitments => this with { Commitments = level },
         GrantAreas.Savings => this with { Savings = level },
+        GrantAreas.Categories => this with { Categories = level },
         _ => throw new ArgumentOutOfRangeException(nameof(area), area, "Unbekannter Bereich."),
     };
 
@@ -68,4 +71,4 @@ public sealed record GrantLevels(string Plan, string Book, string Accounts, stri
 /// Setzt, was die angemeldete Person einem Mitglied erlaubt (PUT /api/v1/households/{id}/grants/{granteeId}).
 /// Nur die geschickten Bereiche ändern sich; "none" nimmt die Freigabe zurück.
 /// </summary>
-public sealed record UpdateGrantsRequest(string? Plan = null, string? Book = null, string? Accounts = null, string? Commitments = null, string? Savings = null);
+public sealed record UpdateGrantsRequest(string? Plan = null, string? Book = null, string? Accounts = null, string? Commitments = null, string? Savings = null, string? Categories = null);

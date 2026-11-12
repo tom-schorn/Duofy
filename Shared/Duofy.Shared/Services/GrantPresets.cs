@@ -22,8 +22,8 @@ public static class GrantPresets
     /// <summary>Die Stufen einer Vorlage.</summary>
     public static GrantLevels Levels(string preset) => preset switch
     {
-        Partner => new(AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.Delete),
-        Read => new(AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View),
+        Partner => new(AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.Delete),
+        Read => new(AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View),
         Kid => GrantLevels.None with { Plan = AccessLevelKeys.View },
         Nothing => GrantLevels.None,
         _ => throw new ArgumentOutOfRangeException(nameof(preset), preset, "Unbekannte Vorlage."),

@@ -81,6 +81,24 @@ public class GrantTests
         Assert.False(await AnyGrantOfAsync(anna));
     }
 
+    // Spec 140, A1: Kategorien ist ein eigener Bereich; die Stufe wird gespeichert, ist für beide sichtbar und ändert die anderen nicht.
+    [Fact]
+    public async Task The_categories_area_is_stored_and_seen_from_both_sides_without_touching_the_others()
+    {
+        var (anna, ben) = await client.AnnaAndBenAsync();
+
+        var answer = await client.GrantAsync(anna, ben, new UpdateGrantsRequest(Categories: AccessLevelKeys.Create));
+
+        Assert.Equal(GrantLevels.None with { Categories = AccessLevelKeys.Create }, answer.MyGrants);
+        Assert.Equal(AccessLevelKeys.Create, EntryFor(await client.MineAsync(ben), anna).GrantsToMe.Categories);
+        Assert.Equal(1, await fixture.Factory.WithDbAsync(db => db.Grants.CountAsync(g => g.GranterId == anna.Id && g.Area == Domain.Area.Categories)));
+        Assert.Contains(GrantAreas.Categories, GrantAreas.All);
+
+        var withdrawn = await client.GrantAsync(anna, ben, new UpdateGrantsRequest(Categories: AccessLevelKeys.None));
+        Assert.Equal(GrantLevels.None, withdrawn.MyGrants);
+        Assert.False(await AnyGrantOfAsync(anna));
+    }
+
     // R2: Was Ben Anna gibt, ist seine eigene Entscheidung und ändert Annas nicht.
     [Fact]
     public async Task Each_side_sets_only_its_own_grants()

@@ -787,6 +787,7 @@
   <data name="Grants_Area_accounts"><value>Konten</value></data>
   <data name="Grants_Area_commitments"><value>Verträge</value></data>
   <data name="Grants_Area_savings"><value>Sparen und Schulden</value></data>
+  <data name="Grants_Area_categories"><value>Kategorien</value></data>
   <data name="Grants_Level_none"><value>Nichts</value></data>
   <data name="Grants_Level_view"><value>Ansehen</value></data>
   <data name="Grants_Level_create"><value>Anlegen</value></data>

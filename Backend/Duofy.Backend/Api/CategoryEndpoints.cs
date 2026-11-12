@@ -1,19 +1,18 @@
-using System.Security.Claims;
 using Duofy.Schemas;
 using Duofy.Data;
 using Duofy.Domain;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace Duofy.Api;
 
 /// <summary>
 /// Die Kategorien (/api/v1/categories): die eingebauten lesen, eigene anlegen,
-/// ändern und löschen. Mit <c>?owner=</c> liest ein Mitglied die Kategorien einer Person, die ihm
-/// irgendeinen Bereich freigegeben hat (Spec 68); sie braucht es, um für sie zu buchen und zu planen.
-/// Schreiben darf nur die Person selbst, geprüft von <see cref="IAccess"/>. Fremde Kategorien und
-/// eingebaute Kategorien gelten beim Ändern und Löschen als "nicht gefunden" (404),
-/// so erfährt niemand, ob es die Kennung gibt.
+/// ändern und löschen. Mit <c>?owner=</c> arbeitet ein Mitglied mit den Kategorien einer Person (Spec 68, 140):
+/// Auflisten mit Kategorien Ansehen, Anlegen, Ändern und Löschen mit der gleichnamigen Stufe, jeweils geprüft von
+/// <see cref="IAccess"/>. Solange die Person den Bereich nie gesetzt hat, lässt irgendein Ansehen auflisten und
+/// Schreiben fehlt (die bisherige Regel). Eine Person außerhalb des Haushalts, fremde und eingebaute Kategorien
+/// gelten als "nicht gefunden" (404), so erfährt niemand, ob es die Kennung gibt; fehlt nur der Schritt, kommt 403
+/// mit dem Code des Schritts, den die Oberfläche als "Es fehlt: Kategorien: Ändern" nennt.
 /// </summary>
 internal static class CategoryEndpoints
 {
@@ -42,7 +41,7 @@ internal static class CategoryEndpoints
             return Results.Unauthorized();
         }
         var ownerId = owner ?? callerId;
-        if ((await access.RequireAnyViewAsync(ownerId, cancellationToken)).Refusal(ApiErrors.OwnerNotFound) is { } refused)
+        if ((await access.RequireAsync(ownerId, Area.Categories, AccessLevel.View, cancellationToken)).Refusal(ApiErrors.OwnerNotFound) is { } refused)
         {
             return refused;
         }
@@ -62,18 +61,22 @@ internal static class CategoryEndpoints
     }
 
     private static async Task<IResult> CreateAsync(
+        Guid? owner,
         SaveCategoryRequest request,
-        ClaimsPrincipal principal,
-        UserManager<AppUser> users,
+        IAccess access,
         DuofyDbContext db,
         ILoggerFactory loggers,
         CancellationToken cancellationToken)
     {
-        if (users.GetUserId(principal) is not { } id)
+        if (access.CallerId is not { } callerId)
         {
             return Results.Unauthorized();
         }
-        var ownerId = Guid.Parse(id);
+        var ownerId = owner ?? callerId;
+        if ((await access.RequireAsync(ownerId, Area.Categories, AccessLevel.Create, cancellationToken)).Refusal(ApiErrors.OwnerNotFound) is { } refused)
+        {
+            return refused;
+        }
 
         var checkedInput = await CheckAsync(request, ownerId, existingId: null, db, cancellationToken);
         if (checkedInput.Error is { } error)
@@ -93,12 +96,13 @@ internal static class CategoryEndpoints
         await db.SaveChangesAsync(cancellationToken);
 
         loggers.CreateLogger("Duofy.Api.Categories")
-            .LogInformation("Kategorie {CategoryId} von {UserId} angelegt.", category.Id, ownerId);
+            .LogInformation("Kategorie {CategoryId} von {UserId} für {OwnerId} angelegt.", category.Id, callerId, ownerId);
         return Results.Created($"/api/v1/categories/{category.Id}", ToResponse(category));
     }
 
     private static async Task<IResult> UpdateAsync(
         Guid id,
+        Guid? owner,
         SaveCategoryRequest request,
         IAccess access,
         DuofyDbContext db,
@@ -110,11 +114,15 @@ internal static class CategoryEndpoints
         }
 
         var category = await db.Categories.FirstOrDefaultAsync(c => c.Id == id && c.OwnerId != null, cancellationToken);
-        if (category is null || access.RequireSelf(category.OwnerId!.Value).Refusal(() => Results.NotFound()) is not null)
+        if (category is null || (owner is { } named && named != category.OwnerId))
         {
             return Results.NotFound();
         }
-        var ownerId = category.OwnerId.Value;
+        var ownerId = category.OwnerId!.Value;
+        if ((await access.RequireAsync(ownerId, Area.Categories, AccessLevel.Edit, cancellationToken)).Refusal(() => Results.NotFound()) is { } refused)
+        {
+            return refused;
+        }
 
         var checkedInput = await CheckAsync(request, ownerId, existingId: id, db, cancellationToken);
         if (checkedInput.Error is { } error)
@@ -131,6 +139,7 @@ internal static class CategoryEndpoints
 
     private static async Task<IResult> DeleteAsync(
         Guid id,
+        Guid? owner,
         IAccess access,
         DuofyDbContext db,
         ILoggerFactory loggers,
@@ -142,11 +151,15 @@ internal static class CategoryEndpoints
         }
 
         var category = await db.Categories.FirstOrDefaultAsync(c => c.Id == id && c.OwnerId != null, cancellationToken);
-        if (category is null || access.RequireSelf(category.OwnerId!.Value).Refusal(() => Results.NotFound()) is not null)
+        if (category is null || (owner is { } named && named != category.OwnerId))
         {
             return Results.NotFound();
         }
-        var ownerId = category.OwnerId.Value;
+        var ownerId = category.OwnerId!.Value;
+        if ((await access.RequireAsync(ownerId, Area.Categories, AccessLevel.Delete, cancellationToken)).Refusal(() => Results.NotFound()) is { } refused)
+        {
+            return refused;
+        }
 
         // Eine Kategorie, die eine Buchungszeile oder ein Vertrag benutzt, bleibt (R4). Die Datenbank
         // würde das Löschen auch ablehnen; so bekommt die Person einen verständlichen Grund.
@@ -160,7 +173,7 @@ internal static class CategoryEndpoints
         await db.SaveChangesAsync(cancellationToken);
 
         loggers.CreateLogger("Duofy.Api.Categories")
-            .LogInformation("Kategorie {CategoryId} von {UserId} gelöscht.", id, ownerId);
+            .LogInformation("Kategorie {CategoryId} von {UserId} für {OwnerId} gelöscht.", id, access.CallerId, ownerId);
         return Results.NoContent();
     }
 

@@ -35,9 +35,34 @@ public class GrantsPageTests : PageTestContext
         Assert.NotNull(typeof(Grants).GetCustomAttribute<AuthorizeAttribute>());
     }
 
+    // Spec 140, A1/A4: Die Zeile "Kategorien" bietet die fünf Stufen an und schickt nur diesen Bereich.
+    [Fact]
+    public void The_categories_row_offers_the_five_levels_and_sends_only_that_area()
+    {
+        Household(GrantLevels.None);
+        var cut = OpenPage();
+
+        var row = cut.FindComponents<NativeSelect>().Single(s => s.Instance.Label == AreaLabels[GrantAreas.Categories]);
+        Assert.Equal(AccessLevelKeys.All, cut.Find($"[data-testid='grants-{Ben}-{GrantAreas.Categories}']").QuerySelectorAll("option").Select(o => o.GetAttribute("value")));
+        Assert.Equal(GrantAreas.Categories, GrantAreas.All[^1]);
+
+        cut.Find($"[data-testid='grants-{Ben}-{GrantAreas.Categories}']").Change(AccessLevelKeys.Create);
+
+        cut.WaitForAssertion(() => Assert.Equal(new UpdateGrantsRequest(Categories: AccessLevelKeys.Create), Assert.Single(HouseholdApiFake.GrantsSet).Request));
+        Assert.NotNull(row);
+    }
+
+    [Fact]
+    public void The_categories_area_is_part_of_the_presets_partner_and_read_but_not_kid()
+    {
+        Assert.Equal(AccessLevelKeys.Delete, GrantPresets.Levels(GrantPresets.Partner).Categories);
+        Assert.Equal(AccessLevelKeys.View, GrantPresets.Levels(GrantPresets.Read).Categories);
+        Assert.Equal(AccessLevelKeys.None, GrantPresets.Levels(GrantPresets.Kid).Categories);
+    }
+
     // A11
     [Fact]
-    public void Choosing_mitlesen_sends_all_five_levels_and_changing_one_area_sends_only_that_one()
+    public void Choosing_mitlesen_sends_all_six_levels_and_changing_one_area_sends_only_that_one()
     {
         Household(GrantLevels.None);
         var cut = OpenPage();
@@ -49,7 +74,7 @@ public class GrantsPageTests : PageTestContext
         cut.Find($"[data-testid='grants-{Ben}-preset-read']").Click();
 
         cut.WaitForAssertion(() => Assert.All(GrantAreas.All, area => Assert.Equal(AccessLevelKeys.View, Level(cut, area))));
-        Assert.Equal((Ben, new UpdateGrantsRequest(AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View)),
+        Assert.Equal((Ben, new UpdateGrantsRequest(AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View)),
             Assert.Single(HouseholdApiFake.GrantsSet));
         Assert.Equal("true", cut.Find($"[data-testid='grants-{Ben}-preset-read']").GetAttribute("aria-pressed"));
         Assert.Empty(cut.FindAll($"[data-testid='grants-{Ben}-own-choice']"));
@@ -123,6 +148,7 @@ public class GrantsPageTests : PageTestContext
         [GrantAreas.Accounts] = "Konten",
         [GrantAreas.Commitments] = "Verträge",
         [GrantAreas.Savings] = "Sparen und Schulden",
+        [GrantAreas.Categories] = "Kategorien",
     };
 
     // A20: Scheitert das Speichern, legt die Seite das Feld neu an, damit es wieder die gespeicherte Stufe zeigt.

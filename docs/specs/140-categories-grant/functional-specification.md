@@ -48,11 +48,11 @@ External input: yes
 
 | Requirement | Criterion | Test |
 | --- | --- | --- |
-| R1 | A1 | pending |
-| R2 | A2 | pending |
-| R2 | A5 | pending |
-| R3 | A3 | pending |
-| R4 | A4 | pending |
+| R1 | A1 | GrantTests.The_categories_area_is_stored_and_seen_from_both_sides_without_touching_the_others; GrantsPageTests.The_categories_row_offers_the_five_levels_and_sends_only_that_area |
+| R2 | A2 | GrantedCategoryTests.Create_edit_and_delete_follow_the_categories_level_and_belong_to_the_owner; Change_through_the_id_without_owner_is_judged_by_the_owner_of_the_category |
+| R2 | A5 | GrantedCategoryTests.An_outsider_gets_not_found_on_every_category_endpoint |
+| R3 | A3 | GrantedCategoryTests.Without_a_categories_row_any_view_grant_lists_but_creating_is_refused; Without_a_categories_grant_ben_cannot_change_or_delete_annas_category_even_with_the_other_areas_granted; Once_the_categories_row_exists_it_alone_decides_and_view_alone_lists |
+| R4 | A4 | GrantsPageTests.The_categories_row_offers_the_five_levels_and_sends_only_that_area (row); widths 412/800/1024 and the category page with the person switch: pending, needs the browser check |
 
 ## Threats
 

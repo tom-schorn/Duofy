@@ -941,7 +941,7 @@ namespace Duofy.Data.Migrations
 
                     b.ToTable("grants", null, t =>
                         {
-                            t.HasCheckConstraint("ck_grants_area", "area IN ('plan', 'book', 'accounts', 'commitments', 'savings')");
+                            t.HasCheckConstraint("ck_grants_area", "area IN ('plan', 'book', 'accounts', 'commitments', 'savings', 'categories')");
 
                             t.HasCheckConstraint("ck_grants_level", "level IN ('view', 'create', 'edit', 'delete')");
 

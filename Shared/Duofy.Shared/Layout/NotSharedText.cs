@@ -10,7 +10,7 @@ namespace Duofy.Shared.Layout;
 /// </summary>
 internal static class NotSharedText
 {
-    /// <param name="area">Der Schlüssel des Bereichs, wie ihn <c>Grants_Area_*</c> kennt (plan, book, accounts, commitments, savings).</param>
+    /// <param name="area">Der Schlüssel des Bereichs, wie ihn <c>Grants_Area_*</c> kennt (plan, book, accounts, commitments, savings, categories).</param>
     public static string For(IStringLocalizer<SharedResources> l, ActiveMember member, string? area)
     {
         if (area is null || member.Name is not { } who)

@@ -55,6 +55,9 @@ public enum Area
 
     /// <summary>Sparen: Sparziele, Schulden und Kredite (Spec 29).</summary>
     Savings,
+
+    /// <summary>Kategorien anlegen, ändern und löschen (Spec 140); Ansehen ersetzt dort bisher irgendeine Ansicht.</summary>
+    Categories,
 }
 
 /// <summary>

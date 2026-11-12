@@ -81,6 +81,13 @@ public sealed class OwnerContext(ILogger<OwnerContext> logger) : IOwnerContext
     /// </summary>
     public AccessLevel LevelFrom(Guid granterId, Area area) => grants.GetValueOrDefault((granterId, area), AccessLevel.None);
 
+    /// <summary>True, wenn <paramref name="granterId"/> der angemeldeten Person für diesen Bereich eine Stufe gesetzt hat (eine Zeile gibt es nur ab Ansehen).</summary>
+    public bool HasRow(Guid granterId, Area area) => grants.ContainsKey((granterId, area));
+
+    /// <summary>True, wenn <paramref name="granterId"/> der angemeldeten Person in irgendeinem anderen Bereich als <paramref name="except"/> mindestens Ansehen freigegeben hat.</summary>
+    public bool ViewsAnythingExcept(Guid granterId, Area except) =>
+        Enum.GetValues<Area>().Any(area => area != except && LevelFrom(granterId, area).Includes(AccessLevel.View));
+
     public IDisposable Bypass(string reason)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
