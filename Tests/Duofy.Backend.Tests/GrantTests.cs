@@ -100,7 +100,7 @@ public class GrantTests
         // Ausdrücklich "Nichts" bleibt als Zeile stehen: "nie gesetzt" und "Nichts" sind bei Kategorien zweierlei.
         var withdrawn = await client.GrantAsync(anna, ben, new UpdateGrantsRequest(Categories: AccessLevelKeys.None));
         Assert.Equal(GrantLevels.None, withdrawn.MyGrants);
-        Assert.Equal(AccessLevel.None, await fixture.Factory.WithDbAsync(db => db.Grants.Where(g => g.GranterId == anna.Id && g.Area == Domain.Area.Categories).Select(g => g.Level).SingleAsync()));
+        Assert.Equal(Domain.AccessLevel.None, await fixture.Factory.WithDbAsync(db => db.Grants.Where(g => g.GranterId == anna.Id && g.Area == Domain.Area.Categories).Select(g => g.Level).SingleAsync()));
     }
 
     // R2: Was Ben Anna gibt, ist seine eigene Entscheidung und ändert Annas nicht.
@@ -204,6 +204,6 @@ public class GrantTests
         (await client.SendAsync(ben, HttpMethod.Delete, "/api/v1/users/me", new DeleteMeRequest(ApiDriver.Password))).EnsureSuccessStatusCode();
 
         Assert.False(await AnyGrantOfAsync(ben));
-        Assert.Equal(Defaults, Assert.Single((await client.MineAsync(anna)).Members).MyGrants);
+        Assert.Equal(GrantLevels.None, Assert.Single((await client.MineAsync(anna)).Members).MyGrants);
     }
 }

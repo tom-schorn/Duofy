@@ -185,7 +185,7 @@ public class BookingAndCategoryClientTests
         await categories.DeleteAsync(id, owner);
 
         Assert.Equal(
-            [(HttpMethod.Post, $"/api/v1/categories?owner={owner}"), (HttpMethod.Put, $"/api/v1/categories/{id}?owner={owner}"), (HttpMethod.Delete, $"/api/v1/categories/{id}?owner={owner}")],
-            api.Requests.Select(r => (r.Method, r.Path)));
+            [(HttpMethod.Post, "/api/v1/categories", $"?owner={owner}"), (HttpMethod.Put, $"/api/v1/categories/{id}", $"?owner={owner}"), (HttpMethod.Delete, $"/api/v1/categories/{id}", $"?owner={owner}")],
+            api.Requests.Select(r => (r.Method, r.Path, r.Query)));
     }
 }

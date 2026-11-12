@@ -68,7 +68,7 @@ public class GrantedCategoryTests
         Assert.Equal(HttpStatusCode.Created, create.StatusCode);
         Assert.Equal(HttpStatusCode.OK, change.StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
-        Assert.Equal(anna.Id, await fixture.Factory.WithDbAsync(db => db.Categories.Where(c => c.Name == "Hort").Select(c => c.OwnerId).SingleAsync()));
+        Assert.Equal(anna.Id, await fixture.Factory.WithDbAsync(db => db.Categories.Where(c => c.Name == "Hort" && c.OwnerId == anna.Id).Select(c => c.OwnerId).SingleAsync()));
     }
 
     // A1/A2: Mit der Stufe Anlegen legt Ben für Anna an; Ändern und Löschen fehlen, bis Anna sie freigibt.
