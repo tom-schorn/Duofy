@@ -70,14 +70,14 @@ public static class InstallmentPlan
         {
             // Die Summe aller Raten übersteigt nie den offenen Betrag: Reichen die vollen Raten davor mit der letzten von Hand
             // über ihn hinaus, wird die letzte auf den Rest gekürzt; bleibt nichts für sie übrig, passt sie nicht.
-            long byHand = Cents(set);
-            long rest = openCents - byHand;
+            long handCents = Cents(set);
+            long rest = openCents - handCents;
             if (rest <= 0)
             {
                 return Fail(InstallmentPlanError.LastAmountDoesNotFit);
             }
             long full = (rest + rateCents - 1) / rateCents;
-            lastCents = Math.Min(byHand, openCents - full * rateCents);
+            lastCents = Math.Min(handCents, openCents - full * rateCents);
             if (lastCents <= 0)
             {
                 return Fail(InstallmentPlanError.LastAmountDoesNotFit);
