@@ -290,6 +290,7 @@ internal static class BookingEndpoints
     {
         BookingCheckOutcome.Valid => null,
         BookingCheckOutcome.NotFound => Results.NotFound(),
+        BookingCheckOutcome.Conflict => Results.Json(new ErrorResponse(check.Code!), statusCode: StatusCodes.Status409Conflict),
         _ => ApiErrors.BadRequest(check.Code!),
     };
 

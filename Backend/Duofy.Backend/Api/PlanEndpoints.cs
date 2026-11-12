@@ -363,13 +363,13 @@ internal static class PlanEndpoints
         var copy = await db.PlanPositions.FirstOrDefaultAsync(p => p.Id == copyId, cancellationToken);
         if (copy is not null)
         {
-            if (copy.IsDone || await plans.HasBookingsAsync(copy.Id, cancellationToken))
-            {
-                return Conflict(ErrorCodes.PositionCopyPaid);
-            }
             if (copy.IsMoved)
             {
                 // Die Kopie wurde selbst weitergeschoben; erst deren Verschieben zurücknehmen.
+                return Conflict(ErrorCodes.PositionCopyMoved);
+            }
+            if (copy.IsDone || await plans.HasBookingsAsync(copy.Id, cancellationToken))
+            {
                 return Conflict(ErrorCodes.PositionCopyPaid);
             }
             db.PlanPositions.Remove(copy);
@@ -406,6 +406,11 @@ internal static class PlanEndpoints
             return NotFound(ErrorCodes.PositionNotFound);
         }
         var (plan, position) = found;
+        // Löschen ließe die Kopie ohne Herkunft zurück; erst das Verschieben zurücknehmen.
+        if (position.IsMoved)
+        {
+            return Conflict(ErrorCodes.PositionMoved);
+        }
         if (await plans.HasBookingsAsync(position.Id, cancellationToken))
         {
             return Conflict(ErrorCodes.PositionHasBookings);
@@ -623,8 +628,18 @@ internal static class PlanEndpoints
         // Erst entscheiden, was übernommen wird, dann prüfen, ob dafür ein Posten entfernt wird: Das ist Löschen
         // und braucht die Stufe Löschen (Spec 68, A18). Fehlt sie, bleibt der ganze Plan, wie er ist.
         var applying = new List<PlanChange>();
+        var movedIds = plan.Positions.Where(p => p.IsMoved).Select(p => p.Id).ToHashSet();
         foreach (var change in chosen)
         {
+            // Ein verschobener Posten ändert sich nicht über die Verträge; erst das Verschieben zurücknehmen.
+            if (change.PositionId is { } changedId && movedIds.Contains(changedId))
+            {
+                if (items is not null)
+                {
+                    return Conflict(ErrorCodes.PositionMoved);
+                }
+                continue;
+            }
             if (change.Kind == PlanChangeKind.NoLongerDue && await plans.HasBookingsAsync(change.PositionId!.Value, cancellationToken))
             {
                 if (items is not null)

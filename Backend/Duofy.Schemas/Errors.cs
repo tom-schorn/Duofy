@@ -119,6 +119,7 @@ public static class ErrorCodes
     public const string PositionMoved = "position_moved";
     public const string PositionNotMoved = "position_not_moved";
     public const string PositionCopyPaid = "position_copy_paid";
+    public const string PositionCopyMoved = "position_copy_moved";
     public const string PositionTargetInvalid = "position_target_invalid";
     public const string PositionIncomeWithTarget = "position_income_with_target";
     public const string LinePositionInvalid = "line_position_invalid";

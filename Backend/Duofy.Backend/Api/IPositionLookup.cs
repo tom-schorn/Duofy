@@ -10,7 +10,8 @@ namespace Duofy.Api;
 /// <param name="PlanMonth">Der Monat seines Plans.</param>
 /// <param name="Pot">Sein Topf; er entscheidet, welche Zeilen ihn füllen dürfen.</param>
 /// <param name="CounterAccountId">Sein Zielkonto; mit einem Zielkonto darf auch eine Umbuchung ihn füllen.</param>
-public sealed record PositionInfo(Guid Id, int PlanYear, int PlanMonth, Pot Pot, Guid? CounterAccountId);
+/// <param name="IsMoved">Ob er in den nächsten Monat verschoben ist; bezahlt wird dann seine Kopie, nicht er.</param>
+public sealed record PositionInfo(Guid Id, int PlanYear, int PlanMonth, Pot Pot, Guid? CounterAccountId, bool IsMoved = false);
 
 /// <summary>Sucht einen Posten in den Plänen einer Person.</summary>
 public interface IPositionLookup
@@ -40,6 +41,6 @@ internal sealed class DbPositionLookup(DuofyDbContext db) : IPositionLookup
             .Where(p => p.OwnerId == ownerId)
             .SelectMany(p => p.Positions.Select(position => new { Plan = p, Position = position }))
             .Where(x => x.Position.Id == positionId)
-            .Select(x => new PositionInfo(x.Position.Id, x.Plan.Year, x.Plan.Month, x.Position.Pot, x.Position.CounterAccountId))
+            .Select(x => new PositionInfo(x.Position.Id, x.Plan.Year, x.Plan.Month, x.Position.Pot, x.Position.CounterAccountId, x.Position.MovedToPositionId != null))
             .FirstOrDefaultAsync(cancellationToken);
 }

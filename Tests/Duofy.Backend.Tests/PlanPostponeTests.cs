@@ -214,4 +214,121 @@ public class PlanPostponeTests
         Assert.Equal(new PlanMonthRef(2027, 1), onward.From.MovedToMonth);
         Assert.Equal(new PlanMonthRef(2026, 12), onward.To.MovedFromMonth);
     }
+
+    private async Task<HttpResponseMessage> TryBookAsync(Person owner, Guid positionId, decimal amount, int year, int month)
+    {
+        var accounts = await (await client.SendAsync(owner, HttpMethod.Get, "/api/v1/accounts")).Content.ReadFromJsonAsync<List<AccountResponse>>();
+        return await client.SendAsync(owner, HttpMethod.Post, "/api/v1/bookings", new SaveBookingRequest(
+            BookingKinds.Expense, accounts![0].Id, null, new DateOnly(2026, 11, 5), amount, null,
+            [new SaveBookingLine(amount, PotKeys.Wants, CategoryCatalog.IdFor("household.groceries"), positionId)], year, month));
+    }
+
+    private async Task<(PlanPositionResponse Old, PlanPositionResponse Copy)> MovedAsync(Person owner, int year = 2026, int month = 11)
+    {
+        var position = await OneOffAsync(owner, year, month);
+        var both = (await (await PostponeAsync(owner, year, month, position.Id)).Content.ReadFromJsonAsync<PostponePositionResponse>())!;
+        return (both.From, both.To);
+    }
+
+    // Review M2: Geld auf einem verschobenen Posten verschwände aus allen Zahlen.
+    [Fact]
+    public async Task A_booking_line_on_a_moved_position_is_refused_with_409_and_books_nothing()
+    {
+        var (anna, _) = await client.AnnaAndBenAsync(fixture.Factory);
+        await GiroOfAsync(anna);
+        var (old, copy) = await MovedAsync(anna);
+
+        var refused = await TryBookAsync(anna, old.Id, 2m, 2026, 11);
+        var onCopy = await TryBookAsync(anna, copy.Id, 2m, 2026, 12);
+
+        Assert.Equal((HttpStatusCode.Conflict, ErrorCodes.PositionMoved), (refused.StatusCode, await refused.ReadCodeAsync()));
+        Assert.Equal(HttpStatusCode.Created, onCopy.StatusCode);
+        var bookings = (await (await client.SendAsync(anna, HttpMethod.Get, "/api/v1/bookings?year=2026&month=11")).Content.ReadFromJsonAsync<BookingMonthResponse>())!.Bookings;
+        Assert.DoesNotContain(bookings, b => b.Lines.Any(l => l.PositionId == old.Id));
+    }
+
+    // Review S1
+    [Fact]
+    public async Task A_moved_original_cannot_be_deleted_and_its_copy_keeps_the_origin()
+    {
+        var (anna, _) = await client.AnnaAndBenAsync(fixture.Factory);
+        await GiroOfAsync(anna);
+        var (old, copy) = await MovedAsync(anna);
+
+        var refused = await client.SendAsync(anna, HttpMethod.Delete, $"{Month(2026, 11)}/positions/{old.Id}");
+
+        Assert.Equal((HttpStatusCode.Conflict, ErrorCodes.PositionMoved), (refused.StatusCode, await refused.ReadCodeAsync()));
+        Assert.Contains((await PlanAsync(anna, 2026, 11)).Positions, p => p.Id == old.Id);
+        Assert.Equal(new PlanMonthRef(2026, 11), (await PlanAsync(anna, 2026, 12)).Positions.Single(p => p.Id == copy.Id).MovedFromMonth);
+    }
+
+    // Review S1
+    [Fact]
+    public async Task Applying_contract_changes_skips_a_moved_original_and_refuses_it_when_picked()
+    {
+        var (anna, _) = await client.AnnaAndBenAsync(fixture.Factory);
+        await GiroOfAsync(anna);
+        var rent = await client.SendAsync(anna, HttpMethod.Post, "/api/v1/commitments", new CreateCommitmentRequest(
+            CommitmentTypes.Contract, "Miete", 890m, 1, new DateOnly(2026, 1, 1), null, CategoryCatalog.IdFor("household.groceries"), PotKeys.Needs, PaymentMethod: PaymentMethods.Other));
+        Assert.Equal(HttpStatusCode.Created, rent.StatusCode);
+        var contract = (await rent.Content.ReadFromJsonAsync<CommitmentResponse>())!;
+        var position = Assert.Single((await PlanAsync(anna, 2026, 11)).Positions);
+        var both = (await (await PostponeAsync(anna, 2026, 11, position.Id)).Content.ReadFromJsonAsync<PostponePositionResponse>())!;
+        (await client.SendAsync(anna, HttpMethod.Patch, $"/api/v1/commitments/{contract.Id}", new UpdateCommitmentRequest(Amount: 950m))).EnsureSuccessStatusCode();
+
+        var all = await client.SendAsync(anna, HttpMethod.Post, $"{Month(2026, 11)}/changes/apply", new ApplyPlanChangesRequest());
+        var picked = await client.SendAsync(anna, HttpMethod.Post, $"{Month(2026, 11)}/changes/apply", new ApplyPlanChangesRequest([new PlanChangeItem(position.Id, null)]));
+
+        Assert.Equal(HttpStatusCode.OK, all.StatusCode);
+        Assert.Equal(890m, (await PlanAsync(anna, 2026, 11)).Positions.Single(p => p.Id == position.Id).AmountPlanned);
+        Assert.Equal((HttpStatusCode.Conflict, ErrorCodes.PositionMoved), (picked.StatusCode, await picked.ReadCodeAsync()));
+        Assert.Equal(new PlanMonthRef(2026, 11), (await PlanAsync(anna, 2026, 12)).Positions.Single(p => p.Id == both.To.Id).MovedFromMonth);
+    }
+
+    // Review S2
+    [Fact]
+    public async Task Ticking_a_moved_position_is_refused_with_409()
+    {
+        var (anna, _) = await client.AnnaAndBenAsync(fixture.Factory);
+        await GiroOfAsync(anna);
+        var (old, _) = await MovedAsync(anna);
+
+        var refused = await client.SendAsync(anna, HttpMethod.Post, $"{Month(2026, 11)}/positions/{old.Id}/tick");
+
+        Assert.Equal((HttpStatusCode.Conflict, ErrorCodes.PositionMoved), (refused.StatusCode, await refused.ReadCodeAsync()));
+    }
+
+    // Review S2
+    [Fact]
+    public async Task A_refused_postpone_does_not_create_the_next_month()
+    {
+        var (anna, _) = await client.AnnaAndBenAsync(fixture.Factory);
+        await GiroOfAsync(anna);
+        var position = await OneOffAsync(anna, 2027, 3);
+        (await client.SendAsync(anna, HttpMethod.Post, $"{Month(2027, 3)}/positions/{position.Id}/tick")).EnsureSuccessStatusCode();
+
+        var refused = await PostponeAsync(anna, 2027, 3, position.Id);
+
+        Assert.Equal((HttpStatusCode.Conflict, ErrorCodes.PositionPaid), (refused.StatusCode, await refused.ReadCodeAsync()));
+        var exists = await fixture.Factory.WithDbAsync(db => db.Plans.AnyAsync(p => p.OwnerId == anna.Id && p.Year == 2027 && p.Month == 4));
+        Assert.False(exists);
+    }
+
+    // Review S2, N5
+    [Fact]
+    public async Task Undo_is_refused_when_the_copy_is_ticked_and_with_its_own_code_when_the_copy_was_moved_on()
+    {
+        var (anna, _) = await client.AnnaAndBenAsync(fixture.Factory);
+        await GiroOfAsync(anna);
+        var (old, copy) = await MovedAsync(anna);
+        (await client.SendAsync(anna, HttpMethod.Post, $"{Month(2026, 12)}/positions/{copy.Id}/tick")).EnsureSuccessStatusCode();
+        var ticked = await UndoAsync(anna, 2026, 11, old.Id);
+        Assert.Equal((HttpStatusCode.Conflict, ErrorCodes.PositionCopyPaid), (ticked.StatusCode, await ticked.ReadCodeAsync()));
+
+        var (old2, copy2) = await MovedAsync(anna, 2026, 10);
+        (await PostponeAsync(anna, 2026, 11, copy2.Id)).EnsureSuccessStatusCode();
+        var movedOn = await UndoAsync(anna, 2026, 10, old2.Id);
+
+        Assert.Equal((HttpStatusCode.Conflict, ErrorCodes.PositionCopyMoved), (movedOn.StatusCode, await movedOn.ReadCodeAsync()));
+    }
 }

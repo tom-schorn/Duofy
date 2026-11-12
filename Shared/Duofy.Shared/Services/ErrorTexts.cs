@@ -115,6 +115,7 @@ public static class ErrorTexts
         ErrorCodes.PositionMoved => L["Error_position_moved"],
         ErrorCodes.PositionNotMoved => L["Error_position_not_moved"],
         ErrorCodes.PositionCopyPaid => L["Error_position_copy_paid"],
+        ErrorCodes.PositionCopyMoved => L["Error_position_copy_moved"],
         ErrorCodes.PositionTargetInvalid => L["Error_position_target_invalid"],
         ErrorCodes.PositionIncomeWithTarget => L["Error_position_income_with_target"],
         ErrorCodes.LinePositionInvalid => L["Error_line_position_invalid"],
