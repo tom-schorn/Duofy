@@ -19,7 +19,7 @@ What one person allows one other member of their household to do with their data
 
 ## Data
 
-- `granter_id`, `grantee_id`, `area`, `level`; key (granter, grantee, area); granter ≠ grantee; no row means `none`, setting `none` deletes the row.
+- `granter_id`, `grantee_id`, `area`, `level`; key (granter, grantee, area); granter ≠ grantee; no row means `none`, setting `none` deletes the row; the one exception is `categories`, where an explicit `none` stays as a row (`level` `none`) because there no row means "never set".
 
 ## Rules
 
@@ -28,7 +28,7 @@ What one person allows one other member of their household to do with their data
 - Leaving, removal or account deletion deletes every grant from and to the person.
 - Levels are compared by rank only.
 - One's own data always passes the check.
-- Categories (Spec 140): while the owner has no row for `categories`, any view grant in another area lets the member list the owner's categories and create, edit and delete are refused (403 with the step's code, shown as "Es fehlt: Kategorien: Ändern"). Once the owner has a row, it alone decides. Setting `none` deletes the row, so it returns to the compatibility rule.
+- Categories (Spec 140): while the owner has no row for `categories`, every member of the household has `delete` for the owner's categories (a person outside has none); a missing step answers 403 with the step's code, shown in the app as "Es fehlt: Kategorien: Ändern". Once the owner has a row, it alone decides. An explicit `none` is stored as a row and hides the owner's categories from the member completely, whatever else is granted. The presets never set Kategorien, and the member lists show `delete` for it without a row. Kategorien do not count as "shares something" for the person switch.
 - Without `view` foreign records answer 404; with `view` a missing step answers 403 with the step's code.
 
 ## Interfaces

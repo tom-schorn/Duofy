@@ -108,7 +108,9 @@ public sealed class OwnerSaveCheck : SaveChangesInterceptor
 
     private static void RequireWritable(DuofyDbContext db, EntityEntry entry, Guid? ownerId)
     {
-        if (ownerId is not { } owner || !db.Owners.WritableOwners.Contains(owner))
+        // Kategorien (Spec 140): Das Netz lässt jedes Mitglied des Haushalts zu; die Stufe prüft die zentrale Prüfung.
+        if (ownerId is not { } owner
+            || !(db.Owners.WritableOwners.Contains(owner) || (entry.Entity is Category && db.Owners.CategoryOwners.Contains(owner))))
         {
             throw new OwnerViolationException(entry.Metadata.ClrType.Name, KeyOf(entry), ownerId, db.Owners.CurrentUserId);
         }

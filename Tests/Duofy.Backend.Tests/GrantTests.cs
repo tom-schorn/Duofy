@@ -22,6 +22,9 @@ public class GrantTests
         client = fixture.Factory.CreateClient();
     }
 
+    // Spec 140: Ohne Zeile steht Kategorien auf Löschen; alles andere auf Nichts.
+    private static readonly GrantLevels Defaults = GrantLevels.None with { Categories = AccessLevelKeys.Delete };
+
     private static MemberResponse EntryFor(HouseholdResponse household, Person person) =>
         household.Members.Single(m => m.UserId == person.Id);
 
@@ -39,13 +42,13 @@ public class GrantTests
             new UpdateGrantsRequest(Plan: AccessLevelKeys.View, Book: AccessLevelKeys.Create));
 
         Assert.Equal(HttpStatusCode.OK, put.StatusCode);
-        var expected = new GrantLevels(AccessLevelKeys.View, AccessLevelKeys.Create, AccessLevelKeys.None, AccessLevelKeys.None);
+        var expected = new GrantLevels(AccessLevelKeys.View, AccessLevelKeys.Create, AccessLevelKeys.None, AccessLevelKeys.None, AccessLevelKeys.None, AccessLevelKeys.Delete);
         var answer = (await put.Content.ReadFromJsonAsync<MemberResponse>())!;
-        Assert.Equal((ben.Id, expected, GrantLevels.None), (answer.UserId, answer.MyGrants, answer.GrantsToMe));
+        Assert.Equal((ben.Id, expected, Defaults), (answer.UserId, answer.MyGrants, answer.GrantsToMe));
         var annasEntryForBen = EntryFor(await client.MineAsync(anna), ben);
-        Assert.Equal((expected, GrantLevels.None), (annasEntryForBen.MyGrants, annasEntryForBen.GrantsToMe));
+        Assert.Equal((expected, Defaults), (annasEntryForBen.MyGrants, annasEntryForBen.GrantsToMe));
         var bensEntryForAnna = EntryFor(await client.MineAsync(ben), anna);
-        Assert.Equal((expected, GrantLevels.None), (bensEntryForAnna.GrantsToMe, bensEntryForAnna.MyGrants));
+        Assert.Equal((expected, Defaults), (bensEntryForAnna.GrantsToMe, bensEntryForAnna.MyGrants));
         var bensOwnEntry = EntryFor(await client.MineAsync(ben), ben);
         Assert.Equal((GrantLevels.None, GrantLevels.None), (bensOwnEntry.GrantsToMe, bensOwnEntry.MyGrants));
     }
@@ -59,7 +62,7 @@ public class GrantTests
 
         var answer = await client.GrantAsync(anna, ben, new UpdateGrantsRequest(Commitments: AccessLevelKeys.None));
 
-        Assert.Equal(new GrantLevels(AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.None), answer.MyGrants);
+        Assert.Equal(new GrantLevels(AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.Delete, AccessLevelKeys.None, AccessLevelKeys.None, AccessLevelKeys.Delete), answer.MyGrants);
         Assert.Equal(3, await fixture.Factory.WithDbAsync(db => db.Grants.CountAsync(g => g.GranterId == anna.Id)));
     }
 
@@ -72,12 +75,12 @@ public class GrantTests
 
         var answer = await client.GrantAsync(anna, ben, new UpdateGrantsRequest(Savings: AccessLevelKeys.Edit));
 
-        Assert.Equal(new GrantLevels(AccessLevelKeys.None, AccessLevelKeys.None, AccessLevelKeys.None, AccessLevelKeys.None, AccessLevelKeys.Edit), answer.MyGrants);
+        Assert.Equal(new GrantLevels(AccessLevelKeys.None, AccessLevelKeys.None, AccessLevelKeys.None, AccessLevelKeys.None, AccessLevelKeys.Edit, AccessLevelKeys.Delete), answer.MyGrants);
         Assert.Equal(AccessLevelKeys.Edit, EntryFor(await client.MineAsync(ben), anna).GrantsToMe.Savings);
         Assert.Equal(1, await fixture.Factory.WithDbAsync(db => db.Grants.CountAsync(g => g.GranterId == anna.Id && g.Area == Domain.Area.Savings)));
 
         var withdrawn = await client.GrantAsync(anna, ben, new UpdateGrantsRequest(Savings: AccessLevelKeys.None));
-        Assert.Equal(GrantLevels.None, withdrawn.MyGrants);
+        Assert.Equal(Defaults, withdrawn.MyGrants);
         Assert.False(await AnyGrantOfAsync(anna));
     }
 
@@ -94,9 +97,10 @@ public class GrantTests
         Assert.Equal(1, await fixture.Factory.WithDbAsync(db => db.Grants.CountAsync(g => g.GranterId == anna.Id && g.Area == Domain.Area.Categories)));
         Assert.Contains(GrantAreas.Categories, GrantAreas.All);
 
+        // Ausdrücklich "Nichts" bleibt als Zeile stehen: "nie gesetzt" und "Nichts" sind bei Kategorien zweierlei.
         var withdrawn = await client.GrantAsync(anna, ben, new UpdateGrantsRequest(Categories: AccessLevelKeys.None));
         Assert.Equal(GrantLevels.None, withdrawn.MyGrants);
-        Assert.False(await AnyGrantOfAsync(anna));
+        Assert.Equal(AccessLevel.None, await fixture.Factory.WithDbAsync(db => db.Grants.Where(g => g.GranterId == anna.Id && g.Area == Domain.Area.Categories).Select(g => g.Level).SingleAsync()));
     }
 
     // R2: Was Ben Anna gibt, ist seine eigene Entscheidung und ändert Annas nicht.
@@ -172,7 +176,7 @@ public class GrantTests
         Assert.False(await AnyGrantOfAsync(ben));
         await client.JoinAsync(anna, ben);
         var entry = EntryFor(await client.MineAsync(anna), ben);
-        Assert.Equal((GrantLevels.None, GrantLevels.None), (entry.MyGrants, entry.GrantsToMe));
+        Assert.Equal((Defaults, Defaults), (entry.MyGrants, entry.GrantsToMe));
     }
 
     // R3: Entfernen löscht ebenso alle Freigaben von und an die Person.
@@ -200,6 +204,6 @@ public class GrantTests
         (await client.SendAsync(ben, HttpMethod.Delete, "/api/v1/users/me", new DeleteMeRequest(ApiDriver.Password))).EnsureSuccessStatusCode();
 
         Assert.False(await AnyGrantOfAsync(ben));
-        Assert.Equal(GrantLevels.None, Assert.Single((await client.MineAsync(anna)).Members).MyGrants);
+        Assert.Equal(Defaults, Assert.Single((await client.MineAsync(anna)).Members).MyGrants);
     }
 }

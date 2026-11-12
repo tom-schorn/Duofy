@@ -53,16 +53,18 @@ public class GrantsPageTests : PageTestContext
     }
 
     [Fact]
-    public void The_categories_area_is_part_of_the_presets_partner_and_read_but_not_kid()
+    public void The_categories_area_is_in_no_preset_so_existing_grants_keep_their_preset()
     {
-        Assert.Equal(AccessLevelKeys.Delete, GrantPresets.Levels(GrantPresets.Partner).Categories);
-        Assert.Equal(AccessLevelKeys.View, GrantPresets.Levels(GrantPresets.Read).Categories);
-        Assert.Equal(AccessLevelKeys.None, GrantPresets.Levels(GrantPresets.Kid).Categories);
+        Assert.All(GrantPresets.Order, preset => Assert.Equal(AccessLevelKeys.None, GrantPresets.Levels(preset).Categories));
+        // Die Voreinstellung Löschen für Kategorien macht aus einer Vorlage keine eigene Auswahl.
+        Assert.Equal(GrantPresets.Partner, GrantPresets.PresetOf(GrantPresets.Levels(GrantPresets.Partner) with { Categories = AccessLevelKeys.Delete }));
+        Assert.Equal(GrantPresets.Read, GrantPresets.PresetOf(GrantPresets.Levels(GrantPresets.Read) with { Categories = AccessLevelKeys.Delete }));
+        Assert.False((GrantLevels.None with { Categories = AccessLevelKeys.Delete }).SharesAnything);
     }
 
     // A11
     [Fact]
-    public void Choosing_mitlesen_sends_all_six_levels_and_changing_one_area_sends_only_that_one()
+    public void Choosing_mitlesen_sends_the_five_preset_levels_without_categories_and_changing_one_area_sends_only_that_one()
     {
         Household(GrantLevels.None);
         var cut = OpenPage();
@@ -73,8 +75,8 @@ public class GrantsPageTests : PageTestContext
 
         cut.Find($"[data-testid='grants-{Ben}-preset-read']").Click();
 
-        cut.WaitForAssertion(() => Assert.All(GrantAreas.All, area => Assert.Equal(AccessLevelKeys.View, Level(cut, area))));
-        Assert.Equal((Ben, new UpdateGrantsRequest(AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View)),
+        cut.WaitForAssertion(() => Assert.All(GrantAreas.All.Where(a => a != GrantAreas.Categories), area => Assert.Equal(AccessLevelKeys.View, Level(cut, area))));
+        Assert.Equal((Ben, new UpdateGrantsRequest(AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View, AccessLevelKeys.View)),
             Assert.Single(HouseholdApiFake.GrantsSet));
         Assert.Equal("true", cut.Find($"[data-testid='grants-{Ben}-preset-read']").GetAttribute("aria-pressed"));
         Assert.Empty(cut.FindAll($"[data-testid='grants-{Ben}-own-choice']"));

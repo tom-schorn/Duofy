@@ -48,6 +48,15 @@ public class GrantTests
         Assert.Equal(AccessLevel.None, levels[Area.Accounts]);
         Assert.Equal(AccessLevel.None, levels[Area.Commitments]);
         Assert.Equal(AccessLevel.None, levels[Area.Savings]);
-        Assert.Equal(AccessLevel.None, levels[Area.Categories]);
+        // Kategorien ohne Zeile: Löschen für jedes Mitglied (Spec 140).
+        Assert.Equal(AccessLevel.Delete, levels[Area.Categories]);
+    }
+
+    [Fact]
+    public void An_explicit_none_row_for_categories_reads_as_none()
+    {
+        Grant[] rows = [new() { GranterId = Guid.NewGuid(), GranteeId = Guid.NewGuid(), Area = Area.Categories, Level = AccessLevel.None }];
+
+        Assert.Equal(AccessLevel.None, Grant.LevelsOf(rows)[Area.Categories]);
     }
 }

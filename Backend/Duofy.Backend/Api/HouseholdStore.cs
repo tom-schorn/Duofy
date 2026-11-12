@@ -123,8 +123,9 @@ internal sealed class HouseholdStore
 
     /// <summary>
     /// Setzt, was <paramref name="granterId"/> <paramref name="granteeId"/> erlaubt, nur in den angegebenen
-    /// Bereichen (R1, R2). Nichts löscht die Zeile, damit "keine Zeile" und "Nichts" nie zweierlei heißen.
-    /// Speichert noch nicht.
+    /// Bereichen (R1, R2). Nichts löscht die Zeile, damit "keine Zeile" und "Nichts" nie zweierlei heißen;
+    /// nur bei Kategorien (Spec 140) bleibt ein ausdrückliches Nichts als Zeile stehen, denn dort heißt "keine Zeile"
+    /// "nie gesetzt" und dafür gilt die Voreinstellung Löschen. Speichert noch nicht.
     /// </summary>
     public async Task SetGrantsAsync(Guid granterId, Guid granteeId, IReadOnlyDictionary<Area, AccessLevel> levels, CancellationToken cancellationToken)
     {
@@ -134,7 +135,7 @@ internal sealed class HouseholdStore
         foreach (var (area, level) in levels)
         {
             existing.TryGetValue(area, out var row);
-            if (level == AccessLevel.None)
+            if (level == AccessLevel.None && area != Area.Categories)
             {
                 if (row is not null)
                 {
@@ -168,7 +169,8 @@ internal sealed class HouseholdStore
         IEnumerable<Grant> toMe = isMe ? [] : grants.Where(g => g.GranterId == member.UserId && g.GranteeId == viewerId);
         IEnumerable<Grant> mine = isMe ? [] : grants.Where(g => g.GranterId == viewerId && g.GranteeId == member.UserId);
         return new(member.UserId, user.FirstName, user.LastName, user.Email ?? "", RoleKey(member.Role), isMe,
-            GrantKeys.ToResponse(Grant.LevelsOf(toMe)), GrantKeys.ToResponse(Grant.LevelsOf(mine)));
+            isMe ? GrantLevels.None : GrantKeys.ToResponse(Grant.LevelsOf(toMe)),
+            isMe ? GrantLevels.None : GrantKeys.ToResponse(Grant.LevelsOf(mine)));
     }
 
     public static string RoleKey(HouseholdRole role) =>

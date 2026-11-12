@@ -18,7 +18,7 @@ Household members who manage money for each other; the human and Jasmin first.
 
 R1 (must): The grants get a new area "Kategorien" with the levels none, view, create, edit and delete — because the human wants a separate permission for categories (12.11.2026: "eigener Bereich").
 R2 (must): With the matching level a member can list, create, rename and delete the owner's categories through the API (`?owner=`) and in the app through the person switch; without it the refusal names the missing right — because the assistant and the app must work the same way.
-R3 (must): Existing grants keep working: until the owner sets the new area, categories follow the current rule for viewing, and nobody gains create, edit or delete rights by the change — because no one may get rights they were not given.
+R3 (must): Categories are on by default: every household member has Kategorien at the highest level (delete) for every other member, existing and new members alike, until the owner reduces it in the grant dialog to view or none; an explicit choice, including none, always decides — because the human wants it open for everybody and closable per owner (amended 12.11.2026, "Ja, alles an für alle"; replaces the earlier rule that nobody gains create, edit or delete).
 R4 (must): The grant dialog, the grants overview and the refusal texts show the new area in German ("Kategorien") on tablet and phone — because the owner must see and set it.
 
 ## Constraints

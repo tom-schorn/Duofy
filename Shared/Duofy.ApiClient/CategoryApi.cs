@@ -15,12 +15,12 @@ internal sealed class CategoryApi(ApiConnection api) : ICategoryApi
             : ApiResult<IReadOnlyList<CategoryResponse>>.Failure(result.ErrorCode!);
     }
 
-    public Task<ApiResult<CategoryResponse>> CreateAsync(SaveCategoryRequest request, CancellationToken cancellationToken = default) =>
-        api.SendAsync<CategoryResponse>(HttpMethod.Post, Path, request, anonymous: false, cancellationToken);
+    public Task<ApiResult<CategoryResponse>> CreateAsync(SaveCategoryRequest request, Guid? owner = null, CancellationToken cancellationToken = default) =>
+        api.SendAsync<CategoryResponse>(HttpMethod.Post, OwnerQuery.With(Path, owner), request, anonymous: false, cancellationToken);
 
-    public Task<ApiResult<CategoryResponse>> UpdateAsync(Guid id, SaveCategoryRequest request, CancellationToken cancellationToken = default) =>
-        api.SendAsync<CategoryResponse>(HttpMethod.Put, $"{Path}/{id}", request, anonymous: false, cancellationToken);
+    public Task<ApiResult<CategoryResponse>> UpdateAsync(Guid id, SaveCategoryRequest request, Guid? owner = null, CancellationToken cancellationToken = default) =>
+        api.SendAsync<CategoryResponse>(HttpMethod.Put, OwnerQuery.With($"{Path}/{id}", owner), request, anonymous: false, cancellationToken);
 
-    public Task<ApiResult> DeleteAsync(Guid id, CancellationToken cancellationToken = default) =>
-        api.SendAsync(HttpMethod.Delete, $"{Path}/{id}", body: null, anonymous: false, cancellationToken);
+    public Task<ApiResult> DeleteAsync(Guid id, Guid? owner = null, CancellationToken cancellationToken = default) =>
+        api.SendAsync(HttpMethod.Delete, OwnerQuery.With($"{Path}/{id}", owner), body: null, anonymous: false, cancellationToken);
 }

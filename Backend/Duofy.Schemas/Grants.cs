@@ -63,8 +63,11 @@ public sealed record GrantLevels(string Plan, string Book, string Accounts, stri
         _ => throw new ArgumentOutOfRangeException(nameof(area), area, "Unbekannter Bereich."),
     };
 
-    /// <summary>True, wenn mindestens ein Bereich Ansehen oder mehr hat.</summary>
-    public bool SharesAnything => GrantAreas.All.Any(area => AccessLevelKeys.Includes(For(area), AccessLevelKeys.View));
+    /// <summary>
+    /// True, wenn mindestens ein Bereich Ansehen oder mehr hat. Kategorien zählen nicht mit: Sie stehen ohne Zeile für
+    /// jedes Mitglied auf Löschen (Spec 140) und sagen nichts darüber, ob jemand Zahlen teilt.
+    /// </summary>
+    public bool SharesAnything => GrantAreas.All.Where(area => area != GrantAreas.Categories).Any(area => AccessLevelKeys.Includes(For(area), AccessLevelKeys.View));
 }
 
 /// <summary>

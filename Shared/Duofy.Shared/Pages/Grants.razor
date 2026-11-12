@@ -103,7 +103,7 @@
 
     private static IReadOnlyDictionary<string, object> Busy(bool locked) => locked ? Locked : Free;
 
-    private static UpdateGrantsRequest Request(GrantLevels levels) => new(levels.Plan, levels.Book, levels.Accounts, levels.Commitments, levels.Savings, levels.Categories);
+    private static UpdateGrantsRequest Request(GrantLevels levels) => new(levels.Plan, levels.Book, levels.Accounts, levels.Commitments, levels.Savings);
 
     private static UpdateGrantsRequest Request(string area, string level) => area switch
     {
