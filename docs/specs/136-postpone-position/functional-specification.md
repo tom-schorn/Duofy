@@ -56,15 +56,15 @@ External input: yes
 
 | Requirement | Criterion | Test |
 | --- | --- | --- |
-| R1 | A1 | pending |
-| R2 | A1 | pending |
-| R2 | A2 | pending |
-| R3 | A3 | pending |
-| R3 | A4 | pending |
-| R4 | A5 | pending |
-| R5 | A6 | pending |
-| R6 | A7 | pending |
-| R7 | A8 | pending |
+| R1 | A1 | `PlanPostponeTests.Postponing_marks_the_old_position_and_adds_a_linked_copy_with_the_same_fields_to_the_next_month`, `…The_old_month_figures_leave_the_moved_position_out_and_the_next_month_counts_the_copy`, `PlanPostponeFiguresTests` (one test per figure: free, income, fixed, pots, quota, household sum), `PostponeFiguresTests` (one per client figure), `PlanPostponeTests.Month_list_and_overview_leave_the_moved_position_out_of_free_and_unpaid` |
+| R2 | A1 | `PlanPostponeTests.Postponing_marks_the_old_position_…` (fields equal, `changed_by_hand`), `PlanPostponeFiguresTests.Postponing_copies_the_position_with_hand_flag_and_clamps_the_due_day` |
+| R2 | A2 | `PlanPostponeTests.A_position_due_on_the_31st_moves_into_a_30_day_month_due_on_the_30th` |
+| R3 | A3 | `PlanPostponeTests.A_ticked_position_a_position_with_bookings_and_an_already_moved_one_are_refused_and_nothing_changes`, `HouseholdPlanWorkTests.Postponing_without_Aendern_on_the_plan_is_refused_and_names_that_step` |
+| R3 | A4 | `PlanPostponeTests.Without_plan_edit_postponing_is_refused_and_with_plan_edit_it_works_on_the_owners_plan`, `HouseholdPlanWorkTests.Postponing_a_position_of_another_member_asks_once_and_runs_for_that_member` |
+| R4 | A5 | `PlanPostponeTests.Undo_removes_the_copy_and_the_old_month_counts_the_position_again_but_a_booked_copy_stays`, `PlanPostponePageTests.A_moved_position_is_greyed_…` |
+| R5 | A6 | `PlanPostponeTests.A_copy_can_be_moved_on_and_names_only_its_direct_origin_month` |
+| R6 | A7 | `PlanPostponeFiguresTests.The_change_notice_never_matches_or_lists_a_copy_and_a_contract_change_leaves_it`, `…An_ended_contract_keeps_the_copy_and_removes_only_the_regular_position`, `…A_copy_alone_does_not_count_as_the_planned_contract` |
+| R7 | A8 | `PlanPostponePageTests` (entry, one confirmation naming the month, cancel, greyed row with Zurücknehmen, "aus <Monat>", paid rows without entry), `HouseholdPlanWorkTests` (household rows); browser check at 412, 800 and 1024 px by the reviewer |
 | R8 | A9 | pending |
 
 ## Threats
