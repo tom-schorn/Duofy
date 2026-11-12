@@ -62,8 +62,7 @@ else
        eintragen und zurücknehmen nur hier. *@
     <div class="metrics" data-testid="month-metrics">
         <div data-testid="month-block-income"><Metric Title="@L["Month_Income"]" Amount="IncomeTotal" /></div>
-        <div data-testid="month-block-free"><Metric Title="@L["Month_Allocatable"]" Amount="FreeTotal" Over="FreeTotal < 0m" AmountText="@(FreeTotal == 0m ? L["Month_AllPlanned"].Value : null)" Note="@FreeNote" /></div>
-        <AvailableNowMetric Value="plan.Overview?.AvailableNow" />
+        <div data-testid="month-block-free"><Metric Title="@L["Month_Allocatable"]" Amount="FreeTotal" Over="FreeTotal < 0m" AmountText="@(FreeTotal == 0m ? L["Month_AllPlanned"].Value : null)" Note="@FreeNote"><Extra><AvailableNowMetric Value="plan.Overview?.AvailableNow" /></Extra></Metric></div>
         <div data-testid="month-block-unpaid"><Metric Title="@L["Month_Unpaid"]" Amount="UnpaidTotal" AmountText="@UnpaidText" Note="@(SeesBookings ? L["Month_UnpaidNote"].Value : NotSharedText.For(L, Member, GrantAreas.Book))" /></div>
         <div data-testid="plan-carry-over" data-print="hide">
             @{ var carryOvers = MonthView.CarryOverRows(plan.Overview?.CarryOvers); }
@@ -331,7 +330,7 @@ else
         {
             var incoming = MonthView.CarryOverRows(plan?.Overview?.CarryOvers).Where(c => c.Incoming).ToList();
             return incoming.Count > 0
-                ? L["Month_FreeCarryOver", MoneyText.Format(incoming.Sum(c => c.Amount))].Value
+                ? $"{L["Month_FreeCarryOver", MoneyText.Format(incoming.Sum(c => c.Amount))].Value} — {L["Month_FreeHint"].Value}"
                 : $"{L["Month_FreeNote"].Value}, {L["Month_FreeHint"].Value}";
         }
     }

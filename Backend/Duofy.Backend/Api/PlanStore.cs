@@ -383,29 +383,33 @@ internal sealed class PlanStore(DuofyDbContext db, TimeProvider time, ILogger<Pl
     public bool IsCurrentMonth(int year, int month) => year == Today.Year && month == Today.Month;
 
     /// <summary>
-    /// "Jetzt verfügbar" eines Plans (Spec 139): die Kontostände von heute ohne Sparkonten minus die offenen Ausgaben des
-    /// Monats, siehe <see cref="PlanFigures.AvailableNow"/>. Wer aufruft, prüft vorher die Sicht auf Konten und Buchungen.
+    /// "Jetzt verfügbar" eines Plans (Spec 139): die Kontostände von heute der verfügbaren Konten (dieselben wie bei Verplanbar,
+    /// <see cref="AvailableAccountIdsAsync"/>) minus die offenen Ausgaben des Monats, siehe <see cref="PlanFigures.AvailableNow"/>.
+    /// Wer aufruft, prüft vorher die Sicht auf Konten und Buchungen.
     /// </summary>
     /// <param name="bookings">Die Buchungen mit diesem Planmonat.</param>
     public async Task<AvailableNowFigure> AvailableNowAsync(Plan plan, IReadOnlyCollection<Booking> bookings, DateOnly today, CancellationToken cancellationToken)
     {
+        var available = await AvailableAccountIdsAsync([plan.OwnerId], cancellationToken);
         var accounts = await db.Accounts
             .AsNoTracking()
-            .Where(a => a.OwnerId == plan.OwnerId && a.Active && a.OpeningDate <= today)
+            .Where(a => a.OwnerId == plan.OwnerId && a.Active && a.CountsAsAvailable && a.OpeningDate <= today)
             .ToListAsync(cancellationToken);
-        var counting = accounts.Where(a => Account.CountsAsAvailableFor(a.Type)).ToList();
         var allBookings = await BookingEndpoints.WithLines(db)
             .AsNoTracking()
             .Where(b => b.OwnerId == plan.OwnerId && b.PaymentDate <= today)
             .ToListAsync(cancellationToken);
-        foreach (var account in counting)
+        foreach (var account in accounts)
         {
             account.Bookings = allBookings.Where(b => b.AccountId == account.Id || b.CounterAccountId == account.Id).ToList();
         }
-        // Für die Umbuchungen auf ein Sparkonto zählt jedes Konto, das keine Sparkontoart hat, auch ein geschlossenes.
-        var nonSavingsIds = (await db.Accounts.AsNoTracking().Where(a => a.OwnerId == plan.OwnerId).Select(a => new { a.Id, a.Type }).ToListAsync(cancellationToken))
-            .Where(a => Account.CountsAsAvailableFor(a.Type)).Select(a => a.Id).ToHashSet();
-        return PlanFigures.AvailableNow(plan.Positions, PlanFigures.BookedPerPosition(bookings), nonSavingsIds, counting.Sum(a => a.Balance(today)));
+        var defaultAccountId = await db.Accounts
+            .AsNoTracking()
+            .Where(a => a.OwnerId == plan.OwnerId && a.IsDefault)
+            .Select(a => a.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+        return PlanFigures.AvailableNow(
+            plan.Positions, PlanFigures.BookedPerPosition(bookings), available, defaultAccountId, accounts.Sum(a => a.Balance(today)));
     }
 
     public static AvailableNowResponse ToResponse(AvailableNowFigure figure) => new(figure.Balances, figure.OpenExpenses, figure.Value);

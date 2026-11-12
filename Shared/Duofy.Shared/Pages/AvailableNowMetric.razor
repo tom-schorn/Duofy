@@ -1,11 +1,14 @@
-@* "Jetzt verfügbar" (Spec 139): die Kontostände von heute ohne Sparkonten minus die offenen Ausgaben bis Monatsende, mit der
-   Aufschlüsselung darunter. Eine Komponente für Startseite, Monatsplan und Haushaltsmonat; ohne Wert (anderer Monat, keine
-   Freigabe) steht nichts da. Im Haushalt nennt der Zusatz, wer nicht eingerechnet ist. *@
+@* "Jetzt verfügbar" (Spec 139): die Kontostände von heute der verfügbaren Konten minus die offenen Ausgaben bis Monatsende, mit der
+   Aufschlüsselung darunter. Eine Komponente für Startseite, Monatsplan und Haushaltsmonat; sie steht als zweite Zeile im Block
+   "Verplanbar im Monat", so bleiben es vier gleich große Blöcke. Ohne Wert (anderer Monat, keine Freigabe) steht nichts da. Im
+   Haushalt nennt der Zusatz, wer nicht eingerechnet ist. *@
 @inject IStringLocalizer<SharedResources> L
 @if (Value is not null)
 {
-    <div data-testid="month-block-available-now">
-        <Metric Title="@L["Month_AvailableNow"]" Amount="Value.Value" Over="Value.Value < 0m" Note="@Note" />
+    <div class="metric-extra" data-testid="month-block-available-now">
+        <p class="metric-title">@L["Month_AvailableNow"]</p>
+        <p class="@(Value.Value < 0m ? "metric-amount over" : "metric-amount")">@MoneyText.Format(Value.Value)</p>
+        <p class="metric-note">@Note</p>
     </div>
 }
 

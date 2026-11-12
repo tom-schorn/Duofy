@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Duofy.Api.Tests;
 
 /// <summary>
-/// "Jetzt verfügbar" (Spec 139) über die API: Kontostände von heute minus die offenen Ausgaben des laufenden Monats, nur im
+/// "Jetzt verfügbar" (Spec 139) über die API: Kontostände von heute der verfügbaren Konten minus die offenen Ausgaben des laufenden Monats, nur im
 /// laufenden Monat, und im Haushalt nur mit den Mitgliedern, deren Konten und Buchungen der Betrachter sehen darf.
 /// Die Uhr steht am 20. Oktober 2026.
 /// </summary>
@@ -115,5 +115,21 @@ public sealed class AvailableNowTests : IDisposable
         Assert.Equal(960m, figure.Balances);
         Assert.Equal(860m, figure.OpenExpenses);
         Assert.Equal(["Ben"], figure.Missing);
+    }
+
+    // R4 (Person-Wechsel): ohne Freigabe der Konten bekommt der Betrachter keine Zahl, mit ihr dieselbe wie die Person selbst.
+    [Fact]
+    public async Task R4_a_viewer_without_the_accounts_grant_gets_no_number_and_with_it_the_same()
+    {
+        var (anna, ben) = await client.AnnaAndBenAsync();
+        await PlanOctoberAsync(anna);
+        await client.GrantAsync(anna, ben, new UpdateGrantsRequest(Plan: AccessLevelKeys.View, Book: AccessLevelKeys.View));
+
+        var without = await GetAsync<PlanResponse>(ben, $"{Plans}/2026/10?owner={anna.Id}");
+        await client.GrantAsync(anna, ben, new UpdateGrantsRequest(Plan: AccessLevelKeys.View, Book: AccessLevelKeys.View, Accounts: AccessLevelKeys.View));
+        var with = await GetAsync<PlanResponse>(ben, $"{Plans}/2026/10?owner={anna.Id}");
+
+        Assert.Null(without.Overview!.AvailableNow);
+        Assert.Equal(100m, with.Overview!.AvailableNow!.Value);
     }
 }
