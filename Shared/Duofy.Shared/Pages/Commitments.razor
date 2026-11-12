@@ -80,14 +80,21 @@ else if (loaded && !Shown.Any())
                         <div class="data-cells">
                             <p class="@(commitment.Running ? "data-title" : "data-title muted")">@commitment.Name</p>
                             @* Art, Abstand und nächste Zahlung in einer Zeile. *@
-                            <p class="small muted"><span>@L[$"CommitmentType_{commitment.Type}"]</span><span> · </span><span>@IntervalTexts.For(L, commitment.IntervalMonths)</span>@if (!commitment.Running)
+                            <p class="small muted"><span>@L[$"CommitmentType_{commitment.Type}"]</span><span> · </span><span>@IntervalTexts.For(L, commitment.IntervalMonths)</span>@if (commitment.Debt is { } owningDebt)
+                                {<span> · </span><span data-testid="@($"commitment-debt-{commitment.Id}")">@L["Commitments_BelongsTo", owningDebt.Name]</span>}
+                            @if (!commitment.Running)
                                 {<span> · </span><span>@L["Commitments_EndedOnly"]</span>}
                                 else if (commitment.NextDueDate is { } next)
                                 {<span> · </span><span>@($"{L["Commitments_NextDueLabel"]} ")@next.ToString("dd.MM.yyyy", German)</span>}</p>
                         </div>
                         <p class="@(commitment.Running ? "data-amount" : "data-amount muted")">@Money(commitment.Amount)</p>
                         <div class="data-actions">
-                            @if (CommitmentDraft.OfferedTypes.Contains(commitment.Type))
+                            @if (commitment.Debt is { } planDebt)
+                            {
+                                @* Der Ratenplan einer Schuld wird an der Schuld geändert (Issue 137, R7). *@
+                                <DuofyButton Kind="ButtonKind.Ghost" Icon="pencil" IconOnly="true" Small="true" OnClick="@(_ => EditDebtAsync(planDebt))" AriaLabel="@L["Commitments_OpenDebt", planDebt.Name]" TestId="@($"commitment-edit-{commitment.Id}")" Class="@GrantLock.Class(CanEditDebts)" @attributes="GrantLock.Attributes(CanEditDebts)" />
+                            }
+                            else if (CommitmentDraft.OfferedTypes.Contains(commitment.Type))
                             {
                                 <DuofyButton Kind="ButtonKind.Ghost" Icon="pencil" IconOnly="true" Small="true" OnClick="@(_ => EditAsync(commitment))" AriaLabel="@L["Commitments_Edit", commitment.Name]" TestId="@($"commitment-edit-{commitment.Id}")" Class="@GrantLock.Class(CanEdit)" @attributes="GrantLock.Attributes(CanEdit)" />
                             }
@@ -233,6 +240,38 @@ else if (loaded && !Shown.Any())
         }
         var result = await DebtApi.ListAsync(Member.Owner);
         return result.Succeeded ? result.Value!.Where(d => !d.Settled || d.Id == stored).ToList() : [];
+    }
+
+    private bool CanEditDebts => Member.Allows(GrantAreas.Savings, AccessLevelKeys.Edit);
+
+    // Öffnet die Schuld hinter einem Ratenplan-Vertrag in ihrem Dialog.
+    private async Task EditDebtAsync(CommitmentDebtResponse owning)
+    {
+        if (!CanEditDebts)
+        {
+            return;
+        }
+        var result = await DebtApi.ListAsync(Member.Owner);
+        if (!result.Succeeded)
+        {
+            message = new NoticeMessage(ErrorTexts.For(L, result.ErrorCode), NoticeSeverity.Error);
+            return;
+        }
+        if (result.Value!.FirstOrDefault(d => d.Id == owning.Id) is not { } debt)
+        {
+            message = new NoticeMessage(ErrorTexts.For(L, ErrorCodes.DebtNotFound), NoticeSeverity.Error);
+            return;
+        }
+        var parameters = new FormParameters<DebtDialog>()
+            .Add(x => x.Title, L["DebtDialog_TitleEdit"])
+            .Add(x => x.Existing, debt)
+            .Add(x => x.Kind, debt.Kind);
+        var outcome = await Forms.OpenStepAsync<DebtDialog, bool>(L["DebtDialog_TitleEdit"], parameters);
+        if (outcome.Saved)
+        {
+            message = new NoticeMessage(L["Savings_DebtSaved"], NoticeSeverity.Success);
+            await LoadAsync();
+        }
     }
 
     private async Task ShowDialogAsync(CommitmentResponse? existing, string title)

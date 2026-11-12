@@ -110,7 +110,7 @@ public class DebtTests : IDisposable
 
         var kind = await client.SendAsync(anna, HttpMethod.Post, Debts, new CreateDebtRequest("gift", "A", "B", 10m));
         var name = await client.SendAsync(anna, HttpMethod.Post, Debts, new CreateDebtRequest(DebtKinds.Claim, new string('x', 101), "B", 10m));
-        var note = await client.SendAsync(anna, HttpMethod.Post, Debts, new CreateDebtRequest(DebtKinds.Claim, "A", "B", 10m, Note: new string('n', 201)));
+        var note = await client.SendAsync(anna, HttpMethod.Post, Debts, new CreateDebtRequest(DebtKinds.Claim, "A", "B", 10m, Note: new string('n', 1001)));
 
         Assert.Equal(ErrorCodes.DebtKindInvalid, await kind.ReadCodeAsync());
         Assert.Equal(ErrorCodes.DebtNameTooLong, await name.ReadCodeAsync());

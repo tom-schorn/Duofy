@@ -129,7 +129,12 @@ public sealed record CommitmentResponse(
     DateOnly? NextDueDate,
     bool Running,
     Guid? SavingsGoalId = null,
-    Guid? DebtId = null);
+    Guid? DebtId = null,
+    decimal? LastAmount = null,
+    CommitmentDebtResponse? Debt = null);
+
+/// <summary>Die Schuld, zu der ein Ratenplan-Vertrag gehört ("gehört zu ...").</summary>
+public sealed record CommitmentDebtResponse(Guid Id, string Name);
 
 /// <summary>Die Regeln für Verträge. Die API prüft sie, die Oberfläche kann sie schon beim Tippen anzeigen.</summary>
 public static class CommitmentRules

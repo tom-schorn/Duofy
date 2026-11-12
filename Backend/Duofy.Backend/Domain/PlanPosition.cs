@@ -129,7 +129,7 @@ public class PlanPosition
         {
             Id = Guid.NewGuid(),
             Label = commitment.Name,
-            AmountPlanned = commitment.Amount,
+            AmountPlanned = commitment.AmountIn(year, month),
             Type = commitment.Type,
             DueDay = commitment.EffectiveDueDay(year, month),
         };
@@ -145,7 +145,7 @@ public class PlanPosition
     {
         CommitmentId = commitment.Id;
         Label = commitment.Name;
-        AmountPlanned = commitment.Amount;
+        AmountPlanned = commitment.AmountIn(year, month);
         Type = commitment.Type;
         DueDay = commitment.EffectiveDueDay(year, month);
         CategoryId = commitment.CategoryId;
