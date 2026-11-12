@@ -49,7 +49,7 @@ External input: no
 | Requirement | Criterion | Test |
 | --- | --- | --- |
 | R1 | A1 | `PlanAvailableNowTests.Example_of_the_spec_gives_190_euro`, `AvailableNowTests.A1_the_current_month_shows_balances_minus_open_expenses` |
-| R1 | A2 | `PlanAvailableNowTests.A_transfer_between_own_non_savings_accounts_is_no_expense`, `A_transfer_to_a_savings_account_is_an_open_expense_until_ticked`, `Moved_and_pass_through_positions_are_not_open_expenses` |
+| R1 | A2 | `PlanAvailableNowTests.A_transfer_between_own_non_savings_accounts_is_no_expense`, `A_transfer_to_a_not_available_account_is_an_open_expense_until_ticked`, `A_transfer_without_an_account_starts_at_the_default_account_and_stays_inside_the_available_accounts`, `A_transfer_from_a_not_available_account_into_an_available_one_lowers_nothing`, `An_expense_paid_from_a_not_available_account_lowers_nothing`, `Moved_and_pass_through_positions_are_not_open_expenses` |
 | R2 | A3 | `AvailableNowPageTests.Allocatable_is_labelled_per_month_with_the_hint_about_planned_income` (value unchanged: `PlanFreeTests`, unchanged) |
 | R3 | A4 | `AvailableNowPageTests.The_month_shows_available_now_with_its_breakdown_next_to_allocatable`, `Without_a_value_there_is_no_available_now_block`, `AvailableNowTests.A4_another_month_has_no_available_now` (widths 412/800/1024 px: browser check by the reviewer, not run) |
 | R4 | A5 | `AvailableNowTests.R4_a_viewer_without_the_accounts_grant_gets_no_number_and_with_it_the_same`, `AvailableNowTests.A5_the_household_leaves_out_a_member_without_grant_and_names_them`, `AvailableNowPageTests.A_household_value_names_the_members_that_are_not_included` |
@@ -71,4 +71,4 @@ None.
 
 Amended 2026-11-12: accounts by the per-account flag (human).
 
-Approved by the human on 2026-11-12 (session answers: two numbers, all accounts except savings, open expenses until month end, "Ja, freigeben").
+Approved by the human on 2026-11-12 (session answers: two numbers, all accounts except savings, later amended to the per-account flag, open expenses until month end, "Ja, freigeben").
