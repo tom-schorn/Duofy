@@ -45,14 +45,14 @@ External input: yes
 
 ## Acceptance criteria
 
-- [ ] A1 (R1): Given a debt with open 386,94 € and a plan of 50 € monthly from 01.12.2026, when the plan is saved, then a contract of the kind debt in Sparen with debt link, 8 due dates, last amount 36,94 € on 01.07.2027 exists; with a last installment set by hand the count and dates follow from it.
-- [ ] A2 (R2): Given that plan, when December is opened and its position ticked, then the booking line carries the debt link and the debt's open amount is 50 € lower.
-- [ ] A3 (R1): Given a contract with last_amount, when its last due month is opened, then the position has the last amount; earlier months have the normal amount.
-- [ ] A4 (R3): Given a contract of the kind debt, when it is saved with a debt link, then it is accepted; given an existing contract, when it is linked from the debt, then the debt shows it as its plan.
-- [ ] A5 (R4): Given a debt with plan and one paid installment, when it is read, then paid, open, next installment and expected end are correct; with a manual open amount, that amount and its date are shown.
-- [ ] A6 (R5): Given a debt, when Aktenzeichen and a 1000-character note are saved, then both are returned; 1001 characters are refused.
-- [ ] A7 (R6): Given a plan running since December, when the rate is changed from March, then December to February keep their positions and amounts and the old contract ends before March.
-- [ ] A8 (R7): Given a plan contract, when the contract list is shown, then it says "gehört zu <Schuld>" and editing leads to the debt; a direct change through the contract endpoint is refused with a German message.
+- [x] A1 (R1): Given a debt with open 386,94 € and a plan of 50 € monthly from 01.12.2026, when the plan is saved, then a contract of the kind debt in Sparen with debt link, 8 due dates, last amount 36,94 € on 01.07.2027 exists; with a last installment set by hand the count and dates follow from it.
+- [x] A2 (R2): Given that plan, when December is opened and its position ticked, then the booking line carries the debt link and the debt's open amount is 50 € lower.
+- [x] A3 (R1): Given a contract with last_amount, when its last due month is opened, then the position has the last amount; earlier months have the normal amount.
+- [x] A4 (R3): Given a contract of the kind debt, when it is saved with a debt link, then it is accepted; given an existing contract, when it is linked from the debt, then the debt shows it as its plan.
+- [x] A5 (R4): Given a debt with plan and one paid installment, when it is read, then paid, open, next installment and expected end are correct; with a manual open amount, that amount and its date are shown.
+- [x] A6 (R5): Given a debt, when Aktenzeichen and a 1000-character note are saved, then both are returned; 1001 characters are refused.
+- [x] A7 (R6): Given a plan running since December, when the rate is changed from March, then December to February keep their positions and amounts and the old contract ends before March.
+- [x] A8 (R7): Given a plan contract, when the contract list is shown, then it says "gehört zu <Schuld>" and editing leads to the debt; a direct change through the contract endpoint is refused with a German message.
 - [ ] A9 (R1, R4): Given the debt dialog at 412, 800 and 1024 px, when a plan is created and the debt is viewed, then the step "Ratenplan" and the overview fit and work in the personal and the household view.
 - [ ] A10 (R8): Given the Plagevo MCP, when debt tools are called with a plan and concept_and_guide is read, then plan fields work and the guide explains contract kinds, fixed pots and debts; the two error codes come with their explanation.
 
@@ -60,17 +60,17 @@ External input: yes
 
 | Requirement | Criterion | Test |
 | --- | --- | --- |
-| R1 | A1 | pending |
-| R1 | A3 | pending |
-| R1 | A9 | pending |
-| R2 | A2 | pending |
-| R3 | A4 | pending |
-| R4 | A5 | pending |
-| R4 | A9 | pending |
-| R5 | A6 | pending |
-| R6 | A7 | pending |
-| R7 | A8 | pending |
-| R8 | A10 | pending |
+| R1 | A1 | `DebtPlanTests.The_real_example_creates_one_debt_contract_in_savings_with_a_last_installment_of_36_94`, `DebtPlanTests.A_last_installment_set_by_hand_is_used_and_the_dates_follow_from_it`, `DebtPlanTests.More_than_600_installments_are_refused`, `InstallmentPlanTests` |
+| R1 | A3 | `DebtPlanTests.The_last_month_has_the_last_amount_and_earlier_months_the_normal_amount`, `InstallmentPlanTests.The_amount_in_a_month_is_the_last_amount_only_in_the_last_due_month` |
+| R1 | A9 | `SavingsPageTests.The_plan_step_shows_the_preview_and_sends_the_plan_with_the_debt`, `DebtPlanDraftTests`; widths 412/800/1024 px via the shared step dialog, browser check by the reviewer |
+| R2 | A2 | `DebtPlanTests.Ticking_the_december_position_books_50_with_the_debt_link_and_lowers_the_open_amount` |
+| R3 | A4 | `DebtPlanTests.A_contract_of_the_kind_debt_is_accepted_with_a_debt_link_and_a_contract_can_be_linked_from_the_debt` |
+| R4 | A5 | `DebtPlanTests.The_debt_shows_paid_open_next_installment_and_expected_end`, `DebtPlanTests.A_manual_open_amount_is_shown_with_its_date_and_counts_payments_after_that_date`, `SavingsPageTests.A_debt_with_a_plan_shows_paid_next_installment_expected_end_and_reference` |
+| R4 | A9 | `SavingsPageTests.A_debt_with_a_plan_shows_paid_next_installment_expected_end_and_reference`; widths as above |
+| R5 | A6 | `DebtPlanTests.A_reference_and_a_note_of_1000_characters_are_saved_and_1001_are_refused` |
+| R6 | A7 | `DebtPlanTests.Changing_the_rate_from_march_keeps_december_to_february_and_starts_a_new_contract`, `DebtPlanTests.Changing_an_existing_plan_without_a_month_is_refused`, `DebtPlanTests.Removing_the_plan_ends_the_contract_at_the_end_of_the_current_month` |
+| R7 | A8 | `DebtPlanTests.The_contract_list_says_which_debt_a_plan_contract_belongs_to_and_the_contract_endpoint_refuses_changes`, `CommitmentsPageTests.A_plan_contract_says_which_debt_it_belongs_to_and_its_edit_opens_the_debt` |
+| R8 | A10 | Plagevo part after merge (not in this branch); the Duofy side, German error messages, is `DebtPlanTests.The_error_bodies_for_pot_and_debt_carry_a_german_explanation` |
 
 ## Threats
 

@@ -29,6 +29,8 @@ What a person expects to pay and receive in one month, and how far it has happen
 - Contract changes are offered as a change notice, never applied silently to ticked or hand-changed positions.
 - Ticking is manual; ticking without bookings creates one, with bookings it offers a balancing booking.
 - A position with bookings cannot be deleted.
+- A position copies the amount of its contract for that month: the last installment in the month of the last payment, the normal amount before (spec 137, R1).
+- Ticking a position whose contract has a debt link books the line with that `debt_id`, so the debt's paid amount grows and its open amount falls; the pot stays Sparen for the installment plan of a debt (spec 137, R2).
 - Pass-through positions count in no quota.
 - Booked per pot is what is booked on its positions without pass-through plus the bookings of the plan month without a position, without transfers and the carry-over; the actual of a quota counts the positions only (spec 72, R5). A transfer with different source and target pot moves its amount between the two pots, in the booked sum per pot and in the actual of the quota, in its plan month (not when its line sits on a position: that counts only through the position), per counted member in the household month; a source pot may go negative; the free amount, the fixed sum and the balances stay as they are (spec 112).
 - A position with a target account does not become income; one stored that way before stays editable and says how to repair it when ticked (spec 66, amendment 2026-11-01).
