@@ -619,6 +619,13 @@ internal static class PlanEndpoints
             .Where(change => !hidden.Contains(change.CommitmentId)
                 && !(change.Kind == PlanChangeKind.NoLongerDue && goalLinked.Contains(change.CommitmentId))).ToList();
         var items = request?.Items;
+        // Ein verschobenes Original steht nie im Abgleich und ändert sich nicht über die Verträge; wer es ausdrücklich wählt,
+        // bekommt die Antwort, erst das Verschieben zurückzunehmen.
+        var movedIds = plan.Positions.Where(p => p.IsMoved).Select(p => p.Id).ToHashSet();
+        if (items is not null && items.Any(i => i.PositionId is { } pickedId && movedIds.Contains(pickedId)))
+        {
+            return Conflict(ErrorCodes.PositionMoved);
+        }
         var chosen = items is null
             ? changes.Where(c => !c.Protected).ToList()
             : changes.Where(c => items.Any(i => c.PositionId is { } positionId
@@ -628,18 +635,8 @@ internal static class PlanEndpoints
         // Erst entscheiden, was übernommen wird, dann prüfen, ob dafür ein Posten entfernt wird: Das ist Löschen
         // und braucht die Stufe Löschen (Spec 68, A18). Fehlt sie, bleibt der ganze Plan, wie er ist.
         var applying = new List<PlanChange>();
-        var movedIds = plan.Positions.Where(p => p.IsMoved).Select(p => p.Id).ToHashSet();
         foreach (var change in chosen)
         {
-            // Ein verschobener Posten ändert sich nicht über die Verträge; erst das Verschieben zurücknehmen.
-            if (change.PositionId is { } changedId && movedIds.Contains(changedId))
-            {
-                if (items is not null)
-                {
-                    return Conflict(ErrorCodes.PositionMoved);
-                }
-                continue;
-            }
             if (change.Kind == PlanChangeKind.NoLongerDue && await plans.HasBookingsAsync(change.PositionId!.Value, cancellationToken))
             {
                 if (items is not null)
