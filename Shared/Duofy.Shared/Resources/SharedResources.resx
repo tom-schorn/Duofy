@@ -621,7 +621,7 @@
   <data name="Plan_MovedFrom"><value>aus {0}</value></data>
   <data name="Error_position_paid"><value>Bezahlte Posten lassen sich nicht verschieben.</value></data>
   <data name="Error_position_already_moved"><value>Der Posten ist schon verschoben.</value></data>
-  <data name="Error_position_moved"><value>Der Posten ist verschoben. Nimm das Verschieben zurück, um ihn hier zu bezahlen.</value></data>
+  <data name="Error_position_moved"><value>Der Posten ist verschoben. Nimm zuerst das Verschieben zurück.</value></data>
   <data name="Error_position_not_moved"><value>Der Posten ist nicht verschoben.</value></data>
   <data name="Error_position_copy_moved"><value>Die Kopie wurde selbst weiterverschoben. Nimm zuerst dieses Verschieben zurück, dann lässt sich auch das erste zurücknehmen.</value></data>
   <data name="Error_position_copy_paid"><value>Die Kopie im nächsten Monat ist schon bezahlt. Das Verschieben lässt sich deshalb nicht zurücknehmen.</value></data>

@@ -71,12 +71,13 @@ public static class PlanChanges
 
         foreach (var position in plan.Positions)
         {
-            // Eine Kopie aus einem Verschieben gehört zu keinem Vertragsposten des Monats und kommt im Abgleich nie vor (Spec 136, R6).
-            if (position.CommitmentId is not { } commitmentId || position.MovedFromPositionId is not null)
+            // Eine Kopie aus einem Verschieben und ein verschobenes Original kommen im Abgleich nie vor: Die Kopie gehört zu keinem
+            // Vertragsposten des Monats, das Original ändert sich nicht, bis das Verschieben zurückgenommen ist (Spec 136, R6).
+            if (position.CommitmentId is not { } commitmentId || position.MovedFromPositionId is not null || position.IsMoved)
             {
                 continue;
             }
-            var isProtected = position.IsDone || position.ChangedByHand || position.IsMoved;
+            var isProtected = position.IsDone || position.ChangedByHand;
 
             if (!byId.TryGetValue(commitmentId, out var commitment) || !commitment.IsDueIn(plan.Year, plan.Month))
             {
