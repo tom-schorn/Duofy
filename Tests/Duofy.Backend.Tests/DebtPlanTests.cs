@@ -133,7 +133,7 @@ public class DebtPlanTests : IDisposable
         var response = await client.SendAsync(anna, HttpMethod.Post, Debts,
             new CreateDebtRequest(DebtKinds.Claim, "Ausgleich", "Verwalter", 450m, Plan: PlanOf(giro, rate: 100m, last: 36.94m)));
 
-        Assert.Equal((HttpStatusCode.BadRequest, ErrorCodes.DebtPlanInvalid), (response.StatusCode, await response.ReadCodeAsync()));
+        Assert.Equal((HttpStatusCode.BadRequest, ErrorCodes.DebtPlanLastDoesNotFit), (response.StatusCode, await response.ReadCodeAsync()));
     }
 
     // Muss 1: Eine Änderung nur der Notiz darf den Tag des von Hand gesetzten offenen Betrags nicht verschieben.
@@ -366,6 +366,24 @@ public class DebtPlanTests : IDisposable
         }
         Assert.Equal(100m, Assert.Single((await PlanAsync(anna, 2027, 3)).Positions).AmountPlanned);
         Assert.Equal(created.Id, (await DebtOfAsync(anna, debt.Id)).Plan!.CommitmentId);
+    }
+
+    [Fact]
+    public async Task After_a_plan_change_the_next_installment_is_the_earliest_one_of_the_old_plan_still_due()
+    {
+        var anna = await client.FounderAsync("Anna");
+        var giro = await GiroAsync(anna);
+        var debt = await DebtAsync(anna, 600m, PlanOf(giro));
+
+        // Today is 15.12.2026: the old plan keeps 01.01.2027 and 01.02.2027, the new plan starts on 01.03.2027.
+        var response = await client.SendAsync(anna, HttpMethod.Patch, $"{Debts}/{debt.Id}",
+            new UpdateDebtRequest(Plan: PlanOf(giro, rate: 100m, first: new DateOnly(2027, 3, 1), from: new DateOnly(2027, 3, 1))));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var read = await DebtOfAsync(anna, debt.Id);
+
+        Assert.Equal((new DateOnly(2027, 1, 1), 50m), (read.NextInstallment!.Date, read.NextInstallment.Amount));
+        Assert.Equal(new DateOnly(2027, 7, 1), read.ExpectedEnd);
     }
 
     [Fact]

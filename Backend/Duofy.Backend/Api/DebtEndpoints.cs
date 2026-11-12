@@ -133,9 +133,18 @@ internal static class DebtEndpoints
         DebtPlanResponse? plan = null;
         if (contract is not null)
         {
-            if (open > 0m && NextOpenInstallment(contract, ticked, today) is { } due)
+            if (open > 0m)
             {
-                next = new DebtInstallmentResponse(due, contract.AmountIn(due.Year, due.Month));
+                // Nach einer Planänderung können Raten des alten Plans noch fällig sein: Die nächste Rate ist die früheste
+                // offene über alle Pläne der Schuld, nicht nur die des neuen.
+                var plans = linked.Where(c => c.DebtId == debt.Id && c.IsDebtPlan).ToList();
+                foreach (var candidate in plans.Count > 0 ? plans : [contract])
+                {
+                    if (NextOpenInstallment(candidate, ticked, today) is { } due && (next is null || due < next.Date))
+                    {
+                        next = new DebtInstallmentResponse(due, candidate.AmountIn(due.Year, due.Month));
+                    }
+                }
             }
             end = contract.LastDueDate;
             plan = new DebtPlanResponse(

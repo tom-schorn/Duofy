@@ -137,4 +137,38 @@ public class DebtPlanDraftTests
         Assert.False(draft.HasOwnPlan);
         Assert.False(draft.Enabled);
     }
+
+    [Fact]
+    public void The_preview_of_a_change_subtracts_the_old_installments_still_due_before_the_month_of_the_change()
+    {
+        // Old plan: 50 a month from 01.09.2026; today is 12.11.2026, the change starts in January: November and December (100) stay with the old plan.
+        var draft = DebtPlanDraft.From(WithPlan(first: new DateOnly(2026, 9, 1)), Today);
+        draft.FromMonth = new DateOnly(2027, 1, 1);
+
+        var preview = draft.Preview(386.94m);
+
+        Assert.Equal((6, 36.94m, new DateOnly(2027, 6, 1)), (preview.Count, preview.LastAmount, preview.LastDueDate));
+    }
+
+    [Fact]
+    public void The_preview_of_a_change_counts_the_old_last_installment_with_its_own_amount()
+    {
+        // The old plan ends on 01.12.2026 with a last installment of 36,94: November (50) and December (36,94) are subtracted.
+        var response = WithPlan(36.94m, first: new DateOnly(2026, 9, 1));
+        var draft = DebtPlanDraft.From(response with { ExpectedEnd = new DateOnly(2026, 12, 1) }, Today);
+        draft.FromMonth = new DateOnly(2027, 1, 1);
+
+        var preview = draft.Preview(386.94m);
+
+        Assert.Equal((6, 50m), (preview.Count, preview.LastAmount));
+    }
+
+    [Fact]
+    public void The_start_date_shown_follows_the_month_of_the_change()
+    {
+        var draft = DebtPlanDraft.From(WithPlan(first: new DateOnly(2026, 9, 1)), Today);
+        draft.FromMonth = new DateOnly(2027, 2, 1);
+
+        Assert.Equal(new DateOnly(2027, 2, 1), draft.StartDate);
+    }
 }

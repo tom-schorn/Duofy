@@ -99,6 +99,7 @@ public static class ErrorTexts
         ErrorCodes.DebtPlanInvalid => L["Error_debt_plan_invalid"],
         ErrorCodes.DebtPlanNothingOpen => L["Error_debt_plan_nothing_open"],
         ErrorCodes.DebtPlanTooManyInstallments => L["Error_debt_plan_too_many_installments"],
+        ErrorCodes.DebtPlanLastDoesNotFit => L["Error_debt_plan_last_does_not_fit"],
         ErrorCodes.DebtPlanFromMonthRequired => L["Error_debt_plan_from_month_required"],
         ErrorCodes.DebtPlanStartInvalid => L["Error_debt_plan_start_invalid"],
         ErrorCodes.CommitmentIsDebtPlan => L["Error_commitment_is_debt_plan"],

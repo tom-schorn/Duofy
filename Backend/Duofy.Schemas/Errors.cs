@@ -112,6 +112,7 @@ public static class ErrorCodes
     public const string DebtPlanInvalid = "debt_plan_invalid";
     public const string DebtPlanNothingOpen = "debt_plan_nothing_open";
     public const string DebtPlanTooManyInstallments = "debt_plan_too_many_installments";
+    public const string DebtPlanLastDoesNotFit = "debt_plan_last_does_not_fit";
     public const string DebtPlanFromMonthRequired = "debt_plan_from_month_required";
     public const string DebtPlanStartInvalid = "debt_plan_start_invalid";
     public const string CommitmentIsDebtPlan = "commitment_is_debt_plan";

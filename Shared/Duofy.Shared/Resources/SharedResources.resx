@@ -1162,6 +1162,7 @@
   <data name="Error_debt_plan_invalid"><value>Der Ratenplan stimmt nicht: Rate und letzte Rate müssen größer als 0 sein, der Rhythmus liegt zwischen 1 und 120 Monaten.</value></data>
   <data name="Error_debt_plan_nothing_open"><value>Bei dieser Schuld ist nichts mehr offen, ein Ratenplan wäre leer.</value></data>
   <data name="Error_debt_plan_too_many_installments"><value>Dieser Ratenplan hätte mehr als 600 Raten. Bitte eine höhere Rate wählen.</value></data>
+  <data name="Error_debt_plan_last_does_not_fit"><value>Die letzte Rate passt nicht zum offenen Betrag.</value></data>
   <data name="Error_debt_plan_from_month_required"><value>Bitte angeben, ab welchem Monat der geänderte Ratenplan gilt.</value></data>
   <data name="Error_debt_plan_start_invalid"><value>Der geänderte Plan gilt frühestens ab dem laufenden Monat, und die erste Rate liegt nicht davor.</value></data>
   <data name="Error_commitment_is_debt_plan"><value>Dieser Vertrag ist der Ratenplan einer Schuld. Er lässt sich nur dort ändern oder beenden.</value></data>
@@ -1171,6 +1172,7 @@
   <data name="DebtDialog_StepDebt"><value>Schuld</value></data>
   <data name="DebtDialog_StepPlan"><value>Ratenplan</value></data>
   <data name="DebtDialog_PlanEnabled"><value>Ratenplan anlegen</value></data>
+  <data name="DebtDialog_PlanEnabledExisting"><value>Ratenplan</value></data>
   <data name="DebtDialog_PlanHint"><value>Duofy legt daraus einen Vertrag im Topf Sparen an. Die Raten erscheinen jeden Monat im Plan; Abhaken zahlt die Schuld ab.</value></data>
   <data name="DebtDialog_PlanRemove"><value>Ratenplan entfernen</value></data>
   <data name="DebtDialog_PlanRemoveHint"><value>Der Vertrag endet mit dem laufenden Monat; vergangene Monate bleiben, wie sie waren.</value></data>

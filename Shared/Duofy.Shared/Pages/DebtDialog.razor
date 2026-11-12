@@ -55,7 +55,7 @@
 
         <div class="row">
             <BbSwitch Id="debt-plan-enabled" Checked="plan.Enabled" CheckedChanged="OnPlanEnabledChanged" data-testid="debt-plan-enabled" />
-            <FieldLabel For="debt-plan-enabled" Text="@L["DebtDialog_PlanEnabled"]" />
+            <FieldLabel For="debt-plan-enabled" Text="@L[plan.HasOwnPlan ? "DebtDialog_PlanEnabledExisting" : "DebtDialog_PlanEnabled"]" />
         </div>
         <p class="small muted">@L["DebtDialog_PlanHint"]</p>
         @if (Existing?.Plan is { IsOwnPlan: false })
@@ -74,7 +74,7 @@
                 <NumberInput id="debt-plan-interval-input" min="1" max="@(CommitmentRules.MaxIntervalMonths)" @bind-Value="plan.IntervalMonths" data-testid="debt-plan-interval" />
             </StepField>
             <StepField Label="@L["Field_PlanFirstDue"]" InputId="debt-plan-first-input" Required IsFilled="() => plan.FirstDueDate is not null" TestId="debt-plan-first-field">
-                <TextInput id="debt-plan-first-input" Type="date" Value="@DateText(plan.FirstDueDate)" ValueChanged="OnFirstDueChanged" data-testid="debt-plan-first" />
+                <TextInput id="debt-plan-first-input" Type="date" Value="@DateText(plan.StartDate)" ValueChanged="OnFirstDueChanged" data-testid="debt-plan-first" />
             </StepField>
             @if (plan.HasOwnPlan)
             {
@@ -253,6 +253,7 @@
             {
                 InstallmentPlanError.NothingOpen => ErrorCodes.DebtPlanNothingOpen,
                 InstallmentPlanError.TooManyInstallments => ErrorCodes.DebtPlanTooManyInstallments,
+                InstallmentPlanError.LastAmountDoesNotFit => ErrorCodes.DebtPlanLastDoesNotFit,
                 _ => ErrorCodes.DebtPlanInvalid,
             });
         }

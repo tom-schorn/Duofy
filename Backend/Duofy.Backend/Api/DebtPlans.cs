@@ -27,6 +27,7 @@ internal static class DebtPlans
             InstallmentPlanError.None => null,
             InstallmentPlanError.NothingOpen => ErrorCodes.DebtPlanNothingOpen,
             InstallmentPlanError.TooManyInstallments => ErrorCodes.DebtPlanTooManyInstallments,
+            InstallmentPlanError.LastAmountDoesNotFit => ErrorCodes.DebtPlanLastDoesNotFit,
             _ => ErrorCodes.DebtPlanInvalid,
         };
         if (code is not null)

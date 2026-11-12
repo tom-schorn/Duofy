@@ -56,6 +56,8 @@ public sealed class DebtPlanDraft
     private DebtPlanResponse? original;
     private DateOnly? originalFirstDueDate;
     private decimal? originalLastAmount;
+    private DateOnly? originalEnd;
+    private DateOnly originalToday;
 
     /// <summary>True, wenn bei einem bestehenden Plan etwas von dem geändert wurde, was einen neuen Vertrag braucht.</summary>
     public bool Changed => original is null
@@ -105,6 +107,8 @@ public sealed class DebtPlanDraft
             Enabled = true,
             HasOwnPlan = true,
             original = plan,
+            originalEnd = debt.ExpectedEnd,
+            originalToday = today,
             Rate = plan.Rate,
             IntervalMonths = plan.IntervalMonths,
             originalFirstDueDate = first,
@@ -120,7 +124,35 @@ public sealed class DebtPlanDraft
 
     /// <summary>Die Vorschau für den offenen Betrag am ersten Tag des Plans.</summary>
     public InstallmentPlanResult Preview(decimal open) => InstallmentPlan.Compute(
-        open, Rate ?? 0m, IntervalMonths ?? 0, StartDate ?? default, LastAmount);
+        open - OldPlanDueBeforeFromMonth(), Rate ?? 0m, IntervalMonths ?? 0, StartDate ?? default, LastAmount);
+
+    /// <summary>
+    /// Der Betrag der Raten des alten Plans, die ab diesem Monat bis vor dem Änderungsmonat noch fällig sind. Wie in der API
+    /// mindert er den offenen Betrag am ersten Tag des neuen Plans; die Vorschau kennt keine abgehakten Posten.
+    /// </summary>
+    private decimal OldPlanDueBeforeFromMonth()
+    {
+        if (!HasOwnPlan || original is null || FromMonth is not { } from)
+        {
+            return 0m;
+        }
+        var start = new DateOnly(originalToday.Year, originalToday.Month, 1);
+        var before = new DateOnly(from.Year, from.Month, 1);
+        var firstIndex = original.FirstDueDate.Year * 12 + original.FirstDueDate.Month;
+        var sum = 0m;
+        for (var month = start; month < before; month = month.AddMonths(1))
+        {
+            var index = month.Year * 12 + month.Month;
+            if (index < firstIndex || (index - firstIndex) % original.IntervalMonths != 0
+                || (originalEnd is { } end && index > end.Year * 12 + end.Month))
+            {
+                continue;
+            }
+            var isLast = originalEnd is { } last && last.Year == month.Year && last.Month == month.Month;
+            sum += isLast && original.LastAmount is { } lastAmount ? lastAmount : original.Rate;
+        }
+        return sum;
+    }
 
     /// <summary>
     /// Die Anfrage für den Plan; null, wenn kein Plan gewünscht ist, der bestehende entfernt wird oder er unverändert bleibt
