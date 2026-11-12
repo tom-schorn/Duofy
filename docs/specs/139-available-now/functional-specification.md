@@ -48,11 +48,11 @@ External input: no
 
 | Requirement | Criterion | Test |
 | --- | --- | --- |
-| R1 | A1 | pending |
-| R1 | A2 | pending |
-| R2 | A3 | pending |
-| R3 | A4 | pending |
-| R4 | A5 | pending |
+| R1 | A1 | `PlanAvailableNowTests.Example_of_the_spec_gives_190_euro`, `AvailableNowTests.A1_the_current_month_shows_balances_minus_open_expenses` |
+| R1 | A2 | `PlanAvailableNowTests.A_transfer_between_own_non_savings_accounts_is_no_expense`, `A_transfer_to_a_savings_account_is_an_open_expense_until_ticked`, `Moved_and_pass_through_positions_are_not_open_expenses` |
+| R2 | A3 | `AvailableNowPageTests.Allocatable_is_labelled_per_month_with_the_hint_about_planned_income` (value unchanged: `PlanFreeTests`, unchanged) |
+| R3 | A4 | `AvailableNowPageTests.The_month_shows_available_now_with_its_breakdown_next_to_allocatable`, `Without_a_value_there_is_no_available_now_block`, `AvailableNowTests.A4_another_month_has_no_available_now` (widths 412/800/1024 px: browser check by the reviewer, not run) |
+| R4 | A5 | `AvailableNowTests.A5_the_household_leaves_out_a_member_without_grant_and_names_them`, `AvailableNowPageTests.A_household_value_names_the_members_that_are_not_included` |
 
 ## Non-goals
 
