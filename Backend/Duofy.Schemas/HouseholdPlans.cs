@@ -19,7 +19,14 @@ public sealed record HouseholdPlanPositionResponse(
     decimal Booked,
     DateTimeOffset? DoneAt,
     Guid OwnerId,
-    string OwnerFirstName);
+    string OwnerFirstName,
+    PlanMonthRef? MovedToMonth = null,
+    PlanMonthRef? MovedFromMonth = null)
+{
+    /// <summary>True, wenn der Posten in einen anderen Monat verschoben ist und in seinem Monat nicht zählt (Spec 136).</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsMoved => MovedToMonth is not null;
+}
 
 /// <summary>Geplant und gebucht in einem Topf, ohne durchlaufende Posten.</summary>
 /// <param name="Pot">"needs", "wants" oder "savings".</param>

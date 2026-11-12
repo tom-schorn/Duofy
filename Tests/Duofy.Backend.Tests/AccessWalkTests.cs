@@ -87,6 +87,8 @@ public class AccessWalkTests
             ["DELETE /api/v1/plans/{year:int}/{month:int}/positions/{id:guid}"] = (HttpMethod.Delete, $"{plan}/positions/{f.Position}?{owner}", null),
             ["POST /api/v1/plans/{year:int}/{month:int}/positions/{id:guid}/tick"] = (HttpMethod.Post, $"{plan}/positions/{f.Position}/tick?{owner}", null),
             ["DELETE /api/v1/plans/{year:int}/{month:int}/positions/{id:guid}/tick"] = (HttpMethod.Delete, $"{plan}/positions/{f.Position}/tick?{owner}", null),
+            ["POST /api/v1/plans/{year:int}/{month:int}/positions/{id:guid}/postpone"] = (HttpMethod.Post, $"{plan}/positions/{f.Position}/postpone?{owner}", null),
+            ["POST /api/v1/plans/{year:int}/{month:int}/positions/{id:guid}/postpone/undo"] = (HttpMethod.Post, $"{plan}/positions/{f.Position}/postpone/undo?{owner}", null),
             ["POST /api/v1/plans/{year:int}/{month:int}/changes/apply"] = (HttpMethod.Post, $"{plan}/changes/apply?{owner}", null),
             ["POST /api/v1/plans/{year:int}/{month:int}/carry-over"] = (HttpMethod.Post, $"{plan}/carry-over?{owner}", new CreateCarryOverRequest(5m)),
             ["DELETE /api/v1/plans/{year:int}/{month:int}/carry-over"] = (HttpMethod.Delete, $"{plan}/carry-over?{owner}", null),

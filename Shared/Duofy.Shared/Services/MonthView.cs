@@ -97,7 +97,7 @@ public static class MonthView
     public static IReadOnlyList<MonthCategoryRow> Categories(PlanResponse plan, Func<Guid, string?> categoryName)
     {
         var sums = new Dictionary<Guid, (decimal Planned, decimal Booked)>();
-        foreach (var p in plan.Positions.Where(p => p.Pot != PotKeys.Income && !p.PassThrough))
+        foreach (var p in plan.Positions.Where(p => p.Pot != PotKeys.Income && !p.PassThrough && !p.IsMoved))
         {
             var (planned, booked) = sums.GetValueOrDefault(p.CategoryId);
             sums[p.CategoryId] = (planned + p.AmountPlanned, booked + p.Booked);
@@ -125,14 +125,14 @@ public static class MonthView
         Func<Guid, string?>? categoryName = null)
     {
         var overview = plan.Overview;
-        var sources = plan.Positions.Select(p => new QuotaSource(p.Pot, p.PassThrough, p.Booked)).ToList();
+        var sources = plan.Positions.Where(p => !p.IsMoved).Select(p => new QuotaSource(p.Pot, p.PassThrough, p.Booked)).ToList();
         var plannedIncome = overview?.Income ?? plan.PlannedIncome;
         var pots = PotKeysInOrder
             .Select(key => Pot(key, plan.Quotas, overview?.Pots.FirstOrDefault(p => p.Pot == key), plan.BookedIncome != 0m, plannedIncome, sources, PlanView.Unplanned(plan, key)))
             .ToList();
         var bookings = BookingRows(overview?.Bookings ?? [], accountName, purpose);
         var due = DueRows(
-            plan.Positions.Select(p => new DueSource(p.Label, p.DueDay, p.Pot, p.PassThrough, p.AmountPlanned, p.Booked, p.DoneAt, null)),
+            plan.Positions.Where(p => !p.IsMoved).Select(p => new DueSource(p.Label, p.DueDay, p.Pot, p.PassThrough, p.AmountPlanned, p.Booked, p.DoneAt, null)),
             plan.Year, plan.Month, today);
         return new MonthOverviewModel(overview?.Income ?? 0m, overview?.Fixed ?? 0m, overview?.Free ?? 0m, pots, bookings.Take(RecentCount).ToList(), due, CarryOverRows(overview?.CarryOvers),
             categoryName is null ? [] : Categories(plan, categoryName), MonthCurve.ForPerson(plan, today));
@@ -140,7 +140,7 @@ public static class MonthView
 
     public static MonthOverviewModel ForHousehold(HouseholdPlanResponse plan, DateOnly today)
     {
-        var sources = plan.Positions.Select(p => new QuotaSource(p.Pot, p.PassThrough, p.Booked)).ToList();
+        var sources = plan.Positions.Where(p => !p.IsMoved).Select(p => new QuotaSource(p.Pot, p.PassThrough, p.Booked)).ToList();
         var incomeBooked = (plan.Bookings ?? []).Any(b => b.Kind == BookingKinds.Income) || plan.Unplanned.Income != 0m;
         var pots = PotKeysInOrder
             .Select(key => Pot(key, plan.Quotas, plan.Pots.Where(p => p.Pot == key).Select(p => new PlanPotResponse(p.Pot, p.Planned, p.Booked)).FirstOrDefault(),
@@ -148,7 +148,7 @@ public static class MonthView
             .ToList();
         var bookings = HouseholdBookingRows(plan);
         var due = DueRows(
-            plan.Positions.Select(p => new DueSource(p.Label, p.DueDay, p.Pot, p.PassThrough, p.AmountPlanned, p.Booked, p.DoneAt, p.OwnerFirstName)),
+            plan.Positions.Where(p => !p.IsMoved).Select(p => new DueSource(p.Label, p.DueDay, p.Pot, p.PassThrough, p.AmountPlanned, p.Booked, p.DoneAt, p.OwnerFirstName)),
             plan.Year, plan.Month, today);
         return new MonthOverviewModel(plan.Income, plan.Fixed, plan.Free, pots, bookings.Take(RecentCount).ToList(), due, CarryOverRows(plan.CarryOvers),
             [], MonthCurve.ForHousehold(plan, today));
@@ -158,7 +158,7 @@ public static class MonthView
     /// Anstehend: was von den nicht abgehakten Posten noch offen ist, ohne Einnahmen und durchlaufende Posten (Spec 82).
     /// </summary>
     public static decimal Unpaid(IEnumerable<PlanPositionResponse> positions) => positions
-        .Where(p => p.Pot != PotKeys.Income && !p.PassThrough && p.DoneAt is null)
+        .Where(p => p.Pot != PotKeys.Income && !p.PassThrough && !p.IsMoved && p.DoneAt is null)
         .Sum(p => Math.Max(p.AmountPlanned - p.Booked, 0m));
 
     /// <summary>Die Buchungen eines Planmonats für die Liste, in der Reihenfolge der API (neueste zuerst); <paramref name="accountName"/> gibt den Namen des Kontos.</summary>

@@ -1255,6 +1255,14 @@ namespace Duofy.Data.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("label");
 
+                    b.Property<Guid?>("MovedFromPositionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("moved_from_position_id");
+
+                    b.Property<Guid?>("MovedToPositionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("moved_to_position_id");
+
                     b.Property<bool>("PassThrough")
                         .HasColumnType("boolean")
                         .HasColumnName("pass_through");
@@ -1298,6 +1306,12 @@ namespace Duofy.Data.Migrations
 
                     b.HasIndex("CounterAccountId")
                         .HasDatabaseName("ix_plan_positions_counter_account_id");
+
+                    b.HasIndex("MovedFromPositionId")
+                        .HasDatabaseName("ix_plan_positions_moved_from_position_id");
+
+                    b.HasIndex("MovedToPositionId")
+                        .HasDatabaseName("ix_plan_positions_moved_to_position_id");
 
                     b.HasIndex("PlanId")
                         .HasDatabaseName("ix_plan_positions_plan_id");
@@ -1845,6 +1859,18 @@ namespace Duofy.Data.Migrations
                         .HasForeignKey("CounterAccountId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .HasConstraintName("fk_plan_positions_accounts_counter_account_id");
+
+                    b.HasOne("Duofy.Domain.PlanPosition", null)
+                        .WithMany()
+                        .HasForeignKey("MovedFromPositionId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_plan_positions_plan_positions_moved_from_position_id");
+
+                    b.HasOne("Duofy.Domain.PlanPosition", null)
+                        .WithMany()
+                        .HasForeignKey("MovedToPositionId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_plan_positions_plan_positions_moved_to_position_id");
 
                     b.HasOne("Duofy.Domain.Plan", null)
                         .WithMany("Positions")

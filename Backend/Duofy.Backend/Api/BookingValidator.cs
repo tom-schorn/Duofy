@@ -14,6 +14,9 @@ public enum BookingCheckOutcome
 
     /// <summary>Ein Konto oder eine Kategorie gibt es nicht oder sie gehört einer anderen Person (Antwort 404).</summary>
     NotFound,
+
+    /// <summary>Ein Posten ist verschoben und nimmt keine Zeilen an; der Fehlercode steht in <see cref="BookingCheck.Code"/> (Antwort 409).</summary>
+    Conflict,
 }
 
 /// <summary>
@@ -29,6 +32,8 @@ public readonly record struct BookingCheck(BookingCheckOutcome Outcome, string? 
     public static BookingCheck NotFound { get; } = new(BookingCheckOutcome.NotFound, null);
 
     public static BookingCheck Invalid(string code) => new(BookingCheckOutcome.Invalid, code);
+
+    public static BookingCheck Conflict(string code) => new(BookingCheckOutcome.Conflict, code);
 }
 
 /// <summary>
@@ -141,6 +146,11 @@ public static class BookingValidator
             if (await positions.FindAsync(ownerId, positionId, cancellationToken) is not { } position)
             {
                 return BookingCheck.NotFound;
+            }
+            // Ein verschobener Posten zählt nirgends mehr; Geld darauf verschwände aus allen Zahlen (Spec 136).
+            if (position.IsMoved)
+            {
+                return BookingCheck.Conflict(ErrorCodes.PositionMoved);
             }
             var fits = request.Kind switch
             {

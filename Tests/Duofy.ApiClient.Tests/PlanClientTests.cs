@@ -112,6 +112,27 @@ public class PlanClientTests
         Assert.Contains(Rent.Id.ToString(), api.Requests[5].Body);
     }
 
+    // Spec 136
+    [Fact]
+    public async Task Postponing_and_undoing_go_to_their_addresses_and_name_the_owner_only_when_one_is_given()
+    {
+        var (api, provider, scope) = Start(request => request.Path.EndsWith("/undo")
+            ? FakeApi.Json(HttpStatusCode.OK, Rent)
+            : FakeApi.Json(HttpStatusCode.OK, new PostponePositionResponse(Rent, Rent)));
+        using var _p = provider;
+        using var _s = scope;
+        var plans = scope.ServiceProvider.GetRequiredService<IPlanApi>();
+        var owner = Guid.NewGuid();
+
+        var both = await plans.PostponeAsync(2026, 11, Rent.Id);
+        await plans.UndoPostponeAsync(2026, 11, Rent.Id, owner);
+
+        Assert.Equal(Rent.Id, both.Value!.From.Id);
+        Assert.Equal(
+            [("POST", $"/api/v1/plans/2026/11/positions/{Rent.Id}/postpone", ""), ("POST", $"/api/v1/plans/2026/11/positions/{Rent.Id}/postpone/undo", $"?owner={owner}")],
+            api.Requests.Select(r => (r.Method.Method, r.Path, r.Query)));
+    }
+
     [Fact]
     public async Task A_409_answer_gives_its_code()
     {

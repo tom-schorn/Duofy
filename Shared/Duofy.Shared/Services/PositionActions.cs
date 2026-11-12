@@ -252,6 +252,44 @@ public sealed class PositionActions(
         return outcome.Saved ? new(new NoticeMessage(l["Plan_Ticked"], NoticeSeverity.Success), Reload: true) : PositionActionResult.Nothing;
     }
 
+    // --- Verschieben in den nächsten Monat (Spec 136) ---
+
+    /// <summary>Ein Posten lässt sich verschieben, solange er offen ist, nichts auf ihm gebucht ist und er nicht schon verschoben wurde.</summary>
+    public static bool CanPostpone(PlanPositionResponse position) => !position.IsMoved && position.DoneAt is null && position.Booked == 0m;
+
+    /// <inheritdoc cref="CanPostpone(PlanPositionResponse)"/>
+    public static bool CanPostpone(HouseholdPlanPositionResponse position) => !position.IsMoved && position.DoneAt is null && position.Booked == 0m;
+
+    /// <summary>
+    /// Einen Posten in den nächsten Monat verschieben, nach einer Rückfrage, die den Zielmonat nennt. Es braucht dieselbe Freigabe
+    /// wie das Ändern (Planung Ändern); wer sie nicht hat, bekommt gesagt, was fehlt.
+    /// </summary>
+    public async Task<PositionActionResult> PostponeAsync(int year, int month, Guid? owner, string? ownerName, Guid positionId, string label)
+    {
+        if (!CanEdit(owner))
+        {
+            return new(Refusal(owner, ownerName, [(GrantAreas.Plan, AccessLevelKeys.Edit)]));
+        }
+        var (nextYear, nextMonth) = PlanView.Shift(year, month, 1);
+        var target = PlanView.MonthName(nextYear, nextMonth);
+        if (!await forms.ConfirmAsync(l["Plan_PostponeText", label, target], l["Plan_PostponeTitle"], l["Plan_PostponeConfirm"], l["Plan_ConfirmCancel"]))
+        {
+            return PositionActionResult.Nothing;
+        }
+        var result = await planApi.PostponeAsync(year, month, positionId, owner);
+        return new(result.Succeeded ? new NoticeMessage(l["Plan_Postponed", target], NoticeSeverity.Success) : Failed(result.ErrorCode), Reload: true);
+    }
+
+    /// <summary>Das Verschieben zurücknehmen: Die Kopie im nächsten Monat entfällt und der Posten zählt wieder.</summary>
+    public async Task<PositionActionResult> UndoPostponeAsync(int year, int month, Guid? owner, string? ownerName, Guid positionId)
+    {
+        if (!CanEdit(owner))
+        {
+            return new(Refusal(owner, ownerName, [(GrantAreas.Plan, AccessLevelKeys.Edit)]));
+        }
+        return Show(await planApi.UndoPostponeAsync(year, month, positionId, owner), "Plan_PostponeUndone");
+    }
+
     private PositionActionResult Show<T>(ApiResult<T> result, string successKey) =>
         new(result.Succeeded ? new NoticeMessage(l[successKey], NoticeSeverity.Success) : Failed(result.ErrorCode), Reload: true);
 
@@ -261,7 +299,8 @@ public sealed class PositionActions(
     /// <summary>Der Posten einer Zeile des Haushaltsplans, soweit der Dialog zum Abhaken ihn braucht: Bezeichnung, Betrag und Kennung.</summary>
     public static PlanPositionResponse ForTick(HouseholdPlanPositionResponse position) =>
         new(position.Id, null, position.Label, position.AmountPlanned, position.DueDay, position.Type, position.CategoryId, position.Pot,
-            null, null, position.PassThrough, PaymentMethods.Other, position.Booked, position.DoneAt, false, null);
+            null, null, position.PassThrough, PaymentMethods.Other, position.Booked, position.DoneAt, false, null,
+            position.MovedToMonth, position.MovedFromMonth);
 
     // --- Buchung anlegen ---
 
