@@ -1167,7 +1167,7 @@
   <data name="Error_commitment_is_debt_plan"><value>Dieser Vertrag ist der Ratenplan einer Schuld. Er lässt sich nur dort ändern oder beenden.</value></data>
   <data name="Field_DebtReference"><value>Aktenzeichen (freiwillig)</value></data>
   <data name="Field_DebtAdjustedOpen"><value>Offener Betrag von Hand (freiwillig)</value></data>
-  <data name="Field_DebtAdjustedOpenHint"><value>Nur ausfüllen, wenn der Gläubiger einen anderen offenen Betrag nennt, etwa wegen Zinsen. Zahlungen ab heute senken ihn weiter.</value></data>
+  <data name="Field_DebtAdjustedOpenHint"><value>Nur ausfüllen, wenn der Gläubiger einen anderen offenen Betrag nennt, etwa wegen Zinsen. Zahlungen nach dem Tag, an dem Sie ihn setzen, senken ihn weiter.</value></data>
   <data name="DebtDialog_StepDebt"><value>Schuld</value></data>
   <data name="DebtDialog_StepPlan"><value>Ratenplan</value></data>
   <data name="DebtDialog_PlanEnabled"><value>Ratenplan anlegen</value></data>

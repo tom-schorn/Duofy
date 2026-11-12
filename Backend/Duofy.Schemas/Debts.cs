@@ -104,7 +104,8 @@ public sealed record DebtPlanResponse(
     decimal? LastAmount,
     Guid? AccountId,
     string PaymentMethod,
-    Guid CategoryId);
+    Guid CategoryId,
+    bool LastAmountByHand = false);
 
 /// <summary>Grenzen der Schulden und Kredite.</summary>
 public static class DebtRules

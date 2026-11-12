@@ -771,10 +771,18 @@ namespace Duofy.Backend.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("interval_months");
 
+                    b.Property<bool>("IsDebtPlan")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_debt_plan");
+
                     b.Property<decimal?>("LastAmount")
                         .HasPrecision(12, 2)
                         .HasColumnType("numeric(12,2)")
                         .HasColumnName("last_amount");
+
+                    b.Property<bool>("LastAmountByHand")
+                        .HasColumnType("boolean")
+                        .HasColumnName("last_amount_by_hand");
 
                     b.Property<DateOnly?>("LastDueDate")
                         .HasColumnType("date")
@@ -789,6 +797,14 @@ namespace Duofy.Backend.Data.Migrations
                     b.Property<Guid>("OwnerId")
                         .HasColumnType("uuid")
                         .HasColumnName("owner_id");
+
+                    b.Property<Guid?>("MovedFromPositionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("moved_from_position_id");
+
+                    b.Property<Guid?>("MovedToPositionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("moved_to_position_id");
 
                     b.Property<bool>("PassThrough")
                         .HasColumnType("boolean")
@@ -1301,6 +1317,12 @@ namespace Duofy.Backend.Data.Migrations
 
                     b.HasIndex("CounterAccountId")
                         .HasDatabaseName("ix_plan_positions_counter_account_id");
+
+                    b.HasIndex("MovedFromPositionId")
+                        .HasDatabaseName("ix_plan_positions_moved_from_position_id");
+
+                    b.HasIndex("MovedToPositionId")
+                        .HasDatabaseName("ix_plan_positions_moved_to_position_id");
 
                     b.HasIndex("PlanId")
                         .HasDatabaseName("ix_plan_positions_plan_id");
@@ -1848,6 +1870,18 @@ namespace Duofy.Backend.Data.Migrations
                         .HasForeignKey("CounterAccountId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .HasConstraintName("fk_plan_positions_accounts_counter_account_id");
+
+                    b.HasOne("Duofy.Domain.PlanPosition", null)
+                        .WithMany()
+                        .HasForeignKey("MovedFromPositionId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_plan_positions_plan_positions_moved_from_position_id");
+
+                    b.HasOne("Duofy.Domain.PlanPosition", null)
+                        .WithMany()
+                        .HasForeignKey("MovedToPositionId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_plan_positions_plan_positions_moved_to_position_id");
 
                     b.HasOne("Duofy.Domain.Plan", null)
                         .WithMany("Positions")

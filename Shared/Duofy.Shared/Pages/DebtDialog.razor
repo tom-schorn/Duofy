@@ -231,8 +231,14 @@
 
     private void OnCategoryChanged(string value) => plan.CategoryId = Guid.TryParse(value, out var id) ? id : null;
 
-    // Der offene Betrag am ersten Tag des Plans: beim Anlegen der Betrag, beim Ändern das, was offen ist.
-    private decimal OpenForPreview => Existing is null ? amount ?? 0m : adjustedOpen ?? Existing.Open;
+    // Der offene Betrag am ersten Tag des Plans, so wie die API ihn rechnet (Debt.OpenOf): beim Anlegen der Betrag; beim Ändern
+    // ein neu gesetzter korrigierter Betrag (gilt ab heute), ein unverändert gelassener samt den Zahlungen danach (der offene
+    // Betrag der Schuld) und ohne Korrektur der Ursprungsbetrag minus alles Gezahlte.
+    private decimal OpenForPreview => Existing is null
+        ? amount ?? 0m
+        : adjustedOpen is { } adjusted
+            ? adjusted == Existing.AdjustedOpen ? Existing.Open : adjusted
+            : Math.Max(0m, (amount ?? Existing.OriginalAmount) - Existing.Paid);
 
     private string PreviewText()
     {
@@ -274,7 +280,8 @@
                     ClearReference: NullIfEmpty(reference) is null && Existing.Reference is not null ? true : null,
                     Plan: plan.ToRequest(),
                     ClearPlan: plan.ClearsPlan ? true : null,
-                    AdjustedOpen: adjustedOpen,
+                    // Nur ein geänderter Betrag geht mit; sonst bekäme er den heutigen Tag, und frühere Zahlungen zählten nicht mehr.
+                    AdjustedOpen: adjustedOpen != Existing.AdjustedOpen ? adjustedOpen : null,
                     ClearAdjustedOpen: adjustedOpen is null && Existing.AdjustedOpen is not null ? true : null));
 
             if (result.Succeeded)

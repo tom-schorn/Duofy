@@ -58,6 +58,20 @@ namespace Duofy.Backend.Data.Migrations
                 scale: 2,
                 nullable: true);
 
+            migrationBuilder.AddColumn<bool>(
+                name: "last_amount_by_hand",
+                table: "commitments",
+                type: "boolean",
+                nullable: false,
+                defaultValue: false);
+
+            migrationBuilder.AddColumn<bool>(
+                name: "is_debt_plan",
+                table: "commitments",
+                type: "boolean",
+                nullable: false,
+                defaultValue: false);
+
             migrationBuilder.CreateIndex(
                 name: "ix_debts_plan_commitment_id",
                 table: "debts",
@@ -98,6 +112,14 @@ namespace Duofy.Backend.Data.Migrations
             migrationBuilder.DropColumn(
                 name: "reference",
                 table: "debts");
+
+            migrationBuilder.DropColumn(
+                name: "is_debt_plan",
+                table: "commitments");
+
+            migrationBuilder.DropColumn(
+                name: "last_amount_by_hand",
+                table: "commitments");
 
             migrationBuilder.DropColumn(
                 name: "last_amount",

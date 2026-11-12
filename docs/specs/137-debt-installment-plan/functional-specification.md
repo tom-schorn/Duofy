@@ -39,7 +39,7 @@ A debt or loan can carry an installment plan. Duofy turns it into a contract of 
 
 ## Data and interfaces
 
-Migration: `debts.reference`, `debts.plan_commitment_id` (FK, set null), `debts.adjusted_open`, `debts.adjusted_open_on`, `debts.note` length 1000, `commitments.last_amount`. API: debt create/update accept `reference`, `plan` (rate, intervalMonths, firstDueDate, accountId, paymentMethod, categoryId, lastAmount?, fromMonth for changes); debt responses add `paid`, `open`, `nextInstallment`, `expectedEnd`, `plan`. Contract responses add `lastAmount` and `debt` (id, name) for plan contracts. Error bodies for commitment_pot_invalid and commitment_debt_invalid get German messages.
+Migration: `debts.reference`, `debts.plan_commitment_id` (FK, set null), `debts.adjusted_open`, `debts.adjusted_open_on`, `debts.note` length 1000, `commitments.last_amount`, `commitments.last_amount_by_hand` (only a hand-set last installment is loaded again on a change), `commitments.is_debt_plan` (earlier plan contracts stay protected and keep "gehört zu"). API: debt create/update accept `reference`, `plan` (rate, intervalMonths, firstDueDate, accountId, paymentMethod, categoryId, lastAmount?, fromMonth for changes); debt responses add `paid`, `open`, `nextInstallment`, `expectedEnd`, `plan`. Contract responses add `lastAmount` and `debt` (id, name) for plan contracts. Error bodies for commitment_pot_invalid and commitment_debt_invalid get German messages.
 
 External input: yes
 

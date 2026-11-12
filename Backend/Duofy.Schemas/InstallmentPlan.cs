@@ -18,6 +18,9 @@ public enum InstallmentPlanError
     /// <summary>Die letzte Rate von Hand ist nicht größer als 0 oder hat mehr als zwei Nachkommastellen.</summary>
     LastAmountInvalid,
 
+    /// <summary>Die letzte Rate von Hand passt nicht zum offenen Betrag: Sie ist nicht kleiner als er, oder die vollen Raten davor zahlen ihn schon ab.</summary>
+    LastAmountDoesNotFit,
+
     /// <summary>Der Plan bräuchte mehr als <see cref="InstallmentPlan.MaxInstallments"/> Raten.</summary>
     TooManyInstallments,
 }
@@ -28,7 +31,7 @@ public readonly record struct InstallmentPlanResult(InstallmentPlanError Error, 
 /// <summary>
 /// Die Rechnung hinter dem Ratenplan einer Schuld (Issue 137); API und Oberfläche rechnen mit demselben Code. Alles wird in Cent gerechnet, damit die letzte Rate auf den
 /// Cent stimmt: Anzahl n = aufgerundet (offen / Rate), letzte Rate = offen minus (n - 1) mal Rate. Ist die letzte Rate von Hand
-/// gesetzt, gilt sie, und die Anzahl folgt daraus. Es gibt höchstens <see cref="MaxInstallments"/> Raten.
+/// gesetzt, gilt sie, und die Anzahl folgt daraus; die Summe übersteigt nie den offenen Betrag (die letzte wird gekürzt). Es gibt höchstens <see cref="MaxInstallments"/> Raten.
 /// </summary>
 public static class InstallmentPlan
 {
@@ -65,9 +68,21 @@ public static class InstallmentPlan
         long lastCents;
         if (lastAmount is { } set)
         {
-            lastCents = Cents(set);
-            long rest = openCents - lastCents;
-            count = rest <= 0 ? 1 : (rest + rateCents - 1) / rateCents + 1;
+            // Die Summe aller Raten übersteigt nie den offenen Betrag: Reichen die vollen Raten davor mit der letzten von Hand
+            // über ihn hinaus, wird die letzte auf den Rest gekürzt; bleibt nichts für sie übrig, passt sie nicht.
+            long byHand = Cents(set);
+            long rest = openCents - byHand;
+            if (rest <= 0)
+            {
+                return Fail(InstallmentPlanError.LastAmountDoesNotFit);
+            }
+            long full = (rest + rateCents - 1) / rateCents;
+            lastCents = Math.Min(byHand, openCents - full * rateCents);
+            if (lastCents <= 0)
+            {
+                return Fail(InstallmentPlanError.LastAmountDoesNotFit);
+            }
+            count = full + 1;
         }
         else
         {

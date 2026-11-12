@@ -135,6 +135,19 @@ public class Commitment
     /// </summary>
     public decimal? LastAmount { get; set; }
 
+    /// <summary>
+    /// True, wenn der <see cref="LastAmount"/> von Hand gesetzt wurde (Issue 137); false, wenn Duofy ihn aus dem offenen Betrag
+    /// gerechnet hat. Nur ein von Hand gesetzter Betrag wird bei einer Planänderung wieder vorbelegt.
+    /// </summary>
+    public bool LastAmountByHand { get; set; }
+
+    /// <summary>
+    /// True, wenn Duofy den Vertrag als Ratenplan einer Schuld angelegt hat (Issue 137), auch wenn er inzwischen durch einen
+    /// neueren Plan abgelöst und beendet ist; er wird nur an der Schuld geändert und zeigt "gehört zu". Ein bestehender, nur
+    /// verknüpfter Vertrag ist es nicht.
+    /// </summary>
+    public bool IsDebtPlan { get; set; }
+
     /// <summary>Wann der Vertrag angelegt wurde.</summary>
     public DateTimeOffset CreatedAt { get; set; }
 

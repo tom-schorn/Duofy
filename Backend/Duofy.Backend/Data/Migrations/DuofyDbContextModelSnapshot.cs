@@ -768,10 +768,18 @@ namespace Duofy.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("interval_months");
 
+                    b.Property<bool>("IsDebtPlan")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_debt_plan");
+
                     b.Property<decimal?>("LastAmount")
                         .HasPrecision(12, 2)
                         .HasColumnType("numeric(12,2)")
                         .HasColumnName("last_amount");
+
+                    b.Property<bool>("LastAmountByHand")
+                        .HasColumnType("boolean")
+                        .HasColumnName("last_amount_by_hand");
 
                     b.Property<DateOnly?>("LastDueDate")
                         .HasColumnType("date")

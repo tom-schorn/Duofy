@@ -61,12 +61,34 @@ public class InstallmentPlanTests
     [Fact]
     public void A_last_installment_set_by_hand_is_used_and_the_count_follows_from_it()
     {
-        // 386,94 - 40 = 346,94 -> 7 full installments, then the hand-set last one: 8 in all.
+        // 386,94 - 86,94 = 300 -> 6 full installments, then the hand-set last one: 7 in all, exactly the open amount.
+        var plan = InstallmentPlan.Compute(386.94m, 50m, 1, First, 86.94m);
+
+        Assert.Equal(7, plan.Count);
+        Assert.Equal(86.94m, plan.LastAmount);
+        Assert.Equal(new DateOnly(2027, 6, 1), plan.LastDueDate);
+    }
+
+    [Fact]
+    public void A_hand_set_last_installment_is_cut_so_the_total_never_exceeds_the_open_amount()
+    {
+        // 386,94 - 40 = 346,94 -> 7 full installments (350); 350 + 40 would be 390, so the last one is cut to 36,94.
         var plan = InstallmentPlan.Compute(386.94m, 50m, 1, First, 40m);
 
         Assert.Equal(8, plan.Count);
-        Assert.Equal(40m, plan.LastAmount);
-        Assert.Equal(new DateOnly(2027, 7, 1), plan.LastDueDate);
+        Assert.Equal(36.94m, plan.LastAmount);
+        Assert.Equal(386.94m, 7 * 50m + plan.LastAmount);
+    }
+
+    [Theory]
+    [InlineData(450, 100, 36.94)] // five full rates already pay more than 450 - 36,94: nothing is left for the last one
+    [InlineData(100, 50, 100)]   // as large as the open amount
+    [InlineData(100, 50, 150)]   // larger than the open amount
+    public void A_hand_set_last_installment_that_does_not_fit_is_refused(int open, int rate, double last)
+    {
+        var plan = InstallmentPlan.Compute(open, rate, 1, First, (decimal)last);
+
+        Assert.Equal(InstallmentPlanError.LastAmountDoesNotFit, plan.Error);
     }
 
     [Fact]

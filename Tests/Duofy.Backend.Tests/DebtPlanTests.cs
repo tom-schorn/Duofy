@@ -102,11 +102,150 @@ public class DebtPlanTests : IDisposable
     {
         var anna = await client.FounderAsync("Anna");
         var giro = await GiroAsync(anna);
-        var debt = await DebtAsync(anna, 386.94m, PlanOf(giro, last: 40m));
+        // 386,94 - 86,94 = 300 -> 6 full installments of 50 and the hand-set last one: 7 in all, the total is exactly the open amount.
+        var debt = await DebtAsync(anna, 386.94m, PlanOf(giro, last: 86.94m));
 
         var contract = Assert.Single(await ContractsAsync(anna));
-        Assert.Equal((40m, new DateOnly(2027, 7, 1)), (contract.LastAmount, contract.LastDueDate));
-        Assert.Equal(contract.Id, (await DebtOfAsync(anna, debt.Id)).Plan!.CommitmentId);
+        Assert.Equal((86.94m, new DateOnly(2027, 6, 1)), (contract.LastAmount, contract.LastDueDate));
+        var plan = (await DebtOfAsync(anna, debt.Id)).Plan!;
+        Assert.Equal((contract.Id, true), (plan.CommitmentId, plan.LastAmountByHand));
+    }
+
+    [Fact]
+    public async Task A_computed_last_installment_is_not_marked_as_set_by_hand()
+    {
+        var anna = await client.FounderAsync("Anna");
+        var giro = await GiroAsync(anna);
+        var debt = await DebtAsync(anna, 386.94m, PlanOf(giro));
+
+        var plan = (await DebtOfAsync(anna, debt.Id)).Plan!;
+
+        Assert.Equal((36.94m, false), (plan.LastAmount, plan.LastAmountByHand));
+    }
+
+    [Fact]
+    public async Task A_last_installment_set_by_hand_that_does_not_fit_the_open_amount_is_refused()
+    {
+        var anna = await client.FounderAsync("Anna");
+        var giro = await GiroAsync(anna);
+
+        // 450 open, rate 100, last 36,94: five full rates already pay more than 450 - 36,94, so nothing is left for the last one.
+        var response = await client.SendAsync(anna, HttpMethod.Post, Debts,
+            new CreateDebtRequest(DebtKinds.Claim, "Ausgleich", "Verwalter", 450m, Plan: PlanOf(giro, rate: 100m, last: 36.94m)));
+
+        Assert.Equal((HttpStatusCode.BadRequest, ErrorCodes.DebtPlanInvalid), (response.StatusCode, await response.ReadCodeAsync()));
+    }
+
+    // Muss 1: Eine Änderung nur der Notiz darf den Tag des von Hand gesetzten offenen Betrags nicht verschieben.
+    [Fact]
+    public async Task Saving_an_unchanged_manual_open_amount_again_keeps_its_date_and_the_open_amount()
+    {
+        var anna = await client.FounderAsync("Anna");
+        var giro = await GiroAsync(anna);
+        var debt = await DebtAsync(anna, 786.94m);
+        (await client.SendAsync(anna, HttpMethod.Patch, $"{Debts}/{debt.Id}",
+            new UpdateDebtRequest(AdjustedOpen: 500m, AdjustedOpenOn: new DateOnly(2026, 11, 30)))).EnsureSuccessStatusCode();
+        (await PayAsync(anna, giro, debt.Id, 50m, new DateOnly(2026, 12, 1))).EnsureSuccessStatusCode();
+
+        for (var round = 0; round < 2; round++)
+        {
+            (await client.SendAsync(anna, HttpMethod.Patch, $"{Debts}/{debt.Id}", new UpdateDebtRequest(Note: $"Notiz {round}", AdjustedOpen: 500m))).EnsureSuccessStatusCode();
+        }
+
+        var read = await DebtOfAsync(anna, debt.Id);
+        Assert.Equal((450m, 500m, new DateOnly(2026, 11, 30)), (read.Open, read.AdjustedOpen, read.AdjustedOpenOn));
+    }
+
+    // Soll 4: Eine Schuld mit beendetem Ratenplan lässt sich löschen, wenn es keine Buchungen gibt.
+    [Fact]
+    public async Task A_debt_with_an_ended_plan_and_no_bookings_can_be_deleted_and_the_ended_contract_is_unlinked()
+    {
+        var anna = await client.FounderAsync("Anna");
+        var giro = await GiroAsync(anna);
+        var debt = await DebtAsync(anna, 600m, PlanOf(giro));
+        (await client.SendAsync(anna, HttpMethod.Patch, $"{Debts}/{debt.Id}", new UpdateDebtRequest(ClearPlan: true))).EnsureSuccessStatusCode();
+
+        var response = await client.SendAsync(anna, HttpMethod.Delete, $"{Debts}/{debt.Id}");
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Null(Assert.Single(await ContractsAsync(anna)).DebtId);
+    }
+
+    [Fact]
+    public async Task A_debt_with_a_running_plan_cannot_be_deleted()
+    {
+        var anna = await client.FounderAsync("Anna");
+        var giro = await GiroAsync(anna);
+        var debt = await DebtAsync(anna, 600m, PlanOf(giro));
+
+        var response = await client.SendAsync(anna, HttpMethod.Delete, $"{Debts}/{debt.Id}");
+
+        Assert.Equal((HttpStatusCode.Conflict, ErrorCodes.DebtHasBookings), (response.StatusCode, await response.ReadCodeAsync()));
+    }
+
+    // Soll 5: Auch ein früherer Plan der Schuld bleibt geschützt und zeigt "gehört zu".
+    [Fact]
+    public async Task An_earlier_plan_contract_still_belongs_to_the_debt_and_is_protected()
+    {
+        var anna = await client.FounderAsync("Anna");
+        var giro = await GiroAsync(anna);
+        var debt = await DebtAsync(anna, 600m, PlanOf(giro));
+        (await client.SendAsync(anna, HttpMethod.Patch, $"{Debts}/{debt.Id}",
+            new UpdateDebtRequest(Plan: PlanOf(giro, rate: 100m, first: new DateOnly(2027, 3, 1), from: new DateOnly(2027, 3, 1))))).EnsureSuccessStatusCode();
+
+        var contracts = await ContractsAsync(anna);
+        var old = contracts.Single(c => c.Amount == 50m);
+        var change = await client.SendAsync(anna, HttpMethod.Patch, $"{Commitments}/{old.Id}", new UpdateCommitmentRequest(Amount: 70m));
+
+        Assert.Equal(debt.Id, old.Debt!.Id);
+        Assert.Equal((HttpStatusCode.BadRequest, ErrorCodes.CommitmentIsDebtPlan), (change.StatusCode, await change.ReadCodeAsync()));
+    }
+
+    // Soll 6: Eine früh abgehakte Rate ist nicht mehr die nächste.
+    [Fact]
+    public async Task The_next_installment_skips_one_that_is_already_ticked()
+    {
+        var anna = await client.FounderAsync("Anna");
+        var giro = await GiroAsync(anna);
+        var debt = await DebtAsync(anna, 600m, PlanOf(giro));
+        Assert.Equal(new DateOnly(2027, 1, 1), (await DebtOfAsync(anna, debt.Id)).NextInstallment!.Date);
+        var january = Assert.Single((await PlanAsync(anna, 2027, 1)).Positions);
+
+        (await client.SendAsync(anna, HttpMethod.Post, $"{Plans}/2027/1/positions/{january.Id}/tick", new TickPositionRequest())).EnsureSuccessStatusCode();
+
+        Assert.Equal(new DateOnly(2027, 2, 1), (await DebtOfAsync(anna, debt.Id)).NextInstallment!.Date);
+    }
+
+    // Soll 8: Der Ratenplan heißt wie die Schuld.
+    [Fact]
+    public async Task Renaming_the_debt_renames_the_plan_contract()
+    {
+        var anna = await client.FounderAsync("Anna");
+        var giro = await GiroAsync(anna);
+        var debt = await DebtAsync(anna, 600m, PlanOf(giro));
+
+        (await client.SendAsync(anna, HttpMethod.Patch, $"{Debts}/{debt.Id}", new UpdateDebtRequest(Name: "Neuer Name"))).EnsureSuccessStatusCode();
+
+        var contract = Assert.Single(await ContractsAsync(anna));
+        Assert.Equal(("Neuer Name", "Neuer Name"), (contract.Name, contract.Debt!.Name));
+    }
+
+    // Notiz 10: Anlegen mit Plan für einen anderen Besitzer braucht nur Sparen (Ändern); Verknüpfen braucht zusätzlich Verträge ändern.
+    [Fact]
+    public async Task A_member_with_savings_edit_makes_a_debt_with_a_plan_for_the_owner_but_cannot_link_a_contract_without_commitments_edit()
+    {
+        var (anna, ben) = await client.AnnaAndBenAsync();
+        var giro = await GiroAsync(anna);
+        await client.GrantAsync(anna, ben, new UpdateGrantsRequest(Savings: AccessLevelKeys.Edit));
+
+        var created = await client.SendAsync(ben, HttpMethod.Post, Debts,
+            new CreateDebtRequest(DebtKinds.Claim, "Ausgleich", "Verwalter", 600m, OwnerId: anna.Id, Plan: PlanOf(giro)));
+        var contract = Assert.Single(await ContractsAsync(anna));
+        var other = await DebtAsync(anna, 200m);
+        var link = await client.SendAsync(ben, HttpMethod.Patch, $"{Debts}/{other.Id}", new UpdateDebtRequest(LinkedCommitmentId: contract.Id));
+
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        Assert.Equal((HttpStatusCode.NotFound, ErrorCodes.CommitmentNotFound), (link.StatusCode, await link.ReadCodeAsync()));
     }
 
     [Fact]

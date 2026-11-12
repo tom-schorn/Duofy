@@ -55,17 +55,34 @@ internal static class CommitmentEndpoints
         commitment.LastAmount,
         seesSavings && planDebts is not null && planDebts.TryGetValue(commitment.Id, out var debt) ? debt : null);
 
-    /// <summary>Die Verträge der Person, die der Ratenplan einer Schuld sind, mit dieser Schuld.</summary>
-    private static async Task<Dictionary<Guid, CommitmentDebtResponse>> PlanDebtsAsync(DuofyDbContext db, Guid ownerId, CancellationToken cancellationToken) =>
-        (await db.Debts.AsNoTracking()
-            .Where(d => d.OwnerId == ownerId && d.PlanCommitmentId != null)
-            .Select(d => new { CommitmentId = d.PlanCommitmentId!.Value, d.Id, d.Name })
-            .ToListAsync(cancellationToken))
-        .ToDictionary(d => d.CommitmentId, d => new CommitmentDebtResponse(d.Id, d.Name));
+    /// <summary>
+    /// Die Verträge der Person, die der Ratenplan einer Schuld sind oder waren, mit dieser Schuld: der aktuelle Plan der Schuld und
+    /// die früheren Pläne, die ein geänderter Plan abgelöst hat.
+    /// </summary>
+    private static async Task<Dictionary<Guid, CommitmentDebtResponse>> PlanDebtsAsync(DuofyDbContext db, Guid ownerId, CancellationToken cancellationToken)
+    {
+        var debts = await db.Debts.AsNoTracking()
+            .Where(d => d.OwnerId == ownerId)
+            .Select(d => new { d.Id, d.Name, d.PlanCommitmentId })
+            .ToListAsync(cancellationToken);
+        var result = debts
+            .Where(d => d.PlanCommitmentId != null)
+            .ToDictionary(d => d.PlanCommitmentId!.Value, d => new CommitmentDebtResponse(d.Id, d.Name));
+        var byId = debts.ToDictionary(d => d.Id);
+        var earlier = await db.Commitments.AsNoTracking()
+            .Where(c => c.OwnerId == ownerId && c.IsDebtPlan && c.DebtId != null)
+            .Select(c => new { c.Id, DebtId = c.DebtId!.Value })
+            .ToListAsync(cancellationToken);
+        foreach (var contract in earlier.Where(c => !result.ContainsKey(c.Id) && byId.ContainsKey(c.DebtId)))
+        {
+            result[contract.Id] = new CommitmentDebtResponse(contract.DebtId, byId[contract.DebtId].Name);
+        }
+        return result;
+    }
 
-    /// <summary>Der Ratenplan einer Schuld wird nur an der Schuld geändert oder beendet (Issue 137, R7).</summary>
+    /// <summary>Ein Ratenplan einer Schuld, auch ein früherer, wird nur an der Schuld geändert oder beendet (Issue 137, R7).</summary>
     private static async Task<IResult?> PlanRefusalAsync(Commitment commitment, DuofyDbContext db, CancellationToken cancellationToken) =>
-        await db.Debts.AnyAsync(d => d.PlanCommitmentId == commitment.Id, cancellationToken)
+        commitment is { IsDebtPlan: true, DebtId: not null } || await db.Debts.AnyAsync(d => d.PlanCommitmentId == commitment.Id, cancellationToken)
             ? ApiErrors.BadRequest(ErrorCodes.CommitmentIsDebtPlan)
             : null;
 

@@ -15,7 +15,7 @@ namespace Duofy.Api;
 internal static class DebtPlans
 {
     /// <summary>Ein geprüfter, noch nicht gespeicherter Plan.</summary>
-    internal sealed record Prepared(CheckedCommitment Value, InstallmentPlanResult Result);
+    internal sealed record Prepared(CheckedCommitment Value, InstallmentPlanResult Result, bool LastAmountByHand);
 
     /// <summary>Rechnet und prüft den Plan. <paramref name="open"/> ist der offene Betrag am ersten Fälligkeitstag.</summary>
     internal static async Task<(IResult? Error, Prepared? Plan)> PrepareAsync(
@@ -40,7 +40,7 @@ internal static class DebtPlans
             plan.PaymentMethod ?? PaymentMethods.Other, null, null);
         var defaultAccount = await CommitmentEndpoints.DefaultAccountAsync(db, debt.OwnerId, cancellationToken);
         var check = await CommitmentValidator.CheckAsync(input, debt.OwnerId, defaultAccount, [], accounts, categories, cancellationToken);
-        return check.Error is { } error ? (ApiErrors.BadRequest(error), null) : (null, new Prepared(check.Value!, result));
+        return check.Error is { } error ? (ApiErrors.BadRequest(error), null) : (null, new Prepared(check.Value!, result, plan.LastAmount is not null));
     }
 
     /// <summary>Legt den Vertrag zum Plan an (noch nicht gespeichert) und merkt ihn als Plan der Schuld.</summary>
@@ -58,11 +58,13 @@ internal static class DebtPlans
             FirstDueDate = value.FirstDueDate,
             LastDueDate = value.LastDueDate,
             LastAmount = prepared.Result.LastAmount == value.Amount ? null : prepared.Result.LastAmount,
+            LastAmountByHand = prepared.LastAmountByHand && prepared.Result.LastAmount != value.Amount,
             CategoryId = value.CategoryId,
             Pot = Pot.Savings,
             AccountId = value.AccountId,
             PaymentMethod = value.PaymentMethod,
             DebtId = debt.Id,
+            IsDebtPlan = true,
             CreatedAt = now,
             UpdatedAt = now,
         };
