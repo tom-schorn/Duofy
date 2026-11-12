@@ -798,14 +798,6 @@ namespace Duofy.Backend.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("owner_id");
 
-                    b.Property<Guid?>("MovedFromPositionId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("moved_from_position_id");
-
-                    b.Property<Guid?>("MovedToPositionId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("moved_to_position_id");
-
                     b.Property<bool>("PassThrough")
                         .HasColumnType("boolean")
                         .HasColumnName("pass_through");
@@ -1273,6 +1265,14 @@ namespace Duofy.Backend.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("label");
+
+                    b.Property<Guid?>("MovedFromPositionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("moved_from_position_id");
+
+                    b.Property<Guid?>("MovedToPositionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("moved_to_position_id");
 
                     b.Property<bool>("PassThrough")
                         .HasColumnType("boolean")
