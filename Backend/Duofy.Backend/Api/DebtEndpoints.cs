@@ -27,20 +27,20 @@ internal static class DebtEndpoints
 
     private static IResult NotFound() => ApiErrors.NotFound(ErrorCodes.DebtNotFound);
 
-    /// <summary>Das Gezahlte je Eintrag einer Person: die Summe der zugeordneten Ausgaben. Einträge ohne Zahlung fehlen und stehen bei 0.</summary>
-    internal static async Task<Dictionary<Guid, decimal>> PaidAsync(DuofyDbContext db, Guid ownerId, CancellationToken cancellationToken)
+    /// <summary>Die Zahlungen je Eintrag einer Person: die zugeordneten Ausgaben mit dem Tag der Buchung. Einträge ohne Zahlung fehlen.</summary>
+    internal static async Task<Dictionary<Guid, List<DebtPayment>>> PaymentsAsync(DuofyDbContext db, Guid ownerId, CancellationToken cancellationToken)
     {
         var rows = await db.Bookings
             .AsNoTracking()
             .Where(b => b.OwnerId == ownerId)
             .SelectMany(b => b.Lines
                 .Where(l => l.DebtId != null)
-                .Select(l => new { DebtId = l.DebtId!.Value, l.Amount, l.Pot, IsTransfer = b.CounterAccountId != null }))
+                .Select(l => new { DebtId = l.DebtId!.Value, b.PaymentDate, l.Amount, l.Pot, IsTransfer = b.CounterAccountId != null }))
             .ToListAsync(cancellationToken);
         return rows
             .Where(r => DebtPayments.IsPayment(r.IsTransfer, r.Pot))
             .GroupBy(r => r.DebtId)
-            .ToDictionary(g => g.Key, g => g.Sum(r => r.Amount));
+            .ToDictionary(g => g.Key, g => g.Select(r => new DebtPayment(r.PaymentDate, r.Amount)).ToList());
     }
 
     /// <summary>Die Kennungen der Einträge der Person, die ganz bezahlt sind; der Plan verlangt für sie keine Rate mehr.</summary>
@@ -51,9 +51,12 @@ internal static class DebtEndpoints
         {
             return [];
         }
-        var paid = await PaidAsync(db, ownerId, cancellationToken);
-        return debts.Where(d => d.IsSettled(paid.GetValueOrDefault(d.Id))).Select(d => d.Id).ToHashSet();
+        var payments = await PaymentsAsync(db, ownerId, cancellationToken);
+        return debts.Where(d => d.OpenOf(PaymentsOf(payments, d.Id)) <= 0m).Select(d => d.Id).ToHashSet();
     }
+
+    private static IReadOnlyCollection<DebtPayment> PaymentsOf(Dictionary<Guid, List<DebtPayment>> payments, Guid debtId) =>
+        payments.TryGetValue(debtId, out var list) ? list : [];
 
     /// <summary>Die Wirkung einer gespeicherten Buchung auf jeden Eintrag: die Summe ihrer zugeordneten Zeilen, soweit sie Zahlungen sind.</summary>
     internal static Dictionary<Guid, decimal> EffectsOf(Booking booking) => booking.Lines
@@ -114,11 +117,46 @@ internal static class DebtEndpoints
             .Select(c => c.Id)
             .ToListAsync(cancellationToken)).ToHashSet();
 
-    private static DebtResponse ToResponse(Debt debt, decimal paid) => new(
-        debt.Id, debt.Kind.ToString().ToLowerInvariant(), debt.Name, debt.Creditor, debt.OriginalAmount, debt.DueDate, debt.Note,
-        paid, debt.OpenOf(paid), debt.IsSettled(paid));
+    /// <summary>
+    /// Die Antwort zu einem Eintrag. Der Vertrag dahinter ist der Ratenplan der Schuld oder, wenn es keinen gibt, ein laufender
+    /// Vertrag, der mit ihr verknüpft ist; aus ihm folgen nächste Rate und voraussichtliches Ende.
+    /// </summary>
+    private static DebtResponse ToResponse(Debt debt, IReadOnlyCollection<DebtPayment> payments, IReadOnlyList<Commitment> linked, DateOnly today)
+    {
+        var paid = payments.Sum(p => p.Amount);
+        var open = debt.OpenOf(payments);
+        var contract = linked.FirstOrDefault(c => c.Id == debt.PlanCommitmentId)
+            ?? linked.Where(c => c.DebtId == debt.Id && c.RunsOn(today)).OrderBy(c => c.NextPaymentOnOrAfter(today) ?? DateOnly.MaxValue).FirstOrDefault();
+        DebtInstallmentResponse? next = null;
+        DateOnly? end = null;
+        DebtPlanResponse? plan = null;
+        if (contract is not null)
+        {
+            if (open > 0m && contract.NextPaymentOnOrAfter(today) is { } due)
+            {
+                next = new DebtInstallmentResponse(due, contract.AmountIn(due.Year, due.Month));
+            }
+            end = contract.LastDueDate;
+            plan = new DebtPlanResponse(
+                contract.Id, contract.Id == debt.PlanCommitmentId, contract.Amount, contract.IntervalMonths, contract.FirstDueDate,
+                contract.LastAmount, contract.AccountId, PaymentMethodKeys.ToKey(contract.PaymentMethod), contract.CategoryId);
+        }
+        return new DebtResponse(
+            debt.Id, debt.Kind.ToString().ToLowerInvariant(), debt.Name, debt.Creditor, debt.OriginalAmount, debt.DueDate, debt.Note,
+            paid, open, open <= 0m, debt.Reference, debt.AdjustedOpen, debt.AdjustedOpenOn, next, end, plan);
+    }
 
-    private static async Task<IResult> ListAsync(Guid? owner, IAccess access, DuofyDbContext db, CancellationToken cancellationToken)
+    /// <summary>Die Verträge der Person, die an einer Schuld hängen, als Grundlage der Antworten.</summary>
+    private static async Task<List<Commitment>> LinkedCommitmentsAsync(DuofyDbContext db, Guid ownerId, CancellationToken cancellationToken) =>
+        await db.Commitments.AsNoTracking().Where(c => c.OwnerId == ownerId && c.DebtId != null).ToListAsync(cancellationToken);
+
+    private static async Task<DebtResponse> ResponseAsync(Debt debt, DuofyDbContext db, TimeProvider time, CancellationToken cancellationToken)
+    {
+        var payments = await PaymentsAsync(db, debt.OwnerId, cancellationToken);
+        return ToResponse(debt, PaymentsOf(payments, debt.Id), await LinkedCommitmentsAsync(db, debt.OwnerId, cancellationToken), Berlin.Today(time));
+    }
+
+    private static async Task<IResult> ListAsync(Guid? owner, IAccess access, DuofyDbContext db, TimeProvider time, CancellationToken cancellationToken)
     {
         if (access.CallerId is not { } callerId)
         {
@@ -130,17 +168,20 @@ internal static class DebtEndpoints
             return refused;
         }
         var debts = await db.Debts.AsNoTracking().Where(d => d.OwnerId == ownerId).ToListAsync(cancellationToken);
-        var paid = await PaidAsync(db, ownerId, cancellationToken);
+        var payments = await PaymentsAsync(db, ownerId, cancellationToken);
+        var linked = await LinkedCommitmentsAsync(db, ownerId, cancellationToken);
+        var today = Berlin.Today(time);
         return Results.Ok(debts
             .OrderBy(d => d.DueDate is null)
             .ThenBy(d => d.DueDate)
             .ThenBy(d => d.Name, StringComparer.CurrentCultureIgnoreCase)
-            .Select(d => ToResponse(d, paid.GetValueOrDefault(d.Id)))
+            .Select(d => ToResponse(d, PaymentsOf(payments, d.Id), linked, today))
             .ToList());
     }
 
     private static async Task<IResult> CreateAsync(
-        CreateDebtRequest request, IAccess access, DuofyDbContext db, TimeProvider time, ILoggerFactory loggers, CancellationToken cancellationToken)
+        CreateDebtRequest request, IAccess access, DuofyDbContext db, IAccountLookup accounts, ICategoryLookup categories,
+        TimeProvider time, ILoggerFactory loggers, CancellationToken cancellationToken)
     {
         if (access.CallerId is not { } callerId)
         {
@@ -155,7 +196,7 @@ internal static class DebtEndpoints
         {
             return ApiErrors.BadRequest(ErrorCodes.DebtKindInvalid);
         }
-        if (Check(request.Name, request.Creditor, request.OriginalAmount, request.Note) is { } error)
+        if (Check(request.Name, request.Creditor, request.OriginalAmount, request.Note, request.Reference, request.AdjustedOpen) is { } error)
         {
             return error;
         }
@@ -171,18 +212,46 @@ internal static class DebtEndpoints
             OriginalAmount = request.OriginalAmount,
             DueDate = request.DueDate,
             Note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(),
+            Reference = string.IsNullOrWhiteSpace(request.Reference) ? null : request.Reference.Trim(),
+            AdjustedOpen = request.AdjustedOpen,
+            AdjustedOpenOn = request.AdjustedOpen is null ? null : request.AdjustedOpenOn ?? Berlin.Today(time),
             CreatedAt = now,
             UpdatedAt = now,
         };
+
+        DebtPlans.Prepared? prepared = null;
+        if (request.Plan is { } planRequest)
+        {
+            var (planError, plan) = await DebtPlans.PrepareAsync(
+                planRequest, debt, debt.AdjustedOpen ?? debt.OriginalAmount, accounts, categories, db, cancellationToken);
+            if (planError is not null)
+            {
+                return planError;
+            }
+            prepared = plan;
+        }
+
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         db.Debts.Add(debt);
         await db.SaveChangesAsync(cancellationToken);
+        if (prepared is not null)
+        {
+            // Schuld und Vertrag zeigen aufeinander; die Schuld wird zuerst gespeichert, danach der Vertrag und sein Verweis.
+            var contract = DebtPlans.Create(prepared, debt, now);
+            db.Commitments.Add(contract);
+            await db.SaveChangesAsync(cancellationToken);
+            debt.PlanCommitmentId = contract.Id;
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        await transaction.CommitAsync(cancellationToken);
 
         loggers.CreateLogger(LogCategory).LogInformation("Eintrag {DebtId} für {OwnerId} von {UserId} angelegt.", debt.Id, ownerId, callerId);
-        return Results.Created($"/api/v1/debts/{debt.Id}", ToResponse(debt, 0m));
+        return Results.Created($"/api/v1/debts/{debt.Id}", await ResponseAsync(debt, db, time, cancellationToken));
     }
 
     private static async Task<IResult> UpdateAsync(
-        Guid id, UpdateDebtRequest request, IAccess access, DuofyDbContext db, TimeProvider time, CancellationToken cancellationToken)
+        Guid id, UpdateDebtRequest request, IAccess access, DuofyDbContext db, IAccountLookup accounts, ICategoryLookup categories,
+        TimeProvider time, CancellationToken cancellationToken)
     {
         if (access.CallerId is null)
         {
@@ -202,21 +271,138 @@ internal static class DebtEndpoints
         var creditor = request.Creditor ?? debt.Creditor;
         var amount = request.OriginalAmount ?? debt.OriginalAmount;
         var note = request.Note ?? (request.ClearNote == true ? null : debt.Note);
-        if (Check(name, creditor, amount, note) is { } error)
+        var reference = request.Reference ?? (request.ClearReference == true ? null : debt.Reference);
+        if (Check(name, creditor, amount, note, reference, request.AdjustedOpen) is { } error)
         {
             return error;
         }
 
+        var now = time.GetUtcNow();
+        var today = Berlin.Today(time);
         debt.Name = name.Trim();
         debt.Creditor = creditor.Trim();
         debt.OriginalAmount = amount;
         debt.Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
+        debt.Reference = string.IsNullOrWhiteSpace(reference) ? null : reference.Trim();
         debt.DueDate = request.DueDate ?? (request.ClearDueDate == true ? null : debt.DueDate);
-        debt.UpdatedAt = time.GetUtcNow();
-        await db.SaveChangesAsync(cancellationToken);
+        if (request.ClearAdjustedOpen == true)
+        {
+            debt.AdjustedOpen = null;
+            debt.AdjustedOpenOn = null;
+        }
+        else if (request.AdjustedOpen is { } adjusted)
+        {
+            debt.AdjustedOpen = adjusted;
+            debt.AdjustedOpenOn = request.AdjustedOpenOn ?? today;
+        }
+        debt.UpdatedAt = now;
 
-        var paid = await PaidAsync(db, debt.OwnerId, cancellationToken);
-        return Results.Ok(ToResponse(debt, paid.GetValueOrDefault(debt.Id)));
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        if (request.LinkedCommitmentId is { } linkId
+            && await LinkAsync(debt, linkId, access, db, cancellationToken) is { } badLink)
+        {
+            return badLink;
+        }
+        if (request.ClearPlan == true)
+        {
+            await EndPlanAsync(debt, today, now, db, cancellationToken);
+        }
+        else if (request.Plan is { } planRequest
+            && await ChangePlanAsync(debt, planRequest, today, now, accounts, categories, time, db, cancellationToken) is { } badPlan)
+        {
+            return badPlan;
+        }
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return Results.Ok(await ResponseAsync(debt, db, time, cancellationToken));
+    }
+
+    /// <summary>
+    /// Legt den Ratenplan an oder ändert ihn. Ein bestehender Plan braucht den Monat, ab dem die Änderung gilt: der alte Vertrag
+    /// endet davor, ein neuer beginnt. Der offene Betrag am ersten Tag des neuen Plans ist der heutige abzüglich der Raten, die
+    /// bis dahin noch nach dem alten Plan zu zahlen sind.
+    /// </summary>
+    private static async Task<IResult?> ChangePlanAsync(
+        Debt debt, DebtPlanRequest request, DateOnly today, DateTimeOffset now, IAccountLookup accounts, ICategoryLookup categories,
+        TimeProvider time, DuofyDbContext db, CancellationToken cancellationToken)
+    {
+        var payments = await PaymentsAsync(db, debt.OwnerId, cancellationToken);
+        var open = debt.OpenOf(PaymentsOf(payments, debt.Id));
+        Commitment? old = debt.PlanCommitmentId is { } oldId
+            ? await db.Commitments.FirstOrDefaultAsync(c => c.Id == oldId && c.OwnerId == debt.OwnerId, cancellationToken)
+            : null;
+        var thisMonth = new DateOnly(today.Year, today.Month, 1);
+        DateOnly? fromStart = null;
+        if (old is not null)
+        {
+            if (request.FromMonth is not { } from)
+            {
+                return ApiErrors.BadRequest(ErrorCodes.DebtPlanFromMonthRequired);
+            }
+            fromStart = new DateOnly(from.Year, from.Month, 1);
+            if (fromStart < thisMonth || request.FirstDueDate < fromStart)
+            {
+                return ApiErrors.BadRequest(ErrorCodes.DebtPlanStartInvalid);
+            }
+            open -= await DebtPlans.PlannedUntilAsync(old, thisMonth, fromStart.Value, db, cancellationToken);
+        }
+
+        var (error, prepared) = await DebtPlans.PrepareAsync(request, debt, open, accounts, categories, db, cancellationToken);
+        if (error is not null)
+        {
+            return error;
+        }
+        if (old is not null)
+        {
+            DebtPlans.EndAt(old, fromStart!.Value.AddDays(-1), now);
+        }
+        var contract = DebtPlans.Create(prepared!, debt, now);
+        db.Commitments.Add(contract);
+        await db.SaveChangesAsync(cancellationToken);
+        debt.PlanCommitmentId = contract.Id;
+        return null;
+    }
+
+    /// <summary>Entfernt den Ratenplan: Der Vertrag endet mit der letzten Rate bis zum Ende des laufenden Monats.</summary>
+    private static async Task EndPlanAsync(Debt debt, DateOnly today, DateTimeOffset now, DuofyDbContext db, CancellationToken cancellationToken)
+    {
+        if (debt.PlanCommitmentId is not { } planId)
+        {
+            return;
+        }
+        var contract = await db.Commitments.FirstOrDefaultAsync(c => c.Id == planId && c.OwnerId == debt.OwnerId, cancellationToken);
+        if (contract is not null)
+        {
+            DebtPlans.EndAt(contract, new DateOnly(today.Year, today.Month, DateTime.DaysInMonth(today.Year, today.Month)), now);
+        }
+        debt.PlanCommitmentId = null;
+    }
+
+    /// <summary>
+    /// Verknüpft einen bestehenden Vertrag mit der Schuld (R3): Er ist eine Schuld oder ein gewöhnlicher Vertrag ohne Zielkonto und
+    /// Sparziel, gehört der Person und ist nicht schon der Ratenplan einer Schuld. Das braucht auch in den Verträgen Ändern.
+    /// </summary>
+    private static async Task<IResult?> LinkAsync(Debt debt, Guid commitmentId, IAccess access, DuofyDbContext db, CancellationToken cancellationToken)
+    {
+        if ((await access.RequireAsync(debt.OwnerId, Area.Commitments, AccessLevel.Edit, cancellationToken)).Outcome != AccessOutcome.Allowed)
+        {
+            return ApiErrors.NotFound(ErrorCodes.CommitmentNotFound);
+        }
+        var contract = await db.Commitments.FirstOrDefaultAsync(c => c.Id == commitmentId && c.OwnerId == debt.OwnerId, cancellationToken);
+        if (contract is null)
+        {
+            return ApiErrors.NotFound(ErrorCodes.CommitmentNotFound);
+        }
+        if (contract.Type is not (CommitmentType.Contract or CommitmentType.Debt) || contract.CounterAccountId is not null
+            || contract.SavingsGoalId is not null || (contract.DebtId is { } other && other != debt.Id)
+            || await db.Debts.AnyAsync(d => d.PlanCommitmentId == commitmentId, cancellationToken))
+        {
+            return ApiErrors.BadRequest(ErrorCodes.CommitmentDebtInvalid);
+        }
+        contract.DebtId = debt.Id;
+        contract.UpdatedAt = debt.UpdatedAt;
+        return null;
     }
 
     /// <summary>Löscht einen Eintrag ohne Zuordnungen; mit Zuordnungen antwortet die API 409, damit keine Zahlung still ihren Bezug verliert.</summary>
@@ -249,7 +435,7 @@ internal static class DebtEndpoints
     }
 
     /// <summary>Prüft Name, Gläubiger, Betrag und Notiz; liefert die Antwort auf den ersten Fehler, sonst null.</summary>
-    private static IResult? Check(string? name, string? creditor, decimal amount, string? note)
+    private static IResult? Check(string? name, string? creditor, decimal amount, string? note, string? reference = null, decimal? adjustedOpen = null)
     {
         var trimmedName = name?.Trim() ?? "";
         if (trimmedName.Length == 0)
@@ -276,6 +462,14 @@ internal static class DebtEndpoints
         if (note is { Length: > DebtRules.NoteMaxLength })
         {
             return ApiErrors.BadRequest(ErrorCodes.DebtNoteTooLong);
+        }
+        if (reference is { Length: > DebtRules.ReferenceMaxLength })
+        {
+            return ApiErrors.BadRequest(ErrorCodes.DebtReferenceTooLong);
+        }
+        if (adjustedOpen is { } open && (open < 0 || open > DebtRules.MaxAmount || decimal.Round(open, 2) != open))
+        {
+            return ApiErrors.BadRequest(ErrorCodes.DebtAdjustedOpenInvalid);
         }
         return null;
     }

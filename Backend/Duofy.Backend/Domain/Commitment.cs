@@ -129,11 +129,24 @@ public class Commitment
     /// </summary>
     public Guid? DebtId { get; set; }
 
+    /// <summary>
+    /// Der Betrag der letzten Zahlung, wenn er vom Betrag der übrigen abweicht (Issue 137), zum Beispiel die kleinere letzte
+    /// Rate eines Ratenplans. Er gilt nur im Monat der <see cref="LastDueDate"/>; leer heißt: überall <see cref="Amount"/>.
+    /// </summary>
+    public decimal? LastAmount { get; set; }
+
     /// <summary>Wann der Vertrag angelegt wurde.</summary>
     public DateTimeOffset CreatedAt { get; set; }
 
     /// <summary>Wann der Vertrag zuletzt geändert wurde.</summary>
     public DateTimeOffset UpdatedAt { get; set; }
+
+    /// <summary>
+    /// Der Betrag der Zahlung in diesem Monat: im Monat der letzten Zahlung der <see cref="LastAmount"/>, sofern gesetzt,
+    /// sonst der <see cref="Amount"/>.
+    /// </summary>
+    public decimal AmountIn(int year, int month) =>
+        LastAmount is { } last && LastDueDate is { } end && end.Year == year && end.Month == month ? last : Amount;
 
     /// <summary>
     /// Der Topf, den die Art fest vorgibt: Sparen für Sparziel und Schuld, Einnahmen für eine
