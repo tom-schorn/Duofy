@@ -115,6 +115,7 @@
                             {
                                 <li class="plan-row row-moved" data-testid="@($"household-position-{position.Id}")">
                                     <div class="list-row">
+                                        <span class="list-row-lift tick-placeholder" aria-hidden="true"></span>
                                         <span class="list-row-body">
                                             <span class="list-row-title">@position.Label</span>
                                             <span class="list-row-detail">@L["Plan_MovedTo", MonthName(position.MovedToMonth!)]</span>

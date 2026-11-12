@@ -563,6 +563,7 @@ a.duofy-button--primary { color: var(--primary-foreground); }
 .pot-sum { font-variant-numeric: tabular-nums; }
 .pot-sum b { font-weight: 600; }
 .row-done .list-row-title, .row-done .list-row-detail { opacity: .6; }
+.tick-placeholder { display: inline-block; width: 18px; height: 18px; flex-shrink: 0; }
 .row-moved .list-row-title, .row-moved .list-row-detail, .row-moved .list-row-amount { opacity: .55; }
 .position-bookings { padding: 0 0 8px 36px; }
 .month-sections { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: 16px; }

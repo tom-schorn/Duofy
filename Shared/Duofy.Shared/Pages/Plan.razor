@@ -152,6 +152,7 @@ else
                         @* Verschoben (Spec 136): gedämpft, zählt nirgends; nur das Zurücknehmen bleibt. *@
                         <li class="plan-row row-moved" data-testid="@($"plan-position-{position.Id}")">
                             <div class="list-row">
+                                <span class="list-row-lift tick-placeholder" aria-hidden="true"></span>
                                 <span class="list-row-body">
                                     <span class="list-row-title">@position.Label</span>
                                     <span class="list-row-detail" data-testid="@($"plan-moved-{position.Id}")">@L["Plan_MovedTo", MonthName(position.MovedToMonth!)]</span>
@@ -638,7 +639,7 @@ else
         {
             parts.Add(L["Plan_PassThrough"]);
         }
-        if (position.ChangedByHand)
+        if (position.ChangedByHand && position.MovedFromMonth is null)
         {
             parts.Add(L["Plan_ChangedByHand"]);
         }

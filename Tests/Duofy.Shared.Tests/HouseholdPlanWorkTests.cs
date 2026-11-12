@@ -504,7 +504,7 @@ public class HouseholdPlanWorkTests : PageTestContext
 
         var movedRow = cut.Find($"[data-testid='household-position-{moved.Id}']");
         Assert.Contains("row-moved", movedRow.ClassName);
-        Assert.Contains("in November verschoben", movedRow.TextContent);
+        Assert.Contains("in den November verschoben", movedRow.TextContent);
         Assert.Contains("aus September", cut.Find($"[data-testid='household-position-{copy.Id}']").TextContent);
         Assert.Contains("20,00", cut.Find($"[data-testid='household-member-group-{PotKeys.Wants}-{JasminId}'] .pot-member-sum").TextContent);
     }

@@ -33,14 +33,14 @@ public class PlanPostponePageTests : PageTestContext
         var github = FakePlanApi.Position("GitHub", 4m, PotKeys.Wants);
         var cut = OpenPage(github);
 
-        Assert.Contains("In November verschieben", cut.Find($"[data-testid='plan-postpone-{github.Id}']").GetAttribute("aria-label"));
+        Assert.Contains("In den November verschieben", cut.Find($"[data-testid='plan-postpone-{github.Id}']").GetAttribute("aria-label"));
         cut.Find($"[data-testid='plan-postpone-{github.Id}']").Click();
 
         dialogs.WaitForAssertion(() => Assert.Contains("November", dialogs.Markup));
         Assert.Empty(PlanApiFake.Postponed);
         dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Verschieben").Click();
         cut.WaitForAssertion(() => Assert.Equal(github.Id, Assert.Single(PlanApiFake.Postponed)));
-        cut.WaitForAssertion(() => Assert.Contains("in November verschoben", Row(cut, github.Id)));
+        cut.WaitForAssertion(() => Assert.Contains("in den November verschoben", Row(cut, github.Id)));
     }
 
     [Fact]
@@ -65,7 +65,7 @@ public class PlanPostponePageTests : PageTestContext
 
         var row = cut.Find($"[data-testid='plan-position-{moved.Id}']");
         Assert.Contains("row-moved", row.ClassName);
-        Assert.Contains("in November verschoben", row.TextContent);
+        Assert.Contains("in den November verschoben", row.TextContent);
         Assert.Empty(cut.FindAll($"[data-testid='plan-postpone-{moved.Id}']"));
         Assert.Empty(cut.FindAll($"[data-testid='plan-tick-{moved.Id}']"));
 
@@ -82,6 +82,26 @@ public class PlanPostponePageTests : PageTestContext
         var cut = OpenPage(copy);
 
         Assert.Contains("aus September", Row(cut, copy.Id));
+    }
+
+    [Fact]
+    public void A_copy_does_not_show_the_changed_by_hand_hint_but_a_hand_edited_position_does()
+    {
+        var copy = FakePlanApi.Position("GitHub", 4m, PotKeys.Wants) with { MovedFromMonth = new PlanMonthRef(2026, 9), ChangedByHand = true };
+        var edited = FakePlanApi.Position("Miete", 890m) with { ChangedByHand = true };
+        var cut = OpenPage(copy, edited);
+
+        Assert.DoesNotContain("von Hand geändert", Row(cut, copy.Id));
+        Assert.Contains("von Hand geändert", Row(cut, edited.Id));
+    }
+
+    [Fact]
+    public void A_moved_row_keeps_a_placeholder_where_the_checkbox_is()
+    {
+        var moved = FakePlanApi.Position("GitHub", 4m, PotKeys.Wants) with { MovedToMonth = new PlanMonthRef(2026, 11) };
+        var cut = OpenPage(moved);
+
+        Assert.Single(cut.Find($"[data-testid='plan-position-{moved.Id}']").QuerySelectorAll(".tick-placeholder"));
     }
 
     [Fact]
@@ -102,6 +122,8 @@ public class PlanPostponePageTests : PageTestContext
         var rent = FakePlanApi.Position("Miete", 890m);
         var cut = OpenPage(moved, rent);
 
-        Assert.DoesNotContain("894", cut.Markup);
+        var unpaid = cut.Find("[data-testid='month-block-unpaid']").TextContent;
+        Assert.Contains("890", unpaid);
+        Assert.DoesNotContain("894", unpaid);
     }
 }
