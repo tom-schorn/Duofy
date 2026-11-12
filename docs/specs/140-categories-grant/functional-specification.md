@@ -78,4 +78,4 @@ None.
 
 ## Approval
 
-Approved by the human on 2026-11-12 (session answers: "auch für Mitglieder aus dem Haushalt mit neuer Berechtigung", "Eigener Bereich").
+Approved by the human on 2026-11-12 (session answers: "auch für Mitglieder aus dem Haushalt mit neuer Berechtigung", "Eigener Bereich", after the explanation of equal names across members "Ja + Auswertung als Issue").
