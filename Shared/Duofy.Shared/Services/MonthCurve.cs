@@ -98,14 +98,14 @@ public static class MonthCurve
         plan.Year, plan.Month, today,
         plan.Overview?.CarryOvers,
         (plan.Overview?.Bookings ?? []).Select(b => (b.Date, b.Kind, b.Amount)),
-        plan.Positions.Select(p => (p.DueDay, p.Pot, p.AmountPlanned, p.Booked, p.PassThrough, p.DoneAt)));
+        plan.Positions.Where(p => !p.IsMoved).Select(p => (p.DueDay, p.Pot, p.AmountPlanned, p.Booked, p.PassThrough, p.DoneAt)));
 
     /// <summary>Die Kurve des Haushaltsplans: Buchungen nur von denen, die sie freigegeben haben.</summary>
     public static MonthCurveModel ForHousehold(HouseholdPlanResponse plan, DateOnly today) => FromPlan(
         plan.Year, plan.Month, today,
         plan.CarryOvers,
         (plan.Bookings ?? []).Select(b => (b.Date, b.Kind, b.Amount)),
-        plan.Positions.Select(p => (p.DueDay, p.Pot, p.AmountPlanned, p.Booked, p.PassThrough, p.DoneAt)));
+        plan.Positions.Where(p => !p.IsMoved).Select(p => (p.DueDay, p.Pot, p.AmountPlanned, p.Booked, p.PassThrough, p.DoneAt)));
 
     /// <summary>Die gemeinsame Abbildung beider Pläne: Buchungen werden zu <see cref="CurveMove"/>, offene Posten zu <see cref="CurveOpen"/>.</summary>
     private static MonthCurveModel FromPlan(

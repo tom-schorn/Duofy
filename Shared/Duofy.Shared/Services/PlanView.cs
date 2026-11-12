@@ -35,8 +35,8 @@ public static class PlanView
     /// </summary>
     public static decimal PotPlanned(PlanResponse plan, string pot) =>
         pot == PotKeys.Income
-            ? plan.Overview?.Income ?? plan.Positions.Where(p => p.Pot == pot && !p.PassThrough).Sum(p => p.AmountPlanned)
-            : plan.Overview?.Pots.FirstOrDefault(p => p.Pot == pot)?.Planned ?? plan.Positions.Where(p => p.Pot == pot && !p.PassThrough).Sum(p => p.AmountPlanned);
+            ? plan.Overview?.Income ?? plan.Positions.Where(p => p.Pot == pot && !p.PassThrough && !p.IsMoved).Sum(p => p.AmountPlanned)
+            : plan.Overview?.Pots.FirstOrDefault(p => p.Pot == pot)?.Planned ?? plan.Positions.Where(p => p.Pot == pot && !p.PassThrough && !p.IsMoved).Sum(p => p.AmountPlanned);
 
     /// <summary>Das Gebuchte eines Topfs aus der Übersicht der API, dieselbe Zahl wie auf Start und Übersicht; ohne Übersicht null.</summary>
     public static decimal? PotBooked(PlanResponse plan, string pot) =>
@@ -55,6 +55,11 @@ public static class PlanView
         .SelectMany(b => b.Lines)
         .Where(l => l.PositionId is null && l.Pot == pot)
         .Sum(l => l.Amount);
+
+    private static readonly System.Globalization.CultureInfo German = new("de-DE");
+
+    /// <summary>Der Name des Monats auf Deutsch, zum Beispiel "Dezember".</summary>
+    public static string MonthName(int year, int month) => German.DateTimeFormat.GetMonthName(month);
 
     /// <summary>Der Monat, der <paramref name="by"/> Monate neben dem angegebenen liegt, auch über den Jahreswechsel.</summary>
     public static (int Year, int Month) Shift(int year, int month, int by)
@@ -75,6 +80,7 @@ public static class PlanView
         plan is null
             ? []
             : plan.Positions
+                .Where(p => !p.IsMoved)
                 .Where(p => kind switch
                 {
                     BookingKinds.Income => p.Pot == PotKeys.Income,
