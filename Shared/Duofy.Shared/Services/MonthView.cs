@@ -44,7 +44,8 @@ public sealed record MonthOverviewModel(
     IReadOnlyList<MonthDueRow> Due,
     IReadOnlyList<MonthCarryOverRow> CarryOvers,
     IReadOnlyList<MonthCategoryRow>? Categories = null,
-    MonthCurveModel? Curve = null);
+    MonthCurveModel? Curve = null,
+    AvailableNowResponse? AvailableNow = null);
 
 /// <summary>
 /// Setzt aus den Antworten der API die Übersicht des Monats zusammen (Spec 24). Gerechnet wird hier nichts Neues:
@@ -135,7 +136,7 @@ public static class MonthView
             plan.Positions.Where(p => !p.IsMoved).Select(p => new DueSource(p.Label, p.DueDay, p.Pot, p.PassThrough, p.AmountPlanned, p.Booked, p.DoneAt, null)),
             plan.Year, plan.Month, today);
         return new MonthOverviewModel(overview?.Income ?? 0m, overview?.Fixed ?? 0m, overview?.Free ?? 0m, pots, bookings.Take(RecentCount).ToList(), due, CarryOverRows(overview?.CarryOvers),
-            categoryName is null ? [] : Categories(plan, categoryName), MonthCurve.ForPerson(plan, today));
+            categoryName is null ? [] : Categories(plan, categoryName), MonthCurve.ForPerson(plan, today), overview?.AvailableNow);
     }
 
     public static MonthOverviewModel ForHousehold(HouseholdPlanResponse plan, DateOnly today)
@@ -151,7 +152,7 @@ public static class MonthView
             plan.Positions.Where(p => !p.IsMoved).Select(p => new DueSource(p.Label, p.DueDay, p.Pot, p.PassThrough, p.AmountPlanned, p.Booked, p.DoneAt, p.OwnerFirstName)),
             plan.Year, plan.Month, today);
         return new MonthOverviewModel(plan.Income, plan.Fixed, plan.Free, pots, bookings.Take(RecentCount).ToList(), due, CarryOverRows(plan.CarryOvers),
-            [], MonthCurve.ForHousehold(plan, today));
+            [], MonthCurve.ForHousehold(plan, today), plan.AvailableNow);
     }
 
     /// <summary>

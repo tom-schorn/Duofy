@@ -146,13 +146,24 @@ public sealed record PlanPotResponse(string Pot, decimal Planned, decimal Booked
 /// <param name="Free">Einnahmen minus Festes plus der Übertrag aus dem Vormonat, wie in der Übersicht der Monate; auch negativ möglich. Ohne Sicht auf die Buchungen ohne Übertrag.</param>
 /// <param name="Bookings">Die Buchungen mit diesem Planmonat ohne die beiden Buchungen eines Übertrags (Spec 66, R9).</param>
 /// <param name="CarryOvers">Die Überträge dieses Monats als eigene Zeilen; leer ohne Sicht auf die Buchungen.</param>
+/// <param name="AvailableNow">Jetzt verfügbar (Spec 139); nur für den laufenden Monat und nur mit Sicht auf Konten und Buchungen, sonst null.</param>
 public sealed record PlanOverviewResponse(
     decimal Income,
     decimal Fixed,
     decimal Free,
     IReadOnlyList<PlanPotResponse> Pots,
     IReadOnlyList<BookingResponse> Bookings,
-    IReadOnlyList<PlanCarryOverLineResponse>? CarryOvers = null);
+    IReadOnlyList<PlanCarryOverLineResponse>? CarryOvers = null,
+    AvailableNowResponse? AvailableNow = null);
+
+/// <summary>
+/// "Jetzt verfügbar" (Spec 139): die Kontostände von heute ohne Sparkonten minus die offenen Ausgaben bis Monatsende.
+/// </summary>
+/// <param name="Balances">Die Summe der Kontostände ohne Sparkonten.</param>
+/// <param name="OpenExpenses">Die noch offenen Ausgaben des Monats.</param>
+/// <param name="Value">Kontostände minus offene Ausgaben; auch negativ möglich.</param>
+/// <param name="Missing">Nur im Haushalt: die Vornamen derer, die nicht eingerechnet sind, weil sie Konten oder Buchungen nicht freigegeben haben.</param>
+public sealed record AvailableNowResponse(decimal Balances, decimal OpenExpenses, decimal Value, IReadOnlyList<string>? Missing = null);
 
 /// <summary>Die Richtung einer Zeile des Übertrags.</summary>
 public static class CarryOverDirections

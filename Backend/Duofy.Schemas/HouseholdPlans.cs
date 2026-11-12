@@ -56,6 +56,7 @@ public sealed record HouseholdAccountResponse(Guid AccountId, Guid OwnerId, stri
 /// <param name="Bookings">Die Buchungen mit diesem Planmonat der gezählten Mitglieder, die ihre Buchungen dem Betrachter mindestens zum Ansehen freigegeben haben (die eigenen immer), die neueste zuerst (Spec 24).</param>
 /// <param name="BookingsMissing">Die Vornamen derer, deren Buchungen fehlen, weil sie sie nicht freigegeben haben.</param>
 /// <param name="CarryOvers">Die Überträge als eigene Zeilen, nur von denen, deren Buchungen in <paramref name="Bookings"/> zu sehen sind (Spec 66, R9).</param>
+/// <param name="AvailableNow">Jetzt verfügbar (Spec 139) der Mitglieder, deren Konten und Buchungen der Betrachter sehen darf; die übrigen stehen in <c>Missing</c>. Nur im laufenden Monat, sonst null.</param>
 public sealed record HouseholdPlanResponse(
     Guid HouseholdId,
     string HouseholdName,
@@ -74,7 +75,8 @@ public sealed record HouseholdPlanResponse(
     decimal Free = 0m,
     IReadOnlyList<HouseholdBookingResponse>? Bookings = null,
     IReadOnlyList<string>? BookingsMissing = null,
-    IReadOnlyList<PlanCarryOverLineResponse>? CarryOvers = null);
+    IReadOnlyList<PlanCarryOverLineResponse>? CarryOvers = null,
+    AvailableNowResponse? AvailableNow = null);
 
 /// <summary>Die Quote eines Mitglieds in einem Topf gegen den Richtwert des Haushalts (Spec 27).</summary>
 /// <param name="Pot">"needs", "wants" oder "savings".</param>

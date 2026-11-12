@@ -977,7 +977,11 @@
   <data name="PlanOverview_PotOf"><value>{0} von {1} geplant</value></data>
   <data name="Pot_OverBy"><value>überzogen</value></data>
   <data name="PlanOverview_WithCarryOver"><value>inkl. Übertrag</value></data>
-  <data name="Month_Allocatable"><value>Verplanbar</value></data>
+  <data name="Month_Allocatable"><value>Verplanbar im Monat</value></data>
+  <data name="Month_FreeHint"><value>inklusive geplanter Einnahmen dieses Monats</value></data>
+  <data name="Month_AvailableNow"><value>Jetzt verfügbar</value></data>
+  <data name="Month_AvailableNowBreakdown"><value>Konten {0} − offen bis Monatsende {1}</value></data>
+  <data name="Month_AvailableNowMissing"><value>Nicht eingerechnet: {0}.</value></data>
   <data name="Month_Unpaid"><value>Anstehend</value></data>
   <data name="Month_AllPaid"><value>alles bezahlt</value></data>
   <data name="Month_FreeNote"><value>noch nicht verteilt</value></data>

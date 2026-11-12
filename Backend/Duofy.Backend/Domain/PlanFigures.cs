@@ -137,6 +137,32 @@ public static class PlanFigures
     }
 
     /// <summary>
+    /// "Jetzt verfügbar" (Spec 139) für den laufenden Monat: die Kontostände von heute der verfügbaren Konten (dieselben wie bei
+    /// Verplanbar, <see cref="Account.CountsAsAvailable"/>) minus die noch offenen Ausgaben des Monats. Offen ist jeder Ausgabe-Posten,
+    /// der nicht abgehakt, nicht verschoben und nicht durchlaufend ist, mit dem geplanten Betrag minus dem schon Gebuchten, nie unter 0,
+    /// und dessen Konto zählt (ohne Konto am Posten das Standardkonto, wie beim Abhaken). Eine Umbuchung zählt nur, wenn das Geld die
+    /// verfügbaren Konten verlässt: von einem verfügbaren auf ein nicht verfügbares Konto. Zwischen zwei verfügbaren oder von einem
+    /// nicht verfügbaren Konto aus senkt sie nichts. Geplante Einnahmen zählen nicht: Das Geld ist noch nicht auf dem Konto. Ein
+    /// negatives Ergebnis bleibt negativ.
+    /// </summary>
+    /// <param name="booked">Gebucht je Posten, siehe <see cref="BookedPerPosition"/>.</param>
+    /// <param name="availableAccountIds">Die Konten, die als verfügbar zählen, siehe <see cref="PlanStore.AvailableAccountIdsAsync"/>.</param>
+    /// <param name="defaultAccountId">Das Standardkonto der Person, wenn ein Posten kein Konto nennt.</param>
+    /// <param name="balances">Die Summe der heutigen Kontostände der verfügbaren Konten.</param>
+    public static AvailableNowFigure AvailableNow(
+        IEnumerable<PlanPosition> positions, IReadOnlyDictionary<Guid, decimal> booked, IReadOnlySet<Guid> availableAccountIds,
+        Guid defaultAccountId, decimal balances)
+    {
+        bool LeavesAvailable(PlanPosition p) =>
+            availableAccountIds.Contains(p.AccountId ?? defaultAccountId)
+            && (p.CounterAccountId is not { } to || !availableAccountIds.Contains(to));
+        var open = positions
+            .Where(p => p.Pot != Pot.Income && !p.PassThrough && !p.IsMoved && !p.IsDone && LeavesAvailable(p))
+            .Sum(p => Math.Max(p.AmountPlanned - booked.GetValueOrDefault(p.Id), 0m));
+        return new AvailableNowFigure(balances, open);
+    }
+
+    /// <summary>
     /// Was die Umbuchungen eines Planmonats am Frei-Betrag ändern (Spec 98): Geld, das von einem nicht verfügbaren auf ein
     /// verfügbares Konto zurückgeholt wird, erhöht ihn um den Betrag; Geld, das von einem verfügbaren auf ein nicht verfügbares
     /// Konto wandert, senkt ihn, außer die Zeile liegt auf einem Posten, denn dann zählt der Posten schon. Umbuchungen auf

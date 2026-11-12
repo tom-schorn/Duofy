@@ -1,0 +1,29 @@
+@* "Jetzt verfügbar" (Spec 139): die Kontostände von heute der verfügbaren Konten minus die offenen Ausgaben bis Monatsende, mit der
+   Aufschlüsselung darunter. Eine Komponente für Startseite, Monatsplan und Haushaltsmonat; sie steht als zweite Zeile im Block
+   "Verplanbar im Monat", so bleiben es vier gleich große Blöcke. Ohne Wert (anderer Monat, keine Freigabe) steht nichts da. Im
+   Haushalt nennt der Zusatz, wer nicht eingerechnet ist. *@
+@using Duofy.Schemas
+@inject IStringLocalizer<SharedResources> L
+@if (Value is not null)
+{
+    <div class="metric-extra" data-testid="month-block-available-now">
+        <p class="metric-title">@L["Month_AvailableNow"]</p>
+        <p class="@(Value.Value < 0m ? "metric-amount over" : "metric-amount")">@MoneyText.Format(Value.Value)</p>
+        <p class="metric-note">@Note</p>
+    </div>
+}
+
+@code {
+    [Parameter] public AvailableNowResponse? Value { get; set; }
+
+    private string Note
+    {
+        get
+        {
+            var note = L["Month_AvailableNowBreakdown", MoneyText.Format(Value!.Balances), MoneyText.Format(Value.OpenExpenses)].Value;
+            return Value.Missing is { Count: > 0 } missing
+                ? $"{note} {L["Month_AvailableNowMissing", string.Join(", ", missing)].Value}"
+                : note;
+        }
+    }
+}
